@@ -561,6 +561,37 @@ def debug_media_page(request):
     """Страница диагностики медиа-файлов"""
     return render(request, 'pages/debug_media.html')
 
+def debug_product_images(request):
+    """Диагностика изображений товаров"""
+    from storefront.models import Product
+    
+    products = Product.objects.all()[:10]  # Берем первые 10 товаров
+    
+    debug_info = []
+    for product in products:
+        product_info = {
+            'id': product.id,
+            'title': product.title,
+            'main_image': str(product.main_image) if product.main_image else None,
+            'display_image': str(product.display_image) if product.display_image else None,
+            'has_color_variants': product.color_variants.exists(),
+            'color_variants_count': product.color_variants.count(),
+        }
+        
+        # Проверяем цветовые варианты
+        if product.color_variants.exists():
+            first_variant = product.color_variants.first()
+            product_info['first_variant'] = {
+                'id': first_variant.id,
+                'color_name': first_variant.color.name,
+                'images_count': first_variant.images.count(),
+                'first_image': str(first_variant.images.first().image) if first_variant.images.exists() else None,
+            }
+        
+        debug_info.append(product_info)
+    
+    return JsonResponse({'products': debug_info})
+
 @csrf_exempt
 @require_POST
 def add_to_cart(request):
