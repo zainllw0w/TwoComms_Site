@@ -124,6 +124,7 @@ USE_TZ = True
 TEMPLATES[0]["DIRS"] = [BASE_DIR / "twocomms_django_theme" / "templates"]
 STATICFILES_DIRS = [BASE_DIR / "twocomms_django_theme" / "static"]
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"

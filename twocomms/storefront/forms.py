@@ -53,6 +53,23 @@ class ProductForm(forms.ModelForm):
         # Обов'язково вимагати головне зображення під час створення товару
         if not self.instance.pk and not data.get("main_image"):
             self.add_error("main_image", "Головне зображення є обов'язковим")
+        
+        # Обработка points_reward
+        points_reward = data.get('points_reward')
+        if points_reward is not None:
+            try:
+                data['points_reward'] = int(points_reward) if points_reward else 0
+            except (ValueError, TypeError):
+                data['points_reward'] = 0
+        
+        # Обработка discount_percent
+        discount_percent = data.get('discount_percent')
+        if discount_percent is not None:
+            try:
+                data['discount_percent'] = int(discount_percent) if discount_percent else None
+            except (ValueError, TypeError):
+                data['discount_percent'] = None
+        
         return data
 
 
