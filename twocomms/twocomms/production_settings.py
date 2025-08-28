@@ -27,6 +27,11 @@ STATIC_URL = '/static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Настройки для правильной работы медиа-файлов на PythonAnywhere
+MEDIAFILES_DIRS = [
+    BASE_DIR / 'media',
+]
+
 # Убедимся, что STATICFILES_DIRS настроен правильно
 STATICFILES_DIRS = [
     BASE_DIR / "twocomms_django_theme" / "static",
