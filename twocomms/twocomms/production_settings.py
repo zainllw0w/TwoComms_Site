@@ -14,7 +14,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', SECRET_KEY)
 
 # Настройки для PythonAnywhere
 ALLOWED_HOSTS = [
-    'yourusername.pythonanywhere.com',  # Замените на ваш домен
+    'twocomms.pythonanywhere.com',  # Ваш домен
     'localhost',
     '127.0.0.1',
 ]
@@ -26,6 +26,11 @@ STATIC_URL = '/static/'
 # Настройки медиа файлов
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Убедимся, что STATICFILES_DIRS настроен правильно
+STATICFILES_DIRS = [
+    BASE_DIR / "twocomms_django_theme" / "static",
+]
 
 # Настройки безопасности
 SECURE_BROWSER_XSS_FILTER = True
