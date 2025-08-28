@@ -55,6 +55,8 @@ urlpatterns=[
     path('cart/remove-promo/', views.remove_promo_code, name='remove_promo_code'),
     # API endpoints
     path('api/colors/', views.api_colors, name='api_colors'),
+    path('debug/media/', views.debug_media, name='debug_media'),
+    path('debug/media-page/', views.debug_media_page, name='debug_media_page'),
     # dev helper
     path('dev/grant-admin/', views.dev_grant_admin, name='dev_grant_admin'),
     # static pages

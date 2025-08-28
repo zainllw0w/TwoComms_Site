@@ -473,6 +473,94 @@ def search(request):
     if q: qs=qs.filter(title__icontains=q)
     return render(request,'pages/catalog.html',{'categories':Category.objects.order_by('order','name'),'products':qs.order_by('-id'),'show_category_cards':False})
 
+def debug_media(request):
+    """Диагностика медиа-файлов"""
+    import os
+    from django.conf import settings
+    
+    # Обработка POST запроса для тестирования загрузки
+    if request.method == 'POST':
+        try:
+            uploaded_file = request.FILES.get('test_file')
+            if uploaded_file:
+                # Создаем папку test если её нет
+                test_dir = os.path.join(settings.MEDIA_ROOT, 'test')
+                os.makedirs(test_dir, exist_ok=True)
+                
+                # Сохраняем файл
+                file_path = os.path.join(test_dir, uploaded_file.name)
+                with open(file_path, 'wb+') as destination:
+                    for chunk in uploaded_file.chunks():
+                        destination.write(chunk)
+                
+                return JsonResponse({
+                    'success': True,
+                    'file_path': file_path,
+                    'file_url': f"{settings.MEDIA_URL}test/{uploaded_file.name}",
+                    'file_size': uploaded_file.size,
+                    'message': 'Файл успешно загружен'
+                })
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Файл не найден в запросе'
+                })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+    
+    # GET запрос - возвращаем диагностическую информацию
+    debug_info = {
+        'MEDIA_URL': settings.MEDIA_URL,
+        'MEDIA_ROOT': str(settings.MEDIA_ROOT),
+        'DEBUG': settings.DEBUG,
+        'BASE_DIR': str(settings.BASE_DIR),
+    }
+    
+    # Проверяем существование папок
+    media_root = settings.MEDIA_ROOT
+    debug_info['media_root_exists'] = os.path.exists(media_root)
+    
+    if os.path.exists(media_root):
+        debug_info['media_root_contents'] = os.listdir(media_root)
+        debug_info['media_root_permissions'] = oct(os.stat(media_root).st_mode)[-3:]
+    
+    # Проверяем подпапки
+    subfolders = ['products', 'avatars', 'category_covers', 'category_icons', 'product_colors', 'test']
+    debug_info['subfolders'] = {}
+    
+    for folder in subfolders:
+        folder_path = os.path.join(media_root, folder)
+        debug_info['subfolders'][folder] = {
+            'exists': os.path.exists(folder_path),
+            'contents': os.listdir(folder_path) if os.path.exists(folder_path) else [],
+            'permissions': oct(os.stat(folder_path).st_mode)[-3:] if os.path.exists(folder_path) else None
+        }
+    
+    # Проверяем последние загруженные файлы
+    debug_info['recent_files'] = []
+    for folder in subfolders:
+        folder_path = os.path.join(media_root, folder)
+        if os.path.exists(folder_path):
+            files = os.listdir(folder_path)
+            for file in files[:5]:  # Показываем первые 5 файлов
+                file_path = os.path.join(folder_path, file)
+                debug_info['recent_files'].append({
+                    'folder': folder,
+                    'file': file,
+                    'size': os.path.getsize(file_path),
+                    'permissions': oct(os.stat(file_path).st_mode)[-3:],
+                    'url': f"{settings.MEDIA_URL}{folder}/{file}"
+                })
+    
+    return JsonResponse(debug_info)
+
+def debug_media_page(request):
+    """Страница диагностики медиа-файлов"""
+    return render(request, 'pages/debug_media.html')
+
 @csrf_exempt
 @require_POST
 def add_to_cart(request):
