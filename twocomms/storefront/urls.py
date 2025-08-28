@@ -6,6 +6,7 @@ urlpatterns=[
     path('catalog/<slug:cat_slug>/', views.catalog, name='catalog_by_cat'),
     path('product/<slug:slug>/', views.product_detail, name='product'),
     path('add-product/', views.add_product, name='add_product'),
+    path('admin-panel/product/add/', views.add_product, name='admin_add_product'),
     path('add-category/', views.add_category, name='add_category'),
     path('cart/', views.cart, name='cart'),
     path('cart/add/', views.add_to_cart, name='cart_add'),

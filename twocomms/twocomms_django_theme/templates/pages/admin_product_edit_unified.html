@@ -1,5 +1,5 @@
 {% extends 'base.html' %}{% load static %}
-{% block title %}Редагувати товар — TwoComms{% endblock %}
+{% block title %}{% if is_new %}Додати товар{% else %}Редагувати товар{% endif %} — TwoComms{% endblock %}
 {% block content %}
 
 <div class="container-fluid">
@@ -16,8 +16,12 @@
               <div class="position-absolute top-0 end-0 bg-success rounded-circle" style="width: 12px; height: 12px; border: 2px solid var(--tc-bg);"></div>
             </div>
             <div>
-              <h6 class="mb-0 fw-bold">Редагування товару</h6>
-              <small class="text-muted">ID: {{ obj.id }}</small>
+              <h6 class="mb-0 fw-bold">{% if is_new %}Додавання товару{% else %}Редагування товару{% endif %}</h6>
+              {% if not is_new %}
+                <small class="text-muted">ID: {{ obj.id }}</small>
+              {% else %}
+                <small class="text-muted">Новий товар</small>
+              {% endif %}
             </div>
           </div>
           
@@ -82,12 +86,18 @@
                   </div>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                  <span class="badge bg-success">
-                    <i class="fas fa-hashtag me-1"></i>{{ obj.id }}
-                  </span>
-                  <span class="badge bg-info">
-                    <i class="fas fa-folder me-1"></i>{{ obj.category.name }}
-                  </span>
+                  {% if not is_new %}
+                    <span class="badge bg-success">
+                      <i class="fas fa-hashtag me-1"></i>{{ obj.id }}
+                    </span>
+                    <span class="badge bg-info">
+                      <i class="fas fa-folder me-1"></i>{{ obj.category.name }}
+                    </span>
+                  {% else %}
+                    <span class="badge bg-warning">
+                      <i class="fas fa-plus me-1"></i>Новий
+                    </span>
+                  {% endif %}
                 </div>
               </div>
             </div>
@@ -95,7 +105,7 @@
             <div class="card-body p-4">
               <form method="post" enctype="multipart/form-data" id="product-form">
                 {% csrf_token %}
-                <input type="hidden" name="form_type" value="product">
+                <input type="hidden" name="form_type" value="main_info">
 
                 {% if form.non_field_errors %}
                   <div class="alert alert-danger border-0">
@@ -729,9 +739,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 submitBtn.innerHTML = '<i class="fas fa-check me-1"></i>Збережено!';
                 submitBtn.classList.remove('btn-cta');
                 submitBtn.classList.add('btn-success');
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1500);
+                
+                // Если это новый товар и он был создан, перенаправляем на страницу редактирования
+                if (data.product_id) {
+                    setTimeout(() => {
+                        window.location.href = `/admin-panel/product/${data.product_id}/edit-unified/`;
+                    }, 1500);
+                } else {
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                }
             } else {
                 submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Помилка!';
                 submitBtn.classList.remove('btn-cta');
