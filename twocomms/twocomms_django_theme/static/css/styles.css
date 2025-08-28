@@ -2,8 +2,25 @@
 
 /* Адаптивность для карточек товаров на мобильных устройствах */
 @media (max-width: 768px) {
+  /* Фиксированная высота карточек */
+  .card.product {
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  
   .card.product .card-body {
     padding: 0.75rem;
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+  }
+  
+  /* Фиксированная высота изображения */
+  .card.product .ratio {
+    height: 200px !important;
+    min-height: 200px !important;
   }
   
   .card.product .card-title,
@@ -13,10 +30,19 @@
     font-size: 0.9rem !important;
     line-height: 1.2 !important;
     margin-bottom: 0.25rem !important;
+    height: 1.2em !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
   }
   
   .card.product .small {
     font-size: 0.75rem !important;
+    line-height: 1.1 !important;
+    height: 1.1em !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
   }
   
   .card.product .fw-semibold {
@@ -30,6 +56,7 @@
   
   .card.product .points-reward-card {
     margin-top: 0.25rem;
+    height: auto !important;
   }
   
   .card.product .points-text-small {
@@ -53,17 +80,45 @@
   /* Адаптируем цену */
   .card.product .d-flex.align-items-center.gap-2 {
     gap: 0.25rem !important;
+    height: auto !important;
   }
   
   .card.product .text-decoration-line-through {
     font-size: 0.7rem !important;
   }
+  
+  /* Выравнивание сетки */
+  .row .col {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  
+  .row .col .card.product {
+    flex: 1 !important;
+  }
 }
 
 /* Еще более компактно для очень маленьких экранов */
 @media (max-width: 480px) {
+  /* Фиксированная высота карточек */
+  .card.product {
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  
   .card.product .card-body {
     padding: 0.5rem;
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+  }
+  
+  /* Фиксированная высота изображения */
+  .card.product .ratio {
+    height: 180px !important;
+    min-height: 180px !important;
   }
   
   .card.product .card-title,
@@ -72,10 +127,19 @@
   .card.product h5 {
     font-size: 0.8rem !important;
     line-height: 1.1 !important;
+    height: 1.1em !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
   }
   
   .card.product .small {
     font-size: 0.7rem !important;
+    line-height: 1.1 !important;
+    height: 1.1em !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
   }
   
   .card.product .fw-semibold {
@@ -95,18 +159,41 @@
   .row .col {
     padding-left: 0.25rem;
     padding-right: 0.25rem;
+    display: flex !important;
+    flex-direction: column !important;
   }
   
   .row {
     margin-left: -0.25rem;
     margin-right: -0.25rem;
   }
+  
+  .row .col .card.product {
+    flex: 1 !important;
+  }
 }
 
 /* Дополнительные улучшения для планшетов */
 @media (min-width: 769px) and (max-width: 1024px) {
+  /* Фиксированная высота карточек */
+  .card.product {
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  
   .card.product .card-body {
     padding: 0.875rem;
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+  }
+  
+  /* Фиксированная высота изображения */
+  .card.product .ratio {
+    height: 220px !important;
+    min-height: 220px !important;
   }
   
   .card.product .card-title,
@@ -114,10 +201,30 @@
   .card.product h4,
   .card.product h5 {
     font-size: 0.95rem !important;
+    line-height: 1.3 !important;
+    height: 1.3em !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
   }
   
   .card.product .small {
     font-size: 0.8rem !important;
+    line-height: 1.2 !important;
+    height: 1.2em !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+  
+  /* Выравнивание сетки */
+  .row .col {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  
+  .row .col .card.product {
+    flex: 1 !important;
   }
 }.hover-raise:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.35);border-color:rgba(139,92,246,.35)}.navbar.bg-body{backdrop-filter:saturate(140%) blur(8px);background-color:rgba(13,14,17,.72)!important}.navbar .nav-link{color:var(--tc-text);opacity:.8}.navbar .nav-link:hover,.navbar .nav-link.active{opacity:1}.btn-cta{
   background: linear-gradient(135deg, #8b5cf6, #6366f1);
