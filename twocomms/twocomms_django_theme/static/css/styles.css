@@ -134,17 +134,41 @@
   opacity: 0 !important;
   pointer-events: none !important;
   user-select: none !important;
+  visibility: hidden !important;
 }
 
 .card.product .discount-badge.placeholder-element {
   background-color: transparent !important;
   border: 1px solid transparent !important;
   color: transparent !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
 }
 
 .card.product .text-decoration-line-through.placeholder-element {
   color: transparent !important;
   text-decoration: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* Дополнительные стили для плейсхолдеров */
+.card.product .badge.placeholder-element {
+  background-color: transparent !important;
+  border: 1px solid transparent !important;
+  color: transparent !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+.card.product .d-flex.placeholder-element {
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+.card.product .d-flex.placeholder-element * {
+  opacity: 0 !important;
+  visibility: hidden !important;
 }
 
 
