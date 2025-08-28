@@ -11,20 +11,24 @@
     <div class="card-body d-flex flex-column">
       <div class="small text-secondary">{{ p.category.name }}</div>
       <a href="{% url 'product' p.slug %}" class="stretched-link text-decoration-none fw-semibold text-body">{{ p.title }}</a>
-      <div class="mt-auto d-flex align-items-center gap-2">
-        {% if p.has_discount and p.discount_percent %}
-          <span class="badge text-bg-danger">-{{ p.discount_percent }}%</span>
-        {% endif %}
-        <div class="fw-semibold">{{ p.final_price }} грн</div>
+      <div class="d-flex align-items-center gap-2">
+        <div class="fw-semibold price-text">{{ p.final_price }} грн</div>
         {% if p.has_discount %}
-          <div class="text-secondary text-decoration-line-through small">{{ p.price }} грн</div>
+          <div class="text-secondary text-decoration-line-through small price-text">{{ p.price }} грн</div>
+        {% else %}
+          <div class="text-secondary text-decoration-line-through small price-text placeholder-element">0 грн</div>
+        {% endif %}
+        {% if p.has_discount and p.discount_percent %}
+          <span class="badge text-bg-danger discount-badge">-{{ p.discount_percent }}%</span>
+        {% else %}
+          <span class="badge text-bg-danger discount-badge placeholder-element">-0%</span>
         {% endif %}
       </div>
       
-      <!-- Баллы за покупку -->
-      {% if p.points_reward > 0 %}
-      <div class="points-reward-card">
-        <div class="d-flex align-items-center gap-1">
+      <!-- Баллы за покупку - всегда показываем для выравнивания -->
+      <div class="points-reward-card mt-auto">
+        {% if p.points_reward > 0 %}
+        <div class="d-flex align-items-center justify-content-center gap-1">
           <div class="points-icon-small">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
@@ -40,8 +44,22 @@
             </svg>
           </button>
         </div>
+        {% else %}
+        <div class="d-flex align-items-center justify-content-center gap-1">
+          <div class="points-icon-small" style="visibility: hidden;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          </div>
+          <span class="points-text-small text-secondary">Переглянути</span>
+          <button type="button" class="btn btn-sm btn-outline-light points-help-small" style="visibility: hidden;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+            </svg>
+          </button>
+        </div>
+        {% endif %}
       </div>
-      {% endif %}
     </div>
   </div>
 </div>

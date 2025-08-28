@@ -1,36 +1,322 @@
 :root{--tc-bg:#0e0f12;--tc-elevate:#14161b;--tc-text:#e8e9ec;--tc-primary:#8b5cf6}body{background:var(--tc-bg);color:var(--tc-text)}body::before{content:'';position:fixed;inset:-10vh -10vw;z-index:-2;background:url('../img/bg_blur_1.png') center/cover no-repeat,linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));opacity:.9}body::after{content:'';position:fixed;inset:0;z-index:-1;background:url('../img/noise.png') repeat;opacity:.08}.bg-elevate{background-color:var(--tc-elevate)!important}.hero.bg-hero{border:1px solid rgba(255,255,255,.06);border-radius:1.25rem;background:url('../img/vignette.png') center/cover no-repeat,linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));backdrop-filter:blur(10px) saturate(120%)}.card.product{border:1px solid rgba(255,255,255,.06);background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));border-radius:1.25rem;transition:transform .25s,box-shadow .25s,border-color .25s}
 
+/* ВЫРАВНИВАНИЕ КАРТОЧЕК С ПОДДЕРЖКОЙ JAVASCRIPT */
+.row[data-stagger-grid] {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  margin: 0 !important;
+  align-items: stretch !important;
+  gap: 0.5rem !important;
+}
+
+.row[data-stagger-grid] .col {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  height: auto !important;
+}
+
+.card.product {
+  display: flex !important;
+  flex-direction: column !important;
+  height: auto !important;
+  margin: 0 !important;
+  border: 1px solid rgba(255,255,255,.06) !important;
+  background: linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0)) !important;
+  border-radius: 1.25rem !important;
+  transition: transform .25s,box-shadow .25s,border-color .25s !important;
+  min-height: 0 !important;
+}
+
+.card.product .card-body {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+  padding: 0.5rem !important;
+  justify-content: space-between !important;
+  gap: 0.25rem !important;
+  align-items: flex-start !important;
+}
+
+.card.product .ratio {
+  height: 250px !important;
+  min-height: 250px !important;
+  max-height: 250px !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  border-radius: 1.25rem 1.25rem 0 0 !important;
+  overflow: hidden !important;
+}
+
+.card.product .card-title,
+.card.product h3,
+.card.product h4,
+.card.product h5 {
+  height: 1.2em !important;
+  min-height: 1.2em !important;
+  max-height: 1.2em !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  margin-bottom: 0 !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  line-height: 1.2em !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+}
+
+.card.product .small {
+  height: 1.1em !important;
+  min-height: 1.1em !important;
+  max-height: 1.1em !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  margin-bottom: 0 !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  line-height: 1.1em !important;
+  font-size: 0.8rem !important;
+}
+
+/* Принудительное выравнивание элементов карточки */
+.card.product .points-reward-card,
+.card.product .d-flex.align-items-center.gap-2,
+.card.product .badge,
+.card.product .text-decoration-line-through {
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  margin-bottom: 0 !important;
+  height: auto !important;
+}
+
+/* Блок с балами прижимается к низу и растягивается */
+.card.product .points-reward-card {
+  margin-top: auto !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  padding-top: 0.25rem !important;
+  width: 100% !important;
+}
+
+.card.product .points-reward-card .d-flex {
+  width: 100% !important;
+  justify-content: center !important;
+}
+
+.card.product .card-body > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* Правильные отступы для карточек */
+.card.product .card-body {
+  padding-bottom: 0.5rem !important;
+}
+
+/* Правильное распределение элементов */
+.card.product .card-body > * + * {
+  margin-top: 0 !important;
+}
+
+/* Предотвращение переноса текста в ценах */
+.card.product .price-text {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  flex-shrink: 0 !important;
+}
+
+/* Плейсхолдеры для выравнивания */
+.card.product .placeholder-element {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  user-select: none !important;
+}
+
+.card.product .discount-badge.placeholder-element {
+  background-color: transparent !important;
+  border: 1px solid transparent !important;
+  color: transparent !important;
+}
+
+.card.product .text-decoration-line-through.placeholder-element {
+  color: transparent !important;
+  text-decoration: none !important;
+}
+
+
+
+/* Убираем старые правила для скрытых элементов */
+
+/* Убираем дублирующиеся правила */
+
+/* Убираем конфликтующие правила */
+
+/* Позволяем карточкам растягиваться */
+.product-card-wrap {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+}
+
+.product-card-wrap .card.product {
+  flex: 1 !important;
+  height: 100% !important;
+  min-height: 0 !important;
+}
+
+/* Дополнительные стили для принудительного выравнивания */
+.card.product .card-body > * {
+  flex-shrink: 0 !important;
+}
+
+/* Правильное распределение контента */
+.card.product .card-body {
+  min-height: 0 !important;
+}
+
+/* Принудительное переопределение Bootstrap классов */
+.row[data-stagger-grid] > .product-card-wrap {
+  flex: 0 0 calc(50% - 0.25rem) !important;
+  max-width: calc(50% - 0.25rem) !important;
+  width: calc(50% - 0.25rem) !important;
+  min-width: calc(50% - 0.25rem) !important;
+}
+
+.row[data-stagger-grid] > .product-card-wrap > .col {
+  flex: 0 0 100% !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  min-width: 100% !important;
+}
+
+/* Переопределение для всех размеров экрана */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .row[data-stagger-grid] > .product-card-wrap {
+    flex: 0 0 calc(33.333333% - 0.333rem) !important;
+    max-width: calc(33.333333% - 0.333rem) !important;
+    width: calc(33.333333% - 0.333rem) !important;
+    min-width: calc(33.333333% - 0.333rem) !important;
+  }
+}
+
+@media (min-width: 1025px) {
+  .row[data-stagger-grid] > .product-card-wrap {
+    flex: 0 0 calc(25% - 0.375rem) !important;
+    max-width: calc(25% - 0.375rem) !important;
+    width: calc(25% - 0.375rem) !important;
+    min-width: calc(25% - 0.375rem) !important;
+  }
+}
+
+/* Дополнительные переопределения для мобильных устройств */
+@media (max-width: 480px) {
+  .row[data-stagger-grid] > .product-card-wrap {
+    flex: 0 0 calc(50% - 0.125rem) !important;
+    max-width: calc(50% - 0.125rem) !important;
+    width: calc(50% - 0.125rem) !important;
+    min-width: calc(50% - 0.125rem) !important;
+  }
+}
+
+/* Агрессивное переопределение Bootstrap */
+.row.row-cols-2.row-cols-md-3.row-cols-lg-4[data-stagger-grid] > .product-card-wrap {
+  flex: 0 0 calc(50% - 0.25rem) !important;
+  max-width: calc(50% - 0.25rem) !important;
+  width: calc(50% - 0.25rem) !important;
+  min-width: calc(50% - 0.25rem) !important;
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .row.row-cols-2.row-cols-md-3.row-cols-lg-4[data-stagger-grid] > .product-card-wrap {
+    flex: 0 0 calc(33.333333% - 0.333rem) !important;
+    max-width: calc(33.333333% - 0.333rem) !important;
+    width: calc(33.333333% - 0.333rem) !important;
+    min-width: calc(33.333333% - 0.333rem) !important;
+  }
+}
+
+@media (min-width: 1025px) {
+  .row.row-cols-2.row-cols-md-3.row-cols-lg-4[data-stagger-grid] > .product-card-wrap {
+    flex: 0 0 calc(25% - 0.375rem) !important;
+    max-width: calc(25% - 0.375rem) !important;
+    width: calc(25% - 0.375rem) !important;
+    min-width: calc(25% - 0.375rem) !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .row.row-cols-2.row-cols-md-3.row-cols-lg-4[data-stagger-grid] > .col {
+    flex: 0 0 calc(33.333333% - 0.667rem) !important;
+    max-width: calc(33.333333% - 0.667rem) !important;
+    width: calc(33.333333% - 0.667rem) !important;
+    min-width: calc(33.333333% - 0.667rem) !important;
+  }
+}
+
+@media (min-width: 1025px) {
+  .row.row-cols-2.row-cols-md-3.row-cols-lg-4[data-stagger-grid] > .col {
+    flex: 0 0 calc(25% - 0.75rem) !important;
+    max-width: calc(25% - 0.75rem) !important;
+    width: calc(25% - 0.75rem) !important;
+    min-width: calc(25% - 0.75rem) !important;
+  }
+}
+
 /* Адаптивность для карточек товаров на мобильных устройствах */
 @media (max-width: 768px) {
+  /* Выравнивание сетки на мобильных */
+  .row[data-stagger-grid] {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 0.75rem !important;
+    align-items: stretch !important;
+  }
+  
+  .row[data-stagger-grid] .col {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
   /* Фиксированная высота карточек */
   .card.product {
     height: 100% !important;
     display: flex !important;
     flex-direction: column !important;
+    align-items: stretch !important;
+    min-height: 0 !important;
   }
   
   .card.product .card-body {
-    padding: 0.75rem;
+    padding: 0.5rem !important;
     flex: 1 !important;
     display: flex !important;
     flex-direction: column !important;
     justify-content: space-between !important;
+    align-items: stretch !important;
+    min-height: 0 !important;
   }
   
   /* Фиксированная высота изображения */
   .card.product .ratio {
-    height: 200px !important;
-    min-height: 200px !important;
+    height: 180px !important;
+    min-height: 180px !important;
   }
   
   .card.product .card-title,
   .card.product h3,
   .card.product h4,
   .card.product h5 {
-    font-size: 0.9rem !important;
-    line-height: 1.2 !important;
-    margin-bottom: 0.25rem !important;
-    height: 1.2em !important;
+    font-size: 0.85rem !important;
+    line-height: 1.1 !important;
+    margin-bottom: 0.125rem !important;
+    height: 1.1em !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     white-space: nowrap !important;
@@ -81,6 +367,17 @@
   .card.product .d-flex.align-items-center.gap-2 {
     gap: 0.25rem !important;
     height: auto !important;
+    flex-wrap: nowrap !important;
+    overflow: hidden !important;
+  }
+  
+  /* Предотвращение переноса цен на мобильных */
+  .card.product .price-text {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    flex-shrink: 0 !important;
+    font-size: 0.8rem !important;
   }
   
   .card.product .text-decoration-line-through {
@@ -100,11 +397,28 @@
 
 /* Еще более компактно для очень маленьких экранов */
 @media (max-width: 480px) {
+  /* Выравнивание сетки на маленьких экранах */
+  .row[data-stagger-grid] {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+    align-items: stretch !important;
+  }
+  
+  .row[data-stagger-grid] .col {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
   /* Фиксированная высота карточек */
   .card.product {
     height: 100% !important;
     display: flex !important;
     flex-direction: column !important;
+    align-items: stretch !important;
   }
   
   .card.product .card-body {
@@ -113,12 +427,13 @@
     display: flex !important;
     flex-direction: column !important;
     justify-content: space-between !important;
+    align-items: stretch !important;
   }
   
   /* Фиксированная высота изображения */
   .card.product .ratio {
-    height: 180px !important;
-    min-height: 180px !important;
+    height: 200px !important;
+    min-height: 200px !important;
   }
   
   .card.product .card-title,
@@ -155,6 +470,21 @@
     font-size: 0.65rem !important;
   }
   
+  /* Предотвращение переноса цен на очень маленьких экранах */
+  .card.product .price-text {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    flex-shrink: 0 !important;
+    font-size: 0.75rem !important;
+  }
+  
+  .card.product .d-flex.align-items-center.gap-2 {
+    gap: 0.2rem !important;
+    flex-wrap: nowrap !important;
+    overflow: hidden !important;
+  }
+  
   /* Адаптируем сетку карточек */
   .row .col {
     padding-left: 0.25rem;
@@ -170,16 +500,48 @@
   
   .row .col .card.product {
     flex: 1 !important;
+    height: 100% !important;
+    min-height: 0 !important;
+  }
+  
+  /* Принудительное выравнивание всех карточек */
+  .product-card-wrap {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+  }
+  
+  .product-card-wrap .card.product {
+    flex: 1 !important;
+    height: 100% !important;
+    min-height: 0 !important;
   }
 }
 
 /* Дополнительные улучшения для планшетов */
 @media (min-width: 769px) and (max-width: 1024px) {
+  /* Выравнивание сетки на планшетах */
+  .row[data-stagger-grid] {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 1rem !important;
+    align-items: stretch !important;
+  }
+  
+  .row[data-stagger-grid] .col {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
   /* Фиксированная высота карточек */
   .card.product {
     height: 100% !important;
     display: flex !important;
     flex-direction: column !important;
+    align-items: stretch !important;
   }
   
   .card.product .card-body {
@@ -187,7 +549,8 @@
     flex: 1 !important;
     display: flex !important;
     flex-direction: column !important;
-    justify-content: space-between !important;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
   }
   
   /* Фиксированная высота изображения */

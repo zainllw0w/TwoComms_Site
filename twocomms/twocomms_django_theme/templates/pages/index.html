@@ -149,4 +149,60 @@
   {% endif %}
 </div>
 {% empty %}<div class="text-secondary small">Немає товарів.</div>{% endfor %}</div></section>
+
+<script>
+// Функция для выравнивания карточек товаров по высоте
+function equalizeCardHeights() {
+  // Находим все ряды с карточками товаров
+  const rows = document.querySelectorAll('.row[data-stagger-grid]');
+  
+  rows.forEach(row => {
+    // Находим все карточки в этом ряду
+    const cards = row.querySelectorAll('.card.product');
+    
+    if (cards.length > 0) {
+      // Сбрасываем высоту всех карточек
+      cards.forEach(card => {
+        card.style.height = 'auto';
+        card.style.minHeight = 'auto';
+        card.style.maxHeight = 'none';
+      });
+      
+      // Небольшая задержка для пересчета размеров
+      setTimeout(() => {
+        // Находим максимальную высоту среди карточек
+        let maxHeight = 0;
+        cards.forEach(card => {
+          const cardHeight = card.offsetHeight;
+          if (cardHeight > maxHeight) {
+            maxHeight = cardHeight;
+          }
+        });
+        
+        // Устанавливаем высоту для всех карточек равной максимальной
+        cards.forEach(card => {
+          card.style.height = maxHeight + 'px';
+          card.style.minHeight = maxHeight + 'px';
+          card.style.maxHeight = maxHeight + 'px';
+        });
+      }, 50);
+    }
+  });
+}
+
+// Выполняем выравнивание при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+  // Небольшая задержка для полной загрузки изображений
+  setTimeout(equalizeCardHeights, 100);
+  
+  // Повторно выравниваем после загрузки всех изображений
+  window.addEventListener('load', equalizeCardHeights);
+  
+  // Выравниваем при изменении размера окна
+  window.addEventListener('resize', equalizeCardHeights);
+});
+
+// Выравниваем карточки каждые 2 секунды для динамического контента
+setInterval(equalizeCardHeights, 2000);
+</script>
 {% endblock %}

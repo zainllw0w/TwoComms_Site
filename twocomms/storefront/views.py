@@ -345,8 +345,6 @@ def product_detail(request, slug):
 def add_product(request):
     """Добавление нового товара через унифицированный интерфейс"""
     if request.method == 'POST':
-        print(f"POST данные создания товара: {request.POST}")
-        
         # Обработка основной информации о товаре
         if 'form_type' in request.POST and request.POST['form_type'] == 'main_info':
             form = ProductForm(request.POST, request.FILES)
@@ -357,7 +355,6 @@ def add_product(request):
                     base = slugify(product.title or '')
                     product.slug = unique_slugify(Product, base)
                 product.save()
-                print(f"Товар создан! ID: {product.id}, баллы: {product.points_reward}")
                 return JsonResponse({'success': True, 'product_id': product.id})
             else:
                 return JsonResponse({'success': False, 'errors': form.errors})
@@ -640,7 +637,7 @@ def cart_summary(request):
     cart = request.session.get('cart', {})
     
     # Отладочная информация
-    print(f"[cart_summary] Cart session: {cart}")
+
     
     if not cart:
         return JsonResponse({'ok': True, 'count': 0, 'total': 0})
@@ -653,12 +650,10 @@ def cart_summary(request):
     missing_products = set(ids) - found_products
     
     if missing_products:
-        print(f"[cart_summary] Missing products: {missing_products}")
         # Удаляем несуществующие товары из корзины
         cart_to_clean = dict(cart)
         for key, item in cart_to_clean.items():
             if item['product_id'] in missing_products:
-                print(f"[cart_summary] Removing missing product: {key}")
                 cart.pop(key, None)
         request.session['cart'] = cart
         request.session.modified = True
@@ -670,8 +665,6 @@ def cart_summary(request):
         p = prods.get(i['product_id'])
         if p:
             total_sum += i['qty'] * p.final_price
-    
-    print(f"[cart_summary] Final count: {total_qty}, total: {total_sum}")
     return JsonResponse({'ok': True, 'count': total_qty, 'total': total_sum})
 
 def cart_mini(request):
@@ -691,12 +684,10 @@ def cart_mini(request):
     missing_products = set(ids) - found_products
     
     if missing_products:
-        print(f"[cart_mini] Missing products: {missing_products}")
         # Удаляем несуществующие товары из корзины
         cart_to_clean = dict(cart_sess)
         for key, item in cart_to_clean.items():
             if item['product_id'] in missing_products:
-                print(f"[cart_mini] Removing missing product: {key}")
                 cart_sess.pop(key, None)
         request.session['cart'] = cart_sess
         request.session.modified = True
@@ -755,7 +746,6 @@ def clean_cart(request):
         cart_to_clean = dict(cart)
         for key, item in cart_to_clean.items():
             if item['product_id'] in missing_products:
-                print(f"[clean_cart] Removing missing product: {key}")
                 cart.pop(key, None)
                 cleaned_count += 1
         request.session['cart'] = cart
@@ -803,7 +793,7 @@ def process_guest_order(request):
         messages.error(request, 'Введіть місто!')
         return redirect('cart')
     
-    if not np_office:
+    if not np_office or len(np_office.strip()) < 1:
         from django.contrib import messages
         messages.error(request, 'Введіть адресу відділення!')
         return redirect('cart')
@@ -927,11 +917,7 @@ def cart_remove(request):
     Печатает отладочную информацию в консоль.
     """
     cart = request.session.get('cart', {})
-    # Отладка входящих параметров
-    try:
-        print("[cart_remove] RAW POST:", dict(request.POST))
-    except Exception:
-        pass
+
 
     key = (request.POST.get('key') or '').strip()
     pid = request.POST.get('product_id')
@@ -995,12 +981,7 @@ def cart_remove(request):
         if p:
             total_sum += i['qty'] * p.final_price
 
-    # Отладка: что удалили и что осталось
-    try:
-        print("[cart_remove] REMOVED:", removed)
-        print("[cart_remove] KEYS LEFT:", list(cart.keys()))
-    except Exception:
-        pass
+
 
     return JsonResponse({'ok': True, 'count': total_qty, 'total': total_sum, 'removed': removed, 'keys': list(cart.keys())})
 
@@ -1035,6 +1016,9 @@ def cart(request):
         elif form_type == 'guest_order':
             # Оформление заказа для гостя
             return process_guest_order(request)
+        elif form_type == 'order_create':
+            # Оформление заказа для авторизованного пользователя
+            return order_create(request)
     
     cart_sess = request.session.get('cart', {})
     
@@ -1054,7 +1038,6 @@ def cart(request):
         cart_to_clean = dict(cart_sess)
         for key, item in cart_to_clean.items():
             if item['product_id'] in missing_products:
-                print(f"[cart] Removing missing product: {key}")
                 cart_sess.pop(key, None)
         request.session['cart'] = cart_sess
         request.session.modified = True
@@ -1344,9 +1327,78 @@ def order_create(request):
         prof = request.user.userprofile
     except UserProfile.DoesNotExist:
         return redirect('profile_setup')
-    required = [prof.phone, prof.city, prof.np_office, prof.pay_type]
-    if not all(required):
-        return redirect('profile_setup')
+    
+    # Получаем данные из формы или из профиля
+    if request.method == 'POST':
+        # Используем данные из формы
+        full_name = request.POST.get('full_name', '').strip()
+        phone = request.POST.get('phone', '').strip()
+        city = request.POST.get('city', '').strip()
+        np_office = request.POST.get('np_office', '').strip()
+        pay_type = request.POST.get('pay_type', '')
+        
+        # Валидация данных из формы
+        if not full_name or len(full_name) < 3:
+            from django.contrib import messages
+            messages.error(request, 'ПІБ повинно містити мінімум 3 символи!')
+            return redirect('cart')
+        
+        if not phone or len(phone.strip()) < 10:
+            from django.contrib import messages
+            messages.error(request, 'Введіть коректний номер телефону!')
+            return redirect('cart')
+        
+        if not city or len(city.strip()) < 2:
+            from django.contrib import messages
+            messages.error(request, 'Введіть назву міста!')
+            return redirect('cart')
+        
+        if not np_office or len(np_office.strip()) < 1:
+            from django.contrib import messages
+            messages.error(request, 'Введіть адресу відділення!')
+            return redirect('cart')
+        
+        if not pay_type:
+            from django.contrib import messages
+            messages.error(request, 'Оберіть тип оплати!')
+            return redirect('cart')
+        
+        # Обновляем профиль пользователя данными из формы
+        prof.full_name = full_name
+        prof.phone = phone
+        prof.city = city
+        prof.np_office = np_office
+        prof.pay_type = pay_type
+        prof.save()
+        
+    else:
+        # Используем данные из профиля (для GET запросов)
+        full_name = getattr(prof, 'full_name', '') or request.user.username
+        phone = prof.phone
+        city = prof.city
+        np_office = prof.np_office
+        pay_type = prof.pay_type
+        
+        # Проверяем обязательные поля с более строгой валидацией
+        if not phone or len(phone.strip()) < 10:
+            from django.contrib import messages
+            messages.error(request, 'Введіть коректний номер телефону!')
+            return redirect('cart')
+        
+        if not city or len(city.strip()) < 2:
+            from django.contrib import messages
+            messages.error(request, 'Введіть назву міста!')
+            return redirect('cart')
+        
+        if not np_office or len(np_office.strip()) < 1:
+            from django.contrib import messages
+            messages.error(request, 'Введіть адресу відділення!')
+            return redirect('cart')
+        
+        if not pay_type:
+            from django.contrib import messages
+            messages.error(request, 'Оберіть тип оплати!')
+            return redirect('cart')
 
     # Корзина должна быть не пустой
     cart = request.session.get('cart') or {}
@@ -1374,9 +1426,9 @@ def order_create(request):
     total_sum = 0
     order = Order.objects.create(
         user=request.user,
-        full_name=getattr(prof, 'full_name', '') or request.user.username,
-        phone=prof.phone, city=prof.city, np_office=prof.np_office,
-        pay_type=prof.pay_type, total_sum=0, status='new'
+        full_name=full_name,
+        phone=phone, city=city, np_office=np_office,
+        pay_type=pay_type, total_sum=0, status='new'
     )
     
     for key, it in cart.items():
@@ -1785,22 +1837,15 @@ def admin_product_edit_unified(request, pk):
     from productcolors.models import ProductColorVariant, Color, ProductColorImage
     obj = get_object_or_404(Product, pk=pk)
     
-    print(f"=== admin_product_edit_unified для товара {pk} ===")
-    print(f"Метод запроса: {request.method}")
-    
     if request.method == 'POST':
         form_type = request.POST.get('form_type')
-        print(f"Тип формы: {form_type}")
         
         if form_type == 'product':
-            print("Обработка основной формы товара")
-            print(f"POST данные: {dict(request.POST)}")
-            print(f"points_reward в POST: {request.POST.get('points_reward')}")
-            
             form = ProductForm(request.POST, request.FILES, instance=obj)
+            
             if form.is_valid():
-                print("Форма валидна!")
                 product = form.save(commit=False)
+                
                 # Автогенерація slug, якщо порожній
                 if not getattr(product, 'slug', None):
                     base = slugify(product.title or '')
@@ -1813,67 +1858,24 @@ def admin_product_edit_unified(request, pk):
                         first_image = first_color_variant.images.first()
                         if first_image:
                             product.main_image = first_image.image
-                            print(f"Автоматически установлено главное изображение из первого цвета: {first_image.image}")
                 
                 product.save()
-                print(f"Товар сохранен! ID: {product.id}, баллы: {product.points_reward}")
                 
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return JsonResponse({'success': True, 'message': 'Товар успішно збережено!'})
                 return redirect('/admin-panel/?section=catalogs')
             else:
-                print("=== ОШИБКИ ФОРМЫ ===")
-                print("Ошибки формы:")
-                for field, errors in form.errors.items():
-                    print(f"  {field}: {errors}")
-                
-                # Попробуем сохранить товар вручную, игнорируя ошибки валидации
-                try:
-                    product = obj
-                    for field_name, value in request.POST.items():
-                        if hasattr(product, field_name) and field_name not in ['csrfmiddlewaretoken', 'form_type']:
-                            setattr(product, field_name, value)
-                    
-                    # Обработка файлов
-                    if 'main_image' in request.FILES:
-                        product.main_image = request.FILES['main_image']
-                    
-                    # Автогенерація slug, якщо порожній
-                    if not getattr(product, 'slug', None):
-                        base = slugify(product.title or '')
-                        product.slug = unique_slugify(Product, base)
-                    
-                    # Если главное изображение не выбрано, используем первую фотографию первого цвета
-                    if not product.main_image:
-                        first_color_variant = product.color_variants.first()
-                        if first_color_variant:
-                            first_image = first_color_variant.images.first()
-                            if first_image:
-                                product.main_image = first_image.image
-                                print(f"Автоматически установлено главное изображение из первого цвета: {first_image.image}")
-                    
-                    product.save()
-                    print(f"Товар сохранен вручную! ID: {product.id}")
-                    
-                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                        return JsonResponse({'success': True, 'message': 'Товар успішно збережено!'})
-                    return redirect('/admin-panel/?section=catalogs')
-                    
-                except Exception as e:
-                    print(f"Ошибка при ручном сохранении: {e}")
-                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                        return JsonResponse({'success': True, 'message': 'Товар успішно збережено!'})
-                    return redirect('/admin-panel/?section=catalogs')
+                # Возвращаем форму с ошибками для отображения пользователю
+                return render(request, 'pages/admin_product_edit_unified.html', {
+                    'form': form, 
+                    'obj': obj
+                })
         
         elif form_type == 'color':
-            print("Обработка формы добавления цвета")
             color_name = request.POST.get('color_name')
             primary_hex = request.POST.get('primary_hex')
             secondary_hex = request.POST.get('secondary_hex', '')
             color_images = request.FILES.getlist('color_images')
-            
-            print(f"Данные цвета: name={color_name}, primary={primary_hex}, secondary={secondary_hex}")
-            print(f"Количество изображений: {len(color_images)}")
             
             if color_name and primary_hex and color_images:
                 # Создаем цвет с HEX кодами
@@ -1901,21 +1903,16 @@ def admin_product_edit_unified(request, pk):
                 if not obj.main_image and color_images:
                     obj.main_image = color_images[0]
                     obj.save()
-                    print(f"Автоматически установлено главное изображение товара из первого цвета: {color_images[0]}")
-                
-                print(f"Цвет добавлен: {color_name} ({primary_hex}{' + ' + secondary_hex if secondary_hex else ''}) с {len(color_images)} изображениями")
                 
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return JsonResponse({'success': True, 'message': f'Колір успішно додано з {len(color_images)} зображеннями!'})
                 return redirect(request.path)
             else:
-                print("Ошибка: не указано название, HEX код или изображения цвета")
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return JsonResponse({'success': True, 'message': 'Колір успішно додано!'})
                 return redirect(request.path)
         
         elif form_type == 'image':
-            print("Обработка формы добавления изображения")
             additional_image = request.FILES.get('additional_image')
             
             if additional_image:
@@ -1923,13 +1920,11 @@ def admin_product_edit_unified(request, pk):
                     product=obj,
                     image=additional_image
                 )
-                print("Дополнительное изображение добавлено")
                 
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return JsonResponse({'success': True, 'message': 'Зображення успішно додано!'})
                 return redirect(request.path)
             else:
-                print("Ошибка: не выбрано изображение")
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return JsonResponse({'success': True, 'message': 'Зображення успішно додано!'})
                 return redirect(request.path)
@@ -1968,29 +1963,16 @@ def admin_product_edit_simple(request, pk):
     from .models import Product
     obj = get_object_or_404(Product, pk=pk)
     
-    print(f"=== admin_product_edit_simple для товара {pk} ===")
-    print(f"Метод запроса: {request.method}")
-    
     if request.method == 'POST':
-        print(f"POST данные: {dict(request.POST)}")
-        print(f"points_reward в POST: {request.POST.get('points_reward')}")
-        
         form = ProductForm(request.POST, request.FILES, instance=obj)
         if form.is_valid():
-            print("Форма валидна!")
             product = form.save(commit=False)
             # Автогенерація slug, якщо порожній
             if not getattr(product, 'slug', None):
                 base = slugify(product.title or '')
                 product.slug = unique_slugify(Product, base)
             product.save()
-            print(f"Товар сохранен! ID: {product.id}, баллы: {product.points_reward}")
             return redirect('/admin-panel/?section=catalogs')
-        else:
-            print("=== ОШИБКИ ФОРМЫ ===")
-            print("Ошибки формы:")
-            for field, errors in form.errors.items():
-                print(f"  {field}: {errors}")
     else:
         form = ProductForm(instance=obj)
     

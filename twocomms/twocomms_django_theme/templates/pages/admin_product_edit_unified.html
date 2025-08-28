@@ -105,7 +105,7 @@
             <div class="card-body p-4">
               <form method="post" enctype="multipart/form-data" id="product-form">
                 {% csrf_token %}
-                <input type="hidden" name="form_type" value="main_info">
+                <input type="hidden" name="form_type" value="product">
 
                 {% if form.non_field_errors %}
                   <div class="alert alert-danger border-0">

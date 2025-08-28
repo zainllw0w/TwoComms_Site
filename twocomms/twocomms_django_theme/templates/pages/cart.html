@@ -73,30 +73,31 @@
         {% with prof=request.user.userprofile %}
         <form method="post" class="vstack gap-3" id="deliveryForm" novalidate>
           {% csrf_token %}
-          <input type="hidden" name="form_type" value="update_profile">
+          <input type="hidden" name="form_type" value="order_create">
           <div>
-            <label class="form-label">ПІБ</label>
+            <label class="form-label">ПІБ *</label>
             <input type="text" name="full_name" class="form-control bg-elevate" placeholder="Прізвище Ім'я По батькові"
-                   value="{{ prof.full_name|default:'' }}">
+                   value="{{ prof.full_name|default:'' }}" required>
           </div>
           <div>
-            <label class="form-label">Телефон</label>
+            <label class="form-label">Телефон *</label>
             <input type="tel" name="phone" class="form-control bg-elevate" placeholder="+380XXXXXXXXX"
-                   value="{{ prof.phone|default:'' }}">
+                   value="{{ prof.phone|default:'' }}" required>
           </div>
           <div>
-            <label class="form-label">Місто</label>
+            <label class="form-label">Місто *</label>
             <input type="text" name="city" class="form-control bg-elevate" placeholder="Київ"
-                   value="{{ prof.city|default:'' }}">
+                   value="{{ prof.city|default:'' }}" required>
           </div>
           <div>
-            <label class="form-label">Відділення / Поштомат НП</label>
+            <label class="form-label">Відділення / Поштомат НП *</label>
             <input type="text" name="np_office" class="form-control bg-elevate" placeholder="№ відділення або адреса поштомата"
-                   value="{{ prof.np_office|default:'' }}">
+                   value="{{ prof.np_office|default:'' }}" required>
           </div>
           <div>
-            <label class="form-label">Тип оплати</label>
-            <select name="pay_type" class="form-select bg-elevate">
+            <label class="form-label">Тип оплати *</label>
+            <select name="pay_type" class="form-select bg-elevate" required>
+              <option value="">Оберіть тип оплати</option>
               <option value="partial" {% if prof.pay_type == 'partial' %}selected{% endif %}>Часткова передоплата</option>
               <option value="full" {% if prof.pay_type == 'full' %}selected{% endif %}>Повна передоплата</option>
             </select>
@@ -214,7 +215,7 @@
       <div class='text-secondary small'>Доставка оплачується згідно тарифів перевізника.</div>
       
       {% if request.user.is_authenticated %}
-        <a href="{% url 'order_create' %}" class="btn btn-cta w-100 mt-3">Замовити</a>
+        <button type="submit" form="deliveryForm" class="btn btn-cta w-100 mt-3">Замовити</button>
       {% else %}
         <button type="submit" form="guest-form" class="btn btn-cta w-100 mt-3">Замовити як гість</button>
       {% endif %}
@@ -226,9 +227,14 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const guestForm = document.getElementById('guest-form');
-    if (guestForm) {
+    const deliveryForm = document.getElementById('deliveryForm');
+    
+    // Функция для валидации формы
+    function setupFormValidation(form) {
+        if (!form) return;
+        
         // Подсветка полей с ошибками
-        const errorFields = guestForm.querySelectorAll('.text-danger');
+        const errorFields = form.querySelectorAll('.text-danger');
         errorFields.forEach(function(errorDiv) {
             const field = errorDiv.previousElementSibling;
             if (field && field.tagName === 'INPUT' || field.tagName === 'SELECT') {
@@ -237,7 +243,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         // Валидация в реальном времени
-        const inputs = guestForm.querySelectorAll('input, select');
+        const inputs = form.querySelectorAll('input, select');
         inputs.forEach(function(input) {
             input.addEventListener('blur', function() {
                 validateField(this);
@@ -256,12 +262,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         // Валидация при отправке формы
-        guestForm.addEventListener('submit', function(e) {
+        form.addEventListener('submit', function(e) {
             let isValid = true;
+            let firstErrorField = null;
             
             inputs.forEach(function(input) {
                 if (!validateField(input)) {
                     isValid = false;
+                    if (!firstErrorField) {
+                        firstErrorField = input;
+                    }
                 }
             });
             
@@ -269,9 +279,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 // Показываем сообщение об ошибке
                 showError('Будь ласка, виправте помилки в формі');
+                
+                // Прокручиваем к первому полю с ошибкой
+                if (firstErrorField) {
+                    firstErrorField.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'center' 
+                    });
+                    firstErrorField.focus();
+                }
             }
         });
     }
+    
+    // Настраиваем валидацию для обеих форм
+    setupFormValidation(guestForm);
+    setupFormValidation(deliveryForm);
     
     function validateField(field) {
         const value = field.value.trim();
@@ -316,7 +339,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } else if (field.name === 'np_office') {
                 if (value.length < 1) {
                     isValid = false;
-                    errorMessage = 'Адреса відділення не може бути порожньою';
+                    errorMessage = 'Введіть адресу відділення';
                 }
             }
         }
