@@ -343,29 +343,114 @@ def product_detail(request, slug):
 
 @transaction.atomic
 def add_product(request):
-    if request.method=='POST':
+    """Добавление нового товара через унифицированный интерфейс"""
+    if request.method == 'POST':
         print(f"POST данные создания товара: {request.POST}")
-        print(f"points_reward в POST: {request.POST.get('points_reward')}")
         
-        form = ProductForm(request.POST, request.FILES)
-        if form.is_valid():
-            print("Форма создания товара валидна!")
-            product = form.save(commit=False)
-            # slug генеруємо автоматично, якщо не заданий
-            if not getattr(product, 'slug', None):
-                base = slugify(product.title or '')
-                product.slug = unique_slugify(Product, base)
-            product.save()
-            print(f"Товар создан! ID: {product.id}, баллы: {product.points_reward}")
-            # Додаткові фото тепер додаються у блоці «Кольори», нічого тут не зберігаємо
-            return redirect('product', slug=product.slug)
+        # Обработка основной информации о товаре
+        if 'form_type' in request.POST and request.POST['form_type'] == 'main_info':
+            form = ProductForm(request.POST, request.FILES)
+            if form.is_valid():
+                product = form.save(commit=False)
+                # slug генерируем автоматически, если не задан
+                if not getattr(product, 'slug', None):
+                    base = slugify(product.title or '')
+                    product.slug = unique_slugify(Product, base)
+                product.save()
+                print(f"Товар создан! ID: {product.id}, баллы: {product.points_reward}")
+                return JsonResponse({'success': True, 'product_id': product.id})
+            else:
+                return JsonResponse({'success': False, 'errors': form.errors})
+        
+        # Обработка цветов
+        elif 'form_type' in request.POST and request.POST['form_type'] == 'colors':
+            product_id = request.POST.get('product_id')
+            try:
+                product = Product.objects.get(id=product_id)
+                from productcolors.models import Color, ProductColorVariant, ProductColorImage
+                
+                # Обработка добавления цвета
+                if 'add_color' in request.POST:
+                    color_name = request.POST.get('color_name', '').strip()
+                    primary_hex = request.POST.get('primary_hex', '#000000')
+                    secondary_hex = request.POST.get('secondary_hex', '').strip()
+                    
+                    if color_name:
+                        # Создаем или получаем цвет
+                        color, created = Color.objects.get_or_create(
+                            name=color_name,
+                            defaults={
+                                'primary_hex': primary_hex,
+                                'secondary_hex': secondary_hex if secondary_hex else None
+                            }
+                        )
+                        
+                        # Создаем вариант цвета для товара
+                        variant = ProductColorVariant.objects.create(
+                            product=product,
+                            color=color,
+                            is_default=False
+                        )
+                        
+                        # Обрабатываем изображения
+                        images = request.FILES.getlist('color_images')
+                        for img in images:
+                            ProductColorImage.objects.create(
+                                variant=variant,
+                                image=img
+                            )
+                        
+                        return JsonResponse({'success': True, 'variant_id': variant.id})
+                    else:
+                        return JsonResponse({'success': False, 'error': 'Название цвета обязательно'})
+                
+                # Обработка удаления цвета
+                elif 'delete_color' in request.POST:
+                    variant_id = request.POST.get('variant_id')
+                    try:
+                        variant = ProductColorVariant.objects.get(id=variant_id, product=product)
+                        variant.delete()
+                        return JsonResponse({'success': True})
+                    except ProductColorVariant.DoesNotExist:
+                        return JsonResponse({'success': False, 'error': 'Вариант цвета не найден'})
+                
+                # Обработка удаления изображения
+                elif 'delete_image' in request.POST:
+                    image_id = request.POST.get('image_id')
+                    try:
+                        image = ProductColorImage.objects.get(id=image_id, variant__product=product)
+                        image.delete()
+                        return JsonResponse({'success': True})
+                    except ProductColorImage.DoesNotExist:
+                        return JsonResponse({'success': False, 'error': 'Изображение не найдено'})
+                
+            except Product.DoesNotExist:
+                return JsonResponse({'success': False, 'error': 'Товар не найден'})
+        
+        # Обработка основной формы (для совместимости)
         else:
-            print("Ошибки формы создания товара:")
-            for field, errors in form.errors.items():
-                print(f"  {field}: {errors}")
+            form = ProductForm(request.POST, request.FILES)
+            if form.is_valid():
+                product = form.save(commit=False)
+                if not getattr(product, 'slug', None):
+                    base = slugify(product.title or '')
+                    product.slug = unique_slugify(Product, base)
+                product.save()
+                return redirect('product', slug=product.slug)
+            else:
+                return render(request, 'pages/admin_product_edit_unified.html', {
+                    'form': form,
+                    'product': None,
+                    'is_new': True
+                })
+    
     else:
         form = ProductForm()
-    return render(request,'pages/add_product.html',{'form':form})
+        return render(request, 'pages/admin_product_edit_unified.html', {
+            'form': form,
+            'product': None,
+            'is_new': True
+        })
 
 def add_category(request):
     if request.method=='POST':
