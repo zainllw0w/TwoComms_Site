@@ -32,6 +32,10 @@ MEDIAFILES_DIRS = [
     BASE_DIR / 'media',
 ]
 
+# Настройки для загрузки файлов
+FILE_UPLOAD_PERMISSIONS = 0o644
+FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o755
+
 # Убедимся, что STATICFILES_DIRS настроен правильно
 STATICFILES_DIRS = [
     BASE_DIR / "twocomms_django_theme" / "static",
