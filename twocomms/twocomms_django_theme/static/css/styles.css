@@ -1,4 +1,125 @@
-:root{--tc-bg:#0e0f12;--tc-elevate:#14161b;--tc-text:#e8e9ec;--tc-primary:#8b5cf6}body{background:var(--tc-bg);color:var(--tc-text)}body::before{content:'';position:fixed;inset:-10vh -10vw;z-index:-2;background:url('../img/bg_blur_1.png') center/cover no-repeat,linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));opacity:.9}body::after{content:'';position:fixed;inset:0;z-index:-1;background:url('../img/noise.png') repeat;opacity:.08}.bg-elevate{background-color:var(--tc-elevate)!important}.hero.bg-hero{border:1px solid rgba(255,255,255,.06);border-radius:1.25rem;background:url('../img/vignette.png') center/cover no-repeat,linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));backdrop-filter:blur(10px) saturate(120%)}.card.product{border:1px solid rgba(255,255,255,.06);background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));border-radius:1.25rem;transition:transform .25s,box-shadow .25s,border-color .25s}.hover-raise:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.35);border-color:rgba(139,92,246,.35)}.navbar.bg-body{backdrop-filter:saturate(140%) blur(8px);background-color:rgba(13,14,17,.72)!important}.navbar .nav-link{color:var(--tc-text);opacity:.8}.navbar .nav-link:hover,.navbar .nav-link.active{opacity:1}.btn-cta{
+:root{--tc-bg:#0e0f12;--tc-elevate:#14161b;--tc-text:#e8e9ec;--tc-primary:#8b5cf6}body{background:var(--tc-bg);color:var(--tc-text)}body::before{content:'';position:fixed;inset:-10vh -10vw;z-index:-2;background:url('../img/bg_blur_1.png') center/cover no-repeat,linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));opacity:.9}body::after{content:'';position:fixed;inset:0;z-index:-1;background:url('../img/noise.png') repeat;opacity:.08}.bg-elevate{background-color:var(--tc-elevate)!important}.hero.bg-hero{border:1px solid rgba(255,255,255,.06);border-radius:1.25rem;background:url('../img/vignette.png') center/cover no-repeat,linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));backdrop-filter:blur(10px) saturate(120%)}.card.product{border:1px solid rgba(255,255,255,.06);background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));border-radius:1.25rem;transition:transform .25s,box-shadow .25s,border-color .25s}
+
+/* Адаптивность для карточек товаров на мобильных устройствах */
+@media (max-width: 768px) {
+  .card.product .card-body {
+    padding: 0.75rem;
+  }
+  
+  .card.product .card-title,
+  .card.product h3,
+  .card.product h4,
+  .card.product h5 {
+    font-size: 0.9rem !important;
+    line-height: 1.2 !important;
+    margin-bottom: 0.25rem !important;
+  }
+  
+  .card.product .small {
+    font-size: 0.75rem !important;
+  }
+  
+  .card.product .fw-semibold {
+    font-size: 0.85rem !important;
+  }
+  
+  .card.product .badge {
+    font-size: 0.7rem !important;
+    padding: 0.25rem 0.5rem !important;
+  }
+  
+  .card.product .points-reward-card {
+    margin-top: 0.25rem;
+  }
+  
+  .card.product .points-text-small {
+    font-size: 0.7rem !important;
+  }
+  
+  .card.product .points-help-small {
+    padding: 0.125rem 0.25rem !important;
+    font-size: 0.6rem !important;
+  }
+  
+  /* Уменьшаем отступы в карточке */
+  .card.product .card-body > * {
+    margin-bottom: 0.25rem !important;
+  }
+  
+  .card.product .card-body > *:last-child {
+    margin-bottom: 0 !important;
+  }
+  
+  /* Адаптируем цену */
+  .card.product .d-flex.align-items-center.gap-2 {
+    gap: 0.25rem !important;
+  }
+  
+  .card.product .text-decoration-line-through {
+    font-size: 0.7rem !important;
+  }
+}
+
+/* Еще более компактно для очень маленьких экранов */
+@media (max-width: 480px) {
+  .card.product .card-body {
+    padding: 0.5rem;
+  }
+  
+  .card.product .card-title,
+  .card.product h3,
+  .card.product h4,
+  .card.product h5 {
+    font-size: 0.8rem !important;
+    line-height: 1.1 !important;
+  }
+  
+  .card.product .small {
+    font-size: 0.7rem !important;
+  }
+  
+  .card.product .fw-semibold {
+    font-size: 0.8rem !important;
+  }
+  
+  .card.product .badge {
+    font-size: 0.65rem !important;
+    padding: 0.2rem 0.4rem !important;
+  }
+  
+  .card.product .points-text-small {
+    font-size: 0.65rem !important;
+  }
+  
+  /* Адаптируем сетку карточек */
+  .row .col {
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+  }
+  
+  .row {
+    margin-left: -0.25rem;
+    margin-right: -0.25rem;
+  }
+}
+
+/* Дополнительные улучшения для планшетов */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .card.product .card-body {
+    padding: 0.875rem;
+  }
+  
+  .card.product .card-title,
+  .card.product h3,
+  .card.product h4,
+  .card.product h5 {
+    font-size: 0.95rem !important;
+  }
+  
+  .card.product .small {
+    font-size: 0.8rem !important;
+  }
+}.hover-raise:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.35);border-color:rgba(139,92,246,.35)}.navbar.bg-body{backdrop-filter:saturate(140%) blur(8px);background-color:rgba(13,14,17,.72)!important}.navbar .nav-link{color:var(--tc-text);opacity:.8}.navbar .nav-link:hover,.navbar .nav-link.active{opacity:1}.btn-cta{
   background: linear-gradient(135deg, #8b5cf6, #6366f1);
   border: none;
   color: #fff;
@@ -78,6 +199,31 @@
   transition: opacity 0.4s ease, transform 0.4s ease;
   position: relative;
   overflow: hidden;
+}
+
+/* Адаптивность для цветовых точек на мобильных */
+@media (max-width: 768px) {
+  .color-dot {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .featured-color-dot {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .color-dot {
+    width: 14px;
+    height: 14px;
+  }
+  
+  .featured-color-dot {
+    width: 12px;
+    height: 12px;
+  }
 }
 
 /* Комбинированные цвета для color-dot */
