@@ -1,0 +1,30 @@
+{% extends 'base.html' %}{% load static %}{% block title %}Вхід — TwoComms{% endblock %}{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-6 col-lg-5">
+    <div class="card glass p-3 p-md-4">
+      <h1 class="h5 fw-bold mb-3">Вхід</h1>
+      <form method="post" class="vstack gap-3">{% csrf_token %}
+        <div>{{ form.username.label_tag }}{{ form.username }}</div>
+        <div>{{ form.password.label_tag }}{{ form.password }}</div>
+        <button class="btn btn-cta">Увійти</button>
+      </form>
+      <div class="text-secondary small mt-3">Немає облікового запису? <a href="{% url 'register' %}">Зареєструватись</a></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% extends 'base.html' %}{% load static %}{% block title %}Вхід — TwoComms{% endblock %}{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-6 col-lg-5">
+    <div class="card glass p-3 p-md-4">
+      <h1 class="h5 fw-bold mb-3">Вхід</h1>
+      <form method="post" class="vstack gap-3">{% csrf_token %}
+        <div>{{ form.username.label_tag }}{{ form.username }}</div>
+        <div>{{ form.password.label_tag }}{{ form.password }}</div>
+        <button class="btn btn-cta">Увійти</button>
+      </form>
+      <div class="text-secondary small mt-3">Немає облікового запису? <a href="{% url 'register' %}">Зареєструватись</a></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

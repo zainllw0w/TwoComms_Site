@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Замовлення оформлено — TwoComms{% endblock %}
+
+{% block content %}
+<section class="order-success-section">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-md-8 col-lg-6">
+        <div class="order-success-card">
+          <div class="order-success-header">
+            <div class="success-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </div>
+            <h1 class="order-success-title">Замовлення успішно оформлено!</h1>
+            <div class="order-number">
+              <span class="order-number-label">Номер замовлення:</span>
+              <span class="order-number-value">{{ order_number }}</span>
+            </div>
+          </div>
+          
+          <div class="order-success-content">
+            <div class="success-message">
+              <h3>Ваша заявка відправлена в обробку</h3>
+              <p>Менеджер зв'яжеться з вами найближчим часом для підтвердження замовлення та уточнення деталей доставки.</p>
+            </div>
+            
+            <div class="order-details">
+              <h4>Деталі замовлення:</h4>
+              <div class="order-info">
+                <div class="info-row">
+                  <span class="info-label">ПІБ:</span>
+                  <span class="info-value">{{ order.full_name }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Телефон:</span>
+                  <span class="info-value">{{ order.phone }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Місто:</span>
+                  <span class="info-value">{{ order.city }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Відділення НП:</span>
+                  <span class="info-value">{{ order.np_office }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Сума замовлення:</span>
+                  <span class="info-value">{{ order.total_sum }} грн</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="auth-suggestion">
+              <div class="auth-suggestion-content">
+                <h4>🔐 Створіть акаунт для зручності</h4>
+                <p>Зареєструйтесь або увійдіть в систему, щоб:</p>
+                <ul class="auth-benefits">
+                  <li>📊 Накопичувати бали за покупки</li>
+                  <li>📈 Відстежувати статус замовлень</li>
+                  <li>💾 Зберігати історію покупок</li>
+                  <li>🎁 Отримувати персональні пропозиції</li>
+                </ul>
+                <div class="auth-buttons">
+                  <a href="{% url 'login' %}" class="btn btn-primary">Увійти</a>
+                  <a href="{% url 'register' %}" class="btn btn-outline-primary">Зареєструватись</a>
+                </div>
+                <div class="auth-note">
+                  <small>Якщо ви зареєструєтесь, це замовлення автоматично прив'яжеться до вашого акаунту</small>
+                </div>
+              </div>
+            </div>
+            
+            <div class="order-success-actions">
+              <a href="{% url 'home' %}" class="btn btn-cta">Повернутись на головну</a>
+              <a href="{% url 'catalog' %}" class="btn btn-outline-light">Переглянути каталог</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,257 @@
+{% extends 'base.html' %}{% load static %}{% block title %}{% if mode == 'edit' %}Редагувати товар{% else %}Новий товар{% endif %} — TwoComms{% endblock %}{% block content %}
+<div class="row g-3 g-md-4">
+  <div class="col-12 col-lg-6">
+    <div class="card glass p-3 p-md-4">
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <h1 class="h6 fw-bold mb-0">{% if mode == 'edit' %}Редагувати товар{% else %}Новий товар{% endif %}</h1>
+        <span class="badge text-bg-secondary">Налаштування</span>
+      </div>
+      <div class="text-secondary small mb-3">
+        Slug генерується автоматично з назви. Додаткові фото додавайте у блоці «Кольори» праворуч.
+      </div>
+      <form method="post" enctype="multipart/form-data" class="vstack gap-3 admin-product-form" id="product-form">{% csrf_token %}
+
+        <!-- Секція: Основне -->
+        <div class="admin-form-section">
+          <div class="section-chip">Основне</div>
+          <div class="vstack gap-2">
+            {% if form.title %}
+            <div>
+              <label class="form-label">Назва</label>
+              {{ form.title }}
+            </div>
+            {% endif %}
+            {% if form.category %}
+            <div>
+              <label class="form-label">Категорія</label>
+              {{ form.category }}
+            </div>
+            {% endif %}
+            {% if form.description %}
+            <div>
+              <label class="form-label">Опис</label>
+              {{ form.description }}
+              <div class="hint mt-1">Підтримуються переноси рядків — відобразяться на сторінці товару.</div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Секція: Ціни -->
+        <div class="admin-form-section">
+          <div class="section-chip">Ціни</div>
+          <div class="row g-2">
+            {% if form.price %}
+            <div class="col-6">
+              <label class="form-label">Ціна, грн</label>
+              {{ form.price }}
+            </div>
+            {% endif %}
+            {% if form.discount_percent %}
+            <div class="col-6">
+              <label class="form-label">Знижка, %</label>
+              {{ form.discount_percent }}
+            </div>
+            {% endif %}
+          </div>
+          {% if form.has_discount %}
+          <div class="form-check mt-2">
+            {{ form.has_discount }}
+            <label class="form-check-label">Акційна пропозиція</label>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Секція: Медіа -->
+        <div class="admin-form-section">
+          <div class="section-chip">Медіа</div>
+          {% if form.main_image %}
+          <div>
+            <label class="form-label">Головне зображення</label>
+            {{ form.main_image }}
+            <div class="hint mt-1">Додаткові фото додаються до кожного кольору праворуч.</div>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Секція: Параметри -->
+        <div class="admin-form-section">
+          <div class="section-chip">Параметри</div>
+          <div class="vstack gap-2">
+            {% if form.featured %}
+            <div class="form-check">
+              {{ form.featured }}
+              <label class="form-check-label">Рекомендований товар</label>
+            </div>
+            {% endif %}
+            {% if form.available %}
+            <div class="form-check">
+              {{ form.available }}
+              <label class="form-check-label">В наявності</label>
+            </div>
+            {% endif %}
+            {% if form.points_reward %}
+            <div>
+              <label class="form-label">Бали за покупку</label>
+              {{ form.points_reward }}
+              <div class="hint mt-1">Кількість балів, які нараховуються користувачу за покупку цього товару.</div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-1">
+          <a href="/admin-panel/?section=catalogs" class="btn btn-outline-light">Назад</a>
+          <button type="submit" class="btn btn-cta" id="save-product-btn">Зберегти</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-6">
+    <div class="card glass p-3 p-md-4">
+      <h2 class="h6 fw-bold mb-3">Кольори</h2>
+      <form method="post" enctype="multipart/form-data" class="vstack gap-3 mb-3" id="color-form">{% csrf_token %}
+        <input type="hidden" name="action" value="add">
+        <div>
+          <label class="form-label">Вибрати з використаних</label>
+          <select class="form-select bg-elevate" name="color_id">
+            <option value="">— Вибрати —</option>
+            {% for c in used_colors %}
+              <option value="{{ c.id }}">{{ c.primary_hex }}{% if c.secondary_hex %}+{{ c.secondary_hex }}{% endif %}</option>
+            {% endfor %}
+          </select>
+          <div class="text-secondary small mt-1">Або вкажіть власні кольори нижче</div>
+        </div>
+        <div class="row g-2">
+          <div class="col">
+            <label class="form-label">Основний колір</label>
+            <input type="color" class="form-control form-control-color" name="primary_hex" value="#000000">
+          </div>
+          <div class="col">
+            <label class="form-label">Другий колір (опц.)</label>
+            <input type="color" class="form-control form-control-color" name="secondary_hex" value="">
+          </div>
+        </div>
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="form-label">Порядок</label>
+            <input type="number" class="form-control bg-elevate" name="order" value="0">
+          </div>
+          <div class="col-6 d-flex align-items-end">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="is_default" name="is_default">
+              <label class="form-check-label" for="is_default">За замовчуванням</label>
+            </div>
+          </div>
+        </div>
+        <div>
+          <label class="form-label">Фотографії для кольору (можна декілька)</label>
+          <input type="file" class="form-control bg-elevate" name="images" multiple accept="image/*">
+        </div>
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-cta" id="add-color-btn">Додати колір</button>
+        </div>
+      </form>
+
+      <div class="vstack gap-3">
+        {% for v in variants %}
+          <div class="border rounded-4 p-3 bg-elevate">
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="d-flex align-items-center gap-2">
+                <div class="rounded-circle overflow-hidden" style="width:26px;height:26px;border:1px solid rgba(255,255,255,.2)">
+                  {% if v.color.secondary_hex %}
+                    <div style="width:26px;height:26px;background: linear-gradient(90deg, {{ v.color.primary_hex }} 0 50%, {{ v.color.secondary_hex }} 50% 100%);"></div>
+                  {% else %}
+                    <div style="width:26px;height:26px;background: {{ v.color.primary_hex }}"></div>
+                  {% endif %}
+                </div>
+                <div class="small">
+                  <div class="fw-semibold">{{ v.color.primary_hex }}{% if v.color.secondary_hex %}+{{ v.color.secondary_hex }}{% endif %}</div>
+                  {% if v.is_default %}<div class="badge text-bg-secondary">За замовчуванням</div>{% endif %}
+                </div>
+              </div>
+              <form method="post" class="ms-2">{% csrf_token %}
+                <input type="hidden" name="action" value="delete_variant">
+                <input type="hidden" name="variant_id" value="{{ v.id }}">
+                <button class="btn btn-sm btn-outline-light" onclick="return confirm('Видалити варіант?')">Видалити</button>
+              </form>
+            </div>
+            {% if v.images.all %}
+              <div class="d-flex flex-wrap gap-2 mt-2">
+                {% for img in v.images.all %}
+                  <div class="position-relative">
+                    <img src="{{ img.image.url }}" class="rounded-3" style="width:88px;height:88px;object-fit:cover">
+                    <form method="post" class="position-absolute top-0 end-0 m-1">{% csrf_token %}
+                      <input type="hidden" name="action" value="delete_image">
+                      <input type="hidden" name="image_id" value="{{ img.id }}">
+                      <button class="btn btn-sm btn-outline-light">×</button>
+                    </form>
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        {% empty %}
+          <div class="text-secondary small">Немає жодного варіанту кольору.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Предотвращение конфликтов форм и анимация сохранения
+document.addEventListener('DOMContentLoaded', function() {
+    // Основная форма товара
+    const productForm = document.getElementById('product-form');
+    const saveBtn = document.getElementById('save-product-btn');
+    
+    if (productForm && saveBtn) {
+        productForm.addEventListener('submit', function(e) {
+            console.log('Отправка формы товара...');
+            const formData = new FormData(this);
+            console.log('Данные формы:', Object.fromEntries(formData));
+            
+            // Показываем анимацию загрузки
+            const originalText = saveBtn.innerHTML;
+            saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Збереження...';
+            saveBtn.disabled = true;
+            
+            // Используем обычную отправку формы (временно отключаем AJAX)
+            // Форма отправится обычным способом
+        });
+    }
+    
+    // Форма цветов
+    const colorForm = document.getElementById('color-form');
+    const addColorBtn = document.getElementById('add-color-btn');
+    
+    if (colorForm && addColorBtn) {
+        colorForm.addEventListener('submit', function(e) {
+            console.log('Отправка формы цветов...');
+            const formData = new FormData(this);
+            
+            // Показываем анимацию загрузки
+            const originalText = addColorBtn.innerHTML;
+            addColorBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Додавання...';
+            addColorBtn.disabled = true;
+            
+            // Используем обычную отправку формы (временно отключаем AJAX)
+            // Форма отправится обычным способом
+        });
+    }
+    
+    // Проверяем, что поле points_reward присутствует
+    const pointsField = document.getElementById('id_points_reward');
+    if (pointsField) {
+        console.log('Поле points_reward найдено:', pointsField.value);
+        pointsField.addEventListener('change', function() {
+            console.log('Значение points_reward изменено на:', this.value);
+        });
+    } else {
+        console.error('Поле points_reward не найдено!');
+    }
+});
+</script>
+{% endblock %}

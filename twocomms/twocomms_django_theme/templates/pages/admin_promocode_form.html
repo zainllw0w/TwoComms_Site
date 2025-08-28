@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+  {% if mode == 'create' %}Створити промокод{% else %}Редагувати промокод{% endif %} — TwoComms
+{% endblock %}
+
+{% block content %}
+<div class="promocode-form-section">
+  <!-- Заголовок -->
+  <div class="promocode-form-header">
+    <div class="form-title-section">
+      <h1 class="form-title">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="me-2">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+        {% if mode == 'create' %}
+          Створити новий промокод
+        {% else %}
+          Редагувати промокод {{ promocode.code }}
+        {% endif %}
+      </h1>
+      <div class="form-subtitle">
+        {% if mode == 'create' %}
+          Заповніть дані для створення нового промокоду
+        {% else %}
+          Внесіть зміни до існуючого промокоду
+        {% endif %}
+      </div>
+    </div>
+    
+    <!-- Кнопка возврата -->
+    <div class="form-actions">
+      <a href="{% url 'admin_promocodes' %}" class="back-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+        </svg>
+        Назад до промокодів
+      </a>
+    </div>
+  </div>
+
+  <!-- Форма -->
+  <div class="promocode-form-container">
+    <form method="post" class="promocode-form">
+      {% csrf_token %}
+      
+      <div class="form-grid">
+        <!-- Код промокода -->
+        <div class="form-group">
+          <label for="{{ form.code.id_for_label }}" class="form-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M9.5 3A2.5 2.5 0 0 1 12 5.5c0 .88-.56 1.63-1.34 1.92l1.51 1.51c.56-.23 1.01-.84 1.01-1.51 0-.88-.72-1.6-1.6-1.6-.67 0-1.28.45-1.51 1.01L7.42 6.66C7.71 5.88 8.46 5.32 9.34 5.32A2.5 2.5 0 0 1 9.5 3z"/>
+            </svg>
+            Код промокоду
+          </label>
+          {{ form.code }}
+          <div class="form-help">
+            Залиште порожнім для автоматичної генерації коду
+          </div>
+          {% if form.code.errors %}
+            <div class="form-error">{{ form.code.errors.0 }}</div>
+          {% endif %}
+        </div>
+
+        <!-- Тип скидки -->
+        <div class="form-group">
+          <label for="{{ form.discount_type.id_for_label }}" class="form-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            Тип знижки
+          </label>
+          {{ form.discount_type }}
+          {% if form.discount_type.errors %}
+            <div class="form-error">{{ form.discount_type.errors.0 }}</div>
+          {% endif %}
+        </div>
+
+        <!-- Значение скидки -->
+        <div class="form-group">
+          <label for="{{ form.discount_value.id_for_label }}" class="form-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/>
+            </svg>
+            Значення знижки
+          </label>
+          {{ form.discount_value }}
+          <div class="form-help">
+            <span id="discount-help">Введіть відсоток або суму знижки</span>
+          </div>
+          {% if form.discount_value.errors %}
+            <div class="form-error">{{ form.discount_value.errors.0 }}</div>
+          {% endif %}
+        </div>
+
+        <!-- Максимальное количество использований -->
+        <div class="form-group">
+          <label for="{{ form.max_uses.id_for_label }}" class="form-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            Максимальна кількість використань
+          </label>
+          {{ form.max_uses }}
+          <div class="form-help">
+            Введіть 0 для необмеженого використання
+          </div>
+          {% if form.max_uses.errors %}
+            <div class="form-error">{{ form.max_uses.errors.0 }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Статус активности -->
+      <div class="form-group checkbox-group">
+        <div class="checkbox-wrapper">
+          {{ form.is_active }}
+          <label for="{{ form.is_active.id_for_label }}" class="checkbox-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            </svg>
+            Активний промокод
+          </label>
+        </div>
+        <div class="form-help">
+          Неактивні промокоди не можуть використовуватися
+        </div>
+      </div>
+
+      <!-- Кнопки действий -->
+      <div class="form-actions-bottom">
+        <button type="submit" class="submit-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+          </svg>
+          {% if mode == 'create' %}
+            Створити промокод
+          {% else %}
+            Зберегти зміни
+          {% endif %}
+        </button>
+        
+        <a href="{% url 'admin_promocodes' %}" class="cancel-btn">
+          Скасувати
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// Обновление подсказки в зависимости от типа скидки
+document.addEventListener('DOMContentLoaded', function() {
+  const discountType = document.getElementById('{{ form.discount_type.id_for_label }}');
+  const discountValue = document.getElementById('{{ form.discount_value.id_for_label }}');
+  const discountHelp = document.getElementById('discount-help');
+  
+  function updateHelp() {
+    const type = discountType.value;
+    if (type === 'percentage') {
+      discountHelp.textContent = 'Введіть відсоток знижки (наприклад: 15 для 15%)';
+      discountValue.placeholder = '15';
+    } else {
+      discountHelp.textContent = 'Введіть суму знижки в гривнях (наприклад: 100)';
+      discountValue.placeholder = '100';
+    }
+  }
+  
+  discountType.addEventListener('change', updateHelp);
+  updateHelp();
+});
+</script>
+{% endblock %}

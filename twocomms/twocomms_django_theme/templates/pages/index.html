@@ -1,0 +1,152 @@
+{% extends "base.html" %}{% load static %}{% block title %}TwoComms — Головна{% endblock %}{% block content %}
+<section class="hero-section mb-4 mb-md-5 reveal">
+  <div class="hero-container">
+    <!-- Фоновый логотип -->
+    <div class="hero-logo-bg">
+      <img src="{% static 'img/logo.svg' %}" alt="TWO COMMS" class="hero-logo-image">
+    </div>
+    
+    <!-- Основной контент -->
+    <div class="hero-content">
+      <div class="hero-text-section">
+        <h1 class="hero-title">
+          <span class="hero-title-main">Стріт & мілітарі</span>
+          <span class="hero-title-accent">одяг</span>
+        </h1>
+        <p class="hero-subtitle">Футболки, худі, лонгсліви. Дизайн з характером.</p>
+        <div class="hero-actions">
+          <a class="hero-btn-primary" href="{% url 'catalog' %}">
+            <span>Перейти в каталог</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+            </svg>
+          </a>
+          <div class="hero-badge">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            <span>Ексклюзивний дизайн</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Декоративные элементы -->
+    <div class="hero-decoration">
+      <div class="hero-glow"></div>
+      <div class="hero-particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+      </div>
+    </div>
+  </div>
+</section>
+{% if featured %}
+<section class="mb-4 mb-md-5 reveal" id="featured-section">
+  <!-- Заголовок-кнопка управления блоком -->
+  <div class="featured-header-btn" id="featured-toggle">
+    <div class="featured-header-content">
+      <div class="featured-badge">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+        Рекомендовано
+      </div>
+      <div class="featured-subtitle">Найкращий вибір тижня</div>
+      <div class="featured-toggle-hint">
+        <span class="toggle-hint-text">Сховати</span>
+        <svg class="toggle-hint-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M7 10l5 5 5-5z"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Скрываемый контент -->
+  <div class="featured-section" id="featured-content">
+    
+    <div class="featured-card">
+      <div class="featured-image-container">
+        <div class="featured-image-wrapper">
+                      <img
+              src="{% if featured.display_image %}{{ featured.display_image.url }}{% else %}{% static 'img/placeholder.jpg' %}{% endif %}"
+              class="featured-image"
+              alt="{{ featured.title }}"
+            >
+          <div class="featured-overlay">
+            <div class="featured-overlay-content">
+              <div class="featured-category">{{ featured.category.name }}</div>
+              {% if featured_variants %}
+                <div class="featured-colors">
+                  <span class="featured-colors-label">Доступні кольори:</span>
+                  <div class="featured-color-dots">
+                    {% for v in featured_variants %}
+                      <span class="featured-color-dot" title="{{ v.primary_hex }}{% if v.secondary_hex %}+{{ v.secondary_hex }}{% endif %}" style="--c1: {{ v.primary_hex }}; --c2: {{ v.secondary_hex|default:'' }};"></span>
+                    {% endfor %}
+                  </div>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="featured-content">
+        <div class="featured-title-section">
+          <h3 class="featured-title">{{ featured.title }}</h3>
+          <div class="featured-description">{{ featured.description|default:'Ексклюзивний дизайн з найкращих матеріалів'|truncatechars:150 }}</div>
+        </div>
+        
+        <div class="featured-price-section">
+          <div class="featured-price-info">
+            {% if featured.has_discount and featured.discount_percent %}
+              <div class="featured-discount-badge">-{{ featured.discount_percent }}%</div>
+            {% endif %}
+            <div class="featured-price">
+              <span class="featured-price-current">{{ featured.final_price }} грн</span>
+              {% if featured.has_discount %}
+                <span class="featured-price-old">{{ featured.price }} грн</span>
+              {% endif %}
+            </div>
+          </div>
+          
+          <div class="featured-actions">
+            <a href="{% url 'product' featured.slug %}" class="featured-btn-primary">
+              <span>Переглянути</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+              </svg>
+            </a>
+            <div class="featured-exclusive-badge">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.57L19 8l-9 9z"/>
+              </svg>
+              Ексклюзив
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+<section class="mb-4 mb-md-5 reveal"><div class="d-flex justify-content-between align-items-end mb-3"><h2 class="h5 mb-0">Категорії</h2><a href="{% url 'catalog' %}" class="link-secondary small">Весь каталог</a></div><div class="d-flex flex-wrap gap-2"><a href="{% url 'catalog' %}" class="btn btn-outline-light d-inline-flex align-items-center gap-2"><img src="{% static 'img/icons/all.svg' %}" width="18" height="18"> Усі</a>{% for c in categories %}<a href="{% url 'catalog_by_cat' c.slug %}" class="btn btn-outline-light d-inline-flex align-items-center gap-2">{% if c.icon %}<img src="{{ c.icon.url }}" width="18" height="18">{% else %}<img src="{% static 'img/icons/default.svg' %}" width="18" height="18">{% endif %}{{ c.name }}</a>{% endfor %}</div></section>
+<section class="mb-4 mb-md-5 reveal"><div class="d-flex justify-content-between align-items-end mb-3"><h2 class="h5 mb-0">Новинки</h2></div><div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4" data-stagger-grid>{% for p in products %}
+<div class="product-card-wrap">
+  {% include "partials/product_card.html" with p=p stagger=True %}
+  {% if p.colors_preview %}
+  <div class="product-card-dots">
+    <span class="text-secondary small me-1">Кольори:</span>
+    <div class="d-flex align-items-center gap-1">
+      {% for v in p.colors_preview %}
+        <span class="color-dot" title="{{ v.primary_hex }}{% if v.secondary_hex %}+{{ v.secondary_hex }}{% endif %}" style="--c1: {{ v.primary_hex }}; --c2: {{ v.secondary_hex|default:'' }};"></span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% empty %}<div class="text-secondary small">Немає товарів.</div>{% endfor %}</div></section>
+{% endblock %}

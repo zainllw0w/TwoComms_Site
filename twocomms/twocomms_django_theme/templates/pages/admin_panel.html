@@ -1,0 +1,427 @@
+{% extends 'base.html' %}{% load static %}{% block title %}Панель адміністратора — TwoComms{% endblock %}{% block content %}
+<div class="row g-3 g-md-4">
+  <div class="col-12 col-lg-3">
+    <div class="card glass p-2">
+      <nav class="nav flex-column">
+        <a class="nav-link {% if section == 'stats' %}active{% endif %}" href="{% url 'admin_panel' %}?section=stats">Статистика</a>
+        <a class="nav-link {% if section == 'users' %}active{% endif %}" href="{% url 'admin_panel' %}?section=users">Користувачі</a>
+        <a class="nav-link {% if section == 'catalogs' %}active{% endif %}" href="{% url 'admin_panel' %}?section=catalogs">Каталоги</a>
+        <a class="nav-link {% if section == 'orders' %}active{% endif %}" href="{% url 'admin_panel' %}?section=orders">Замовлення</a>
+        <a class="nav-link {% if section == 'promocodes' %}active{% endif %}" href="{% url 'admin_promocodes' %}">Промокоди</a>
+      </nav>
+    </div>
+  </div>
+  <div class="col-12 col-lg-9">
+    {% if section == 'stats' %}
+      <div class="card glass p-3 p-md-4">
+        <h1 class="h5 fw-bold mb-3">Статистика (заглушка)</h1>
+        <div class="row text-center">
+          <div class="col-6 col-md-3">
+            <div class="card bg-elevate p-3 rounded-4">
+              <div class="small text-secondary">Замовлень сьогодні</div>
+              <div class="fs-4 fw-bold">{{ stats.orders_today }}</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card bg-elevate p-3 rounded-4">
+              <div class="small text-secondary">Дохід</div>
+              <div class="fs-4 fw-bold">{{ stats.revenue }} грн</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3 mt-3 mt-md-0">
+            <div class="card bg-elevate p-3 rounded-4">
+              <div class="small text-secondary">Користувачів</div>
+              <div class="fs-4 fw-bold">{{ stats.users }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    {% elif section == 'users' %}
+      <div class="card glass p-3 p-md-4">
+        <h1 class="h5 fw-bold mb-3">Користувачі</h1>
+        <div class="table-responsive">
+          <table class="table table-dark table-hover align-middle">
+            <thead>
+              <tr>
+                <th>Аватар</th>
+                <th>Інформація</th>
+                <th>Контакти</th>
+                <th>Бали</th>
+                <th class="text-center">Права</th>
+                <th class="text-end">Дії</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for data in user_data %}
+              <tr>
+                <td>
+                  <div class="rounded-circle overflow-hidden" style="width:48px;height:48px;">
+                    {% if data.profile and data.profile.avatar %}
+                      <img src="{{ data.profile.avatar.url }}" class="w-100 h-100 object-fit-cover" alt="">
+                    {% else %}
+                      <img src="{% static 'img/placeholder.jpg' %}" class="w-100 h-100 object-fit-cover" alt="">
+                    {% endif %}
+                  </div>
+                </td>
+                <td>
+                  <div class="fw-semibold">{{ data.user.username }}</div>
+                  <div class="text-secondary small">
+                    {% if data.profile and data.profile.full_name %}
+                      {{ data.profile.full_name }}
+                    {% else %}
+                      ПІБ не вказано
+                    {% endif %}
+                  </div>
+                  <div class="text-secondary small">
+                    Зареєстрований: {{ data.user.date_joined|date:"d.m.Y" }}
+                  </div>
+                </td>
+                <td>
+                  <div class="text-secondary small">
+                    {% if data.profile %}
+                      {% if data.profile.phone %}
+                        <div>📞 {{ data.profile.phone }}</div>
+                      {% else %}
+                        <div>📞 Телефон не вказано</div>
+                      {% endif %}
+                      {% if data.profile.city %}
+                        <div>🏙️ {{ data.profile.city }}</div>
+                      {% endif %}
+                      {% if data.profile.np_office %}
+                        <div>📦 {{ data.profile.np_office }}</div>
+                      {% endif %}
+                    {% else %}
+                      <div>📞 Телефон не вказано</div>
+                    {% endif %}
+                  </div>
+                </td>
+                <td>
+                  <div class="points-display">
+                    {% if data.points %}
+                      <div class="current-points">
+                        <span class="points-label">Поточні бали:</span>
+                        <span class="points-value">{{ data.points.points }}</span>
+                      </div>
+                      <div class="points-stats">
+                        <div class="text-secondary small">
+                          Зароблено: {{ data.points.total_earned }}
+                        </div>
+                        <div class="text-secondary small">
+                          Витрачено: {{ data.points.total_spent }}
+                        </div>
+                      </div>
+                    {% else %}
+                      <div class="text-secondary small">Бали не нараховані</div>
+                    {% endif %}
+                  </div>
+                </td>
+                <td class="text-center">
+                  <form method="post" action="{% url 'admin_update_user' %}" class="d-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="user_id" value="{{ data.user.id }}">
+                    <div class="form-check form-check-inline">
+                      <input class="form-check-input" type="checkbox" name="is_staff" {% if data.user.is_staff %}checked{% endif %}>
+                      <label class="form-check-label small">Співробітник</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                      <input class="form-check-input" type="checkbox" name="is_superuser" {% if data.user.is_superuser %}checked{% endif %} {% if not request.user.is_superuser %}disabled{% endif %}>
+                      <label class="form-check-label small">Адміністратор</label>
+                    </div>
+                </td>
+                <td class="text-end">
+                  <div class="d-flex flex-column gap-2">
+                    <button type="submit" class="btn btn-sm btn-cta">Зберегти права</button>
+                    
+                    <!-- Форма для редактирования баллов -->
+                    <div class="points-edit-form">
+                      <div class="input-group input-group-sm">
+                        <input type="number" name="points_adjustment" class="form-control form-control-sm" placeholder="± бали" style="width: 80px;">
+                        <input type="text" name="points_reason" class="form-control form-control-sm" placeholder="Причина" style="width: 120px;">
+                        <button type="submit" class="btn btn-sm btn-outline-warning">Коригувати бали</button>
+                      </div>
+                    </div>
+                  </div>
+                  </form>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="6" class="text-secondary small">Немає користувачів.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% elif section == 'catalogs' %}
+      <div class="card glass p-3 p-md-4 mb-3">
+        <h2 class="h6 fw-bold mb-3">Категорії</h2>
+        <div class="d-flex justify-content-end mb-2">
+          <a href="{% url 'admin_category_new' %}" class="btn btn-sm btn-cta">Додати категорію</a>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-dark table-hover align-middle">
+            <thead><tr><th>Назва</th><th>Порядок</th><th></th></tr></thead>
+            <tbody>
+              {% for c in categories %}
+              <tr>
+                <td>{{ c.name }}</td>
+                <td class="text-secondary small">{% if c.order %}{{ c.order }}{% else %}-{% endif %}</td>
+                <td class="text-end">
+                  <a href="{% url 'admin_category_edit' c.id %}" class="btn btn-sm btn-outline-light">Редагувати</a>
+                  <a href="{% url 'admin_category_delete' c.id %}" class="btn btn-sm btn-outline-light" onclick="return confirm('Видалити категорію?')">Видалити</a>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="3" class="text-secondary small">Немає категорій.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card glass p-3 p-md-4">
+        <h2 class="h6 fw-bold mb-3">Товари</h2>
+        <div class="d-flex justify-content-end mb-2">
+          <a href="{% url 'admin_product_new' %}" class="btn btn-sm btn-cta">Додати товар</a>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-dark table-hover align-middle">
+            <thead><tr><th>Зображення</th><th>Назва</th><th>Категорія</th><th>Ціна</th><th></th></tr></thead>
+            <tbody>
+              {% for p in products %}
+              <tr>
+                <td style="width:64px">
+                  <div class="rounded-3 overflow-hidden bg-elevate" style="width:48px;height:48px;">
+                    {% if p.main_image %}<img src="{{ p.main_image.url }}" class="w-100 h-100 object-fit-cover">{% endif %}
+                  </div>
+                </td>
+                <td>{{ p.title }}</td>
+                <td class="text-secondary small">{% if p.category %}{{ p.category.name }}{% else %}-{% endif %}</td>
+                <td class="text-secondary small">{{ p.price }} грн</td>
+                <td class="text-end">
+                                      <a href="{% url 'admin_product_edit_unified' p.id %}" class="btn btn-sm btn-outline-light">Редагувати</a>
+                  <a href="{% url 'admin_product_delete' p.id %}" class="btn btn-sm btn-outline-light" onclick="return confirm('Видалити товар?')">Видалити</a>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5" class="text-secondary small">Немає товарів.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% elif section == 'orders' %}
+      <div class="orders-admin-section">
+        <!-- Заголовок секции -->
+        <div class="orders-header">
+          <div class="orders-title-section">
+            <h1 class="orders-title">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="me-2">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+              </svg>
+              Управління замовленнями
+            </h1>
+            <div class="orders-stats">
+              <div class="stat-item">
+                <span class="stat-label">Всього:</span>
+                <span class="stat-value">{{ orders|length }}</span>
+              </div>
+              {% if orders_processing_count > 0 %}
+                <div class="stat-item processing">
+                  <span class="stat-label">В обробці:</span>
+                  <span class="stat-value">{{ orders_processing_count }}</span>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Список заказов -->
+        <div class="orders-list">
+          {% with orders=orders|default:None %}
+          {% if orders %}
+            {% for o in orders %}
+            <div class="order-card">
+              <!-- Основная информация о заказе -->
+              <div class="order-main-info">
+                <div class="order-header">
+                  <div class="order-number-section">
+                    <div class="order-number">{{ o.order_number }}</div>
+                    <div class="order-date">{{ o.created|date:"d.m.Y H:i" }}</div>
+                  </div>
+                  <div class="order-status-section">
+                    <form method="post" action="{% url 'admin_order_update' %}" class="status-form">
+                      {% csrf_token %}
+                      <input type="hidden" name="order_id" value="{{ o.id }}">
+                      <select name="status" class="status-select">
+                        {% for val,label in o.STATUS_CHOICES %}
+                          <option value="{{ val }}" {% if o.status == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                      </select>
+                      <button type="submit" class="status-update-btn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                        </svg>
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                <!-- Информация о клиенте -->
+                <div class="customer-info">
+                  <div class="customer-avatar">
+                    {% if o.user and o.user.userprofile.avatar %}
+                      <img src="{{ o.user.userprofile.avatar.url }}" alt="Avatar">
+                    {% else %}
+                      <div class="avatar-placeholder">
+                        {% if o.user %}
+                          {{ o.user.username|first|upper }}
+                        {% else %}
+                          Г
+                        {% endif %}
+                      </div>
+                    {% endif %}
+                  </div>
+                  <div class="customer-details">
+                    <div class="customer-name">
+                      {% if o.user %}
+                        <span class="user-badge">Користувач</span>
+                        {{ o.full_name }}
+                      {% else %}
+                        <span class="guest-badge">Гість</span>
+                        {{ o.full_name }}
+                      {% endif %}
+                    </div>
+                    <div class="customer-contact">
+                      <div class="contact-item">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+                        </svg>
+                        {{ o.phone }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Информация о доставке -->
+                <div class="delivery-info">
+                  <div class="delivery-item">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                    </svg>
+                    <span>{{ o.city }}</span>
+                  </div>
+                  <div class="delivery-item">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H4v-4h11v4zm0-5H4V9h11v4zm5 5h-4V9h4v9z"/>
+                    </svg>
+                    <span>{{ o.np_office }}</span>
+                  </div>
+                  <div class="payment-type">
+                    <span class="payment-badge {% if o.pay_type == 'full' %}full-payment{% else %}partial-payment{% endif %}">
+                      {% if o.pay_type == 'full' %}Повна оплата{% else %}Часткова оплата{% endif %}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Информация о промокоде -->
+                {% if o.promo_code %}
+                <div class="promo-info">
+                  <div class="promo-badge">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
+                    </svg>
+                    Промокод: {{ o.promo_code.code }}
+                    <span class="discount-amount">(-{{ o.discount_amount }} грн)</span>
+                  </div>
+                </div>
+                {% endif %}
+
+                <!-- Сумма заказа -->
+                <div class="order-total">
+                  <span class="total-label">Сума замовлення:</span>
+                  <span class="total-amount">{{ o.total_sum }} грн</span>
+                </div>
+                
+                <!-- Информация о баллах -->
+                {% if o.user %}
+                <div class="points-info">
+                  <div class="points-badge {% if o.points_awarded %}awarded{% else %}pending{% endif %}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    {% if o.points_awarded %}
+                      Бали нараховані
+                    {% else %}
+                      Бали очікують
+                    {% endif %}
+                  </div>
+                </div>
+                {% endif %}
+              </div>
+
+              <!-- Детали заказа (товары) -->
+              <div class="order-details">
+                <button class="details-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#items-{{ o.id }}">
+                  <span>Товари в замовленні ({{ o.items.count }})</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="toggle-icon">
+                    <path d="M7 10l5 5 5-5z"/>
+                  </svg>
+                </button>
+                
+                <div class="collapse" id="items-{{ o.id }}">
+                  <div class="order-items">
+                    {% for it in o.items.all %}
+                    <div class="order-item">
+                      <div class="item-image">
+                        {% if it.color_variant and it.color_variant.images.exists %}
+                          <img src="{{ it.color_variant.images.first.image.url }}" alt="{{ it.title }}">
+                        {% elif it.product.main_image %}
+                          <img src="{{ it.product.main_image.url }}" alt="{{ it.title }}">
+                        {% else %}
+                          <div class="image-placeholder">IMG</div>
+                        {% endif %}
+                      </div>
+                      <div class="item-info">
+                        <div class="item-title">{{ it.title }}</div>
+                        <div class="item-details">
+                          <span class="item-size">Розмір: {{ it.size|default:"-" }}</span>
+                          <span class="item-qty">Кількість: {{ it.qty }}</span>
+                          {% if it.color_variant %}
+                            <div class="d-flex align-items-center gap-1">
+                              <span class="swatch" style="width: 12px; height: 12px; background: {{ it.color_variant.color.primary_hex }};" 
+                                    data-primary="{{ it.color_variant.color.primary_hex }}" 
+                                    data-secondary="{{ it.color_variant.color.secondary_hex|default:'' }}">
+                              </span>
+                              <span class="item-color">Колір</span>
+                            </div>
+                          {% endif %}
+                        </div>
+                        <div class="item-price">
+                          <span class="unit-price">{{ it.unit_price }} грн</span>
+                          <span class="line-total">{{ it.line_total }} грн</span>
+                        </div>
+                      </div>
+                    </div>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="no-orders">
+              <div class="no-orders-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                </svg>
+              </div>
+              <div class="no-orders-text">Поки що немає замовлень</div>
+            </div>
+          {% endif %}
+          {% endwith %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

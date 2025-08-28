@@ -1,0 +1,1 @@
+1) Add 'storefront' to INSTALLED_APPS; 2) Point TEMPLATES/STATIC to twocomms_django_theme; 3) Include storefront.urls; 4) pip install Pillow; 5) migrate; 6) add categories/products via /add-category and /add-product;
