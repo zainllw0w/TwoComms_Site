@@ -20,8 +20,8 @@ ALLOWED_HOSTS = [
 ]
 
 # Настройки статических файлов для продакшена
-STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Настройки медиа файлов
 MEDIA_URL = '/media/'
