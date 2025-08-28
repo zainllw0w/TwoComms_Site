@@ -57,6 +57,7 @@ urlpatterns=[
     path('api/colors/', views.api_colors, name='api_colors'),
     path('debug/media/', views.debug_media, name='debug_media'),
     path('debug/media-page/', views.debug_media_page, name='debug_media_page'),
+    path('debug/product-images/', views.debug_product_images, name='debug_product_images'),
     # dev helper
     path('dev/grant-admin/', views.dev_grant_admin, name='dev_grant_admin'),
     # static pages
