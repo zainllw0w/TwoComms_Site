@@ -1,0 +1,78 @@
+{% extends 'base.html' %}{% load static %}{% block title %}Профіль — TwoComms{% endblock %}{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="card glass p-3 p-md-4">
+      <h1 class="h5 fw-bold mb-3">Профіль та доставка</h1>
+      <form method="post" enctype="multipart/form-data" class="vstack gap-3">{% csrf_token %}
+        <div class="row g-3">
+          <div class="col-md-6">
+            {{ form.full_name.label_tag }}{{ form.full_name }}
+          </div>
+          <div class="col-md-6">
+            {{ form.phone.label_tag }}{{ form.phone }}
+          </div>
+          <div class="col-md-6">
+            {{ form.city.label_tag }}{{ form.city }}
+          </div>
+          <div class="col-md-6">
+            {{ form.np_office.label_tag }}{{ form.np_office }}
+          </div>
+          <div class="col-md-6">
+            {{ form.pay_type.label_tag }}{{ form.pay_type }}
+          </div>
+          <div class="col-md-6">
+            {{ form.avatar.label_tag }}{{ form.avatar }}
+          </div>
+          <div class="col-md-6 form-check">
+            {{ form.is_ubd }} {{ form.is_ubd.label_tag }}
+          </div>
+          <div class="col-md-6">
+            {{ form.ubd_doc.label_tag }}{{ form.ubd_doc }}
+          </div>
+        </div>
+        <button class="btn btn-cta mt-2">Зберегти</button>
+      </form>
+      <div class="text-secondary small mt-2">Телефон — обов’язково. Якщо ви УБД — завантажте фото посвідчення.</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% extends 'base.html' %}{% load static %}{% block title %}Профіль — TwoComms{% endblock %}{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="card glass p-3 p-md-4">
+      <h1 class="h5 fw-bold mb-3">Профіль та доставка</h1>
+      <form method="post" enctype="multipart/form-data" class="vstack gap-3">{% csrf_token %}
+        <div class="row g-3">
+          <div class="col-md-6">
+            {{ form.full_name.label_tag }}{{ form.full_name }}
+          </div>
+          <div class="col-md-6">
+            {{ form.phone.label_tag }}{{ form.phone }}
+          </div>
+          <div class="col-md-6">
+            {{ form.city.label_tag }}{{ form.city }}
+          </div>
+          <div class="col-md-6">
+            {{ form.np_office.label_tag }}{{ form.np_office }}
+          </div>
+          <div class="col-md-6">
+            {{ form.pay_type.label_tag }}{{ form.pay_type }}
+          </div>
+          <div class="col-md-6">
+            {{ form.avatar.label_tag }}{{ form.avatar }}
+          </div>
+          <div class="col-md-6 form-check">
+            {{ form.is_ubd }} {{ form.is_ubd.label_tag }}
+          </div>
+          <div class="col-md-6">
+            {{ form.ubd_doc.label_tag }}{{ form.ubd_doc }}
+          </div>
+        </div>
+        <button class="btn btn-cta mt-2">Зберегти</button>
+      </form>
+      <div class="text-secondary small mt-2">Телефон — обов’язковий. Якщо ви УБД — завантажте фото посвідчення.</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

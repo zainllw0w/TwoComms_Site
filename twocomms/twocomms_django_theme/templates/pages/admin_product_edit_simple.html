@@ -1,0 +1,104 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}Редагувати товар — TwoComms{% endblock %}
+{% block content %}
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="card glass p-3 p-md-4">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h1 class="h5 fw-bold mb-0">Редагувати товар</h1>
+        <a href="/admin-panel/?section=catalogs" class="btn btn-outline-light">Назад</a>
+      </div>
+      
+      <form method="post" enctype="multipart/form-data" class="vstack gap-3">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+        {% endif %}
+        {% for field in form %}
+          {% for err in field.errors %}
+            <div class="alert alert-danger small">{{ field.label }}: {{ err }}</div>
+          {% endfor %}
+        {% endfor %}
+
+        <div class="row g-3">
+          <div class="col-md-8">
+            <label class="form-label">Назва товару</label>
+            {{ form.title }}
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Slug</label>
+            {{ form.slug }}
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Категорія</label>
+            {{ form.category }}
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Ціна (грн)</label>
+            {{ form.price }}
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Бали за покупку</label>
+            {{ form.points_reward }}
+            <div class="form-text">Кількість балів за покупку товару</div>
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-4">
+            <div class="form-check">
+              {{ form.has_discount }}
+              <label class="form-check-label" for="{{ form.has_discount.id_for_label }}">
+                Акційна пропозиція
+              </label>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Знижка (%)</label>
+            {{ form.discount_percent }}
+          </div>
+          <div class="col-md-4">
+            <div class="form-check">
+              {{ form.featured }}
+              <label class="form-check-label" for="{{ form.featured.id_for_label }}">
+                Рекомендований товар
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="form-label">Опис товару</label>
+          {{ form.description }}
+        </div>
+
+        <div>
+          <label class="form-label">Головне зображення</label>
+          {{ form.main_image }}
+          {% if obj.main_image %}
+            <div class="mt-2">
+              <img src="{{ obj.main_image.url }}" alt="Поточне зображення" style="max-width: 200px; height: auto;" class="rounded">
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="text-center">
+          <button type="submit" class="btn btn-cta btn-lg">Зберегти зміни</button>
+        </div>
+      </form>
+      
+      <div class="mt-4 text-center">
+        <a href="/admin-panel/product/{{ obj.id }}/edit/" class="btn btn-outline-light">
+          Редагувати кольори та додаткові фото
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

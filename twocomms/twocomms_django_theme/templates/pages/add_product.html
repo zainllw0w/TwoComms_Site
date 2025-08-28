@@ -1,0 +1,96 @@
+{% extends 'base.html' %}{% load static %}{% block title %}Додати товар — TwoComms{% endblock %}{% block content %}
+<div class='row justify-content-center'>
+  <div class='col-12 col-lg-8'>
+    <div class='card glass p-3 p-md-4'>
+      <h1 class='h5 fw-bold mb-3'>Додати товар</h1>
+      <form method='post' enctype='multipart/form-data' class='vstack gap-3' id='productForm'>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+        {% endif %}
+        {% for field in form %}
+          {% for err in field.errors %}
+            <div class="alert alert-danger small">{{ field.label }}: {{ err }}</div>
+          {% endfor %}
+        {% endfor %}
+
+        <div class='row g-3'>
+          <div class='col-md-8'>{{ form.title.label_tag }}{{ form.title }}</div>
+          <div class='col-md-4'>{{ form.slug.label_tag }}{{ form.slug }}</div>
+          <div class='col-md-6'>{{ form.category.label_tag }}{{ form.category }}</div>
+          <div class='col-md-3'>{{ form.price.label_tag }}{{ form.price }}</div>
+          <div class='col-md-3'>{{ form.main_image.label_tag }}{{ form.main_image }}</div>
+        </div>
+
+        <div class='row g-3'>
+          <div class='col-md-3 form-check'>{{ form.has_discount }} {{ form.has_discount.label_tag }}</div>
+          <div class='col-md-3'>
+            {{ form.discount_percent.label_tag }}{{ form.discount_percent }}
+            <div class='form-text'>%</div>
+          </div>
+          <div class='col-md-3'>
+            <label class='form-label'>Фінальна ціна (auto)</label>
+            <input type='text' class='form-control' id='finalPrice' readonly>
+          </div>
+          <div class='col-md-3'>
+            {{ form.points_reward.label_tag }}{{ form.points_reward }}
+            <div class='form-text'>Кількість балів за покупку</div>
+          </div>
+        </div>
+
+        <div>{{ form.featured }} {{ form.featured.label_tag }}</div>
+        <div>{{ form.description.label_tag }}{{ form.description }}</div>
+
+        <div>
+          <label class='form-label'>Додаткові фото</label>
+          {{ form.extra_images }}
+          <div class="form-text">Можна обрати декілька зображень (Ctrl/Shift). Підтримуються лише файли зображень.</div>
+        </div>
+
+        <button class='btn btn-cta'>Зберегти</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% block extra_js %}
+<script>
+(function(){
+  const price=document.getElementById('id_price');
+  const has=document.getElementById('id_has_discount');
+  const perc=document.getElementById('id_discount_percent');
+  const out=document.getElementById('finalPrice');
+  function recalc(){
+    const p=parseInt(price.value||'0',10);
+    const d=parseInt(perc.value||'0',10);
+    let f=p;
+    if(has.checked&&d>0) f=Math.round(p*(100-d)/100);
+    out.value=f
+  }
+  ['input','change'].forEach(ev=>{
+    price.addEventListener(ev,recalc);
+    has.addEventListener(ev,recalc);
+    perc.addEventListener(ev,recalc)
+  });
+  recalc()
+  recalc()
+  
+  // Отладка формы
+  const form = document.getElementById('productForm');
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      console.log('Отправка формы создания товара...');
+      const formData = new FormData(this);
+      console.log('Данные формы:', Object.fromEntries(formData));
+      
+      // Проверяем поле points_reward
+      const pointsField = document.getElementById('id_points_reward');
+      if (pointsField) {
+        console.log('points_reward:', pointsField.value);
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}
+{% endblock %}

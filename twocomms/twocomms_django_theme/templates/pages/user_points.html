@@ -1,0 +1,255 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Мої бали — TwoComms{% endblock %}
+
+{% block content %}
+<div class="container-xxl py-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <!-- Заголовок -->
+      <div class="card glass p-4 mb-4">
+        <div class="d-flex align-items-center gap-3">
+          <div class="points-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          </div>
+          <div>
+            <h1 class="h4 mb-1">Мої бали</h1>
+            <p class="text-secondary mb-0">Накопичуйте бали за покупки та використовуйте їх для отримання знижок</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Основная информация о баллах -->
+      <div class="card glass p-4 mb-4">
+        <div class="row text-center">
+          <div class="col-4">
+            <div class="points-stat">
+              <div class="points-value">{{ user_points.points }}</div>
+              <div class="points-label">Поточний баланс</div>
+            </div>
+          </div>
+          <div class="col-4">
+            <div class="points-stat">
+              <div class="points-value earned">{{ user_points.total_earned }}</div>
+              <div class="points-label">Всього зароблено</div>
+            </div>
+          </div>
+          <div class="col-4">
+            <div class="points-stat">
+              <div class="points-value spent">{{ user_points.total_spent }}</div>
+              <div class="points-label">Всього витрачено</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Информация о системе баллов -->
+      <div class="card glass p-4 mb-4">
+        <h3 class="h5 mb-3">Як працюють бали?</h3>
+        <div class="row">
+          <div class="col-md-6">
+            <div class="info-item">
+              <div class="info-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+              </div>
+              <div class="info-content">
+                <h4>Заробляйте бали</h4>
+                <p>Отримуйте бали за кожну покупку. Кількість балів залежить від товару.</p>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="info-item">
+              <div class="info-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+              </div>
+              <div class="info-content">
+                <h4>Використовуйте бали</h4>
+                <p>Обмінюйте бали на промокоди або жертвуйте на ЗСУ.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- История баллов -->
+      <div class="card glass p-4">
+        <h3 class="h5 mb-3">Історія балів</h3>
+        {% if history %}
+          <div class="points-history">
+            {% for record in history %}
+            <div class="history-item">
+              <div class="history-icon {% if record.change_type == 'earned' %}earned{% else %}spent{% endif %}">
+                {% if record.change_type == 'earned' %}
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                {% else %}
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 13H5v-2h14v2z"/>
+                  </svg>
+                {% endif %}
+              </div>
+              <div class="history-content">
+                <div class="history-amount {% if record.change_type == 'earned' %}earned{% else %}spent{% endif %}">
+                  {% if record.change_type == 'earned' %}+{% else %}-{% endif %}{{ record.points_change|abs }} балів
+                </div>
+                <div class="history-reason">{{ record.reason|default:"Операція з балів" }}</div>
+                <div class="history-date">{{ record.created_at|date:"d.m.Y H:i" }}</div>
+              </div>
+              <div class="history-balance">
+                Баланс: {{ record.balance_after }}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-center text-secondary py-4">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" class="mb-3 opacity-50">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            <p>Поки що немає операцій з балами</p>
+            <p class="small">Зробіть першу покупку, щоб почати заробляти бали!</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.points-icon {
+  color: #f39c12;
+}
+
+.points-stat {
+  padding: 1rem;
+}
+
+.points-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #ecf0f1;
+  margin-bottom: 0.5rem;
+}
+
+.points-value.earned {
+  color: #27ae60;
+}
+
+.points-value.spent {
+  color: #e74c3c;
+}
+
+.points-label {
+  font-size: 0.9rem;
+  color: #bdc3c7;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.info-icon {
+  color: #3498db;
+  flex-shrink: 0;
+}
+
+.info-content h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #ecf0f1;
+}
+
+.info-content p {
+  font-size: 0.9rem;
+  color: #bdc3c7;
+  margin: 0;
+}
+
+.points-history {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.history-item:last-child {
+  border-bottom: none;
+}
+
+.history-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.history-icon.earned {
+  background: rgba(39, 174, 96, 0.2);
+  color: #27ae60;
+}
+
+.history-icon.spent {
+  background: rgba(231, 76, 60, 0.2);
+  color: #e74c3c;
+}
+
+.history-content {
+  flex: 1;
+}
+
+.history-amount {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.history-amount.earned {
+  color: #27ae60;
+}
+
+.history-amount.spent {
+  color: #e74c3c;
+}
+
+.history-reason {
+  font-size: 0.9rem;
+  color: #ecf0f1;
+  margin-bottom: 0.25rem;
+}
+
+.history-date {
+  font-size: 0.8rem;
+  color: #bdc3c7;
+}
+
+.history-balance {
+  font-size: 0.9rem;
+  color: #bdc3c7;
+  text-align: right;
+}
+</style>
+{% endblock %}

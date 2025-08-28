@@ -1,0 +1,676 @@
+{% extends "base.html" %}{% load static %}{% block title %}{{ product.title }} — TwoComms{% endblock %}{% block content %}
+<div class="row g-4">
+  <div class="col-12 col-lg-6">
+    <div class="ratio ratio-1x1 rounded-4 overflow-hidden bg-elevate glass position-relative">
+      <img
+        id="mainImage"
+        src="{% if product.main_image %}{{ product.main_image.url }}{% else %}{% static 'img/placeholder.jpg' %}{% endif %}"
+        class="w-100 h-100 object-fit-cover"
+        alt="{{ product.title }}"
+      >
+    </div>
+    {% if images %}
+    <div class="d-flex gap-2 mt-3 overflow-auto pb-1" style="scrollbar-width: thin;">
+      {% for ph in images %}
+      <button type="button" class="btn btn-outline-light p-0 border-0 thumb rounded-3" data-img="{{ ph.image.url }}" style="width:68px;height:68px;overflow:hidden;flex:0 0 auto;">
+        <img src="{{ ph.image.url }}" class="w-100 h-100 object-fit-cover" alt="">
+      </button>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-12 col-lg-6">
+    <h1 class="h3 fw-bold mb-2">{{ product.title }}</h1>
+    <div class="text-secondary small mb-3">{{ product.category.name }}</div>
+    <div class="d-flex align-items-center gap-3 mb-3">
+      <div class="fs-4 fw-semibold">{{ product.final_price }} грн</div>
+      {% if product.has_discount %}
+        <div class="text-decoration-line-through text-secondary">{{ product.price }} грн</div>
+        <span class="badge text-bg-danger">-{{ product.discount_percent }}%</span>
+      {% endif %}
+    </div>
+    
+
+
+    <!-- Размеры -->
+    <div class="mb-3">
+      <div class="small text-secondary mb-2">Розмір</div>
+      <div class="d-flex flex-wrap gap-2">
+        <input type="radio" class="btn-check" name="size" id="size-s" value="S" autocomplete="off" checked>
+        <label class="btn btn-outline-light rounded-3 px-3 py-2" for="size-s">S</label>
+
+        <input type="radio" class="btn-check" name="size" id="size-m" value="M" autocomplete="off">
+        <label class="btn btn-outline-light rounded-3 px-3 py-2" for="size-m">M</label>
+
+        <input type="radio" class="btn-check" name="size" id="size-l" value="L" autocomplete="off">
+        <label class="btn btn-outline-light rounded-3 px-3 py-2" for="size-l">L</label>
+
+        <input type="radio" class="btn-check" name="size" id="size-xl" value="XL" autocomplete="off">
+        <label class="btn btn-outline-light rounded-3 px-3 py-2" for="size-xl">XL</label>
+
+        <input type="radio" class="btn-check" name="size" id="size-xxl" value="XXL" autocomplete="off">
+        <label class="btn btn-outline-light rounded-3 px-3 py-2" for="size-xxl">XXL</label>
+      </div>
+    </div>
+
+    <!-- Селектор кольорів та бали -->
+    <div class="card bg-elevate border-0 rounded-4 p-2 mb-3">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <div class="small text-secondary">Кольори</div>
+        {% if product.points_reward > 0 %}
+        <div class="points-reward-compact">
+          <div class="d-flex align-items-center gap-1">
+            <div class="points-icon-small">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+            </div>
+            <span class="points-text-small">{{ product.points_reward }} балів</span>
+            <button type="button" class="btn btn-sm btn-outline-light points-help-small" 
+                    data-bs-toggle="modal" data-bs-target="#pointsInfoModal" 
+                    data-product-title="{{ product.title }}" data-points-amount="{{ product.points_reward }}"
+                    onclick="event.stopPropagation();">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+      {% if color_variants %}
+      <div class="d-flex flex-wrap gap-2" id="color-picker">
+        {% for v in color_variants %}
+          <button type="button"
+                  class="btn color-swatch{% if v.is_default %} active{% endif %}"
+                  data-variant="{{ v.id }}"
+                  data-primary="{{ v.primary_hex }}"
+                  data-secondary="{{ v.secondary_hex }}">
+            <span class="swatch" style="{% if v.secondary_hex %}background: {{ v.primary_hex }};{% else %}background: {{ v.primary_hex }};{% endif %}" data-primary="{{ v.primary_hex }}" data-secondary="{{ v.secondary_hex }}"></span>
+          </button>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Галерея товару: обёртка для перемещения на место исходного фото -->
+    <div class="product-gallery-block">
+      <div id="productCarousel" class="carousel slide mb-3" data-bs-ride="false">
+        <div class="carousel-inner rounded-4 overflow-hidden bg-elevate ratio ratio-4x3">
+          <!-- Заповниться динамічно (варіант кольору або головне фото) -->
+          <div class="carousel-item active">
+            <img
+              src="{% if product.display_image %}{{ product.display_image.url }}{% else %}{% static 'img/placeholder.jpg' %}{% endif %}"
+              class="d-block w-100 h-100 object-fit-contain"
+              alt="{{ product.title }}"
+            >
+          </div>
+        </div>
+        <div class="carousel-indicators position-static mt-2"></div>
+      </div>
+
+      <!-- Мініатюри: буде побудовано динамічно -->
+      <div class="d-flex gap-2 overflow-auto pb-2" id="product-thumbs"></div>
+    </div>
+
+    <!-- Красивые вкладки для описания и размерной сетки -->
+    <div class="product-tabs-container mb-4">
+      <div class="product-tabs-header">
+        <button class="product-tab-button active" data-tab="desc">Опис</button>
+        <button class="product-tab-button" data-tab="size">Розмірна сітка</button>
+      </div>
+      <div class="product-tab-content">
+        <div id="tab-desc" class="product-tab-pane active">
+          <div class="text-secondary">{{ product.description|default:'…'|linebreaksbr }}</div>
+        </div>
+        <div id="tab-size" class="product-tab-pane">
+          <div class="text-secondary">
+            <div class="mb-3">
+              <h6 class="fw-semibold mb-2">Таблиця розмірів</h6>
+              <div class="table-responsive">
+                <table class="table table-sm table-borderless text-secondary small">
+                  <thead>
+                    <tr>
+                      <th>Розмір</th>
+                      <th>Груди (см)</th>
+                      <th>Талія (см)</th>
+                      <th>Стегна (см)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="fw-semibold">S</td>
+                      <td>88-92</td>
+                      <td>70-74</td>
+                      <td>94-98</td>
+                    </tr>
+                    <tr>
+                      <td class="fw-semibold">M</td>
+                      <td>92-96</td>
+                      <td>74-78</td>
+                      <td>98-102</td>
+                    </tr>
+                    <tr>
+                      <td class="fw-semibold">L</td>
+                      <td>96-100</td>
+                      <td>78-82</td>
+                      <td>102-106</td>
+                    </tr>
+                    <tr>
+                      <td class="fw-semibold">XL</td>
+                      <td>100-104</td>
+                      <td>82-86</td>
+                      <td>106-110</td>
+                    </tr>
+                    <tr>
+                      <td class="fw-semibold">XXL</td>
+                      <td>104-108</td>
+                      <td>86-90</td>
+                      <td>110-114</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="small text-muted">
+              <strong>Як виміряти:</strong><br>
+              • Груди: навколо найширшої частини грудей<br>
+              • Талія: навколо найвужчої частини талії<br>
+              • Стегна: навколо найширшої частини стегон
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Дані про варіанти для JS (безпечний валідний JSON) -->
+    {{ color_variants|json_script:"variant-data" }}
+
+    <script>
+    (function(){
+      // Применяем CSS переменные для комбинированных цветов
+      document.querySelectorAll('.color-swatch .swatch[data-secondary]').forEach(function(swatch) {
+        var primary = swatch.getAttribute('data-primary');
+        var secondary = swatch.getAttribute('data-secondary');
+        
+        if (secondary && secondary !== '') {
+          swatch.style.setProperty('--primary-color', primary);
+          swatch.style.setProperty('--secondary-color', secondary);
+          
+          // Добавляем разделительную линию
+          var divider = document.createElement('div');
+          divider.className = 'divider';
+          swatch.appendChild(divider);
+        }
+      });
+      
+      // Парсимо дані варіантів
+      var dataTag = document.getElementById('variant-data');
+      var variants = [];
+      try{ variants = JSON.parse((dataTag && dataTag.textContent) || '[]'); }catch(_){ variants=[]; }
+
+      var carousel = document.getElementById('productCarousel');
+      var inner = carousel ? carousel.querySelector('.carousel-inner') : null;
+      var indicators = carousel ? carousel.querySelector('.carousel-indicators') : null;
+      var thumbs = document.getElementById('product-thumbs');
+
+      function rebuildCarousel(images){
+        if(!(inner && indicators && thumbs)) return;
+        inner.innerHTML = '';
+        indicators.innerHTML = '';
+        thumbs.innerHTML = '';
+        var list = images && images.length ? images : ['{% if product.main_image %}{{ product.main_image.url }}{% else %}{% static "img/placeholder.jpg" %}{% endif %}'];
+
+        list.forEach(function(url, idx){
+          var item = document.createElement('div');
+          item.className = 'carousel-item' + (idx===0?' active':'');
+          item.innerHTML = '<img src="'+url+'" class="d-block w-100 h-100 object-fit-contain" alt="">';
+          inner.appendChild(item);
+
+          var ind = document.createElement('button');
+          ind.type = 'button';
+          ind.setAttribute('data-bs-target', '#productCarousel');
+          ind.setAttribute('data-bs-slide-to', String(idx));
+          if(idx===0){ ind.className='active'; ind.setAttribute('aria-current','true'); }
+          ind.setAttribute('aria-label','Слайд '+(idx+1));
+          indicators.appendChild(ind);
+
+          var th = document.createElement('button');
+          th.type='button'; th.className='btn p-0 thumb'; th.setAttribute('data-bs-target','#productCarousel'); th.setAttribute('data-bs-slide-to', String(idx));
+          th.innerHTML = '<img src="'+url+'" class="rounded-3 object-fit-cover" style="width:72px;height:72px;" alt="">';
+          thumbs.appendChild(th);
+        });
+      }
+
+      function pickDefault(){
+        var d = variants.find(function(v){ return v.is_default; });
+        return d || variants[0] || null;
+      }
+
+      function onColorClick(e){
+        var btn = e.currentTarget;
+        var id = parseInt(btn.getAttribute('data-variant')||'-1',10);
+        var v = variants.find(function(x){ return x.id===id; });
+        if(!v) return;
+        // Активний стан
+        document.querySelectorAll('#color-picker .color-swatch').forEach(function(b){ b.classList.remove('active'); });
+        btn.classList.add('active');
+        rebuildCarousel(v.images || []);
+      }
+
+      // Ініціалізація
+      if(variants.length){
+        var def = pickDefault();
+        rebuildCarousel(def && def.images ? def.images : []);
+        document.querySelectorAll('#color-picker .color-swatch').forEach(function(b){
+          b.addEventListener('click', onColorClick);
+        });
+      }
+    })();
+    </script>
+
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <div class="qty-control" data-qty>
+        <button type="button" onclick="QtyDec('#qty'); return false;" aria-label="Зменшити">−</button>
+        <input type="number" id="qty" min="1" value="1" inputmode="numeric">
+        <button type="button" onclick="QtyInc('#qty'); return false;" aria-label="Збільшити">+</button>
+      </div>
+      <button type="button" class="btn btn-cta flex-grow-1 flex-md-grow-0" data-add-to-cart="{{ product.id }}" onclick="return AddToCart(this);">Додати в кошик</button>
+          </div>
+      <div class="small text-secondary mt-2">Накопичуйте бали за покупки та використовуйте їх для знижок</div>
+    </div>
+  </div>
+
+<!-- Модальное окно с информацией о баллах -->
+<div class="modal fade" id="pointsInfoModal" tabindex="-1" aria-labelledby="pointsInfoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content points-info-modal">
+      <div class="modal-header">
+        <div class="modal-title-section">
+          <div class="modal-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          </div>
+          <div class="modal-title-content">
+            <h5 class="modal-title" id="pointsInfoModalLabel">Система балів</h5>
+            <p class="modal-subtitle">Як працюють бали за покупки</p>
+          </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="points-info-content">
+          <div class="product-points-info">
+            <div class="product-points-badge">
+              <span class="points-amount" id="modalPointsAmount">0</span>
+              <span class="points-label">балів за цей товар</span>
+            </div>
+            <div class="product-title" id="modalProductTitle">Назва товару</div>
+          </div>
+          
+          <div class="points-explanation">
+            <div class="explanation-item">
+              <div class="explanation-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+              <div class="explanation-text">
+                <strong>Нарахування балів:</strong> Бали нараховуються автоматично після підтвердження замовлення
+              </div>
+            </div>
+            
+            <div class="explanation-item">
+              <div class="explanation-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
+                </svg>
+              </div>
+              <div class="explanation-text">
+                <strong>Використання балів:</strong> Зареєстровані користувачі можуть витратити бали у кабінеті
+              </div>
+            </div>
+            
+            <div class="explanation-item">
+              <div class="explanation-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+              </div>
+              <div class="explanation-text">
+                <strong>Можливості:</strong> Обмін на промокоди або пожертвування на ЗСУ
+              </div>
+            </div>
+          </div>
+          
+          <div class="points-actions">
+            {% if user.is_authenticated %}
+              <a href="{% url 'buy_with_points' %}" class="btn btn-primary points-action-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                Перейти до балів
+              </a>
+            {% else %}
+              <a href="{% url 'login' %}" class="btn btn-outline-primary points-action-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z"/>
+                </svg>
+                Увійти для накопичення балів
+              </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Обработчик для модального окна с информацией о баллах
+  const pointsInfoModal = document.getElementById('pointsInfoModal');
+  if (pointsInfoModal) {
+    pointsInfoModal.addEventListener('show.bs.modal', function(event) {
+      const button = event.relatedTarget;
+      const productTitle = button.getAttribute('data-product-title');
+      const pointsAmount = button.getAttribute('data-points-amount');
+      
+      // Обновляем содержимое модального окна
+      document.getElementById('modalProductTitle').textContent = productTitle;
+      document.getElementById('modalPointsAmount').textContent = pointsAmount;
+    });
+  }
+});
+</script>
+
+<style>
+.points-info-modal .modal-content {
+  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 16px;
+}
+
+.points-info-modal .modal-header {
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  padding: 1.5rem;
+}
+
+.modal-title-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, var(--accent-color), #7c3aed);
+  border-radius: 12px;
+  color: white;
+}
+
+.modal-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.modal-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.points-info-modal .modal-body {
+  padding: 1.5rem;
+}
+
+.product-points-info {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.1), rgba(124, 58, 237, 0.05));
+  border-radius: 12px;
+  border: 1px solid rgba(124, 58, 237, 0.2);
+}
+
+.product-points-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.points-amount {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent-color);
+}
+
+.points-label {
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+.product-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.points-explanation {
+  margin-bottom: 2rem;
+}
+
+.explanation-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.explanation-item:last-child {
+  margin-bottom: 0;
+}
+
+.explanation-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05));
+  border-radius: 8px;
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+.explanation-text {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.explanation-text strong {
+  color: var(--text-primary);
+}
+
+.points-actions {
+  text-align: center;
+}
+
+.points-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.points-action-btn:hover {
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+
+.btn-primary.points-action-btn {
+  background: linear-gradient(135deg, var(--accent-color), #7c3aed);
+  border: none;
+  color: white;
+}
+
+.btn-primary.points-action-btn:hover {
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.3);
+  color: white;
+}
+
+.btn-outline-primary.points-action-btn {
+  border: 1px solid var(--accent-color);
+  color: var(--accent-color);
+  background: transparent;
+}
+
+.btn-outline-primary.points-action-btn:hover {
+  background: var(--accent-color);
+  color: white;
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.3);
+}
+
+@media (max-width: 768px) {
+  .points-info-modal .modal-dialog {
+    margin: 1rem;
+  }
+  
+  .modal-title-section {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.75rem;
+  }
+  
+  .explanation-item {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.75rem;
+  }
+}
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  const main = document.getElementById('mainImage');
+  if(!main) return;
+  
+  // Автоматический выбор первого цвета, если есть цветовые варианты
+  {% if color_variants %}
+    const firstColorVariant = document.querySelector('.color-swatch[data-variant="{{ color_variants.0.id }}"]');
+    if (firstColorVariant && firstColorVariant.querySelector('.swatch')) {
+      const swatch = firstColorVariant.querySelector('.swatch');
+      const primaryColor = swatch.getAttribute('data-primary');
+      const secondaryColor = swatch.getAttribute('data-secondary');
+      
+      // Устанавливаем CSS переменные для комбинированного цвета
+      if (secondaryColor) {
+        swatch.style.setProperty('--primary-color', primaryColor);
+        swatch.style.setProperty('--secondary-color', secondaryColor);
+      }
+      
+      // Добавляем активный класс к первому цвету (если нет активного)
+      const activeColor = document.querySelector('.color-swatch.active');
+      if (!activeColor) {
+        document.querySelectorAll('.color-swatch').forEach(btn => btn.classList.remove('active'));
+        firstColorVariant.classList.add('active');
+      }
+      
+      // Если нет основной картинки и у первого цвета есть изображения, устанавливаем первое как основное
+      {% if auto_select_first_color and color_variants.0.images %}
+        const firstImage = '{{ color_variants.0.images.0 }}';
+        if (firstImage) {
+          main.src = firstImage;
+        }
+      {% endif %}
+    }
+  {% endif %}
+  
+  document.querySelectorAll('.thumb[data-img]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const url = btn.getAttribute('data-img');
+      if(url){ main.src = url; }
+      document.querySelectorAll('.thumb').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  // Подсветка выбранного размера (Bootstrap btn-check это уже делает, добавим только читаемость)
+  document.querySelectorAll('input[name="size"]').forEach(input=>{
+    input.addEventListener('change', ()=>{
+      // при необходимости можно сохранить выбранный размер в hidden или локально
+    });
+  });
+
+  // Обработчик выбора цвета
+  document.querySelectorAll('.color-swatch').forEach(button => {
+    button.addEventListener('click', function() {
+      // Убираем активный класс со всех цветовых кнопок
+      document.querySelectorAll('.color-swatch').forEach(btn => btn.classList.remove('active'));
+      // Добавляем активный класс к выбранной кнопке
+      this.classList.add('active');
+      
+      // Обновляем CSS переменные для комбинированного цвета
+      const swatch = this.querySelector('.swatch');
+      if (swatch) {
+        const primaryColor = swatch.getAttribute('data-primary');
+        const secondaryColor = swatch.getAttribute('data-secondary');
+        
+        if (secondaryColor) {
+          swatch.style.setProperty('--primary-color', primaryColor);
+          swatch.style.setProperty('--secondary-color', secondaryColor);
+        }
+      }
+      
+      // Обновляем изображение при выборе цвета
+      const variantId = this.getAttribute('data-variant');
+      if (variantId) {
+        // Здесь можно добавить логику для загрузки изображений выбранного цвета
+        // Пока что просто обновляем основное изображение, если есть
+        {% if color_variants %}
+          {% for v in color_variants %}
+            if (variantId === '{{ v.id }}' && '{{ v.images.0 }}') {
+              main.src = '{{ v.images.0 }}';
+            }
+          {% endfor %}
+        {% endif %}
+      }
+    });
+  });
+
+  // Переключение вкладок описания и размерной сетки
+  document.querySelectorAll('.product-tab-button').forEach(button => {
+    button.addEventListener('click', function() {
+      const tabName = this.getAttribute('data-tab');
+      
+      // Убираем активный класс со всех кнопок и панелей
+      document.querySelectorAll('.product-tab-button').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.product-tab-pane').forEach(pane => pane.classList.remove('active'));
+      
+      // Добавляем активный класс к выбранной кнопке и панели
+      this.classList.add('active');
+      document.getElementById('tab-' + tabName).classList.add('active');
+    });
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,478 @@
+{% extends 'base.html' %}{% load static %}{% block title %}Кошик — TwoComms{% endblock %}{% block content %}
+{% csrf_token %}
+<div class='row g-3 g-md-4'>
+  <!-- Сообщения -->
+  {% if messages %}
+    {% for message in messages %}
+      <div class="col-12">
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      </div>
+    {% endfor %}
+  {% endif %}
+  <div class='col-12 col-lg-8'>
+    <div class='card glass p-3 p-md-4'>
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class='h5 fw-bold mb-0'>Кошик</h1>
+        <button type="button" class="btn btn-sm btn-outline-warning" onclick="cleanCart()">
+          <i class="fas fa-broom me-1"></i>Очистити кошик
+        </button>
+      </div>
+
+      {% if items %}
+        <div class="vstack gap-3" id="cart-list">
+          {% for it in items %}
+            <div class="d-flex align-items-center justify-content-between border rounded-3 p-2 bg-elevate" data-cart-row data-key="{{ it.key }}">
+              <div class="d-flex align-items-center gap-3">
+                <div class="rounded-3 overflow-hidden bg-elevate" style="width:64px;height:64px;">
+                  <img src="{% if it.color_variant and it.color_variant.images.exists %}{{ it.color_variant.images.first.image.url }}{% elif it.product.main_image %}{{ it.product.main_image.url }}{% else %}{% static 'img/placeholder.jpg' %}{% endif %}" class="w-100 h-100 object-fit-cover" alt="">
+                </div>
+                <div>
+                  <div class="fw-semibold">{{ it.product.title }}</div>
+                  <div class="small text-secondary">
+                    Розмір: {{ it.size }} • К-сть: {{ it.qty }}
+                    {% if it.color_variant %}
+                    <br>
+                    <div class="d-flex align-items-center gap-2">
+                      <span class="swatch" 
+                            style="background: {{ it.color_variant.color.primary_hex }};" 
+                            data-primary="{{ it.color_variant.color.primary_hex }}" 
+                            data-secondary="{{ it.color_variant.color.secondary_hex|default:'' }}">
+                      </span>
+                      <span>Колір</span>
+                    </div>
+                    {% endif %}
+                  </div>
+                  <div class="small text-secondary">Ціна: {{ it.unit_price }} грн</div>
+                </div>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <div class="text-nowrap fw-semibold">{{ it.line_total }} грн</div>
+                <button type="button"
+                        class="btn btn-sm btn-outline-light"
+                        onclick="CartRemoveKey('{{ it.key }}', this); return false;">Видалити</button>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class='text-secondary small'>Порожньо.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class='col-12 col-lg-4'>
+    {% if request.user.is_authenticated %}
+      <!-- Карточка: Доставка для авторизованных -->
+      <div class='card glass p-3 p-md-4 mb-3'>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="fw-semibold">Доставка</div>
+        </div>
+        {% with prof=request.user.userprofile %}
+        <form method="post" class="vstack gap-3" id="deliveryForm" novalidate>
+          {% csrf_token %}
+          <input type="hidden" name="form_type" value="update_profile">
+          <div>
+            <label class="form-label">ПІБ</label>
+            <input type="text" name="full_name" class="form-control bg-elevate" placeholder="Прізвище Ім'я По батькові"
+                   value="{{ prof.full_name|default:'' }}">
+          </div>
+          <div>
+            <label class="form-label">Телефон</label>
+            <input type="tel" name="phone" class="form-control bg-elevate" placeholder="+380XXXXXXXXX"
+                   value="{{ prof.phone|default:'' }}">
+          </div>
+          <div>
+            <label class="form-label">Місто</label>
+            <input type="text" name="city" class="form-control bg-elevate" placeholder="Київ"
+                   value="{{ prof.city|default:'' }}">
+          </div>
+          <div>
+            <label class="form-label">Відділення / Поштомат НП</label>
+            <input type="text" name="np_office" class="form-control bg-elevate" placeholder="№ відділення або адреса поштомата"
+                   value="{{ prof.np_office|default:'' }}">
+          </div>
+          <div>
+            <label class="form-label">Тип оплати</label>
+            <select name="pay_type" class="form-select bg-elevate">
+              <option value="partial" {% if prof.pay_type == 'partial' %}selected{% endif %}>Часткова передоплата</option>
+              <option value="full" {% if prof.pay_type == 'full' %}selected{% endif %}>Повна передоплата</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-save me-1"></i>Зберегти зміни
+          </button>
+        </form>
+        {% endwith %}
+      </div>
+    {% else %}
+      <!-- Карточка: Доставка для гостей -->
+      <div class='card glass p-3 p-md-4 mb-3'>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="fw-semibold">Доставка</div>
+          <a href="{% url 'login' %}" class="btn btn-sm btn-outline-light">Авторизація</a>
+        </div>
+        <div class="text-secondary small mb-3">Щоб не вводити дані кожного разу — авторизуйтесь і накопичуйте бали.</div>
+        
+        <form method="post" class="vstack gap-3" id="guest-form">
+          {% csrf_token %}
+          <input type="hidden" name="form_type" value="guest_order">
+          <div>
+            <label class="form-label">ПІБ *</label>
+            <input type="text" name="full_name" class="form-control bg-elevate" placeholder="Прізвище Ім'я По батькові" required>
+            {% if guest_form.full_name.errors %}
+              <div class="text-danger small">{{ guest_form.full_name.errors.0 }}</div>
+            {% endif %}
+          </div>
+          <div>
+            <label class="form-label">Телефон *</label>
+            <input type="tel" name="phone" class="form-control bg-elevate" placeholder="+380XXXXXXXXX" required>
+            {% if guest_form.phone.errors %}
+              <div class="text-danger small">{{ guest_form.phone.errors.0 }}</div>
+            {% endif %}
+          </div>
+          <div>
+            <label class="form-label">Місто *</label>
+            <input type="text" name="city" class="form-control bg-elevate" placeholder="Київ" required>
+            {% if guest_form.city.errors %}
+              <div class="text-danger small">{{ guest_form.city.errors.0 }}</div>
+            {% endif %}
+          </div>
+          <div>
+            <label class="form-label">Відділення / Поштомат НП *</label>
+            <input type="text" name="np_office" class="form-control bg-elevate" placeholder="№ відділення або адреса поштомата" required>
+            {% if guest_form.np_office.errors %}
+              <div class="text-danger small">{{ guest_form.np_office.errors.0 }}</div>
+            {% endif %}
+          </div>
+          <div>
+            <label class="form-label">Тип оплати *</label>
+            <select name="pay_type" class="form-select bg-elevate" required>
+              <option value="">Оберіть тип оплати</option>
+              <option value="partial">Часткова передоплата</option>
+              <option value="full">Повна передоплата</option>
+            </select>
+            {% if guest_form.pay_type.errors %}
+              <div class="text-danger small">{{ guest_form.pay_type.errors.0 }}</div>
+            {% endif %}
+          </div>
+        </form>
+      </div>
+    {% endif %}
+
+    <!-- Карточка: Промокод -->
+    <div class='card glass p-3 p-md-4 mb-3'>
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="fw-semibold">Промокод</div>
+        {% if applied_promo %}
+          <span class="badge bg-success">Застосовано</span>
+        {% endif %}
+      </div>
+      
+      {% if applied_promo %}
+        <div class="alert alert-success mb-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <strong>{{ applied_promo.code }}</strong>
+              <br><small>Знижка: {{ applied_promo.discount }} грн</small>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removePromoCode()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      {% else %}
+        <div class="input-group">
+          <input type="text" id="promo-code-input" class="form-control bg-elevate" placeholder="Введіть код промокоду" maxlength="20">
+          <button type="button" class="btn btn-outline-light" onclick="applyPromoCode()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            </svg>
+          </button>
+        </div>
+        <div id="promo-message" class="mt-2"></div>
+      {% endif %}
+    </div>
+
+    <!-- Карточка: Разом -->
+    <div class='card glass p-3 p-md-4'>
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="fw-semibold">Разом</div>
+        <div class="fw-semibold">{{ grand_total }} грн</div>
+      </div>
+      
+      {% if applied_promo %}
+        <div class="text-success small mb-2">
+          Знижка: -{{ applied_promo.discount }} грн
+        </div>
+      {% endif %}
+      
+      <div class='text-secondary small'>Доставка оплачується згідно тарифів перевізника.</div>
+      
+      {% if request.user.is_authenticated %}
+        <a href="{% url 'order_create' %}" class="btn btn-cta w-100 mt-3">Замовити</a>
+      {% else %}
+        <button type="submit" form="guest-form" class="btn btn-cta w-100 mt-3">Замовити як гість</button>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const guestForm = document.getElementById('guest-form');
+    if (guestForm) {
+        // Подсветка полей с ошибками
+        const errorFields = guestForm.querySelectorAll('.text-danger');
+        errorFields.forEach(function(errorDiv) {
+            const field = errorDiv.previousElementSibling;
+            if (field && field.tagName === 'INPUT' || field.tagName === 'SELECT') {
+                field.classList.add('is-invalid');
+            }
+        });
+        
+        // Валидация в реальном времени
+        const inputs = guestForm.querySelectorAll('input, select');
+        inputs.forEach(function(input) {
+            input.addEventListener('blur', function() {
+                validateField(this);
+            });
+            
+            input.addEventListener('input', function() {
+                // Убираем красную подсветку при вводе
+                if (this.classList.contains('is-invalid')) {
+                    this.classList.remove('is-invalid');
+                    const errorDiv = this.parentNode.querySelector('.text-danger');
+                    if (errorDiv) {
+                        errorDiv.style.display = 'none';
+                    }
+                }
+            });
+        });
+        
+        // Валидация при отправке формы
+        guestForm.addEventListener('submit', function(e) {
+            let isValid = true;
+            
+            inputs.forEach(function(input) {
+                if (!validateField(input)) {
+                    isValid = false;
+                }
+            });
+            
+            if (!isValid) {
+                e.preventDefault();
+                // Показываем сообщение об ошибке
+                showError('Будь ласка, виправте помилки в формі');
+            }
+        });
+    }
+    
+    function validateField(field) {
+        const value = field.value.trim();
+        let isValid = true;
+        let errorMessage = '';
+        
+        // Убираем старые ошибки
+        field.classList.remove('is-invalid');
+        const existingError = field.parentNode.querySelector('.text-danger');
+        if (existingError) {
+            existingError.style.display = 'none';
+        }
+        
+        // Проверяем обязательные поля
+        if (field.hasAttribute('required') && !value) {
+            isValid = false;
+            errorMessage = 'Це поле обов\'язкове';
+        } else if (value) {
+            // Специфичные проверки
+            if (field.name === 'full_name') {
+                if (value.length < 3) {
+                    isValid = false;
+                    errorMessage = 'ПІБ повинно містити мінімум 3 символи';
+                } else if (!/[а-яёіїєґa-z]/i.test(value)) {
+                    isValid = false;
+                    errorMessage = 'ПІБ повинно містити літери';
+                }
+            } else if (field.name === 'phone') {
+                const phoneClean = value.replace(/[^\d+]/g, '');
+                if (!phoneClean.startsWith('+380')) {
+                    isValid = false;
+                    errorMessage = 'Телефон повинен починатися з +380';
+                } else if (phoneClean.length !== 13) {
+                    isValid = false;
+                    errorMessage = 'Телефон повинен містити 13 символів';
+                }
+            } else if (field.name === 'city') {
+                if (value.length < 2) {
+                    isValid = false;
+                    errorMessage = 'Назва міста повинна містити мінімум 2 символи';
+                }
+            } else if (field.name === 'np_office') {
+                if (value.length < 1) {
+                    isValid = false;
+                    errorMessage = 'Адреса відділення не може бути порожньою';
+                }
+            }
+        }
+        
+        // Показываем ошибку если есть
+        if (!isValid) {
+            field.classList.add('is-invalid');
+            showFieldError(field, errorMessage);
+        }
+        
+        return isValid;
+    }
+    
+    function showFieldError(field, message) {
+        // Убираем старую ошибку
+        const existingError = field.parentNode.querySelector('.text-danger');
+        if (existingError) {
+            existingError.textContent = message;
+            existingError.style.display = 'block';
+        } else {
+            // Создаем новую ошибку
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'text-danger small';
+            errorDiv.textContent = message;
+            field.parentNode.appendChild(errorDiv);
+        }
+    }
+    
+    function showError(message) {
+        // Показываем общее сообщение об ошибке
+        const errorAlert = document.createElement('div');
+        errorAlert.className = 'alert alert-danger mt-3';
+        errorAlert.textContent = message;
+        
+        const form = document.getElementById('guest-form');
+        form.insertBefore(errorAlert, form.firstChild);
+        
+        // Убираем через 5 секунд
+        setTimeout(function() {
+            errorAlert.remove();
+        }, 5000);
+    }
+});
+
+// ===== ПРОМОКОДЫ =====
+
+function applyPromoCode() {
+    const promoInput = document.getElementById('promo-code-input');
+    const promoCode = promoInput.value.trim().toUpperCase();
+    const messageDiv = document.getElementById('promo-message');
+    
+    if (!promoCode) {
+        showPromoMessage('Введіть код промокоду', 'danger');
+        return;
+    }
+    
+    // Показываем загрузку
+    showPromoMessage('Застосовуємо промокод...', 'info');
+    
+    fetch('{% url "apply_promo_code" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: 'promo_code=' + encodeURIComponent(promoCode)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showPromoMessage(data.message, 'success');
+            // Перезагружаем страницу для обновления данных
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+        } else {
+            showPromoMessage(data.message, 'danger');
+        }
+    })
+    .catch(error => {
+        showPromoMessage('Помилка при застосуванні промокоду', 'danger');
+    });
+}
+
+function removePromoCode() {
+    fetch('{% url "remove_promo_code" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Перезагружаем страницу для обновления данных
+            window.location.reload();
+        }
+    })
+    .catch(error => {
+        console.error('Помилка при видаленні промокоду:', error);
+    });
+}
+
+function showPromoMessage(message, type) {
+    const messageDiv = document.getElementById('promo-message');
+    messageDiv.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+    
+    // Убираем сообщение через 5 секунд
+    setTimeout(() => {
+        messageDiv.innerHTML = '';
+    }, 5000);
+}
+
+// Обработка Enter в поле промокода
+document.addEventListener('DOMContentLoaded', function() {
+    const promoInput = document.getElementById('promo-code-input');
+    if (promoInput) {
+        promoInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                applyPromoCode();
+            }
+        });
+    }
+});
+
+// ===== ОЧИСТКА КОРЗИНЫ =====
+
+function cleanCart() {
+    if (!confirm('Ви впевнені, що хочете очистити кошик від несуществующих товарів?')) {
+        return;
+    }
+    
+    fetch('{% url "clean_cart" %}', {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok) {
+            alert(data.message);
+            // Перезагружаем страницу для обновления данных
+            window.location.reload();
+        } else {
+            alert('Помилка при очищенні кошика');
+        }
+    })
+    .catch(error => {
+        console.error('Помилка при очищенні кошика:', error);
+        alert('Помилка при очищенні кошика');
+    });
+}
+</script>
+{% endblock %}
+
+{% endblock %}

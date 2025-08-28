@@ -1,0 +1,390 @@
+{% load static %}
+<!DOCTYPE html><html lang='uk' data-bs-theme='dark'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'><title>{% block title %}TwoComms — магазин{% endblock %}</title><link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' rel='stylesheet'><link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap' rel='stylesheet'><link href='{% static 'css/styles.css' %}' rel='stylesheet'>{% block extra_css %}{% endblock %}</head><body class='bg-body text-body' style='font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;'>{% include 'partials/header.html' %}<main class='container-xxl py-4 py-md-5'>{% block content %}{% endblock %}</main>{% include 'partials/footer.html' %}<script src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js'></script><script src='{% static 'js/main.js' %}?v=17'></script><script>
+/* Fallback: глобальные функции, если основной JS не заинициализирован */
+(function(){
+  function getCookie(name){
+    var m=document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)'); return m?decodeURIComponent(m.pop()):'';
+  }
+  if(typeof window.QtyInc!=='function'){
+    window.QtyInc=function(selector){
+      var input=typeof selector==='string'?document.querySelector(selector):selector;
+      if(!input){ return; }
+      var v=parseInt(input.value||'1',10)||1; input.value=Math.max(1,v+1);
+    };
+  }
+  if(typeof window.QtyDec!=='function'){
+    window.QtyDec=function(selector){
+      var input=typeof selector==='string'?document.querySelector(selector):selector;
+      if(!input){ return; }
+      var v=parseInt(input.value||'1',10)||1; input.value=Math.max(1,v-1);
+    };
+  }
+  if(typeof window.CartRemoveKey!=='function'){
+    window.CartRemoveKey=function(key, el){
+      var body=new URLSearchParams({key:key});
+      fetch('/cart/remove/',{
+        method:'POST',
+        headers:{
+          'X-CSRFToken': getCookie('csrftoken'),
+          'X-Requested-With':'XMLHttpRequest',
+          'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'
+        },
+        body: body
+      }).then(function(r){return r.json()}).then(function(d){
+        if(d&&d.ok){
+          try{ if(window.updateCartBadge) window.updateCartBadge(d.count); }catch(_){}
+          if(el){
+            var row=el.closest('[data-cart-row]')||el.closest('.d-flex');
+            if(row&&row.parentElement) row.parentElement.removeChild(row);
+          }
+          try{ if(window.refreshMiniCart) window.refreshMiniCart(); }catch(_){}
+          if(document.getElementById('cart-list')) location.reload();
+        }
+      }).catch(function(){});
+    };
+  }
+  if(typeof window.CartRemove!=='function'){
+    window.CartRemove=function(pid,size,el){ return window.CartRemoveKey(String(pid)+':'+(size||''),el); };
+  }
+  if(typeof window.AddToCart!=='function'){
+    window.AddToCart=function(btn){
+      var productId = btn.getAttribute('data-add-to-cart');
+      var sizeInput = document.querySelector('input[name="size"]:checked');
+      var size = (sizeInput ? sizeInput.value : 'S') || 'S';
+      var wrap=btn.closest('[data-qty]') || document;
+      var qtyInput = wrap.querySelector('input[type="number"]#qty') || wrap.querySelector('[data-qty] input[type="number"]') || document.querySelector('#qty') || (btn.parentElement?btn.parentElement.querySelector('input[type="number"]'):null);
+      var qty = Math.max(1, parseInt(qtyInput && qtyInput.value ? qtyInput.value : '1', 10));
+      
+      // Получаем выбранный цвет
+      var colorVariantId = null;
+      var activeColorSwatch = document.querySelector('#color-picker .color-swatch.active');
+      if(activeColorSwatch) {
+        colorVariantId = activeColorSwatch.getAttribute('data-variant');
+      }
+      
+      var body = new URLSearchParams({product_id:String(productId), size:String(size).toUpperCase(), qty:String(qty)});
+      if(colorVariantId) {
+        body.append('color_variant_id', colorVariantId);
+      }
+      
+      fetch('/cart/add/',{
+        method:'POST',
+        headers:{
+          'X-CSRFToken': getCookie('csrftoken'),
+          'X-Requested-With':'XMLHttpRequest',
+          'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'
+        },
+        body: body
+      }).then(function(r){return r.json()}).then(function(d){
+        if(d&&d.ok){
+          try{
+            if(window.updateCartBadge) window.updateCartBadge(d.count);
+            if(window.refreshMiniCart) window.refreshMiniCart();
+            if(window.openMiniCart) window.openMiniCart();
+          }catch(_){}
+        }
+      }).catch(function(){});
+      return false;
+    };
+  }
+})();
+
+// Применяем CSS переменные для комбинированных цветов в корзине и заказах
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.swatch[data-secondary]:not([data-secondary=""])').forEach(function(swatch) {
+    var primary = swatch.getAttribute('data-primary');
+    var secondary = swatch.getAttribute('data-secondary');
+    
+    if (secondary && secondary !== '') {
+      swatch.style.setProperty('--primary-color', primary);
+      swatch.style.setProperty('--secondary-color', secondary);
+    }
+  });
+});
+</script>
+
+<!-- Модальное окно с информацией о баллах -->
+<div class="modal fade" id="pointsInfoModal" tabindex="-1" aria-labelledby="pointsInfoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content points-info-modal">
+      <div class="modal-header">
+        <div class="modal-title-section">
+          <div class="modal-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          </div>
+          <div class="modal-title-content">
+            <h5 class="modal-title" id="pointsInfoModalLabel">Система балів</h5>
+            <p class="modal-subtitle">Як працюють бали за покупки</p>
+          </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="points-info-content">
+          <div class="product-points-info">
+            <div class="product-points-badge">
+              <span class="points-amount" id="modalPointsAmount">0</span>
+              <span class="points-label">балів за цей товар</span>
+            </div>
+            <div class="product-title" id="modalProductTitle">Назва товару</div>
+          </div>
+          
+          <div class="points-explanation">
+            <div class="explanation-item">
+              <div class="explanation-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+              <div class="explanation-text">
+                <strong>Нарахування балів:</strong> Бали нараховуються автоматично після підтвердження замовлення
+              </div>
+            </div>
+            
+            <div class="explanation-item">
+              <div class="explanation-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
+                </svg>
+              </div>
+              <div class="explanation-text">
+                <strong>Використання балів:</strong> Зареєстровані користувачі можуть витратити бали у кабінеті
+              </div>
+            </div>
+            
+            <div class="explanation-item">
+              <div class="explanation-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+              </div>
+              <div class="explanation-text">
+                <strong>Можливості:</strong> Обмін на промокоди або пожертвування на ЗСУ
+              </div>
+            </div>
+          </div>
+          
+          <div class="points-actions">
+            {% if user.is_authenticated %}
+              <a href="{% url 'buy_with_points' %}" class="btn btn-primary points-action-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                Перейти до балів
+              </a>
+            {% else %}
+              <a href="{% url 'login' %}" class="btn btn-outline-primary points-action-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z"/>
+                </svg>
+                Увійти для накопичення балів
+              </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Обработчик для модального окна с информацией о баллах
+  const pointsInfoModal = document.getElementById('pointsInfoModal');
+  if (pointsInfoModal) {
+    pointsInfoModal.addEventListener('show.bs.modal', function(event) {
+      const button = event.relatedTarget;
+      const productTitle = button.getAttribute('data-product-title');
+      const pointsAmount = button.getAttribute('data-points-amount');
+      
+      // Обновляем содержимое модального окна
+      document.getElementById('modalProductTitle').textContent = productTitle;
+      document.getElementById('modalPointsAmount').textContent = pointsAmount;
+    });
+  }
+});
+</script>
+
+<style>
+.points-info-modal .modal-content {
+  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 16px;
+}
+
+.points-info-modal .modal-header {
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  padding: 1.5rem;
+}
+
+.modal-title-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, var(--accent-color), #7c3aed);
+  border-radius: 12px;
+  color: white;
+}
+
+.modal-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.modal-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.points-info-modal .modal-body {
+  padding: 1.5rem;
+}
+
+.product-points-info {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.1), rgba(124, 58, 237, 0.05));
+  border-radius: 12px;
+  border: 1px solid rgba(124, 58, 237, 0.2);
+}
+
+.product-points-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.points-amount {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent-color);
+}
+
+.points-label {
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+.product-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.points-explanation {
+  margin-bottom: 2rem;
+}
+
+.explanation-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.explanation-item:last-child {
+  margin-bottom: 0;
+}
+
+.explanation-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05));
+  border-radius: 8px;
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+.explanation-text {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.explanation-text strong {
+  color: var(--text-primary);
+}
+
+.points-actions {
+  text-align: center;
+}
+
+.points-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.points-action-btn:hover {
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+
+.btn-primary.points-action-btn {
+  background: linear-gradient(135deg, var(--accent-color), #7c3aed);
+  border: none;
+  color: white;
+}
+
+.btn-primary.points-action-btn:hover {
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.3);
+  color: white;
+}
+
+.btn-outline-primary.points-action-btn {
+  border: 1px solid var(--accent-color);
+  color: var(--accent-color);
+  background: transparent;
+}
+
+.btn-outline-primary.points-action-btn:hover {
+  background: var(--accent-color);
+  color: white;
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.3);
+}
+
+@media (max-width: 768px) {
+  .points-info-modal .modal-dialog {
+    margin: 1rem;
+  }
+  
+  .modal-title-section {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.75rem;
+  }
+  
+  .explanation-item {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.75rem;
+  }
+}
+</style>
+
+{% block extra_js %}{% endblock %}</body></html>

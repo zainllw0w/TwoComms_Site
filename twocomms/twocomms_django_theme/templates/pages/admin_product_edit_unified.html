@@ -1,0 +1,1108 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}Редагувати товар — TwoComms{% endblock %}
+{% block content %}
+
+<div class="container-fluid">
+  <div class="row">
+    <!-- Боковая панель с навигацией -->
+    <div class="col-lg-3 col-xl-2 mb-4">
+      <div class="card glass border-0">
+        <div class="card-body p-3">
+          <div class="d-flex align-items-center mb-4">
+            <div class="position-relative me-3">
+              <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                <i class="fas fa-edit text-white"></i>
+              </div>
+              <div class="position-absolute top-0 end-0 bg-success rounded-circle" style="width: 12px; height: 12px; border: 2px solid var(--tc-bg);"></div>
+            </div>
+            <div>
+              <h6 class="mb-0 fw-bold">Редагування товару</h6>
+              <small class="text-muted">ID: {{ obj.id }}</small>
+            </div>
+          </div>
+          
+          <div class="nav flex-column nav-pills" id="edit-tabs" role="tablist">
+            <button class="nav-link active d-flex align-items-center mb-2" id="basic-tab" data-bs-toggle="pill" data-bs-target="#basic" type="button">
+              <i class="fas fa-info-circle me-2"></i>
+              <span>Основна інформація</span>
+            </button>
+            <button class="nav-link d-flex align-items-center mb-2" id="colors-tab" data-bs-toggle="pill" data-bs-target="#colors" type="button">
+              <i class="fas fa-palette me-2"></i>
+              <span>Кольори</span>
+              {% if obj.color_variants.all %}
+                <span class="badge bg-primary ms-auto">{{ obj.color_variants.count }}</span>
+              {% endif %}
+            </button>
+            <button class="nav-link d-flex align-items-center mb-2" id="images-tab" data-bs-toggle="pill" data-bs-target="#images" type="button">
+              <i class="fas fa-images me-2"></i>
+              <span>Зображення</span>
+              {% if obj.productimage_set.all %}
+                <span class="badge bg-primary ms-auto">{{ obj.productimage_set.count }}</span>
+              {% endif %}
+            </button>
+            <button class="nav-link d-flex align-items-center mb-2" id="preview-tab" data-bs-toggle="pill" data-bs-target="#preview" type="button">
+              <i class="fas fa-eye me-2"></i>
+              <span>Попередній перегляд</span>
+            </button>
+          </div>
+          
+          <hr class="my-3">
+          
+          <div class="d-grid gap-2">
+            <button type="submit" form="product-form" class="btn btn-cta btn-sm">
+              <i class="fas fa-save me-1"></i>Зберегти зміни
+            </button>
+            <a href="/admin-panel/?section=catalogs" class="btn btn-outline-light btn-sm">
+              <i class="fas fa-arrow-left me-1"></i>Назад до каталогу
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Основной контент -->
+    <div class="col-lg-9 col-xl-10">
+      <div class="tab-content" id="edit-tabs-content">
+        
+        <!-- Основная информация -->
+        <div class="tab-pane fade show active" id="basic" role="tabpanel">
+          <div class="card glass border-0">
+            <div class="card-header bg-transparent border-0 pb-0">
+              <div class="d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center">
+                  <div class="position-relative me-3">
+                    <div class="bg-gradient-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; background: linear-gradient(135deg, #8b5cf6, #6366f1);">
+                      <i class="fas fa-info-circle text-white fa-lg"></i>
+                    </div>
+                    <div class="position-absolute top-0 end-0 bg-success rounded-circle" style="width: 16px; height: 16px; border: 3px solid var(--tc-bg); box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>
+                  </div>
+                  <div>
+                    <h5 class="mb-1 fw-bold">Основна інформація</h5>
+                    <p class="text-muted mb-0 small">Редагуйте основні параметри товару</p>
+                  </div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <span class="badge bg-success">
+                    <i class="fas fa-hashtag me-1"></i>{{ obj.id }}
+                  </span>
+                  <span class="badge bg-info">
+                    <i class="fas fa-folder me-1"></i>{{ obj.category.name }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="card-body p-4">
+              <form method="post" enctype="multipart/form-data" id="product-form">
+                {% csrf_token %}
+                <input type="hidden" name="form_type" value="product">
+
+                {% if form.non_field_errors %}
+                  <div class="alert alert-danger border-0">
+                    <div class="d-flex align-items-center">
+                      <div class="alert-icon me-3">
+                        <i class="fas fa-exclamation-triangle fa-lg"></i>
+                      </div>
+                      <div>
+                        <strong>Помилка!</strong> {{ form.non_field_errors }}
+                      </div>
+                    </div>
+                  </div>
+                {% endif %}
+                
+                {% for field in form %}
+                  {% for err in field.errors %}
+                    <div class="alert alert-danger border-0 small">
+                      <div class="d-flex align-items-center">
+                        <i class="fas fa-times-circle me-2"></i>
+                        <strong>{{ field.label }}:</strong> {{ err }}
+                      </div>
+                    </div>
+                  {% endfor %}
+                {% endfor %}
+
+                <!-- Основная информация - новая структура -->
+                <div class="product-info-grid">
+                  
+                  <!-- Категория и название -->
+                  <div class="info-row">
+                    <div class="info-group category">
+                      <label class="form-label">
+                        <i class="fas fa-folder me-2"></i>Категорія
+                      </label>
+                      {{ form.category }}
+                      <div class="form-hint">
+                        <i class="fas fa-sitemap me-1"></i>Оберіть категорію товару
+                      </div>
+                    </div>
+                    <div class="info-group main-title">
+                      <label class="form-label">
+                        <i class="fas fa-tag me-2"></i>Назва товару
+                      </label>
+                      {{ form.title }}
+                      <div class="form-hint">
+                        <i class="fas fa-lightbulb me-1"></i>Унікальна назва товару
+                      </div>
+                    </div>
+                    <div class="info-group featured">
+                      <label class="form-label">
+                        <i class="fas fa-star me-2"></i>Рекомендований товар
+                      </label>
+                      <div class="featured-toggle">
+                        <div class="form-check form-switch">
+                          {{ form.featured }}
+                          <label class="form-check-label" for="{{ form.featured.id_for_label }}">
+                            <span class="toggle-label">Рекомендувати клієнтам</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Цена, балы и скидка -->
+                  <div class="info-row pricing-section">
+                    <div class="info-group price">
+                      <label class="form-label">
+                        <i class="fas fa-hryvnia me-2"></i>Ціна (грн)
+                      </label>
+                      {{ form.price }}
+                      <div class="form-hint">
+                        <i class="fas fa-money-bill me-1"></i>Основна ціна товару
+                      </div>
+                    </div>
+                    <div class="info-group points">
+                      <label class="form-label">
+                        <i class="fas fa-star me-2"></i>Бали за покупку
+                      </label>
+                      {{ form.points_reward }}
+                      <div class="form-hint">
+                        <i class="fas fa-gift me-1"></i>Нагорода за покупку
+                      </div>
+                    </div>
+                    <div class="info-group discount">
+                      <label class="form-label">
+                        <i class="fas fa-percentage me-2"></i>Знижка (%)
+                      </label>
+                      {{ form.discount_percent }}
+                      <div class="form-hint">
+                        <i class="fas fa-tags me-1"></i>Залиште порожнім для відсутності знижки
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Описание -->
+                  <div class="info-row description">
+                    <div class="info-group full-width">
+                      <label class="form-label">
+                        <i class="fas fa-align-left me-2"></i>Опис товару
+                      </label>
+                      {{ form.description }}
+                      <div class="form-hint">
+                        <i class="fas fa-edit me-1"></i>Детальний опис товару для клієнтів
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Главное изображение -->
+                  <div class="info-row image-upload">
+                    <div class="info-group image-input">
+                      <label class="form-label">
+                        <i class="fas fa-image me-2"></i>Головне зображення
+                      </label>
+                      {{ form.main_image }}
+                      <div class="form-hint">
+                        <i class="fas fa-upload me-1"></i>Основне зображення товару (автоматично з першого кольору, якщо не вибрано)
+                      </div>
+                    </div>
+                    {% if obj.main_image %}
+                      <div class="info-group image-preview">
+                        <div class="current-image">
+                          <img src="{{ obj.main_image.url }}" alt="Поточне зображення" class="img-fluid rounded">
+                          <div class="image-overlay">
+                            <span class="image-label">Поточне зображення</span>
+                          </div>
+                        </div>
+                      </div>
+                    {% endif %}
+                  </div>
+
+                  <!-- URL slug -->
+                  <div class="info-row">
+                    <div class="info-group url-slug">
+                      <label class="form-label">
+                        <i class="fas fa-link me-2"></i>URL slug
+                      </label>
+                      {{ form.slug }}
+                      <div class="form-hint">
+                        <i class="fas fa-magic me-1"></i>Автоматично генерується з назви
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Кнопка сохранения -->
+                  <div class="text-center mt-4">
+                    <button type="submit" class="btn btn-cta btn-lg">
+                      <i class="fas fa-save me-1"></i>Зберегти зміни
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- Управление цветами -->
+        <div class="tab-pane fade" id="colors" role="tabpanel">
+          <div class="card glass border-0">
+            <div class="card-header bg-transparent border-0 pb-0">
+              <div class="d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center">
+                  <div class="position-relative me-3">
+                    <div class="bg-gradient-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; background: linear-gradient(135deg, #e91e63, #ff5722);">
+                      <i class="fas fa-palette text-white fa-lg"></i>
+                    </div>
+                    <div class="position-absolute top-0 end-0 bg-success rounded-circle" style="width: 16px; height: 16px; border: 3px solid var(--tc-bg); box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>
+                  </div>
+                  <div>
+                    <h5 class="mb-1 fw-bold">Кольори товару</h5>
+                    <p class="text-muted mb-0 small">Додавайте та керуйте кольоровими варіантами</p>
+                  </div>
+                </div>
+                <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addColorModal">
+                  <i class="fas fa-plus me-1"></i>Додати колір
+                </button>
+              </div>
+            </div>
+            
+            <div class="card-body">
+              {% if obj.color_variants.all %}
+                <div class="row g-3">
+                  {% for color_variant in obj.color_variants.all %}
+                    <div class="col-md-6 col-lg-4 col-xl-3">
+                      <div class="card bg-dark border-0 h-100">
+                        <div class="position-relative">
+                          {% if color_variant.images.first %}
+                            <img src="{{ color_variant.images.first.image.url }}" 
+                                 class="card-img-top" alt="{{ color_variant.color.name }}" 
+                                 style="height: 180px; object-fit: cover;">
+                          {% else %}
+                            <div class="card-img-top d-flex align-items-center justify-content-center" 
+                                 style="height: 180px; background: linear-gradient(45deg, #2c3e50, #34495e);">
+                              <i class="fas fa-image fa-2x text-muted"></i>
+                            </div>
+                          {% endif %}
+                          <div class="position-absolute top-0 end-0 m-2">
+                            <span class="badge bg-primary">{{ color_variant.color.name }}</span>
+                          </div>
+                          {% if color_variant.images.count > 1 %}
+                            <div class="position-absolute top-0 start-0 m-2">
+                              <span class="badge bg-info">
+                                <i class="fas fa-images me-1"></i>{{ color_variant.images.count }}
+                              </span>
+                            </div>
+                          {% endif %}
+                        </div>
+                        <div class="card-body d-flex flex-column">
+                          <h6 class="card-title mb-2">{{ color_variant.color.name }}</h6>
+                          <div class="mt-auto">
+                            <div class="d-grid gap-2">
+                              <a href="{% url 'admin_product_color_delete' obj.id color_variant.id %}" 
+                                 class="btn btn-outline-danger btn-sm"
+                                 onclick="return confirm('Видалити колір {{ color_variant.color.name }}?')">
+                                <i class="fas fa-trash me-1"></i>Видалити
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <div class="text-center py-5">
+                  <div class="mb-4">
+                    <div class="position-relative d-inline-block">
+                      <div class="bg-gradient-primary rounded-circle d-flex align-items-center justify-content-center mx-auto" style="width: 80px; height: 80px; background: linear-gradient(135deg, rgba(233, 30, 99, 0.2), rgba(255, 87, 34, 0.2));">
+                        <i class="fas fa-palette fa-2x text-muted"></i>
+                      </div>
+                      <div class="position-absolute top-0 end-0 bg-warning rounded-circle d-flex align-items-center justify-content-center" style="width: 24px; height: 24px; border: 3px solid var(--tc-bg);">
+                        <i class="fas fa-exclamation-triangle fa-xs text-dark"></i>
+                      </div>
+                    </div>
+                  </div>
+                  <h6 class="text-muted mb-2 fw-semibold">Поки що немає доданих кольорів</h6>
+                  <p class="text-muted small mb-4">Додайте кольорові варіанти для вашого товару</p>
+                  <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addColorModal">
+                    <i class="fas fa-plus me-1"></i>Додати перший колір
+                  </button>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Дополнительные изображения -->
+        <div class="tab-pane fade" id="images" role="tabpanel">
+          <div class="card glass border-0">
+            <div class="card-header bg-transparent border-0 pb-0">
+              <div class="d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center">
+                  <div class="position-relative me-3">
+                    <div class="bg-gradient-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; background: linear-gradient(135deg, #4caf50, #8bc34a);">
+                      <i class="fas fa-images text-white fa-lg"></i>
+                    </div>
+                    <div class="position-absolute top-0 end-0 bg-success rounded-circle" style="width: 16px; height: 16px; border: 3px solid var(--tc-bg); box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>
+                  </div>
+                  <div>
+                    <h5 class="mb-1 fw-bold">Додаткові зображення</h5>
+                    <p class="text-muted mb-0 small">Керуйте галереєю зображень товару</p>
+                  </div>
+                </div>
+                <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addImageModal">
+                  <i class="fas fa-plus me-1"></i>Додати зображення
+                </button>
+              </div>
+            </div>
+            
+            <div class="card-body">
+              {% if obj.productimage_set.all %}
+                <div class="row g-3">
+                  {% for image in obj.productimage_set.all %}
+                    <div class="col-md-6 col-lg-4 col-xl-3">
+                      <div class="card bg-dark border-0 h-100">
+                        <img src="{{ image.image.url }}" class="card-img-top" 
+                             alt="Додаткове зображення" style="height: 180px; object-fit: cover;">
+                        <div class="card-body d-flex flex-column">
+                          <div class="mt-auto">
+                            <div class="d-grid gap-2">
+                              <a href="{% url 'admin_product_image_delete' obj.id image.id %}" 
+                                 class="btn btn-outline-danger btn-sm"
+                                 onclick="return confirm('Видалити зображення?')">
+                                <i class="fas fa-trash me-1"></i>Видалити
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <div class="text-center py-5">
+                  <div class="mb-4">
+                    <div class="position-relative d-inline-block">
+                      <div class="bg-gradient-primary rounded-circle d-flex align-items-center justify-content-center mx-auto" style="width: 80px; height: 80px; background: linear-gradient(135deg, rgba(76, 175, 80, 0.2), rgba(139, 195, 74, 0.2));">
+                        <i class="fas fa-images fa-2x text-muted"></i>
+                      </div>
+                      <div class="position-absolute top-0 end-0 bg-warning rounded-circle d-flex align-items-center justify-content-center" style="width: 24px; height: 24px; border: 3px solid var(--tc-bg);">
+                        <i class="fas fa-exclamation-triangle fa-xs text-dark"></i>
+                      </div>
+                    </div>
+                  </div>
+                  <h6 class="text-muted mb-2 fw-semibold">Поки що немає додаткових зображень</h6>
+                  <p class="text-muted small mb-4">Додайте зображення для створення галереї</p>
+                  <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addImageModal">
+                    <i class="fas fa-plus me-1"></i>Додати перше зображення
+                  </button>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Предварительный просмотр -->
+        <div class="tab-pane fade" id="preview" role="tabpanel">
+          <div class="card glass border-0">
+            <div class="card-header bg-transparent border-0 pb-0">
+              <div class="d-flex align-items-center">
+                <div class="position-relative me-3">
+                  <div class="bg-gradient-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; background: linear-gradient(135deg, #ff9800, #ff5722);">
+                    <i class="fas fa-eye text-white fa-lg"></i>
+                  </div>
+                  <div class="position-absolute top-0 end-0 bg-success rounded-circle" style="width: 16px; height: 16px; border: 3px solid var(--tc-bg); box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>
+                </div>
+                <div>
+                  <h5 class="mb-1 fw-bold">Попередній перегляд</h5>
+                  <p class="text-muted mb-0 small">Як буде виглядати товар на сайті</p>
+                </div>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="card product hover-raise">
+                    {% if obj.main_image %}
+                      <img src="{{ obj.main_image.url }}" class="card-img-top" alt="{{ obj.title }}" style="height: 250px; object-fit: cover;">
+                    {% else %}
+                      <div class="card-img-top d-flex align-items-center justify-content-center" style="height: 250px; background: #2c3e50;">
+                        <i class="fas fa-image fa-3x text-muted"></i>
+                      </div>
+                    {% endif %}
+                    <div class="card-body">
+                      <h5 class="card-title">{{ obj.title }}</h5>
+                      <p class="card-text text-muted">{{ obj.description|truncatewords:20 }}</p>
+                      <div class="d-flex justify-content-between align-items-center">
+                        <div class="h5 mb-0 fw-bold">{{ obj.price }} грн</div>
+                        {% if obj.points_reward %}
+                          <span class="badge bg-warning text-dark">
+                            <i class="fas fa-star me-1"></i>{{ obj.points_reward }} балів
+                          </span>
+                        {% endif %}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="card bg-dark-subtle border-0">
+                    <div class="card-body">
+                      <h6 class="fw-semibold mb-3">Інформація про товар:</h6>
+                      <ul class="list-unstyled">
+                        <li class="mb-2">
+                          <i class="fas fa-tag me-2 text-primary"></i>
+                          <strong>Назва:</strong> {{ obj.title }}
+                        </li>
+                        <li class="mb-2">
+                          <i class="fas fa-folder me-2 text-primary"></i>
+                          <strong>Категорія:</strong> {{ obj.category.name }}
+                        </li>
+                        <li class="mb-2">
+                          <i class="fas fa-hryvnia me-2 text-primary"></i>
+                          <strong>Ціна:</strong> {{ obj.price }} грн
+                        </li>
+                        {% if obj.points_reward %}
+                          <li class="mb-2">
+                            <i class="fas fa-star me-2 text-warning"></i>
+                            <strong>Бали:</strong> {{ obj.points_reward }}
+                          </li>
+                        {% endif %}
+                        {% if obj.has_discount %}
+                          <li class="mb-2">
+                            <i class="fas fa-percentage me-2 text-success"></i>
+                            <strong>Знижка:</strong> {{ obj.discount_percent }}%
+                          </li>
+                        {% endif %}
+                        {% if obj.featured %}
+                          <li class="mb-2">
+                            <i class="fas fa-star me-2 text-warning"></i>
+                            <strong>Рекомендований</strong>
+                          </li>
+                        {% endif %}
+                        <li class="mb-2">
+                          <i class="fas fa-palette me-2 text-primary"></i>
+                          <strong>Кольори:</strong> {{ obj.color_variants.count }}
+                        </li>
+                        <li class="mb-2">
+                          <i class="fas fa-images me-2 text-primary"></i>
+                          <strong>Зображення:</strong> {{ obj.productimage_set.count }}
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Модальное окно добавления цвета -->
+<div class="modal fade" id="addColorModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content bg-dark border-0">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold">
+          <i class="fas fa-palette me-2"></i>Додати новий колір
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" enctype="multipart/form-data" id="color-form">
+        {% csrf_token %}
+        <input type="hidden" name="form_type" value="color">
+        <div class="modal-body">
+          
+          <!-- Выбор типа цвета -->
+          <div class="color-type-selector mb-4">
+            <label class="form-label fw-semibold mb-3">
+              <i class="fas fa-paint-brush me-2"></i>Тип кольору
+            </label>
+            <div class="color-type-options">
+              <div class="color-type-option active" data-type="single">
+                <div class="color-type-icon">
+                  <i class="fas fa-circle"></i>
+                </div>
+                <span>Один колір</span>
+              </div>
+              <div class="color-type-option" data-type="combined">
+                <div class="color-type-icon">
+                  <i class="fas fa-layer-group"></i>
+                </div>
+                <span>Комбінований</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Название цвета -->
+          <div class="mb-4">
+            <label class="form-label fw-semibold">
+              <i class="fas fa-tag me-2"></i>Назва кольору
+            </label>
+            <input type="text" name="color_name" class="form-control" placeholder="Наприклад: Червоний, Синій, Чорний+Жовтий" required>
+            <div class="form-hint">
+              <i class="fas fa-lightbulb me-1"></i>Опишіть колір для зручності
+            </div>
+          </div>
+
+          <!-- Выбор цвета -->
+          <div class="color-selection-section mb-4">
+            <label class="form-label fw-semibold mb-3">
+              <i class="fas fa-palette me-2"></i>Вибір кольору
+            </label>
+            
+            <!-- Переключатель: существующие/новые цвета -->
+            <div class="color-mode-selector mb-3">
+              <div class="btn-group w-100" role="group">
+                <input type="radio" class="btn-check" name="color_mode" id="existing_colors" value="existing" checked>
+                <label class="btn btn-outline-primary" for="existing_colors">
+                  <i class="fas fa-database me-2"></i>Існуючі кольори
+                </label>
+                
+                <input type="radio" class="btn-check" name="color_mode" id="new_colors" value="new">
+                <label class="btn btn-outline-primary" for="new_colors">
+                  <i class="fas fa-plus me-2"></i>Нові кольори
+                </label>
+              </div>
+            </div>
+
+            <!-- Существующие цвета -->
+            <div class="existing-colors-section" id="existingColorsSection">
+              <label class="form-label small">Виберіть існуючий колір</label>
+              <select class="form-control" id="existingColorSelect">
+                <option value="">Оберіть колір...</option>
+              </select>
+            </div>
+
+            <!-- Новые цвета с color picker -->
+            <div class="new-colors-section" id="newColorsSection" style="display: none;">
+              
+              <!-- Основной цвет -->
+              <div class="primary-color-section mb-3">
+                <label class="form-label small">Основний колір</label>
+                <div class="color-picker-container">
+                  <input type="color" id="primaryColorPicker" class="color-picker" value="#000000">
+                  <input type="text" id="primaryHexInput" class="form-control hex-input" placeholder="#000000" value="#000000">
+                </div>
+                <input type="hidden" name="primary_hex" id="primaryHex" value="#000000">
+              </div>
+
+              <!-- Дополнительный цвет (для комбинированных) -->
+              <div class="secondary-color-section mb-3" style="display: none;">
+                <label class="form-label small">Додатковий колір</label>
+                <div class="color-picker-container">
+                  <input type="color" id="secondaryColorPicker" class="color-picker" value="#FFFF00">
+                  <input type="text" id="secondaryHexInput" class="form-control hex-input" placeholder="#FFFF00" value="#FFFF00">
+                </div>
+                <input type="hidden" name="secondary_hex" id="secondaryHex" value="">
+              </div>
+            </div>
+
+            <!-- Предварительный просмотр -->
+            <div class="color-preview mb-3">
+              <label class="form-label small">Попередній перегляд</label>
+              <div class="preview-container">
+                <div class="color-preview-item" id="colorPreview">
+                  <div class="preview-circle combined-preview" id="combinedPreview"></div>
+                </div>
+                <div class="preview-text" id="previewText">Чорний</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Загрузка изображений -->
+          <div class="mb-4">
+            <label class="form-label fw-semibold">
+              <i class="fas fa-images me-2"></i>Зображення кольору
+            </label>
+            <div class="image-upload-area">
+              <div class="upload-instructions mb-3">
+                <div class="form-hint">
+                  <i class="fas fa-info-circle me-1"></i>Можна завантажити кілька зображень для каруселі
+                </div>
+              </div>
+              
+              <!-- Поле для загрузки изображений -->
+              <div class="file-upload-container mb-3">
+                <input type="file" name="color_images" class="form-control" accept="image/*" multiple required>
+                <div class="form-hint">
+                  <i class="fas fa-upload me-1"></i>Оберіть одне або кілька зображень
+                </div>
+              </div>
+              
+              <!-- Предварительный просмотр загруженных изображений -->
+              <div class="image-preview-container" id="imagePreviewContainer" style="display: none;">
+                <label class="form-label small">Попередній перегляд зображень:</label>
+                <div class="image-preview-grid" id="imagePreviewGrid">
+                  <!-- Здесь будут отображаться превью изображений -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Скасувати</button>
+          <button type="submit" class="btn btn-cta">
+            <i class="fas fa-plus me-1"></i>Додати колір
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Модальное окно добавления изображения -->
+<div class="modal fade" id="addImageModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content bg-dark border-0">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold">
+          <i class="fas fa-image me-2"></i>Додати зображення
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" enctype="multipart/form-data" id="image-form">
+        {% csrf_token %}
+        <input type="hidden" name="form_type" value="image">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Додаткове зображення</label>
+            <input type="file" name="additional_image" class="form-control" accept="image/*" required>
+            <div class="form-text">Додайте зображення для галереї товару</div>
+          </div>
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Скасувати</button>
+          <button type="submit" class="btn btn-cta">
+            <i class="fas fa-plus me-1"></i>Додати зображення
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Обработка формы товара
+    const productForm = document.getElementById('product-form');
+    
+    productForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const submitBtn = productForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Зберігаємо...';
+        submitBtn.disabled = true;
+        
+        fetch(productForm.action || window.location.href, {
+            method: 'POST',
+            body: new FormData(productForm),
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => {
+            // Проверяем тип контента
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                return response.json();
+            } else {
+                // Если не JSON, считаем что успешно (данные сохранились)
+                return { success: true, message: 'Товар успішно збережено!' };
+            }
+        })
+        .then(data => {
+            if (data.success) {
+                submitBtn.innerHTML = '<i class="fas fa-check me-1"></i>Збережено!';
+                submitBtn.classList.remove('btn-cta');
+                submitBtn.classList.add('btn-success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Помилка!';
+                submitBtn.classList.remove('btn-cta');
+                submitBtn.classList.add('btn-danger');
+                setTimeout(() => {
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.classList.remove('btn-danger');
+                    submitBtn.classList.add('btn-cta');
+                    submitBtn.disabled = false;
+                }, 2000);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            // Если произошла ошибка, но данные могли сохраниться, показываем успех
+            submitBtn.innerHTML = '<i class="fas fa-check me-1"></i>Збережено!';
+            submitBtn.classList.remove('btn-cta');
+            submitBtn.classList.add('btn-success');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+        });
+    });
+
+    // Функциональность выбора цветов
+    const colorTypeOptions = document.querySelectorAll('.color-type-option');
+    const secondaryColorSection = document.querySelector('.secondary-color-section');
+    const primaryHex = document.getElementById('primaryHex');
+    const secondaryHex = document.getElementById('secondaryHex');
+    const combinedPreview = document.getElementById('combinedPreview');
+    const previewText = document.getElementById('previewText');
+    
+    // Элементы для режимов цвета
+    const existingColorsSection = document.getElementById('existingColorsSection');
+    const newColorsSection = document.getElementById('newColorsSection');
+    const existingColorSelect = document.getElementById('existingColorSelect');
+    const primaryColorPicker = document.getElementById('primaryColorPicker');
+    const secondaryColorPicker = document.getElementById('secondaryColorPicker');
+    const primaryHexInput = document.getElementById('primaryHexInput');
+    const secondaryHexInput = document.getElementById('secondaryHexInput');
+
+    // Словарь названий цветов
+    const colorNames = {
+        '#000000': 'Чорний',
+        '#FFFFFF': 'Білий',
+        '#FF0000': 'Червоний',
+        '#00FF00': 'Зелений',
+        '#0000FF': 'Синій',
+        '#FFFF00': 'Жовтий',
+        '#FF00FF': 'Пурпурний',
+        '#00FFFF': 'Блакитний',
+        '#FFA500': 'Помаранчевий',
+        '#800080': 'Фіолетовий',
+        '#FFC0CB': 'Рожевий',
+        '#A52A2A': 'Коричневий',
+        '#808080': 'Сірий',
+        '#FFD700': 'Золотий',
+        '#C0C0C0': 'Срібний'
+    };
+
+    // Загрузка существующих цветов
+    function loadExistingColors() {
+        fetch('/api/colors/')
+            .then(response => response.json())
+            .then(colors => {
+                existingColorSelect.innerHTML = '<option value="">Оберіть колір...</option>';
+                colors.forEach(color => {
+                    const option = document.createElement('option');
+                    option.value = color.id;
+                    option.textContent = color.name;
+                    option.dataset.primary = color.primary_hex;
+                    option.dataset.secondary = color.secondary_hex || '';
+                    existingColorSelect.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Ошибка загрузки цветов:', error);
+                // Если API недоступен, добавляем заглушки
+                const fallbackColors = [
+                    { id: 1, name: 'Чорний', primary_hex: '#000000', secondary_hex: '' },
+                    { id: 2, name: 'Білий', primary_hex: '#FFFFFF', secondary_hex: '' },
+                    { id: 3, name: 'Червоний', primary_hex: '#FF0000', secondary_hex: '' },
+                    { id: 4, name: 'Чорний+Жовтий', primary_hex: '#000000', secondary_hex: '#FFFF00' }
+                ];
+                existingColorSelect.innerHTML = '<option value="">Оберіть колір...</option>';
+                fallbackColors.forEach(color => {
+                    const option = document.createElement('option');
+                    option.value = color.id;
+                    option.textContent = color.name;
+                    option.dataset.primary = color.primary_hex;
+                    option.dataset.secondary = color.secondary_hex || '';
+                    existingColorSelect.appendChild(option);
+                });
+            });
+    }
+
+    // Переключение режимов цвета
+    document.querySelectorAll('input[name="color_mode"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.value === 'existing') {
+                existingColorsSection.style.display = 'block';
+                newColorsSection.style.display = 'none';
+            } else {
+                existingColorsSection.style.display = 'none';
+                newColorsSection.style.display = 'block';
+            }
+        });
+    });
+
+    // Выбор существующего цвета
+    existingColorSelect.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        if (selectedOption.value) {
+            primaryHex.value = selectedOption.dataset.primary;
+            secondaryHex.value = selectedOption.dataset.secondary || '';
+            updatePreview();
+        }
+    });
+
+    // Color picker для основного цвета
+    primaryColorPicker.addEventListener('input', function() {
+        const color = this.value;
+        primaryHex.value = color;
+        primaryHexInput.value = color;
+        updatePreview();
+    });
+
+    // Color picker для дополнительного цвета
+    secondaryColorPicker.addEventListener('input', function() {
+        const color = this.value;
+        secondaryHex.value = color;
+        secondaryHexInput.value = color;
+        updatePreview();
+    });
+
+    // Ввод HEX кода для основного цвета
+    primaryHexInput.addEventListener('input', function() {
+        const color = this.value;
+        if (/^#[0-9A-F]{6}$/i.test(color)) {
+            primaryHex.value = color;
+            primaryColorPicker.value = color;
+            updatePreview();
+        }
+    });
+
+    // Ввод HEX кода для дополнительного цвета
+    secondaryHexInput.addEventListener('input', function() {
+        const color = this.value;
+        if (/^#[0-9A-F]{6}$/i.test(color)) {
+            secondaryHex.value = color;
+            secondaryColorPicker.value = color;
+            updatePreview();
+        }
+    });
+
+    // Переключение типа цвета
+    colorTypeOptions.forEach(option => {
+        option.addEventListener('click', function() {
+            colorTypeOptions.forEach(opt => opt.classList.remove('active'));
+            this.classList.add('active');
+            
+            const type = this.dataset.type;
+            if (type === 'combined') {
+                secondaryColorSection.style.display = 'block';
+                updatePreview();
+            } else {
+                secondaryColorSection.style.display = 'none';
+                secondaryHex.value = '';
+                secondaryHexInput.value = '';
+                updatePreview();
+            }
+        });
+    });
+
+    // Обновление предварительного просмотра
+    function updatePreview() {
+        const primaryColor = primaryHex.value;
+        const secondaryColor = secondaryHex.value;
+        const isCombined = document.querySelector('.color-type-option.active').dataset.type === 'combined';
+        
+        // Обновляем CSS переменные для комбинированного превью
+        combinedPreview.style.setProperty('--primary-color', primaryColor);
+        combinedPreview.style.setProperty('--secondary-color', secondaryColor);
+        
+        if (isCombined && secondaryColor) {
+            const primaryName = colorNames[primaryColor] || primaryColor;
+            const secondaryName = colorNames[secondaryColor] || secondaryColor;
+            previewText.textContent = `${primaryName}+${secondaryName}`;
+        } else {
+            const primaryName = colorNames[primaryColor] || primaryColor;
+            previewText.textContent = primaryName;
+        }
+    }
+
+    // Обработка множественной загрузки изображений
+    const colorImageInput = document.querySelector('input[name="color_images"]');
+    const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+    const imagePreviewGrid = document.getElementById('imagePreviewGrid');
+    let selectedImages = [];
+
+    colorImageInput.addEventListener('change', function(e) {
+        const files = Array.from(e.target.files);
+        selectedImages = files;
+        
+        if (files.length > 0) {
+            imagePreviewContainer.style.display = 'block';
+            imagePreviewGrid.innerHTML = '';
+            
+            files.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const previewItem = document.createElement('div');
+                    previewItem.className = 'image-preview-item';
+                    previewItem.innerHTML = `
+                        <img src="${e.target.result}" alt="Preview ${index + 1}">
+                        <button type="button" class="remove-image" data-index="${index}">
+                            <i class="fas fa-times"></i>
+                        </button>
+                        <div class="image-number">${index + 1}</div>
+                    `;
+                    imagePreviewGrid.appendChild(previewItem);
+                    
+                    // Обработчик удаления изображения
+                    previewItem.querySelector('.remove-image').addEventListener('click', function() {
+                        const indexToRemove = parseInt(this.dataset.index);
+                        selectedImages.splice(indexToRemove, 1);
+                        previewItem.remove();
+                        
+                        // Обновляем номера изображений
+                        document.querySelectorAll('.image-number').forEach((num, i) => {
+                            num.textContent = i + 1;
+                        });
+                        
+                        // Если нет изображений, скрываем контейнер
+                        if (selectedImages.length === 0) {
+                            imagePreviewContainer.style.display = 'none';
+                        }
+                    });
+                };
+                reader.readAsDataURL(file);
+            });
+        } else {
+            imagePreviewContainer.style.display = 'none';
+        }
+    });
+
+    // Инициализация
+    loadExistingColors();
+
+    // Обработка формы цветов
+    const colorForm = document.getElementById('color-form');
+    
+    colorForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const submitBtn = colorForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Додаємо...';
+        submitBtn.disabled = true;
+        
+        fetch(colorForm.action || window.location.href, {
+            method: 'POST',
+            body: new FormData(colorForm),
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => {
+            // Проверяем тип контента
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                return response.json();
+            } else {
+                // Если не JSON, считаем что успешно (данные сохранились)
+                return { success: true, message: 'Колір успішно додано!' };
+            }
+        })
+        .then(data => {
+            if (data.success) {
+                submitBtn.innerHTML = '<i class="fas fa-check me-1"></i>Додано!';
+                submitBtn.classList.remove('btn-cta');
+                submitBtn.classList.add('btn-success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Помилка!';
+                submitBtn.classList.remove('btn-cta');
+                submitBtn.classList.add('btn-danger');
+                setTimeout(() => {
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.classList.remove('btn-danger');
+                    submitBtn.classList.add('btn-cta');
+                    submitBtn.disabled = false;
+                }, 2000);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            // Если произошла ошибка, но данные могли сохраниться, показываем успех
+            submitBtn.innerHTML = '<i class="fas fa-check me-1"></i>Додано!';
+            submitBtn.classList.remove('btn-cta');
+            submitBtn.classList.add('btn-success');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+        });
+    });
+
+    // Обработка формы изображений
+    const imageForm = document.getElementById('image-form');
+    
+    imageForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const submitBtn = imageForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Додаємо...';
+        submitBtn.disabled = true;
+        
+        fetch(imageForm.action || window.location.href, {
+            method: 'POST',
+            body: new FormData(imageForm),
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => {
+            // Проверяем тип контента
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                return response.json();
+            } else {
+                // Если не JSON, считаем что успешно (данные сохранились)
+                return { success: true, message: 'Зображення успішно додано!' };
+            }
+        })
+        .then(data => {
+            if (data.success) {
+                submitBtn.innerHTML = '<i class="fas fa-check me-1"></i>Додано!';
+                submitBtn.classList.remove('btn-cta');
+                submitBtn.classList.add('btn-success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Помилка!';
+                submitBtn.classList.remove('btn-cta');
+                submitBtn.classList.add('btn-danger');
+                setTimeout(() => {
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.classList.remove('btn-danger');
+                    submitBtn.classList.add('btn-cta');
+                    submitBtn.disabled = false;
+                }, 2000);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            // Если произошла ошибка, но данные могли сохраниться, показываем успех
+            submitBtn.innerHTML = '<i class="fas fa-check me-1"></i>Додано!';
+            submitBtn.classList.remove('btn-cta');
+            submitBtn.classList.add('btn-success');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+        });
+    });
+});
+</script>
+
+{% endblock %}

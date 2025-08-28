@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Каталог — TwoComms{% endblock %}
+
+{% block content %}
+<div class="row g-3 g-md-4">
+  <aside class="col-12">
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      <a href="{% url 'catalog' %}" class="btn btn-outline-light {% if not category %}active{% endif %} d-inline-flex align-items-center gap-2">
+        <img src="{% static 'img/icons/all.svg' %}" width="18" height="18" alt=""> Усі
+      </a>
+      {% for c in categories %}
+        <a href="{% url 'catalog_by_cat' c.slug %}" class="btn btn-outline-light {% if category and category.id == c.id %}active{% endif %} d-inline-flex align-items-center gap-2">
+          {% if c.icon %}
+            <img src="{{ c.icon.url }}" width="18" height="18" alt="">
+          {% else %}
+            <img src="{% static 'img/icons/default.svg' %}" width="18" height="18" alt="">
+          {% endif %}
+          {{ c.name }}
+        </a>
+      {% endfor %}
+    </div>
+  </aside>
+
+  {% if show_category_cards %}
+    <section class="col-12">
+      <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4">
+        {% for c in categories %}
+          <div class="col">
+            <a href="{% url 'catalog_by_cat' c.slug %}" class="card product glass hover-raise text-decoration-none text-body">
+              <div class="ratio ratio-1x1 rounded-top-4 overflow-hidden bg-elevate">
+                {% if c.cover %}<img src="{{ c.cover.url }}" class="w-100 h-100 object-fit-cover" alt="">{% endif %}
+              </div>
+              <div class="card-body">
+                <div class="fw-semibold">{{ c.name }}</div>
+                <div class="text-secondary small">{{ c.products.count }} товарів</div>
+              </div>
+            </a>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+  {% else %}
+    <section class="col-12">
+      <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4" data-stagger-grid>
+        {% for p in products %}
+          <div class="product-card-wrap">
+            {% include "partials/product_card.html" with p=p stagger=True %}
+            {% if p.colors_preview %}
+              <div class="product-card-dots">
+                <div class="d-flex align-items-center gap-1">
+                  {% for color in p.colors_preview %}
+                    <span class="color-dot" title="{{ color.primary_hex }}{% if color.secondary_hex %}+{{ color.secondary_hex }}{% endif %}" style="--c1: {{ color.primary_hex }}; --c2: {{ color.secondary_hex }};"></span>
+                  {% endfor %}
+                </div>
+              </div>
+            {% endif %}
+          </div>
+        {% empty %}
+          <div class="text-secondary small">Немає товарів.</div>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+</div>
+{% endblock %}

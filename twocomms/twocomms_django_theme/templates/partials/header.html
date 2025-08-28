@@ -1,0 +1,118 @@
+{% load static %}
+<nav class='navbar navbar-expand-lg border-bottom sticky-top bg-body backdrop-blur'>
+  <div class='container-xxl'>
+    <a class='navbar-brand fw-bold d-flex align-items-center gap-2' href='{% url 'home' %}'>
+      <img src='{% static 'img/logo.svg' %}' width='28' height='28'> TwoComms
+    </a>
+    <button class='navbar-toggler position-relative' type='button' data-bs-toggle='collapse' data-bs-target='#navMain'>
+      <span class='navbar-toggler-icon'></span>
+    </button>
+    <div class='collapse navbar-collapse' id='navMain'>
+      <ul class='navbar-nav me-auto mb-2 mb-lg-0'>
+        <li class='nav-item'><a class='nav-link' href='{% url 'catalog' %}'>Каталог</a></li>
+        <li class='nav-item'><a class='nav-link' href='{% url 'about' %}'>Про бренд</a></li>
+        <li class='nav-item'><a class='nav-link' href='{% url 'contacts' %}'>Контакти</a></li>
+      </ul>
+      <form class='d-none d-lg-flex me-3' role='search' action='{% url 'search' %}'>
+        <input class='form-control form-control-sm bg-elevate' type='search' name='q' placeholder='Пошук…'>
+      </form>
+      <div class='d-flex align-items-center gap-2 position-relative'>
+        <a class='btn btn-sm btn-outline-light' href='{% url 'cooperation' %}'>Запропонувати принт</a>
+        <button id='cart-toggle' type='button' class='btn btn-sm btn-primary position-relative'>
+          Кошик
+          <span id='cart-count' class='position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger'>0</span>
+        </button>
+        <!-- Аватар/профіль -->
+        <button id="user-toggle" type="button" class="btn btn-sm btn-outline-light ms-1 p-0 rounded-circle overflow-hidden position-relative" style="width:34px;height:34px;">
+          {% if request.user.is_authenticated and request.user.userprofile and request.user.userprofile.avatar %}
+            <img src="{{ request.user.userprofile.avatar.url }}" alt="" class="w-100 h-100 object-fit-cover">
+          {% elif request.user.is_authenticated and request.session.profile_avatar %}
+            <img src="{{ MEDIA_URL }}{{ request.session.profile_avatar }}" alt="" class="w-100 h-100 object-fit-cover">
+          {% else %}
+            <img src="{% static 'img/placeholder.jpg' %}" alt="" class="w-100 h-100 object-fit-cover">
+          {% endif %}
+          {% if request.user.is_staff and orders_processing_count > 0 %}
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill orders-processing-badge text-dark">
+              {{ orders_processing_count }}
+            </span>
+          {% endif %}
+        </button>
+        <div id="user-panel" class="d-none shadow-lg rounded-4 bg-body p-3 position-absolute" style="right:0; top:calc(100% + 8px); z-index: 1080; width: 320px; max-width: 90vw;">
+          {% if request.user.is_authenticated %}
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <div class="rounded-circle overflow-hidden" style="width:36px;height:36px;">
+                {% if request.user.userprofile and request.user.userprofile.avatar %}
+                  <img src="{{ request.user.userprofile.avatar.url }}" class="w-100 h-100 object-fit-cover" alt="">
+                {% elif request.session.profile_avatar %}
+                  <img src="{{ MEDIA_URL }}{{ request.session.profile_avatar }}" class="w-100 h-100 object-fit-cover" alt="">
+                {% else %}
+                  <img src="{% static 'img/placeholder.jpg' %}" class="w-100 h-100 object-fit-cover" alt="">
+                {% endif %}
+              </div>
+              <div class="small">
+                <div class="fw-semibold">{{ request.user.username }}</div>
+                <div class="text-secondary">
+                  {% if request.user.userprofile and request.user.userprofile.phone %}
+                    {{ request.user.userprofile.phone }}
+                  {% else %}
+                    {{ request.session.profile_phone|default:"" }}
+                  {% endif %}
+                </div>
+              </div>
+              <button type="button" class="btn btn-sm btn-outline-light ms-auto" data-user-close aria-label="Закрити">×</button>
+            </div>
+            <div class="vstack gap-2">
+              <a href="{% url 'profile_setup' %}" class="btn btn-outline-light w-100">Налаштування профілю</a>
+              <a href="{% url 'my_orders' %}" class="btn btn-outline-light w-100">Мої замовлення</a>
+              <a href="{% url 'buy_with_points' %}" class="btn btn-outline-light w-100">
+                <div class="d-flex justify-content-between align-items-center">
+                  <span>Бали</span>
+                  <span class="badge bg-success">{{ request.user.points.points|default:0 }}</span>
+                </div>
+              </a>
+              <a href="{% url 'my_promocodes' %}" class="btn btn-outline-light w-100">Мої промокоди</a>
+              {% if request.user.is_staff or request.user.is_superuser %}
+                <a href="{% url 'admin_panel' %}" class="btn btn-outline-light w-100">Панель адміністратора</a>
+              {% endif %}
+              <a href="{% url 'logout' %}" class="btn btn-cta w-100">Вийти</a>
+            </div>
+          {% else %}
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="fw-semibold">Вхід</div>
+              <button type="button" class="btn btn-sm btn-outline-light" data-user-close aria-label="Закрити">×</button>
+            </div>
+            <div class="vstack gap-2">
+              <a href="#" class="btn btn-outline-light w-100">Увійти з Google</a>
+              <a href="#" class="btn btn-outline-light w-100">Увійти з Apple</a>
+              <a href="{% url 'login' %}" class="btn btn-cta w-100">Увійти</a>
+              <a href="{% url 'register' %}" class="btn btn-outline-light w-100">Зареєструватись</a>
+              <div class="text-secondary small">Щоб не вводити дані кожного разу — авторизуйтесь і накопичуйте бали.</div>
+            </div>
+          {% endif %}
+        </div>
+        <!-- Выпадающая мини‑корзина -->
+        <div id='mini-cart-panel' class='mini-cart d-none shadow-lg rounded-4 bg-body p-3 position-absolute' style='right:0; top:calc(100% + 8px); z-index: 1080; width: 360px; max-width: 90vw;'>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="fw-semibold">Кошик</div>
+            <button type="button" class="btn btn-sm btn-outline-light" data-cart-close aria-label="Закрити">×</button>
+          </div>
+          <div id="mini-cart-content"><div class="text-secondary small">Завантаження…</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</nav>
+<div class='d-lg-none bottom-nav d-flex gap-1 justify-content-between'>
+  <a href='{% url 'home' %}' class='btn {% if request and request.resolver_match and request.resolver_match.url_name == 'home' %}active{% endif %}'>Головна</a>
+  <a href='{% url 'catalog' %}' class='btn {% if request and request.resolver_match and request.resolver_match.url_name == 'catalog' %}active{% endif %}'>Каталог</a>
+  <a href='{% url 'cooperation' %}' class='btn {% if request and request.resolver_match and request.resolver_match.url_name == 'cooperation' %}active{% endif %}'>Співпраця</a>
+  <a class='btn position-relative {% if request and request.resolver_match and request.resolver_match.url_name == 'cart' %}active{% endif %}' href='{% url 'cart' %}'>
+    <span class="position-relative d-inline-block" style="width:28px;height:28px;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+        <path d="M0 1a1 1 0 0 1 1-1h1.11a.5.5 0 0 1 .49.377L2.89 1H14.5a.5.5 0 0 1 .485.621l-1.5 6A.5.5 0 0 1 13 8H4a.5.5 0 0 1-.49-.379L2.01 2H1a1 1 0 0 1-1-1z"/>
+        <path d="M5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
+      </svg>
+      <span id="cart-count-mobile" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span>
+    </span>
+  </a>
+</div>
