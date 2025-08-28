@@ -24,16 +24,15 @@
         </div>
 
         <div class='row g-3'>
-          <div class='col-md-3 form-check'>{{ form.has_discount }} {{ form.has_discount.label_tag }}</div>
-          <div class='col-md-3'>
+          <div class='col-md-4'>
             {{ form.discount_percent.label_tag }}{{ form.discount_percent }}
-            <div class='form-text'>%</div>
+            <div class='form-text'>% (0 = без знижки)</div>
           </div>
-          <div class='col-md-3'>
+          <div class='col-md-4'>
             <label class='form-label'>Фінальна ціна (auto)</label>
             <input type='text' class='form-control' id='finalPrice' readonly>
           </div>
-          <div class='col-md-3'>
+          <div class='col-md-4'>
             {{ form.points_reward.label_tag }}{{ form.points_reward }}
             <div class='form-text'>Кількість балів за покупку</div>
           </div>
@@ -57,19 +56,17 @@
 <script>
 (function(){
   const price=document.getElementById('id_price');
-  const has=document.getElementById('id_has_discount');
   const perc=document.getElementById('id_discount_percent');
   const out=document.getElementById('finalPrice');
   function recalc(){
     const p=parseInt(price.value||'0',10);
     const d=parseInt(perc.value||'0',10);
     let f=p;
-    if(has.checked&&d>0) f=Math.round(p*(100-d)/100);
+    if(d>0) f=Math.round(p*(100-d)/100);
     out.value=f
   }
   ['input','change'].forEach(ev=>{
     price.addEventListener(ev,recalc);
-    has.addEventListener(ev,recalc);
     perc.addEventListener(ev,recalc)
   });
   recalc()
