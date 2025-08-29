@@ -1,39 +1,442 @@
-{% extends 'base.html' %}{% load static %}{% block title %}Профіль — TwoComms{% endblock %}{% block content %}
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Профіль — TwoComms{% endblock %}
+
+{% block content %}
+<div class="profile-container">
 <div class="row justify-content-center">
-  <div class="col-12 col-lg-8">
-    <div class="card glass p-3 p-md-4">
-      <h1 class="h5 fw-bold mb-3">Профіль та доставка</h1>
-      <form method="post" enctype="multipart/form-data" class="vstack gap-3">{% csrf_token %}
-        <div class="row g-3">
-          <div class="col-md-6">
-            {{ form.full_name.label_tag }}{{ form.full_name }}
-          </div>
-          <div class="col-md-6">
-            {{ form.phone.label_tag }}{{ form.phone }}
-          </div>
-          <div class="col-md-6">
-            {{ form.city.label_tag }}{{ form.city }}
-          </div>
-          <div class="col-md-6">
-            {{ form.np_office.label_tag }}{{ form.np_office }}
-          </div>
-          <div class="col-md-6">
-            {{ form.pay_type.label_tag }}{{ form.pay_type }}
-          </div>
-          <div class="col-md-6">
-            {{ form.avatar.label_tag }}{{ form.avatar }}
-          </div>
-          <div class="col-md-6 form-check">
-            {{ form.is_ubd }} {{ form.is_ubd.label_tag }}
-          </div>
-          <div class="col-md-6">
-            {{ form.ubd_doc.label_tag }}{{ form.ubd_doc }}
+    <div class="col-12 col-lg-10 col-xl-8">
+      
+      <!-- Заголовок страницы -->
+      <div class="profile-header text-center mb-4">
+        <div class="profile-header-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+          </svg>
+        </div>
+        <h1 class="profile-title">Налаштування профілю</h1>
+        <p class="profile-subtitle">Заповніть інформацію для зручного замовлення</p>
+      </div>
+
+      <!-- Информация о баллах -->
+      {% if user.points %}
+      <a href="{% url 'buy_with_points' %}" class="points-info-card-link">
+        <div class="points-info-card mb-4">
+          <div class="points-header">
+            <div class="points-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+            </div>
+            <div class="points-content">
+              <h3 class="points-title">Ваші бали</h3>
+              <div class="points-amount">{{ user.points.points|default:0 }} балів</div>
+              <p class="points-description">Зароблено: {{ user.points.total_earned|default:0 }} | Витрачено: {{ user.points.total_spent|default:0 }}</p>
+            </div>
+            <div class="points-action">
+              <span class="points-action-text">Витратити бали</span>
+              <svg class="points-action-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+              </svg>
+            </div>
           </div>
         </div>
-        <button class="btn btn-cta mt-2">Зберегти</button>
-      </form>
-      <div class="text-secondary small mt-2">Телефон — обов’язковий. Якщо ви УБД — завантажте фото посвідчення.</div>
+      </a>
+      {% else %}
+      <!-- Отладочная информация -->
+      <div class="points-info-card mb-4" style="border: 2px dashed #ef4444;">
+        <div class="points-header">
+          <div class="points-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          </div>
+          <div class="points-content">
+            <h3 class="points-title">Бали не найдены</h3>
+            <div class="points-amount">0 балів</div>
+            <p class="points-description">Объект UserPoints не создан для пользователя</p>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Основная форма -->
+      <div class="profile-card">
+        <form method="post" enctype="multipart/form-data" class="profile-form">
+          {% csrf_token %}
+          
+          <!-- Секция аватара -->
+          <div class="profile-avatar-section mb-4">
+            <div class="avatar-upload-container">
+              <div class="avatar-preview">
+                {% if profile.avatar %}
+                  <img src="{{ profile.avatar.url }}" alt="Аватар" class="avatar-image" id="avatar-preview">
+                {% else %}
+                  <div class="avatar-placeholder" id="avatar-preview">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                    </svg>
+                  </div>
+                {% endif %}
+                <div class="avatar-overlay">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"/>
+                  </svg>
+                </div>
+              </div>
+              <div class="avatar-info">
+                <label for="{{ form.avatar.id_for_label }}" class="avatar-label">Фото профілю</label>
+                <p class="avatar-hint">JPG, PNG до 5 МБ</p>
+                {{ form.avatar }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Основная информация -->
+          <div class="form-section">
+            <div class="section-header">
+              <div class="section-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.57L19 8l-9 9z"/>
+                </svg>
+              </div>
+              <h3 class="section-title">Основна інформація</h3>
+            </div>
+            
+        <div class="row g-3">
+          <div class="col-md-6">
+                <div class="form-group">
+                  <label for="{{ form.full_name.id_for_label }}" class="form-label">
+                    {{ form.full_name.label }}
+                    <span class="required">*</span>
+                  </label>
+                  {{ form.full_name }}
+                  {% if form.full_name.errors %}
+                    <div class="error-message">{{ form.full_name.errors.0 }}</div>
+                  {% endif %}
+                </div>
+              </div>
+              
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="{{ form.phone.id_for_label }}" class="form-label">
+                    {{ form.phone.label }}
+                    <span class="required">*</span>
+                  </label>
+                  <div class="input-with-icon">
+                    <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+                    </svg>
+                    {{ form.phone }}
+                  </div>
+                  {% if form.phone.errors %}
+                    <div class="error-message">{{ form.phone.errors.0 }}</div>
+                  {% endif %}
+                </div>
+              </div>
+              
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="{{ form.email.id_for_label }}" class="form-label">
+                    {{ form.email.label }}
+                  </label>
+                  <div class="input-with-icon">
+                    <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+                    </svg>
+                    {{ form.email }}
+                  </div>
+                  <small class="form-hint">Може допомогти у відновленні акаунту або зв'язку</small>
+                  {% if form.email.errors %}
+                    <div class="error-message">{{ form.email.errors.0 }}</div>
+                  {% endif %}
+                  <!-- Отладочная информация -->
+                  <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                    Debug: {{ form.email.html_name }} | {{ form.email.value|default:"пусто" }}
+                  </div>
+                </div>
+              </div>
+              
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="{{ form.telegram.id_for_label }}" class="form-label">
+                    {{ form.telegram.label }}
+                  </label>
+                  <div class="input-with-icon">
+                    <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.14 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06-.01.13-.02.2z"/>
+                    </svg>
+                    {{ form.telegram }}
+                  </div>
+                  {% if form.telegram.errors %}
+                    <div class="error-message">{{ form.telegram.errors.0 }}</div>
+                  {% endif %}
+                  <!-- Отладочная информация -->
+                  <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                    Debug: {{ form.telegram.html_name }} | {{ form.telegram.value|default:"пусто" }}
+                  </div>
+                </div>
+              </div>
+              
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="{{ form.instagram.id_for_label }}" class="form-label">
+                    {{ form.instagram.label }}
+                  </label>
+                  <div class="input-with-icon">
+                    <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                    </svg>
+                    {{ form.instagram }}
+                  </div>
+                  <small class="form-hint">Потрібен для перевірки підписки у випадку конкурсів</small>
+                  {% if form.instagram.errors %}
+                    <div class="error-message">{{ form.instagram.errors.0 }}</div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Информация о доставке -->
+          <div class="form-section">
+            <div class="section-header">
+              <div class="section-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+                </svg>
+              </div>
+              <h3 class="section-title">Доставка</h3>
+            </div>
+            
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="{{ form.city.id_for_label }}" class="form-label">
+                    {{ form.city.label }}
+                  </label>
+                  <div class="input-with-icon">
+                    <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                    </svg>
+                    {{ form.city }}
+                  </div>
+                  {% if form.city.errors %}
+                    <div class="error-message">{{ form.city.errors.0 }}</div>
+                  {% endif %}
+                </div>
+              </div>
+              
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="{{ form.np_office.id_for_label }}" class="form-label">
+                    {{ form.np_office.label }}
+                  </label>
+                  <div class="input-with-icon">
+                    <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+                    </svg>
+                    {{ form.np_office }}
+                  </div>
+                  {% if form.np_office.errors %}
+                    <div class="error-message">{{ form.np_office.errors.0 }}</div>
+                  {% endif %}
+                </div>
+              </div>
+              
+          <div class="col-md-6">
+                <div class="form-group">
+                  <label for="{{ form.pay_type.id_for_label }}" class="form-label">
+                    {{ form.pay_type.label }}
+                  </label>
+                  {{ form.pay_type }}
+                  {% if form.pay_type.errors %}
+                    <div class="error-message">{{ form.pay_type.errors.0 }}</div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Секция УБД -->
+          <div class="form-section ubd-section">
+            <div class="section-header">
+              <div class="section-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+              </div>
+              <h3 class="section-title">Статус УБД</h3>
+            </div>
+            
+            <div class="ubd-toggle-container">
+              <div class="ubd-toggle-wrapper">
+                <div class="form-check ubd-checkbox">
+                  {{ form.is_ubd }}
+                  <label for="{{ form.is_ubd.id_for_label }}" class="ubd-label">
+                    {{ form.is_ubd.label }}
+                    <span class="recommended">★</span>
+                  </label>
+                </div>
+                <div class="ubd-info">
+                  <p class="ubd-description">Я є учасником бойових дій</p>
+                  <p class="ubd-benefits">Отримайте спеціальні умови та знижки</p>
+                </div>
+              </div>
+            </div>
+            
+            <div class="ubd-document-section" id="ubd-document-section">
+              <div class="document-upload-container">
+                <div class="document-preview" id="ubd-doc-preview">
+                  {% if profile.ubd_doc %}
+                    <img src="{{ profile.ubd_doc.url }}" alt="Документ УБД" class="document-image">
+                    <div class="document-overlay">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"/>
+                      </svg>
+                    </div>
+                  {% else %}
+                    <div class="document-placeholder">
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM16 18H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                      </svg>
+                    </div>
+                  {% endif %}
+                </div>
+                <div class="document-info">
+                  <label for="{{ form.ubd_doc.id_for_label }}" class="document-label">
+                    {{ form.ubd_doc.label }}
+                    <span class="required">*</span>
+                  </label>
+                  <p class="document-hint">Завантажте фото посвідчення УБД</p>
+                  {{ form.ubd_doc }}
+                  {% if form.ubd_doc.errors %}
+                    <div class="error-message">{{ form.ubd_doc.errors.0 }}</div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Кнопки действий -->
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-save">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              Зберегти зміни
+            </button>
+            <a href="{% url 'home' %}" class="btn btn-outline-secondary btn-cancel">
+              Скасувати
+            </a>
+          </div>
+        </form>
+      </div>
+
+      <!-- Информационная панель -->
+      <div class="info-panel">
+        <div class="info-item">
+          <div class="info-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+            </svg>
+          </div>
+          <div class="info-content">
+            <h4>Обов'язкові поля</h4>
+            <p>Поля з позначкою <span class="required">*</span> є обов'язковими для заповнення</p>
+          </div>
+        </div>
+        
+
+        
+        <div class="info-item">
+          <div class="info-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          </div>
+          <div class="info-content">
+            <h4>Статус УБД</h4>
+            <p>Якщо ви є учасником бойових дій, відмітьте це та завантажте фото посвідчення для отримання спеціальних умов</p>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const ubdCheckbox = document.getElementById('{{ form.is_ubd.id_for_label }}');
+  const ubdDocumentSection = document.getElementById('ubd-document-section');
+  const ubdDocInput = document.getElementById('{{ form.ubd_doc.id_for_label }}');
+  
+  // Функция для управления видимостью секции документа УБД
+  function toggleUbdDocument() {
+    if (ubdCheckbox.checked) {
+      ubdDocumentSection.style.display = 'block';
+      ubdDocumentSection.style.opacity = '1';
+      ubdDocumentSection.style.transform = 'translateY(0)';
+      ubdDocInput.required = true;
+    } else {
+      ubdDocumentSection.style.display = 'none';
+      ubdDocumentSection.style.opacity = '0';
+      ubdDocumentSection.style.transform = 'translateY(-10px)';
+      ubdDocInput.required = false;
+      ubdDocInput.value = '';
+    }
+  }
+  
+  // Инициализация состояния
+  toggleUbdDocument();
+  
+  // Обработчик изменения чекбокса
+  ubdCheckbox.addEventListener('change', toggleUbdDocument);
+  
+  // Предварительный просмотр аватара
+  const avatarInput = document.getElementById('{{ form.avatar.id_for_label }}');
+  const avatarPreview = document.getElementById('avatar-preview');
+  
+  avatarInput.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        if (avatarPreview.tagName === 'IMG') {
+          avatarPreview.src = e.target.result;
+        } else {
+          avatarPreview.innerHTML = `<img src="${e.target.result}" alt="Аватар" class="avatar-image">`;
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+  
+  // Предварительный просмотр документа УБД
+  const ubdDocPreview = document.getElementById('ubd-doc-preview');
+  
+  ubdDocInput.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        if (ubdDocPreview.querySelector('img')) {
+          ubdDocPreview.querySelector('img').src = e.target.result;
+        } else {
+          ubdDocPreview.innerHTML = `
+            <img src="${e.target.result}" alt="Документ УБД" class="document-image">
+            <div class="document-overlay">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"/>
+              </svg>
+            </div>
+          `;
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+});
+</script>
 {% endblock %}

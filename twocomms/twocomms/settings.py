@@ -41,7 +41,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",   # ← только один раз!
-    "storefront",                   # наше приложение из пакета
+    "storefront.apps.StorefrontConfig",  # наше приложение из пакета
     "accounts",                     # регистрируем приложение аккаунтов
     "orders.apps.OrdersConfig",     # заказы (корректный AppConfig)
     "productcolors.apps.ProductColorsConfig",  # цветовые варианты товаров

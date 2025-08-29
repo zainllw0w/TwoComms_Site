@@ -10,7 +10,7 @@ from .forms import ProductForm, CategoryForm
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from accounts.models import UserProfile
+from accounts.models import UserProfile, FavoriteProduct
 from django import forms
 from django.conf import settings
 from django.utils.text import slugify
@@ -50,7 +50,7 @@ class RegisterForm(forms.Form):
 
 class ProfileSetupForm(forms.Form):
     full_name = forms.CharField(label="ПІБ", max_length=200, required=False,
-                                widget=forms.TextInput(attrs={"class":"form-control bg-elevate","placeholder":"Прізвище Ім’я По батькові"}))
+                                widget=forms.TextInput(attrs={"class":"form-control bg-elevate","placeholder":"Прізвище Ім'я По батькові"}))
     phone = forms.CharField(label="Телефон", required=True,
                             widget=forms.TextInput(attrs={"class":"form-control bg-elevate","placeholder":"+380XXXXXXXXX"}))
     city = forms.CharField(label="Місто", required=False,
@@ -77,6 +77,24 @@ def login_view(request):
         user = authenticate(request, username=form.cleaned_data['username'], password=form.cleaned_data['password'])
         if user:
             login(request,user)
+            
+            # Переносим избранные товары из сессии в базу данных
+            session_favorites = request.session.get('favorites', [])
+            if session_favorites:
+                for product_id in session_favorites:
+                    try:
+                        product = Product.objects.get(id=product_id)
+                        FavoriteProduct.objects.get_or_create(
+                            user=user,
+                            product=product
+                        )
+                    except Product.DoesNotExist:
+                        pass
+                
+                # Очищаем сессию
+                del request.session['favorites']
+                request.session.modified = True
+            
             # если профиль пустой по телефону — просим заповнення
             try:
                 prof = user.userprofile
@@ -99,6 +117,24 @@ def register_view(request):
         else:
             user = User.objects.create_user(username=form.cleaned_data['username'], password=form.cleaned_data['password1'])
             login(request,user)
+            
+            # Переносим избранные товары из сессии в базу данных
+            session_favorites = request.session.get('favorites', [])
+            if session_favorites:
+                for product_id in session_favorites:
+                    try:
+                        product = Product.objects.get(id=product_id)
+                        FavoriteProduct.objects.get_or_create(
+                            user=user,
+                            product=product
+                        )
+                    except Product.DoesNotExist:
+                        pass
+                
+                # Очищаем сессию
+                del request.session['favorites']
+                request.session.modified = True
+            
             return redirect('profile_setup')
     return render(request,'pages/auth_register.html',{'form':form})
 
@@ -166,7 +202,7 @@ class RegisterForm(forms.Form):
 
 class ProfileSetupForm(forms.Form):
     full_name = forms.CharField(label="ПІБ", max_length=200, required=False,
-                                widget=forms.TextInput(attrs={"class":"form-control bg-elevate", "placeholder":"Прізвище Ім’я По батькові"}))
+                                widget=forms.TextInput(attrs={"class":"form-control bg-elevate", "placeholder":"Прізвище Ім'я По батькові"}))
     phone = forms.CharField(label="Телефон", required=True,
                             widget=forms.TextInput(attrs={"class":"form-control bg-elevate", "placeholder":"+380XXXXXXXXX"}))
     city = forms.CharField(label="Місто", required=False,
@@ -298,6 +334,22 @@ def catalog(request, cat_slug=None):
         category = None
         products = Product.objects.order_by('-id')
         show_category_cards = True
+    
+    # Добавляем данные о цветах для товаров
+    for product in products:
+        try:
+            from productcolors.models import ProductColorVariant
+            variants = ProductColorVariant.objects.select_related('color').filter(product=product)
+            product.colors_preview = [
+                {
+                    'primary_hex': v.color.primary_hex,
+                    'secondary_hex': v.color.secondary_hex or '',
+                }
+                for v in variants
+            ]
+        except:
+            product.colors_preview = []
+    
     return render(request,'pages/catalog.html',{'categories':categories,'category':category,'products':products,'show_category_cards':show_category_cards})
 
 def product_detail(request, slug):
@@ -2281,3 +2333,120 @@ def remove_promo_code(request):
         })
     
     return JsonResponse({'success': False, 'message': 'Невірний запит'})
+
+# ===== ИЗБРАННЫЕ ТОВАРЫ =====
+@require_POST
+def toggle_favorite(request, product_id):
+    """Добавить/удалить товар из избранного"""
+    try:
+        product = get_object_or_404(Product, id=product_id)
+        
+        if request.user.is_authenticated:
+            # Для авторизованных пользователей - используем базу данных
+            favorite, created = FavoriteProduct.objects.get_or_create(
+                user=request.user,
+                product=product
+            )
+            
+            if not created:
+                # Если запись уже существует, удаляем её
+                favorite.delete()
+                is_favorite = False
+                message = 'Товар видалено з обраного'
+            else:
+                is_favorite = True
+                message = 'Товар додано до обраного'
+        else:
+            # Для неавторизованных пользователей - используем сессии
+            session_favorites = request.session.get('favorites', [])
+            
+            if product_id in session_favorites:
+                # Удаляем из избранного
+                session_favorites.remove(product_id)
+                is_favorite = False
+                message = 'Товар видалено з обраного'
+            else:
+                # Добавляем в избранное
+                session_favorites.append(product_id)
+                is_favorite = True
+                message = 'Товар додано до обраного'
+            
+            # Сохраняем в сессии
+            request.session['favorites'] = session_favorites
+            request.session.modified = True
+        
+        return JsonResponse({
+            'success': True,
+            'is_favorite': is_favorite,
+            'message': message
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': 'Помилка: ' + str(e)
+        }, status=400)
+
+
+def favorites_list(request):
+    """Страница с избранными товарами"""
+    if request.user.is_authenticated:
+        # Для авторизованных пользователей - получаем из базы данных
+        favorites = FavoriteProduct.objects.filter(user=request.user).select_related('product', 'product__category')
+    else:
+        # Для неавторизованных пользователей - получаем из сессии
+        session_favorites = request.session.get('favorites', [])
+        favorites = []
+        
+        if session_favorites:
+            # Получаем товары по ID из сессии
+            products = Product.objects.filter(id__in=session_favorites).select_related('category')
+            
+            # Создаем объекты, похожие на FavoriteProduct
+            for product in products:
+                favorite = type('FavoriteProduct', (), {
+                    'product': product,
+                    'color_variants_data': []
+                })()
+                favorites.append(favorite)
+    
+    # Получаем варианты цветов для избранных товаров
+    for favorite in favorites:
+        try:
+            from productcolors.models import ProductColorVariant
+            variants = ProductColorVariant.objects.select_related('color').filter(product=favorite.product)
+            # Создаем список словарей с данными о цветах
+            color_variants_data = [
+                {
+                    'primary_hex': v.color.primary_hex,
+                    'secondary_hex': v.color.secondary_hex or '',
+                }
+                for v in variants
+            ]
+            # Добавляем как атрибут к объекту favorite
+            favorite.color_variants_data = color_variants_data
+        except:
+            favorite.color_variants_data = []
+    
+    return render(request, 'pages/favorites.html', {
+        'favorites': favorites,
+        'title': 'Обрані товари'
+    })
+
+
+def check_favorite_status(request, product_id):
+    """Проверить статус избранного для товара"""
+    try:
+        if request.user.is_authenticated:
+            # Для авторизованных пользователей - проверяем в базе данных
+            is_favorite = FavoriteProduct.objects.filter(
+                user=request.user,
+                product_id=product_id
+            ).exists()
+        else:
+            # Для неавторизованных пользователей - проверяем в сессии
+            session_favorites = request.session.get('favorites', [])
+            is_favorite = product_id in session_favorites
+        
+        return JsonResponse({'is_favorite': is_favorite})
+    except:
+        return JsonResponse({'is_favorite': False})

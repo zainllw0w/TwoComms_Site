@@ -1,58 +1,809 @@
-{% extends 'base.html' %}{% load static %}{% block title %}Мої замовлення — TwoComms{% endblock %}{% block content %}
-<div class="card glass p-3 p-md-4">
-  <h1 class="h5 fw-bold mb-3">Мої замовлення</h1>
-  <div class="vstack gap-3">
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Мої замовлення — TwoComms{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="orders-page">
+  <!-- Заголовок страницы -->
+  <div class="orders-header">
+    <div class="orders-header-content">
+      <div class="orders-header-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+        </svg>
+      </div>
+      <div class="orders-header-text">
+        <h1 class="orders-title">Мої замовлення</h1>
+        <p class="orders-subtitle">Відстежуйте статус ваших замовлень</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Список заказов -->
+  <div class="orders-container">
     {% for o in orders %}
-      <div class="border rounded-4 p-3 bg-elevate">
-        <div class="d-flex justify-content-between align-items-center">
-          <div class="fw-semibold">Замовлення #{{ o.id }}</div>
-          <div class="badge text-bg-secondary">{{ o.get_status_display }}</div>
+      <div class="order-card" data-order-id="{{ o.id }}">
+        <!-- Анимация искр -->
+        <div class="order-sparks">
+          <div class="order-spark order-spark-1"></div>
+          <div class="order-spark order-spark-2"></div>
+          <div class="order-spark order-spark-3"></div>
         </div>
-        <div class="small text-secondary mt-1">Доставка: {{ o.city }}, {{ o.np_office }} • Телефон: {{ o.phone }}</div>
-        <div class="mt-2 vstack gap-2">
-          {% for it in o.items.all %}
-            <div class="d-flex align-items-center justify-content-between bg-body-secondary rounded-3 p-2">
-              <div class="d-flex align-items-center gap-2">
-                <div class="rounded-3 overflow-hidden bg-elevate" style="width:42px;height:42px;">
-                  {% if it.color_variant and it.color_variant.images.exists %}<img src="{{ it.color_variant.images.first.image.url }}" class="w-100 h-100 object-fit-cover">{% elif it.product.main_image %}<img src="{{ it.product.main_image.url }}" class="w-100 h-100 object-fit-cover">{% endif %}
+        
+        <!-- Заголовок заказа -->
+        <div class="order-header">
+          <div class="order-header-row">
+            <div class="order-number-container">
+              <button class="order-number-btn" onclick="copyOrderNumber('{{ o.order_number }}')" data-order-number="{{ o.order_number }}">
+                <div class="order-number-glow"></div>
+                <div class="order-number-content">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  </svg>
+                  <span class="order-number-text">#{{ o.order_number }}</span>
+                  <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                  </svg>
                 </div>
-                <div class="small">
-                  <div class="fw-semibold">{{ it.title }}</div>
-                  <div class="text-secondary">
-                    Розмір: {{ it.size }} • ×{{ it.qty }}
-                    {% if it.color_variant %}
-                    <br>
-                    <div class="d-flex align-items-center gap-1">
-                      <span class="swatch" style="width: 10px; height: 10px; background: {{ it.color_variant.color.primary_hex }};" 
-                            data-primary="{{ it.color_variant.color.primary_hex }}" 
-                            data-secondary="{{ it.color_variant.color.secondary_hex|default:'' }}">
-                      </span>
-                      <span>Колір</span>
+              </button>
+            </div>
+            
+            <div class="order-points-card">
+              <div class="points-card-content">
+                {% if o.status == 'done' %}
+                  <div class="points-status earned">
+                    <div class="points-amount">
+                      <span>+{{ o.total_points|default:0 }}</span>
+                      <div class="points-card-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                        </svg>
+                      </div>
                     </div>
-                    {% endif %}
+                    <div class="points-label">Отримано</div>
+                  </div>
+                {% else %}
+                  <div class="points-status pending">
+                    <div class="points-amount">
+                      <span>{{ o.total_points|default:0 }}</span>
+                      <div class="points-card-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                        </svg>
+                      </div>
+                    </div>
+                    <div class="points-label">Очікується</div>
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+            
+            <div class="order-date-card">
+              <div class="date-card-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
+                </svg>
+              </div>
+              <div class="date-card-content">
+                <div class="date-label">Оформлено</div>
+                <div class="date-value">{{ o.created|date:"d.m.Y о H:i" }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Компактная информация о доставке -->
+        <div class="order-delivery-compact">
+          <div class="delivery-compact-item">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+            </svg>
+            <span>{{ o.city }}, {{ o.np_office }}</span>
+          </div>
+          <div class="delivery-compact-item">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+            </svg>
+            <span>{{ o.phone }}</span>
+          </div>
+          <div class="delivery-compact-item">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H4v-4h11v4zm0-5H4V9h11v4zm5 5h-4V9h4v9z"/>
+            </svg>
+            <span class="ttn-info">
+              {% if o.tracking_number %}
+                {{ o.tracking_number }}
+              {% else %}
+                <span class="ttn-pending">ТТН очікується</span>
+              {% endif %}
+            </span>
+          </div>
+        </div>
+
+        <!-- Этапы статуса заказа (горизонтальные) -->
+        <div class="order-status-track">
+          <div class="status-step {% if o.status == 'new' %}active{% elif o.status in 'prep,ship,done' %}completed{% endif %}">
+            <div class="status-step-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </div>
+            <div class="status-step-label">В обробці</div>
+          </div>
+          
+          <div class="status-connector {% if o.status in 'prep,ship,done' %}completed{% endif %}"></div>
+          
+          <div class="status-step {% if o.status == 'prep' %}active{% elif o.status in 'ship,done' %}completed{% endif %}">
+            <div class="status-step-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+              </svg>
+            </div>
+            <div class="status-step-label">Готується</div>
+          </div>
+          
+          <div class="status-connector {% if o.status in 'ship,done' %}completed{% endif %}"></div>
+          
+          <div class="status-step {% if o.status == 'ship' %}active{% elif o.status == 'done' %}completed{% endif %}">
+            <div class="status-step-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+              </svg>
+            </div>
+            <div class="status-step-label">Відправлено</div>
+          </div>
+          
+          <div class="status-connector {% if o.status == 'done' %}completed{% endif %}"></div>
+          
+          <div class="status-step {% if o.status == 'done' %}active{% endif %}">
+            <div class="status-step-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+            </div>
+            <div class="status-step-label">Отримано</div>
+          </div>
+        </div>
+
+        <!-- Товары в заказе -->
+        <div class="order-items-section">
+          <!-- Анимация кружочков для товаров -->
+          <div class="items-sparks">
+            <div class="items-spark items-spark-1"></div>
+            <div class="items-spark items-spark-2"></div>
+            <div class="items-spark items-spark-3"></div>
+            <div class="items-spark items-spark-4"></div>
+          </div>
+          
+          <div class="order-items-header">
+            <div class="order-items-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+              </svg>
+              Товари в замовленні ({{ o.items.count }})
+            </div>
+          </div>
+          
+          <div class="order-items-list">
+          {% for it in o.items.all %}
+              <div class="order-item-card">
+                <div class="order-item-image">
+                  {% if it.color_variant and it.color_variant.images.exists %}
+                    <img src="{{ it.color_variant.images.first.image.url }}" alt="{{ it.title }}" class="order-item-img">
+                  {% elif it.product.main_image %}
+                    <img src="{{ it.product.main_image.url }}" alt="{{ it.title }}" class="order-item-img">
+                  {% else %}
+                    <div class="order-item-placeholder">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                      </svg>
+                    </div>
+                  {% endif %}
+                </div>
+                
+                <div class="order-item-content">
+                  <div class="order-item-main">
+                    <div class="order-item-title">{{ it.title }}</div>
+                    <div class="order-item-specs">
+                      <div class="order-item-spec">
+                        <span class="spec-label">Розмір:</span>
+                        <span class="spec-value">{{ it.size }}</span>
+                      </div>
+                      <div class="order-item-spec">
+                        <span class="spec-label">Кількість:</span>
+                        <span class="spec-value">{{ it.qty }} шт</span>
+                      </div>
+                      {% if it.color_variant %}
+                      <div class="order-item-spec">
+                        <span class="spec-label">Колір:</span>
+                        <div class="order-item-color">
+                          <span class="order-item-swatch" 
+                                style="background: {{ it.color_variant.color.primary_hex }};" 
+                                data-primary="{{ it.color_variant.color.primary_hex }}" 
+                                data-secondary="{{ it.color_variant.color.secondary_hex|default:'' }}">
+                          </span>
+                          <span class="color-name">{{ it.color_variant.color.name }}</span>
+                        </div>
+                      </div>
+                      {% endif %}
+                    </div>
+                  </div>
+                  
+                  <div class="order-item-side">
+                    <div class="order-item-price">{{ it.line_total }} грн</div>
+                    <div class="order-item-unit-price">{{ it.price }} грн/шт</div>
                   </div>
                 </div>
               </div>
-              <div class="small fw-semibold">{{ it.line_total }} грн</div>
-            </div>
-          {% endfor %}
+            {% endfor %}
+          </div>
         </div>
-        <div class="text-end mt-2">
+
+        <!-- Компактная сводка -->
+        <div class="order-summary-compact">
           {% if o.promo_code %}
-            <div class="small text-success mb-1">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" class="me-1">
-                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            <div class="order-promo-compact">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
               </svg>
-              Промокод {{ o.promo_code.code }} застосовано
-              <br><small>Знижка: -{{ o.discount_amount }} грн</small>
+              <span>{{ o.promo_code.code }} (-{{ o.discount_amount }} грн)</span>
             </div>
           {% endif %}
-          <div class="fw-bold">Разом: {{ o.total_sum }} грн</div>
+          
+          <div class="order-payment-info">
+            <div class="payment-method">
+              <div class="payment-method-icon">
+                {% if o.pay_type == 'full' %}
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
+                  </svg>
+                {% else %}
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  </svg>
+                {% endif %}
+              </div>
+              <div class="payment-method-text">
+                <div class="payment-method-label">
+                  <span class="method-text">
+                    {% if o.pay_type == 'full' %}
+                      Повна оплата
+                    {% else %}
+                      Часткова оплата
+                    {% endif %}
+                  </span>
+                  <button class="edit-method-btn" onclick="togglePaymentMethodEdit('{{ o.id }}')" title="Змінити спосіб оплати">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                    </svg>
+                  </button>
+                </div>
+                <div class="payment-status" id="payment-status-{{ o.id }}">
+                  {% if o.payment_status == 'paid' %}
+                    <span class="status-paid">Оплачено повністю</span>
+                  {% elif o.payment_status == 'partial' %}
+                    <span class="status-partial">Внесена передплата</span>
+                  {% elif o.payment_status == 'checking' %}
+                    <span class="status-checking">На перевірці</span>
+                  {% else %}
+                    <span class="status-unpaid">Не оплачено</span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            
+            <div class="payment-method-actions">
+              <div class="payment-method-editor" id="payment-editor-{{ o.id }}" style="display: none;">
+                <div class="editor-header">
+                  <span class="editor-title">Змінити спосіб оплати</span>
+                  <button class="close-editor-btn" onclick="closePaymentMethodEdit('{{ o.id }}')">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                  </button>
+                </div>
+                <div class="editor-options">
+                  <label class="option-item">
+                    <input type="radio" name="payment-method-{{ o.id }}" value="partial" {% if o.pay_type == 'partial' %}checked{% endif %}>
+                    <span class="option-label">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                      </svg>
+                      Часткова оплата
+                    </span>
+                  </label>
+                  <label class="option-item">
+                    <input type="radio" name="payment-method-{{ o.id }}" value="full" {% if o.pay_type == 'full' %}checked{% endif %}>
+                    <span class="option-label">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
+                      </svg>
+                      Повна оплата
+                    </span>
+                  </label>
+                </div>
+                <div class="editor-actions">
+                  <button class="save-method-btn" onclick="savePaymentMethod('{{ o.id }}')">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                    </svg>
+                    Зберегти
+                  </button>
+                </div>
+              </div>
+              
+              {% if o.payment_status != 'paid' and o.payment_status != 'checking' %}
+                {% if o.pay_type == 'partial' %}
+                  <button class="payment-btn payment-btn-partial" onclick="payPartial('{{ o.id }}')">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    Внести передплату
+                  </button>
+                {% else %}
+                  <button class="payment-btn payment-btn-full" onclick="payFull('{{ o.id }}')">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
+                    </svg>
+                    Оплатити повністю
+                  </button>
+                {% endif %}
+              {% endif %}
+            </div>
+          </div>
+          
+          <div class="order-final-compact">
+            <span class="order-final-label">Разом:</span>
+            <span class="order-final-amount">{{ o.total_sum }} грн</span>
+          </div>
         </div>
       </div>
     {% empty %}
-      <div class="text-secondary small">У вас ще немає замовлень.</div>
+      <div class="orders-empty">
+        <div class="orders-empty-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+          </svg>
+        </div>
+        <h2 class="orders-empty-title">У вас ще немає замовлень</h2>
+        <p class="orders-empty-text">Зробіть перше замовлення, щоб побачити його тут</p>
+        <a href="{% url 'home' %}" class="orders-empty-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          </svg>
+          Перейти до покупок
+        </a>
+      </div>
     {% endfor %}
   </div>
 </div>
+
+<!-- Модальное окно для предоплаты -->
+<div class="payment-modal" id="payment-modal">
+  <div class="payment-modal-overlay" onclick="closePaymentModal()"></div>
+  <div class="payment-modal-content">
+    <div class="payment-modal-header">
+      <h3 class="payment-modal-title">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+        </svg>
+        Внесення передплати
+      </h3>
+      <button class="payment-modal-close" onclick="closePaymentModal()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+        </svg>
+      </button>
+    </div>
+    
+    <div class="payment-modal-body">
+      <div class="payment-instruction">
+        <div class="instruction-header">
+          <h4>Інструкція по внесенню передплати</h4>
+          <p class="instruction-description">
+            Передплата у розмірі <strong>200 грн</strong> необхідна для забезпечення безпеки компанії у випадку, якщо посилка буде відправлена, а користувач або не забере її, або розмір не підійде.
+          </p>
+        </div>
+        
+        <div class="order-number-section">
+          <label>Номер замовлення:</label>
+          <button class="order-number-copy" id="modal-order-number" onclick="copyOrderNumberFromModal()">
+            <span class="order-number-text"></span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+            </svg>
+          </button>
+        </div>
+        
+        <div class="payment-details">
+          <h5>Реквізити для оплати:</h5>
+          <div class="payment-details-grid">
+            <div class="detail-item">
+              <label>Отримувач:</label>
+              <button class="copyable-text" onclick="copyToClipboard('Синіло Артем Віталійович')">
+                Синіло Артем Віталійович
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                </svg>
+              </button>
+            </div>
+            
+            <div class="detail-item">
+              <label>IBAN:</label>
+              <button class="copyable-text" onclick="copyToClipboard('UA783220010000026200341393088')">
+                UA783220010000026200341393088
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                </svg>
+              </button>
+            </div>
+            
+            <div class="detail-item">
+              <label>ІПН/ЄДРПОУ:</label>
+              <button class="copyable-text" onclick="copyToClipboard('3490607272')">
+                3490607272
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                </svg>
+              </button>
+            </div>
+            
+            <div class="detail-item">
+              <label>Призначення платежу:</label>
+              <button class="copyable-text" id="modal-payment-purpose" onclick="copyPaymentPurpose()">
+                <span class="purpose-text"></span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                </svg>
+              </button>
+            </div>
+            
+            <div class="payment-method-separator">
+              <span>АБО</span>
+            </div>
+            
+            <div class="detail-item">
+              <label>Карта Монобанк:</label>
+              <button class="copyable-text" onclick="copyToClipboard('4441111140615463')">
+                4441111140615463
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="payment-upload">
+          <h5>Завантажте скріншот оплати:</h5>
+          <p class="upload-description">
+            Скріншот необхідний для забезпечення гарантій та підтвердження оплати. Будь ласка, зробіть знімок екрану з підтвердженням транзакції.
+          </p>
+          <div class="upload-area" id="upload-area">
+            <input type="file" id="payment-screenshot" accept="image/*" style="display: none;" onchange="handleFileUpload(event)">
+            <div class="upload-placeholder" onclick="document.getElementById('payment-screenshot').click()">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"/>
+              </svg>
+              <p>Натисніть для завантаження скріншоту</p>
+              <span>PNG, JPG або JPEG (макс. 5MB)</span>
+            </div>
+            <div class="upload-preview" id="upload-preview" style="display: none;">
+              <img id="preview-image" src="" alt="Preview">
+              <button class="remove-upload" onclick="removeUpload()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="payment-modal-footer">
+      <button class="payment-confirm-btn" onclick="confirmPayment()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+        </svg>
+        Оплатив
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+function copyOrderNumber(orderNumber) {
+  // Копируем номер в буфер обмена
+  navigator.clipboard.writeText(orderNumber).then(function() {
+    // Показываем уведомление
+    showCopyNotification(orderNumber);
+    
+    // Анимация кнопки
+    const button = event.target.closest('.order-number-btn');
+    if (button) {
+      button.classList.add('copied');
+      setTimeout(() => {
+        button.classList.remove('copied');
+      }, 2000);
+    }
+  }).catch(function(err) {
+    console.error('Ошибка копирования:', err);
+    // Fallback для старых браузеров
+    const textArea = document.createElement('textarea');
+    textArea.value = orderNumber;
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+    showCopyNotification(orderNumber);
+  });
+}
+
+function showCopyNotification(orderNumber) {
+  // Создаем уведомление
+  const notification = document.createElement('div');
+  notification.className = 'copy-notification';
+  notification.innerHTML = `
+    <div class="copy-notification-content">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+      </svg>
+      <span>Номер замовлення #${orderNumber} скопійовано!</span>
+    </div>
+  `;
+  
+  document.body.appendChild(notification);
+  
+  // Анимация появления
+  setTimeout(() => {
+    notification.classList.add('show');
+  }, 100);
+  
+  // Удаляем уведомление
+  setTimeout(() => {
+    notification.classList.remove('show');
+    setTimeout(() => {
+      document.body.removeChild(notification);
+    }, 300);
+  }, 3000);
+}
+
+// Функции для кнопок оплаты (заглушки)
+function payPartial(orderId) {
+  // Получаем номер заказа из атрибута data-order-number
+  const orderContainer = document.querySelector(`[data-order-id="${orderId}"]`);
+  const orderNumberBtn = orderContainer ? orderContainer.querySelector('[data-order-number]') : null;
+  const orderNumber = orderNumberBtn ? orderNumberBtn.getAttribute('data-order-number') : `TWC${new Date().toISOString().slice(0,10).replace(/-/g,'')}N01`;
+  
+  // Заполняем модальное окно
+  document.querySelector('#modal-order-number .order-number-text').textContent = orderNumber;
+  document.querySelector('#modal-payment-purpose .purpose-text').textContent = orderNumber;
+  
+  // Сохраняем ID заказа для функции подтверждения
+  document.getElementById('payment-modal').setAttribute('data-order-id', orderId);
+  
+  // Показываем модальное окно
+  document.getElementById('payment-modal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function payFull(orderId) {
+  alert('Функція повної оплати для замовлення #' + orderId + ' буде додана пізніше');
+}
+
+function payFull(orderId) {
+  alert('Функція повної оплати для замовлення #' + orderId + ' буде додана пізніше');
+}
+
+// Функции для редактирования способа оплаты
+function togglePaymentMethodEdit(orderId) {
+  const editor = document.getElementById('payment-editor-' + orderId);
+  if (editor) {
+    editor.style.display = 'block';
+    editor.style.animation = 'editorSlideIn 0.3s ease-out';
+  }
+}
+
+function closePaymentMethodEdit(orderId) {
+  const editor = document.getElementById('payment-editor-' + orderId);
+  if (editor) {
+    editor.style.animation = 'editorSlideOut 0.3s ease-in';
+    setTimeout(() => {
+      editor.style.display = 'none';
+    }, 300);
+  }
+}
+
+function savePaymentMethod(orderId) {
+  const selectedMethod = document.querySelector(`input[name="payment-method-${orderId}"]:checked`);
+  if (!selectedMethod) {
+    alert('Будь ласка, виберіть спосіб оплати');
+    return;
+  }
+  
+  const methodName = selectedMethod.value === 'full' ? 'Повна' : 'Часткова';
+  
+  if (confirm(`Ви дійсно хочете змінити спосіб оплати на "${methodName} оплата"?`)) {
+    // AJAX запрос для сохранения
+    const formData = new FormData();
+    formData.append('order_id', orderId);
+    formData.append('payment_method', selectedMethod.value);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    fetch('{% url "update_payment_method" %}', {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        // Обновляем отображение
+        const paymentInfo = document.querySelector(`#payment-editor-${orderId}`).closest('.order-payment-info');
+        const methodText = paymentInfo.querySelector('.method-text');
+        const methodIcon = paymentInfo.querySelector('.payment-method-icon svg');
+        const paymentBtn = paymentInfo.closest('.order-payment-info').querySelector('.payment-btn');
+        
+        if (methodText) {
+          methodText.textContent = data.method_display;
+        }
+        
+        // Обновляем иконку
+        if (methodIcon) {
+          if (data.payment_method === 'full') {
+            methodIcon.innerHTML = '<path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>';
+          } else {
+            methodIcon.innerHTML = '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>';
+          }
+        }
+        
+        // Обновляем кнопку оплаты
+        if (paymentBtn) {
+          if (data.payment_method === 'partial') {
+            paymentBtn.className = 'payment-btn payment-btn-partial';
+            paymentBtn.innerHTML = `
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              Внести передплату
+            `;
+            paymentBtn.onclick = () => payPartial(orderId);
+          } else {
+            paymentBtn.className = 'payment-btn payment-btn-full';
+            paymentBtn.innerHTML = `
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
+              </svg>
+              Оплатити повністю
+            `;
+            paymentBtn.onclick = () => payFull(orderId);
+          }
+        }
+        
+        // Закрываем редактор
+        closePaymentMethodEdit(orderId);
+      } else {
+        alert('Помилка: ' + (data.error || 'Невідома помилка'));
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Помилка збереження: ' + error.message);
+    });
+  }
+}
+
+// Функции для модального окна предоплаты
+function closePaymentModal() {
+  document.getElementById('payment-modal').style.display = 'none';
+  document.body.style.overflow = 'auto';
+  removeUpload(); // Очищаем загруженный файл
+}
+
+function copyOrderNumberFromModal() {
+  const orderNumber = document.querySelector('#modal-order-number .order-number-text').textContent;
+  copyToClipboard(orderNumber);
+}
+
+function copyPaymentPurpose() {
+  const purpose = document.querySelector('#modal-payment-purpose .purpose-text').textContent;
+  copyToClipboard(purpose);
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(function() {
+    showCopyNotification(text);
+  }).catch(function(err) {
+    console.error('Ошибка копирования:', err);
+    // Fallback для старых браузеров
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+    showCopyNotification(text);
+  });
+}
+
+function handleFileUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  // Проверяем размер файла (5MB)
+  if (file.size > 5 * 1024 * 1024) {
+    alert('Файл занадто великий. Максимальний розмір: 5MB');
+    return;
+  }
+  
+  // Проверяем тип файла
+  if (!file.type.startsWith('image/')) {
+    alert('Будь ласка, виберіть зображення');
+    return;
+  }
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    document.getElementById('preview-image').src = e.target.result;
+    document.querySelector('.upload-placeholder').style.display = 'none';
+    document.getElementById('upload-preview').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeUpload() {
+  document.getElementById('payment-screenshot').value = '';
+  document.querySelector('.upload-placeholder').style.display = 'block';
+  document.getElementById('upload-preview').style.display = 'none';
+  document.getElementById('preview-image').src = '';
+}
+
+function confirmPayment() {
+  const file = document.getElementById('payment-screenshot').files[0];
+  if (!file) {
+    alert('Будь ласка, завантажте скріншот оплати');
+    return;
+  }
+  
+  const orderId = document.getElementById('payment-modal').getAttribute('data-order-id');
+  if (!orderId) {
+    alert('Помилка: не знайдено ID замовлення');
+    return;
+  }
+  
+  // Отправляем AJAX запрос для обновления статуса
+  const formData = new FormData();
+  formData.append('order_id', orderId);
+  formData.append('payment_screenshot', file);
+  formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+  
+  fetch('{% url "confirm_payment" %}', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Обновляем статус оплаты в интерфейсе
+      const paymentStatus = document.querySelector(`#payment-status-${orderId}`);
+      if (paymentStatus) {
+        paymentStatus.textContent = 'На перевірці';
+        paymentStatus.className = 'payment-status status-checking';
+      }
+      
+      alert('Дякуємо! Ваш скріншот оплати відправлено. Статус замовлення оновлено на "На перевірці".');
+      closePaymentModal();
+    } else {
+      alert('Помилка: ' + (data.error || 'Невідома помилка'));
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Помилка відправки: ' + error.message);
+  });
+}
+</script>
+
 {% endblock %}

@@ -58,7 +58,13 @@ function updateCartBadge(count){
 }
 
 // Мини‑корзина
-function miniCartPanel(){ return document.getElementById('mini-cart-panel'); }
+function miniCartPanel(){ 
+  if(window.innerWidth < 576){
+    return document.getElementById('mini-cart-panel-mobile');
+  } else {
+    return document.getElementById('mini-cart-panel');
+  }
+}
 function openMiniCart(){
   const panel=miniCartPanel(); if(!panel) return;
   panel.classList.remove('d-none','hiding');
@@ -100,7 +106,7 @@ function toggleMiniCart(){
 }
 function refreshMiniCart(){
   const panel=miniCartPanel(); if(!panel) return;
-  const content = panel.querySelector('#mini-cart-content') || panel;
+  const content = panel.querySelector('#mini-cart-content') || panel.querySelector('#mini-cart-content-mobile') || panel;
   content.innerHTML = "<div class='text-secondary small'>Завантаження…</div>";
   fetch('/cart/mini/',{headers:{'X-Requested-With':'XMLHttpRequest'}})
     .then(r=>r.text())
@@ -282,9 +288,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   // Тогглер мини‑корзины (и по id, и по data-атрибуту)
   const hookToggle = (el)=> el && el.addEventListener('click', (e)=>{ e.preventDefault(); toggleMiniCart(); });
   hookToggle(document.getElementById('cart-toggle'));
+  hookToggle(document.getElementById('cart-toggle-mobile'));
   document.querySelectorAll('[data-cart-toggle]').forEach(hookToggle);
 
-  // Пользовательская панель
+  // Пользовательская панель (десктоп)
   const userToggle = document.getElementById('user-toggle');
   const userPanel = document.getElementById('user-panel');
   if(userToggle && userPanel){
@@ -296,17 +303,33 @@ document.addEventListener('DOMContentLoaded',()=>{
     document.addEventListener('keydown',(e)=>{ if(e.key==='Escape') closeUser(); });
   }
 
+  // Пользовательская панель (мобильная)
+  const userToggleMobile = document.getElementById('user-toggle-mobile');
+  const userPanelMobile = document.getElementById('user-panel-mobile');
+  if(userToggleMobile && userPanelMobile){
+    const openUserMobile=()=>{ userPanelMobile.classList.remove('d-none'); void userPanelMobile.offsetHeight; userPanelMobile.classList.add('show'); };
+    const closeUserMobile=()=>{ userPanelMobile.classList.remove('show'); const t=setTimeout(()=>userPanelMobile.classList.add('d-none'),220); userPanelMobile.addEventListener('transitionend', function onEnd(e){ if(e.target!==userPanelMobile) return; userPanelMobile.removeEventListener('transitionend', onEnd); clearTimeout(t); userPanelMobile.classList.add('d-none'); }); };
+    userToggleMobile.addEventListener('click',(e)=>{ e.preventDefault(); if(userPanelMobile.classList.contains('d-none') || !userPanelMobile.classList.contains('show')) openUserMobile(); else closeUserMobile(); });
+    document.addEventListener('click',(e)=>{ if(userPanelMobile.classList.contains('d-none')) return; if(!userPanelMobile.contains(e.target) && !userToggleMobile.contains(e.target)){ closeUserMobile(); }});
+    const ucMobile = userPanelMobile.querySelector('[data-user-close-mobile]'); if(ucMobile){ ucMobile.addEventListener('click',(e)=>{ e.preventDefault(); closeUserMobile();}); }
+    document.addEventListener('keydown',(e)=>{ if(e.key==='Escape') closeUserMobile(); });
+  }
+
   // Кнопка закрытия мини‑кошика
   const hookClose = ()=> {
     const c = document.querySelector('[data-cart-close]');
+    const cMobile = document.querySelector('[data-cart-close-mobile]');
     if(c){ c.addEventListener('click', (e)=>{ e.preventDefault(); closeMiniCart(); }); }
+    if(cMobile){ cMobile.addEventListener('click', (e)=>{ e.preventDefault(); closeMiniCart(); }); }
   };
   hookClose();
 
   // Закрытие по клику снаружи
   document.addEventListener('click',(e)=>{
     const panel=miniCartPanel();
-    const toggle=document.getElementById('cart-toggle') || document.querySelector('[data-cart-toggle]');
+    const toggle=window.innerWidth < 576 ? 
+      document.getElementById('cart-toggle-mobile') : 
+      document.getElementById('cart-toggle') || document.querySelector('[data-cart-toggle]');
     if(!panel) return;
     if(panel.classList.contains('d-none')) return;
     if(!panel.contains(e.target) && (!toggle || !toggle.contains(e.target))){
@@ -446,6 +469,128 @@ document.addEventListener('DOMContentLoaded', function() {
         featuredContent.classList.add('collapsed');
         featuredContent.style.display = 'none';
       }, 800);
+    }
+  });
+});
+
+// ===== ФУНКЦИИ ДЛЯ ИЗБРАННЫХ ТОВАРОВ =====
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+
+// Функция для переключения избранного
+function toggleFavorite(productId, button) {
+  if (!button) return;
+  
+  // Показываем индикатор загрузки
+  button.style.pointerEvents = 'none';
+  button.style.opacity = '0.7';
+  
+  fetch(`/favorites/toggle/${productId}/`, {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': getCookie('csrftoken'),
+      'Content-Type': 'application/json',
+    },
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Обновляем состояние кнопки
+      if (data.is_favorite) {
+        button.classList.add('is-favorite');
+      } else {
+        button.classList.remove('is-favorite');
+      }
+      
+      // Показываем уведомление
+      showNotification(data.message, 'success');
+    } else {
+      showNotification(data.message || 'Помилка', 'error');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+          showNotification('Помилка з\'єднання', 'error');
+  })
+  .finally(() => {
+    // Восстанавливаем кнопку
+    button.style.pointerEvents = 'auto';
+    button.style.opacity = '1';
+  });
+}
+
+// Функция для проверки статуса избранного
+function checkFavoriteStatus(productId, button) {
+  if (!button) return;
+  
+  fetch(`/favorites/check/${productId}/`)
+  .then(response => response.json())
+  .then(data => {
+    if (data.is_favorite) {
+      button.classList.add('is-favorite');
+    } else {
+      button.classList.remove('is-favorite');
+    }
+  })
+  .catch(error => {
+    console.error('Error checking favorite status:', error);
+  });
+}
+
+// Функция для показа уведомлений
+function showNotification(message, type = 'info') {
+  // Создаем элемент уведомления
+  const notification = document.createElement('div');
+  notification.className = `notification notification-${type}`;
+  notification.innerHTML = `
+    <div class="notification-content">
+      <span class="notification-message">${message}</span>
+      <button class="notification-close" onclick="this.parentElement.parentElement.remove();">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+        </svg>
+      </button>
+    </div>
+  `;
+  
+  // Добавляем в body
+  document.body.appendChild(notification);
+  
+  // Показываем с анимацией
+  setTimeout(() => {
+    notification.classList.add('show');
+  }, 100);
+  
+  // Автоматически скрываем через 3 секунды
+  setTimeout(() => {
+    notification.classList.remove('show');
+    setTimeout(() => {
+      if (notification.parentElement) {
+        notification.remove();
+      }
+    }, 300);
+  }, 3000);
+}
+
+// Инициализация статуса избранного для всех кнопок при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+  const favoriteButtons = document.querySelectorAll('.favorite-btn');
+  favoriteButtons.forEach(button => {
+    const productId = button.getAttribute('data-product-id');
+    if (productId) {
+      checkFavoriteStatus(productId, button);
     }
   });
 });
