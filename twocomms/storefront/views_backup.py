@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect, get_object_or_404
+илерсиfrom django.shortcuts import render, redirect, get_object_or_404
 from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
@@ -2494,44 +2494,3 @@ def check_favorite_status(request, product_id):
         return JsonResponse({'is_favorite': is_favorite})
     except:
         return JsonResponse({'is_favorite': False})
-
-@login_required
-@require_POST
-def confirm_payment(request):
-    """
-    AJAX view для подтверждения оплаты заказа
-    """
-    from orders.models import Order
-    
-    order_id = request.POST.get("order_id")
-    payment_screenshot = request.FILES.get("payment_screenshot")
-    
-    if not order_id:
-        return JsonResponse({
-            "success": False,
-            "error": "Відсутній ID замовлення"
-        })
-    
-    if not payment_screenshot:
-        return JsonResponse({
-            "success": False,
-            "error": "Будь ласка, завантажте скріншот оплати"
-        })
-    
-    try:
-        order = Order.objects.get(id=order_id, user=request.user)
-    except Order.DoesNotExist:
-        return JsonResponse({
-            "success": False,
-            "error": "Замовлення не знайдено"
-        })
-    
-    # Сохраняем скриншот оплаты
-    order.payment_screenshot = payment_screenshot
-    order.payment_status = "checking"
-    order.save()
-    
-    return JsonResponse({
-        "success": True,
-        "message": "Скріншот оплати успішно завантажено"
-    })
