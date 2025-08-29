@@ -19,10 +19,18 @@ class Order(models.Model):
     city = models.CharField(max_length=100)
     np_office = models.CharField(max_length=200)
     pay_type = models.CharField(max_length=10, default='full')
+    payment_status = models.CharField(max_length=20, choices=[
+        ('unpaid', 'Не оплачено'),
+        ('checking', 'На перевірці'),
+        ('partial', 'Внесена передплата'),
+        ('paid', 'Оплачено повністю'),
+    ], default='unpaid')
     total_sum = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='Сума знижки')
     promo_code = models.ForeignKey(PromoCode, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Використаний промокод')
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='new')
+    tracking_number = models.CharField(max_length=50, blank=True, null=True, verbose_name='Номер ТТН')
+    payment_screenshot = models.ImageField(upload_to='payment_screenshots/', blank=True, null=True, verbose_name='Скріншот оплати')
     points_awarded = models.BooleanField(default=False, verbose_name='Бали нараховані')
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
@@ -59,6 +67,16 @@ class Order(models.Model):
             return f"{self.user.first_name} {self.user.last_name}".strip() or self.user.username
         return "Гість"
     
+    def get_payment_status_display(self):
+        """Возвращает отображаемое название статуса оплаты"""
+        payment_status_choices = dict([
+            ('unpaid', 'Не оплачено'),
+            ('checking', 'На перевірці'),
+            ('partial', 'Внесена передплата'),
+            ('paid', 'Оплачено повністю'),
+        ])
+        return payment_status_choices.get(self.payment_status, self.payment_status)
+    
     @classmethod
     def get_processing_count(cls):
         """Возвращает количество заказов в обработке"""
@@ -73,6 +91,15 @@ class Order(models.Model):
     def final_total(self):
         """Итоговая сумма с учетом скидки"""
         return self.total_sum
+    
+    @property
+    def total_points(self):
+        """Возвращает общее количество балов за заказ"""
+        total = 0
+        for item in self.items.all():
+            if hasattr(item.product, 'points_reward') and item.product.points_reward:
+                total += item.product.points_reward * item.qty
+        return total
     
     def apply_promo_code(self, promo_code):
         """Применяет промокод к заказу"""

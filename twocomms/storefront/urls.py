@@ -11,6 +11,7 @@ urlpatterns=[
     path('cart/', views.cart, name='cart'),
     path('cart/add/', views.add_to_cart, name='cart_add'),
     path('cart/remove/', views.cart_remove, name='cart_remove'),
+
     path('cart/summary/', views.cart_summary, name='cart_summary'),
     path('cart/mini/', views.cart_mini, name='cart_mini'),
     path('cart/clean/', views.clean_cart, name='clean_cart'),
@@ -28,6 +29,7 @@ urlpatterns=[
     path('orders/create/', views.order_create, name='order_create'),
     path('orders/success/<int:order_id>/', views.order_success, name='order_success'),
     path('my/orders/', views.my_orders, name='my_orders'),
+
     path('user/points/', views.user_points, name='user_points'),
     path('my-promocodes/', views.my_promocodes, name='my_promocodes'),
     path('buy-with-points/', views.buy_with_points, name='buy_with_points'),
@@ -65,4 +67,8 @@ urlpatterns=[
     path('about/', views.about, name='about'),
     path('contacts/', views.contacts, name='contacts'),
     path('search/', views.search, name='search'),
+    # favorites
+    path('favorites/', views.favorites_list, name='favorites'),
+    path('favorites/toggle/<int:product_id>/', views.toggle_favorite, name='toggle_favorite'),
+    path('favorites/check/<int:product_id>/', views.check_favorite_status, name='check_favorite_status'),
 ]

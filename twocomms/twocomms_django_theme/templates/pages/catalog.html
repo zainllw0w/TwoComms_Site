@@ -47,13 +47,14 @@
           <div class="product-card-wrap">
             {% include "partials/product_card.html" with p=p stagger=True %}
             {% if p.colors_preview %}
-              <div class="product-card-dots">
-                <div class="d-flex align-items-center gap-1">
-                  {% for color in p.colors_preview %}
-                    <span class="color-dot" title="{{ color.primary_hex }}{% if color.secondary_hex %}+{{ color.secondary_hex }}{% endif %}" style="--c1: {{ color.primary_hex }}; --c2: {{ color.secondary_hex }};"></span>
-                  {% endfor %}
-                </div>
+            <div class="product-card-dots">
+              <span class="text-secondary small me-1">Кольори:</span>
+              <div class="d-flex align-items-center gap-1">
+                {% for v in p.colors_preview %}
+                  <span class="color-dot" title="{{ v.primary_hex }}{% if v.secondary_hex %}+{{ v.secondary_hex }}{% endif %}" style="--c1: {{ v.primary_hex }}; --c2: {{ v.secondary_hex|default:'' }};"></span>
+                {% endfor %}
               </div>
+            </div>
             {% endif %}
           </div>
         {% empty %}

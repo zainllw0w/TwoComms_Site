@@ -1,224 +1,495 @@
-{% extends 'base.html' %}{% load static %}{% block title %}Кошик — TwoComms{% endblock %}{% block content %}
+{% extends 'base.html' %}
+{% load static %}
+{% load math_filters %}
+
+{% block title %}Кошик — TwoComms{% endblock %}
+
+{% block content %}
 {% csrf_token %}
-<div class='row g-3 g-md-4'>
+
+<!-- Анимация искр для всей страницы -->
+<div class="cart-page-sparks">
+  <div class="cart-page-spark cart-page-spark-1"></div>
+  <div class="cart-page-spark cart-page-spark-2"></div>
+  <div class="cart-page-spark cart-page-spark-3"></div>
+  <div class="cart-page-spark cart-page-spark-4"></div>
+  <div class="cart-page-spark cart-page-spark-5"></div>
+  <div class="cart-page-spark cart-page-spark-6"></div>
+</div>
+
+<div class="cart-page-container">
+  <!-- Заголовок страницы -->
+  <div class="cart-page-header">
+    <div class="cart-page-header-icon">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+      </svg>
+    </div>
+    <div class="cart-page-header-content">
+      <h1 class="cart-page-title">Кошик</h1>
+      <p class="cart-page-subtitle">Ваші вибрані товари</p>
+    </div>
+    {% if items %}
+    <button type="button" class="cart-clear-btn" onclick="cleanCart()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+      </svg>
+      Очистити
+    </button>
+    {% endif %}
+  </div>
+
   <!-- Сообщения -->
   {% if messages %}
     {% for message in messages %}
-      <div class="col-12">
-        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-          {{ message }}
-          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      <div class="cart-message cart-message-{{ message.tags }}">
+        <div class="cart-message-icon">
+          {% if message.tags == 'success' %}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            </svg>
+          {% elif message.tags == 'error' %}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+          {% else %}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+            </svg>
+          {% endif %}
         </div>
+        <div class="cart-message-text">{{ message }}</div>
+        <button type="button" class="cart-message-close" onclick="this.parentElement.remove()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
       </div>
     {% endfor %}
   {% endif %}
-  <div class='col-12 col-lg-8'>
-    <div class='card glass p-3 p-md-4'>
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class='h5 fw-bold mb-0'>Кошик</h1>
-        <button type="button" class="btn btn-sm btn-outline-warning" onclick="cleanCart()">
-          <i class="fas fa-broom me-1"></i>Очистити кошик
-        </button>
-      </div>
 
+  <div class="cart-page-content">
+    <!-- Основная часть корзины -->
+    <div class="cart-main-section">
       {% if items %}
-        <div class="vstack gap-3" id="cart-list">
+        <div class="cart-items-background">
+          <div class="cart-items-pattern"></div>
+        </div>
+        <div class="cart-items-container" id="cart-list">
           {% for it in items %}
-            <div class="d-flex align-items-center justify-content-between border rounded-3 p-2 bg-elevate" data-cart-row data-key="{{ it.key }}">
-              <div class="d-flex align-items-center gap-3">
-                <div class="rounded-3 overflow-hidden bg-elevate" style="width:64px;height:64px;">
-                  <img src="{% if it.color_variant and it.color_variant.images.exists %}{{ it.color_variant.images.first.image.url }}{% elif it.product.main_image %}{{ it.product.main_image.url }}{% else %}{% static 'img/placeholder.jpg' %}{% endif %}" class="w-100 h-100 object-fit-cover" alt="">
-                </div>
-                <div>
-                  <div class="fw-semibold">{{ it.product.title }}</div>
-                  <div class="small text-secondary">
-                    Розмір: {{ it.size }} • К-сть: {{ it.qty }}
-                    {% if it.color_variant %}
-                    <br>
-                    <div class="d-flex align-items-center gap-2">
-                      <span class="swatch" 
+            <div class="cart-item" data-cart-row data-key="{{ it.key }}">
+              <!-- Анимация искр для товара -->
+              <div class="cart-item-sparks">
+                <div class="cart-item-spark cart-item-spark-1"></div>
+                <div class="cart-item-spark cart-item-spark-2"></div>
+                <div class="cart-item-spark cart-item-spark-3"></div>
+              </div>
+              
+              <div class="cart-item-image">
+                <img src="{% if it.color_variant and it.color_variant.images.exists %}{{ it.color_variant.images.first.image.url }}{% elif it.product.main_image %}{{ it.product.main_image.url }}{% else %}{% static 'img/placeholder.jpg' %}{% endif %}" 
+                     alt="{{ it.product.title }}" class="cart-item-img">
+                <div class="cart-item-image-glow"></div>
+              </div>
+              
+              <div class="cart-item-info">
+                <h3 class="cart-item-title">{{ it.product.title }}</h3>
+                <div class="cart-item-details">
+                  <div class="cart-item-detail">
+                    <span class="cart-item-label">Розмір:</span>
+                    <span class="cart-item-value">{{ it.size }}</span>
+                  </div>
+                  <div class="cart-item-detail">
+                    <span class="cart-item-label">Кількість:</span>
+                    <span class="cart-item-value">{{ it.qty }}</span>
+                  </div>
+                  {% if it.color_variant %}
+                  <div class="cart-item-detail">
+                    <span class="cart-item-label">Колір:</span>
+                    <div class="cart-item-color">
+                      <span class="cart-item-swatch" 
                             style="background: {{ it.color_variant.color.primary_hex }};" 
                             data-primary="{{ it.color_variant.color.primary_hex }}" 
                             data-secondary="{{ it.color_variant.color.secondary_hex|default:'' }}">
                       </span>
-                      <span>Колір</span>
                     </div>
-                    {% endif %}
                   </div>
-                  <div class="small text-secondary">Ціна: {{ it.unit_price }} грн</div>
+                  {% endif %}
+                </div>
+                <div class="cart-item-price">
+                  <span class="cart-item-price-label">Ціна:</span>
+                  <span class="cart-item-price-value">{{ it.unit_price }} грн</span>
+                </div>
+                <!-- Информация о баллах -->
+                <div class="cart-item-points">
+                  <div class="cart-item-points-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                  </div>
+                  <span class="cart-item-points-text">
+                    {% if it.product.points_reward %}
+                      Заробите {{ it.product.points_reward|multiply:it.qty }} балів
+                    {% else %}
+                      Бали не нараховуються
+                    {% endif %}
+                  </span>
                 </div>
               </div>
-              <div class="d-flex align-items-center gap-2">
-                <div class="text-nowrap fw-semibold">{{ it.line_total }} грн</div>
-                <button type="button"
-                        class="btn btn-sm btn-outline-light"
-                        onclick="CartRemoveKey('{{ it.key }}', this); return false;">Видалити</button>
+              
+              <div class="cart-item-actions">
+                <div class="cart-item-total">
+                  <span class="cart-item-total-label">Разом:</span>
+                  <span class="cart-item-total-value">{{ it.line_total }} грн</span>
+                </div>
+                <button type="button" class="cart-item-remove-btn" onclick="CartRemoveKey('{{ it.key }}', this); return false;" data-key="{{ it.key }}" onmouseenter="console.log('Mouse enter button:', '{{ it.key }}')" onmouseleave="console.log('Mouse leave button:', '{{ it.key }}')">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                  </svg>
+                  Видалити
+                </button>
               </div>
             </div>
           {% endfor %}
         </div>
       {% else %}
-        <div class='text-secondary small'>Порожньо.</div>
+        <div class="cart-empty">
+          <div class="cart-empty-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+            </svg>
+          </div>
+          <h2 class="cart-empty-title">Кошик порожній</h2>
+          <p class="cart-empty-text">Додайте товари до кошика, щоб зробити замовлення</p>
+          <a href="{% url 'home' %}" class="cart-empty-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            Перейти до покупок
+          </a>
+        </div>
       {% endif %}
     </div>
-  </div>
 
-  <div class='col-12 col-lg-4'>
-    {% if request.user.is_authenticated %}
-      <!-- Карточка: Доставка для авторизованных -->
-      <div class='card glass p-3 p-md-4 mb-3'>
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <div class="fw-semibold">Доставка</div>
-        </div>
-        {% with prof=request.user.userprofile %}
-        <form method="post" class="vstack gap-3" id="deliveryForm" novalidate>
-          {% csrf_token %}
-          <input type="hidden" name="form_type" value="order_create">
-          <div>
-            <label class="form-label">ПІБ *</label>
-            <input type="text" name="full_name" class="form-control bg-elevate" placeholder="Прізвище Ім'я По батькові"
-                   value="{{ prof.full_name|default:'' }}" required>
-          </div>
-          <div>
-            <label class="form-label">Телефон *</label>
-            <input type="tel" name="phone" class="form-control bg-elevate" placeholder="+380XXXXXXXXX"
-                   value="{{ prof.phone|default:'' }}" required>
-          </div>
-          <div>
-            <label class="form-label">Місто *</label>
-            <input type="text" name="city" class="form-control bg-elevate" placeholder="Київ"
-                   value="{{ prof.city|default:'' }}" required>
-          </div>
-          <div>
-            <label class="form-label">Відділення / Поштомат НП *</label>
-            <input type="text" name="np_office" class="form-control bg-elevate" placeholder="№ відділення або адреса поштомата"
-                   value="{{ prof.np_office|default:'' }}" required>
-          </div>
-          <div>
-            <label class="form-label">Тип оплати *</label>
-            <select name="pay_type" class="form-select bg-elevate" required>
-              <option value="">Оберіть тип оплати</option>
-              <option value="partial" {% if prof.pay_type == 'partial' %}selected{% endif %}>Часткова передоплата</option>
-              <option value="full" {% if prof.pay_type == 'full' %}selected{% endif %}>Повна передоплата</option>
-            </select>
-          </div>
-          <button type="submit" class="btn btn-outline-primary btn-sm">
-            <i class="fas fa-save me-1"></i>Зберегти зміни
-          </button>
-        </form>
-        {% endwith %}
-      </div>
-    {% else %}
-      <!-- Карточка: Доставка для гостей -->
-      <div class='card glass p-3 p-md-4 mb-3'>
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <div class="fw-semibold">Доставка</div>
-          <a href="{% url 'login' %}" class="btn btn-sm btn-outline-light">Авторизація</a>
-        </div>
-        <div class="text-secondary small mb-3">Щоб не вводити дані кожного разу — авторизуйтесь і накопичуйте бали.</div>
-        
-        <form method="post" class="vstack gap-3" id="guest-form">
-          {% csrf_token %}
-          <input type="hidden" name="form_type" value="guest_order">
-          <div>
-            <label class="form-label">ПІБ *</label>
-            <input type="text" name="full_name" class="form-control bg-elevate" placeholder="Прізвище Ім'я По батькові" required>
-            {% if guest_form.full_name.errors %}
-              <div class="text-danger small">{{ guest_form.full_name.errors.0 }}</div>
-            {% endif %}
-          </div>
-          <div>
-            <label class="form-label">Телефон *</label>
-            <input type="tel" name="phone" class="form-control bg-elevate" placeholder="+380XXXXXXXXX" required>
-            {% if guest_form.phone.errors %}
-              <div class="text-danger small">{{ guest_form.phone.errors.0 }}</div>
-            {% endif %}
-          </div>
-          <div>
-            <label class="form-label">Місто *</label>
-            <input type="text" name="city" class="form-control bg-elevate" placeholder="Київ" required>
-            {% if guest_form.city.errors %}
-              <div class="text-danger small">{{ guest_form.city.errors.0 }}</div>
-            {% endif %}
-          </div>
-          <div>
-            <label class="form-label">Відділення / Поштомат НП *</label>
-            <input type="text" name="np_office" class="form-control bg-elevate" placeholder="№ відділення або адреса поштомата" required>
-            {% if guest_form.np_office.errors %}
-              <div class="text-danger small">{{ guest_form.np_office.errors.0 }}</div>
-            {% endif %}
-          </div>
-          <div>
-            <label class="form-label">Тип оплати *</label>
-            <select name="pay_type" class="form-select bg-elevate" required>
-              <option value="">Оберіть тип оплати</option>
-              <option value="partial">Часткова передоплата</option>
-              <option value="full">Повна передоплата</option>
-            </select>
-            {% if guest_form.pay_type.errors %}
-              <div class="text-danger small">{{ guest_form.pay_type.errors.0 }}</div>
-            {% endif %}
-          </div>
-        </form>
-      </div>
-    {% endif %}
-
-    <!-- Карточка: Промокод -->
-    <div class='card glass p-3 p-md-4 mb-3'>
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <div class="fw-semibold">Промокод</div>
-        {% if applied_promo %}
-          <span class="badge bg-success">Застосовано</span>
-        {% endif %}
-      </div>
-      
-      {% if applied_promo %}
-        <div class="alert alert-success mb-3">
-          <div class="d-flex justify-content-between align-items-center">
-            <div>
-              <strong>{{ applied_promo.code }}</strong>
-              <br><small>Знижка: {{ applied_promo.discount }} грн</small>
+    <!-- Боковая панель -->
+    <div class="cart-sidebar">
+      {% if request.user.is_authenticated %}
+        <!-- Карточка: Доставка для авторизованных -->
+        <div class="cart-sidebar-card">
+          <div class="cart-sidebar-card-header">
+            <div class="cart-sidebar-card-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+              </svg>
             </div>
-            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removePromoCode()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <h3 class="cart-sidebar-card-title">Доставка</h3>
+          </div>
+          
+          {% with prof=request.user.userprofile %}
+          <form method="post" class="cart-sidebar-form" id="deliveryForm" novalidate>
+            {% csrf_token %}
+            <input type="hidden" name="form_type" value="order_create">
+            
+            <div class="cart-form-group">
+              <label class="cart-form-label">ПІБ *</label>
+              <div class="cart-form-input-wrapper">
+                <input type="text" name="full_name" class="cart-form-input" placeholder="Прізвище Ім'я По батькові"
+                       value="{{ prof.full_name|default:'' }}" required>
+                <div class="cart-form-input-glow"></div>
+              </div>
+            </div>
+            
+            <div class="cart-form-group">
+              <label class="cart-form-label">Телефон *</label>
+              <div class="cart-form-input-wrapper">
+                <input type="tel" name="phone" class="cart-form-input" placeholder="+380XXXXXXXXX"
+                       value="{{ prof.phone|default:'' }}" required>
+                <div class="cart-form-input-glow"></div>
+              </div>
+            </div>
+            
+            <div class="cart-form-group">
+              <label class="cart-form-label">Місто *</label>
+              <div class="cart-form-input-wrapper">
+                <input type="text" name="city" class="cart-form-input" placeholder="Київ"
+                       value="{{ prof.city|default:'' }}" required>
+                <div class="cart-form-input-glow"></div>
+              </div>
+            </div>
+            
+            <div class="cart-form-group">
+              <label class="cart-form-label">Відділення / Поштомат НП *</label>
+              <div class="cart-form-input-wrapper">
+                <input type="text" name="np_office" class="cart-form-input" placeholder="№ відділення або адреса поштомата"
+                       value="{{ prof.np_office|default:'' }}" required>
+                <div class="cart-form-input-glow"></div>
+              </div>
+            </div>
+            
+            <div class="cart-form-group">
+              <label class="cart-form-label">Тип оплати *</label>
+              <div class="cart-form-input-wrapper">
+                <select name="pay_type" class="cart-form-select" required>
+                  <option value="">Оберіть тип оплати</option>
+                  <option value="partial" {% if prof.pay_type == 'partial' %}selected{% endif %}>Часткова передоплата</option>
+                  <option value="full" {% if prof.pay_type == 'full' %}selected{% endif %}>Повна передоплата</option>
+                </select>
+                <div class="cart-form-input-glow"></div>
+              </div>
+            </div>
+            
+            <button type="submit" class="cart-form-save-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              Зберегти зміни
+            </button>
+          </form>
+          {% endwith %}
+        </div>
+      {% else %}
+        <!-- Карточка: Доставка для гостей -->
+        <div class="cart-sidebar-card">
+          <div class="cart-sidebar-card-header">
+            <div class="cart-sidebar-card-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+              </svg>
+            </div>
+            <h3 class="cart-sidebar-card-title">Доставка</h3>
+            <a href="{% url 'login' %}" class="cart-auth-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z"/>
+              </svg>
+              Авторизація
+            </a>
+          </div>
+          
+          <div class="cart-sidebar-card-hint">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+            </svg>
+            Щоб не вводити дані кожного разу — авторизуйтесь і накопичуйте бали.
+          </div>
+          
+          <form method="post" class="cart-sidebar-form" id="guest-form">
+            {% csrf_token %}
+            <input type="hidden" name="form_type" value="guest_order">
+            
+            <div class="cart-form-group">
+              <label class="cart-form-label">ПІБ *</label>
+              <div class="cart-form-input-wrapper">
+                <input type="text" name="full_name" class="cart-form-input" placeholder="Прізвище Ім'я По батькові" required>
+                <div class="cart-form-input-glow"></div>
+              </div>
+              {% if guest_form.full_name.errors %}
+                <div class="cart-form-error">{{ guest_form.full_name.errors.0 }}</div>
+              {% endif %}
+            </div>
+            
+            <div class="cart-form-group">
+              <label class="cart-form-label">Телефон *</label>
+              <div class="cart-form-input-wrapper">
+                <input type="tel" name="phone" class="cart-form-input" placeholder="+380XXXXXXXXX" required>
+                <div class="cart-form-input-glow"></div>
+              </div>
+              {% if guest_form.phone.errors %}
+                <div class="cart-form-error">{{ guest_form.phone.errors.0 }}</div>
+              {% endif %}
+            </div>
+            
+            <div class="cart-form-group">
+              <label class="cart-form-label">Місто *</label>
+              <div class="cart-form-input-wrapper">
+                <input type="text" name="city" class="cart-form-input" placeholder="Київ" required>
+                <div class="cart-form-input-glow"></div>
+              </div>
+              {% if guest_form.city.errors %}
+                <div class="cart-form-error">{{ guest_form.city.errors.0 }}</div>
+              {% endif %}
+            </div>
+            
+            <div class="cart-form-group">
+              <label class="cart-form-label">Відділення / Поштомат НП *</label>
+              <div class="cart-form-input-wrapper">
+                <input type="text" name="np_office" class="cart-form-input" placeholder="№ відділення або адреса поштомата" required>
+                <div class="cart-form-input-glow"></div>
+              </div>
+              {% if guest_form.np_office.errors %}
+                <div class="cart-form-error">{{ guest_form.np_office.errors.0 }}</div>
+              {% endif %}
+            </div>
+            
+            <div class="cart-form-group">
+              <label class="cart-form-label">Тип оплати *</label>
+              <div class="cart-form-input-wrapper">
+                <select name="pay_type" class="cart-form-select" required>
+                  <option value="">Оберіть тип оплати</option>
+                  <option value="partial">Часткова передоплата</option>
+                  <option value="full">Повна передоплата</option>
+                </select>
+                <div class="cart-form-input-glow"></div>
+              </div>
+              {% if guest_form.pay_type.errors %}
+                <div class="cart-form-error">{{ guest_form.pay_type.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </form>
+        </div>
+      {% endif %}
+
+      <!-- Карточка: Промокод -->
+      <div class="cart-sidebar-card">
+        <div class="cart-sidebar-card-header">
+          <div class="cart-sidebar-card-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
+            </svg>
+          </div>
+          <h3 class="cart-sidebar-card-title">Промокод</h3>
+          {% if applied_promo %}
+            <span class="cart-promo-badge">Застосовано</span>
+          {% endif %}
+        </div>
+        
+        {% if applied_promo %}
+          <div class="cart-promo-applied">
+            <div class="cart-promo-applied-content">
+              <div class="cart-promo-applied-code">{{ applied_promo.code }}</div>
+              <div class="cart-promo-applied-discount">Знижка: {{ applied_promo.discount }} грн</div>
+            </div>
+            <button type="button" class="cart-promo-remove-btn" onclick="removePromoCode()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
               </svg>
             </button>
           </div>
-        </div>
-      {% else %}
-        <div class="input-group">
-          <input type="text" id="promo-code-input" class="form-control bg-elevate" placeholder="Введіть код промокоду" maxlength="20">
-          <button type="button" class="btn btn-outline-light" onclick="applyPromoCode()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-            </svg>
-          </button>
-        </div>
-        <div id="promo-message" class="mt-2"></div>
-      {% endif %}
-    </div>
-
-    <!-- Карточка: Разом -->
-    <div class='card glass p-3 p-md-4'>
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <div class="fw-semibold">Разом</div>
-        <div class="fw-semibold">{{ grand_total }} грн</div>
+        {% else %}
+          <div class="cart-promo-input-group">
+            <div class="cart-promo-input-wrapper">
+              <input type="text" id="promo-code-input" class="cart-promo-input" placeholder="Введіть код промокоду" maxlength="20">
+              <div class="cart-promo-input-glow"></div>
+            </div>
+            <button type="button" class="cart-promo-apply-btn" onclick="applyPromoCode()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+            </button>
+          </div>
+          <div id="promo-message" class="cart-promo-message"></div>
+        {% endif %}
       </div>
-      
-      {% if applied_promo %}
-        <div class="text-success small mb-2">
-          Знижка: -{{ applied_promo.discount }} грн
+
+      <!-- Карточка: Оформление заказа -->
+      <div class="cart-checkout-card">
+        <div class="cart-checkout-header">
+          <div class="cart-checkout-header-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+          </div>
+          <div class="cart-checkout-header-content">
+            <h3 class="cart-checkout-title">Оформлення замовлення</h3>
+            <p class="cart-checkout-subtitle">Підсумок вашого замовлення</p>
+          </div>
         </div>
-      {% endif %}
-      
-      <div class='text-secondary small'>Доставка оплачується згідно тарифів перевізника.</div>
-      
-      {% if request.user.is_authenticated %}
-        <button type="submit" form="deliveryForm" class="btn btn-cta w-100 mt-3">Замовити</button>
-      {% else %}
-        <button type="submit" form="guest-form" class="btn btn-cta w-100 mt-3">Замовити як гість</button>
-      {% endif %}
+        
+        <div class="cart-checkout-summary">
+          <div class="cart-summary-row">
+            <span class="cart-summary-label">Товари ({{ items|length }}):</span>
+            <span class="cart-summary-value">{{ grand_total }} грн</span>
+          </div>
+          
+          {% if applied_promo %}
+          <div class="cart-summary-row cart-summary-discount">
+            <span class="cart-summary-label">
+              <div class="cart-discount-label">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                Знижка промокоду
+              </div>
+            </span>
+            <span class="cart-summary-value">-{{ applied_promo.discount }} грн</span>
+          </div>
+          {% endif %}
+          
+          <div class="cart-summary-row cart-summary-total">
+            <span class="cart-summary-label">До сплати:</span>
+            <span class="cart-summary-value">{{ grand_total }} грн</span>
+          </div>
+        </div>
+        
+        <!-- Информация о баллах -->
+        <div class="cart-points-summary">
+          <div class="cart-points-header">
+            <div class="cart-points-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+            </div>
+            <span class="cart-points-title">Бали за замовлення</span>
+          </div>
+          
+          {% if request.user.is_authenticated %}
+            {% if total_points > 0 %}
+              <div class="cart-points-earned">
+                <span class="cart-points-amount">+{{ total_points }} балів</span>
+                <span class="cart-points-description">буде нараховано після отримання товару</span>
+              </div>
+            {% else %}
+              <div class="cart-points-none">
+                <span class="cart-points-text">Бали не нараховуються</span>
+              </div>
+            {% endif %}
+          {% else %}
+            <div class="cart-points-guest">
+              <div class="cart-points-guest-info">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                </svg>
+                <span>Для отримання балів потрібно авторизуватися</span>
+              </div>
+              <a href="{% url 'login' %}" class="cart-points-login-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z"/>
+                </svg>
+                Авторизуватися
+              </a>
+            </div>
+          {% endif %}
+        </div>
+        
+        <div class="cart-delivery-info">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+          </svg>
+          Доставка оплачується згідно тарифів перевізника.
+        </div>
+        
+        <div class="cart-checkout-actions">
+          {% if request.user.is_authenticated %}
+            <button type="submit" form="deliveryForm" class="cart-checkout-btn">
+              <div class="cart-checkout-btn-content">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                <span>Оформити замовлення</span>
+              </div>
+              <div class="cart-checkout-btn-glow"></div>
+            </button>
+          {% else %}
+            <button type="submit" form="guest-form" class="cart-checkout-btn cart-checkout-btn-guest">
+              <div class="cart-checkout-btn-content">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                <span>Замовити як гість</span>
+              </div>
+              <div class="cart-checkout-btn-glow"></div>
+            </button>
+          {% endif %}
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -234,11 +505,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!form) return;
         
         // Подсветка полей с ошибками
-        const errorFields = form.querySelectorAll('.text-danger');
+        const errorFields = form.querySelectorAll('.cart-form-error');
         errorFields.forEach(function(errorDiv) {
-            const field = errorDiv.previousElementSibling;
-            if (field && field.tagName === 'INPUT' || field.tagName === 'SELECT') {
-                field.classList.add('is-invalid');
+            const field = errorDiv.previousElementSibling?.querySelector('input, select');
+            if (field) {
+                field.classList.add('cart-form-input-error');
             }
         });
         
@@ -251,9 +522,9 @@ document.addEventListener('DOMContentLoaded', function() {
             
             input.addEventListener('input', function() {
                 // Убираем красную подсветку при вводе
-                if (this.classList.contains('is-invalid')) {
-                    this.classList.remove('is-invalid');
-                    const errorDiv = this.parentNode.querySelector('.text-danger');
+                if (this.classList.contains('cart-form-input-error')) {
+                    this.classList.remove('cart-form-input-error');
+                    const errorDiv = this.parentNode.parentNode.querySelector('.cart-form-error');
                     if (errorDiv) {
                         errorDiv.style.display = 'none';
                     }
@@ -302,8 +573,8 @@ document.addEventListener('DOMContentLoaded', function() {
         let errorMessage = '';
         
         // Убираем старые ошибки
-        field.classList.remove('is-invalid');
-        const existingError = field.parentNode.querySelector('.text-danger');
+        field.classList.remove('cart-form-input-error');
+        const existingError = field.parentNode.parentNode.querySelector('.cart-form-error');
         if (existingError) {
             existingError.style.display = 'none';
         }
@@ -346,7 +617,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Показываем ошибку если есть
         if (!isValid) {
-            field.classList.add('is-invalid');
+            field.classList.add('cart-form-input-error');
             showFieldError(field, errorMessage);
         }
         
@@ -355,27 +626,39 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function showFieldError(field, message) {
         // Убираем старую ошибку
-        const existingError = field.parentNode.querySelector('.text-danger');
+        const existingError = field.parentNode.parentNode.querySelector('.cart-form-error');
         if (existingError) {
             existingError.textContent = message;
             existingError.style.display = 'block';
         } else {
             // Создаем новую ошибку
             const errorDiv = document.createElement('div');
-            errorDiv.className = 'text-danger small';
+            errorDiv.className = 'cart-form-error';
             errorDiv.textContent = message;
-            field.parentNode.appendChild(errorDiv);
+            field.parentNode.parentNode.appendChild(errorDiv);
         }
     }
     
     function showError(message) {
         // Показываем общее сообщение об ошибке
         const errorAlert = document.createElement('div');
-        errorAlert.className = 'alert alert-danger mt-3';
-        errorAlert.textContent = message;
+        errorAlert.className = 'cart-message cart-message-error';
+        errorAlert.innerHTML = `
+          <div class="cart-message-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+          </div>
+          <div class="cart-message-text">${message}</div>
+          <button type="button" class="cart-message-close" onclick="this.parentElement.remove()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+          </button>
+        `;
         
-        const form = document.getElementById('guest-form');
-        form.insertBefore(errorAlert, form.firstChild);
+        const container = document.querySelector('.cart-page-container');
+        container.insertBefore(errorAlert, container.firstChild);
         
         // Убираем через 5 секунд
         setTimeout(function() {
@@ -392,7 +675,7 @@ function applyPromoCode() {
     const messageDiv = document.getElementById('promo-message');
     
     if (!promoCode) {
-        showPromoMessage('Введіть код промокоду', 'danger');
+        showPromoMessage('Введіть код промокоду', 'error');
         return;
     }
     
@@ -416,11 +699,11 @@ function applyPromoCode() {
                 window.location.reload();
             }, 1500);
         } else {
-            showPromoMessage(data.message, 'danger');
+            showPromoMessage(data.message, 'error');
         }
     })
     .catch(error => {
-        showPromoMessage('Помилка при застосуванні промокоду', 'danger');
+        showPromoMessage('Помилка при застосуванні промокоду', 'error');
     });
 }
 
@@ -446,7 +729,10 @@ function removePromoCode() {
 
 function showPromoMessage(message, type) {
     const messageDiv = document.getElementById('promo-message');
-    messageDiv.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+    const typeClass = type === 'success' ? 'cart-promo-message-success' : 
+                     type === 'error' ? 'cart-promo-message-error' : 'cart-promo-message-info';
+    
+    messageDiv.innerHTML = `<div class="cart-promo-message ${typeClass}">${message}</div>`;
     
     // Убираем сообщение через 5 секунд
     setTimeout(() => {
@@ -465,6 +751,31 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+    
+    // Дополнительная обработка кнопок удаления
+    const removeButtons = document.querySelectorAll('.cart-item-remove-btn');
+    removeButtons.forEach(function(button) {
+        console.log('Found remove button:', button);
+        
+        // Добавляем обработчик клика
+        button.addEventListener('click', function(e) {
+            console.log('Button clicked!', e);
+            const key = this.getAttribute('data-key');
+            console.log('Removing item with key:', key);
+            CartRemoveKey(key, this);
+            e.preventDefault();
+            e.stopPropagation();
+        });
+        
+        // Добавляем обработчик для проверки доступности
+        button.addEventListener('mouseenter', function() {
+            console.log('Mouse entered button:', this.getAttribute('data-key'));
+        });
+        
+        button.addEventListener('mouseleave', function() {
+            console.log('Mouse left button:', this.getAttribute('data-key'));
+        });
+    });
 });
 
 // ===== ОЧИСТКА КОРЗИНЫ =====

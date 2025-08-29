@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Обрані товари — TwoComms{% endblock %}
+
+{% block content %}
+<section class="mb-4 mb-md-5 reveal">
+  <div class="d-flex justify-content-between align-items-end mb-3">
+    <h1 class="h3 mb-0">Обрані товари</h1>
+    <a href="{% url 'catalog' %}" class="link-secondary small">Перейти в каталог</a>
+  </div>
+  
+  {% if favorites %}
+    <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4" data-stagger-grid>
+      {% for favorite in favorites %}
+      <div class="product-card-wrap">
+        {% include "partials/product_card.html" with p=favorite.product stagger=True %}
+        {% if favorite.color_variants_data %}
+        <div class="product-card-dots">
+          <span class="text-secondary small me-1">Кольори:</span>
+          <div class="d-flex align-items-center gap-1">
+            {% for v in favorite.color_variants_data %}
+              <span class="color-dot" title="{{ v.primary_hex }}{% if v.secondary_hex %}+{{ v.secondary_hex }}{% endif %}" style="--c1: {{ v.primary_hex }}; --c2: {{ v.secondary_hex|default:'' }};"></span>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    
+    {% if not request.user.is_authenticated %}
+    <div class="text-center mt-4">
+      <div class="guest-favorites-notice">
+        <div class="guest-notice-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+          </svg>
+        </div>
+        <p class="guest-notice-text">
+          <strong>Увага!</strong> Ви переглядаєте обрані товари як гість. 
+          <a href="{% url 'login' %}" class="text-primary">Увійдіть в акаунт</a> або 
+          <a href="{% url 'register' %}" class="text-primary">зареєструйтесь</a>, 
+          щоб зберегти обрані товари назавжди.
+        </p>
+      </div>
+    </div>
+    {% endif %}
+  {% else %}
+    <div class="text-center py-5">
+      <div class="empty-favorites">
+        <div class="empty-favorites-icon">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+        </div>
+        <h3 class="empty-favorites-title">У вас поки немає обраних товарів</h3>
+        <p class="empty-favorites-text">Додавайте товари до обраного, натискаючи на сердечко на карточці товару</p>
+        <a href="{% url 'catalog' %}" class="btn btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+          </svg>
+          Перейти в каталог
+        </a>
+      </div>
+    </div>
+  {% endif %}
+</section>
+
+<script>
+// Функция для выравнивания карточек товаров по высоте
+function equalizeCardHeights() {
+  const rows = document.querySelectorAll('.row[data-stagger-grid]');
+  
+  rows.forEach(row => {
+    const cards = row.querySelectorAll('.card.product');
+    
+    if (cards.length > 0) {
+      cards.forEach(card => {
+        card.style.height = 'auto';
+        card.style.minHeight = 'auto';
+        card.style.maxHeight = 'none';
+      });
+      
+      setTimeout(() => {
+        let maxHeight = 0;
+        cards.forEach(card => {
+          const cardHeight = card.offsetHeight;
+          if (cardHeight > maxHeight) {
+            maxHeight = cardHeight;
+          }
+        });
+        
+        cards.forEach(card => {
+          card.style.height = maxHeight + 'px';
+          card.style.minHeight = maxHeight + 'px';
+          card.style.maxHeight = maxHeight + 'px';
+        });
+      }, 50);
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(equalizeCardHeights, 100);
+  window.addEventListener('load', equalizeCardHeights);
+  window.addEventListener('resize', equalizeCardHeights);
+  setInterval(equalizeCardHeights, 2000);
+});
+</script>
+{% endblock %}
