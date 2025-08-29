@@ -53,6 +53,12 @@ class ProfileSetupForm(forms.Form):
                                 widget=forms.TextInput(attrs={"class":"form-control bg-elevate","placeholder":"Прізвище Ім'я По батькові"}))
     phone = forms.CharField(label="Телефон", required=True,
                             widget=forms.TextInput(attrs={"class":"form-control bg-elevate","placeholder":"+380XXXXXXXXX"}))
+    email = forms.EmailField(label="Email", required=False,
+                            widget=forms.EmailInput(attrs={"class":"form-control bg-elevate","placeholder":"your@email.com"}))
+    telegram = forms.CharField(label="Telegram", required=False,
+                              widget=forms.TextInput(attrs={"class":"form-control bg-elevate","placeholder":"@username"}))
+    instagram = forms.CharField(label="Instagram", required=False,
+                               widget=forms.TextInput(attrs={"class":"form-control bg-elevate","placeholder":"@username"}))
     city = forms.CharField(label="Місто", required=False,
                            widget=forms.TextInput(attrs={"class":"form-control bg-elevate","placeholder":"Київ"}))
     np_office = forms.CharField(label="Відділення/Поштомат НП", required=False,
@@ -141,42 +147,7 @@ def register_view(request):
 def logout_view(request):
     logout(request); return redirect('home')
 
-@login_required
-def profile_setup(request):
-    # получаем профиль
-    try:
-        prof = request.user.userprofile
-    except UserProfile.DoesNotExist:
-        prof = UserProfile.objects.create(user=request.user)
 
-    initial = {
-        'full_name': getattr(prof,'full_name', ''),
-        'phone': prof.phone or '',
-        'city': prof.city or '',
-        'np_office': prof.np_office or '',
-        'pay_type': prof.pay_type or '',
-        'is_ubd': prof.is_ubd,
-    }
-    form = ProfileSetupForm(request.POST or None, request.FILES or None, initial=initial)
-    if request.method=='POST' and form.is_valid():
-        prof.phone = form.cleaned_data['phone']
-        prof.city = form.cleaned_data.get('city') or ''
-        prof.np_office = form.cleaned_data.get('np_office') or ''
-        prof.pay_type = form.cleaned_data.get('pay_type') or ''
-        prof.is_ubd = bool(form.cleaned_data.get('is_ubd'))
-        if form.cleaned_data.get('avatar'):
-            prof.avatar = form.cleaned_data['avatar']
-        if prof.is_ubd and form.cleaned_data.get('ubd_doc'):
-            prof.ubd_doc = form.cleaned_data['ubd_doc']
-        prof.save()
-        # обновим сессию для текущей шапки
-        request.session['profile_phone'] = prof.phone
-        if prof.avatar:
-            request.session['profile_avatar'] = prof.avatar.name
-        request.session.modified = True
-        return redirect('home')
-
-    return render(request,'pages/profile_setup.html',{'form':form, 'profile':prof})
 from django import forms
 
 # --------- AUTH FORMS (минимум, чтобы не плодить новый файл) ---------
@@ -200,27 +171,7 @@ class RegisterForm(forms.Form):
             self.add_error("password2", "Паролі не співпадають")
         return data
 
-class ProfileSetupForm(forms.Form):
-    full_name = forms.CharField(label="ПІБ", max_length=200, required=False,
-                                widget=forms.TextInput(attrs={"class":"form-control bg-elevate", "placeholder":"Прізвище Ім'я По батькові"}))
-    phone = forms.CharField(label="Телефон", required=True,
-                            widget=forms.TextInput(attrs={"class":"form-control bg-elevate", "placeholder":"+380XXXXXXXXX"}))
-    city = forms.CharField(label="Місто", required=False,
-                           widget=forms.TextInput(attrs={"class":"form-control bg-elevate", "placeholder":"Київ"}))
-    np_office = forms.CharField(label="Відділення/Поштомат НП", required=False,
-                                widget=forms.TextInput(attrs={"class":"form-control bg-elevate", "placeholder":"№ відділення або адреса поштомата"}))
-    pay_type = forms.ChoiceField(label="Тип оплати", required=False, choices=(("partial","Часткова передоплата"),("full","Повна передоплата")),
-                                 widget=forms.Select(attrs={"class":"form-select bg-elevate"}))
-    avatar = forms.ImageField(label="Аватар", required=False)
-    is_ubd = forms.BooleanField(label="Я — УБД", required=False,
-                                widget=forms.CheckboxInput(attrs={"class":"form-check-input"}))
-    ubd_doc = forms.ImageField(label="Фото посвідчення УБД", required=False)
 
-    def clean(self):
-        d = super().clean()
-        if d.get("is_ubd") and not d.get("ubd_doc"):
-            self.add_error("ubd_doc", "Для УБД додайте фото посвідчення")
-        return d
 
 # --------- AUTH VIEWS ---------
 def login_view(request):
@@ -260,29 +211,7 @@ def logout_view(request):
     logout(request)
     return redirect('home')
 
-@login_required
-def profile_setup(request):
-    form = ProfileSetupForm(request.POST or None, request.FILES or None)
-    if request.method == 'POST' and form.is_valid():
-        # Зберігаємо у сесію (щоб працювало без міграцій):
-        d = {
-            'full_name': form.cleaned_data.get('full_name') or '',
-            'phone': form.cleaned_data.get('phone') or '',
-            'city': form.cleaned_data.get('city') or '',
-            'np_office': form.cleaned_data.get('np_office') or '',
-            'pay_type': form.cleaned_data.get('pay_type') or '',
-            'is_ubd': bool(form.cleaned_data.get('is_ubd')),
-        }
-        request.session['profile_phone'] = d['phone']
-        request.session['profile_data'] = d
-        # Аватар/документ — просто кладем у медіа і тримаем шлях у сесії
-        if form.cleaned_data.get('avatar'):
-            request.session['profile_avatar'] = form.cleaned_data['avatar'].name
-        if form.cleaned_data.get('ubd_doc'):
-            request.session['profile_ubd_doc'] = form.cleaned_data['ubd_doc'].name
-        request.session.modified = True
-        return redirect('home')
-    return render(request, 'pages/auth_profile_setup.html', {'form': form})
+
 
 def home(request):
     featured = Product.objects.filter(featured=True).order_by('-id').first()
@@ -1235,6 +1164,9 @@ def profile_setup_db(request):
     initial = {
         'full_name': getattr(prof, 'full_name', ''),
         'phone': prof.phone or '',
+        'email': prof.email or '',
+        'telegram': prof.telegram or '',
+        'instagram': prof.instagram or '',
         'city': prof.city or '',
         'np_office': prof.np_office or '',
         'pay_type': prof.pay_type or '',
@@ -1244,12 +1176,22 @@ def profile_setup_db(request):
     if request.method == 'POST' and form.is_valid():
         prof.full_name = form.cleaned_data.get('full_name') or ''
         prof.phone = form.cleaned_data.get('phone') or ''
+        prof.email = form.cleaned_data.get('email') or ''
+        prof.telegram = form.cleaned_data.get('telegram') or ''
+        prof.instagram = form.cleaned_data.get('instagram') or ''
         prof.city = form.cleaned_data.get('city') or ''
         prof.np_office = form.cleaned_data.get('np_office') or ''
         prof.pay_type = form.cleaned_data.get('pay_type') or ''
         prof.is_ubd = bool(form.cleaned_data.get('is_ubd'))
+        
+        # Отладочная информация для аватара
         if form.cleaned_data.get('avatar'):
+            print(f"DEBUG: Загружается аватар: {form.cleaned_data['avatar']}")
             prof.avatar = form.cleaned_data['avatar']
+            print(f"DEBUG: Аватар сохранен: {prof.avatar}")
+        else:
+            print("DEBUG: Аватар не загружен")
+            
         if prof.is_ubd and form.cleaned_data.get('ubd_doc'):
             prof.ubd_doc = form.cleaned_data['ubd_doc']
         prof.save()
