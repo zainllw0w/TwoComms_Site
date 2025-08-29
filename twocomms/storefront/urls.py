@@ -29,6 +29,8 @@ urlpatterns=[
     path('orders/create/', views.order_create, name='order_create'),
     path('orders/success/<int:order_id>/', views.order_success, name='order_success'),
     path('my/orders/', views.my_orders, name='my_orders'),
+    path('orders/update-payment-method/', views.update_payment_method, name='update_payment_method'),
+    path('orders/confirm-payment/', views.confirm_payment, name='confirm_payment'),
 
     path('user/points/', views.user_points, name='user_points'),
     path('my-promocodes/', views.my_promocodes, name='my_promocodes'),
