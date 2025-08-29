@@ -397,6 +397,18 @@ document.addEventListener('DOMContentLoaded', function() {
   // Предварительный просмотр аватара
   const avatarInput = document.getElementById('{{ form.avatar.id_for_label }}');
   const avatarPreview = document.getElementById('avatar-preview');
+  const avatarContainer = document.querySelector('.avatar-preview');
+  
+  // Скрываем поле ввода файла
+  avatarInput.style.display = 'none';
+  
+  // Добавляем обработчик клика по аватару
+  avatarContainer.addEventListener('click', function() {
+    avatarInput.click();
+  });
+  
+  // Добавляем курсор pointer для аватара
+  avatarContainer.style.cursor = 'pointer';
   
   avatarInput.addEventListener('change', function(e) {
     const file = e.target.files[0];
