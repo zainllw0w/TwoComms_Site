@@ -25,6 +25,9 @@ urlpatterns=[
     path('admin-panel/', views.admin_panel, name='admin_panel'),
     path('admin-panel/update-user/', views.admin_update_user, name='admin_update_user'),
     path('admin-panel/order/update/', views.admin_order_update, name='admin_order_update'),
+    path('admin-panel/order/update-status/', views.admin_order_update, name='admin_update_order_status'),
+    path('admin-panel/order/update-payment-status/', views.admin_update_payment_status, name='admin_update_payment_status'),
+    path('admin-panel/order/approve-payment/', views.admin_approve_payment, name='admin_approve_payment'),
     # orders
     path('orders/create/', views.order_create, name='order_create'),
     path('orders/success/<int:order_id>/', views.order_success, name='order_success'),
@@ -54,6 +57,12 @@ urlpatterns=[
     path('admin-panel/promocode/<int:pk>/edit/', views.admin_promocode_edit, name='admin_promocode_edit'),
     path('admin-panel/promocode/<int:pk>/toggle/', views.admin_promocode_toggle, name='admin_promocode_toggle'),
     path('admin-panel/promocode/<int:pk>/delete/', views.admin_promocode_delete, name='admin_promocode_delete'),
+    # offline stores
+    path('admin-panel/offline-stores/', views.admin_offline_stores, name='admin_offline_stores'),
+    path('admin-panel/offline-store/create/', views.admin_offline_store_create, name='admin_offline_store_create'),
+    path('admin-panel/offline-store/<int:pk>/edit/', views.admin_offline_store_edit, name='admin_offline_store_edit'),
+    path('admin-panel/offline-store/<int:pk>/toggle/', views.admin_offline_store_toggle, name='admin_offline_store_toggle'),
+    path('admin-panel/offline-store/<int:pk>/delete/', views.admin_offline_store_delete, name='admin_offline_store_delete'),
     # promocodes in cart
     path('cart/apply-promo/', views.apply_promo_code, name='apply_promo_code'),
     path('cart/remove-promo/', views.remove_promo_code, name='remove_promo_code'),

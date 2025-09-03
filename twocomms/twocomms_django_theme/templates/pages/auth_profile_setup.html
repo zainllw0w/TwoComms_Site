@@ -87,7 +87,7 @@
               </div>
               <div class="avatar-info">
                 <label for="{{ form.avatar.id_for_label }}" class="avatar-label">Фото профілю</label>
-                <p class="avatar-hint">JPG, PNG до 5 МБ</p>
+                <p class="avatar-hint">Натисніть на фото для завантаження (JPG, PNG до 5 МБ)</p>
                 {{ form.avatar }}
               </div>
             </div>
@@ -413,6 +413,18 @@ document.addEventListener('DOMContentLoaded', function() {
   avatarInput.addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (file) {
+      // Проверяем размер файла (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Файл занадто великий. Максимальний розмір: 5MB');
+        return;
+      }
+      
+      // Проверяем тип файла
+      if (!file.type.startsWith('image/')) {
+        alert('Будь ласка, виберіть зображення');
+        return;
+      }
+      
       const reader = new FileReader();
       reader.onload = function(e) {
         if (avatarPreview.tagName === 'IMG') {

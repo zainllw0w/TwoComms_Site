@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db import transaction
+from django.db.models import Sum
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
@@ -1226,8 +1227,10 @@ def admin_panel(request):
     ctx = {'section': section}
     if section == 'users':
         users = User.objects.order_by('username').all()
-        # подтягиваем профили и баллы для каждого пользователя
+        # подтягиваем профили, баллы и заказы для каждого пользователя
         from accounts.models import UserPoints
+        from orders.models import Order
+        
         user_data = []
         for user in users:
             try:
@@ -1240,28 +1243,234 @@ def admin_panel(request):
             except UserPoints.DoesNotExist:
                 points = None
             
+            # Получаем заказы пользователя
+            user_orders = Order.objects.filter(user=user)
+            total_orders = user_orders.count()
+            
+            # Подсчитываем заказы по статусам
+            order_status_counts = {}
+            for status_code, status_name in Order.STATUS_CHOICES:
+                order_status_counts[status_code] = user_orders.filter(status=status_code).count()
+            
+            # Подсчитываем заказы по статусам оплаты
+            payment_status_counts = {}
+            for payment_status_code, payment_status_name in [
+                ('unpaid', 'Не оплачено'),
+                ('checking', 'На перевірці'),
+                ('partial', 'Внесена передплата'),
+                ('paid', 'Оплачено повністю')
+            ]:
+                payment_status_counts[payment_status_code] = user_orders.filter(payment_status=payment_status_code).count()
+            
+            # Общая сумма заказов (включая предоплаты и частичные оплаты)
+            total_spent = user_orders.exclude(payment_status='unpaid').aggregate(
+                total=Sum('total_sum')
+            )['total'] or 0
+            
+            # Потраченные баллы
+            points_spent = points.total_spent if points else 0
+            
+            # Получаем промокоды пользователя (включая использованные)
+            try:
+                from .models import PromoCode
+                # Промокоды, выданные пользователю
+                user_promocodes = PromoCode.objects.filter(user=user).order_by('-created_at')
+                # Промокоды, использованные в заказах пользователя
+                used_promocodes = []
+                for order in user_orders:
+                    if order.promo_code:
+                        used_promocodes.append({
+                            'code': order.promo_code.code,
+                            'discount': order.promo_code.discount,
+                            'used_in_order': order.order_number,
+                            'used_date': order.created
+                        })
+            except:
+                user_promocodes = []
+                used_promocodes = []
+            
             user_data.append({
                 'user': user,
                 'profile': profile,
-                'points': points
+                'points': points,
+                'total_orders': total_orders,
+                'order_status_counts': order_status_counts,
+                'payment_status_counts': payment_status_counts,
+                'total_spent': total_spent,
+                'points_spent': points_spent,
+                'promocodes': user_promocodes,
+                'used_promocodes': used_promocodes
             })
+        
         ctx.update({'user_data': user_data})
     elif section == 'catalogs':
         from .models import Category, Product
         categories = Category.objects.order_by('order','name') if hasattr(Category, 'order') else Category.objects.order_by('name')
         products = Product.objects.order_by('-id')
         ctx.update({'categories': categories, 'products': products})
+    elif section == 'promocodes':
+        from .models import PromoCode
+        promocodes = PromoCode.objects.all()
+        total_promocodes = promocodes.count()
+        active_promocodes = promocodes.filter(is_active=True).count()
+        ctx.update({
+            'promocodes': promocodes,
+            'total_promocodes': total_promocodes,
+            'active_promocodes': active_promocodes
+        })
+    elif section == 'offline_stores':
+        from .models import OfflineStore
+        stores = OfflineStore.objects.all()
+        total_stores = stores.count()
+        active_stores = stores.filter(is_active=True).count()
+        ctx.update({
+            'stores': stores,
+            'total_stores': total_stores,
+            'active_stores': active_stores
+        })
     elif section == 'orders':
         # реальные замовлення
         try:
             from orders.models import Order
-            orders = Order.objects.select_related('user').prefetch_related('items','items__product').all()
+            
+            # Получаем параметры фильтрации
+            status_filter = request.GET.get('status', 'all')
+            payment_filter = request.GET.get('payment', 'all')
+            user_id_filter = request.GET.get('user_id', None)
+            
+            print(f"DEBUG: status_filter={status_filter}, payment_filter={payment_filter}, user_id_filter={user_id_filter}")  # Отладка
+            
+            # Базовый queryset
+            orders = Order.objects.select_related('user').prefetch_related('items','items__product')
+            
+            # Применяем фильтры
+            if status_filter != 'all':
+                orders = orders.filter(status=status_filter)
+                print(f"DEBUG: Applied status filter: {status_filter}")  # Отладка
+            
+            if payment_filter != 'all':
+                orders = orders.filter(payment_status=payment_filter)
+                print(f"DEBUG: Applied payment filter: {payment_filter}")  # Отладка
+            
+            # Фильтр по конкретному пользователю
+            user_filter_info = None
+            if user_id_filter:
+                orders = orders.filter(user_id=user_id_filter)
+                print(f"DEBUG: Applied user filter: {user_id_filter}")  # Отладка
+                
+                # Получаем информацию о пользователе для отображения
+                try:
+                    user_obj = User.objects.get(id=user_id_filter)
+                    
+                    # Проверяем, есть ли у пользователя профиль
+                    full_name = None
+                    if hasattr(user_obj, 'userprofile') and user_obj.userprofile:
+                        try:
+                            full_name = user_obj.userprofile.full_name
+                        except:
+                            full_name = None
+                    
+                    user_filter_info = {
+                        'username': user_obj.username,
+                        'full_name': full_name
+                    }
+                    print(f"DEBUG: User filter info: {user_filter_info}")  # Отладка
+                except User.DoesNotExist:
+                    print(f"DEBUG: User with ID {user_id_filter} not found")  # Отладка
+                    user_filter_info = None
+            
+            # Получаем отфильтрованные заказы
+            orders = orders.all()
+            print(f"DEBUG: Final orders count: {orders.count()}")  # Отладка
+            
+            # Подсчет заказов по статусам
+            status_counts = {}
+            for status_code, status_name in Order.STATUS_CHOICES:
+                status_counts[status_code] = Order.objects.filter(status=status_code).count()
+            
+            # Подсчет заказов по статусам оплаты
+            payment_status_counts = {}
+            for payment_status_code, payment_status_name in [
+                ('unpaid', 'Не оплачено'),
+                ('checking', 'На перевірці'),
+                ('partial', 'Внесена передплата'),
+                ('paid', 'Оплачено повністю')
+            ]:
+                payment_status_counts[payment_status_code] = Order.objects.filter(payment_status=payment_status_code).count()
+            
+            # Общее количество заказов
+            total_orders = Order.objects.count()
+            
         except Exception:
             orders = []
-        ctx.update({'orders': orders})
+            status_counts = {}
+            payment_status_counts = {}
+            total_orders = 0
+        
+        ctx.update({
+            'orders': orders,
+            'status_counts': status_counts,
+            'payment_status_counts': payment_status_counts,
+            'total_orders': total_orders,
+            'status_filter': status_filter,
+            'payment_filter': payment_filter,
+            'user_id_filter': user_id_filter,
+            'user_filter_info': user_filter_info
+        })
     else:
-        # stats — заглушка
-        ctx.update({'stats': {'orders_today': 0, 'revenue': 0, 'users': User.objects.count()}})
+        # stats — основная статистика
+        try:
+            from orders.models import Order
+            from django.utils import timezone
+            from datetime import timedelta
+            
+            # Заказы за сегодня
+            today = timezone.now().date()
+            orders_today = Order.objects.filter(created__date=today).count()
+            
+            # Общее количество заказов
+            total_orders = Order.objects.count()
+            
+            # Заказы по статусам
+            status_counts = {}
+            for status_code, status_name in Order.STATUS_CHOICES:
+                status_counts[status_code] = Order.objects.filter(status=status_code).count()
+            
+            # Заказы по статусам оплаты
+            payment_status_counts = {}
+            for payment_status_code, payment_status_name in [
+                ('unpaid', 'Не оплачено'),
+                ('checking', 'На перевірці'),
+                ('partial', 'Внесена передплата'),
+                ('paid', 'Оплачено повністю')
+            ]:
+                payment_status_counts[payment_status_code] = Order.objects.filter(payment_status=payment_status_code).count()
+            
+            # Общая выручка (только оплаченные заказы)
+            total_revenue = Order.objects.filter(payment_status='paid').aggregate(
+                total=Sum('total_sum')
+            )['total'] or 0
+            
+            stats = {
+                'orders_today': orders_today,
+                'total_orders': total_orders,
+                'status_counts': status_counts,
+                'payment_status_counts': payment_status_counts,
+                'total_revenue': total_revenue,
+                'users': User.objects.count()
+            }
+            
+        except Exception:
+            stats = {
+                'orders_today': 0,
+                'total_orders': 0,
+                'status_counts': {},
+                'payment_status_counts': {},
+                'total_revenue': 0,
+                'users': User.objects.count()
+            }
+        
+        ctx.update({'stats': stats})
     return render(request, 'pages/admin_panel.html', ctx)
 
 @login_required
@@ -1669,17 +1878,27 @@ def admin_order_update(request):
         return redirect('home')
     if request.method != 'POST':
         return redirect('/admin-panel/?section=orders')
+    
     from orders.models import Order
+    from django.http import JsonResponse
+    
     oid = request.POST.get('order_id')
     status = request.POST.get('status')
+    tracking_number = request.POST.get('tracking_number', '').strip()
+    
     try:
         o = Order.objects.get(pk=oid)
     except Order.DoesNotExist:
-        return redirect('/admin-panel/?section=orders')
+        return JsonResponse({'success': False, 'error': 'Замовлення не знайдено'})
     
     old_status = o.status
     if status in dict(Order.STATUS_CHOICES):
         o.status = status
+        
+        # Обновляем ТТН если предоставлен
+        if tracking_number:
+            o.tracking_number = tracking_number
+        
         o.save()
         
         # Обрабатываем баллы при изменении статуса
@@ -1712,8 +1931,118 @@ def admin_order_update(request):
                     user_points.spend_points(total_points, f'Скасування замовлення #{o.order_number}')
                     o.points_awarded = False
                     o.save(update_fields=['points_awarded'])
+        
+        # Формируем сообщение об успехе
+        status_display = dict(Order.STATUS_CHOICES).get(status, status)
+        message = f'Статус замовлення змінено на "{status_display}"'
+        if tracking_number:
+            message += f' з ТТН: {tracking_number}'
+        
+        return JsonResponse({
+            'success': True, 
+            'message': message,
+            'status': status,
+            'tracking_number': tracking_number
+        })
     
-    return redirect('/admin-panel/?section=orders')
+    return JsonResponse({'success': False, 'error': 'Невірний статус'})
+
+
+@login_required
+def admin_update_payment_status(request):
+    """Обновление статуса оплаты заказа"""
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Доступ заборонено'})
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Невірний метод запиту'})
+    
+    from orders.models import Order
+    from django.http import JsonResponse
+    
+    order_id = request.POST.get('order_id')
+    payment_status = request.POST.get('payment_status')
+    
+    if not order_id or not payment_status:
+        return JsonResponse({'success': False, 'error': 'Відсутні необхідні дані'})
+    
+    try:
+        order = Order.objects.get(pk=order_id)
+    except Order.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Замовлення не знайдено'})
+    
+    # Проверяем валидность статуса оплаты
+    valid_payment_statuses = ['unpaid', 'checking', 'partial', 'paid']
+    if payment_status not in valid_payment_statuses:
+        return JsonResponse({'success': False, 'error': 'Невірний статус оплати'})
+    
+    # Обновляем статус оплаты
+    order.payment_status = payment_status
+    order.save()
+    
+    # Формируем сообщение об успехе
+    payment_status_display = {
+        'unpaid': 'Не оплачено',
+        'checking': 'На перевірці',
+        'partial': 'Внесена передплата',
+        'paid': 'Оплачено повністю'
+    }.get(payment_status, payment_status)
+    
+    return JsonResponse({
+        'success': True,
+        'message': f'Статус оплати змінено на "{payment_status_display}"',
+        'payment_status': payment_status
+    })
+
+
+@login_required
+def admin_approve_payment(request):
+    """Подтверждение или отклонение оплаты заказа"""
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Доступ заборонено'})
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Невірний метод запиту'})
+    
+    from orders.models import Order
+    from django.http import JsonResponse
+    
+    order_id = request.POST.get('order_id')
+    action = request.POST.get('action')  # 'approve' или 'reject'
+    
+    if not order_id or not action:
+        return JsonResponse({'success': False, 'error': 'Відсутні необхідні дані'})
+    
+    if action not in ['approve', 'reject']:
+        return JsonResponse({'success': False, 'error': 'Невірна дія'})
+    
+    try:
+        order = Order.objects.get(pk=order_id)
+    except Order.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Замовлення не знайдено'})
+    
+    if action == 'approve':
+        # Подтверждаем оплату
+        order.payment_status = 'paid'
+        message = 'Оплату підтверджено'
+        new_status = 'paid'
+    else:
+        # Отклоняем оплату
+        order.payment_status = 'unpaid'
+        message = 'Оплату відхилено'
+        new_status = 'unpaid'
+    
+    order.save()
+    
+    return JsonResponse({
+        'success': True,
+        'message': message,
+        'new_status': new_status
+    })
+
+
+
+
 
 # ---- Каталоги CRUD ----
 @login_required
@@ -2477,3 +2806,146 @@ def confirm_payment(request):
         "success": True,
         "message": "Скріншот оплати успішно завантажено"
     })
+
+
+# ===== ОФФЛАЙН МАГАЗИНЫ =====
+
+@login_required
+def admin_offline_stores(request):
+    """Список оффлайн магазинов"""
+    if not request.user.is_staff:
+        return redirect('home')
+    
+    from .models import OfflineStore
+    stores = OfflineStore.objects.all()
+    
+    # Подсчитываем статистику
+    total_stores = stores.count()
+    active_stores = stores.filter(is_active=True).count()
+    
+    return render(request, 'pages/admin_offline_stores.html', {
+        'stores': stores,
+        'total_stores': total_stores,
+        'active_stores': active_stores,
+        'section': 'offline_stores'
+    })
+
+
+class OfflineStoreForm(forms.ModelForm):
+    class Meta:
+        model = None  # Будет установлено в __init__
+        fields = ['name', 'address', 'phone', 'email', 'working_hours', 'description', 'is_active', 'order']
+    
+    def __init__(self, *args, **kwargs):
+        from .models import OfflineStore
+        self.Meta.model = OfflineStore
+        super().__init__(*args, **kwargs)
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-control bg-elevate',
+                'placeholder': 'Назва магазину'
+            }),
+            'address': forms.Textarea(attrs={
+                'class': 'form-control bg-elevate',
+                'rows': 3,
+                'placeholder': 'Повна адреса магазину'
+            }),
+            'phone': forms.TextInput(attrs={
+                'class': 'form-control bg-elevate',
+                'placeholder': 'Телефон магазину'
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': 'form-control bg-elevate',
+                'placeholder': 'Email магазину'
+            }),
+            'working_hours': forms.TextInput(attrs={
+                'class': 'form-control bg-elevate',
+                'placeholder': 'Наприклад: Пн-Пт 9:00-18:00, Сб 10:00-16:00'
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control bg-elevate',
+                'rows': 4,
+                'placeholder': 'Опис магазину, особливості, послуги'
+            }),
+            'order': forms.NumberInput(attrs={
+                'class': 'form-control bg-elevate',
+                'min': '0',
+                'placeholder': 'Порядок відображення'
+            }),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+@login_required
+def admin_offline_store_create(request):
+    """Создание нового оффлайн магазина"""
+    if not request.user.is_staff:
+        return redirect('home')
+    
+    from .models import OfflineStore
+    
+    if request.method == 'POST':
+        form = OfflineStoreForm(request.POST)
+        if form.is_valid():
+            store = form.save()
+            return redirect('admin_offline_stores')
+    else:
+        form = OfflineStoreForm()
+    
+    return render(request, 'pages/admin_offline_store_form.html', {
+        'form': form,
+        'mode': 'create',
+        'section': 'offline_stores'
+    })
+
+
+@login_required
+def admin_offline_store_edit(request, pk):
+    """Редактирование оффлайн магазина"""
+    if not request.user.is_staff:
+        return redirect('home')
+    
+    from .models import OfflineStore
+    store = get_object_or_404(OfflineStore, pk=pk)
+    
+    if request.method == 'POST':
+        form = OfflineStoreForm(request.POST, instance=store)
+        if form.is_valid():
+            form.save()
+            return redirect('admin_offline_stores')
+    else:
+        form = OfflineStoreForm(instance=store)
+    
+    return render(request, 'pages/admin_offline_store_form.html', {
+        'form': form,
+        'mode': 'edit',
+        'store': store,
+        'section': 'offline_stores'
+    })
+
+
+@login_required
+def admin_offline_store_toggle(request, pk):
+    """Активация/деактивация оффлайн магазина"""
+    if not request.user.is_staff:
+        return redirect('home')
+    
+    from .models import OfflineStore
+    store = get_object_or_404(OfflineStore, pk=pk)
+    store.is_active = not store.is_active
+    store.save()
+    
+    return redirect('admin_offline_stores')
+
+
+@login_required
+def admin_offline_store_delete(request, pk):
+    """Удаление оффлайн магазина"""
+    if not request.user.is_staff:
+        return redirect('home')
+    
+    from .models import OfflineStore
+    store = get_object_or_404(OfflineStore, pk=pk)
+    store.delete()
+    
+    return redirect('admin_offline_stores')
