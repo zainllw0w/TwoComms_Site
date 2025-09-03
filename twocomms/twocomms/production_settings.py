@@ -3,6 +3,7 @@ Production settings for TwoComms project on PythonAnywhere.
 """
 
 from .settings import *
+import os
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
@@ -18,6 +19,55 @@ ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
 ]
+
+# База данных: выбираем по DB_ENGINE (mysql | postgresql), иначе SQLite как фолбэк
+DB_ENGINE = os.environ.get('DB_ENGINE', '').lower()
+if os.environ.get('DB_NAME') and os.environ.get('DB_USER'):
+    if DB_ENGINE.startswith('mysql'):
+        # Базовые опции подключения к MySQL
+        _options = {
+            'charset': 'utf8mb4',
+            'use_unicode': True,
+        }
+
+        # Поддержка SSL через переменные окружения (опционально)
+        _ssl = {}
+        if os.environ.get('DB_SSL_CA'):
+            _ssl['ca'] = os.environ['DB_SSL_CA']
+        if os.environ.get('DB_SSL_CERT'):
+            _ssl['cert'] = os.environ['DB_SSL_CERT']
+        if os.environ.get('DB_SSL_KEY'):
+            _ssl['key'] = os.environ['DB_SSL_KEY']
+        if _ssl:
+            _options['ssl'] = _ssl
+
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.mysql',
+                'NAME': os.environ['DB_NAME'],
+                'USER': os.environ['DB_USER'],
+                'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+                'HOST': os.environ.get('DB_HOST', 'localhost'),
+                'PORT': os.environ.get('DB_PORT', '3306'),
+                'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', '60')),
+                'OPTIONS': _options,
+            }
+        }
+    else:
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': os.environ['DB_NAME'],
+                'USER': os.environ['DB_USER'],
+                'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+                'HOST': os.environ.get('DB_HOST', 'localhost'),
+                'PORT': os.environ.get('DB_PORT', '5432'),
+                'CONN_MAX_AGE': 60,
+                'OPTIONS': {
+                    'sslmode': os.environ.get('DB_SSLMODE', 'require')
+                }
+            }
+        }
 
 # Настройки статических файлов для продакшена
 STATIC_URL = '/static/'
