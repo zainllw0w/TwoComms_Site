@@ -23,8 +23,10 @@ if _allowed_hosts_env:
     else:
         ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts_env.split(',') if h.strip()]
 else:
-    # Значения по умолчанию
+    # Значения по умолчанию (добавлены ваш домен и www)
     ALLOWED_HOSTS = [
+        'test.com',
+        'www.test.com',
         'twocomms.pythonanywhere.com',
         'localhost',
         '127.0.0.1',
@@ -33,6 +35,11 @@ else:
 _csrf_origins_env = os.environ.get('CSRF_TRUSTED_ORIGINS')
 if _csrf_origins_env:
     CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins_env.split(',') if o.strip()]
+else:
+    CSRF_TRUSTED_ORIGINS = [
+        'https://test.com',
+        'https://www.test.com',
+    ]
 
 # База данных: выбираем по DB_ENGINE (mysql | postgresql), иначе SQLite как фолбэк
 DB_ENGINE = os.environ.get('DB_ENGINE', '').lower()
