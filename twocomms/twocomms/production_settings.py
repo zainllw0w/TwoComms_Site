@@ -13,12 +13,26 @@ DEBUG = False
 import os
 SECRET_KEY = os.environ.get('SECRET_KEY', SECRET_KEY)
 
-# Настройки для PythonAnywhere
-ALLOWED_HOSTS = [
-    'twocomms.pythonanywhere.com',  # Ваш домен
-    'localhost',
-    '127.0.0.1',
-]
+# ALLOWED_HOSTS/CSRF_TRUSTED_ORIGINS читаем из переменных окружения
+# ALLOWED_HOSTS="*" допустимо (только временно на время настройки!)
+_allowed_hosts_env = os.environ.get('ALLOWED_HOSTS')
+if _allowed_hosts_env:
+    _allowed_hosts_env = _allowed_hosts_env.strip()
+    if _allowed_hosts_env == '*':
+        ALLOWED_HOSTS = ['*']
+    else:
+        ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts_env.split(',') if h.strip()]
+else:
+    # Значения по умолчанию
+    ALLOWED_HOSTS = [
+        'twocomms.pythonanywhere.com',
+        'localhost',
+        '127.0.0.1',
+    ]
+
+_csrf_origins_env = os.environ.get('CSRF_TRUSTED_ORIGINS')
+if _csrf_origins_env:
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins_env.split(',') if o.strip()]
 
 # База данных: выбираем по DB_ENGINE (mysql | postgresql), иначе SQLite как фолбэк
 DB_ENGINE = os.environ.get('DB_ENGINE', '').lower()
