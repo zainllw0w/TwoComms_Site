@@ -15,7 +15,6 @@
             </svg>
             Адмін-панель
           </h1>
-          <button onclick="testAjax()" class="btn btn-primary">Тест AJAX</button>
       <div class="admin-nav">
         <a href="?section=stats" class="admin-nav-item {% if section == 'stats' %}active{% endif %}">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -41,8 +40,20 @@
           </svg>
           Каталоги
         </a>
-      </div>
+        <a href="?section=promocodes" class="admin-nav-item {% if section == 'promocodes' %}active{% endif %}">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
+          Промокоди
+        </a>
+        <a href="?section=offline_stores" class="admin-nav-item {% if section == 'offline_stores' %}active{% endif %}">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
+          Оффлайн магазини
+        </a>
     </div>
+  </div>
   </div>
 
   <!-- Контент секции -->
@@ -60,15 +71,15 @@
             <div class="stat-content">
               <div class="stat-value">{{ stats.orders_today|default:0 }}</div>
               <div class="stat-label">Замовлень сьогодні</div>
-            </div>
           </div>
+            </div>
           
           <div class="stat-card">
             <div class="stat-icon">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
               </svg>
-            </div>
+          </div>
             <div class="stat-content">
               <div class="stat-value">{{ stats.revenue|default:0 }} грн</div>
               <div class="stat-label">Виручка сьогодні</div>
@@ -80,11 +91,11 @@
               <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zm4 18v-6h2.5l-2.54-7.63A1.5 1.5 0 0 0 18.54 8H17c-.8 0-1.54.37-2.01 1l-1.7 2.26V15h-1.5v-6h1.5v1.5l1.7-2.26c.47-.63 1.21-1 2.01-1h1.54c.8 0 1.54.37 2.01 1L21.5 15H20v6h2z"/>
               </svg>
-            </div>
+        </div>
             <div class="stat-content">
               <div class="stat-value">{{ stats.users|default:0 }}</div>
               <div class="stat-label">Користувачів</div>
-            </div>
+      </div>
           </div>
         </div>
       </div>
@@ -92,32 +103,77 @@
     {% elif section == 'orders' %}
       <!-- Управление заказами -->
       <div class="orders-admin-section">
+        <!-- Заголовок с информацией о фильтрации -->
+        {% if user_id_filter %}
+          <div class="user-filter-info">
+            <div class="user-filter-header">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              <span>
+                {% if user_filter_info %}
+                  Замовлення користувача: {{ user_filter_info.username }} {% if user_filter_info.full_name %}({{ user_filter_info.full_name }}){% endif %}
+                    {% else %}
+                  Замовлення користувача ID: {{ user_id_filter }}
+                    {% endif %}
+              </span>
+              <a href="?section=orders" class="clear-user-filter">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+                Показати всі замовлення
+              </a>
+                  </div>
+          </div>
+        {% endif %}
+        
         <!-- Фильтры и статистика -->
         <div class="orders-filters">
           <div class="filter-stats">
-            <div class="filter-stat-item" onclick="filterOrders('all', 'all')">
-              <div class="filter-stat-number">{{ stats.total }}</div>
+            <!-- Статусы заказов с счетчиками -->
+            <div class="filter-stat-item status-all" onclick="filterOrders('all', 'all')">
+              <div class="filter-stat-number">{{ total_orders|default:0 }}</div>
               <div class="filter-stat-label">Всі замовлення</div>
             </div>
-            <div class="filter-stat-item" onclick="filterOrders('new', 'all')">
-              <div class="filter-stat-number">{{ stats.processing }}</div>
+            <div class="filter-stat-item status-new" onclick="filterOrders('new', 'all')">
+              <div class="filter-stat-number">{{ status_counts.new|default:0 }}</div>
               <div class="filter-stat-label">В обробці</div>
             </div>
-            <div class="filter-stat-item" onclick="filterOrders('all', 'checking')">
-              <div class="filter-stat-number">{{ stats.checking_payments }}</div>
-              <div class="filter-stat-label">Очікують підтвердження</div>
+            <div class="filter-stat-item status-prep" onclick="filterOrders('prep', 'all')">
+              <div class="filter-stat-number">{{ status_counts.prep|default:0 }}</div>
+              <div class="filter-stat-label">Готується до відправлення</div>
             </div>
-            <div class="filter-stat-item" onclick="filterOrders('all', 'paid')">
-              <div class="filter-stat-number">{{ stats.paid }}</div>
-              <div class="filter-stat-label">Оплачені</div>
+            <div class="filter-stat-item status-ship" onclick="filterOrders('ship', 'all')">
+              <div class="filter-stat-number">{{ status_counts.ship|default:0 }}</div>
+              <div class="filter-stat-label">Відправлено</div>
             </div>
-            <div class="filter-stat-item" onclick="filterOrders('all', 'partial')">
-              <div class="filter-stat-number">{{ stats.partial_paid }}</div>
-              <div class="filter-stat-label">Частково оплачені</div>
+            <div class="filter-stat-item status-done" onclick="filterOrders('done', 'all')">
+              <div class="filter-stat-number">{{ status_counts.done|default:0 }}</div>
+              <div class="filter-stat-label">Отримано</div>
             </div>
-            <div class="filter-stat-item" onclick="filterOrders('all', 'unpaid')">
-              <div class="filter-stat-number">{{ stats.unpaid }}</div>
-              <div class="filter-stat-label">Не оплачені</div>
+            <div class="filter-stat-item status-cancelled" onclick="filterOrders('cancelled', 'all')">
+              <div class="filter-stat-number">{{ status_counts.cancelled|default:0 }}</div>
+              <div class="filter-stat-label">Скасовано</div>
+            </div>
+          </div>
+          
+          <!-- Статусы оплаты с счетчиками -->
+          <div class="filter-stats payment-stats">
+            <div class="filter-stat-item payment-unpaid" onclick="filterOrders('all', 'unpaid')">
+              <div class="filter-stat-number">{{ payment_status_counts.unpaid|default:0 }}</div>
+              <div class="filter-stat-label">Не оплачено</div>
+            </div>
+            <div class="filter-stat-item payment-checking" onclick="filterOrders('all', 'checking')">
+              <div class="filter-stat-number">{{ payment_status_counts.checking|default:0 }}</div>
+              <div class="filter-stat-label">На перевірці</div>
+            </div>
+            <div class="filter-stat-item payment-partial" onclick="filterOrders('all', 'partial')">
+              <div class="filter-stat-number">{{ payment_status_counts.partial|default:0 }}</div>
+              <div class="filter-stat-label">Частково оплачено</div>
+            </div>
+            <div class="filter-stat-item payment-paid" onclick="filterOrders('all', 'paid')">
+              <div class="filter-stat-number">{{ payment_status_counts.paid|default:0 }}</div>
+              <div class="filter-stat-label">Оплачено</div>
             </div>
           </div>
           
@@ -413,11 +469,11 @@
                         </div>
                       </div>
                     </div>
-                  {% endfor %}
-                </div>
-              </div>
-            </div>
-          {% empty %}
+              {% endfor %}
+        </div>
+      </div>
+        </div>
+              {% empty %}
             <div class="orders-empty">
               <div class="orders-empty-icon">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
@@ -427,122 +483,1196 @@
               <h2 class="orders-empty-title">Замовлень не знайдено</h2>
               <p class="orders-empty-text">Спробуйте змінити фільтри</p>
             </div>
-                {% endfor %}
+              {% endfor %}
         </div>
       </div>
 
     {% elif section == 'users' %}
       <!-- Управление пользователями -->
-      <div class="users-section">
-        <div class="users-list">
-          {% for user_data in user_data %}
-            <div class="user-card">
-              <div class="user-info">
-                <div class="user-avatar">
-                  {% if user_data.profile.avatar %}
-                    <img src="{{ user_data.profile.avatar.url }}" alt="{{ user_data.user.username }}">
-              {% else %}
-                    <div class="default-avatar">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+      <div class="users-admin-section">
+        <!-- Заголовок секции -->
+        <div class="section-header">
+          <div class="section-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zm4 18v-6h2.5l-2.54-7.63A1.5 1.5 0 0 0 18.54 8H17c-.8 0-1.54.37-2.01 1l-1.7 2.26V15h-1.5v-6h1.5v1.5l1.7-2.26c.47-.63 1.21-1 2.01-1h1.54c.8 0 1.54.37 2.01 1L21.5 15H20v6h2z"/>
+            </svg>
+        </div>
+          <h2 class="section-title">Управління користувачами</h2>
+          
+          <!-- Поиск по пользователям -->
+          <div class="users-search-section">
+            <div class="search-container">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="search-icon">
+                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+              </svg>
+              <input type="text" 
+                     id="users-search" 
+                     class="users-search-input" 
+                     placeholder="Пошук за ім'ям або логіном..."
+                     oninput="filterUsers(this.value)"
+                     onkeyup="if(this.value === '') filterUsers('')">
+              <button type="button" 
+                      class="search-clear-btn" 
+                      onclick="clearUserSearch()"
+                      title="Очистити пошук">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+              </button>
+                  </div>
+          </div>
+          
+          <div class="section-stats">
+            <div class="stat-badge">
+              <span class="stat-number" id="users-count">{{ user_data|length }}</span>
+              <span class="stat-label">Користувачів</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Список пользователей -->
+        <div class="users-grid">
+          {% for user in user_data %}
+            <div class="user-card" data-user-id="{{ user.user.id }}">
+              <!-- Анимация искр -->
+              <div class="user-sparks">
+                <div class="user-spark user-spark-1"></div>
+                <div class="user-spark user-spark-2"></div>
+                <div class="user-spark user-spark-3"></div>
+              </div>
+
+                <!-- Основная информация о пользователе -->
+                <div class="user-header">
+                  <div class="user-avatar-section">
+                    <div class="user-avatar">
+                      {% if user.profile.avatar %}
+                        <img src="{{ user.profile.avatar.url }}" alt="{{ user.user.username }}" class="avatar-image">
+                      {% else %}
+                        <div class="default-avatar">
+                          <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                          </svg>
+                        </div>
+                      {% endif %}
+                      <div class="user-status-badge {% if user.user.is_superuser %}superuser{% elif user.user.is_staff %}staff{% else %}user{% endif %}">
+                        {% if user.user.is_superuser %}
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                          </svg>
+                        {% elif user.user.is_staff %}
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+                          </svg>
+                        {% else %}
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                          </svg>
+                        {% endif %}
+                      </div>
+                    </div>
+                    
+                    <div class="user-info-main">
+                      <div class="user-name">{{ user.user.username }}</div>
+                      <div class="user-email">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+                        </svg>
+                        {{ user.user.email|default:"Email не вказано" }}
+                      </div>
+                      {% if user.profile.phone %}
+                        <div class="user-phone">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+                          </svg>
+                          {{ user.profile.phone }}
+                        </div>
+                      {% endif %}
+                      {% if user.profile.full_name %}
+                        <div class="user-full-name">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                          </svg>
+                          {{ user.profile.full_name }}
+                        </div>
+                      {% endif %}
+                      
+                      {% if user.profile.telegram %}
+                        <div class="user-telegram">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/>
+                          </svg>
+                          {{ user.profile.telegram }}
+                        </div>
+                      {% endif %}
+                      
+                      {% if user.profile.instagram %}
+                        <div class="user-instagram">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                          </svg>
+                          {{ user.profile.instagram }}
+                        </div>
+                      {% endif %}
+                      
+                      <!-- УБД статус -->
+                      <div class="user-ubd-status">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                        </svg>
+                        {% if user.profile.is_ubd %}
+                          <span class="ubd-status">УБД</span>
+                        {% else %}
+                          Не УБД
+                        {% endif %}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Статистика пользователя (компактная) -->
+                <div class="user-stats-compact">
+                  <div class="stat-item-compact">
+                    <div class="stat-icon-compact">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7V9h10v2zm0-4H7V7h10v2z"/>
                       </svg>
                     </div>
-                  {% endif %}
+                    <div class="stat-content-compact">
+                                              <div class="stat-value-compact">{{ user.total_orders }}</div>
+                      <div class="stat-label-compact">Замовлень</div>
+                    </div>
+                  </div>
+                  
+                  <div class="stat-item-compact">
+                    <div class="stat-icon-compact">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                      </svg>
+                    </div>
+                    <div class="stat-content-compact">
+                                              <div class="stat-value-compact">{{ user.total_spent|floatformat:0 }}</div>
+                      <div class="stat-label-compact">грн (всі платежі)</div>
+                    </div>
+                  </div>
+                  
+                  <div class="stat-item-compact">
+                    <div class="stat-icon-compact">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                      </svg>
+                    </div>
+                    <div class="stat-content-compact">
+                                              <div class="stat-value-compact">{{ user.points.points|default:0 }}</div>
+                      <div class="stat-label-compact">Балів зараз</div>
+                    </div>
+                  </div>
+                  
+                  <div class="stat-item-compact">
+                    <div class="stat-icon-compact">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                      </svg>
+                    </div>
+                    <div class="stat-content-compact">
+                                              <div class="stat-value-compact">{{ user.points_spent|default:0 }}</div>
+                      <div class="stat-label-compact">Балів витрачено</div>
+                    </div>
+                  </div>
                 </div>
-                <div class="user-details">
-                  <div class="user-name">{{ user_data.user.username }}</div>
-                  <div class="user-email">{{ user_data.user.email|default:"Email не вказано" }}</div>
-                  <div class="user-phone">{{ user_data.profile.phone|default:"Телефон не вказано" }}</div>
-                  <div class="user-points">
+                
+                <!-- Управління балами -->
+                <div class="points-control-section">
+                  <div class="section-header">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                     </svg>
-                    {{ user_data.points.points|default:0 }} балів
+                    <h4>Управління балами</h4>
+                  </div>
+                  
+                  <div class="points-display">
+                    <div class="points-display-icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                      </svg>
+                    </div>
+                    <div class="points-display-content">
+                                              <div class="points-display-value">{{ user.points.points|default:0 }}</div>
+                      <div class="points-display-label">Поточні бали</div>
+                    </div>
+                  </div>
+                  
+                  <form method="POST" action="{% url 'admin_update_user' %}" class="points-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="user_id" value="{{ user.user.id }}">
+                    <div class="points-input-group">
+                      <label for="points_adjustment">Змінити бали:</label>
+                      <div class="points-input-wrapper">
+                        <input type="number" name="points_adjustment" id="points_adjustment" 
+                               class="points-input" placeholder="+100 або -50" required>
+                        <input type="text" name="points_reason" 
+                               placeholder="Причина коригування" 
+                               class="reason-input">
+                      </div>
+                    </div>
+                    
+                    <button type="submit" class="save-btn points-save-btn">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                      </svg>
+                      Зберегти зміни
+                    </button>
+                  </form>
+                </div>
+
+              <!-- Детальная информация -->
+              <div class="user-details-expanded">
+                <!-- Статусы заказов -->
+                <div class="orders-status-section">
+                  <h4>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7V9h10v2zm0-4H7V7h10v2z"/>
+                    </svg>
+                    Статуси замовлень
+                  </h4>
+                  <div class="status-grid">
+                    <div class="status-item new clickable" onclick="filterUserOrders('{{ user.user.id }}', 'status', 'new')" data-user-id="{{ user.user.id }}" data-status="new">
+                      <div class="status-number">{{ user.order_status_counts.new|default:0 }}</div>
+                      <div class="status-label">В обробці</div>
+                    </div>
+                    <div class="status-item prep clickable" onclick="filterUserOrders('{{ user.user.id }}', 'status', 'prep')">
+                      <div class="status-number">{{ user.order_status_counts.prep|default:0 }}</div>
+                      <div class="status-label">Готується</div>
+                    </div>
+                    <div class="status-item ship clickable" onclick="filterUserOrders('{{ user.user.id }}', 'status', 'ship')">
+                      <div class="status-number">{{ user.order_status_counts.ship|default:0 }}</div>
+                      <div class="status-label">Відправлено</div>
+                    </div>
+                    <div class="status-item done clickable" onclick="filterUserOrders('{{ user.user.id }}', 'status', 'done')">
+                      <div class="status-number">{{ user.order_status_counts.done|default:0 }}</div>
+                      <div class="status-label">Отримано</div>
+                    </div>
+                    <div class="status-item cancelled clickable" onclick="filterUserOrders('{{ user.user.id }}', 'status', 'cancelled')">
+                      <div class="status-number">{{ user.order_status_counts.cancelled|default:0 }}</div>
+                      <div class="status-label">Скасовано</div>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div class="user-actions">
-                <form method="POST" action="{% url 'admin_update_user' %}">
-                  {% csrf_token %}
-                  <input type="hidden" name="user_id" value="{{ user_data.user.id }}">
-                  <div class="form-check">
-                    <input type="checkbox" name="is_staff" id="staff_{{ user_data.user.id }}" 
-                           {% if user_data.user.is_staff %}checked{% endif %} class="form-check-input">
-                    <label for="staff_{{ user_data.user.id }}">Адміністратор</label>
-                  </div>
-                  {% if request.user.is_superuser %}
-                    <div class="form-check">
-                      <input type="checkbox" name="is_superuser" id="super_{{ user_data.user.id }}" 
-                             {% if user_data.user.is_superuser %}checked{% endif %} class="form-check-input">
-                      <label for="super_{{ user_data.user.id }}">Суперкористувач</label>
+
+                <!-- Статусы оплаты -->
+                <div class="payment-status-section">
+                  <h4>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    Статуси оплати
+                  </h4>
+                  <div class="payment-grid">
+                    <div class="payment-item unpaid clickable" onclick="filterUserOrders('{{ user.user.id }}', 'payment_status', 'unpaid')">
+                      <div class="payment-number">{{ user.payment_status_counts.unpaid|default:0 }}</div>
+                      <div class="payment-label">Не оплачено</div>
                     </div>
-              {% endif %}
-                  <div class="points-adjustment">
-                    <input type="number" name="points_adjustment" placeholder="Коригування балів" class="form-control">
-                    <input type="text" name="points_reason" placeholder="Причина" class="form-control">
+                    <div class="payment-item checking clickable" onclick="filterUserOrders('{{ user.user.id }}', 'status', 'checking')">
+                      <div class="payment-number">{{ user.payment_status_counts.checking|default:0 }}</div>
+                      <div class="payment-label">На перевірці</div>
+                    </div>
+                    <div class="payment-item partial clickable" onclick="filterUserOrders('{{ user.user.id }}', 'payment_status', 'partial')">
+                      <div class="payment-number">{{ user.payment_status_counts.partial|default:0 }}</div>
+                      <div class="payment-label">Частково</div>
+                    </div>
+                    <div class="payment-item paid clickable" onclick="filterUserOrders('{{ user.user.id }}', 'payment_status', 'paid')">
+                      <div class="payment-number">{{ user.payment_status_counts.paid|default:0 }}</div>
+                      <div class="payment-label">Оплачено</div>
+                    </div>
                   </div>
-                  <button type="submit" class="btn btn-primary">Зберегти</button>
-                </form>
-              </div>
-            </div>
+                </div>
+
+                <!-- Промокоды -->
+                <div class="promocodes-section">
+                  <h4>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
+                    </svg>
+                    Промокоди ({{ user.promocodes|length|default:0 }})
+                  </h4>
+                  
+                  <!-- Выданные промокоды -->
+                  {% if user.promocodes %}
+                    <div class="promocodes-subsection">
+                      <h5>Видані промокоди</h5>
+                      <div class="promocodes-grid">
+                        {% for promocode in user.promocodes %}
+                          <div class="promocode-item">
+                            <div class="promocode-code">{{ promocode.code }}</div>
+                            <div class="promocode-discount">{{ promocode.discount }}% знижка</div>
+                            <div class="promocode-status {% if promocode.is_used %}used{% else %}active{% endif %}">
+                              {% if promocode.is_used %}Використано{% else %}Активний{% endif %}
+                            </div>
+                            <div class="promocode-actions">
+                              <button class="promocode-btn remove" onclick="removePromocode('{{ promocode.id }}')">
+                                Видалити
+                              </button>
+                            </div>
+                          </div>
+              {% endfor %}
+        </div>
+      </div>
+                  {% endif %}
+                  
+                  <!-- Использованные промокоды -->
+                  {% if user.used_promocodes %}
+                    <div class="promocodes-subsection">
+                      <h5>Використані промокоди</h5>
+                      <div class="promocodes-grid">
+                        {% for promocode in user.used_promocodes %}
+                          <div class="promocode-item used">
+                            <div class="promocode-code">{{ promocode.code }}</div>
+                            <div class="promocode-discount">{{ promocode.discount }}% знижка</div>
+                            <div class="promocode-status used">
+                              Використано в замовленні {{ promocode.used_in_order }}
+                            </div>
+                            <div class="promocode-date">
+                              {{ promocode.used_date|date:"d.m.Y" }}
+                            </div>
+                          </div>
+                        {% endfor %}
+                      </div>
+                    </div>
+                  {% endif %}
+                  
+                  {% if not user.promocodes and not user.used_promocodes %}
+                    <p style="color: #9ca3af; text-align: center; margin: 1rem 0;">У користувача немає промокодів</p>
+                  {% endif %}
+                  
+                                        <button class="promocode-btn give" onclick="givePromocode('{{ user.user.id }}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 0.5rem;">
+                      <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                    </svg>
+                    Дати промокод
+                  </button>
+                </div>
+
+                <!-- Информация о доставке -->
+                <div class="delivery-section">
+                  <h4>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+                    </svg>
+                    Інформація про доставку
+                  </h4>
+                  <div class="delivery-info">
+                    <div class="delivery-item">
+                      <div class="delivery-label">Місто</div>
+                                              <div class="delivery-value {% if not user.profile.city %}empty{% endif %}">
+                          {{ user.profile.city|default:"Не вказано" }}
+                        </div>
+                    </div>
+                    <div class="delivery-item">
+                      <div class="delivery-label">Відділення НП</div>
+                                              <div class="delivery-value {% if not user.profile.np_office %}empty{% endif %}">
+                          {{ user.profile.np_office|default:"Не вказано" }}
+                        </div>
+                    </div>
+                    <div class="delivery-item">
+                      <div class="delivery-label">Тип оплати</div>
+                                              <div class="delivery-value {% if not user.profile.pay_type %}empty{% endif %}">
+                          {% if user.profile.pay_type == 'partial' %}
+                            Часткова передоплата
+                          {% elif user.profile.pay_type == 'full' %}
+                            Повна передоплата
+                          {% else %}
+                            Не вказано
+                          {% endif %}
+                        </div>
+                    </div>
+
+                  </div>
+                </div>
+
+
+
+                <!-- Управление пользователем -->
+                <div class="user-controls">
+                  <form method="POST" action="{% url 'admin_update_user' %}" class="user-control-form">
+                    {% csrf_token %}
+                                            <input type="hidden" name="user_id" value="{{ user.user.id }}">
+                    
+                    <div class="control-section">
+                      <h5>Права доступу</h5>
+                      <div class="control-group">
+                        <label class="control-checkbox">
+                          <input type="checkbox" name="is_staff" 
+                                 {% if user.user.is_staff %}checked{% endif %}>
+                          <span class="checkmark"></span>
+                          <span class="label-text">Адміністратор</span>
+                        </label>
+                        
+                        {% if request.user.is_superuser %}
+                          <label class="control-checkbox">
+                            <input type="checkbox" name="is_superuser" 
+                                   {% if user.user.is_superuser %}checked{% endif %}>
+                            <span class="checkmark"></span>
+                            <span class="label-text">Суперкористувач</span>
+                          </label>
+                        {% endif %}
+                      </div>
+                    </div>
+
+                    <button type="submit" class="save-btn">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                      </svg>
+                      Зберегти зміни
+                    </button>
+                    </form>
+                            </div>
+                            </div>
+                          </div>
           {% endfor %}
         </div>
       </div>
 
     {% elif section == 'catalogs' %}
       <!-- Управление каталогами -->
-      <div class="catalogs-section">
-        <div class="catalogs-grid">
-          <div class="catalog-section">
-            <h3>Категорії</h3>
-            <div class="catalog-list">
-              {% for category in categories %}
-                <div class="catalog-item">
-                  <div class="catalog-info">
-                    <div class="catalog-name">{{ category.name }}</div>
-                    <div class="catalog-description">{{ category.description|default:"Опис відсутній" }}</div>
-                  </div>
-                  <div class="catalog-actions">
-                    <button class="btn btn-sm btn-outline-primary">Редагувати</button>
-                    <button class="btn btn-sm btn-outline-danger">Видалити</button>
-                  </div>
-                </div>
-              {% endfor %}
-            </div>
+      <div class="catalogs-admin-section">
+        <!-- Заголовок секции -->
+        <div class="section-header">
+          <div class="section-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+            </svg>
           </div>
-          
-          <div class="catalog-section">
-            <h3>Товари</h3>
-            <div class="catalog-list">
-              {% for product in products %}
-                <div class="catalog-item">
-                  <div class="catalog-info">
-                    <div class="catalog-name">{{ product.name }}</div>
-                    <div class="catalog-description">{{ product.description|default:"Опис відсутній" }}</div>
-                    <div class="catalog-price">{{ product.price }} грн</div>
-                  </div>
-                  <div class="catalog-actions">
-                    <button class="btn btn-sm btn-outline-primary">Редагувати</button>
-                    <button class="btn btn-sm btn-outline-danger">Видалити</button>
-                  </div>
-                </div>
-              {% endfor %}
+          <div class="section-title">Управління каталогами</div>
+          <div class="section-stats">
+            <div class="stat-badge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+              <span id="categories-count">{{ categories|length }}</span>
+            </div>
+            <div class="stat-badge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7V9h10v2zm0-4H7V7h10v2z"/>
+              </svg>
+              <span id="products-count">{{ products|length }}</span>
             </div>
           </div>
         </div>
+
+        <!-- Поиск и фильтры -->
+        <div class="catalogs-search-section">
+          <div class="search-container">
+            <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+            </svg>
+            <input type="text" id="catalogs-search" class="catalogs-search-input" 
+                   placeholder="Пошук по назві товару або категорії..." 
+                   oninput="filterCatalogs(this.value)">
+            <button class="search-clear-btn" onclick="clearCatalogsSearch()" style="display: none;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Категории -->
+        <div class="categories-admin-section">
+          <div class="subsection-header">
+            <h3>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+              Категорії ({{ categories|length }})
+            </h3>
+            <a href="{% url 'admin_category_new' %}" class="add-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              </svg>
+              Додати категорію
+            </a>
+          </div>
+          
+          <div class="categories-grid">
+            {% for category in categories %}
+              <div class="category-card" data-category-name="{{ category.name|lower }}">
+                <div class="category-sparks">
+                  <div class="category-spark category-spark-1"></div>
+                  <div class="category-spark category-spark-2"></div>
+                  <div class="category-spark category-spark-3"></div>
+                </div>
+                
+                <div class="category-header">
+                  <div class="category-icon">
+                    {% if category.icon %}
+                      <img src="{{ category.icon.url }}" alt="{{ category.name }}" class="category-icon-img">
+                    {% else %}
+                      <div class="category-icon-placeholder">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                        </svg>
+                      </div>
+                    {% endif %}
+                  </div>
+                  <div class="category-info">
+                    <div class="category-name">{{ category.name }}</div>
+                    <div class="category-order">Порядок: {{ category.order|default:0 }}</div>
+                    <div class="category-slug">Slug: {{ category.slug }}</div>
+                  </div>
+                </div>
+                
+                <div class="category-stats">
+                  <div class="category-stat">
+                    <div class="stat-number">{{ category.products.count }}</div>
+                    <div class="stat-label">Товарів</div>
+                  </div>
+                </div>
+                
+                <div class="category-actions">
+                  <a href="{% url 'admin_category_edit' category.id %}" class="action-btn edit">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                    </svg>
+                    Редагувати
+                  </a>
+                  <button class="action-btn delete" onclick="deleteCategory({{ category.id }}, '{{ category.name }}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                    </svg>
+                    Видалити
+                  </button>
+                </div>
+              </div>
+            {% empty %}
+              <div class="empty-state">
+                <div class="empty-icon">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                </div>
+                <h4>Категорії відсутні</h4>
+                <p>Створіть першу категорію для організації товарів</p>
+                <a href="{% url 'admin_category_new' %}" class="btn btn-primary">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                  </svg>
+                  Додати категорію
+                </a>
+                        </div>
+                      {% endfor %}
+                    </div>
+        </div>
+
+        <!-- Товары -->
+        <div class="products-admin-section">
+          <div class="subsection-header">
+            <h3>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7V9h10v2zm0-4H7V7h10v2z"/>
+              </svg>
+              Товари ({{ products|length }})
+            </h3>
+            <a href="{% url 'admin_product_new' %}" class="add-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              </svg>
+              Додати товар
+            </a>
+          </div>
+          
+          <div class="products-grid">
+            {% for product in products %}
+              <div class="product-card" data-product-name="{{ product.title|lower }}" data-category-name="{{ product.category.name|lower }}">
+                <div class="product-sparks">
+                  <div class="product-spark product-spark-1"></div>
+                  <div class="product-spark product-spark-2"></div>
+                  <div class="product-spark product-spark-3"></div>
+                </div>
+                
+                <div class="product-header">
+                  <div class="product-image">
+                    {% if product.display_image %}
+                      <img src="{{ product.display_image.url }}" alt="{{ product.title }}" class="product-img">
+                    {% else %}
+                      <div class="product-image-placeholder">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                        </svg>
+                      </div>
+                    {% endif %}
+                  </div>
+                  <div class="product-info">
+                    <div class="product-title">{{ product.title }}</div>
+                    <div class="product-category">{{ product.category.name }}</div>
+                  </div>
+                </div>
+                
+                <div class="product-details">
+                  <div class="product-price">
+                    {% if product.has_discount %}
+                      <span class="price-old">{{ product.price }} грн</span>
+                      <span class="price-new">{{ product.final_price }} грн</span>
+                      <span class="discount-badge">-{{ product.discount_percent }}%</span>
+                    {% else %}
+                      <span class="price-current">{{ product.price }} грн</span>
+                    {% endif %}
+                  </div>
+                  
+                  <div class="product-features">
+                    {% if product.featured %}
+                      <span class="feature-badge featured">Рекомендований</span>
+                    {% endif %}
+                    {% if product.points_reward > 0 %}
+                      <span class="feature-badge points">+{{ product.points_reward }} балів</span>
+                    {% endif %}
+                  </div>
+                </div>
+                
+                <div class="product-stats">
+                  <div class="product-stat">
+                    <div class="stat-number">{{ product.color_variants.count|default:0 }}</div>
+                    <div class="stat-label">Кольорів</div>
+                  </div>
+                  <div class="product-stat">
+                    <div class="stat-number">{{ product.images.count|default:0 }}</div>
+                    <div class="stat-label">Фото</div>
+                  </div>
+                </div>
+                
+                <div class="product-actions">
+                  <a href="{% url 'admin_product_edit_unified' product.id %}" class="action-btn edit">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                    </svg>
+                    Редагувати
+                  </a>
+                  <button class="action-btn delete" onclick="deleteProduct({{ product.id }}, '{{ product.title }}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                    </svg>
+                    Видалити
+                  </button>
+                </div>
+              </div>
+            {% empty %}
+              <div class="empty-state">
+                <div class="empty-icon">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7V9h10v2zm0-4H7V7h10v2z"/>
+                  </svg>
+                </div>
+                <h4>Товари відсутні</h4>
+                <p>Створіть перший товар для поповнення каталогу</p>
+                <a href="{% url 'admin_product_new' %}" class="btn btn-primary">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                  </svg>
+                  Додати товар
+                </a>
+              </div>
+                {% endfor %}
+          </div>
+        </div>
       </div>
+    {% elif section == 'promocodes' %}
+      <!-- Управление промокодами -->
+      <div class="promocodes-admin-section">
+        <!-- Заголовок секции -->
+        <div class="section-header">
+          <div class="section-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+          </div>
+          <div class="section-title">Управління промокодами</div>
+          <div class="section-stats">
+            <div class="stat-badge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              <span id="promocodes-count">{{ total_promocodes|default:0 }}</span>
+            </div>
+            <div class="stat-badge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <span id="active-promocodes-count">{{ active_promocodes|default:0 }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Поиск -->
+        <div class="promocodes-search-section">
+          <div class="search-container">
+            <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+            </svg>
+            <input type="text" id="promocodes-search" class="promocodes-search-input" 
+                   placeholder="Пошук по коду промокоду..." 
+                   oninput="filterPromocodes(this.value)">
+            <button class="search-clear-btn" onclick="clearPromocodesSearch()" style="display: none;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Список промокодов -->
+        <div class="promocodes-list-section">
+          <div class="subsection-header">
+            <h3>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              Промокоди ({{ total_promocodes|default:0 }})
+            </h3>
+            <a href="{% url 'admin_promocode_create' %}" class="add-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              </svg>
+              Додати промокод
+            </a>
+          </div>
+          
+          <div class="promocodes-grid">
+            {% for promocode in promocodes %}
+              <div class="promocode-card" data-promocode-code="{{ promocode.code|lower }}">
+                <div class="promocode-sparks">
+                  <div class="promocode-spark promocode-spark-1"></div>
+                  <div class="promocode-spark promocode-spark-2"></div>
+                  <div class="promocode-spark promocode-spark-3"></div>
+                </div>
+                
+                <div class="promocode-header">
+                  <div class="promocode-code">{{ promocode.code }}</div>
+                  <div class="promocode-status {% if promocode.is_active %}active{% else %}inactive{% endif %}">
+                    {% if promocode.is_active %}Активний{% else %}Неактивний{% endif %}
+                  </div>
+                </div>
+                
+                <div class="promocode-details">
+                  <div class="promocode-type">
+                    <span class="type-badge {% if promocode.discount_type == 'percentage' %}percentage{% else %}fixed{% endif %}">
+                      {% if promocode.discount_type == 'percentage' %}
+                        {{ promocode.discount_value }}%
+              {% else %}
+                        {{ promocode.discount_value }} грн
+              {% endif %}
+                    </span>
+        </div>
+                  
+                  <div class="promocode-usage">
+                    <div class="usage-info">
+                      <span class="usage-label">Використань:</span>
+                      <span class="usage-value">{{ promocode.current_uses }}</span>
+                    </div>
+                    {% if promocode.max_uses > 0 %}
+                      <div class="usage-info">
+                        <span class="usage-label">Максимум:</span>
+                        <span class="usage-value">{{ promocode.max_uses }}</span>
+      </div>
+    {% endif %}
+  </div>
+</div>
+                
+                <div class="promocode-stats">
+                  <div class="promocode-stat">
+                    <div class="stat-number">{{ promocode.get_purchases_count }}</div>
+                    <div class="stat-label">Покупок</div>
+                  </div>
+                  <div class="promocode-stat">
+                    <div class="stat-number">{{ promocode.created_at|date:"d.m.Y" }}</div>
+                    <div class="stat-label">Створено</div>
+                  </div>
+                </div>
+                
+                <div class="promocode-actions">
+                  <a href="{% url 'admin_promocode_edit' promocode.id %}" class="action-btn edit">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                    </svg>
+                    Редагувати
+                  </a>
+                  <button class="action-btn toggle" onclick="togglePromocode({{ promocode.id }}, '{{ promocode.code }}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    {% if promocode.is_active %}Деактивувати{% else %}Активувати{% endif %}
+                  </button>
+                  <button class="action-btn delete" onclick="deletePromocode({{ promocode.id }}, '{{ promocode.code }}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                    </svg>
+                    Видалити
+                  </button>
+                </div>
+              </div>
+            {% empty %}
+              <div class="empty-state">
+                <div class="empty-icon">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  </svg>
+                </div>
+                <h4>Промокоди відсутні</h4>
+                <p>Створіть перший промокод для залучення клієнтів</p>
+                <a href="{% url 'admin_promocode_create' %}" class="btn btn-primary">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                  </svg>
+                  Додати промокод
+                </a>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+    {% elif section == 'offline_stores' %}
+      <!-- Управление оффлайн магазинами -->
+      <div class="offline-stores-admin-section">
+        <!-- Заголовок секции -->
+        <div class="section-header">
+          <div class="section-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+          </div>
+          <div class="section-title">Управління оффлайн магазинами</div>
+          <div class="section-stats">
+            <div class="stat-badge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              <span id="stores-count">{{ total_stores|default:0 }}</span>
+            </div>
+            <div class="stat-badge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <span id="active-stores-count">{{ active_stores|default:0 }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Поиск -->
+        <div class="offline-stores-search-section">
+          <div class="search-container">
+            <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+            </svg>
+            <input type="text" id="offline-stores-search" class="offline-stores-search-input" 
+                   placeholder="Пошук по назві магазину..." 
+                   oninput="filterOfflineStores(this.value)">
+            <button class="search-clear-btn" onclick="clearOfflineStoresSearch()" style="display: none;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Список оффлайн магазинов -->
+        <div class="offline-stores-list-section">
+          <div class="subsection-header">
+            <h3>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              Оффлайн магазини ({{ total_stores|default:0 }})
+            </h3>
+            <a href="{% url 'admin_offline_store_create' %}" class="add-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              </svg>
+              Додати магазин
+            </a>
+          </div>
+          
+          <div class="offline-stores-grid">
+            {% for store in stores %}
+              <div class="offline-store-card" data-store-name="{{ store.name|lower }}">
+                <div class="offline-store-sparks">
+                  <div class="offline-store-spark offline-store-spark-1"></div>
+                  <div class="offline-store-spark offline-store-spark-2"></div>
+                  <div class="offline-store-spark offline-store-spark-3"></div>
+                </div>
+                
+                <div class="offline-store-header">
+                  <div class="offline-store-name">{{ store.name }}</div>
+                  <div class="offline-store-status {% if store.is_active %}active{% else %}inactive{% endif %}">
+                    {% if store.is_active %}Активний{% else %}Неактивний{% endif %}
+                  </div>
+                </div>
+                
+                <div class="offline-store-details">
+                  <div class="offline-store-address">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                    </svg>
+                    <span>{{ store.address }}</span>
+                  </div>
+                  
+                  {% if store.phone %}
+                    <div class="offline-store-phone">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+                      </svg>
+                      <span>{{ store.phone }}</span>
+                    </div>
+                  {% endif %}
+                  
+                  {% if store.working_hours %}
+                    <div class="offline-store-hours">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>
+                        <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+                      </svg>
+                      <span>{{ store.working_hours }}</span>
+                    </div>
+                  {% endif %}
+                </div>
+                
+                <div class="offline-store-stats">
+                  <div class="offline-store-stat">
+                    <div class="stat-number">{{ store.order }}</div>
+                    <div class="stat-label">Порядок</div>
+                  </div>
+                  <div class="offline-store-stat">
+                    <div class="stat-number">{{ store.created_at|date:"d.m.Y" }}</div>
+                    <div class="stat-label">Створено</div>
+                  </div>
+                </div>
+                
+                <div class="offline-store-actions">
+                  <a href="{% url 'admin_offline_store_edit' store.id %}" class="action-btn edit">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M3 17.25V21h3.75L17.81 9.59l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                    </svg>
+                    Редагувати
+                  </a>
+                  <button class="action-btn toggle" onclick="toggleOfflineStore({{ store.id }}, '{{ store.name }}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    {% if store.is_active %}Деактивувати{% else %}Активувати{% endif %}
+                  </button>
+                  <button class="action-btn delete" onclick="deleteOfflineStore({{ store.id }}, '{{ store.name }}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                    </svg>
+                    Видалити
+                  </button>
+                </div>
+              </div>
+            {% empty %}
+              <div class="empty-state">
+                <div class="empty-icon">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  </svg>
+                </div>
+                <h4>Оффлайн магазини відсутні</h4>
+                <p>Створіть перший оффлайн магазин для розширення мережі</p>
+                <a href="{% url 'admin_offline_store_create' %}" class="btn btn-primary">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                  </svg>
+                  Додати магазин
+                </a>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
     {% endif %}
   </div>
 </div>
 
 <script>
 // Функции для админ-панели
+
+// Функция фильтрации пользователей по имени или логину
+function filterUsers(searchTerm) {
+  console.log('Filtering users with term:', searchTerm); // Отладка
+  
+  const userCards = document.querySelectorAll('.user-card');
+  const usersCount = document.getElementById('users-count');
+  let visibleCount = 0;
+  
+  searchTerm = searchTerm.toLowerCase().trim();
+  
+  console.log('Found user cards:', userCards.length); // Отладка
+  
+  userCards.forEach((card, index) => {
+    const username = card.querySelector('.user-name')?.textContent?.toLowerCase() || '';
+    const fullName = card.querySelector('.user-full-name')?.textContent?.toLowerCase() || '';
+    const email = card.querySelector('.user-email')?.textContent?.toLowerCase() || '';
+    
+    console.log(`Card ${index}: username="${username}", fullName="${fullName}", email="${email}"`); // Отладка
+    
+    const isVisible = username.includes(searchTerm) || 
+                     fullName.includes(searchTerm) || 
+                     email.includes(searchTerm);
+    
+    if (isVisible) {
+      card.style.display = 'block';
+      visibleCount++;
+    } else {
+      card.style.display = 'none';
+    }
+  });
+  
+  console.log('Visible count:', visibleCount); // Отладка
+  
+  // Обновляем счетчик видимых пользователей
+  if (usersCount) {
+    usersCount.textContent = visibleCount;
+  }
+  
+  // Показываем уведомление о результатах поиска
+  if (searchTerm) {
+    showNotification(`Знайдено ${visibleCount} користувачів`, 'info');
+  }
+}
+
+// Функция очистки поиска пользователей
+function clearUserSearch() {
+  const searchInput = document.getElementById('users-search');
+  if (searchInput) {
+    searchInput.value = '';
+    filterUsers('');
+    searchInput.focus();
+  }
+}
+
 function filterOrders(status, payment) {
+  console.log('Filtering orders:', status, payment); // Отладка
+  
   const currentUrl = new URL(window.location);
   currentUrl.searchParams.set('section', 'orders');
-  currentUrl.searchParams.set('status', status);
-  currentUrl.searchParams.set('payment', payment);
+  
+  // Устанавливаем фильтры только если они не 'all'
+  if (status !== 'all') {
+    currentUrl.searchParams.set('status', status);
+  } else {
+    currentUrl.searchParams.delete('status');
+  }
+  
+  if (payment !== 'all') {
+    currentUrl.searchParams.set('payment', payment);
+  } else {
+    currentUrl.searchParams.delete('payment');
+  }
+  
+  console.log('Redirecting to:', currentUrl.toString()); // Отладка
   window.location.href = currentUrl.toString();
+}
+
+// Функция для фильтрации заказов конкретного пользователя
+function filterUserOrders(userId, filterType, filterValue) {
+  console.log('Filtering user orders:', userId, filterType, filterValue); // Отладка
+  console.log('Current URL:', window.location.href); // Отладка
+  
+  const currentUrl = new URL(window.location);
+  currentUrl.searchParams.set('section', 'orders');
+  currentUrl.searchParams.set('user_id', userId);
+  currentUrl.searchParams.set(filterType, filterValue);
+  
+  console.log('New URL:', currentUrl.toString()); // Отладка
+  console.log('Search params:', currentUrl.searchParams.toString()); // Отладка
+  
+  window.location.href = currentUrl.toString();
+}
+
+// Функции для управления каталогами
+
+// Функция фильтрации каталогов
+function filterCatalogs(searchTerm) {
+  console.log('Filtering catalogs with term:', searchTerm);
+  
+  const categoryCards = document.querySelectorAll('.category-card');
+  const productCards = document.querySelectorAll('.product-card');
+  const categoriesCount = document.getElementById('categories-count');
+  const productsCount = document.getElementById('products-count');
+  
+  let visibleCategories = 0;
+  let visibleProducts = 0;
+  
+  searchTerm = searchTerm.toLowerCase().trim();
+  
+  // Показываем/скрываем кнопку очистки поиска
+  const clearBtn = document.querySelector('.search-clear-btn');
+  if (clearBtn) {
+    clearBtn.style.display = searchTerm ? 'block' : 'none';
+  }
+  
+  // Фильтруем категории
+  categoryCards.forEach(card => {
+    const categoryName = card.getAttribute('data-category-name') || '';
+    const isVisible = categoryName.includes(searchTerm);
+    
+    if (isVisible) {
+      card.style.display = 'block';
+      visibleCategories++;
+    } else {
+      card.style.display = 'none';
+    }
+  });
+  
+  // Фильтруем товары
+  productCards.forEach(card => {
+    const productName = card.getAttribute('data-product-name') || '';
+    const categoryName = card.getAttribute('data-category-name') || '';
+    const isVisible = productName.includes(searchTerm) || categoryName.includes(searchTerm);
+    
+    if (isVisible) {
+      card.style.display = 'block';
+      visibleProducts++;
+    } else {
+      card.style.display = 'none';
+    }
+  });
+  
+  // Обновляем счетчики
+  if (categoriesCount) {
+    categoriesCount.textContent = visibleCategories;
+  }
+  if (productsCount) {
+    productsCount.textContent = visibleProducts;
+  }
+  
+  // Показываем уведомление о результатах поиска
+  if (searchTerm) {
+    showNotification(`Знайдено ${visibleCategories} категорій та ${visibleProducts} товарів`, 'info');
+  }
+}
+
+// Функция очистки поиска каталогов
+function clearCatalogsSearch() {
+  const searchInput = document.getElementById('catalogs-search');
+  if (searchInput) {
+    searchInput.value = '';
+    filterCatalogs('');
+    searchInput.focus();
+  }
+}
+
+// Функция удаления категории
+function deleteCategory(categoryId, categoryName) {
+  if (confirm(`Ви впевнені, що хочете видалити категорію "${categoryName}"? Це також видалить всі товари в цій категорії!`)) {
+    // Перенаправляем на страницу удаления
+    window.location.href = `/admin-panel/category/${categoryId}/delete/`;
+  }
+}
+
+// Функция удаления товара
+function deleteProduct(productId, productName) {
+  if (confirm(`Ви впевнені, що хочете видалити товар "${productName}"?`)) {
+    // Перенаправляем на страницу удаления
+    window.location.href = `/admin-panel/product/${productId}/delete/`;
+  }
 }
 
 function updateOrderStatus(orderId, newStatus) {
@@ -837,36 +1967,7 @@ function rejectPayment(orderId) {
   }
 }
 
-function testAjax() {
-  console.log('Testing AJAX...');
-  
-  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-  if (!csrfToken) {
-    console.error('CSRF token not found!');
-    alert('CSRF токен не знайдено!');
-    return;
-  }
-  
-  const formData = new FormData();
-  formData.append('csrfmiddlewaretoken', csrfToken.value);
-  
-  fetch('{% url "test_ajax" %}', {
-    method: 'POST',
-    body: formData
-  })
-  .then(response => {
-    console.log('Response status:', response.status);
-    return response.json();
-  })
-  .then(data => {
-    console.log('Response data:', data);
-    alert(`AJAX тест: ${data.message}\nКористувач: ${data.user}\nStaff: ${data.is_staff}`);
-  })
-  .catch(error => {
-    console.error('Error:', error);
-    alert('Помилка AJAX: ' + error.message);
-  });
-}
+
 
 function toggleScreenshot(orderId) {
   const content = document.getElementById(`screenshot-${orderId}`);
@@ -903,6 +2004,144 @@ function showNotification(message, type) {
       document.body.removeChild(notification);
     }, 300);
   }, 3000);
+}
+
+// ===== ФУНКЦИИ ДЛЯ ПРОМОКОДОВ =====
+
+// Функция фильтрации промокодов
+function filterPromocodes(searchTerm) {
+  const promocodeCards = document.querySelectorAll('.promocode-card');
+  const promocodesCount = document.getElementById('promocodes-count');
+  const activePromocodesCount = document.getElementById('active-promocodes-count');
+  let visibleCount = 0;
+  let visibleActiveCount = 0;
+  
+  searchTerm = searchTerm.toLowerCase().trim();
+  
+  promocodeCards.forEach((card) => {
+    const code = card.getAttribute('data-promocode-code') || '';
+    const isVisible = code.includes(searchTerm);
+    
+    if (isVisible) {
+      card.style.display = 'block';
+      visibleCount++;
+      // Проверяем, активен ли промокод
+      const statusElement = card.querySelector('.promocode-status');
+      if (statusElement && statusElement.classList.contains('active')) {
+        visibleActiveCount++;
+      }
+    } else {
+      card.style.display = 'none';
+    }
+  });
+  
+  // Обновляем счетчики
+  if (promocodesCount) promocodesCount.textContent = visibleCount;
+  if (activePromocodesCount) activePromocodesCount.textContent = visibleActiveCount;
+  
+  // Показываем/скрываем кнопку очистки
+  const clearBtn = document.querySelector('.promocodes-search-section .search-clear-btn');
+  if (clearBtn) {
+    clearBtn.style.display = searchTerm ? 'block' : 'none';
+  }
+  
+  // Показываем уведомление о результатах поиска
+  if (searchTerm) {
+    showNotification(`Знайдено ${visibleCount} промокодів`, 'info');
+  }
+}
+
+// Функция очистки поиска промокодов
+function clearPromocodesSearch() {
+  const searchInput = document.getElementById('promocodes-search');
+  if (searchInput) {
+    searchInput.value = '';
+    filterPromocodes('');
+    searchInput.focus();
+  }
+}
+
+// Функция переключения статуса промокода
+function togglePromocode(promocodeId, promocodeCode) {
+  if (confirm(`Змінити статус промокоду "${promocodeCode}"?`)) {
+    window.location.href = `/admin-panel/promocode/${promocodeId}/toggle/`;
+  }
+}
+
+// Функция удаления промокода
+function deletePromocode(promocodeId, promocodeCode) {
+  if (confirm(`Ви впевнені, що хочете видалити промокод "${promocodeCode}"?`)) {
+    window.location.href = `/admin-panel/promocode/${promocodeId}/delete/`;
+  }
+}
+
+// ===== ФУНКЦИИ ДЛЯ ОФФЛАЙН МАГАЗИНОВ =====
+
+// Функция фильтрации оффлайн магазинов
+function filterOfflineStores(searchTerm) {
+  const storeCards = document.querySelectorAll('.offline-store-card');
+  const storesCount = document.getElementById('stores-count');
+  const activeStoresCount = document.getElementById('active-stores-count');
+  let visibleCount = 0;
+  let visibleActiveCount = 0;
+  
+  searchTerm = searchTerm.toLowerCase().trim();
+  
+  storeCards.forEach((card) => {
+    const name = card.getAttribute('data-store-name') || '';
+    const isVisible = name.includes(searchTerm);
+    
+    if (isVisible) {
+      card.style.display = 'block';
+      visibleCount++;
+      // Проверяем, активен ли магазин
+      const statusElement = card.querySelector('.offline-store-status');
+      if (statusElement && statusElement.classList.contains('active')) {
+        visibleActiveCount++;
+      }
+    } else {
+      card.style.display = 'none';
+    }
+  });
+  
+  // Обновляем счетчики
+  if (storesCount) storesCount.textContent = visibleCount;
+  if (activeStoresCount) activeStoresCount.textContent = visibleActiveCount;
+  
+  // Показываем/скрываем кнопку очистки
+  const clearBtn = document.querySelector('.offline-stores-search-section .search-clear-btn');
+  if (clearBtn) {
+    clearBtn.style.display = searchTerm ? 'block' : 'none';
+  }
+  
+  // Показываем уведомление о результатах поиска
+  if (searchTerm) {
+    showNotification(`Знайдено ${visibleCount} магазинів`, 'info');
+  }
+}
+
+// Функция очистки поиска оффлайн магазинов
+function clearOfflineStoresSearch() {
+  const searchInput = document.getElementById('offline-stores-search');
+  if (searchInput) {
+    searchInput.value = '';
+    filterOfflineStores('');
+    searchInput.focus();
+  }
+}
+
+// Функция переключения статуса оффлайн магазина
+function toggleOfflineStore(storeId, storeName) {
+  if (confirm(`Змінити статус магазину "${storeName}"?`)) {
+    window.location.href = `/admin-panel/offline-store/${storeId}/toggle/`;
+  }
+}
+
+// Функция удаления оффлайн магазина
+function deleteOfflineStore(storeId, storeName) {
+  if (confirm(`Ви впевнені, що хочете видалити магазин "${storeName}"?`)) {
+    window.location.href = `/admin-panel/offline-store/${storeId}/delete/`;
+  }
 }
 </script>
 

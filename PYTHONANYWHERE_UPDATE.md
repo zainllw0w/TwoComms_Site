@@ -23,10 +23,20 @@ python manage.py collectstatic --noinput
 
 ### 5. Примените миграции (если есть)
 ```bash
-python manage.py migrate
+
+
+
 ```
 
+
+
+
+
+
+
+
 ### 6. Перезапустите веб-приложение
+
 - Перейдите в раздел "Web" в PythonAnywhere
 - Нажмите кнопку "Reload" для вашего домена
 
