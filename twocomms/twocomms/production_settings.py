@@ -50,6 +50,7 @@ if os.environ.get('DB_NAME') and os.environ.get('DB_USER'):
         _options = {
             'charset': 'utf8mb4',
             'use_unicode': True,
+            'init_command': "SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'",
         }
 
         # Поддержка SSL через переменные окружения (опционально)
