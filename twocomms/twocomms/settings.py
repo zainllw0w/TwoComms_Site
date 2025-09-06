@@ -28,7 +28,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-!t*_^p60d-88kvjs%*&!czbes-q8-#$r!-d_0%o495rfed6i*+'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True  # Включено для локальной разработки
 
 ALLOWED_HOSTS = [
     'test.com',
@@ -100,7 +100,17 @@ DB_PASSWORD = os.environ.get('DB_PASSWORD', '')
 DB_HOST = os.environ.get('DB_HOST', 'localhost')
 DB_PORT = os.environ.get('DB_PORT')
 
-if DB_ENGINE.startswith('mysql') and DB_NAME and DB_USER:
+# Для локальной разработки используем SQLite, для продакшена - MySQL
+if DEBUG:
+    # Локальная разработка - SQLite
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+elif DB_ENGINE.startswith('mysql') and DB_NAME and DB_USER:
+    # Продакшен - MySQL
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
@@ -118,6 +128,7 @@ if DB_ENGINE.startswith('mysql') and DB_NAME and DB_USER:
         }
     }
 elif (DB_ENGINE.startswith('post') or (DB_NAME and DB_USER)):
+    # Продакшен - PostgreSQL
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -133,6 +144,7 @@ elif (DB_ENGINE.startswith('post') or (DB_NAME and DB_USER)):
         }
     }
 else:
+    # Fallback на SQLite
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -196,16 +208,17 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
-# Настройки сессий для HTTPS
-SESSION_COOKIE_SECURE = True   # Обязательно для HTTPS
-CSRF_COOKIE_SECURE = True      # Обязательно для HTTPS
+# Настройки сессий (адаптивные для локальной разработки и продакшена)
+SESSION_COOKIE_SECURE = not DEBUG   # HTTPS только в продакшене
+CSRF_COOKIE_SECURE = not DEBUG      # HTTPS только в продакшене
 
-# Дополнительные настройки безопасности для HTTPS
-SECURE_SSL_REDIRECT = True     # Перенаправление HTTP на HTTPS
-SECURE_HSTS_SECONDS = 31536000 # HTTP Strict Transport Security
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+# Дополнительные настройки безопасности (адаптивные)
+SECURE_SSL_REDIRECT = not DEBUG     # Перенаправление только в продакшене
+if not DEBUG:
+    SECURE_HSTS_SECONDS = 31536000 # HTTP Strict Transport Security
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # CSRF настройки
 CSRF_TRUSTED_ORIGINS = [
