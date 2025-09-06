@@ -28,7 +28,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-!t*_^p60d-88kvjs%*&!czbes-q8-#$r!-d_0%o495rfed6i*+'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = [
     'test.com',
@@ -196,16 +196,16 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
-# Настройки сессий (временно смягчены для диагностики)
-SESSION_COOKIE_SECURE = False  # Временно отключено для диагностики
-CSRF_COOKIE_SECURE = False     # Временно отключено для диагностики
+# Настройки сессий для HTTPS
+SESSION_COOKIE_SECURE = True   # Обязательно для HTTPS
+CSRF_COOKIE_SECURE = True      # Обязательно для HTTPS
 
-# Дополнительные настройки безопасности для HTTPS (временно отключены)
-SECURE_SSL_REDIRECT = False    # Временно отключено для диагностики
-# SECURE_HSTS_SECONDS = 31536000 # Временно отключено
-# SECURE_HSTS_INCLUDE_SUBDOMAINS = True # Временно отключено
-# SECURE_HSTS_PRELOAD = True # Временно отключено
-# SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https') # Временно отключено
+# Дополнительные настройки безопасности для HTTPS
+SECURE_SSL_REDIRECT = True     # Перенаправление HTTP на HTTPS
+SECURE_HSTS_SECONDS = 31536000 # HTTP Strict Transport Security
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # CSRF настройки
 CSRF_TRUSTED_ORIGINS = [
