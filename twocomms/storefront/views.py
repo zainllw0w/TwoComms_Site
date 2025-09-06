@@ -6,11 +6,9 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from .models import Product, Category, ProductImage, PromoCode, PrintProposal
 from .forms import ProductForm, CategoryForm, PrintProposalForm
-from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
 from accounts.models import UserProfile, FavoriteProduct
 from django import forms
 from django.conf import settings
