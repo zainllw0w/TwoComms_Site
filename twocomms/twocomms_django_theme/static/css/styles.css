@@ -1,4 +1,395 @@
-:root{--tc-bg:#0e0f12;--tc-elevate:#14161b;--tc-text:#e8e9ec;--tc-primary:#8b5cf6}body{background:var(--tc-bg);color:var(--tc-text)}body::before{content:'';position:fixed;inset:-10vh -10vw;z-index:-2;background:url('../img/bg_blur_1.png') center/cover no-repeat,linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));opacity:.9}body::after{content:'';position:fixed;inset:0;z-index:-1;background:url('../img/noise.png') repeat;opacity:.08}.bg-elevate{background-color:var(--tc-elevate)!important}.hero.bg-hero{border:1px solid rgba(255,255,255,.06);border-radius:1.25rem;background:url('../img/vignette.png') center/cover no-repeat,linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));backdrop-filter:blur(10px) saturate(120%)}.card.product{border:1px solid rgba(255,255,255,.06);background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));border-radius:1.25rem;transition:transform .25s,box-shadow .25s,border-color .25s}
+:root{
+  --tc-bg: #0e0f12;
+  --tc-elevate: #14161b;
+  --tc-text: #e8e9ec;
+  --tc-primary: #8b5cf6;
+}
+
+/* Современный фон главной страницы */
+body {
+  background: var(--tc-bg);
+  color: var(--tc-text);
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Основной градиентный фон - менее подвижный и более размытый */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  background: 
+    radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+    linear-gradient(135deg, 
+      #0a0b0f 0%,
+      #0e0f12 25%,
+      #121318 50%,
+      #0e0f12 75%,
+      #0a0b0f 100%
+    );
+  animation: backgroundShift 120s ease-in-out infinite;
+  backdrop-filter: blur(3px);
+  filter: blur(1px);
+}
+
+/* Анимированные частицы фона - менее подвижные */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background: url('../img/noise.png') repeat;
+  opacity: 0.06;
+  animation: noiseMove 150s linear infinite;
+  backdrop-filter: blur(2px);
+  filter: blur(0.5px);
+}
+
+/* Дополнительные декоративные элементы */
+body::before {
+  background-image: 
+    radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+    linear-gradient(135deg, 
+      #0a0b0f 0%,
+      #0e0f12 25%,
+      #121318 50%,
+      #0e0f12 75%,
+      #0a0b0f 100%
+    );
+}
+
+/* Плавные и ненавязчивые анимации фона */
+@keyframes backgroundShift {
+  0%, 100% { 
+    transform: translateX(0) translateY(0) scale(1);
+    filter: hue-rotate(0deg);
+  }
+  25% { 
+    transform: translateX(-0.5%) translateY(-0.3%) scale(1.005);
+    filter: hue-rotate(1deg);
+  }
+  50% { 
+    transform: translateX(0.3%) translateY(-0.5%) scale(0.998);
+    filter: hue-rotate(-0.5deg);
+  }
+  75% { 
+    transform: translateX(-0.2%) translateY(0.3%) scale(1.002);
+    filter: hue-rotate(0.3deg);
+  }
+}
+
+@keyframes noiseMove {
+  0% { transform: translateX(0) translateY(0); }
+  25% { transform: translateX(-3px) translateY(-2px); }
+  50% { transform: translateX(2px) translateY(-3px); }
+  75% { transform: translateX(-2px) translateY(2px); }
+  100% { transform: translateX(0) translateY(0); }
+}
+
+/* Дополнительные декоративные элементы фона */
+body::after {
+  background-image: 
+    url('../img/noise.png'),
+    radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.03) 0%, transparent 30%),
+    radial-gradient(circle at 90% 80%, rgba(99, 102, 241, 0.02) 0%, transparent 30%);
+  background-size: 
+    200px 200px,
+    400px 400px,
+    300px 300px;
+  background-position: 
+    0 0,
+    0 0,
+    100% 100%;
+  animation: 
+    noiseMove 30s linear infinite,
+    backgroundFloat 70s ease-in-out infinite;
+}
+
+/* Плавная анимация плавания */
+@keyframes backgroundFloat {
+  0%, 100% { 
+    transform: translateX(0) translateY(0) rotate(0deg);
+    opacity: 0.06;
+  }
+  33% { 
+    transform: translateX(0.5%) translateY(-0.3%) rotate(0.2deg);
+    opacity: 0.07;
+  }
+  66% { 
+    transform: translateX(-0.3%) translateY(0.5%) rotate(-0.2deg);
+    opacity: 0.05;
+  }
+}
+
+/* Плавающие декоративные элементы */
+body::before {
+  background-image: 
+    radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 60% 70%, rgba(139, 92, 246, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 30% 10%, rgba(99, 102, 241, 0.04) 0%, transparent 35%),
+    linear-gradient(135deg, 
+      #0a0b0f 0%,
+      #0e0f12 25%,
+      #121318 50%,
+      #0e0f12 75%,
+      #0a0b0f 100%
+    );
+  background-size: 
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%;
+  animation: 
+    backgroundShift 60s ease-in-out infinite,
+    backgroundPulse 45s ease-in-out infinite;
+}
+
+/* Тонкая пульсация фона */
+@keyframes backgroundPulse {
+  0%, 100% { 
+    opacity: 1;
+    filter: hue-rotate(0deg) saturate(1);
+  }
+  50% { 
+    opacity: 0.98;
+    filter: hue-rotate(2deg) saturate(1.02);
+  }
+}
+
+/* Дополнительные декоративные элементы для создания глубины */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  background-image: 
+    radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 60% 70%, rgba(139, 92, 246, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 30% 10%, rgba(99, 102, 241, 0.04) 0%, transparent 35%),
+    linear-gradient(135deg, 
+      #0a0b0f 0%,
+      #0e0f12 25%,
+      #121318 50%,
+      #0e0f12 75%,
+      #0a0b0f 100%
+    );
+  background-size: 
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%;
+  animation: 
+    backgroundShift 60s ease-in-out infinite,
+    backgroundPulse 45s ease-in-out infinite;
+}
+
+/* Создаем дополнительный слой для эффекта глубины */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-image: 
+    url('../img/noise.png'),
+    radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.03) 0%, transparent 30%),
+    radial-gradient(circle at 90% 80%, rgba(99, 102, 241, 0.02) 0%, transparent 30%),
+    radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.01) 0%, transparent 60%);
+  background-size: 
+    200px 200px,
+    400px 400px,
+    300px 300px,
+    500px 500px;
+  background-position: 
+    0 0,
+    0 0,
+    100% 100%,
+    50% 50%;
+  animation: 
+    noiseMove 30s linear infinite,
+    backgroundFloat 70s ease-in-out infinite;
+  opacity: 0.06;
+}
+
+/* Дополнительные плавающие элементы */
+body::before {
+  background-image: 
+    radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 60% 70%, rgba(139, 92, 246, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 30% 10%, rgba(99, 102, 241, 0.04) 0%, transparent 35%),
+    radial-gradient(circle at 70% 30%, rgba(59, 130, 246, 0.03) 0%, transparent 45%),
+    radial-gradient(circle at 15% 60%, rgba(139, 92, 246, 0.02) 0%, transparent 40%),
+    linear-gradient(135deg, 
+      #0a0b0f 0%,
+      #0e0f12 25%,
+      #121318 50%,
+      #0e0f12 75%,
+      #0a0b0f 100%
+    );
+  background-size: 
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%;
+  animation: 
+    backgroundShift 20s ease-in-out infinite,
+    backgroundPulse 15s ease-in-out infinite,
+    backgroundRotate 120s linear infinite;
+}
+
+/* Медленное и плавное вращение фона */
+@keyframes backgroundRotate {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.005); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+/* Адаптивность фона для мобильных устройств */
+@media (max-width: 768px) {
+  body::before {
+    background-image: 
+      radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
+      radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.04) 0%, transparent 50%),
+      linear-gradient(135deg, 
+        #0a0b0f 0%,
+        #0e0f12 25%,
+        #121318 50%,
+        #0e0f12 75%,
+        #0a0b0f 100%
+      );
+    animation: 
+      backgroundShift 80s ease-in-out infinite,
+      backgroundPulse 60s ease-in-out infinite;
+  }
+  
+  body::after {
+    opacity: 0.04;
+    animation: 
+      noiseMove 40s linear infinite,
+      backgroundFloat 30s ease-in-out infinite;
+  }
+}
+
+@media (max-width: 480px) {
+  body::before {
+    background-image: 
+      radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.05) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.04) 0%, transparent 50%),
+      linear-gradient(135deg, 
+        #0a0b0f 0%,
+        #0e0f12 50%,
+        #0a0b0f 100%
+      );
+    animation: 
+      backgroundShift 100s ease-in-out infinite;
+  }
+  
+  body::after {
+    opacity: 0.03;
+    animation: 
+      noiseMove 120s linear infinite;
+  }
+}
+
+/* Дополнительные плавающие элементы, отталкивающиеся от фона */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  background-image: 
+    radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 60% 70%, rgba(139, 92, 246, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 30% 10%, rgba(99, 102, 241, 0.04) 0%, transparent 35%),
+    radial-gradient(circle at 70% 30%, rgba(59, 130, 246, 0.03) 0%, transparent 45%),
+    radial-gradient(circle at 15% 60%, rgba(139, 92, 246, 0.02) 0%, transparent 40%),
+    radial-gradient(circle at 85% 90%, rgba(99, 102, 241, 0.015) 0%, transparent 35%),
+    radial-gradient(circle at 5% 15%, rgba(59, 130, 246, 0.01) 0%, transparent 30%),
+    linear-gradient(135deg, 
+      #0a0b0f 0%,
+      #0e0f12 25%,
+      #121318 50%,
+      #0e0f12 75%,
+      #0a0b0f 100%
+    );
+  background-size: 
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%;
+  animation: 
+    backgroundShift 120s ease-in-out infinite,
+    backgroundPulse 90s ease-in-out infinite,
+    backgroundRotate 200s linear infinite;
+}
+
+/* Дополнительные элементы для создания глубины */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-image: 
+    url('../img/noise.png'),
+    radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.03) 0%, transparent 30%),
+    radial-gradient(circle at 90% 80%, rgba(99, 102, 241, 0.02) 0%, transparent 30%),
+    radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.01) 0%, transparent 60%),
+    radial-gradient(circle at 25% 75%, rgba(139, 92, 246, 0.008) 0%, transparent 25%),
+    radial-gradient(circle at 75% 25%, rgba(99, 102, 241, 0.006) 0%, transparent 20%);
+  background-size: 
+    200px 200px,
+    400px 400px,
+    300px 300px,
+    500px 500px,
+    350px 350px,
+    250px 250px;
+  background-position: 
+    0 0,
+    0 0,
+    100% 100%,
+    50% 50%,
+    25% 75%,
+    75% 25%;
+  animation: 
+    noiseMove 150s linear infinite,
+    backgroundFloat 120s ease-in-out infinite;
+  opacity: 0.06;
+}
+
+/* Отключение анимаций для пользователей с предпочтением уменьшенной анимации */
+@media (prefers-reduced-motion: reduce) {
+  body::before,
+  body::after {
+    animation: none;
+  }
+}.bg-elevate{background-color:var(--tc-elevate)!important}.hero.bg-hero{border:1px solid rgba(255,255,255,.06);border-radius:1.25rem;background:url('../img/vignette.png') center/cover no-repeat,linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));backdrop-filter:blur(10px) saturate(120%)}.card.product{border:1px solid rgba(255,255,255,.06);background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));border-radius:1.25rem;transition:transform .25s,box-shadow .25s,border-color .25s}
 
 /* ВЫРАВНИВАНИЕ КАРТОЧЕК С ПОДДЕРЖКОЙ JAVASCRIPT */
 .row[data-stagger-grid] {
@@ -9363,7 +9754,7 @@
 .qty-control button:active{transform:scale(.94)}
 .qty-control input[type=number]{width:56px;text-align:center;background:transparent;border:none;color:var(--tc-text);font-weight:700;font-variant-numeric:tabular-nums}
 .qty-control input::-webkit-outer-spin-button,.qty-control input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
-.qty-control input[type=number]{-moz-appearance:textfield}
+.qty-control input[type=number]{-moz-appearance:textfield;appearance:textfield}
 .thumb{border:1px solid rgba(255,255,255,.08);border-radius:.75rem;padding:0;overflow:hidden;background:transparent}.thumb img{width:72px;height:72px;object-fit:cover;display:block}
 .thumb.active{border-color:rgba(139,92,246,.8); box-shadow:0 0 0 2px rgba(139,92,246,.35) inset}
 
@@ -14352,6 +14743,1400 @@ input[type="file"].form-control:hover {
   
   nav.navbar.navbar-expand-lg.border-bottom.sticky-top.bg-body.backdrop-blur > div.container-xxl > div.collapse.navbar-collapse {
     order: 2 !important;
+  }
+}
+
+/* ===== КОМПАКТНЫЙ ТЕМНЫЙ БЛОК КАТЕГОРИЙ В СТИЛЕ HERO ===== */
+
+/* Основная секция категорий */
+.categories-section {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Единый блок категорий */
+.categories-unified-block {
+  position: relative;
+  background: linear-gradient(135deg, 
+    rgba(8, 8, 20, 0.98) 0%,
+    rgba(12, 12, 30, 0.95) 25%,
+    rgba(18, 18, 40, 0.92) 50%,
+    rgba(12, 12, 30, 0.95) 75%,
+    rgba(8, 8, 20, 0.98) 100%
+  );
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  border-radius: 20px;
+  backdrop-filter: blur(25px);
+  overflow: hidden;
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.6),
+    0 8px 25px rgba(139, 92, 246, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Заголовок в едином блоке */
+.categories-header-unified {
+  position: relative;
+  padding: 2rem 2rem 1rem 2rem;
+  z-index: 2;
+  background: linear-gradient(180deg, 
+    rgba(139, 92, 246, 0.03) 0%,
+    rgba(99, 102, 241, 0.02) 50%,
+    transparent 100%
+  );
+  border-bottom: 1px solid rgba(139, 92, 246, 0.08);
+}
+
+/* Фоновые эффекты для единого блока */
+.categories-bg-unified {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.dark-particles {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+
+.dark-particles .particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: radial-gradient(circle, 
+    rgba(139, 92, 246, 0.8) 0%,
+    rgba(99, 102, 241, 0.6) 50%,
+    rgba(59, 130, 246, 0.4) 100%
+  );
+  border-radius: 50%;
+  animation: darkParticleFloat 8s ease-in-out infinite;
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+}
+
+.dark-particles .particle:nth-child(1) {
+  top: 25%;
+  left: 15%;
+  animation-delay: 0s;
+}
+
+.dark-particles .particle:nth-child(2) {
+  top: 65%;
+  left: 75%;
+  animation-delay: 1.5s;
+}
+
+.dark-particles .particle:nth-child(3) {
+  top: 75%;
+  left: 25%;
+  animation-delay: 3s;
+}
+
+.dark-particles .particle:nth-child(4) {
+  top: 35%;
+  left: 65%;
+  animation-delay: 4.5s;
+}
+
+@keyframes darkParticleFloat {
+  0%, 100% { 
+    transform: translateY(0) scale(1);
+    opacity: 0.4;
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+  }
+  25% { 
+    transform: translateY(-10px) scale(1.2);
+    opacity: 0.7;
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.6);
+  }
+  50% { 
+    transform: translateY(-20px) scale(1.3);
+    opacity: 1;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.7);
+  }
+  75% { 
+    transform: translateY(-10px) scale(1.1);
+    opacity: 0.6;
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.5);
+  }
+}
+
+.dark-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, 
+    rgba(139, 92, 246, 0.08) 0%,
+    rgba(99, 102, 241, 0.05) 30%,
+    rgba(59, 130, 246, 0.03) 60%,
+    transparent 100%
+  );
+  animation: darkGlowPulse 6s ease-in-out infinite;
+  filter: blur(1px);
+}
+
+@keyframes darkGlowPulse {
+  0%, 100% { 
+    opacity: 0.3;
+    transform: translate(-50%, -50%) scale(1);
+    filter: blur(1px);
+  }
+  25% { 
+    opacity: 0.5;
+    transform: translate(-50%, -50%) scale(1.05);
+    filter: blur(1.5px);
+  }
+  50% { 
+    opacity: 0.7;
+    transform: translate(-50%, -50%) scale(1.1);
+    filter: blur(2px);
+  }
+  75% { 
+    opacity: 0.4;
+    transform: translate(-50%, -50%) scale(1.08);
+    filter: blur(1.2px);
+  }
+}
+
+/* Компактный заголовок */
+.categories-title-compact {
+  position: relative;
+  z-index: 2;
+}
+
+/* Заголовок с иконкой каталога */
+.title-with-catalog-icon {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Иконка каталога для мобильных */
+.catalog-icon-mobile {
+  display: none; /* Скрыта по умолчанию */
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, 
+    rgba(139, 92, 246, 0.15) 0%,
+    rgba(99, 102, 241, 0.1) 50%,
+    rgba(59, 130, 246, 0.08) 100%
+  );
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  color: #8b5cf6;
+  text-decoration: none;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.1);
+}
+
+.catalog-icon-mobile:hover {
+  background: linear-gradient(135deg, 
+    rgba(139, 92, 246, 0.25) 0%,
+    rgba(99, 102, 241, 0.2) 50%,
+    rgba(59, 130, 246, 0.15) 100%
+  );
+  border-color: rgba(139, 92, 246, 0.5);
+  transform: translateY(-2px) scale(1.1);
+  box-shadow: 
+    0 8px 25px rgba(139, 92, 246, 0.3),
+    0 4px 15px rgba(99, 102, 241, 0.2);
+  color: #8b5cf6;
+  text-decoration: none;
+}
+
+.catalog-icon-mobile:active {
+  transform: translateY(0) scale(0.95);
+  transition: all 0.1s ease;
+}
+
+.categories-title-text {
+  font-size: 1.75rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, 
+    #ffffff 0%,
+    #e0e7ff 30%,
+    #8b5cf6 60%,
+    #6366f1 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+  text-shadow: 0 4px 20px rgba(139, 92, 246, 0.3);
+  letter-spacing: -0.02em;
+}
+
+.title-accent-line {
+  width: 60px;
+  height: 3px;
+  background: linear-gradient(90deg, 
+    #8b5cf6 0%,
+    #a855f7 25%,
+    #6366f1 50%,
+    #3b82f6 75%,
+    #8b5cf6 100%
+  );
+  border-radius: 2px;
+  margin-top: 0.75rem;
+  animation: accentLineGlow 4s ease-in-out infinite;
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.5);
+}
+
+@keyframes accentLineGlow {
+  0%, 100% { 
+    box-shadow: 0 0 15px rgba(139, 92, 246, 0.5);
+    transform: scaleX(1);
+  }
+  25% { 
+    box-shadow: 0 0 25px rgba(168, 85, 247, 0.7);
+    transform: scaleX(1.1);
+  }
+  50% { 
+    box-shadow: 0 0 30px rgba(99, 102, 241, 0.8);
+    transform: scaleX(1.2);
+  }
+  75% { 
+    box-shadow: 0 0 25px rgba(59, 130, 246, 0.7);
+    transform: scaleX(1.1);
+  }
+}
+
+/* Компактная кнопка "Весь каталог" */
+.catalog-link-compact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, 
+    rgba(139, 92, 246, 0.1) 0%,
+    rgba(99, 102, 241, 0.06) 50%,
+    rgba(59, 130, 246, 0.04) 100%
+  );
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 30px;
+  color: #8b5cf6;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  z-index: 2;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.06);
+}
+
+/* Текст кнопки каталога */
+.catalog-text {
+  display: inline;
+}
+
+/* Иконка кнопки каталога */
+.catalog-icon {
+  display: inline;
+}
+
+.catalog-link-compact::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.catalog-link-compact:hover {
+  background: linear-gradient(135deg, 
+    rgba(139, 92, 246, 0.15) 0%,
+    rgba(99, 102, 241, 0.1) 50%,
+    rgba(59, 130, 246, 0.08) 100%
+  );
+  border-color: rgba(139, 92, 246, 0.4);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 
+    0 8px 25px rgba(139, 92, 246, 0.2),
+    0 4px 15px rgba(99, 102, 241, 0.15);
+  color: #8b5cf6;
+  text-decoration: none;
+}
+
+.catalog-link-compact:hover::before {
+  left: 100%;
+}
+
+/* ===== КРАСИВАЯ КНОПКА СВОРАЧИВАНИЯ КАТЕГОРИЙ ===== */
+
+/* Основная кнопка сворачивания */
+.categories-toggle-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, 
+    rgba(139, 92, 246, 0.12) 0%,
+    rgba(99, 102, 241, 0.08) 50%,
+    rgba(59, 130, 246, 0.05) 100%
+  );
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: 30px;
+  color: #8b5cf6;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  backdrop-filter: blur(15px);
+  z-index: 2;
+  min-width: 130px;
+  box-shadow: 
+    0 4px 15px rgba(139, 92, 246, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.categories-toggle-btn:hover {
+  background: linear-gradient(135deg, 
+    rgba(139, 92, 246, 0.18) 0%,
+    rgba(99, 102, 241, 0.12) 50%,
+    rgba(59, 130, 246, 0.08) 100%
+  );
+  border-color: rgba(139, 92, 246, 0.4);
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 
+    0 12px 35px rgba(139, 92, 246, 0.25),
+    0 6px 20px rgba(99, 102, 241, 0.2);
+  color: #8b5cf6;
+}
+
+.categories-toggle-btn:active {
+  transform: translateY(0) scale(0.98);
+  transition: all 0.1s ease;
+}
+
+/* Контент кнопки */
+.toggle-btn-content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 2;
+}
+
+/* Иконка стрелки */
+.toggle-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.toggle-arrow {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: center;
+}
+
+/* Текст кнопки */
+.toggle-text {
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+/* Свечение кнопки */
+.toggle-btn-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 0;
+  height: 0;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.3), transparent 70%);
+  border-radius: 50%;
+  opacity: 0;
+  transition: all 0.4s ease;
+  pointer-events: none;
+}
+
+.categories-toggle-btn:hover .toggle-btn-glow {
+  width: 100px;
+  height: 100px;
+  opacity: 1;
+  animation: toggleBtnGlowPulse 2s ease-in-out infinite;
+}
+
+@keyframes toggleBtnGlowPulse {
+  0%, 100% { 
+    opacity: 0.3;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% { 
+    opacity: 0.6;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+}
+
+/* Ripple эффект при клике */
+.toggle-btn-ripple {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.3), transparent);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: all 0.6s ease;
+  pointer-events: none;
+}
+
+.categories-toggle-btn:active .toggle-btn-ripple {
+  width: 150px;
+  height: 150px;
+  opacity: 0;
+}
+
+/* Состояние свернуто */
+.categories-toggle-btn.collapsed .toggle-arrow {
+  transform: rotate(180deg);
+}
+
+.categories-toggle-btn.collapsed .toggle-text {
+  opacity: 0.7;
+}
+
+/* Анимация сворачивания контента */
+.categories-content-unified {
+  transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  overflow: hidden;
+}
+
+.categories-content-unified.collapsed {
+  max-height: 0;
+  padding: 0 1.5rem;
+  opacity: 0;
+  transform: translateY(-30px) scale(0.95);
+}
+
+/* Анимация появления/исчезновения сетки */
+.categories-grid-compact {
+  transition: all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.categories-content-unified.collapsed .categories-grid-compact {
+  opacity: 0;
+  transform: translateY(-40px) scale(0.9);
+}
+
+/* Анимация фоновых эффектов */
+.categories-bg-unified {
+  transition: all 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.categories-content-unified.collapsed ~ .categories-bg-unified {
+  opacity: 0.3;
+  transform: scale(0.95);
+}
+
+/* Улучшенные анимации для сворачивания */
+.categories-content-unified.expanding {
+  animation: categoriesExpandUnified 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.categories-content-unified.collapsing {
+  animation: categoriesCollapseUnified 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+@keyframes categoriesExpandUnified {
+  0% {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-40px) scale(0.9);
+    filter: blur(8px);
+  }
+  30% {
+    opacity: 0.3;
+    transform: translateY(-25px) scale(0.95);
+    filter: blur(4px);
+  }
+  70% {
+    opacity: 0.8;
+    transform: translateY(-5px) scale(0.98);
+    filter: blur(1px);
+  }
+  100% {
+    max-height: 1000px;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes categoriesCollapseUnified {
+  0% {
+    max-height: 1000px;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+  30% {
+    opacity: 0.8;
+    transform: translateY(-5px) scale(0.98);
+    filter: blur(1px);
+  }
+  70% {
+    opacity: 0.3;
+    transform: translateY(-25px) scale(0.95);
+    filter: blur(4px);
+  }
+  100% {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-40px) scale(0.9);
+    filter: blur(8px);
+  }
+}
+
+/* Эффект пульсации кнопки */
+.categories-toggle-btn.pulsing {
+  animation: toggleBtnPulse 0.6s ease-in-out;
+}
+
+@keyframes toggleBtnPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 12px 35px rgba(139, 92, 246, 0.4);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Контент категорий в едином блоке */
+.categories-content-unified {
+  position: relative;
+  padding: 0 1.5rem 1.5rem 1.5rem;
+  z-index: 2;
+}
+
+/* Темные фоновые эффекты */
+.categories-bg-dark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.dark-gradient-1 {
+  position: absolute;
+  top: -40%;
+  left: -40%;
+  width: 180%;
+  height: 180%;
+  background: radial-gradient(circle, 
+    rgba(139, 92, 246, 0.08) 0%,
+    rgba(99, 102, 241, 0.05) 30%,
+    rgba(59, 130, 246, 0.03) 60%,
+    transparent 100%
+  );
+  animation: darkBgRotate1 20s linear infinite;
+  filter: blur(2px);
+}
+
+.dark-gradient-2 {
+  position: absolute;
+  top: -40%;
+  right: -40%;
+  width: 180%;
+  height: 180%;
+  background: radial-gradient(circle, 
+    rgba(99, 102, 241, 0.06) 0%,
+    rgba(59, 130, 246, 0.04) 30%,
+    rgba(139, 92, 246, 0.02) 60%,
+    transparent 100%
+  );
+  animation: darkBgRotate2 25s linear infinite reverse;
+  filter: blur(1.5px);
+}
+
+@keyframes darkBgRotate1 {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes darkBgRotate2 {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(-360deg); }
+}
+
+/* Летающие логотипчики */
+.floating-logos {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.floating-logo {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, 
+    rgba(139, 92, 246, 0.08) 0%,
+    rgba(99, 102, 241, 0.05) 50%,
+    rgba(59, 130, 246, 0.03) 100%
+  );
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  box-shadow: 
+    0 4px 15px rgba(139, 92, 246, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  opacity: 0.6;
+  transition: all 0.3s ease;
+}
+
+.floating-logo img {
+  filter: drop-shadow(0 2px 4px rgba(139, 92, 246, 0.3));
+  transition: all 0.3s ease;
+}
+
+.floating-logo.logo-1 {
+  width: 32px;
+  height: 32px;
+  top: 15%;
+  left: 15%;
+  animation: logoFloat1 25s ease-in-out infinite;
+}
+
+.floating-logo.logo-2 {
+  width: 28px;
+  height: 28px;
+  top: 65%;
+  right: 20%;
+  animation: logoFloat2 30s ease-in-out infinite;
+}
+
+.floating-logo.logo-3 {
+  width: 36px;
+  height: 36px;
+  bottom: 25%;
+  left: 25%;
+  animation: logoFloat3 35s ease-in-out infinite;
+}
+
+.floating-logo.logo-4 {
+  width: 24px;
+  height: 24px;
+  top: 35%;
+  right: 35%;
+  animation: logoFloat4 28s ease-in-out infinite;
+}
+
+.floating-logo.logo-5 {
+  width: 30px;
+  height: 30px;
+  bottom: 45%;
+  right: 15%;
+  animation: logoFloat5 32s ease-in-out infinite;
+}
+
+@keyframes logoFloat1 {
+  0%, 100% { 
+    transform: translateY(0) translateX(0) rotate(0deg) scale(1);
+    opacity: 0.6;
+  }
+  25% { 
+    transform: translateY(-15px) translateX(10px) rotate(90deg) scale(1.1);
+    opacity: 0.8;
+  }
+  50% { 
+    transform: translateY(-25px) translateX(-5px) rotate(180deg) scale(0.9);
+    opacity: 0.4;
+  }
+  75% { 
+    transform: translateY(-10px) translateX(-15px) rotate(270deg) scale(1.05);
+    opacity: 0.7;
+  }
+}
+
+@keyframes logoFloat2 {
+  0%, 100% { 
+    transform: translateY(0) translateX(0) rotate(0deg) scale(1);
+    opacity: 0.5;
+  }
+  30% { 
+    transform: translateY(-20px) translateX(-10px) rotate(120deg) scale(1.15);
+    opacity: 0.8;
+  }
+  60% { 
+    transform: translateY(-30px) translateX(15px) rotate(240deg) scale(0.85);
+    opacity: 0.3;
+  }
+  90% { 
+    transform: translateY(-5px) translateX(20px) rotate(360deg) scale(1.1);
+    opacity: 0.6;
+  }
+}
+
+@keyframes logoFloat3 {
+  0%, 100% { 
+    transform: translateY(0) translateX(0) rotate(0deg) scale(1);
+    opacity: 0.7;
+  }
+  20% { 
+    transform: translateY(-18px) translateX(12px) rotate(72deg) scale(1.2);
+    opacity: 0.9;
+  }
+  40% { 
+    transform: translateY(-35px) translateX(-8px) rotate(144deg) scale(0.8);
+    opacity: 0.4;
+  }
+  60% { 
+    transform: translateY(-22px) translateX(-18px) rotate(216deg) scale(1.1);
+    opacity: 0.6;
+  }
+  80% { 
+    transform: translateY(-8px) translateX(25px) rotate(288deg) scale(0.95);
+    opacity: 0.8;
+  }
+}
+
+@keyframes logoFloat4 {
+  0%, 100% { 
+    transform: translateY(0) translateX(0) rotate(0deg) scale(1);
+    opacity: 0.4;
+  }
+  35% { 
+    transform: translateY(-12px) translateX(-15px) rotate(126deg) scale(1.25);
+    opacity: 0.7;
+  }
+  70% { 
+    transform: translateY(-28px) translateX(18px) rotate(252deg) scale(0.75);
+    opacity: 0.3;
+  }
+}
+
+@keyframes logoFloat5 {
+  0%, 100% { 
+    transform: translateY(0) translateX(0) rotate(0deg) scale(1);
+    opacity: 0.6;
+  }
+  40% { 
+    transform: translateY(-16px) translateX(14px) rotate(144deg) scale(1.3);
+    opacity: 0.9;
+  }
+  80% { 
+    transform: translateY(-24px) translateX(-12px) rotate(288deg) scale(0.8);
+    opacity: 0.4;
+  }
+}
+
+/* Компактная сетка категорий */
+.categories-grid-compact {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1rem;
+  position: relative;
+  z-index: 2;
+}
+
+/* Компактные карточки категорий */
+.category-card-compact {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.25rem;
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.03) 50%,
+    rgba(255, 255, 255, 0.01) 100%
+  );
+  border: 1px solid rgba(139, 92, 246, 0.12);
+  border-radius: 16px;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  backdrop-filter: blur(20px);
+  min-height: 110px;
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.2),
+    0 2px 10px rgba(139, 92, 246, 0.03),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.category-card-compact::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.6), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.category-card-compact:hover {
+  transform: translateY(-6px) scale(1.08);
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.4),
+    0 8px 30px rgba(139, 92, 246, 0.15),
+    0 4px 15px rgba(99, 102, 241, 0.1);
+  border-color: rgba(139, 92, 246, 0.3);
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  text-decoration: none;
+  color: inherit;
+}
+
+.category-card-compact:hover::before {
+  opacity: 1;
+}
+
+/* Темные фоновые эффекты карточек */
+.card-bg-dark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.card-glow-dark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 0;
+  height: 0;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.2), transparent 70%);
+  border-radius: 50%;
+  opacity: 0;
+  transition: all 0.3s ease;
+}
+
+.category-card-compact:hover .card-glow-dark {
+  width: 120px;
+  height: 120px;
+  opacity: 1;
+  animation: cardGlowDarkPulse 2s ease-in-out infinite;
+}
+
+@keyframes cardGlowDarkPulse {
+  0%, 100% { 
+    opacity: 0.2;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% { 
+    opacity: 0.4;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+}
+
+.card-ripple-dark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1), transparent);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: all 0.4s ease;
+  pointer-events: none;
+}
+
+.category-card-compact:active .card-ripple-dark {
+  width: 150px;
+  height: 150px;
+  opacity: 0;
+}
+
+/* Компактный контент карточки */
+.card-content-compact {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+/* Компактная иконка */
+.card-icon-compact {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 55px;
+  height: 55px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, 
+    rgba(139, 92, 246, 0.12) 0%,
+    rgba(99, 102, 241, 0.08) 50%,
+    rgba(59, 130, 246, 0.05) 100%
+  );
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 4px 15px rgba(139, 92, 246, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.category-card-compact:hover .card-icon-compact {
+  background: linear-gradient(135deg, 
+    rgba(139, 92, 246, 0.2) 0%,
+    rgba(99, 102, 241, 0.15) 50%,
+    rgba(59, 130, 246, 0.1) 100%
+  );
+  border-color: rgba(139, 92, 246, 0.4);
+  transform: scale(1.15) rotate(8deg);
+  box-shadow: 
+    0 8px 25px rgba(139, 92, 246, 0.25),
+    0 4px 15px rgba(99, 102, 241, 0.2);
+}
+
+.card-icon-compact img {
+  transition: all 0.3s ease;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+.category-card-compact:hover .card-icon-compact img {
+  filter: 
+    drop-shadow(0 6px 12px rgba(139, 92, 246, 0.5))
+    drop-shadow(0 2px 6px rgba(99, 102, 241, 0.3))
+    brightness(1.1);
+  transform: scale(1.1);
+}
+
+/* Компактный текст */
+.card-text-compact {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.card-title-compact {
+  font-size: 0.9rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, 
+    #ffffff 0%,
+    #e0e7ff 50%,
+    #8b5cf6 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: center;
+  letter-spacing: -0.01em;
+}
+
+.category-card-compact:hover .card-title-compact {
+  background: linear-gradient(135deg, 
+    #8b5cf6 0%,
+    #a855f7 50%,
+    #6366f1 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  transform: translateY(-2px) scale(1.05);
+  text-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+/* Анимация появления компактных карточек */
+.category-card-compact {
+  animation: categoryCardCompactAppear 0.6s ease-out forwards;
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+}
+
+.category-card-compact:nth-child(1) { animation-delay: 0.1s; }
+.category-card-compact:nth-child(2) { animation-delay: 0.15s; }
+.category-card-compact:nth-child(3) { animation-delay: 0.2s; }
+.category-card-compact:nth-child(4) { animation-delay: 0.25s; }
+.category-card-compact:nth-child(5) { animation-delay: 0.3s; }
+.category-card-compact:nth-child(6) { animation-delay: 0.35s; }
+.category-card-compact:nth-child(7) { animation-delay: 0.4s; }
+.category-card-compact:nth-child(8) { animation-delay: 0.45s; }
+
+@keyframes categoryCardCompactAppear {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+    filter: blur(5px);
+  }
+  60% {
+    opacity: 0.9;
+    transform: translateY(-2px) scale(1.02);
+    filter: blur(1px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+/* Адаптивность для планшетов */
+@media (max-width: 1024px) {
+  .categories-header-unified {
+    padding: 1.25rem 1.25rem 0 1.25rem;
+  }
+  
+  .categories-content-unified {
+    padding: 0 1.25rem 1.25rem 1.25rem;
+  }
+  
+  .categories-title-text {
+    font-size: 1.3rem;
+  }
+  
+  
+  .categories-grid-compact {
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 0.875rem;
+  }
+  
+  .category-card-compact {
+    padding: 0.875rem;
+    min-height: 90px;
+  }
+  
+  .card-icon-compact {
+    width: 45px;
+    height: 45px;
+  }
+  
+  .card-icon-compact img {
+    width: 22px;
+    height: 22px;
+  }
+  
+  .card-title-compact {
+    font-size: 0.8rem;
+  }
+  
+  /* Адаптивность кнопки сворачивания */
+  .categories-toggle-btn {
+    padding: 8px 16px;
+    font-size: 0.8rem;
+    min-width: 100px;
+  }
+  
+  .toggle-icon {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .toggle-arrow {
+    width: 14px;
+    height: 14px;
+  }
+  
+  /* Адаптивность кнопки "Весь каталог" */
+  .catalog-link-compact {
+    padding: 8px 16px;
+    font-size: 0.8rem;
+  }
+  
+  /* Показываем иконку каталога для планшетов */
+  .catalog-icon-mobile {
+    display: flex;
+    width: 32px;
+    height: 32px;
+  }
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 768px) {
+  .categories-unified-block {
+    border-radius: 12px;
+  }
+  
+  .categories-header-unified {
+    padding: 1rem 1rem 0 1rem;
+  }
+  
+  .categories-content-unified {
+    padding: 0 1rem 1rem 1rem;
+  }
+  
+  .categories-title-text {
+    font-size: 1.2rem;
+  }
+  
+  .catalog-link-compact {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    min-width: auto;
+  }
+  
+  /* Скрываем текст кнопки каталога на мобильных */
+  .catalog-text {
+    display: none;
+  }
+  
+  /* Показываем только иконку */
+  .catalog-icon {
+    display: inline;
+  }
+  
+  /* Показываем иконку каталога в заголовке */
+  .catalog-icon-mobile {
+    display: flex;
+    width: 30px;
+    height: 30px;
+  }
+  
+  
+  .categories-grid-compact {
+    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+    gap: 0.75rem;
+  }
+  
+  .category-card-compact {
+    padding: 0.75rem;
+    min-height: 80px;
+    border-radius: 10px;
+  }
+  
+  .card-content-compact {
+    gap: 0.5rem;
+  }
+  
+  .card-icon-compact {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .card-icon-compact img {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .card-title-compact {
+    font-size: 0.75rem;
+  }
+  
+  /* Уменьшаем количество частиц на мобильных */
+  .dark-particles .particle {
+    width: 2px;
+    height: 2px;
+  }
+  
+  /* Упрощаем анимации для лучшей производительности */
+  .dark-gradient-1,
+  .dark-gradient-2 {
+    animation-duration: 30s;
+  }
+  
+  .floating-logo {
+    animation-duration: 30s;
+  }
+  
+  /* Адаптивность кнопки сворачивания для мобильных */
+  .categories-toggle-btn {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    min-width: 90px;
+    order: 2; /* Размещаем по центру */
+  }
+  
+  /* Изменяем порядок элементов в заголовке для мобильных */
+  .categories-header-unified .d-flex {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  
+  .categories-title-compact {
+    order: 1; /* Заголовок сверху */
+  }
+  
+  .catalog-link-compact {
+    order: 3; /* Кнопка "Весь каталог" снизу */
+    display: none; /* Скрываем кнопку на мобильных */
+  }
+  
+  .toggle-icon {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .toggle-arrow {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+/* Адаптивность для маленьких мобильных устройств */
+@media (max-width: 480px) {
+  .categories-header-unified {
+    padding: 0.75rem 0.75rem 0 0.75rem;
+  }
+  
+  .categories-content-unified {
+    padding: 0 0.75rem 0.75rem 0.75rem;
+  }
+  
+  .categories-title-text {
+    font-size: 1.1rem;
+  }
+  
+  .catalog-link-compact {
+    padding: 5px 10px;
+    font-size: 0.7rem;
+    min-width: auto;
+  }
+  
+  /* Скрываем текст кнопки каталога на маленьких экранах */
+  .catalog-text {
+    display: none;
+  }
+  
+  /* Показываем только иконку */
+  .catalog-icon {
+    display: inline;
+  }
+  
+  /* Показываем иконку каталога в заголовке */
+  .catalog-icon-mobile {
+    display: flex;
+    width: 28px;
+    height: 28px;
+  }
+  
+  
+  .categories-grid-compact {
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 0.5rem;
+  }
+  
+  .category-card-compact {
+    padding: 0.5rem;
+    min-height: 70px;
+    border-radius: 8px;
+  }
+  
+  .card-content-compact {
+    gap: 0.375rem;
+  }
+  
+  .card-icon-compact {
+    width: 35px;
+    height: 35px;
+  }
+  
+  .card-icon-compact img {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .card-title-compact {
+    font-size: 0.7rem;
+  }
+  
+  /* Отключаем сложные анимации на очень маленьких экранах */
+  .dark-gradient-1,
+  .dark-gradient-2 {
+    animation: none;
+  }
+  
+  .floating-logo {
+    animation: none;
+  }
+  
+  .dark-particles .particle {
+    animation: none;
+  }
+  
+  /* Адаптивность кнопки сворачивания для маленьких экранов */
+  .categories-toggle-btn {
+    padding: 5px 10px;
+    font-size: 0.7rem;
+    min-width: 80px;
+    order: 2; /* Размещаем по центру */
+  }
+  
+  /* Изменяем порядок элементов в заголовке для маленьких экранов */
+  .categories-header-unified .d-flex {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .categories-title-compact {
+    order: 1; /* Заголовок сверху */
+  }
+  
+  .catalog-link-compact {
+    order: 3; /* Кнопка "Весь каталог" снизу */
+    display: none; /* Скрываем кнопку на маленьких экранах */
+  }
+  
+  .toggle-icon {
+    width: 14px;
+    height: 14px;
+  }
+  
+  .toggle-arrow {
+    width: 10px;
+    height: 10px;
+  }
+}
+
+/* Оптимизация производительности */
+@media (prefers-reduced-motion: reduce) {
+  .dark-gradient-1,
+  .dark-gradient-2,
+  .floating-logo,
+  .dark-particles .particle,
+  .card-glow-dark,
+  .title-accent-line {
+    animation: none !important;
+  }
+  
+  .category-card-compact {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .category-card-compact:hover {
+    transform: translateY(-2px);
   }
 }
 
