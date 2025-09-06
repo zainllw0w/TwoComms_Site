@@ -126,16 +126,16 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
-# Настройки сессий
-SESSION_COOKIE_SECURE = True   # Обязательно для HTTPS
-CSRF_COOKIE_SECURE = True      # Обязательно для HTTPS
+# Настройки сессий (временно смягчены для диагностики)
+SESSION_COOKIE_SECURE = False  # Временно отключено для диагностики
+CSRF_COOKIE_SECURE = False     # Временно отключено для диагностики
 
-# Дополнительные настройки безопасности для HTTPS
-SECURE_SSL_REDIRECT = True     # Перенаправление HTTP на HTTPS
-SECURE_HSTS_SECONDS = 31536000 # HTTP Strict Transport Security
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+# Дополнительные настройки безопасности для HTTPS (временно отключены)
+SECURE_SSL_REDIRECT = False    # Временно отключено для диагностики
+# SECURE_HSTS_SECONDS = 31536000 # Временно отключено
+# SECURE_HSTS_INCLUDE_SUBDOMAINS = True # Временно отключено
+# SECURE_HSTS_PRELOAD = True # Временно отключено
+# SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https') # Временно отключено
 
 # Настройки логирования
 LOGGING = {
