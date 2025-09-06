@@ -5,7 +5,7 @@
 - **Тип:** MySQL
 - **База данных:** `qlknpodo_MySQL_DB`
 - **Пользователь:** `qlknpodo_zainllw0w`
-- **Пароль:** `[REDACTED_SSH_PASSWORD]`
+- **Пароль:** 
 - **Хост:** `localhost`
 - **Порт:** `3306`
 
