@@ -1,8 +1,23 @@
+# Django и основные зависимости
+Django==5.2.6
 asgiref==3.9.1
-Django==5.2.5
-pillow==11.3.0
 sqlparse==0.5.3
-psycopg[binary,pool]==3.2.3
-PyMySQL==1.1.1
-mysqlclient==2.2.4
-cryptography==43.0.1
+
+# Обработка изображений
+Pillow==11.3.0
+
+# База данных - PostgreSQL
+psycopg==3.2.9
+psycopg-binary==3.2.3
+psycopg-pool==3.2.6
+
+# База данных - MySQL (альтернатива mysqlclient)
+PyMySQL==1.1.2
+
+# Криптография и безопасность
+cryptography==45.0.7
+cffi==1.17.1
+pycparser==2.22
+
+# Типизация
+typing_extensions==4.15.0

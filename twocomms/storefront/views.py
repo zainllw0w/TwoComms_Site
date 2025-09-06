@@ -2425,8 +2425,8 @@ def admin_product_new(request):
         # Обработка формы товара
         if form_type == 'product':
             if form.is_valid():
-        prod = form.save()
-        # возможно добавление дополнительных изображений позже
+                prod = form.save()
+                # возможно добавление дополнительных изображений позже
                 
                 # Если это AJAX запрос, возвращаем JSON
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.content_type == 'application/json':
@@ -2436,7 +2436,7 @@ def admin_product_new(request):
                         'message': 'Товар успішно створено!'
                     })
                 
-        return redirect('/admin-panel/?section=catalogs')
+                return redirect('/admin-panel/?section=catalogs')
             else:
                 # Если это AJAX запрос с ошибками, возвращаем JSON с ошибками
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.content_type == 'application/json':
