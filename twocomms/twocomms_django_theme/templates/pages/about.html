@@ -1,1 +1,385 @@
-{% extends 'base.html' %}{% block title %}Про бренд — TwoComms{% endblock %}{% block content %}<div class='card p-4 p-md-5 glass'><h1 class='h4 fw-bold mb-3'>Про бренд</h1><p class='text-secondary'>Окрема сторінка з унікальним оформленням.</p></div>{% endblock %}
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Про бренд TwoComms{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Hero Section -->
+  <div class="row mb-5">
+    <div class="col-12">
+      <div class="about-hero">
+        <div class="hero-background">
+          <div class="hero-gradient"></div>
+          <div class="hero-pattern"></div>
+        </div>
+        
+        <div class="hero-sparkles">
+          <div class="sparkle sparkle-1"></div>
+          <div class="sparkle sparkle-2"></div>
+          <div class="sparkle sparkle-3"></div>
+          <div class="sparkle sparkle-4"></div>
+          <div class="sparkle sparkle-5"></div>
+          <div class="sparkle sparkle-6"></div>
+          <div class="sparkle sparkle-7"></div>
+          <div class="sparkle sparkle-8"></div>
+        </div>
+
+        <div class="hero-content">
+          <div class="hero-logo">
+            <img src="{% static 'img/logo.svg' %}" alt="TwoComms" class="logo-image">
+            <div class="logo-glow"></div>
+          </div>
+          
+          <div class="hero-text">
+            <h1 class="hero-title">
+              <span class="title-line">Про бренд</span>
+              <span class="title-line gradient-text">TwoComms</span>
+            </h1>
+            <p class="hero-subtitle">
+              Бренд, створений воїном, для воїнів та свідомих людей
+            </p>
+          </div>
+
+          <div class="hero-features">
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+              </div>
+              <div class="feature-content">
+                <h3 class="feature-title">Воїнський дух</h3>
+                <p class="feature-desc">Створено воїном</p>
+              </div>
+            </div>
+            
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+              <div class="feature-content">
+                <h3 class="feature-title">Підтримка ЗСУ</h3>
+                <p class="feature-desc">Донати на армію</p>
+              </div>
+            </div>
+            
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M13 7h8v2h-8zm0 4h8v2h-8zm0 4h8v2h-8zM3 17h6v2H3zm0-4h6v2H3zm0-4h6v2H3z"/>
+                </svg>
+              </div>
+              <div class="feature-content">
+                <h3 class="feature-title">Свідомість</h3>
+                <p class="feature-desc">Для розумних людей</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Story Section -->
+  <div class="row mb-5">
+    <div class="col-12">
+      <div class="story-section">
+        <div class="story-content">
+          <div class="story-sparkles">
+            <div class="sparkle"></div>
+            <div class="sparkle"></div>
+            <div class="sparkle"></div>
+            <div class="sparkle"></div>
+          </div>
+          <div class="story-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          </div>
+          <h2 class="story-title">Наша історія</h2>
+          <p class="story-description">
+            TwoComms — це не просто бренд одягу. Це історія воїна, який отримав поранення під час війни, але не здався. 
+            Замість цього він вирішив створити щось більше — бренд, який об'єднує свідомих людей та підтримує тих, хто захищає нашу країну.
+          </p>
+          <div class="story-highlights">
+            <div class="highlight-item">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <span>Засновано воїном</span>
+            </div>
+            <div class="highlight-item">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <span>Після поранення</span>
+            </div>
+            <div class="highlight-item">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <span>З мотивацією</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mission Section -->
+  <div class="row mb-5">
+    <div class="col-12">
+      <div class="mission-section">
+        <div class="mission-content">
+          <div class="mission-sparkles">
+            <div class="sparkle"></div>
+            <div class="sparkle"></div>
+            <div class="sparkle"></div>
+          </div>
+          <div class="mission-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+          </div>
+          <h2 class="mission-title">Наша місія</h2>
+          <p class="mission-description">
+            Наша мета — розвиток околомілітарі руху та об'єднання свідомих людей, які розуміють моду не тільки як естетику, 
+            але й як спосіб вираження своїх переконань та підтримки тих, хто захищає нашу свободу.
+          </p>
+          <div class="mission-values">
+            <div class="value-item">
+              <div class="value-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+              </div>
+              <div class="value-content">
+                <h3 class="value-title">Околомілітарі</h3>
+                <p class="value-desc">Розвиток руху</p>
+              </div>
+            </div>
+            <div class="value-item">
+              <div class="value-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+              </div>
+              <div class="value-content">
+                <h3 class="value-title">Свідомість</h3>
+                <p class="value-desc">Для розумних</p>
+              </div>
+            </div>
+            <div class="value-item">
+              <div class="value-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M13 7h8v2h-8zm0 4h8v2h-8zm0 4h8v2h-8zM3 17h6v2H3zm0-4h6v2H3zm0-4h6v2H3z"/>
+                </svg>
+              </div>
+              <div class="value-content">
+                <h3 class="value-title">Мода</h3>
+                <p class="value-desc">З переконаннями</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Support Section -->
+  <div class="row mb-5">
+    <div class="col-12">
+      <div class="support-section">
+        <div class="support-content">
+          <div class="support-sparkles">
+            <div class="sparkle"></div>
+            <div class="sparkle"></div>
+            <div class="sparkle"></div>
+            <div class="sparkle"></div>
+          </div>
+          <div class="support-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+            </svg>
+          </div>
+          <h2 class="support-title">Підтримка ЗСУ</h2>
+          <p class="support-description">
+            Кожна покупка — це підтримка наших захисників. Ми підтримуємо воїнів з інвалідністю та тих, 
+            хто воює на найгарячіших напрямках. Ваша підтримка бренду — це підтримка армії.
+          </p>
+          <div class="support-benefits">
+            <div class="benefit-item">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <span>Підтримка воїнів з інвалідністю</span>
+            </div>
+            <div class="benefit-item">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <span>Допомога на гарячих напрямках</span>
+            </div>
+            <div class="benefit-item">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <span>Прямі донати на ЗСУ</span>
+            </div>
+            <div class="benefit-item">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <span>Розвиток військової інфраструктури</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Points System Section -->
+  <div class="row mb-5">
+    <div class="col-12">
+      <div class="points-section">
+        <div class="points-content">
+          <div class="points-sparkles">
+            <div class="sparkle"></div>
+            <div class="sparkle"></div>
+            <div class="sparkle"></div>
+            <div class="sparkle"></div>
+          </div>
+          <div class="points-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          </div>
+          <h2 class="points-title">Унікальна система балів</h2>
+          <p class="points-description">
+            Ми створили революційну систему балів, яка дозволяє вам не тільки отримувати знижки, 
+            але й напряму підтримувати ЗСУ. Ваші бали можна витратити на знижки або донатити на армію.
+          </p>
+          <div class="points-features">
+            <div class="feature-item">
+              <div class="feature-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+              </div>
+              <div class="feature-content">
+                <h3 class="feature-title">Знижки</h3>
+                <p class="feature-desc">Покупайте зі знижками</p>
+              </div>
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+              <div class="feature-content">
+                <h3 class="feature-title">Донати</h3>
+                <p class="feature-desc">Підтримуйте ЗСУ</p>
+              </div>
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M13 7h8v2h-8zm0 4h8v2h-8zm0 4h8v2h-8zM3 17h6v2H3zm0-4h6v2H3zm0-4h6v2H3z"/>
+                </svg>
+              </div>
+              <div class="feature-content">
+                <h3 class="feature-title">Промокоди</h3>
+                <p class="feature-desc">Ексклюзивні пропозиції</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Future Plans Section -->
+  <div class="row mb-5">
+    <div class="col-12">
+      <div class="future-section">
+        <div class="future-content">
+          <div class="future-sparkles">
+            <div class="sparkle"></div>
+            <div class="sparkle"></div>
+            <div class="sparkle"></div>
+            <div class="sparkle"></div>
+          </div>
+          <div class="future-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+          </div>
+          <h2 class="future-title">Наші плани</h2>
+          <p class="future-description">
+            У нас великі плани! Ми прагнемо вийти на світовий рівень та показати всьому світу, 
+            що український бренд може бути не тільки якісним, але й мати глибокий сенс та місію.
+          </p>
+          <div class="future-goals">
+            <div class="goal-item">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <span>Світовий рівень</span>
+            </div>
+            <div class="goal-item">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <span>Розширення асортименту</span>
+            </div>
+            <div class="goal-item">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <span>Міжнародна співпраця</span>
+            </div>
+            <div class="goal-item">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <span>Підтримка української економіки</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Call to Action Section -->
+  <div class="row">
+    <div class="col-12">
+      <div class="cta-section">
+        <div class="cta-content">
+          <h2 class="cta-title">Приєднуйтесь до нашої місії</h2>
+          <p class="cta-description">
+            Станьте частиною руху свідомих людей, які підтримують ЗСУ та розвивають український бренд
+          </p>
+          <div class="cta-buttons">
+            <a href="{% url 'catalog' %}" class="cta-button primary">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+              </svg>
+              Переглянути каталог
+            </a>
+            <a href="{% url 'cooperation' %}" class="cta-button secondary">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              Співпраця
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

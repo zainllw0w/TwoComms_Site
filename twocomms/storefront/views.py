@@ -6,8 +6,8 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from .models import Product, Category, ProductImage, PromoCode
-from .forms import ProductForm, CategoryForm
+from .models import Product, Category, ProductImage, PromoCode, PrintProposal
+from .forms import ProductForm, CategoryForm, PrintProposalForm
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -417,7 +417,7 @@ def add_product(request):
                 product.save()
                 return redirect('product', slug=product.slug)
             else:
-                return render(request, 'pages/admin_product_edit_unified.html', {
+                return render(request, 'pages/add_product_new.html', {
                     'form': form,
                     'product': None,
                     'is_new': True
@@ -425,7 +425,7 @@ def add_product(request):
     
     else:
         form = ProductForm()
-        return render(request, 'pages/admin_product_edit_unified.html', {
+        return render(request, 'pages/add_product_new.html', {
             'form': form,
             'product': None,
             'is_new': True
@@ -440,7 +440,75 @@ def add_category(request):
         form = CategoryForm()
     return render(request,'pages/add_category.html',{'form':form})
 
-def cooperation(request): return render(request,'pages/cooperation.html')
+def add_print(request):
+    # Анти-спам: ограничим по сессии частоту отправок (не чаще 1 минуты)
+    import time
+    last_ts = request.session.get('print_proposal_last_ts', 0)
+    now = int(time.time())
+    rate_limited = now - last_ts < 60
+
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+    proposal_form = None
+    proposals = []
+
+    if request.user.is_authenticated:
+        # Список последних заявок пользователя
+        proposals = PrintProposal.objects.filter(user=request.user).order_by('-created_at')[:10]
+
+        if request.method == 'POST':
+            if rate_limited:
+                if is_ajax:
+                    return JsonResponse({'ok': False, 'error': 'rate_limited'}, status=429)
+                else:
+                    return redirect('cooperation')
+
+            form = PrintProposalForm(request.POST, request.FILES)
+            if form.is_valid():
+                obj: PrintProposal = form.save(commit=False)
+                obj.user = request.user
+                obj.status = 'pending'
+                obj.save()
+                request.session['print_proposal_last_ts'] = now
+
+                if is_ajax:
+                    proposal_data = {
+                        'id': obj.id,
+                        'created_at': obj.created_at.strftime('%d.%m.%Y %H:%M'),
+                        'status': obj.status,
+                        'status_display': obj.get_status_display(),
+                        'awarded_points': obj.awarded_points,
+                        'awarded_promocode': obj.awarded_promocode.code if obj.awarded_promocode else None,
+                        'awarded_promocode_display': obj.awarded_promocode.get_discount_display() if obj.awarded_promocode else None,
+                        'description': obj.description or '',
+                        'image_url': obj.image.url if obj.image else None,
+                    }
+                    return JsonResponse({'ok': True, 'proposal': proposal_data})
+                else:
+                    return redirect('cooperation')
+            else:
+                if is_ajax:
+                    # Вернем первую ошибку для простоты
+                    errors = []
+                    for field, errs in form.errors.items():
+                        errors.extend([str(e) for e in errs])
+                    return JsonResponse({'ok': False, 'error': errors[0] if errors else 'invalid'}, status=400)
+                else:
+                    proposal_form = form
+        else:
+            proposal_form = PrintProposalForm()
+    else:
+        proposal_form = None
+
+    return render(request, 'pages/add-print.html', {
+        'proposal_form': proposal_form,
+        'proposals': proposals,
+        'rate_limited': rate_limited,
+    })
+
+def cooperation(request):
+    """Страница сотрудничества с брендом TwoComms"""
+    return render(request, 'pages/cooperation.html')
 
 def about(request): return render(request,'pages/about.html')
 
@@ -1328,6 +1396,16 @@ def admin_panel(request):
             'total_stores': total_stores,
             'active_stores': active_stores
         })
+    elif section == 'print_proposals':
+        from .models import PrintProposal
+        proposals = PrintProposal.objects.select_related('user', 'user__userprofile', 'awarded_promocode').order_by('-created_at')
+        total_proposals = proposals.count()
+        pending_proposals = proposals.filter(status='pending').count()
+        ctx.update({
+            'print_proposals': proposals,
+            'total_proposals': total_proposals,
+            'pending_proposals': pending_proposals
+        })
     elif section == 'orders':
         # реальные замовлення
         try:
@@ -1418,60 +1496,317 @@ def admin_panel(request):
             'user_filter_info': user_filter_info
         })
     else:
-        # stats — основная статистика
+        # stats — основная статистика с фильтрами по времени
         try:
             from orders.models import Order
             from django.utils import timezone
             from datetime import timedelta
+            from django.db.models import Sum, Count, Avg
+            from accounts.models import UserPoints
+            from .models import Product, Category, PrintProposal, FavoriteProduct
             
-            # Заказы за сегодня
-            today = timezone.now().date()
+            # Получаем период из параметров
+            period = request.GET.get('period', 'today')
+            now = timezone.now()
+            today = now.date()
+            
+            # Определяем временные рамки
+            if period == 'today':
+                start_date = today
+                end_date = today
+                period_name = 'Сьогодні'
+            elif period == 'week':
+                start_date = today - timedelta(days=7)
+                end_date = today
+                period_name = 'За тиждень'
+            elif period == 'month':
+                start_date = today - timedelta(days=30)
+                end_date = today
+                period_name = 'За місяць'
+            else:  # all_time
+                start_date = None
+                end_date = None
+                period_name = 'За весь час'
+            
+            # Базовые QuerySet'ы для фильтрации
+            if start_date and end_date:
+                orders_qs = Order.objects.filter(created__date__range=[start_date, end_date])
+                users_qs = User.objects.filter(date_joined__date__range=[start_date, end_date])
+            else:
+                orders_qs = Order.objects.all()
+                users_qs = User.objects.all()
+            
+            # === РАБОЧИЕ МЕТРИКИ ===
+            
+            # Заказы
+            orders_count = orders_qs.count()
             orders_today = Order.objects.filter(created__date=today).count()
             
-            # Общее количество заказов
-            total_orders = Order.objects.count()
-            
-            # Заказы по статусам
-            status_counts = {}
-            for status_code, status_name in Order.STATUS_CHOICES:
-                status_counts[status_code] = Order.objects.filter(status=status_code).count()
-            
-            # Заказы по статусам оплаты
-            payment_status_counts = {}
-            for payment_status_code, payment_status_name in [
-                ('unpaid', 'Не оплачено'),
-                ('checking', 'На перевірці'),
-                ('partial', 'Внесена передплата'),
-                ('paid', 'Оплачено повністю')
-            ]:
-                payment_status_counts[payment_status_code] = Order.objects.filter(payment_status=payment_status_code).count()
-            
-            # Общая выручка (только оплаченные заказы)
-            total_revenue = Order.objects.filter(payment_status='paid').aggregate(
+            # Выручка
+            revenue = orders_qs.filter(payment_status='paid').aggregate(
                 total=Sum('total_sum')
             )['total'] or 0
             
+            # Средний чек
+            avg_order_value = orders_qs.filter(payment_status='paid').aggregate(
+                avg=Avg('total_sum')
+            )['avg'] or 0
+            
+            # Пользователи
+            total_users = User.objects.count()
+            new_users_period = users_qs.count()
+            active_users_today = User.objects.filter(last_login__date=today).count()
+            
+            # Товары
+            total_products = Product.objects.count()
+            total_categories = Category.objects.count()
+            
+            # Принты на рассмотрении
+            print_proposals_pending = PrintProposal.objects.filter(status='pending').count()
+            
+            # Промокоды использованные
+            promocodes_used = orders_qs.exclude(promo_code__isnull=True).count()
+            
+            # Баллы
+            total_points_earned = UserPoints.objects.aggregate(
+                total=Sum('points')
+            )['total'] or 0
+            
+            users_with_points = UserPoints.objects.filter(points__gt=0).count()
+            
+            # === НЕРАБОЧИЕ МЕТРИКИ (заглушки) ===
+            
+            # Сайт метрики (требуют Google Analytics или подобного)
+            online_users = 0  # Нужна система отслеживания онлайн пользователей
+            unique_visitors_today = 0  # Нужна система аналитики
+            page_views_today = 0  # Нужна система аналитики
+            bounce_rate = 0  # Нужна система аналитики
+            avg_session_duration = 0  # Нужна система аналитики
+            
+            # Продажи метрики
+            conversion_rate = 0  # Нужна система аналитики для расчета
+            products_sold_today = 0  # Нужно считать количество товаров в заказах
+            abandoned_carts = 0  # Нужна система отслеживания корзин
+            
+            # Контент метрики
+            favorites_count = FavoriteProduct.objects.count()
+            reviews_count = 0  # Нет модели отзывов
+            avg_rating = 0  # Нет системы рейтингов
+            
             stats = {
+                # Рабочие метрики
                 'orders_today': orders_today,
-                'total_orders': total_orders,
-                'status_counts': status_counts,
-                'payment_status_counts': payment_status_counts,
-                'total_revenue': total_revenue,
-                'users': User.objects.count()
+                'orders_count': orders_count,
+                'revenue_today': revenue,
+                'avg_order_value': round(avg_order_value, 2),
+                'total_users': total_users,
+                'new_users_today': new_users_period,
+                'active_users_today': active_users_today,
+                'total_products': total_products,
+                'total_categories': total_categories,
+                'print_proposals_pending': print_proposals_pending,
+                'promocodes_used_today': promocodes_used,
+                'total_points_earned': total_points_earned,
+                'users_with_points': users_with_points,
+                'favorites_count': favorites_count,
+                
+                # Нерабочие метрики (заглушки)
+                'online_users': online_users,
+                'unique_visitors_today': unique_visitors_today,
+                'page_views_today': page_views_today,
+                'bounce_rate': bounce_rate,
+                'avg_session_duration': avg_session_duration,
+                'conversion_rate': conversion_rate,
+                'products_sold_today': products_sold_today,
+                'abandoned_carts': abandoned_carts,
+                'reviews_count': reviews_count,
+                'avg_rating': avg_rating,
+                
+                # Мета информация
+                'period': period,
+                'period_name': period_name,
+                'start_date': start_date,
+                'end_date': end_date
             }
             
-        except Exception:
+        except Exception as e:
+            # В случае ошибки возвращаем базовые значения
+            print(f"Error in admin_panel stats: {e}")  # Отладочная информация
+            # Получаем период из параметров для fallback
+            period = request.GET.get('period', 'today')
+            if period == 'today':
+                period_name = 'Сьогодні'
+            elif period == 'week':
+                period_name = 'За тиждень'
+            elif period == 'month':
+                period_name = 'За місяць'
+            else:
+                period_name = 'За весь час'
+            
+            # Пытаемся получить базовые данные даже в случае ошибки
+            try:
+                total_users_fallback = User.objects.count()
+                total_products_fallback = Product.objects.count()
+                total_categories_fallback = Category.objects.count()
+            except:
+                total_users_fallback = 0
+                total_products_fallback = 0
+                total_categories_fallback = 0
+            
             stats = {
                 'orders_today': 0,
-                'total_orders': 0,
-                'status_counts': {},
-                'payment_status_counts': {},
-                'total_revenue': 0,
-                'users': User.objects.count()
+                'orders_count': 0,
+                'revenue_today': 0,
+                'avg_order_value': 0,
+                'total_users': total_users_fallback,
+                'new_users_today': 0,
+                'active_users_today': 0,
+                'total_products': total_products_fallback,
+                'total_categories': total_categories_fallback,
+                'print_proposals_pending': 0,
+                'promocodes_used_today': 0,
+                'total_points_earned': 0,
+                'users_with_points': 0,
+                'favorites_count': 0,
+                'online_users': 0,
+                'unique_visitors_today': 0,
+                'page_views_today': 0,
+                'bounce_rate': 0,
+                'avg_session_duration': 0,
+                'conversion_rate': 0,
+                'products_sold_today': 0,
+                'abandoned_carts': 0,
+                'reviews_count': 0,
+                'avg_rating': 0,
+                'period': period,
+                'period_name': period_name,
+                'start_date': None,
+                'end_date': None
             }
         
         ctx.update({'stats': stats})
     return render(request, 'pages/admin_panel.html', ctx)
+
+@login_required
+def admin_print_proposal_update_status(request):
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Доступ заборонено'})
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Невірний метод запиту'})
+    
+    try:
+        proposal_id = request.POST.get('proposal_id')
+        status = request.POST.get('status')
+        
+        if not proposal_id or not status:
+            return JsonResponse({'success': False, 'error': 'Відсутні обов\'язкові параметри'})
+        
+        proposal = PrintProposal.objects.get(id=proposal_id)
+        proposal.status = status
+        proposal.save()
+        
+        status_text = dict(PrintProposal.STATUS_CHOICES)[status]
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f'Статус принта оновлено на "{status_text}"',
+            'new_status_text': status_text
+        })
+        
+    except PrintProposal.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Принт не знайдено'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Помилка: {str(e)}'})
+
+@login_required
+def admin_print_proposal_award_points(request):
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Доступ заборонено'})
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Невірний метод запиту'})
+    
+    try:
+        proposal_id = request.POST.get('proposal_id')
+        points = int(request.POST.get('points', 0))
+        
+        if not proposal_id or points <= 0:
+            return JsonResponse({'success': False, 'error': 'Відсутні обов\'язкові параметри або невірна кількість балів'})
+        
+        proposal = PrintProposal.objects.get(id=proposal_id)
+        proposal.awarded_points = points
+        proposal.save()
+        
+        # Добавляем баллы пользователю
+        from accounts.models import UserPoints
+        user_points, created = UserPoints.objects.get_or_create(user=proposal.user)
+        user_points.total_earned += points
+        user_points.save()
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f'Користувачу {proposal.user.username} нараховано {points} балів'
+        })
+        
+    except PrintProposal.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Принт не знайдено'})
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'Невірна кількість балів'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Помилка: {str(e)}'})
+
+@login_required
+def admin_print_proposal_award_promocode(request):
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Доступ заборонено'})
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Невірний метод запиту'})
+    
+    try:
+        proposal_id = request.POST.get('proposal_id')
+        amount = int(request.POST.get('amount', 0))
+        
+        if not proposal_id or amount <= 0:
+            return JsonResponse({'success': False, 'error': 'Відсутні обов\'язкові параметри або невірна сума'})
+        
+        proposal = PrintProposal.objects.get(id=proposal_id)
+        
+        # Создаем промокод
+        from .models import PromoCode
+        import random
+        import string
+        
+        # Генерируем уникальный код
+        while True:
+            code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+            if not PromoCode.objects.filter(code=code).exists():
+                break
+        
+        promocode = PromoCode.objects.create(
+            code=code,
+            discount_type='fixed',
+            discount_amount=amount,
+            user=proposal.user,
+            is_active=True,
+            description=f'Промокод за принт від {proposal.user.username}'
+        )
+        
+        proposal.awarded_promocode = promocode
+        proposal.save()
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f'Користувачу {proposal.user.username} видано промокод {code} на суму {amount}₴'
+        })
+        
+    except PrintProposal.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Принт не знайдено'})
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'Невірна сума промокоду'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Помилка: {str(e)}'})
 
 @login_required
 def admin_update_user(request):
@@ -2084,11 +2419,168 @@ def admin_product_new(request):
         return redirect('home')
     from .forms import ProductForm
     form = ProductForm(request.POST or None, request.FILES or None)
-    if request.method == 'POST' and form.is_valid():
+    if request.method == 'POST':
+        form_type = request.POST.get('form_type')
+        
+        # Обработка формы товара
+        if form_type == 'product':
+            if form.is_valid():
         prod = form.save()
         # возможно добавление дополнительных изображений позже
+                
+                # Если это AJAX запрос, возвращаем JSON
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.content_type == 'application/json':
+                    return JsonResponse({
+                        'success': True,
+                        'product_id': prod.id,
+                        'message': 'Товар успішно створено!'
+                    })
+                
         return redirect('/admin-panel/?section=catalogs')
-    return render(request, 'pages/admin_product_form.html', {'form': form, 'mode': 'new'})
+            else:
+                # Если это AJAX запрос с ошибками, возвращаем JSON с ошибками
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.content_type == 'application/json':
+                    return JsonResponse({
+                        'success': False,
+                        'errors': form.errors,
+                        'message': 'Помилка валідації форми'
+                    })
+        
+        # Обработка формы цвета
+        elif form_type == 'color':
+            product_id = request.POST.get('product_id')
+            if not product_id:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Не вказано ID товару'
+                })
+            
+            try:
+                product = Product.objects.get(id=product_id)
+                from productcolors.models import Color, ProductColorVariant, ProductColorImage
+                
+                color_name = request.POST.get('color_name')
+                primary_hex = request.POST.get('primary_hex')
+                secondary_hex = request.POST.get('secondary_hex', '')
+                color_images = request.FILES.getlist('color_images')
+                
+                if color_name and primary_hex and color_images:
+                    print(f"DEBUG: Creating color - name: {color_name}, primary: {primary_hex}, secondary: {secondary_hex}, images: {len(color_images)}")
+                    
+                    # Проверяем, существует ли уже такой цвет
+                    color = Color.objects.filter(
+                        primary_hex=primary_hex,
+                        secondary_hex=secondary_hex if secondary_hex else None
+                    ).first()
+                    
+                    print(f"DEBUG: Found existing color: {color}")
+                    
+                    if color:
+                        # Если цвет существует, обновляем его название
+                        color.name = color_name
+                        color.save()
+                    else:
+                        # Создаем новый цвет с HEX кодами
+                        color = Color.objects.create(
+                            name=color_name,
+                            primary_hex=primary_hex,
+                            secondary_hex=secondary_hex if secondary_hex else None
+                        )
+                    
+                    # Проверяем, не существует ли уже такой вариант цвета для этого товара
+                    color_variant, created = ProductColorVariant.objects.get_or_create(
+                        product=product,
+                        color=color
+                    )
+                    
+                    print(f"DEBUG: Color variant created: {created}, variant ID: {color_variant.id}")
+                    
+                    # Добавляем изображения (всегда, если они есть)
+                    if color_images:
+                        for i, image_file in enumerate(color_images):
+                            print(f"DEBUG: Creating image {i+1}: {image_file.name}")
+                            ProductColorImage.objects.create(
+                                color_variant=color_variant,
+                                image=image_file
+                            )
+                        print(f"DEBUG: Created {len(color_images)} images for color variant {color_variant.id}")
+                    
+                    if created:
+                        message = 'Колір успішно додано!'
+                    else:
+                        message = 'Колір вже існує для цього товару, але зображення додано!'
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'color': {
+                            'id': color.id,
+                            'name': color.name,
+                            'image_url': color_variant.images.first().image.url if color_variant.images.exists() else ''
+                        },
+                        'message': message
+                    })
+                else:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'Не всі обов\'язкові поля заповнені'
+                    })
+                    
+            except Product.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Товар не знайдено'
+                })
+            except Exception as e:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Помилка створення кольору: {str(e)}'
+                })
+        
+        # Обработка формы изображения
+        elif form_type == 'image':
+            product_id = request.POST.get('product_id')
+            if not product_id:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Не вказано ID товару'
+                })
+            
+            try:
+                product = Product.objects.get(id=product_id)
+                additional_image = request.FILES.get('additional_image')
+                
+                if additional_image:
+                    from .models import ProductImage
+                    ProductImage.objects.create(
+                        product=product,
+                        image=additional_image
+                    )
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'image': {
+                            'id': 'new',
+                            'image_url': ProductImage.objects.filter(product=product).last().image.url
+                        },
+                        'message': 'Зображення успішно додано!'
+                    })
+                else:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'Не вибрано зображення'
+                    })
+                    
+            except Product.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Товар не знайдено'
+                })
+            except Exception as e:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Помилка додавання зображення: {str(e)}'
+                })
+    return render(request, 'pages/add_product_new.html', {'form': form, 'mode': 'new'})
 
 @login_required
 def admin_product_edit(request, pk):

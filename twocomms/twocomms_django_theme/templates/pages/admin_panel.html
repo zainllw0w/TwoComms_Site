@@ -52,6 +52,12 @@
           </svg>
           Оффлайн магазини
         </a>
+        <a href="?section=print_proposals" class="admin-nav-item {% if section == 'print_proposals' %}active{% endif %}">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 15v4H5v-4H3v4c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2v-4h-2zM11 8.414V20h2V8.414l3.293 3.293 1.414-1.414L12 4.586 6.293 10.293l1.414 1.414L11 8.414z"/>
+          </svg>
+          Запропоновані принти
+        </a>
     </div>
   </div>
   </div>
@@ -61,41 +67,372 @@
     {% if section == 'stats' %}
       <!-- Статистика -->
       <div class="stats-section">
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-icon">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
-              </svg>
-            </div>
-            <div class="stat-content">
-              <div class="stat-value">{{ stats.orders_today|default:0 }}</div>
-              <div class="stat-label">Замовлень сьогодні</div>
-          </div>
-            </div>
-          
-          <div class="stat-card">
-            <div class="stat-icon">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+        <!-- Фильтры по времени -->
+        <div class="stats-filters">
+          <div class="stats-filters-header">
+            <h3 class="stats-filters-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
               </svg>
-          </div>
-            <div class="stat-content">
-              <div class="stat-value">{{ stats.revenue|default:0 }} грн</div>
-              <div class="stat-label">Виручка сьогодні</div>
+              Період: {{ stats.period_name }}
+            </h3>
+            <div class="stats-period-buttons">
+              <a href="?section=stats&period=today" class="period-btn {% if stats.period == 'today' %}active{% endif %}">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
+                </svg>
+                Сьогодні
+              </a>
+              <a href="?section=stats&period=week" class="period-btn {% if stats.period == 'week' %}active{% endif %}">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
+                </svg>
+                Тиждень
+              </a>
+              <a href="?section=stats&period=month" class="period-btn {% if stats.period == 'month' %}active{% endif %}">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
+                </svg>
+                Місяць
+              </a>
+              <a href="?section=stats&period=all_time" class="period-btn {% if stats.period == 'all_time' %}active{% endif %}">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                Весь час
+              </a>
             </div>
           </div>
-          
-          <div class="stat-card">
-            <div class="stat-icon">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zm4 18v-6h2.5l-2.54-7.63A1.5 1.5 0 0 0 18.54 8H17c-.8 0-1.54.37-2.01 1l-1.7 2.26V15h-1.5v-6h1.5v1.5l1.7-2.26c.47-.63 1.21-1 2.01-1h1.54c.8 0 1.54.37 2.01 1L21.5 15H20v6h2z"/>
-              </svg>
         </div>
-            <div class="stat-content">
-              <div class="stat-value">{{ stats.users|default:0 }}</div>
-              <div class="stat-label">Користувачів</div>
-      </div>
+        <!-- Сайт статистика -->
+        <div class="stats-category">
+          <h2 class="stats-category-title">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            Сайт
+          </h2>
+          <div class="stats-grid">
+            <div class="stat-card not-working">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.online_users|default:0 }}</div>
+                <div class="stat-label">Онлайн зараз <span class="not-working-badge">Не працює</span></div>
+              </div>
+            </div>
+            
+            <div class="stat-card not-working">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zm4 18v-6h2.5l-2.54-7.63A1.5 1.5 0 0 0 18.54 8H17c-.8 0-1.54.37-2.01 1l-1.7 2.26V15h-1.5v-6h1.5v1.5l1.7-2.26c.47-.63 1.21-1 2.01-1h1.54c.8 0 1.54.37 2.01 1L21.5 15H20v6h2z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.unique_visitors_today|default:0 }}</div>
+                <div class="stat-label">Унікальних за період <span class="not-working-badge">Не працює</span></div>
+              </div>
+            </div>
+            
+            <div class="stat-card not-working">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.page_views_today|default:0 }}</div>
+                <div class="stat-label">Переглядів за період <span class="not-working-badge">Не працює</span></div>
+              </div>
+            </div>
+            
+            <div class="stat-card not-working">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.bounce_rate|default:0 }}%</div>
+                <div class="stat-label">Показник відмов <span class="not-working-badge">Не працює</span></div>
+              </div>
+            </div>
+            
+            <div class="stat-card not-working">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M13 7h8v2h-8zm0 4h8v2h-8zm0 4h8v2h-8zM3 17h6v2H3zm0-4h6v2H3zm0-4h6v2H3z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.avg_session_duration|default:0 }}хв</div>
+                <div class="stat-label">Середній час <span class="not-working-badge">Не працює</span></div>
+              </div>
+            </div>
+            
+            <div class="stat-card">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.new_users_today|default:0 }}</div>
+                <div class="stat-label">Нових користувачів за період</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Продажи статистика -->
+        <div class="stats-category">
+          <h2 class="stats-category-title">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+            </svg>
+            Продажі
+          </h2>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.orders_count|default:0 }}</div>
+                <div class="stat-label">Замовлень за період</div>
+              </div>
+            </div>
+            
+            <div class="stat-card">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.revenue_today|default:0 }} грн</div>
+                <div class="stat-label">Виручка за період</div>
+              </div>
+            </div>
+            
+            <div class="stat-card">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.avg_order_value|default:0 }} грн</div>
+                <div class="stat-label">Середній чек</div>
+              </div>
+            </div>
+            
+            <div class="stat-card not-working">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zm4 18v-6h2.5l-2.54-7.63A1.5 1.5 0 0 0 18.54 8H17c-.8 0-1.54.37-2.01 1l-1.7 2.26V15h-1.5v-6h1.5v1.5l1.7-2.26c.47-.63 1.21-1 2.01-1h1.54c.8 0 1.54.37 2.01 1L21.5 15H20v6h2z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.conversion_rate|default:0 }}%</div>
+                <div class="stat-label">Конверсія <span class="not-working-badge">Не працює</span></div>
+              </div>
+            </div>
+            
+            <div class="stat-card not-working">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M13 7h8v2h-8zm0 4h8v2h-8zm0 4h8v2h-8zM3 17h6v2H3zm0-4h6v2H3zm0-4h6v2H3z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.products_sold_today|default:0 }}</div>
+                <div class="stat-label">Товарів продано <span class="not-working-badge">Не працює</span></div>
+              </div>
+            </div>
+            
+            <div class="stat-card not-working">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.abandoned_carts|default:0 }}</div>
+                <div class="stat-label">Покинутих кошиків <span class="not-working-badge">Не працює</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Користувачі статистика -->
+        <div class="stats-category">
+          <h2 class="stats-category-title">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zm4 18v-6h2.5l-2.54-7.63A1.5 1.5 0 0 0 18.54 8H17c-.8 0-1.54.37-2.01 1l-1.7 2.26V15h-1.5v-6h1.5v1.5l1.7-2.26c.47-.63 1.21-1 2.01-1h1.54c.8 0 1.54.37 2.01 1L21.5 15H20v6h2z"/>
+            </svg>
+            Користувачі
+          </h2>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zm4 18v-6h2.5l-2.54-7.63A1.5 1.5 0 0 0 18.54 8H17c-.8 0-1.54.37-2.01 1l-1.7 2.26V15h-1.5v-6h1.5v1.5l1.7-2.26c.47-.63 1.21-1 2.01-1h1.54c.8 0 1.54.37 2.01 1L21.5 15H20v6h2z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.total_users|default:0 }}</div>
+                <div class="stat-label">Всього користувачів</div>
+              </div>
+            </div>
+            
+            <div class="stat-card">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.active_users_today|default:0 }}</div>
+                <div class="stat-label">Активних сьогодні</div>
+              </div>
+            </div>
+            
+            <div class="stat-card">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.registered_today|default:0 }}</div>
+                <div class="stat-label">Зареєстровано сьогодні</div>
+              </div>
+            </div>
+            
+            <div class="stat-card">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.users_with_points|default:0 }}</div>
+                <div class="stat-label">З нарахованими балами</div>
+              </div>
+            </div>
+            
+            <div class="stat-card">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M13 7h8v2h-8zm0 4h8v2h-8zm0 4h8v2h-8zM3 17h6v2H3zm0-4h6v2H3zm0-4h6v2H3z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.total_points_earned|default:0 }}</div>
+                <div class="stat-label">Всього балів нараховано</div>
+              </div>
+            </div>
+            
+            <div class="stat-card">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.promocodes_used_today|default:0 }}</div>
+                <div class="stat-label">Промокодів використано</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Контент статистика -->
+        <div class="stats-category">
+          <h2 class="stats-category-title">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+            </svg>
+            Контент
+          </h2>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.total_products|default:0 }}</div>
+                <div class="stat-label">Всього товарів</div>
+              </div>
+            </div>
+            
+            <div class="stat-card">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.total_categories|default:0 }}</div>
+                <div class="stat-label">Категорій</div>
+              </div>
+            </div>
+            
+            <div class="stat-card">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 15v4H5v-4H3v4c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2v-4h-2zM11 8.414V20h2V8.414l3.293 3.293 1.414-1.414L12 4.586 6.293 10.293l1.414 1.414L11 8.414z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.print_proposals_pending|default:0 }}</div>
+                <div class="stat-label">Принтів на розгляді</div>
+              </div>
+            </div>
+            
+            <div class="stat-card">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.favorites_count|default:0 }}</div>
+                <div class="stat-label">В обраному</div>
+              </div>
+            </div>
+            
+            <div class="stat-card not-working">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M13 7h8v2h-8zm0 4h8v2h-8zm0 4h8v2h-8zM3 17h6v2H3zm0-4h6v2H3zm0-4h6v2H3z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.reviews_count|default:0 }}</div>
+                <div class="stat-label">Відгуків <span class="not-working-badge">Не працює</span></div>
+              </div>
+            </div>
+            
+            <div class="stat-card not-working">
+              <div class="stat-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ stats.avg_rating|default:0 }}/5</div>
+                <div class="stat-label">Середня оцінка <span class="not-working-badge">Не працює</span></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -984,8 +1321,8 @@
               </svg>
               Категорії ({{ categories|length }})
             </h3>
-            <a href="{% url 'admin_category_new' %}" class="add-btn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <a href="{% url 'add_category' %}" class="btn-create-category-new">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
               </svg>
               Додати категорію
@@ -1051,8 +1388,8 @@
                 </div>
                 <h4>Категорії відсутні</h4>
                 <p>Створіть першу категорію для організації товарів</p>
-                <a href="{% url 'admin_category_new' %}" class="btn btn-primary">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <a href="{% url 'add_category' %}" class="btn-create-category-empty">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
                   </svg>
                   Додати категорію
@@ -1480,6 +1817,213 @@
                   </svg>
                   Додати магазин
                 </a>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+    {% elif section == 'print_proposals' %}
+      <!-- Управление запропонованими принтами -->
+      <div class="print-proposals-admin-section">
+        <!-- Заголовок секции -->
+        <div class="section-header">
+          <div class="section-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 15v4H5v-4H3v4c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2v-4h-2zM11 8.414V20h2V8.414l3.293 3.293 1.414-1.414L12 4.586 6.293 10.293l1.414 1.414L11 8.414z"/>
+            </svg>
+          </div>
+          <div class="section-title">Запропоновані принти</div>
+          <div class="section-stats">
+            <div class="stat-badge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              <span id="proposals-count">{{ total_proposals|default:0 }}</span>
+            </div>
+            <div class="stat-badge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <span id="pending-proposals-count">{{ pending_proposals|default:0 }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Поиск -->
+        <div class="print-proposals-search-section">
+          <div class="search-container">
+            <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+            </svg>
+            <input type="text" id="print-proposals-search" class="print-proposals-search-input" 
+                   placeholder="Пошук по користувачу або опису..." 
+                   oninput="filterPrintProposals(this.value)">
+            <button class="search-clear-btn" onclick="clearPrintProposalsSearch()" style="display: none;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Список запропонованих принтов -->
+        <div class="print-proposals-list-section">
+          <div class="subsection-header">
+            <h3>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 15v4H5v-4H3v4c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2v-4h-2zM11 8.414V20h2V8.414l3.293 3.293 1.414-1.414L12 4.586 6.293 10.293l1.414 1.414L11 8.414z"/>
+              </svg>
+              Запропоновані принти ({{ total_proposals|default:0 }})
+            </h3>
+          </div>
+          
+          <div class="print-proposals-grid">
+            {% for proposal in print_proposals %}
+              <div class="print-proposal-card" data-proposal-id="{{ proposal.id }}" data-user-name="{{ proposal.user.username|lower }}" data-description="{{ proposal.description|lower }}">
+                <div class="print-proposal-sparks">
+                  <div class="print-proposal-spark print-proposal-spark-1"></div>
+                  <div class="print-proposal-spark print-proposal-spark-2"></div>
+                  <div class="print-proposal-spark print-proposal-spark-3"></div>
+                </div>
+                
+                <div class="print-proposal-header">
+                  <div class="print-proposal-user">
+                    <div class="user-avatar">
+                      {% if proposal.user.userprofile.avatar %}
+                        <img src="{{ proposal.user.userprofile.avatar.url }}" alt="{{ proposal.user.username }}">
+                      {% else %}
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                        </svg>
+                      {% endif %}
+                    </div>
+                    <div class="user-info">
+                      <div class="user-name">{{ proposal.user.username }}</div>
+                      {% if proposal.user.userprofile.full_name %}
+                        <div class="user-full-name">{{ proposal.user.userprofile.full_name }}</div>
+                      {% endif %}
+                    </div>
+                  </div>
+                  <div class="print-proposal-status status-{{ proposal.status }}">
+                    {% if proposal.status == 'pending' %}
+                      <span class="status-badge pending">На розгляді</span>
+                    {% elif proposal.status == 'approved' %}
+                      <span class="status-badge approved">Схвалено</span>
+                    {% else %}
+                      <span class="status-badge rejected">Відхилено</span>
+                    {% endif %}
+                  </div>
+                </div>
+                
+                <div class="print-proposal-image">
+                  {% if proposal.image %}
+                    <img src="{{ proposal.image.url }}" alt="Принт від {{ proposal.user.username }}">
+                  {% elif proposal.link_url %}
+                    <div class="link-preview">
+                      <div class="link-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M10.59 13.41c.41.39.41 1.03 0 1.42-.39.39-1.03.39-1.42 0a5.003 5.003 0 0 1 0-7.07l3.54-3.54a5.003 5.003 0 0 1 7.07 0 5.003 5.003 0 0 1 0 7.07l-1.49 1.49c.01-.82-.12-1.64-.4-2.42l.47-.48a2.982 2.982 0 0 0 0-4.24 2.982 2.982 0 0 0-4.24 0l-3.53 3.53a2.982 2.982 0 0 0 0 4.24zm2.82-4.24c.39-.39 1.03-.39 1.42 0a5.003 5.003 0 0 1 0 7.07l-3.54 3.54a5.003 5.003 0 0 1-7.07 0 5.003 5.003 0 0 1 0-7.07l1.49-1.49c-.01.82.12 1.64.4 2.42l-.47.48a2.982 2.982 0 0 0 0 4.24 2.982 2.982 0 0 0 4.24 0l3.53-3.53a2.982 2.982 0 0 0 0-4.24z"/>
+                        </svg>
+                      </div>
+                      <div class="link-info">
+                        <div class="link-label">Посилання на зображення:</div>
+                        <a href="{{ proposal.link_url }}" target="_blank" class="link-url">{{ proposal.link_url }}</a>
+                      </div>
+                    </div>
+                  {% else %}
+                    <div class="no-content">
+                      <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                      </svg>
+                      <span>Зображення не надано</span>
+                    </div>
+                  {% endif %}
+                </div>
+                
+                {% if proposal.description %}
+                  <div class="print-proposal-description">
+                    <div class="description-label">Опис:</div>
+                    <div class="description-text">{{ proposal.description }}</div>
+                  </div>
+                {% endif %}
+                
+                <div class="print-proposal-contact">
+                  {% if proposal.user.userprofile.telegram %}
+                    <div class="contact-item">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                      </svg>
+                      <a href="https://t.me/{{ proposal.user.userprofile.telegram }}" target="_blank">@{{ proposal.user.userprofile.telegram }}</a>
+                    </div>
+                  {% endif %}
+                  {% if proposal.user.userprofile.instagram %}
+                    <div class="contact-item">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                      </svg>
+                      <a href="https://instagram.com/{{ proposal.user.userprofile.instagram }}" target="_blank">@{{ proposal.user.userprofile.instagram }}</a>
+                    </div>
+                  {% endif %}
+                </div>
+                
+                <div class="print-proposal-stats">
+                  <div class="proposal-stat">
+                    <div class="stat-number">{{ proposal.created_at|date:"d.m.Y" }}</div>
+                    <div class="stat-label">Створено</div>
+                  </div>
+                  {% if proposal.awarded_points > 0 %}
+                    <div class="proposal-stat">
+                      <div class="stat-number">{{ proposal.awarded_points }}</div>
+                      <div class="stat-label">Балів</div>
+                    </div>
+                  {% endif %}
+                  {% if proposal.awarded_promocode %}
+                    <div class="proposal-stat">
+                      <div class="stat-number">{{ proposal.awarded_promocode.discount_amount }}₴</div>
+                      <div class="stat-label">Промокод</div>
+                    </div>
+                  {% endif %}
+                </div>
+                
+                <div class="print-proposal-actions">
+                  {% if proposal.status == 'pending' %}
+                    <button class="action-btn approve" onclick="updateProposalStatus({{ proposal.id }}, 'approved')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                      </svg>
+                      Схвалити
+                    </button>
+                    <button class="action-btn reject" onclick="updateProposalStatus({{ proposal.id }}, 'rejected')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                      </svg>
+                      Відхилити
+                    </button>
+                  {% endif %}
+                  <button class="action-btn award-points" onclick="awardPoints({{ proposal.id }})">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                    Бали
+                  </button>
+                  <button class="action-btn award-promocode" onclick="awardPromocode({{ proposal.id }})">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    Промокод
+                  </button>
+                </div>
+              </div>
+            {% empty %}
+              <div class="empty-state">
+                <div class="empty-icon">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 15v4H5v-4H3v4c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2v-4h-2zM11 8.414V20h2V8.414l3.293 3.293 1.414-1.414L12 4.586 6.293 10.293l1.414 1.414L11 8.414z"/>
+                  </svg>
+                </div>
+                <h4>Запропоновані принти відсутні</h4>
+                <p>Користувачі ще не запропонували принти</p>
               </div>
             {% endfor %}
           </div>
@@ -2141,6 +2685,158 @@ function toggleOfflineStore(storeId, storeName) {
 function deleteOfflineStore(storeId, storeName) {
   if (confirm(`Ви впевнені, що хочете видалити магазин "${storeName}"?`)) {
     window.location.href = `/admin-panel/offline-store/${storeId}/delete/`;
+  }
+}
+
+// ===== ФУНКЦИИ ДЛЯ ЗАПРОПОНОВАНИХ ПРИНТОВ =====
+
+// Функция фильтрации запропонованных принтов
+function filterPrintProposals(searchTerm) {
+  const proposalCards = document.querySelectorAll('.print-proposal-card');
+  const proposalsCount = document.getElementById('proposals-count');
+  const pendingProposalsCount = document.getElementById('pending-proposals-count');
+  let visibleCount = 0;
+  let visiblePendingCount = 0;
+  
+  searchTerm = searchTerm.toLowerCase().trim();
+  
+  proposalCards.forEach((card) => {
+    const userName = card.getAttribute('data-user-name') || '';
+    const description = card.getAttribute('data-description') || '';
+    const isVisible = userName.includes(searchTerm) || description.includes(searchTerm);
+    
+    if (isVisible) {
+      card.style.display = 'block';
+      visibleCount++;
+      // Проверяем, находится ли принт на рассмотрении
+      const statusElement = card.querySelector('.status-badge');
+      if (statusElement && statusElement.classList.contains('pending')) {
+        visiblePendingCount++;
+      }
+    } else {
+      card.style.display = 'none';
+    }
+  });
+  
+  // Обновляем счетчики
+  if (proposalsCount) proposalsCount.textContent = visibleCount;
+  if (pendingProposalsCount) pendingProposalsCount.textContent = visiblePendingCount;
+  
+  // Показываем/скрываем кнопку очистки
+  const clearBtn = document.querySelector('.print-proposals-search-section .search-clear-btn');
+  if (clearBtn) {
+    clearBtn.style.display = searchTerm ? 'block' : 'none';
+  }
+  
+  // Показываем уведомление о результатах поиска
+  if (searchTerm) {
+    showNotification(`Знайдено ${visibleCount} принтів`, 'info');
+  }
+}
+
+// Функция очистки поиска запропонованных принтов
+function clearPrintProposalsSearch() {
+  const searchInput = document.getElementById('print-proposals-search');
+  if (searchInput) {
+    searchInput.value = '';
+    filterPrintProposals('');
+    searchInput.focus();
+  }
+}
+
+// Функция обновления статуса принта
+function updateProposalStatus(proposalId, status) {
+  const action = status === 'approved' ? 'схвалити' : 'відхилити';
+  if (confirm(`Ви впевнені, що хочете ${action} цей принт?`)) {
+    const formData = new FormData();
+    formData.append('proposal_id', proposalId);
+    formData.append('status', status);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    fetch('/admin-panel/print-proposal/update-status/', {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        showNotification(data.message, 'success');
+        // Обновляем статус в интерфейсе
+        const statusElement = document.querySelector(`[data-proposal-id="${proposalId}"] .status-badge`);
+        if (statusElement) {
+          statusElement.textContent = data.new_status_text;
+          statusElement.className = `status-badge ${status}`;
+        }
+        // Обновляем счетчики
+        filterPrintProposals(document.getElementById('print-proposals-search').value);
+      } else {
+        showNotification('Помилка: ' + data.error, 'error');
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      showNotification('Помилка оновлення статусу', 'error');
+    });
+  }
+}
+
+// Функция награждения баллами
+function awardPoints(proposalId) {
+  const points = prompt('Введіть кількість балів для нагородження:');
+  if (points && !isNaN(points) && parseInt(points) > 0) {
+    const formData = new FormData();
+    formData.append('proposal_id', proposalId);
+    formData.append('points', points);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    fetch('/admin-panel/print-proposal/award-points/', {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        showNotification(data.message, 'success');
+        // Обновляем интерфейс
+        location.reload();
+      } else {
+        showNotification('Помилка: ' + data.error, 'error');
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      showNotification('Помилка нагородження балів', 'error');
+    });
+  }
+}
+
+// Функция награждения промокодом
+function awardPromocode(proposalId) {
+  const amount = prompt('Введіть суму промокоду в гривнях:');
+  if (amount && !isNaN(amount) && parseInt(amount) > 0) {
+    const formData = new FormData();
+    formData.append('proposal_id', proposalId);
+    formData.append('amount', amount);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    fetch('/admin-panel/print-proposal/award-promocode/', {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        showNotification(data.message, 'success');
+        // Обновляем интерфейс
+        location.reload();
+      } else {
+        showNotification('Помилка: ' + data.error, 'error');
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      showNotification('Помилка нагородження промокодом', 'error');
+    });
   }
 }
 </script>

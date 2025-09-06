@@ -1,5 +1,5 @@
 from django import forms
-from .models import Product, ProductImage, Category
+from .models import Product, ProductImage, Category, PrintProposal
 
 # ✅ Виджет с поддержкой множественной загрузки
 class MultiFileInput(forms.ClearableFileInput):
@@ -76,4 +76,34 @@ class ProductForm(forms.ModelForm):
 class CategoryForm(forms.ModelForm):
     class Meta:
         model = Category
-        fields = ["name", "slug", "icon", "cover", "order"]
+        fields = ["name", "slug", "icon", "cover", "order", "description"]
+    
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        # По умолчанию категория всегда активна и без рекомендации
+        instance.is_active = True
+        instance.is_featured = False
+        if commit:
+            instance.save()
+        return instance
+
+
+class PrintProposalForm(forms.ModelForm):
+    class Meta:
+        model = PrintProposal
+        fields = ["image", "link_url", "description"]
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 4, "placeholder": "Опис і примітки до принта"}),
+        }
+
+    def clean(self):
+        data = super().clean()
+        image = data.get("image")
+        link_url = data.get("link_url", "").strip()
+
+        # Требуем хотя бы один источник: файл или ссылка
+        if not image and not link_url:
+            raise forms.ValidationError("Додайте зображення або вкажіть посилання")
+
+        # Лёгкая защита от спама: ограничим частоту отправок в view
+        return data

@@ -1,1 +1,401 @@
-{% extends 'base.html' %}{% block title %}Співпраця — TwoComms{% endblock %}{% block content %}<div class='card p-4 p-md-5 glass'><h1 class='h4 fw-bold mb-3'>Співпраця</h1><p class='mb-3'>Шукаємо колаборантів…</p><a href='{% url 'admin_add_product' %}' class='btn btn-outline-light btn-sm'>+ Додати товар</a></div>{% endblock %}
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Співпраця з TwoComms{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Hero Section -->
+  <div class="row mb-5">
+    <div class="col-12">
+      <div class="cooperation-hero">
+        <div class="hero-background">
+          <div class="hero-gradient"></div>
+          <div class="hero-pattern"></div>
+        </div>
+        
+        <div class="hero-sparkles">
+          <div class="sparkle sparkle-1"></div>
+          <div class="sparkle sparkle-2"></div>
+          <div class="sparkle sparkle-3"></div>
+          <div class="sparkle sparkle-4"></div>
+          <div class="sparkle sparkle-5"></div>
+          <div class="sparkle sparkle-6"></div>
+          <div class="sparkle sparkle-7"></div>
+          <div class="sparkle sparkle-8"></div>
+        </div>
+
+        <div class="hero-content">
+          <div class="hero-logo">
+            <img src="{% static 'img/logo.svg' %}" alt="TwoComms" class="logo-image">
+            <div class="logo-glow"></div>
+          </div>
+          
+          <div class="hero-text">
+            <h1 class="hero-title">
+              <span class="title-line">Співпраця з</span>
+              <span class="title-line gradient-text">TwoComms</span>
+            </h1>
+            <p class="hero-subtitle">
+              Приєднуйтесь до нашої мережі партнерів та розвивайте свій бізнес разом з нами
+            </p>
+          </div>
+
+          <div class="hero-features">
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+              </div>
+              <div class="feature-content">
+                <h3 class="feature-title">Якість</h3>
+                <p class="feature-desc">Преміум товари</p>
+              </div>
+            </div>
+            
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+              <div class="feature-content">
+                <h3 class="feature-title">Надійність</h3>
+                <p class="feature-desc">Перевірені партнери</p>
+              </div>
+            </div>
+            
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M13 7h8v2h-8zm0 4h8v2h-8zm0 4h8v2h-8zM3 17h6v2H3zm0-4h6v2H3zm0-4h6v2H3z"/>
+                </svg>
+              </div>
+              <div class="feature-content">
+                <h3 class="feature-title">Підтримка</h3>
+                <p class="feature-desc">24/7 консультації</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="hero-cta">
+            <a href="#partnership-types" class="cta-button">
+              <span>Дізнатися більше</span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M7 10l5 5 5-5z"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Partnership Types -->
+  <div class="row mb-5" id="partnership-types">
+    <div class="col-12">
+      <div class="section-header">
+        <h2 class="section-title">Типи співпраці</h2>
+        <p class="section-subtitle">Оберіть найкращий варіант для вашого бізнесу</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4 mb-5">
+    <!-- Dropshipping -->
+    <div class="col-lg-4 col-md-6">
+      <div class="partnership-card">
+        <div class="card-sparkles">
+          <div class="sparkle"></div>
+          <div class="sparkle"></div>
+          <div class="sparkle"></div>
+        </div>
+        <div class="partnership-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <h3 class="partnership-title">Dropshipping</h3>
+        <p class="partnership-description">
+          Продавайте наші товари без вкладень у склад. Ми відправляємо замовлення вашим клієнтам.
+        </p>
+        <ul class="partnership-benefits">
+          <li>Без вкладень у товар</li>
+          <li>Автоматична обробка замовлень</li>
+          <li>Висока маржинальність</li>
+          <li>Підтримка 24/7</li>
+        </ul>
+        <div class="partnership-commission">
+          <span class="commission-label">Комісія:</span>
+          <span class="commission-value">5-20%</span>
+        </div>
+        <a href="https://t.me/twocomms" class="partnership-btn" target="_blank">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
+          Почати співпрацю
+        </a>
+      </div>
+    </div>
+
+    <!-- Wholesale -->
+    <div class="col-lg-4 col-md-6">
+      <div class="partnership-card">
+        <div class="card-sparkles">
+          <div class="sparkle"></div>
+          <div class="sparkle"></div>
+          <div class="sparkle"></div>
+        </div>
+        <div class="partnership-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+          </svg>
+        </div>
+        <h3 class="partnership-title">Оптові продажі</h3>
+        <p class="partnership-description">
+          Закуповуйте товари оптом зі знижками до 25%. Ідеально для магазинів та мереж.
+        </p>
+        <ul class="partnership-benefits">
+          <li>Знижки до 25%</li>
+          <li>Мінімальні замовлення від 50 шт</li>
+          <li>Швидка доставка</li>
+          <li>Гнучкі умови оплати</li>
+        </ul>
+        <div class="partnership-commission">
+          <span class="commission-label">Знижка:</span>
+          <span class="commission-value">25%</span>
+        </div>
+        <a href="https://t.me/twocomms" class="partnership-btn" target="_blank">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
+          Отримати прайс
+        </a>
+      </div>
+    </div>
+
+    <!-- Brand Partnership -->
+    <div class="col-lg-4 col-md-6">
+      <div class="partnership-card">
+        <div class="card-sparkles">
+          <div class="sparkle"></div>
+          <div class="sparkle"></div>
+          <div class="sparkle"></div>
+        </div>
+        <div class="partnership-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          </svg>
+        </div>
+        <h3 class="partnership-title">Бренд-партнерство</h3>
+        <p class="partnership-description">
+          Створюйте ексклюзивні колекції разом з нами. Для великих брендів та дизайнерів.
+        </p>
+        <ul class="partnership-benefits">
+          <li>Ексклюзивні колекції</li>
+          <li>Спільний маркетинг</li>
+          <li>Високі комісії</li>
+          <li>Персональний менеджер</li>
+        </ul>
+        <div class="partnership-commission">
+          <span class="commission-label">Комісія:</span>
+          <span class="commission-value">30-50%</span>
+        </div>
+        <a href="https://t.me/twocomms" class="partnership-btn" target="_blank">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
+          Обговорити проект
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- For Designers Section -->
+  <div class="row mb-5">
+    <div class="col-12">
+      <div class="designers-section">
+        <div class="designers-content">
+          <div class="designers-sparkles">
+            <div class="sparkle"></div>
+            <div class="sparkle"></div>
+            <div class="sparkle"></div>
+            <div class="sparkle"></div>
+          </div>
+          <div class="designers-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          </div>
+          <h2 class="designers-title">Для дизайнерів</h2>
+          <p class="designers-description">
+            Ваші ідеї можуть стати реальністю! Створюйте принти та отримуйте винагороду за кожен успішний продаж.
+          </p>
+          <div class="designers-benefits">
+            <div class="benefit-item">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <span>15-30% від продажів</span>
+            </div>
+            <div class="benefit-item">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <span>Швидка реалізація</span>
+            </div>
+            <div class="benefit-item">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <span>Підтримка команди</span>
+            </div>
+          </div>
+          <a href="{% url 'add_print' %}" class="designers-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 15v4H5v-4H3v4c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2v-4h-2zM11 8.414V20h2V8.414l3.293 3.293 1.414-1.414L12 4.586 6.293 10.293l1.414 1.414L11 8.414z"/>
+            </svg>
+            Запропонувати принт
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- For Models Section -->
+  <div class="row mb-5">
+    <div class="col-12">
+      <div class="models-section">
+        <div class="models-content">
+          <div class="models-sparkles">
+            <div class="sparkle"></div>
+            <div class="sparkle"></div>
+            <div class="sparkle"></div>
+          </div>
+          <div class="models-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+            </svg>
+          </div>
+          <h2 class="models-title">Для моделей</h2>
+          <p class="models-description">
+            Демонструйте наші товари та отримуйте винагороду за кожну фотосесію. Станьте частиною нашої команди!
+          </p>
+          <div class="models-benefits">
+            <div class="benefit-item">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <span>Оплата речами</span>
+            </div>
+            <div class="benefit-item">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <span>Безкоштовні товари</span>
+            </div>
+            <div class="benefit-item">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <span>Розвиток портфоліо</span>
+            </div>
+          </div>
+          <a href="https://t.me/twocomms" class="models-btn" target="_blank">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            Стати моделлю
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- For Bloggers Section -->
+  <div class="row mb-5">
+    <div class="col-12">
+      <div class="bloggers-section">
+        <div class="bloggers-content">
+          <div class="bloggers-sparkles">
+            <div class="sparkle"></div>
+            <div class="sparkle"></div>
+            <div class="sparkle"></div>
+            <div class="sparkle"></div>
+          </div>
+          <div class="bloggers-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
+            </svg>
+          </div>
+          <h2 class="bloggers-title">Для блогерів та медіа</h2>
+          <p class="bloggers-description">
+            Співпрацюйте з нами для створення якісного контенту та розвивайте свій бренд разом з TwoComms.
+          </p>
+          <div class="bloggers-benefits">
+            <div class="benefit-item">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <span>Грошова винагорода</span>
+            </div>
+            <div class="benefit-item">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <span>Безкоштовні товари</span>
+            </div>
+            <div class="benefit-item">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <span>Ексклюзивний контент</span>
+            </div>
+            <div class="benefit-item">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <span>Довгострокова співпраця</span>
+            </div>
+          </div>
+          <a href="https://t.me/twocomms" class="bloggers-btn" target="_blank">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            Почати співпрацю
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contact Section -->
+  <div class="row">
+    <div class="col-12">
+      <div class="contact-section">
+        <div class="contact-content">
+          <h2 class="contact-title">Готові почати співпрацю?</h2>
+          <p class="contact-description">
+            Зв'яжіться з нами в Telegram для обговорення деталей
+          </p>
+          <div class="contact-buttons">
+            <a href="https://t.me/twocomms" class="contact-btn primary" target="_blank">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              Загальні питання
+            </a>
+            <a href="https://t.me/twocomms" class="contact-btn secondary" target="_blank">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              Технічна підтримка
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
