@@ -27,7 +27,11 @@ SECRET_KEY = 'django-insecure-!t*_^p60d-88kvjs%*&!czbes-q8-#$r!-d_0%o495rfed6i*+
 DEBUG = True
 
 ALLOWED_HOSTS = [
+    'test.com',
+    'www.test.com',
     'twocomms.pythonanywhere.com',
+    'twocomms.shop',
+    'www.twocomms.shop',
     'localhost',
     '127.0.0.1',
 ]

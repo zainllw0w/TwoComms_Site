@@ -26,6 +26,8 @@ else:
     # Значения по умолчанию: pythonanywhere и ваш домен
     ALLOWED_HOSTS = [
         'twocomms.pythonanywhere.com',
+        'twocomms.shop',
+        'www.twocomms.shop',
         'test.com',
         'www.test.com',
         'localhost',
