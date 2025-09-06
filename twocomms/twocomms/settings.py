@@ -27,7 +27,11 @@ SECRET_KEY = '***REMOVED_DJANGO_DEV_KEY***'
 DEBUG = True
 
 ALLOWED_HOSTS = [
+    'test.com',
+    'www.test.com',
     'twocomms.pythonanywhere.com',
+    'twocomms.shop',
+    'www.twocomms.shop',
     'localhost',
     '127.0.0.1',
 ]
