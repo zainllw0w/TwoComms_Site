@@ -222,6 +222,9 @@ if not DEBUG:
 
 # CSRF настройки
 CSRF_TRUSTED_ORIGINS = [
+    'http://twocomms.shop',
+    'http://www.twocomms.shop',
+    'http://twocomms.pythonanywhere.com',
     'https://twocomms.shop',
     'https://www.twocomms.shop',
     'https://twocomms.pythonanywhere.com',
