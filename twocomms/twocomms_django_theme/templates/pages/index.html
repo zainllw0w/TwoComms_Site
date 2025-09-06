@@ -133,32 +133,103 @@
   </div>
 </section>
 {% endif %}
-<section class="mb-4 mb-md-5 reveal">
-  <div class="d-flex justify-content-between align-items-end mb-3">
-    <h2 class="h5 mb-0">Категорії</h2>
-    <a href="{% url 'catalog' %}" class="link-secondary small">Весь каталог</a>
-  </div>
-  <div class="categories-grid">
-    <a href="{% url 'catalog' %}" class="category-btn category-btn-all" title="Всі категорії">
-      <div class="category-btn-icon">
-        <img src="{% static 'img/icons/all.svg' %}" width="24" height="24" alt="Всі">
+<section class="mb-4 mb-md-5 reveal categories-section">
+  <!-- Единый блок категорий без разделения -->
+  <div class="categories-unified-block">
+    <!-- Фоновые эффекты для всего блока -->
+    <div class="categories-bg-unified">
+      <div class="dark-particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
       </div>
-      <div class="category-btn-glow"></div>
-      <div class="category-btn-ripple"></div>
-    </a>
-    {% for c in categories %}
-    <a href="{% url 'catalog_by_cat' c.slug %}" class="category-btn" title="{{ c.name }}">
-      <div class="category-btn-icon">
-        {% if c.icon %}
-          <img src="{{ c.icon.url }}" width="24" height="24" alt="{{ c.name }}">
-        {% else %}
-          <img src="{% static 'img/icons/default.svg' %}" width="24" height="24" alt="{{ c.name }}">
-        {% endif %}
+      <div class="dark-glow"></div>
+      <div class="dark-gradient-1"></div>
+      <div class="dark-gradient-2"></div>
+      <div class="floating-logos">
+        <div class="floating-logo logo-1">
+          <img src="{% static 'img/logo.svg' %}" alt="Logo" width="16" height="16">
+        </div>
+        <div class="floating-logo logo-2">
+          <img src="{% static 'img/logo.svg' %}" alt="Logo" width="14" height="14">
+        </div>
+        <div class="floating-logo logo-3">
+          <img src="{% static 'img/logo.svg' %}" alt="Logo" width="18" height="18">
+        </div>
+        <div class="floating-logo logo-4">
+          <img src="{% static 'img/logo.svg' %}" alt="Logo" width="12" height="12">
+        </div>
+        <div class="floating-logo logo-5">
+          <img src="{% static 'img/logo.svg' %}" alt="Logo" width="15" height="15">
+        </div>
       </div>
-      <div class="category-btn-glow"></div>
-      <div class="category-btn-ripple"></div>
-    </a>
-    {% endfor %}
+    </div>
+    
+    <!-- Заголовок с кнопкой сворачивания -->
+    <div class="categories-header-unified">
+      <div class="d-flex justify-content-between align-items-center">
+        <div class="categories-title-compact">
+          <div class="title-with-catalog-icon">
+            <h2 class="categories-title-text">Категорії</h2>
+            <a href="{% url 'catalog' %}" class="catalog-icon-mobile" aria-label="Перейти в каталог">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+              </svg>
+            </a>
+          </div>
+          <div class="title-accent-line"></div>
+        </div>
+        
+        <!-- Кнопка сворачивания в центре -->
+        <button class="categories-toggle-btn" id="categoriesToggle" aria-label="Свернуть/развернуть категории">
+          <div class="toggle-btn-content">
+            <div class="toggle-icon">
+              <svg class="toggle-arrow" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+              </svg>
+            </div>
+            <span class="toggle-text">Свернуть</span>
+          </div>
+          <div class="toggle-btn-glow"></div>
+          <div class="toggle-btn-ripple"></div>
+        </button>
+        
+        <a href="{% url 'catalog' %}" class="catalog-link-compact">
+          <span class="catalog-text">Весь каталог</span>
+          <svg class="catalog-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+          </svg>
+        </a>
+      </div>
+    </div>
+
+    <!-- Контейнер категорий (без отдельного фона) -->
+    <div class="categories-content-unified" id="categoriesContainer">
+      <div class="categories-grid-compact">
+        <!-- Категории товаров -->
+        {% for c in categories %}
+        <a href="{% url 'catalog_by_cat' c.slug %}" class="category-card-compact" title="{{ c.name }}">
+          <div class="card-bg-dark">
+            <div class="card-glow-dark"></div>
+            <div class="card-ripple-dark"></div>
+          </div>
+          <div class="card-content-compact">
+            <div class="card-icon-compact">
+              {% if c.icon %}
+                <img src="{{ c.icon.url }}" width="24" height="24" alt="{{ c.name }}">
+              {% else %}
+                <img src="{% static 'img/icons/default.svg' %}" width="24" height="24" alt="{{ c.name }}">
+              {% endif %}
+            </div>
+            <div class="card-text-compact">
+              <span class="card-title-compact">{{ c.name }}</span>
+            </div>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
   </div>
 </section>
 <section class="mb-4 mb-md-5 reveal"><div class="d-flex justify-content-between align-items-end mb-3"><h2 class="h5 mb-0">Новинки</h2></div><div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4" data-stagger-grid>{% for p in products %}

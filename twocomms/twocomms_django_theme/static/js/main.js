@@ -741,3 +741,61 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 });
+
+// ===== ФУНКЦИОНАЛЬНОСТЬ СВОРАЧИВАНИЯ КАТЕГОРИЙ =====
+document.addEventListener('DOMContentLoaded', function() {
+  const categoriesToggle = document.getElementById('categoriesToggle');
+  const categoriesContainer = document.getElementById('categoriesContainer');
+  const toggleText = categoriesToggle?.querySelector('.toggle-text');
+  
+  if (!categoriesToggle || !categoriesContainer || !toggleText) return;
+  
+  // Проверяем сохраненное состояние
+  const isCollapsed = localStorage.getItem('categories-collapsed') === 'true';
+  
+  if (isCollapsed) {
+    categoriesContainer.classList.add('collapsed');
+    categoriesToggle.classList.add('collapsed');
+    toggleText.textContent = 'Развернуть';
+  }
+  
+  categoriesToggle.addEventListener('click', function() {
+    const isCollapsed = categoriesContainer.classList.contains('collapsed');
+    
+    // Добавляем эффект пульсации кнопки
+    categoriesToggle.classList.add('pulsing');
+    setTimeout(() => categoriesToggle.classList.remove('pulsing'), 600);
+    
+    if (isCollapsed) {
+      // Разворачиваем блок
+      categoriesContainer.classList.remove('collapsed');
+      categoriesToggle.classList.remove('collapsed');
+      toggleText.textContent = 'Свернуть';
+      localStorage.setItem('categories-collapsed', 'false');
+      
+      // Анимация появления
+      categoriesContainer.style.display = 'block';
+      void categoriesContainer.offsetHeight; // Форсируем reflow
+      categoriesContainer.classList.add('expanding');
+      
+      // Убираем класс анимации после завершения
+      setTimeout(() => {
+        categoriesContainer.classList.remove('expanding');
+      }, 800);
+      
+    } else {
+      // Сворачиваем блок
+      categoriesContainer.classList.add('collapsing');
+      categoriesToggle.classList.add('collapsed');
+      toggleText.textContent = 'Развернуть';
+      localStorage.setItem('categories-collapsed', 'true');
+      
+      // Анимация скрытия
+      setTimeout(() => {
+        categoriesContainer.classList.remove('collapsing');
+        categoriesContainer.classList.add('collapsed');
+        categoriesContainer.style.display = 'none';
+      }, 800);
+    }
+  });
+});
