@@ -1,1 +1,208 @@
-{% extends 'base.html' %}{% block title %}Контакти — TwoComms{% endblock %}{% block content %}<div class='card p-4 p-md-5 glass'><h1 class='h4 fw-bold mb-3'>Контакти</h1><p class='text-secondary'>Контактна інформація / форма / карта.</p></div>{% endblock %}
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Контакти — TwoComms{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Hero Section -->
+  <div class="row mb-5">
+    <div class="col-12">
+      <div class="contacts-hero">
+        <div class="hero-background">
+          <div class="hero-gradient"></div>
+          <div class="hero-pattern"></div>
+        </div>
+        
+        <div class="hero-sparkles">
+          <div class="sparkle sparkle-1"></div>
+          <div class="sparkle sparkle-2"></div>
+          <div class="sparkle sparkle-3"></div>
+          <div class="sparkle sparkle-4"></div>
+          <div class="sparkle sparkle-5"></div>
+          <div class="sparkle sparkle-6"></div>
+        </div>
+
+        <div class="hero-content">
+          <div class="hero-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+          </div>
+          <h1 class="hero-title">Контакти</h1>
+          <p class="hero-subtitle">
+            Зв'яжіться з нами будь-яким зручним способом
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contact Methods -->
+  <div class="row mb-5">
+    <div class="col-12">
+      <div class="contact-methods">
+        <div class="contact-method">
+          <div class="method-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+            </svg>
+          </div>
+          <div class="method-content">
+            <h3 class="method-title">Телефон</h3>
+            <div class="phone-container">
+              <button id="show-phone-btn" class="show-phone-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                Показати телефон
+              </button>
+              <a id="phone-number" href="tel:+380966543212" class="phone-number" style="display: none;">
+                +38 (096) 654-32-12
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div class="contact-method">
+          <div class="method-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+          </div>
+          <div class="method-content">
+            <h3 class="method-title">Telegram</h3>
+            <a href="https://t.me/twocomms" class="contact-link" target="_blank">
+              @twocomms
+            </a>
+          </div>
+        </div>
+
+        <div class="contact-method">
+          <div class="method-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+            </svg>
+          </div>
+          <div class="method-content">
+            <h3 class="method-title">Instagram</h3>
+            <a href="https://instagram.com/twocomms" class="contact-link" target="_blank">
+              @twocomms
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Store Locations -->
+  <div class="row mb-5">
+    <div class="col-12">
+      <div class="store-locations">
+        <div class="locations-header">
+          <h2 class="locations-title">Наші магазини</h2>
+          <p class="locations-subtitle">
+            Відвідайте наші партнерські магазини
+          </p>
+        </div>
+        
+        <div class="locations-grid">
+          <div class="location-card">
+            <div class="location-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+              </svg>
+            </div>
+            <div class="location-content">
+              <h3 class="location-title">Магазин №1</h3>
+              <p class="location-address blurred">
+                вул. Хрещатик, 22<br>
+                Київ, 01001
+              </p>
+              <div class="location-hours">
+                <span class="hours-label">Графік роботи:</span>
+                <span class="hours-time">Пн-Нд: 10:00 - 22:00</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="location-card">
+            <div class="location-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+              </svg>
+            </div>
+            <div class="location-content">
+              <h3 class="location-title">Магазин №2</h3>
+              <p class="location-address blurred">
+                пр. Соборний, 15<br>
+                Львів, 79000
+              </p>
+              <div class="location-hours">
+                <span class="hours-label">Графік роботи:</span>
+                <span class="hours-time">Пн-Нд: 10:00 - 22:00</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contact Form -->
+  <div class="row">
+    <div class="col-12">
+      <div class="contact-form-section">
+        <div class="form-header">
+          <h2 class="form-title">Написати нам</h2>
+          <p class="form-subtitle">
+            Маєте питання? Залиште повідомлення і ми зв'яжемося з вами
+          </p>
+        </div>
+        
+        <form class="contact-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="name" class="form-label">Ім'я</label>
+              <input type="text" id="name" name="name" class="form-input" required>
+            </div>
+            <div class="form-group">
+              <label for="email" class="form-label">Email</label>
+              <input type="email" id="email" name="email" class="form-input" required>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="subject" class="form-label">Тема</label>
+            <input type="text" id="subject" name="subject" class="form-input" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="message" class="form-label">Повідомлення</label>
+            <textarea id="message" name="message" class="form-textarea" rows="5" required></textarea>
+          </div>
+          
+          <button type="submit" class="submit-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+            </svg>
+            Надіслати повідомлення
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const showPhoneBtn = document.getElementById('show-phone-btn');
+  const phoneNumber = document.getElementById('phone-number');
+  
+  showPhoneBtn.addEventListener('click', function() {
+    phoneNumber.style.display = 'inline-block';
+    showPhoneBtn.style.display = 'none';
+  });
+});
+</script>
+{% endblock %}

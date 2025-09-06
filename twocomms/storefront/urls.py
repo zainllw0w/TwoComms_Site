@@ -63,6 +63,10 @@ urlpatterns=[
     path('admin-panel/offline-store/<int:pk>/edit/', views.admin_offline_store_edit, name='admin_offline_store_edit'),
     path('admin-panel/offline-store/<int:pk>/toggle/', views.admin_offline_store_toggle, name='admin_offline_store_toggle'),
     path('admin-panel/offline-store/<int:pk>/delete/', views.admin_offline_store_delete, name='admin_offline_store_delete'),
+    # print proposals
+    path('admin-panel/print-proposal/update-status/', views.admin_print_proposal_update_status, name='admin_print_proposal_update_status'),
+    path('admin-panel/print-proposal/award-points/', views.admin_print_proposal_award_points, name='admin_print_proposal_award_points'),
+    path('admin-panel/print-proposal/award-promocode/', views.admin_print_proposal_award_promocode, name='admin_print_proposal_award_promocode'),
     # promocodes in cart
     path('cart/apply-promo/', views.apply_promo_code, name='apply_promo_code'),
     path('cart/remove-promo/', views.remove_promo_code, name='remove_promo_code'),
@@ -74,6 +78,7 @@ urlpatterns=[
     # dev helper
     path('dev/grant-admin/', views.dev_grant_admin, name='dev_grant_admin'),
     # static pages
+    path('add-print/', views.add_print, name='add_print'),
     path('cooperation/', views.cooperation, name='cooperation'),
     path('about/', views.about, name='about'),
     path('contacts/', views.contacts, name='contacts'),

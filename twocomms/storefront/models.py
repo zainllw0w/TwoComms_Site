@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 class Category(models.Model):
     name=models.CharField(max_length=100, unique=True)
@@ -6,8 +7,43 @@ class Category(models.Model):
     icon=models.ImageField(upload_to='category_icons/', blank=True, null=True)
     cover=models.ImageField(upload_to='category_covers/', blank=True, null=True)
     order=models.PositiveIntegerField(default=0)
+    description=models.TextField(blank=True, null=True)
+    is_active=models.BooleanField(default=True)
+    is_featured=models.BooleanField(default=False)
     class Meta: ordering=['order','name']
     def __str__(self): return self.name
+
+
+class PrintProposal(models.Model):
+    """Заявка пользователя на предложенный принт"""
+    STATUS_CHOICES = [
+        ("pending", "На розгляді"),
+        ("approved", "Схвалено"),
+        ("rejected", "Відхилено"),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="print_proposals", verbose_name="Користувач")
+    image = models.ImageField(upload_to="print_proposals/", blank=True, null=True, verbose_name="Зображення")
+    link_url = models.URLField(blank=True, verbose_name="Посилання на зображення")
+    description = models.TextField(blank=True, verbose_name="Опис / примітки")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending", verbose_name="Статус")
+    awarded_points = models.PositiveIntegerField(default=0, verbose_name="Нараховані бали")
+    awarded_promocode = models.ForeignKey(
+        "storefront.PromoCode", on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Промокод"
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Оновлено")
+
+    class Meta:
+        verbose_name = "Пропозиція принта"
+        verbose_name_plural = "Пропозиції принтів"
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        base = f"{self.user.username} — {self.get_status_display()}"
+        if self.awarded_points:
+            base += f" (+{self.awarded_points} б.)"
+        return base
 
 class Product(models.Model):
     title=models.CharField(max_length=200)

@@ -11,6 +11,7 @@
       <ul class='navbar-nav me-auto mb-2 mb-lg-0'>
         <li class='nav-item'><a class='nav-link' href='{% url 'catalog' %}'>Каталог</a></li>
         <li class='nav-item'><a class='nav-link' href='{% url 'favorites' %}'>Обрані товари</a></li>
+        <li class='nav-item'><a class='nav-link' href='{% url 'cooperation' %}'>Співпраця</a></li>
         <li class='nav-item'><a class='nav-link' href='{% url 'about' %}'>Про бренд</a></li>
         <li class='nav-item'><a class='nav-link' href='{% url 'contacts' %}'>Контакти</a></li>
       </ul>
@@ -18,9 +19,14 @@
         <input class='form-control form-control-sm bg-elevate' type='search' name='q' placeholder='Пошук…'>
       </form>
       <div class='d-flex align-items-center gap-2 position-relative'>
-        <a class='btn btn-sm btn-outline-light' href='{% url 'cooperation' %}'>Запропонувати принт</a>
+        <a class='btn btn-sm btn-gradient-suggest' href='{% url 'add_print' %}'>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="me-1">
+            <path d="M19 15v4H5v-4H3v4c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2v-4h-2zM11 8.414V20h2V8.414l3.293 3.293 1.414-1.414L12 4.586 6.293 10.293l1.414 1.414L11 8.414z"/>
+          </svg>
+          Запропонувати принт
+        </a>
         <!-- Контейнер корзины -->
-        <div class="cart-container position-relative">
+        <div class="cart-container position-relative d-none d-lg-block" style="display: none !important;" data-mobile-hide="true">
           <button id="cart-toggle" type="button" class="cart-btn">
             <div class="cart-icon-wrapper">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="cart-icon">
@@ -111,7 +117,7 @@
           </div>
         </div>
         <!-- Аватар/профіль -->
-        <div class="user-profile-container position-relative">
+        <div class="user-profile-container position-relative d-none d-lg-block" style="display: none !important;" data-mobile-hide="true">
           <button id="user-toggle" type="button" class="user-avatar-btn">
             <div class="avatar-wrapper">
               {% if request.user.is_authenticated and request.user.userprofile and request.user.userprofile.avatar %}
@@ -413,3 +419,43 @@
     </div>
   </div>
 </div>
+
+<script>
+// Force hide cart and profile on mobile
+document.addEventListener('DOMContentLoaded', function() {
+  function hideOnMobile() {
+    const cartContainer = document.querySelector('.cart-container[data-mobile-hide="true"]');
+    const profileContainer = document.querySelector('.user-profile-container[data-mobile-hide="true"]');
+    
+    if (window.innerWidth <= 991.98) {
+      if (cartContainer) {
+        cartContainer.style.display = 'none';
+        cartContainer.style.visibility = 'hidden';
+        cartContainer.style.opacity = '0';
+      }
+      if (profileContainer) {
+        profileContainer.style.display = 'none';
+        profileContainer.style.visibility = 'hidden';
+        profileContainer.style.opacity = '0';
+      }
+    } else {
+      if (cartContainer) {
+        cartContainer.style.display = '';
+        cartContainer.style.visibility = '';
+        cartContainer.style.opacity = '';
+      }
+      if (profileContainer) {
+        profileContainer.style.display = '';
+        profileContainer.style.visibility = '';
+        profileContainer.style.opacity = '';
+      }
+    }
+  }
+  
+  // Run on load
+  hideOnMobile();
+  
+  // Run on resize
+  window.addEventListener('resize', hideOnMobile);
+});
+</script>
