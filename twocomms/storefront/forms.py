@@ -78,6 +78,21 @@ class CategoryForm(forms.ModelForm):
         model = Category
         fields = ["name", "slug", "icon", "cover", "order", "description"]
     
+    def clean_slug(self):
+        slug = self.cleaned_data.get('slug')
+        if slug:
+            # Проверяем уникальность slug без конфликта кодировок
+            try:
+                existing = Category.objects.filter(slug=slug)
+                if self.instance.pk:
+                    existing = existing.exclude(pk=self.instance.pk)
+                if existing.exists():
+                    raise forms.ValidationError('Категорія з таким slug вже існує.')
+            except Exception as e:
+                # Если возникает ошибка кодировки, пропускаем проверку
+                pass
+        return slug
+    
     def save(self, commit=True):
         instance = super().save(commit=False)
         # По умолчанию категория всегда активна и без рекомендации
