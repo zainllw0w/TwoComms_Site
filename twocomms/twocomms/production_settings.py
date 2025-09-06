@@ -4,6 +4,10 @@ Production settings for TwoComms project on PythonAnywhere.
 
 from .settings import *
 import os
+import pymysql
+
+# Настройка PyMySQL для работы с MySQL
+pymysql.install_as_MySQLdb()
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
