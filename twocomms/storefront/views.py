@@ -431,6 +431,7 @@ def add_product(request):
             'is_new': True
         })
 
+@login_required
 def add_category(request):
     if request.method=='POST':
         form = CategoryForm(request.POST, request.FILES)
