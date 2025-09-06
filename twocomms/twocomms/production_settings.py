@@ -43,10 +43,10 @@ if _csrf_origins_env:
     CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins_env.split(',') if o.strip()]
 else:
     # Если явно не задано, формируем из ALLOWED_HOSTS (для доменных имён)
-    CSRF_TRUSTED_ORIGINS = [
-        f"https://{h}" for h in ALLOWED_HOSTS
-        if h not in ('localhost', '127.0.0.1') and not h.startswith('*')
-    ]
+    CSRF_TRUSTED_ORIGINS = []
+    for h in ALLOWED_HOSTS:
+        if h not in ('localhost', '127.0.0.1') and not h.startswith('*'):
+            CSRF_TRUSTED_ORIGINS.extend([f"http://{h}", f"https://{h}"])
 
 # База данных: выбираем по DB_ENGINE (mysql | postgresql), иначе SQLite как фолбэк
 DB_ENGINE = os.environ.get('DB_ENGINE', '').lower()
