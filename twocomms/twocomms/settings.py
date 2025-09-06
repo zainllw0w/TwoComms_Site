@@ -189,3 +189,27 @@ MEDIA_ROOT = BASE_DIR / "media"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Настройки безопасности для SSL
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+
+# Настройки сессий (временно смягчены для диагностики)
+SESSION_COOKIE_SECURE = False  # Временно отключено для диагностики
+CSRF_COOKIE_SECURE = False     # Временно отключено для диагностики
+
+# Дополнительные настройки безопасности для HTTPS (временно отключены)
+SECURE_SSL_REDIRECT = False    # Временно отключено для диагностики
+# SECURE_HSTS_SECONDS = 31536000 # Временно отключено
+# SECURE_HSTS_INCLUDE_SUBDOMAINS = True # Временно отключено
+# SECURE_HSTS_PRELOAD = True # Временно отключено
+# SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https') # Временно отключено
+
+# CSRF настройки
+CSRF_TRUSTED_ORIGINS = [
+    'https://twocomms.shop',
+    'https://www.twocomms.shop',
+    'https://twocomms.pythonanywhere.com',
+]
