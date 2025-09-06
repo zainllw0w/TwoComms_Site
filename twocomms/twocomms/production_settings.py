@@ -124,10 +124,18 @@ STATICFILES_DIRS = [
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
 # Настройки сессий
-SESSION_COOKIE_SECURE = False  # Установите True если используете HTTPS
-CSRF_COOKIE_SECURE = False     # Установите True если используете HTTPS
+SESSION_COOKIE_SECURE = True   # Обязательно для HTTPS
+CSRF_COOKIE_SECURE = True      # Обязательно для HTTPS
+
+# Дополнительные настройки безопасности для HTTPS
+SECURE_SSL_REDIRECT = True     # Перенаправление HTTP на HTTPS
+SECURE_HSTS_SECONDS = 31536000 # HTTP Strict Transport Security
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Настройки логирования
 LOGGING = {
