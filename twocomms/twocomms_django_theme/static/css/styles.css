@@ -19026,3 +19026,29 @@ input[type="file"].form-control:hover {
     justify-content: center;
   }
 }
+
+/* Print Hero Styles */
+.print-hero{min-height:120px; background:linear-gradient(135deg, rgba(17,17,24,.8), rgba(10,10,16,.9)); border:1px solid rgba(124,58,237,.2);}
+.hero-logo{flex-shrink:0; width:60px; height:60px; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg, rgba(124,58,237,.1), rgba(124,58,237,.2)); border-radius:16px; border:1px solid rgba(124,58,237,.3);}
+.logo-img{width:40px; height:40px; filter:brightness(1.2);}
+.hero-actions{flex-shrink:0; display:flex; gap:.5rem; flex-wrap:wrap;}
+.hero-actions .btn{font-size:.85rem; padding:.4rem .8rem;}
+
+.hero-badge{background:linear-gradient(135deg,var(--accent-color),#7c3aed); color:#fff; display:inline-flex; align-items:center; gap:.4rem; font-size:.8rem; padding:.3rem .7rem;}
+.sparkles{position:absolute; inset:0; pointer-events:none;}
+.spark{position:absolute; width:4px; height:4px; background:radial-gradient(circle,#fff,rgba(255,255,255,.3)); border-radius:50%; animation:spark 8s linear infinite;}
+.spark.s1{top:15%; left:10%; animation-delay:0s}
+.spark.s2{top:25%; right:15%; animation-delay:2s}
+.spark.s3{bottom:20%; left:20%; animation-delay:4s}
+.spark.s4{bottom:15%; right:20%; animation-delay:6s}
+.spark.s5{top:60%; left:50%; animation-delay:1s}
+.spark.s6{top:40%; right:40%; animation-delay:3s}
+@keyframes spark{0%{transform:translateY(0) scale(1); opacity:.6} 50%{transform:translateY(-6px) scale(1.2); opacity:.9} 100%{transform:translateY(0) scale(1); opacity:.4}}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .print-hero .d-flex{flex-direction:column; align-items:flex-start!important; gap:1rem!important;}
+  .hero-logo{width:50px; height:50px;}
+  .logo-img{width:32px; height:32px;}
+  .hero-actions{width:100%; justify-content:flex-start;}
+}
