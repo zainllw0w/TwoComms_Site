@@ -15,7 +15,13 @@ document.addEventListener('DOMContentLoaded',()=>{
       const grid = entry.target;
       const ordered = Array.from(grid.querySelectorAll('.stagger-item'));
 
-      const step = 0; // без каскада на первой отрисовке, чтобы исключить дёргание
+      // Мягкий каскад без дёрганий: шаг зависит от числа карточек,
+      // отключается при reduced motion/перф-лайт
+      const count = ordered.length || 1;
+      const step = (prefersReducedMotion || PERF_LITE)
+        ? 0
+        : Math.max(50, Math.min(110, Math.floor(900 / count)));
+      try{ if(window.equalizeCardHeights) window.equalizeCardHeights(); }catch(_){ }
       ordered.forEach((el,i)=>{
         el.style.setProperty('--d', (i*step)+'ms'); // дублируем задержку в CSS (на всякий)
         setTimeout(()=>{ 
