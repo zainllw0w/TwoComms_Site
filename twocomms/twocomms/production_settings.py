@@ -109,15 +109,31 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # ===== ОПТИМИЗАЦИИ ДЛЯ ПРОДАКШЕНА =====
 
-# Кэширование шаблонов (только для продакшена)
-if not DEBUG:
-    TEMPLATES[0]['OPTIONS']['loaders'] = [
-        ('django.template.loaders.cached.Loader', [
-            'django.template.loaders.filesystem.Loader',
-            'django.template.loaders.app_directories.Loader',
-        ]),
-    ]
-    TEMPLATES[0]['APP_DIRS'] = False
+# Кэширование
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+        'TIMEOUT': 300,  # 5 минут
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,
+            'CULL_FREQUENCY': 3,
+        }
+    }
+}
+
+# Кэширование сессий
+SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
+SESSION_CACHE_ALIAS = 'default'
+
+# Кэширование шаблонов
+TEMPLATES[0]['OPTIONS']['loaders'] = [
+    ('django.template.loaders.cached.Loader', [
+        'django.template.loaders.filesystem.Loader',
+        'django.template.loaders.app_directories.Loader',
+    ]),
+]
+TEMPLATES[0]['APP_DIRS'] = False
 
 # Настройки сжатия статических файлов
 STATICFILES_FINDERS = [
@@ -137,34 +153,6 @@ COMPRESS_JS_FILTERS = [
 ]
 COMPRESS_CSS_HASHING_METHOD = 'content'
 COMPRESS_JS_HASHING_METHOD = 'content'
-
-# Оптимизация кэширования (заменяем предыдущие настройки)
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',  # Используем LocMem для совместимости
-        'LOCATION': 'unique-snowflake',
-        'TIMEOUT': 300,
-        'OPTIONS': {
-            'MAX_ENTRIES': 1000,
-            'CULL_FREQUENCY': 3,
-        }
-    }
-}
-
-# Настройки сессий
-SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
-SESSION_CACHE_ALIAS = 'default'
-SESSION_COOKIE_AGE = 86400
-SESSION_SAVE_EVERY_REQUEST = False
-
-# Оптимизация базы данных
-if 'default' in DATABASES:
-    DATABASES['default']['CONN_MAX_AGE'] = 60
-    if 'OPTIONS' in DATABASES['default']:
-        DATABASES['default']['OPTIONS']['init_command'] = "SET sql_mode='STRICT_TRANS_TABLES'"
-
-# Middleware для оптимизации (будет добавлен динамически)
-# MIDDLEWARE.insert(0, 'storefront.views_performance.PerformanceMiddleware')
 
 # Настройки для правильной работы медиа-файлов на PythonAnywhere
 MEDIAFILES_DIRS = [
