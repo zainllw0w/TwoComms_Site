@@ -20837,3 +20837,82 @@ input[type="file"].form-control:hover {
   .logo-img{width:32px; height:32px;}
   .hero-actions{width:100%; justify-content:flex-start;}
 }
+
+/* Стили для кнопки "Показать еще" */
+#load-more-container {
+  margin-top: 2rem;
+}
+
+#load-more-btn {
+  background: linear-gradient(135deg, 
+    rgba(139, 92, 246, 0.1) 0%,
+    rgba(99, 102, 241, 0.05) 50%,
+    rgba(59, 130, 246, 0.1) 100%
+  );
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  color: var(--tc-text);
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  box-shadow: 
+    0 4px 15px rgba(139, 92, 246, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+#load-more-btn:hover {
+  background: linear-gradient(135deg, 
+    rgba(139, 92, 246, 0.2) 0%,
+    rgba(99, 102, 241, 0.1) 50%,
+    rgba(59, 130, 246, 0.2) 100%
+  );
+  border-color: rgba(139, 92, 246, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 8px 25px rgba(139, 92, 246, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+#load-more-btn:active {
+  transform: translateY(0);
+  box-shadow: 
+    0 4px 15px rgba(139, 92, 246, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+#load-more-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+#load-more-btn .btn-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#load-more-btn .spinner-border-sm {
+  width: 1rem;
+  height: 1rem;
+  border-width: 0.1em;
+}
+
+/* Анимация появления новых карточек */
+.product-card-wrap.animated {
+  animation: fadeInUp 0.6s ease forwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

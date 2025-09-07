@@ -232,21 +232,43 @@
     </div>
   </div>
 </section>
-<section class="mb-4 mb-md-5 reveal"><div class="d-flex justify-content-between align-items-end mb-3"><h2 class="h5 mb-0">Новинки</h2></div><div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4" data-stagger-grid>{% for p in products %}
-<div class="product-card-wrap">
-  {% include "partials/product_card.html" with p=p stagger=True %}
-  {% if p.colors_preview %}
-  <div class="product-card-dots">
-    <span class="text-secondary small me-1">Кольори:</span>
-    <div class="d-flex align-items-center gap-1">
-      {% for v in p.colors_preview %}
-        <span class="color-dot" title="{{ v.primary_hex }}{% if v.secondary_hex %}+{{ v.secondary_hex }}{% endif %}" style="--c1: {{ v.primary_hex }}; --c2: {{ v.secondary_hex|default:'' }};"></span>
-      {% endfor %}
+<section class="mb-4 mb-md-5 reveal" id="new-products-section">
+  <div class="d-flex justify-content-between align-items-end mb-3">
+    <h2 class="h5 mb-0">Новинки</h2>
+  </div>
+  
+  <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4" data-stagger-grid id="products-container">
+    {% for p in products %}
+    <div class="product-card-wrap">
+      {% include "partials/product_card.html" with p=p stagger=True %}
+      {% if p.colors_preview %}
+      <div class="product-card-dots">
+        <span class="text-secondary small me-1">Кольори:</span>
+        <div class="d-flex align-items-center gap-1">
+          {% for v in p.colors_preview %}
+            <span class="color-dot" title="{{ v.primary_hex }}{% if v.secondary_hex %}+{{ v.secondary_hex }}{% endif %}" style="--c1: {{ v.primary_hex }}; --c2: {{ v.secondary_hex|default:'' }};"></span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
     </div>
+    {% empty %}
+    <div class="text-secondary small">Немає товарів.</div>
+    {% endfor %}
+  </div>
+  
+  {% if has_more_products %}
+  <div class="text-center mt-4" id="load-more-container">
+    <button class="btn btn-outline-primary" id="load-more-btn" data-page="2">
+      <span class="btn-text">Показать еще</span>
+      <span class="btn-spinner d-none">
+        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+        Загрузка...
+      </span>
+    </button>
   </div>
   {% endif %}
-</div>
-{% empty %}<div class="text-secondary small">Немає товарів.</div>{% endfor %}</div></section>
+</section>
 
 <script>
 // Функция для выравнивания карточек товаров по высоте
@@ -302,5 +324,72 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Выравниваем карточки каждые 2 секунды для динамического контента
 setInterval(equalizeCardHeights, 2000);
+
+  // ===== ФУНКЦИОНАЛЬНОСТЬ ЗАГРУЗКИ ДОПОЛНИТЕЛЬНЫХ ТОВАРОВ =====
+  document.addEventListener('DOMContentLoaded', function() {
+    const loadMoreBtn = document.getElementById('load-more-btn');
+    const productsContainer = document.getElementById('products-container');
+    const loadMoreContainer = document.getElementById('load-more-container');
+    
+    if (!loadMoreBtn || !productsContainer) return;
+    
+    loadMoreBtn.addEventListener('click', function() {
+      const currentPage = parseInt(this.getAttribute('data-page'));
+      const btnText = this.querySelector('.btn-text');
+      const btnSpinner = this.querySelector('.btn-spinner');
+      
+      // Показываем спиннер
+      btnText.classList.add('d-none');
+      btnSpinner.classList.remove('d-none');
+      this.disabled = true;
+      
+      // Отправляем AJAX запрос
+      fetch(`/load-more-products/?page=${currentPage}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.html) {
+            // Добавляем новые товары в контейнер
+            productsContainer.insertAdjacentHTML('beforeend', data.html);
+            
+            // Обновляем номер страницы
+            this.setAttribute('data-page', currentPage + 1);
+            
+            // Если больше нет товаров, скрываем кнопку
+            if (!data.has_more) {
+              loadMoreContainer.style.display = 'none';
+            }
+            
+            // Запускаем анимацию появления для новых карточек
+            const newCards = productsContainer.querySelectorAll('.product-card-wrap:not(.animated)');
+            newCards.forEach((card, index) => {
+              card.classList.add('animated');
+              setTimeout(() => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                card.style.transition = 'all 0.6s ease';
+                setTimeout(() => {
+                  card.style.opacity = '1';
+                  card.style.transform = 'translateY(0)';
+                }, 50);
+              }, index * 100);
+            });
+          }
+        })
+        .catch(error => {
+          console.error('Ошибка загрузки товаров:', error);
+          // Показываем сообщение об ошибке
+          const errorDiv = document.createElement('div');
+          errorDiv.className = 'alert alert-warning mt-3';
+          errorDiv.textContent = 'Произошла ошибка при загрузке товаров. Попробуйте еще раз.';
+          loadMoreContainer.appendChild(errorDiv);
+        })
+        .finally(() => {
+          // Скрываем спиннер
+          btnText.classList.remove('d-none');
+          btnSpinner.classList.add('d-none');
+          this.disabled = false;
+        });
+    });
+  });
 </script>
 {% endblock %}
