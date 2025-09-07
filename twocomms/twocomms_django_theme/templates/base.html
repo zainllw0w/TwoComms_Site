@@ -15,8 +15,8 @@
   <link rel="canonical" href="{% block canonical %}{{ request.build_absolute_uri }}{% endblock %}">
   
   <!-- Open Graph Meta Tags -->
-  <meta property="og:title" content="{% block og_title %}{% block title %}TwoComms — магазин{% endblock %}{% endblock %}">
-  <meta property="og:description" content="{% block og_description %}{% block description %}TwoComms - магазин стріт & мілітарі одягу. Футболки, худі, лонгсліви з ексклюзивним дизайном.{% endblock %}{% endblock %}">
+  <meta property="og:title" content="{% block og_title %}TwoComms — магазин{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}TwoComms - магазин стріт & мілітарі одягу. Футболки, худі, лонгсліви з ексклюзивним дизайном.{% endblock %}">
   <meta property="og:type" content="{% block og_type %}website{% endblock %}">
   <meta property="og:url" content="{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}">
   <meta property="og:image" content="{% block og_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/og-image.jpg' %}{% endblock %}">
@@ -25,8 +25,8 @@
   
   <!-- Twitter Card Meta Tags -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="{% block twitter_title %}{% block title %}TwoComms — магазин{% endblock %}{% endblock %}">
-  <meta name="twitter:description" content="{% block twitter_description %}{% block description %}TwoComms - магазин стріт & мілітарі одягу.{% endblock %}{% endblock %}">
+  <meta name="twitter:title" content="{% block twitter_title %}TwoComms — магазин{% endblock %}">
+  <meta name="twitter:description" content="{% block twitter_description %}TwoComms - магазин стріт & мілітарі одягу.{% endblock %}">
   <meta name="twitter:image" content="{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/og-image.jpg' %}{% endblock %}">
   
   <!-- Performance and Caching -->
