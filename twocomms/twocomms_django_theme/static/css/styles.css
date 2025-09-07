@@ -389,7 +389,7 @@ body::after {
   body::after {
     animation: none;
   }
-}.bg-elevate{background-color:var(--tc-elevate)!important}.hero.bg-hero{border:1px solid rgba(255,255,255,.06);border-radius:1.25rem;background:url('../img/vignette.png') center/cover no-repeat,linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));backdrop-filter:blur(10px) saturate(120%)}.card.product{border:1px solid rgba(255,255,255,.06);background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));border-radius:1.25rem;transition:transform .25s,box-shadow .25s,border-color .25s}
+}.bg-elevate{background-color:var(--tc-elevate)!important}.hero.bg-hero{border:1px solid rgba(255,255,255,.06);border-radius:1.25rem;background:url('../img/vignette.png') center/cover no-repeat,linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));backdrop-filter:blur(8px) saturate(120%)}.card.product{border:1px solid rgba(255,255,255,.06);background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));border-radius:1.25rem;transition:transform .25s,box-shadow .25s,border-color .25s}
 
 /* ВЫРАВНИВАНИЕ КАРТОЧЕК С ПОДДЕРЖКОЙ JAVASCRIPT */
 .row[data-stagger-grid] {
@@ -804,8 +804,8 @@ body::after {
   border: 1px solid rgba(139, 92, 246, 0.2);
   border-radius: 20px;
   padding: 1.5rem;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(139, 92, 246, 0.1);
-  backdrop-filter: blur(30px);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.45), 0 0 32px rgba(139, 92, 246, 0.08);
+  backdrop-filter: blur(18px);
   z-index: 1080;
   opacity: 0;
   visibility: hidden;
@@ -1467,9 +1467,9 @@ body::after {
   margin-bottom: 2rem;
   padding: 1.5rem;
   background: linear-gradient(135deg, rgba(20,22,27,0.95), rgba(10,12,17,0.9));
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.16);
   border-radius: 20px;
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(14px);
   position: relative;
   overflow: hidden;
 }
@@ -1552,7 +1552,7 @@ body::after {
   margin-bottom: 1.5rem;
   padding: 1rem 1.5rem;
   border-radius: 12px;
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(14px);
   position: relative;
   overflow: hidden;
   animation: cartMessageSlideIn 0.5s ease-out;
@@ -1733,7 +1733,7 @@ body::after {
   background: linear-gradient(135deg, rgba(20,22,27,0.95), rgba(10,12,17,0.9));
   border: 1px solid rgba(139, 92, 246, 0.2);
   border-radius: 16px;
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(14px);
   transition: all 0.3s ease;
   overflow: hidden;
   z-index: 1;
@@ -2047,9 +2047,9 @@ body::after {
   padding: 4rem 2rem;
   text-align: center;
   background: linear-gradient(135deg, rgba(20,22,27,0.95), rgba(10,12,17,0.9));
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.16);
   border-radius: 20px;
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(14px);
 }
 
 .cart-empty-icon {
@@ -2111,9 +2111,9 @@ body::after {
   position: relative;
   padding: 1.5rem;
   background: linear-gradient(135deg, rgba(20,22,27,0.95), rgba(10,12,17,0.9));
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.16);
   border-radius: 16px;
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(14px);
   overflow: hidden;
 }
 
@@ -2477,9 +2477,9 @@ body::after {
   position: relative;
   padding: 2rem;
   background: linear-gradient(135deg, rgba(20,22,27,0.98), rgba(10,12,17,0.95));
-  border: 1px solid rgba(139, 92, 246, 0.3);
+  border: 1px solid rgba(139, 92, 246, 0.22);
   border-radius: 20px;
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(14px);
   overflow: hidden;
 }
 
@@ -2856,8 +2856,8 @@ body::after {
   background: linear-gradient(135deg, rgba(15,17,22,0.98), rgba(5,7,12,0.95));
   border: 1px solid rgba(139, 92, 246, 0.15);
   border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 40px rgba(139, 92, 246, 0.05);
-  backdrop-filter: blur(30px);
+  box-shadow: 0 18px 54px rgba(0,0,0,0.55), 0 0 32px rgba(139, 92, 246, 0.05);
+  backdrop-filter: blur(18px);
   margin-bottom: 1rem;
   overflow: hidden;
   transition: all 0.3s ease;
@@ -9766,7 +9766,7 @@ body::after {
 .btn-cta:active {
   transform: translateY(0);
   box-shadow: 0 6px 24px rgba(139,92,246,.4);
-}.bottom-nav{position:fixed;left:0;right:0;bottom:10px;margin:0 auto;width:min(560px,92%);background:rgba(20,22,27,.85);border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(10px) saturate(120%);border-radius:18px;padding:8px;z-index:1030}.bottom-nav .btn{flex:1 1 0;background:transparent;border:none;color:var(--tc-text);opacity:.8}.bottom-nav .btn.active,.bottom-nav .btn:hover{opacity:1}.reveal{opacity:0;transform:translateY(12px);transition:400ms ease}.reveal.visible{opacity:1;transform:none}.reveal-fast{opacity:0;transform:translateY(8px) scale(.98);transition:260ms cubic-bezier(.2,.8,.2,1);will-change:transform,opacity}.reveal-fast.visible{opacity:1;transform:none}
+}.bottom-nav{position:fixed;left:0;right:0;bottom:10px;margin:0 auto;width:min(560px,92%);background:rgba(20,22,27,.86);border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(8px) saturate(120%);border-radius:18px;padding:8px;z-index:1030}.bottom-nav .btn{flex:1 1 0;background:transparent;border:none;color:var(--tc-text);opacity:.8}.bottom-nav .btn.active,.bottom-nav .btn:hover{opacity:1}.reveal{opacity:0;transform:translateY(12px);transition:400ms ease}.reveal.visible{opacity:1;transform:none}.reveal-fast{opacity:0;transform:translateY(8px) scale(.98);transition:260ms cubic-bezier(.2,.8,.2,1);will-change:transform,opacity}.reveal-fast.visible{opacity:1;transform:none}
 /* Поочередное красивое появление карточек — keyframes + индивидуальная задержка */
 @keyframes cardLift {
   0%   { opacity:0; transform:translateY(24px) scale(.94); filter:blur(10px); }
@@ -14600,8 +14600,8 @@ input[type="file"].form-control:hover {
   left: 0;
   right: 0;
   z-index: 1000;
-  background: rgba(13, 14, 17, 0.95);
-  backdrop-filter: blur(20px);
+  background: rgba(13, 14, 17, 0.94);
+  backdrop-filter: blur(8px);
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   padding: 0.75rem 0;
   transition: transform 0.28s ease, opacity 0.2s ease;
@@ -14891,8 +14891,8 @@ input[type="file"].form-control:hover {
   background: linear-gradient(135deg, rgba(20,22,27,0.98), rgba(10,12,17,0.95)) !important;
   border: 1px solid rgba(139, 92, 246, 0.2) !important;
   border-bottom: none !important;
-  box-shadow: 0 -20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(139, 92, 246, 0.1) !important;
-  backdrop-filter: blur(30px) !important;
+  box-shadow: 0 -16px 48px rgba(0,0,0,0.45), 0 0 32px rgba(139, 92, 246, 0.08) !important;
+  backdrop-filter: blur(12px) !important;
   transform: translateY(100%);
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex !important;
