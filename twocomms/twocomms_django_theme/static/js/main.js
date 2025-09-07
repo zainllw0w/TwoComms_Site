@@ -75,12 +75,12 @@ function debounce(fn, wait){
 // Глобальный признак лёгкого режима
 const PERF_LITE = (()=>{ try{ return document.documentElement.classList.contains('perf-lite'); }catch(_){ return false; } })();
 // Отложенное выполнение для тяжёлых операций (если поддерживается)
-const scheduleIdle = (fn)=>{
+function scheduleIdle(fn){
   try{
     if('requestIdleCallback' in window){ return window.requestIdleCallback(fn, {timeout: 400}); }
-  }catch(_){}
+  }catch(_){ }
   return setTimeout(fn, 200);
-};
+}
 let uiEventSeq = 0;
 const nextEvt = ()=> (++uiEventSeq);
 const nowTs = ()=> Date.now();
