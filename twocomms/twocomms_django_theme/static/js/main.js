@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       const grid = entry.target;
       const ordered = Array.from(grid.querySelectorAll('.stagger-item'));
 
-      const step = prefersReducedMotion ? 0 : 190; // шаг задержки между карточками (мс)
+      const step = 0; // без каскада на первой отрисовке, чтобы исключить дёргание
       ordered.forEach((el,i)=>{
         el.style.setProperty('--d', (i*step)+'ms'); // дублируем задержку в CSS (на всякий)
         setTimeout(()=>{ 
@@ -662,17 +662,18 @@ document.addEventListener('DOMContentLoaded', function(){
       const cards = row.querySelectorAll('.card.product');
       if(!cards.length) return;
       cards.forEach(card=>{ card.style.height='auto'; card.style.minHeight='auto'; card.style.maxHeight='none'; });
-      setTimeout(()=>{
+      const applyHeights = ()=>{
         let maxHeight = 0;
         cards.forEach(card=>{ const h = card.offsetHeight; if(h>maxHeight) maxHeight=h; });
         cards.forEach(card=>{ card.style.height=maxHeight+'px'; card.style.minHeight=maxHeight+'px'; card.style.maxHeight=maxHeight+'px'; });
-      }, 50);
+      };
+      if('requestAnimationFrame' in window){ requestAnimationFrame(applyHeights); }
+      else { setTimeout(applyHeights, 0); }
     });
   }
   window.equalizeCardHeights = equalizeCardHeights;
   const debouncedEqualize = debounce(equalizeCardHeights, 120);
-  setTimeout(equalizeCardHeights, 100);
-  window.addEventListener('load', equalizeCardHeights);
+  if('requestAnimationFrame' in window){ requestAnimationFrame(equalizeCardHeights); } else { setTimeout(equalizeCardHeights, 0); }
   window.addEventListener('resize', debouncedEqualize);
   rows.forEach(row=>{
     if('ResizeObserver' in window){
