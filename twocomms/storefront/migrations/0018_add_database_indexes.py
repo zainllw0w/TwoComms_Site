@@ -30,7 +30,7 @@ class Migration(migrations.Migration):
         
         # Индексы для Category
         migrations.RunSQL(
-            "CREATE INDEX IF NOT EXISTS idx_category_order ON storefront_category (\"order\", name);",
+            "CREATE INDEX IF NOT EXISTS idx_category_order ON storefront_category (`order`, name);",
             reverse_sql="DROP INDEX IF EXISTS idx_category_order;"
         ),
         migrations.RunSQL(
