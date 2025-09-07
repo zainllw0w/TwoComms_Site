@@ -593,6 +593,22 @@ body::after {
   min-height: 0 !important;
 }
 
+/* Фиксированная высота названия товара - минимум 2 строки */
+.card.product .product-title {
+  height: 2.4em !important;
+  min-height: 2.4em !important;
+  max-height: 2.4em !important;
+  line-height: 1.2 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+}
+
 /* Принудительное переопределение Bootstrap классов */
 .row[data-stagger-grid] > .product-card-wrap {
   flex: 0 0 calc(50% - 0.25rem) !important;
@@ -9442,6 +9458,14 @@ body::after {
     font-size: 0.85rem !important;
   }
   
+  /* Фиксированная высота названия товара на мобильных */
+  .card.product .product-title {
+    height: 2.2em !important;
+    min-height: 2.2em !important;
+    max-height: 2.2em !important;
+    font-size: 0.85rem !important;
+  }
+  
   .card.product .badge {
     font-size: 0.7rem !important;
     padding: 0.25rem 0.5rem !important;
@@ -9565,6 +9589,14 @@ body::after {
   }
   
   .card.product .fw-semibold {
+    font-size: 0.8rem !important;
+  }
+  
+  /* Фиксированная высота названия товара на очень маленьких экранах */
+  .card.product .product-title {
+    height: 2.0em !important;
+    min-height: 2.0em !important;
+    max-height: 2.0em !important;
     font-size: 0.8rem !important;
   }
   
