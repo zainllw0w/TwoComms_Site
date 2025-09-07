@@ -4,6 +4,7 @@ from django.db.models import Sum
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.cache import cache_page
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -13,6 +14,7 @@ from accounts.models import UserProfile, FavoriteProduct
 from django import forms
 from django.conf import settings
 from django.utils.text import slugify
+from django.core.cache import cache
 
 def unique_slugify(model, base_slug):
     """
@@ -152,12 +154,6 @@ def logout_view(request):
 from django import forms
 
 # --------- AUTH FORMS (минимум, чтобы не плодить новый файл) ---------
-class LoginForm(forms.Form):
-    username = forms.CharField(label="Логін", max_length=150,
-                               widget=forms.TextInput(attrs={"class":"form-control bg-elevate"}))
-    password = forms.CharField(label="Пароль",
-                               widget=forms.PasswordInput(attrs={"class":"form-control bg-elevate"}))
-
 class RegisterForm(forms.Form):
     username = forms.CharField(label="Логін", max_length=150,
                                widget=forms.TextInput(attrs={"class":"form-control bg-elevate"}))
@@ -214,11 +210,13 @@ def logout_view(request):
 
 
 
+@cache_page(300)  # Кэшируем на 5 минут
 def home(request):
-    featured = Product.objects.filter(featured=True).order_by('-id').first()
-    categories = Category.objects.order_by('order','name')
-    # Показываем только первые 8 товаров
-    products = list(Product.objects.order_by('-id')[:8])
+    # Оптимизированные запросы с select_related и prefetch_related
+    featured = Product.objects.select_related('category').filter(featured=True).order_by('-id').first()
+    categories = Category.objects.filter(is_active=True).order_by('order','name')
+    # Показываем только первые 8 товаров с оптимизацией
+    products = list(Product.objects.select_related('category').order_by('-id')[:8])
     # Варіанти кольорів для featured (якщо є додаток і дані)
     featured_variants = []
     # Варіанти кольорів для «Новинок»
@@ -277,8 +275,8 @@ def load_more_products(request):
         # Вычисляем offset
         offset = (page - 1) * per_page
         
-        # Получаем товары для текущей страницы
-        products = list(Product.objects.order_by('-id')[offset:offset + per_page])
+        # Получаем товары для текущей страницы с оптимизацией
+        products = list(Product.objects.select_related('category').order_by('-id')[offset:offset + per_page])
         
         
         # Подготавливаем цвета для товаров
@@ -320,6 +318,7 @@ def load_more_products(request):
     
     return JsonResponse({'error': 'Invalid request'}, status=400)
 
+@cache_page(600)  # Кэшируем каталог на 10 минут
 def catalog(request, cat_slug=None):
     categories = Category.objects.order_by('order','name')
     if cat_slug:
@@ -1427,8 +1426,8 @@ def admin_panel(request):
         ctx.update({'user_data': user_data})
     elif section == 'catalogs':
         from .models import Category, Product
-        categories = Category.objects.order_by('order','name') if hasattr(Category, 'order') else Category.objects.order_by('name')
-        products = Product.objects.order_by('-id')
+        categories = Category.objects.filter(is_active=True).order_by('order','name') if hasattr(Category, 'order') else Category.objects.filter(is_active=True).order_by('name')
+        products = Product.objects.select_related('category').order_by('-id')
         ctx.update({'categories': categories, 'products': products})
     elif section == 'promocodes':
         from .models import PromoCode
@@ -2092,7 +2091,7 @@ def order_success(request, order_id):
 @login_required
 def my_orders(request):
     from orders.models import Order
-    qs = Order.objects.filter(user=request.user).prefetch_related('items','items__product').order_by('-created')
+    qs = Order.objects.filter(user=request.user).prefetch_related('items__product').order_by('-created')
     return render(request, 'pages/my_orders.html', {'orders': qs})
 
 @login_required

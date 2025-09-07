@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% load static %}
+{% extends "base.html" %}{% load static %}{% load cache %}
 
 {% block title %}TwoComms — Стріт & Мілітарі Одяг | Головна{% endblock %}
 
@@ -166,6 +166,7 @@
   </div>
 </section>
 {% endif %}
+{% cache 300 categories_block %}
 <section class="mb-4 mb-md-5 reveal categories-section">
   <!-- Единый блок категорий без разделения -->
   <div class="categories-unified-block">
@@ -265,6 +266,7 @@
     </div>
   </div>
 </section>
+{% endcache %}
 <section class="mb-4 mb-md-5 reveal" id="new-products-section">
   <div class="d-flex justify-content-between align-items-end mb-3">
     <h2 class="h5 mb-0">Новинки</h2>
