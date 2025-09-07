@@ -338,7 +338,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       if(row && placeBefore(row)){ observer.disconnect(); }
     });
     observer.observe(document.body, {childList:true, subtree:true});
-  })();
+  });
 
   // Переносимо блоки з «Кольори» у «Новинках» всередину самої карточки (щоб анімація була єдиною)
   (function(){
