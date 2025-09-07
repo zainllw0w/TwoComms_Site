@@ -1,6 +1,6 @@
 {% load static %}
 <div class="col">
-  <div class="card product h-100 hover-raise glass {% if stagger %}reveal-stagger stagger-item{% else %}reveal-fast{% endif %}">
+  <div class="card product h-100 hover-raise glass">
     <div class="ratio ratio-1x1 rounded-top-4 overflow-hidden bg-elevate position-relative">
       <img
         src="{% if p.display_image %}{{ p.display_image.url }}{% else %}{% static 'img/placeholder.jpg' %}{% endif %}"
