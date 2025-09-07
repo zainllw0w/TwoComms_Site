@@ -39,6 +39,9 @@
   
   <!-- Early performance hint: enable lite mode for save-data/low-memory/low-CPU -->
   <script>(function(){try{var c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;var save=c&&c.saveData;var lowRam=Number(navigator.deviceMemory||0)&&navigator.deviceMemory<=2;var lowCPU=Number(navigator.hardwareConcurrency||0)&&navigator.hardwareConcurrency<=2;if(save||lowRam||lowCPU){document.documentElement.classList.add('perf-lite');}}catch(e){}})();</script>
+  {% if request.user.is_staff or request.user.is_superuser %}
+  <script>(function(){try{localStorage.setItem('perf-debug','1');}catch(e){}})();</script>
+  {% endif %}
   
   <!-- Stylesheets -->
   <link href='{% static 'css/styles.css' %}?v=2025.09.06.012' rel='stylesheet'>
@@ -371,7 +374,7 @@
             {% endif %}
           </div>
 
-<script defer src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js'></script><script defer src='{% static 'js/main.js' %}?v=28'></script><script>
+<script defer src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js'></script><script defer src='{% static 'js/main.js' %}?v=29'></script><script>
 /* Fallback: глобальные функции, если основной JS не заинициализирован */
 (function(){
   var UI_DEBUG = false; try{ UI_DEBUG = localStorage.getItem('ui-debug')==='1'; }catch(_){ UI_DEBUG = false; }
