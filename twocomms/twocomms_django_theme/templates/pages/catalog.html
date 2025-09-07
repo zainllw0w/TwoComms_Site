@@ -1,6 +1,13 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Каталог — TwoComms{% endblock %}
+
+{% block title %}{% if category %}{{ category.name }} — TwoComms{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
+
+{% block description %}{% if category %}Купити {{ category.name|lower }} в TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном. Швидка доставка по Україні.{% else %}Каталог стріт & мілітарі одягу TwoComms. Футболки, худі, лонгсліви з ексклюзивним дизайном. Якісний одяг з характером.{% endif %}{% endblock %}
+
+{% block keywords %}{% if category %}{{ category.name|lower }}, {% endif %}стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, каталог одягу{% endblock %}
+
+{% block og_type %}website{% endblock %}
 
 {% block content %}
 <div class="row g-3 g-md-4">
