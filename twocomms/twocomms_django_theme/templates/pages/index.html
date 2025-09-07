@@ -360,6 +360,11 @@ function equalizeCardHeights() {
   });
 }
 
+// Простой debounce
+function debounce(fn, wait){
+  let t; return function(){ const ctx=this, args=arguments; clearTimeout(t); t=setTimeout(function(){ fn.apply(ctx,args); }, wait); };
+}
+
 // Выполняем выравнивание при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
   // Небольшая задержка для полной загрузки изображений
@@ -369,11 +374,36 @@ document.addEventListener('DOMContentLoaded', function() {
   window.addEventListener('load', equalizeCardHeights);
   
   // Выравниваем при изменении размера окна
-  window.addEventListener('resize', equalizeCardHeights);
+  const debouncedEqualize = debounce(equalizeCardHeights, 120);
+  window.addEventListener('resize', debouncedEqualize);
 });
 
-// Выравниваем карточки каждые 2 секунды для динамического контента
-setInterval(equalizeCardHeights, 2000);
+// Наблюдаем контейнер продуктов и его изменения для динамического контента
+(function(){
+  const productsContainer = document.getElementById('products-container');
+  if(!productsContainer) return;
+  const debouncedEqualize = debounce(equalizeCardHeights, 120);
+  // Подписка на изменения размеров контейнера
+  if(window.ResizeObserver){
+    const ro = new ResizeObserver(()=>debouncedEqualize());
+    ro.observe(productsContainer);
+  }
+  // Подписка на появление новых карточек/изображений
+  const mo = new MutationObserver((mutations)=>{
+    mutations.forEach(m=>{
+      m.addedNodes && m.addedNodes.forEach(node=>{
+        if(node && node.nodeType===1){
+          try{
+            const imgs = node.querySelectorAll ? node.querySelectorAll('img') : [];
+            imgs.forEach(img=> img.addEventListener('load', debouncedEqualize, {once:true}));
+          }catch(_){}
+        }
+      });
+    });
+    debouncedEqualize();
+  });
+  mo.observe(productsContainer, {childList:true, subtree:true});
+})();
 
   // ===== ФУНКЦИОНАЛЬНОСТЬ ЗАГРУЗКИ ДОПОЛНИТЕЛЬНЫХ ТОВАРОВ =====
   document.addEventListener('DOMContentLoaded', function() {
@@ -408,6 +438,8 @@ setInterval(equalizeCardHeights, 2000);
             
             // Запускаем анимацию появления для новых карточек
             animateNewCards();
+            // После добавления контента — пересчёт высот
+            setTimeout(()=>{ try{ equalizeCardHeights(); }catch(_){}} , 200);
             
             // Если больше нет товаров, скрываем кнопку
             if (!data.has_more) {
@@ -428,7 +460,8 @@ setInterval(equalizeCardHeights, 2000);
     
     // Функция для обновления селектора страниц
     function updatePageSelector(currentPage, hasMore) {
-      const totalPages = Math.ceil({{ total_products|default:40 }} / 8);
+      const totalProducts = parseInt('{{ total_products|default:40 }}', 10) || 40;
+      const totalPages = Math.ceil(totalProducts / 8);
       totalPagesSpan.textContent = totalPages;
       
       // Обновляем опции селектора

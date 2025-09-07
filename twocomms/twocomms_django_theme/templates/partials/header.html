@@ -456,6 +456,7 @@ document.addEventListener('DOMContentLoaded', function() {
   hideOnMobile();
   
   // Run on resize
-  window.addEventListener('resize', hideOnMobile);
+  function debounce(fn, wait){ let t; return function(){ const ctx=this, args=arguments; clearTimeout(t); t=setTimeout(function(){ fn.apply(ctx,args); }, wait); }; }
+  window.addEventListener('resize', debounce(hideOnMobile, 120));
 });
 </script>
