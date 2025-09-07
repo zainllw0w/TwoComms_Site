@@ -103,8 +103,8 @@ class PerformanceOptimizer {
     preloadCriticalResources() {
         // Предзагружаем критические изображения
         const criticalImages = [
-            '/static/img/logo.svg',
-            '/static/img/bg_blur_1.png'
+            '/static/img/logo.svg'
+            // bg_blur_1.png убран из preload, так как не используется критически
         ];
 
         criticalImages.forEach(src => {
