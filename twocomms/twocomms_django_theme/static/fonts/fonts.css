@@ -1,26 +1,14 @@
 /* Fallback fonts to avoid 404 errors */
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: local('Inter'), local('Inter-Regular');
-}
 
+/* Inter font with Google Fonts fallback */
 @font-face {
   font-family: 'Inter';
   font-style: normal;
-  font-weight: 600;
+  font-weight: 100 900;
   font-display: swap;
-  src: local('Inter SemiBold'), local('Inter-SemiBold');
-}
-
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: local('Inter Bold'), local('Inter-Bold');
+  src: local('Inter'), local('Inter-Regular'),
+       url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap'),
+       system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 /* Fallback for inter-var.woff2 */
@@ -29,5 +17,22 @@
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
-  src: local('Inter'), local('Inter-Regular');
+  src: local('Inter'), local('Inter-Regular'),
+       system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* CSS variables for font fallbacks */
+:root {
+  --font-inter: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-inter-var: 'Inter Variable', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Apply fallback fonts globally */
+body, html {
+  font-family: var(--font-inter);
+}
+
+/* Specific classes that might use Inter Variable */
+.inter-var, .font-inter-var {
+  font-family: var(--font-inter-var);
 }
