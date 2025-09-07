@@ -1,7 +1,8 @@
 {% comment %}
-Система аналитики и мониторинга для продакшена
+Система аналитики и мониторинга для продакшена - ОТКЛЮЧЕНА
 {% endcomment %}
 
+{% comment %}
 <!-- Google Analytics 4 -->
 {% if not debug %}
 <script async src="https://www.googletagmanager.com/gtag/js?id=GA_MEASUREMENT_ID"></script>
@@ -24,7 +25,9 @@
   });
 </script>
 {% endif %}
+{% endcomment %}
 
+{% comment %}
 <!-- Yandex Metrica -->
 {% if not debug %}
 <script type="text/javascript">
@@ -41,7 +44,9 @@
 </script>
 <noscript><div><img src="https://mc.yandex.ru/watch/YANDEX_METRICA_ID" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
 {% endif %}
+{% endcomment %}
 
+{% comment %}
 <!-- Facebook Pixel -->
 {% if not debug %}
 <script>
@@ -60,7 +65,9 @@
   src="https://www.facebook.com/tr?id=FACEBOOK_PIXEL_ID&ev=PageView&noscript=1"
 /></noscript>
 {% endif %}
+{% endcomment %}
 
+{% comment %}
 <!-- Performance monitoring -->
 <script>
 // Мониторинг производительности
@@ -102,7 +109,9 @@ window.addEventListener('load', function() {
   });
 });
 </script>
+{% endcomment %}
 
+{% comment %}
 <!-- Custom tracking для e-commerce -->
 <script>
 // Функции для отслеживания e-commerce событий
@@ -143,3 +152,4 @@ function trackPurchase(transactionId, value, items) {
   });
 }
 </script>
+{% endcomment %}
