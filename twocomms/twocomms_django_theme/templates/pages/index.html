@@ -257,38 +257,18 @@
     {% endfor %}
   </div>
   
-  <!-- Отладочная информация -->
-  <script>
-    console.log('has_more_products:', {{ has_more_products|yesno:"true,false" }});
-    console.log('current_page:', {{ current_page }});
-  </script>
   
-  <!-- ВРЕМЕННО: Принудительно показываем кнопку для тестирования -->
+  {% if has_more_products %}
   <div class="text-center mt-4" id="load-more-container">
     <button class="btn btn-outline-primary" id="load-more-btn" data-page="2">
-      <span class="btn-text">Показать еще (стр. 2)</span>
+      <span class="btn-text">Показать еще</span>
       <span class="btn-spinner d-none">
         <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
         Загрузка...
       </span>
     </button>
   </div>
-  
-  <!-- Отладочная информация -->
-  <div class="text-center mt-2">
-    <small class="text-muted">
-      has_more_products: {{ has_more_products|yesno:"true,false" }} | 
-      current_page: {{ current_page }} |
-      {% if has_more_products %}Кнопка должна быть видна{% else %}Кнопка скрыта{% endif %}
-    </small>
-  </div>
-  
-  <!-- ТЕСТОВАЯ КНОПКА -->
-  <div class="text-center mt-2">
-    <button class="btn btn-warning btn-sm" id="test-btn">
-      ТЕСТ: Добавить карточку
-    </button>
-  </div>
+  {% endif %}
 </section>
 
 <script>
@@ -348,51 +328,16 @@ setInterval(equalizeCardHeights, 2000);
 
   // ===== ФУНКЦИОНАЛЬНОСТЬ ЗАГРУЗКИ ДОПОЛНИТЕЛЬНЫХ ТОВАРОВ =====
   document.addEventListener('DOMContentLoaded', function() {
-    console.log('=== НАЧАЛО ИНИЦИАЛИЗАЦИИ КНОПКИ ПОКАЗАТЬ ЕЩЕ ===');
-    console.log('DOM загружен, ищем элементы...');
-    
     const loadMoreBtn = document.getElementById('load-more-btn');
     const productsContainer = document.getElementById('products-container');
     const loadMoreContainer = document.getElementById('load-more-container');
     
-    console.log('loadMoreBtn:', loadMoreBtn);
-    console.log('productsContainer:', productsContainer);
-    console.log('loadMoreContainer:', loadMoreContainer);
-    
-    if (!loadMoreBtn) {
-      console.error('КНОПКА НЕ НАЙДЕНА!');
-      return;
-    }
-    
-    if (!productsContainer) {
-      console.error('КОНТЕЙНЕР ТОВАРОВ НЕ НАЙДЕН!');
-      return;
-    }
-    
-    console.log('✅ Все элементы найдены, добавляем обработчик события');
-    console.log('Кнопка видима:', loadMoreBtn.offsetParent !== null);
-    console.log('Кнопка отображается:', loadMoreBtn.style.display !== 'none');
-    
-    // Добавляем тестовую кнопку
-    const testBtn = document.getElementById('test-btn');
-    if (testBtn) {
-      testBtn.addEventListener('click', function() {
-        console.log('ТЕСТОВАЯ КНОПКА НАЖАТА!');
-        const testCard = document.createElement('div');
-        testCard.className = 'product-card-wrap';
-        testCard.innerHTML = '<div class="card product"><div class="card-body"><h5>ТЕСТОВАЯ КАРТОЧКА</h5><p>Это тестовая карточка для проверки</p></div></div>';
-        productsContainer.appendChild(testCard);
-        console.log('Тестовая карточка добавлена');
-      });
-    }
+    if (!loadMoreBtn || !productsContainer) return;
     
     loadMoreBtn.addEventListener('click', function() {
-      console.log('Кнопка "Показать еще" нажата!');
       const currentPage = parseInt(this.getAttribute('data-page'));
       const btnText = this.querySelector('.btn-text');
       const btnSpinner = this.querySelector('.btn-spinner');
-      
-      console.log('Текущая страница:', currentPage);
       
       // Показываем спиннер
       btnText.classList.add('d-none');
@@ -400,39 +345,15 @@ setInterval(equalizeCardHeights, 2000);
       this.disabled = true;
       
       // Отправляем AJAX запрос
-      console.log('Загружаем страницу:', currentPage);
       fetch(`/load-more-products/?page=${currentPage}`)
-        .then(response => {
-          console.log('Ответ сервера:', response.status);
-          return response.json();
-        })
+        .then(response => response.json())
         .then(data => {
-          console.log('Данные от сервера:', data);
           if (data.html && data.html.trim() !== '') {
-            console.log('HTML не пустой, добавляем товары');
-            console.log('HTML длина:', data.html.length);
-            console.log('HTML превью:', data.html.substring(0, 200));
-            
             // Добавляем новые товары в контейнер
             productsContainer.insertAdjacentHTML('beforeend', data.html);
             
-            console.log('HTML добавлен в контейнер');
-            
             // Обновляем номер страницы
             this.setAttribute('data-page', currentPage + 1);
-            console.log('Обновлен data-page на:', currentPage + 1);
-            
-            // Обновляем отладочную информацию на странице
-            const debugInfo = document.querySelector('.text-muted');
-            if (debugInfo) {
-              debugInfo.textContent = `has_more_products: true | current_page: ${currentPage + 1} | Кнопка должна быть видна`;
-            }
-            
-            // Обновляем текст кнопки
-            const btnText = this.querySelector('.btn-text');
-            if (btnText) {
-              btnText.textContent = `Показать еще (стр. ${currentPage + 1})`;
-            }
             
             // Если больше нет товаров, скрываем кнопку
             if (!data.has_more) {
@@ -442,9 +363,6 @@ setInterval(equalizeCardHeights, 2000);
             // Запускаем красивую анимацию появления для новых карточек
             const allCards = productsContainer.querySelectorAll('.product-card-wrap');
             const newCards = Array.from(allCards).slice(-8); // Берем последние 8 карточек (новые)
-            
-            console.log('Найдено новых карточек:', newCards.length);
-            console.log('Всего карточек в контейнере:', allCards.length);
             
             // Убираем классы анимации и запускаем красивую анимацию
             newCards.forEach((card, index) => {
@@ -466,11 +384,9 @@ setInterval(equalizeCardHeights, 2000);
               setTimeout(() => {
                 card.style.opacity = '1';
                 card.style.transform = 'translateY(0) scale(1)';
-                console.log(`Анимация карточки ${index + 1} запущена`);
-              }, index * 120); // Уменьшил задержку для более быстрой анимации
+              }, index * 120);
             });
           } else {
-            console.log('HTML пустой или нет товаров');
             // Если HTML пустой, скрываем кнопку
             loadMoreContainer.style.display = 'none';
           }
