@@ -257,37 +257,31 @@
     {% endfor %}
   </div>
   
-  <!-- Отладочная информация -->
-  <script>
-    console.log('has_more_products:', {{ has_more_products|yesno:"true,false" }});
-    console.log('current_page:', {{ current_page }});
-  </script>
-  
-  <!-- ВРЕМЕННО: Принудительно показываем кнопку для тестирования -->
+  {% if has_more_products %}
   <div class="text-center mt-4" id="load-more-container">
     <button class="btn btn-outline-primary" id="load-more-btn" data-page="2">
-      <span class="btn-text">Показать еще (ТЕСТ)</span>
+      <span class="btn-text">Показать еще</span>
       <span class="btn-spinner d-none">
         <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
         Загрузка...
       </span>
     </button>
   </div>
+  {% endif %}
   
-  <!-- Отладочная информация -->
-  <div class="text-center mt-2">
-    <small class="text-muted">
-      has_more_products: {{ has_more_products|yesno:"true,false" }} | 
-      current_page: <span id="current-page-display">{{ current_page }}</span> |
-      {% if has_more_products %}Кнопка должна быть видна{% else %}Кнопка скрыта{% endif %}
-    </small>
-  </div>
-  
-  <!-- ТЕСТОВАЯ КНОПКА -->
-  <div class="text-center mt-2">
-    <button class="btn btn-warning btn-sm" id="test-btn">
-      ТЕСТ: Добавить карточку
-    </button>
+  <!-- Селектор страниц -->
+  <div class="text-center mt-3" id="page-selector-container">
+    <div class="d-flex justify-content-center align-items-center gap-3">
+      <span class="text-muted small">Страница:</span>
+      <select class="form-select form-select-sm" id="page-selector" style="width: auto;">
+        <option value="1" selected>1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+      </select>
+      <span class="text-muted small">из <span id="total-pages">5</span></span>
+    </div>
   </div>
 </section>
 
@@ -348,154 +342,123 @@ setInterval(equalizeCardHeights, 2000);
 
   // ===== ФУНКЦИОНАЛЬНОСТЬ ЗАГРУЗКИ ДОПОЛНИТЕЛЬНЫХ ТОВАРОВ =====
   document.addEventListener('DOMContentLoaded', function() {
-    console.log('=== НАЧАЛО ИНИЦИАЛИЗАЦИИ КНОПКИ ПОКАЗАТЬ ЕЩЕ ===');
-    console.log('DOM загружен, ищем элементы...');
-    
     const loadMoreBtn = document.getElementById('load-more-btn');
     const productsContainer = document.getElementById('products-container');
     const loadMoreContainer = document.getElementById('load-more-container');
+    const pageSelector = document.getElementById('page-selector');
+    const totalPagesSpan = document.getElementById('total-pages');
     
-    console.log('loadMoreBtn:', loadMoreBtn);
-    console.log('productsContainer:', productsContainer);
-    console.log('loadMoreContainer:', loadMoreContainer);
+    if (!loadMoreBtn || !productsContainer || !pageSelector) return;
     
-    if (!loadMoreBtn) {
-      console.error('КНОПКА НЕ НАЙДЕНА!');
-      return;
-    }
-    
-    if (!productsContainer) {
-      console.error('КОНТЕЙНЕР ТОВАРОВ НЕ НАЙДЕН!');
-      return;
-    }
-    
-    console.log('✅ Все элементы найдены, добавляем обработчик события');
-    console.log('Кнопка видима:', loadMoreBtn.offsetParent !== null);
-    console.log('Кнопка отображается:', loadMoreBtn.style.display !== 'none');
-    
-    // Добавляем тестовую кнопку
-    const testBtn = document.getElementById('test-btn');
-    if (testBtn) {
-      testBtn.addEventListener('click', function() {
-        console.log('ТЕСТОВАЯ КНОПКА НАЖАТА!');
-        const testCard = document.createElement('div');
-        testCard.className = 'product-card-wrap';
-        testCard.innerHTML = '<div class="card product"><div class="card-body"><h5>ТЕСТОВАЯ КАРТОЧКА</h5><p>Это тестовая карточка для проверки</p></div></div>';
-        productsContainer.appendChild(testCard);
-        console.log('Тестовая карточка добавлена');
-      });
-    }
-    
-    loadMoreBtn.addEventListener('click', function() {
-      console.log('Кнопка "Показать еще" нажата!');
-      const currentPage = parseInt(this.getAttribute('data-page'));
-      const btnText = this.querySelector('.btn-text');
-      const btnSpinner = this.querySelector('.btn-spinner');
-      
-      console.log('Текущая страница для загрузки:', currentPage);
-      console.log('Следующая страница будет:', currentPage + 1);
+    // Функция для загрузки страницы
+    function loadPage(pageNumber) {
+      const btnText = loadMoreBtn.querySelector('.btn-text');
+      const btnSpinner = loadMoreBtn.querySelector('.btn-spinner');
       
       // Показываем спиннер
       btnText.classList.add('d-none');
       btnSpinner.classList.remove('d-none');
-      this.disabled = true;
+      loadMoreBtn.disabled = true;
       
       // Отправляем AJAX запрос
-      console.log('Загружаем страницу:', currentPage);
-      fetch(`/load-more-products/?page=${currentPage}`)
-        .then(response => {
-          console.log('Ответ сервера:', response.status);
-          return response.json();
-        })
+      fetch(`/load-more-products/?page=${pageNumber}`)
+        .then(response => response.json())
         .then(data => {
-          console.log('Данные от сервера:', data);
           if (data.html && data.html.trim() !== '') {
-            console.log('HTML не пустой, добавляем товары');
-            console.log('HTML длина:', data.html.length);
-            console.log('HTML превью:', data.html.substring(0, 200));
-            
             // Добавляем новые товары в контейнер
             productsContainer.insertAdjacentHTML('beforeend', data.html);
             
-            console.log('HTML добавлен в контейнер');
+            // Обновляем селектор страниц
+            updatePageSelector(pageNumber, data.has_more);
             
-            // Обновляем номер страницы для следующего запроса
-            const nextPage = currentPage + 1;
-            this.setAttribute('data-page', nextPage);
-            console.log('Обновлен data-page на:', nextPage);
-            
-            // Обновляем отображаемую страницу (показываем текущую загруженную страницу)
-            const pageDisplay = document.getElementById('current-page-display');
-            if (pageDisplay) {
-              pageDisplay.textContent = currentPage;
-              console.log('Отображаемая страница обновлена на:', currentPage);
-            }
+            // Запускаем анимацию появления для новых карточек
+            animateNewCards();
             
             // Если больше нет товаров, скрываем кнопку
             if (!data.has_more) {
               loadMoreContainer.style.display = 'none';
             }
-            
-            // Запускаем красивую анимацию появления для новых карточек
-            const allCards = productsContainer.querySelectorAll('.product-card-wrap');
-            const newCards = Array.from(allCards).slice(-8); // Берем последние 8 карточек (новые)
-            
-            console.log('Найдено новых карточек:', newCards.length);
-            console.log('Всего карточек в контейнере:', allCards.length);
-            
-            // Убираем классы анимации и запускаем красивую анимацию
-            newCards.forEach((card, index) => {
-              // Убираем все классы анимации
-              card.classList.remove('reveal-stagger', 'stagger-item', 'reveal-fast', 'reveal');
-              
-              // Убираем классы анимации у дочерних элементов
-              const childCards = card.querySelectorAll('.card');
-              childCards.forEach(childCard => {
-                childCard.classList.remove('reveal-stagger', 'stagger-item', 'reveal-fast', 'reveal');
-              });
-              
-              // Устанавливаем начальное состояние для анимации
-              card.style.opacity = '0';
-              card.style.transform = 'translateY(24px) scale(0.94)';
-              card.style.filter = 'blur(10px)';
-              card.style.transition = 'none'; // Отключаем transition для мгновенного применения
-              
-              // Запускаем анимацию с задержкой
-              setTimeout(() => {
-                // Включаем transition для плавной анимации
-                card.style.transition = 'all 560ms cubic-bezier(0.2, 0.8, 0.2, 1)';
-                
-                // Анимация к финальному состоянию
-                setTimeout(() => {
-                  card.style.opacity = '1';
-                  card.style.transform = 'translateY(0) scale(1)';
-                  card.style.filter = 'blur(0)';
-                }, 50); // Небольшая задержка для плавности
-                
-                console.log(`Анимация карточки ${index + 1} запущена`);
-              }, index * 120); // Задержка между карточками
-            });
-          } else {
-            console.log('HTML пустой или нет товаров');
-            // Если HTML пустой, скрываем кнопку
-            loadMoreContainer.style.display = 'none';
           }
         })
         .catch(error => {
           console.error('Ошибка загрузки товаров:', error);
-          // Показываем сообщение об ошибке
-          const errorDiv = document.createElement('div');
-          errorDiv.className = 'alert alert-warning mt-3';
-          errorDiv.textContent = 'Произошла ошибка при загрузке товаров. Попробуйте еще раз.';
-          loadMoreContainer.appendChild(errorDiv);
         })
         .finally(() => {
           // Скрываем спиннер
           btnText.classList.remove('d-none');
           btnSpinner.classList.add('d-none');
-          this.disabled = false;
+          loadMoreBtn.disabled = false;
         });
+    }
+    
+    // Функция для обновления селектора страниц
+    function updatePageSelector(currentPage, hasMore) {
+      const totalPages = Math.ceil({{ total_products|default:40 }} / 8);
+      totalPagesSpan.textContent = totalPages;
+      
+      // Обновляем опции селектора
+      pageSelector.innerHTML = '';
+      for (let i = 1; i <= totalPages; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = i;
+        if (i === currentPage) {
+          option.selected = true;
+        }
+        pageSelector.appendChild(option);
+      }
+      
+      // Обновляем data-page для кнопки
+      loadMoreBtn.setAttribute('data-page', currentPage + 1);
+    }
+    
+    // Функция для анимации новых карточек
+    function animateNewCards() {
+      const allCards = productsContainer.querySelectorAll('.product-card-wrap');
+      const newCards = Array.from(allCards).slice(-8);
+      
+      newCards.forEach((card, index) => {
+        // Убираем классы анимации
+        card.classList.remove('reveal-stagger', 'stagger-item', 'reveal-fast', 'reveal');
+        
+        // Убираем классы анимации у дочерних элементов
+        const childCards = card.querySelectorAll('.card');
+        childCards.forEach(childCard => {
+          childCard.classList.remove('reveal-stagger', 'stagger-item', 'reveal-fast', 'reveal');
+        });
+        
+        // Устанавливаем начальное состояние для анимации
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(24px) scale(0.94)';
+        card.style.filter = 'blur(10px)';
+        card.style.transition = 'none';
+        
+        // Запускаем анимацию с задержкой
+        setTimeout(() => {
+          card.style.transition = 'all 560ms cubic-bezier(0.2, 0.8, 0.2, 1)';
+          setTimeout(() => {
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0) scale(1)';
+            card.style.filter = 'blur(0)';
+          }, 50);
+        }, index * 120);
+      });
+    }
+    
+    // Обработчик кнопки "Показать еще"
+    loadMoreBtn.addEventListener('click', function() {
+      const currentPage = parseInt(this.getAttribute('data-page'));
+      loadPage(currentPage);
     });
+    
+    // Обработчик селектора страниц
+    pageSelector.addEventListener('change', function() {
+      const selectedPage = parseInt(this.value);
+      loadPage(selectedPage);
+    });
+    
+    // Инициализация селектора
+    updatePageSelector(1, true);
   });
 </script>
 {% endblock %}
