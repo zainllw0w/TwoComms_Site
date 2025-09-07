@@ -276,6 +276,11 @@ def load_more_products(request):
         # Получаем товары для текущей страницы
         products = list(Product.objects.order_by('-id')[offset:offset + per_page])
         
+        # Отладочная информация
+        print(f"DEBUG: Загружаем страницу {page}, offset {offset}")
+        print(f"DEBUG: Найдено товаров: {len(products)}")
+        print(f"DEBUG: Общее количество товаров: {Product.objects.count()}")
+        
         # Подготавливаем цвета для товаров
         try:
             from productcolors.models import ProductColorVariant
@@ -298,6 +303,9 @@ def load_more_products(request):
         total_products = Product.objects.count()
         has_more = (offset + per_page) < total_products
         
+        print(f"DEBUG: has_more = {has_more}, total_products = {total_products}")
+        print(f"DEBUG: offset + per_page = {offset + per_page}")
+        
         # Рендерим HTML для товаров
         from django.template.loader import render_to_string
         products_html = render_to_string('partials/products_list.html', {
@@ -305,10 +313,19 @@ def load_more_products(request):
             'page': page
         })
         
+        print(f"DEBUG: HTML длина: {len(products_html)}")
+        print(f"DEBUG: HTML превью: {products_html[:200]}...")
+        
         return JsonResponse({
             'html': products_html,
             'has_more': has_more,
-            'next_page': page + 1 if has_more else None
+            'next_page': page + 1 if has_more else None,
+            'debug': {
+                'page': page,
+                'products_count': len(products),
+                'total_products': total_products,
+                'has_more': has_more
+            }
         })
     
     return JsonResponse({'error': 'Invalid request'}, status=400)
