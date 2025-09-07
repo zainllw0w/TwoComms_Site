@@ -278,7 +278,7 @@
   <div class="text-center mt-2">
     <small class="text-muted">
       has_more_products: {{ has_more_products|yesno:"true,false" }} | 
-      current_page: {{ current_page }} |
+      current_page: <span id="current-page-display">{{ current_page }}</span> |
       {% if has_more_products %}Кнопка должна быть видна{% else %}Кнопка скрыта{% endif %}
     </small>
   </div>
@@ -420,43 +420,57 @@ setInterval(equalizeCardHeights, 2000);
             
             // Обновляем номер страницы
             this.setAttribute('data-page', currentPage + 1);
+            console.log('Обновлен data-page на:', currentPage + 1);
+            
+            // Обновляем отображаемую страницу
+            const pageDisplay = document.getElementById('current-page-display');
+            if (pageDisplay) {
+              pageDisplay.textContent = currentPage + 1;
+            }
             
             // Если больше нет товаров, скрываем кнопку
             if (!data.has_more) {
               loadMoreContainer.style.display = 'none';
             }
             
-            // Делаем новые карточки видимыми сразу
+            // Запускаем красивую анимацию появления для новых карточек
             const allCards = productsContainer.querySelectorAll('.product-card-wrap');
             const newCards = Array.from(allCards).slice(-8); // Берем последние 8 карточек (новые)
             
             console.log('Найдено новых карточек:', newCards.length);
             console.log('Всего карточек в контейнере:', allCards.length);
             
-            // Убираем ВСЕ классы анимации и делаем карточки видимыми
+            // Убираем классы анимации и запускаем красивую анимацию
             newCards.forEach((card, index) => {
               // Убираем все классы анимации
               card.classList.remove('reveal-stagger', 'stagger-item', 'reveal-fast', 'reveal');
-              
-              // Убираем все стили анимации
-              card.style.opacity = '1';
-              card.style.transform = 'none';
-              card.style.transition = 'none';
               
               // Убираем классы анимации у дочерних элементов
               const childCards = card.querySelectorAll('.card');
               childCards.forEach(childCard => {
                 childCard.classList.remove('reveal-stagger', 'stagger-item', 'reveal-fast', 'reveal');
-                childCard.style.opacity = '1';
-                childCard.style.transform = 'none';
-                childCard.style.transition = 'none';
               });
               
-              console.log(`Карточка ${index + 1} сделана видимой`);
-              console.log(`  - opacity: ${card.style.opacity}`);
-              console.log(`  - transform: ${card.style.transform}`);
-              console.log(`  - display: ${window.getComputedStyle(card).display}`);
-              console.log(`  - visibility: ${window.getComputedStyle(card).visibility}`);
+              // Устанавливаем начальное состояние для анимации
+              card.style.opacity = '0';
+              card.style.transform = 'translateY(24px) scale(0.94)';
+              card.style.filter = 'blur(10px)';
+              card.style.transition = 'none'; // Отключаем transition для мгновенного применения
+              
+              // Запускаем анимацию с задержкой
+              setTimeout(() => {
+                // Включаем transition для плавной анимации
+                card.style.transition = 'all 560ms cubic-bezier(0.2, 0.8, 0.2, 1)';
+                
+                // Анимация к финальному состоянию
+                setTimeout(() => {
+                  card.style.opacity = '1';
+                  card.style.transform = 'translateY(0) scale(1)';
+                  card.style.filter = 'blur(0)';
+                }, 50); // Небольшая задержка для плавности
+                
+                console.log(`Анимация карточки ${index + 1} запущена`);
+              }, index * 120); // Задержка между карточками
             });
           } else {
             console.log('HTML пустой или нет товаров');
