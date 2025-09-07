@@ -94,7 +94,8 @@ def login_view(request):
                             product=product
                         )
                     except Product.DoesNotExist:
-                        pass
+                        # Товар был удален, пропускаем
+                        continue
                 
                 # Очищаем сессию
                 del request.session['favorites']
@@ -134,7 +135,8 @@ def register_view(request):
                             product=product
                         )
                     except Product.DoesNotExist:
-                        pass
+                        # Товар был удален, пропускаем
+                        continue
                 
                 # Очищаем сессию
                 del request.session['favorites']
@@ -581,7 +583,7 @@ def contacts(request): return render(request,'pages/contacts.html')
 
 def search(request):
     q=(request.GET.get('q') or '').strip()
-    qs=Product.objects.all()
+    qs = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images')
     if q: qs=qs.filter(title__icontains=q)
     return render(request,'pages/catalog.html',{'categories':Category.objects.order_by('order','name'),'products':qs.order_by('-id'),'show_category_cards':False})
 
@@ -677,7 +679,7 @@ def debug_product_images(request):
     """Диагностика изображений товаров"""
     from storefront.models import Product
     
-    products = Product.objects.all()[:10]  # Берем первые 10 товаров
+    products = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images')[:10]  # Берем первые 10 товаров
     
     debug_info = []
     for product in products:
@@ -1353,25 +1355,18 @@ def admin_panel(request):
     section = request.GET.get('section', 'stats')
     ctx = {'section': section}
     if section == 'users':
-        users = User.objects.order_by('username').all()
-        # подтягиваем профили, баллы и заказы для каждого пользователя
+        # Оптимизированный запрос с select_related и prefetch_related
+        users = User.objects.select_related('userprofile').prefetch_related('points', 'orders').order_by('username')
         from accounts.models import UserPoints
         from orders.models import Order
         
         user_data = []
         for user in users:
-            try:
-                profile = user.userprofile
-            except UserProfile.DoesNotExist:
-                profile = None
+            profile = getattr(user, 'userprofile', None)
+            points = getattr(user, 'points', None)
             
-            try:
-                points = user.points
-            except UserPoints.DoesNotExist:
-                points = None
-            
-            # Получаем заказы пользователя
-            user_orders = Order.objects.filter(user=user)
+            # Получаем заказы пользователя (уже загружены через prefetch_related)
+            user_orders = user.orders.all()
             total_orders = user_orders.count()
             
             # Подсчитываем заказы по статусам
@@ -2705,8 +2700,13 @@ def admin_product_edit(request, pk):
         variants = (ProductColorVariant.objects.select_related('color')
                     .prefetch_related('images')
                     .filter(product=obj).order_by('order', 'id'))
-    except Exception:
-        pass
+        except Exception as e:
+            # Логируем ошибку для отладки
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error in admin_panel stats: {e}")
+            # Возвращаем базовые значения
+            pass
 
     return render(
         request,

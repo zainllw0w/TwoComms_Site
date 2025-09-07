@@ -54,11 +54,28 @@ class ProductForm(forms.ModelForm):
         if not self.instance.pk and not data.get("main_image"):
             self.add_error("main_image", "Головне зображення є обов'язковим")
         
+        # Валидация цены
+        price = data.get('price')
+        if price is not None:
+            try:
+                price = float(price)
+                if price < 0:
+                    self.add_error('price', "Ціна не може бути від'ємною")
+                elif price > 999999.99:
+                    self.add_error('price', "Ціна не може перевищувати 999,999.99 грн")
+            except (ValueError, TypeError):
+                self.add_error('price', "Невірний формат ціни")
+        
         # Обработка points_reward
         points_reward = data.get('points_reward')
         if points_reward is not None:
             try:
-                data['points_reward'] = int(points_reward) if points_reward else 0
+                points_reward = int(points_reward) if points_reward else 0
+                if points_reward < 0:
+                    self.add_error('points_reward', "Кількість балів не може бути від'ємною")
+                elif points_reward > 10000:
+                    self.add_error('points_reward', "Кількість балів не може перевищувати 10,000")
+                data['points_reward'] = points_reward
             except (ValueError, TypeError):
                 data['points_reward'] = 0
         
@@ -66,7 +83,13 @@ class ProductForm(forms.ModelForm):
         discount_percent = data.get('discount_percent')
         if discount_percent is not None:
             try:
-                data['discount_percent'] = int(discount_percent) if discount_percent else None
+                discount_percent = int(discount_percent) if discount_percent else None
+                if discount_percent is not None:
+                    if discount_percent < 0:
+                        self.add_error('discount_percent', "Знижка не може бути від'ємною")
+                    elif discount_percent > 100:
+                        self.add_error('discount_percent', "Знижка не може перевищувати 100%")
+                data['discount_percent'] = discount_percent
             except (ValueError, TypeError):
                 data['discount_percent'] = None
         
