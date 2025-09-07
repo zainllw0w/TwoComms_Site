@@ -344,10 +344,16 @@ setInterval(equalizeCardHeights, 2000);
       this.disabled = true;
       
       // Отправляем AJAX запрос
+      console.log('Загружаем страницу:', currentPage);
       fetch(`/load-more-products/?page=${currentPage}`)
-        .then(response => response.json())
+        .then(response => {
+          console.log('Ответ сервера:', response.status);
+          return response.json();
+        })
         .then(data => {
-          if (data.html) {
+          console.log('Данные от сервера:', data);
+          if (data.html && data.html.trim() !== '') {
+            console.log('HTML не пустой, добавляем товары');
             // Добавляем новые товары в контейнер
             productsContainer.insertAdjacentHTML('beforeend', data.html);
             
@@ -388,6 +394,10 @@ setInterval(equalizeCardHeights, 2000);
                 }
               }, index * step);
             });
+          } else {
+            console.log('HTML пустой или нет товаров');
+            // Если HTML пустой, скрываем кнопку
+            loadMoreContainer.style.display = 'none';
           }
         })
         .catch(error => {
