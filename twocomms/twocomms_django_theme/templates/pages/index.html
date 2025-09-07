@@ -477,6 +477,11 @@ setInterval(equalizeCardHeights, 2000);
                   card.classList.add('visible');
                   console.log(`Анимация карточки ${index + 1} запущена, классы:`, card.className);
                   
+                  // Принудительно делаем карточку видимой
+                  card.style.opacity = '1';
+                  card.style.transform = 'none';
+                  card.style.filter = 'none';
+                  
                   // Анимация цветов товаров - СТРОГО вместе с карточкой
                   const colorDots = card.querySelector('.product-card-dots');
                   if(colorDots) {
