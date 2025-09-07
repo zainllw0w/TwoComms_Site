@@ -257,6 +257,12 @@
     {% endfor %}
   </div>
   
+  <!-- Отладочная информация -->
+  <script>
+    console.log('has_more_products:', {{ has_more_products|yesno:"true,false" }});
+    console.log('current_page:', {{ current_page }});
+  </script>
+  
   {% if has_more_products %}
   <div class="text-center mt-4" id="load-more-container">
     <button class="btn btn-outline-primary" id="load-more-btn" data-page="2">
@@ -266,6 +272,10 @@
         Загрузка...
       </span>
     </button>
+  </div>
+  {% else %}
+  <div class="text-center mt-4">
+    <p class="text-muted">Кнопка "Показать еще" не отображается, так как has_more_products = False</p>
   </div>
   {% endif %}
 </section>
@@ -327,16 +337,29 @@ setInterval(equalizeCardHeights, 2000);
 
   // ===== ФУНКЦИОНАЛЬНОСТЬ ЗАГРУЗКИ ДОПОЛНИТЕЛЬНЫХ ТОВАРОВ =====
   document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM загружен, ищем элементы...');
     const loadMoreBtn = document.getElementById('load-more-btn');
     const productsContainer = document.getElementById('products-container');
     const loadMoreContainer = document.getElementById('load-more-container');
     
-    if (!loadMoreBtn || !productsContainer) return;
+    console.log('loadMoreBtn:', loadMoreBtn);
+    console.log('productsContainer:', productsContainer);
+    console.log('loadMoreContainer:', loadMoreContainer);
+    
+    if (!loadMoreBtn || !productsContainer) {
+      console.log('Элементы не найдены, выходим');
+      return;
+    }
+    
+    console.log('Элементы найдены, добавляем обработчик события');
     
     loadMoreBtn.addEventListener('click', function() {
+      console.log('Кнопка "Показать еще" нажата!');
       const currentPage = parseInt(this.getAttribute('data-page'));
       const btnText = this.querySelector('.btn-text');
       const btnSpinner = this.querySelector('.btn-spinner');
+      
+      console.log('Текущая страница:', currentPage);
       
       // Показываем спиннер
       btnText.classList.add('d-none');
