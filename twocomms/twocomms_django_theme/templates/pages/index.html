@@ -392,7 +392,8 @@ setInterval(equalizeCardHeights, 2000);
       const btnText = this.querySelector('.btn-text');
       const btnSpinner = this.querySelector('.btn-spinner');
       
-      console.log('Текущая страница:', currentPage);
+      console.log('Текущая страница для загрузки:', currentPage);
+      console.log('Следующая страница будет:', currentPage + 1);
       
       // Показываем спиннер
       btnText.classList.add('d-none');
@@ -418,14 +419,16 @@ setInterval(equalizeCardHeights, 2000);
             
             console.log('HTML добавлен в контейнер');
             
-            // Обновляем номер страницы
-            this.setAttribute('data-page', currentPage + 1);
-            console.log('Обновлен data-page на:', currentPage + 1);
+            // Обновляем номер страницы для следующего запроса
+            const nextPage = currentPage + 1;
+            this.setAttribute('data-page', nextPage);
+            console.log('Обновлен data-page на:', nextPage);
             
-            // Обновляем отображаемую страницу
+            // Обновляем отображаемую страницу (показываем текущую загруженную страницу)
             const pageDisplay = document.getElementById('current-page-display');
             if (pageDisplay) {
-              pageDisplay.textContent = currentPage + 1;
+              pageDisplay.textContent = currentPage;
+              console.log('Отображаемая страница обновлена на:', currentPage);
             }
             
             // Если больше нет товаров, скрываем кнопку
