@@ -451,38 +451,28 @@ setInterval(equalizeCardHeights, 2000);
             console.log('Найдено новых карточек:', newCards.length);
             console.log('Всего карточек в контейнере:', allCards.length);
             
-            // Простая анимация появления карточек
-            console.log('Начинаем простую анимацию новых карточек...');
+            // Просто показываем карточки без анимации
+            console.log('Показываем новые карточки...');
             newCards.forEach((card, index) => {
               console.log(`Обрабатываем карточку ${index + 1}:`, card);
               
               // Убираем все классы анимации
               card.classList.remove('stagger-item', 'reveal-stagger');
               
-              // Устанавливаем начальное состояние
-              card.style.opacity = '0';
-              card.style.transform = 'translateY(20px)';
-              card.style.transition = 'all 0.5s ease-out';
+              // Принудительно делаем карточку видимой
+              card.style.opacity = '1';
+              card.style.transform = 'none';
+              card.style.filter = 'none';
+              card.style.transition = 'none';
               
-              console.log(`Карточка ${index + 1} подготовлена`);
+              console.log(`Карточка ${index + 1} принудительно показана`);
               
-              // Запускаем анимацию с задержкой
-              setTimeout(() => {
-                card.style.opacity = '1';
-                card.style.transform = 'translateY(0)';
-                console.log(`Карточка ${index + 1} появилась`);
-                
-                // Анимация цветов товаров
-                const colorDots = card.querySelector('.product-card-dots');
-                if(colorDots) {
-                  colorDots.style.opacity = '0';
-                  colorDots.style.transition = 'opacity 0.3s ease-out';
-                  setTimeout(() => {
-                    colorDots.style.opacity = '1';
-                    console.log(`Цвета карточки ${index + 1} появились`);
-                  }, 200);
-                }
-              }, index * 100); // Задержка 100ms между карточками
+              // Показываем цвета
+              const colorDots = card.querySelector('.product-card-dots');
+              if(colorDots) {
+                colorDots.style.opacity = '1';
+                console.log(`Цвета карточки ${index + 1} показаны`);
+              }
             });
           } else {
             console.log('HTML пустой или нет товаров');
