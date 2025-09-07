@@ -259,9 +259,9 @@
   
   <!-- Отладочная информация -->
   <script>
-    let currentPage = {{ current_page }};
+    let initialPage = {{ current_page }};
     console.log('has_more_products:', {{ has_more_products|yesno:"true,false" }});
-    console.log('current_page:', currentPage);
+    console.log('initial_page:', initialPage);
   </script>
   
   <!-- ВРЕМЕННО: Принудительно показываем кнопку для тестирования -->
