@@ -436,8 +436,8 @@ setInterval(equalizeCardHeights, 2000);
             }
             
             // Обновляем переменную в консоли для отладки
-            currentPage = currentPage + 1;
-            console.log('current_page обновлен на:', currentPage);
+            let newCurrentPage = currentPage + 1;
+            console.log('current_page обновлен на:', newCurrentPage);
             
             // Если больше нет товаров, скрываем кнопку
             if (!data.has_more) {
