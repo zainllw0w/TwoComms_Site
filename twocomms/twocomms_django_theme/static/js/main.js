@@ -567,12 +567,38 @@ document.addEventListener('DOMContentLoaded', function(){
   try{ const res=performance.getEntriesByType&&performance.getEntriesByType('resource')||[]; res.forEach(r=>{ const size=(r.transferSize||0)||(r.encodedBodySize||0)||0; switch(r.initiatorType){ case 'img': diag.resources.imgBytes+=size; break; case 'link': if((r.name||'').includes('.css')) diag.resources.cssBytes+=size; else diag.resources.otherBytes+=size; break; case 'script': diag.resources.jsBytes+=size; break; case 'css': diag.resources.cssBytes+=size; break; case 'font': diag.resources.fontBytes+=size; break; default: diag.resources.otherBytes+=size; break; }}); }catch(_){ }
   function featurePresence(){
     const features={backdropFilterNodes:0, topOffenders:[]};
-    const nodes=[document.querySelector('.hero.bg-hero'), document.querySelector('.bottom-nav'), document.getElementById('mini-cart-panel-mobile'), document.getElementById('user-panel-mobile')].filter(Boolean);
-    const checkList = nodes.concat(Array.from(document.querySelectorAll('[class*="glow"], [class*="particles"], .card.product, .featured-bg-unified, .categories-bg-unified')).slice(0,40));
-    checkList.forEach(n=>{ try{ const cs=getComputedStyle(n); const bf=cs.backdropFilter&&cs.backdropFilter!=='none'; const bs=(cs.boxShadow||'').includes('px'); const fil=(cs.filter||'').includes('blur'); const anim=(cs.animationIterationCount||'').includes('infinite'); if(bf) {features.backdropFilterNodes++; diag.heavyCounts.backdropFilter++; features.topOffenders.push({el:n.tagName+'.'+(n.className||'').toString().split(' ').slice(0,2).join('.'), type:'backdrop-filter'});} if(bs){diag.heavyCounts.boxShadow++;} if(fil){diag.heavyCounts.blurFilters++;} if(anim){diag.heavyCounts.animatedInfinite++;} }catch(_){ } });
+    const baseNodes=[document.querySelector('.hero.bg-hero'), document.querySelector('.bottom-nav'), document.getElementById('mini-cart-panel-mobile'), document.getElementById('user-panel-mobile')].filter(Boolean);
+    const extraNodes = Array.from(document.querySelectorAll('[class*="glow" i], [class*="particles" i], .featured-bg-unified, .categories-bg-unified, .card.product'));
+    const checkList = baseNodes.concat(extraNodes).slice(0,120);
+    const offenders=[];
+    checkList.forEach(n=>{ try{
+      const cs=getComputedStyle(n);
+      const rect=n.getBoundingClientRect(); const area=Math.max(1, Math.round(rect.width*rect.height));
+      const bf=cs.backdropFilter&&cs.backdropFilter!=='none';
+      const bfPx = (()=>{ const m=(cs.backdropFilter||'').match(/blur\((\d+\.?\d*)px\)/); return m?parseFloat(m[1]):0; })();
+      const fil=(cs.filter||''); const blurPx=(()=>{ const m=fil.match(/blur\((\d+\.?\d*)px\)/); return m?parseFloat(m[1]):0; })();
+      const bs=(cs.boxShadow||''); const boxBlurPx=(()=>{ const m=bs.match(/(-?\d+\.?\d*px)\s+(-?\d+\.?\d*px)\s+(\d+\.?\d*)px/); return m?parseFloat(m[3]):0; })();
+      const animInf=(cs.animationIterationCount||'').includes('infinite');
+      if(bf) {features.backdropFilterNodes++; diag.heavyCounts.backdropFilter++;}
+      if(bs.includes('px')) diag.heavyCounts.boxShadow++;
+      if(blurPx>0) diag.heavyCounts.blurFilters++;
+      if(animInf) diag.heavyCounts.animatedInfinite++;
+      if(bf || blurPx>0 || boxBlurPx>0 || animInf){
+        const id=n.id?('#'+n.id):''; const cls=(n.className||'').toString().split(' ').slice(0,3).filter(Boolean).map(c=>'.'+c).join('');
+        const label=n.tagName+id+cls;
+        const score = area*(bf?1:0) + area*0.06*blurPx + area*0.03*boxBlurPx + (animInf?area*0.12:0);
+        offenders.push({label, area, backdropBlurPx:bfPx, filterBlurPx:blurPx, boxShadowBlurPx:boxBlurPx, animInfinite:animInf, score:Math.round(score)});
+      }
+    }catch(_){ } });
+    offenders.sort((a,b)=>b.score-a.score);
+    features.topOffenders = offenders.slice(0,12);
+    // Подсветка топ‑3 по хоткею Alt+Shift+P
+    try{
+      if(!window.__perfHiLiteBound){ window.__perfHiLiteBound=true; window.addEventListener('keydown', (e)=>{ if(e.altKey && e.shiftKey && (e.key==='P' || e.key==='п' || e.key==='З')){ offenders.slice(0,3).forEach(off=>{ try{ const parts=off.label.split('#'); const idPart=(parts[1]||'').split('.')[0]; let el=null; if(idPart) el=document.getElementById(idPart); if(!el){ /* fallback by class */ el=document.querySelector(parts[0].toLowerCase()); } if(el){ el.style.outline='2px solid #f59e0b'; el.style.outlineOffset='2px'; setTimeout(()=>{ try{ el.style.outline=''; el.style.outlineOffset=''; }catch(_){ } }, 1500); } }catch(_){ } }); } }); }
+    }catch(_){ }
     return features;
   }
-  setTimeout(()=>{ rafStop=true; window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onResize); if(mo){ try{ mo.disconnect(); }catch(_){ } } const durationSec=(performance.now()-startTs)/1000; const fps=diag.frames/durationSec; const features=featurePresence(); const fmtKB=(b)=>(Math.round(b/102.4)/10)+' KB'; console.group('%cPerfDiag','color:#7c3aed;font-weight:700'); console.log('Duration:', durationSec.toFixed(1),'s'); console.log('FPS avg:', fps.toFixed(1), 'Slow frames (>50ms):', diag.slowFrames, 'Worst frame ms:', diag.worstFrameMs.toFixed(1)); console.log('Long tasks:', diag.longTasks, 'Total long task ms:', diag.longTaskTotalMs.toFixed(1)); console.log('Events: scroll', diag.scrollEvents, 'resize', diag.resizeEvents, 'mutations', diag.mutations); console.log('Resources:', {img: fmtKB(diag.resources.imgBytes), css: fmtKB(diag.resources.cssBytes), js: fmtKB(diag.resources.jsBytes), font: fmtKB(diag.resources.fontBytes), other: fmtKB(diag.resources.otherBytes)}); console.log('Heavy CSS features:', features, 'heavyCounts', diag.heavyCounts); console.log('Hint: set localStorage("perf-debug","0") to disable diagnostics'); console.groupEnd(); }, 10000);
+  setTimeout(()=>{ rafStop=true; window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onResize); if(mo){ try{ mo.disconnect(); }catch(_){ } } const durationSec=(performance.now()-startTs)/1000; const fps=diag.frames/durationSec; const features=featurePresence(); const fmtKB=(b)=>(Math.round(b/102.4)/10)+' KB'; console.group('%cPerfDiag','color:#7c3aed;font-weight:700'); console.log('Duration:', durationSec.toFixed(1),'s'); console.log('FPS avg:', fps.toFixed(1), 'Slow frames (>50ms):', diag.slowFrames, 'Worst frame ms:', diag.worstFrameMs.toFixed(1)); console.log('Long tasks:', diag.longTasks, 'Total long task ms:', diag.longTaskTotalMs.toFixed(1)); console.log('Events: scroll', diag.scrollEvents, 'resize', diag.resizeEvents, 'mutations', diag.mutations); console.log('Resources:', {img: fmtKB(diag.resources.imgBytes), css: fmtKB(diag.resources.cssBytes), js: fmtKB(diag.resources.jsBytes), font: fmtKB(diag.resources.fontBytes), other: fmtKB(diag.resources.otherBytes)}); console.log('Heavy CSS features:', features, 'heavyCounts', diag.heavyCounts); try{ console.table(features.topOffenders); }catch(_){ console.log('Offenders:', features.topOffenders); } console.log('Hint: set localStorage("perf-debug","0") to disable diagnostics'); console.groupEnd(); }, 10000);
 });
 
 // ===== Авто-оптимизация тяжёлых эффектов без изменения вида =====
