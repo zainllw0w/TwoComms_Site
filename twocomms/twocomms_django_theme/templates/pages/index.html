@@ -259,8 +259,9 @@
   
   <!-- Отладочная информация -->
   <script>
+    let currentPage = {{ current_page }};
     console.log('has_more_products:', {{ has_more_products|yesno:"true,false" }});
-    console.log('current_page:', {{ current_page }});
+    console.log('current_page:', currentPage);
   </script>
   
   <!-- ВРЕМЕННО: Принудительно показываем кнопку для тестирования -->
@@ -435,7 +436,8 @@ setInterval(equalizeCardHeights, 2000);
             }
             
             // Обновляем переменную в консоли для отладки
-            console.log('current_page обновлен на:', currentPage + 1);
+            currentPage = currentPage + 1;
+            console.log('current_page обновлен на:', currentPage);
             
             // Если больше нет товаров, скрываем кнопку
             if (!data.has_more) {
@@ -449,35 +451,38 @@ setInterval(equalizeCardHeights, 2000);
             console.log('Найдено новых карточек:', newCards.length);
             console.log('Всего карточек в контейнере:', allCards.length);
             
-            // Добавляем классы для оригинальной анимации
-            newCards.forEach((card, index) => {
-              // Добавляем классы для анимации
-              card.classList.add('stagger-item', 'reveal-stagger');
-              
-              // Устанавливаем задержку анимации (как в main.js)
-              const step = 190; // тот же шаг что и в main.js
-              card.style.setProperty('--d', (index * step) + 'ms');
-              
-              // Запускаем анимацию с задержкой (как в main.js)
-              setTimeout(() => {
-                card.classList.add('visible');
-                console.log(`Анимация карточки ${index + 1} запущена`);
+            // Добавляем небольшую задержку перед началом анимаций
+            setTimeout(() => {
+              // Добавляем классы для оригинальной анимации
+              newCards.forEach((card, index) => {
+                // Добавляем классы для анимации
+                card.classList.add('stagger-item', 'reveal-stagger');
                 
-                // Анимация цветов товаров - СТРОГО вместе с карточкой
-                const colorDots = card.querySelector('.product-card-dots');
-                if(colorDots) {
-                  // Цвета появляются одновременно с карточкой
-                  colorDots.classList.add('visible');
-                  // Анимация отдельных цветовых точек
-                  const dots = colorDots.querySelectorAll('.color-dot');
-                  dots.forEach((dot, dotIndex) => {
-                    setTimeout(() => {
-                      dot.classList.add('visible');
-                    }, dotIndex * 60); // Быстрая анимация точек
-                  });
-                }
-              }, index * step);
-            });
+                // Устанавливаем задержку анимации (как в main.js)
+                const step = 190; // тот же шаг что и в main.js
+                card.style.setProperty('--d', (index * step) + 'ms');
+                
+                // Запускаем анимацию с задержкой (как в main.js)
+                setTimeout(() => {
+                  card.classList.add('visible');
+                  console.log(`Анимация карточки ${index + 1} запущена`);
+                  
+                  // Анимация цветов товаров - СТРОГО вместе с карточкой
+                  const colorDots = card.querySelector('.product-card-dots');
+                  if(colorDots) {
+                    // Цвета появляются одновременно с карточкой
+                    colorDots.classList.add('visible');
+                    // Анимация отдельных цветовых точек
+                    const dots = colorDots.querySelectorAll('.color-dot');
+                    dots.forEach((dot, dotIndex) => {
+                      setTimeout(() => {
+                        dot.classList.add('visible');
+                      }, dotIndex * 60); // Быстрая анимация точек
+                    });
+                  }
+                }, index * step);
+              });
+            }, 100); // Небольшая задержка перед началом анимаций
           } else {
             console.log('HTML пустой или нет товаров');
             // Если HTML пустой, скрываем кнопку
