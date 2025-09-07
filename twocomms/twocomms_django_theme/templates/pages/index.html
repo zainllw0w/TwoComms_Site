@@ -427,14 +427,18 @@ setInterval(equalizeCardHeights, 2000);
             }
             
             // Запускаем простую анимацию появления для новых карточек
-            const newCards = productsContainer.querySelectorAll('.product-card-wrap:not(.loaded)');
+            const allCards = productsContainer.querySelectorAll('.product-card-wrap');
+            const newCards = Array.from(allCards).slice(-8); // Берем последние 8 карточек (новые)
+            
             console.log('Найдено новых карточек:', newCards.length);
-            console.log('Всего карточек в контейнере:', productsContainer.querySelectorAll('.product-card-wrap').length);
+            console.log('Всего карточек в контейнере:', allCards.length);
+            
+            // Убираем классы reveal-stagger если они есть
+            newCards.forEach(card => {
+              card.classList.remove('reveal-stagger', 'stagger-item');
+            });
             
             newCards.forEach((card, index) => {
-              // Отмечаем карточку как загруженную
-              card.classList.add('loaded');
-              
               // Устанавливаем начальное состояние
               card.style.opacity = '0';
               card.style.transform = 'translateY(20px)';
