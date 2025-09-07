@@ -67,57 +67,5 @@
   {% endif %}
 </section>
 
-<script>
-// Функция для выравнивания карточек товаров по высоте
-function equalizeCardHeights() {
-  const rows = document.querySelectorAll('.row[data-stagger-grid]');
-  
-  rows.forEach(row => {
-    const cards = row.querySelectorAll('.card.product');
-    
-    if (cards.length > 0) {
-      cards.forEach(card => {
-        card.style.height = 'auto';
-        card.style.minHeight = 'auto';
-        card.style.maxHeight = 'none';
-      });
-      
-      setTimeout(() => {
-        let maxHeight = 0;
-        cards.forEach(card => {
-          const cardHeight = card.offsetHeight;
-          if (cardHeight > maxHeight) {
-            maxHeight = cardHeight;
-          }
-        });
-        
-        cards.forEach(card => {
-          card.style.height = maxHeight + 'px';
-          card.style.minHeight = maxHeight + 'px';
-          card.style.maxHeight = maxHeight + 'px';
-        });
-      }, 50);
-    }
-  });
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-  // debounce
-  function debounce(fn, wait){ let t; return function(){ const ctx=this, args=arguments; clearTimeout(t); t=setTimeout(function(){ fn.apply(ctx,args); }, wait); }; }
-  const debouncedEqualize = debounce(equalizeCardHeights, 120);
-
-  setTimeout(equalizeCardHeights, 100);
-  window.addEventListener('load', equalizeCardHeights);
-  window.addEventListener('resize', debouncedEqualize);
-  
-  // Наблюдаем сетку на изменения и догрузы
-  const grids = document.querySelectorAll('.row[data-stagger-grid]');
-  if(window.ResizeObserver){
-    const ro = new ResizeObserver(()=>debouncedEqualize());
-    grids.forEach(g=> ro.observe(g));
-  }
-  const mo = new MutationObserver(()=> debouncedEqualize());
-  grids.forEach(g=> mo.observe(g, {childList:true, subtree:true}));
-});
-</script>
+<!-- equalizeCardHeights logic moved to main.js -->
 {% endblock %}

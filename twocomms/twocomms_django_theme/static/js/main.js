@@ -8,17 +8,12 @@ document.addEventListener('DOMContentLoaded',()=>{
   // Обычные лёгкие появления
   document.querySelectorAll('.reveal, .reveal-fast').forEach(el=>io.observe(el));
   
-  // Стаггер-анимация карточек в гриде — добавляем .visible по очереди
+  // Стаггер-анимация карточек в гриде — по порядку DOM, без измерений
   const gridObserver = new IntersectionObserver(entries=>{
     entries.forEach(entry=>{
       if(!entry.isIntersecting) return;
       const grid = entry.target;
-      const items = Array.from(grid.querySelectorAll('.stagger-item'));
-      // Сортировка сверху-вниз, слева-направо
-      const ordered = items
-        .map(el=>({el,rect:el.getBoundingClientRect()}))
-        .sort((a,b)=> (a.rect.top - b.rect.top) || (a.rect.left - b.rect.left))
-        .map(x=>x.el);
+      const ordered = Array.from(grid.querySelectorAll('.stagger-item'));
 
       const step = prefersReducedMotion ? 0 : 190; // шаг задержки между карточками (мс)
       ordered.forEach((el,i)=>{
@@ -48,6 +43,23 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.querySelectorAll('[data-stagger-grid]').forEach(grid=>gridObserver.observe(grid));
 });
 
+// ===== Force hide cart/profile on mobile (header widgets) =====
+document.addEventListener('DOMContentLoaded', function() {
+  function hideOnMobile() {
+    const cartContainer = document.querySelector('.cart-container[data-mobile-hide="true"]');
+    const profileContainer = document.querySelector('.user-profile-container[data-mobile-hide="true"]');
+    if (window.innerWidth <= 991.98) {
+      if (cartContainer) { cartContainer.style.display = 'none'; cartContainer.style.visibility = 'hidden'; cartContainer.style.opacity = '0'; }
+      if (profileContainer) { profileContainer.style.display = 'none'; profileContainer.style.visibility = 'hidden'; profileContainer.style.opacity = '0'; }
+    } else {
+      if (cartContainer) { cartContainer.style.display = ''; cartContainer.style.visibility = ''; cartContainer.style.opacity = ''; }
+      if (profileContainer) { profileContainer.style.display = ''; profileContainer.style.visibility = ''; profileContainer.style.opacity = ''; }
+    }
+  }
+  hideOnMobile();
+  window.addEventListener('resize', debounce(hideOnMobile, 120));
+});
+
 // ===== Корзина (AJAX) =====
 // Дебаггер UI: включается локально через localStorage `ui-debug` = '1'
 const UI_DEBUG = (()=>{ try{ return localStorage.getItem('ui-debug')==='1'; }catch(_) { return false; } })();
@@ -60,6 +72,15 @@ function debounce(fn, wait){
     t=setTimeout(function(){ fn.apply(ctx,args); }, wait);
   };
 }
+// Глобальный признак лёгкого режима
+const PERF_LITE = (()=>{ try{ return document.documentElement.classList.contains('perf-lite'); }catch(_){ return false; } })();
+// Отложенное выполнение для тяжёлых операций (если поддерживается)
+const scheduleIdle = (fn)=>{
+  try{
+    if('requestIdleCallback' in window){ return window.requestIdleCallback(fn, {timeout: 400}); }
+  }catch(_){}
+  return setTimeout(fn, 200);
+};
 let uiEventSeq = 0;
 const nextEvt = ()=> (++uiEventSeq);
 const nowTs = ()=> Date.now();
@@ -161,13 +182,16 @@ function refreshMiniCart(){
 
 // Обновляем сводку при загрузке
 document.addEventListener('DOMContentLoaded',()=>{
-  fetch('/cart/summary/',{headers:{'X-Requested-With':'XMLHttpRequest'}})
-    .then(r=>r.ok?r.json():null)
-    .then(d=>{ if(d&&d.ok){ updateCartBadge(d.count); }})
-    .catch(()=>{});
+  // Отложим, чтобы не мешать первому рендеру
+  scheduleIdle(()=>{
+    fetch('/cart/summary/',{headers:{'X-Requested-With':'XMLHttpRequest'}})
+      .then(r=>r.ok?r.json():null)
+      .then(d=>{ if(d&&d.ok){ updateCartBadge(d.count); }})
+      .catch(()=>{});
+  });
 
   // Перемещаем галерею товара в левую колонку и синхронизируем миниатюры
-  (function(){
+  scheduleIdle(function(){
     const galleryBlock = document.querySelector('.product-gallery-block');
     const carouselEl = document.getElementById('productCarousel');
     if(!(galleryBlock && carouselEl)) return;
@@ -244,10 +268,10 @@ document.addEventListener('DOMContentLoaded',()=>{
         if(to>=0) setActiveThumb(to);
       });
     });
-  })();
+  });
 
   // Переміщення блоку «Кольори»: спочатку ПЕРЕД кнопками «Опис/Розмірна сітка», потім фолбеки
-  (function(){
+  scheduleIdle(function(){
     const card = document.getElementById('color-picker-card');
     if(!card) return;
     if(card.dataset.placed === '1') return;
@@ -328,7 +352,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         card.appendChild(dots);
       }
     });
-  })();
+  });
 
   // Тогглер мини‑корзины (и по id, и по data-атрибуту)
   const bindCartToggle = (el)=>{
@@ -449,7 +473,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
     const maybeShowHint = ()=>{
       if(hintShown) return;
-      if(prefersReducedMotion) { hintShown = true; return; }
+      if(prefersReducedMotion || PERF_LITE) { hintShown = true; return; }
       bottomNav.classList.add('hint-wiggle');
       setTimeout(()=> bottomNav.classList.remove('hint-wiggle'), 950);
       sessionStorage.setItem('bottom-nav-hint','1');
@@ -576,59 +600,70 @@ document.addEventListener('click', (e)=>{
 
 // ===== Функциональность скрытия блока "Рекомендовано" =====
 document.addEventListener('DOMContentLoaded', function() {
-  const featuredToggle = document.getElementById('featured-toggle');
+  const featuredToggle = document.getElementById('featuredToggle') || document.getElementById('featured-toggle');
   const featuredContent = document.getElementById('featured-content');
-  const featuredSection = document.getElementById('featured-section');
-  
-  if (!featuredToggle || !featuredContent || !featuredSection) return;
-  
-  // Проверяем сохраненное состояние
-  const isHidden = localStorage.getItem('featured-hidden') === 'true';
-  
-  if (isHidden) {
-    featuredContent.classList.add('collapsed');
-    featuredToggle.classList.add('collapsed');
-    featuredToggle.querySelector('.toggle-hint-text').textContent = 'Показати';
-  }
-  
+  if (!featuredToggle || !featuredContent) return;
+
+  const getState = ()=>{
+    const collapsedKey = localStorage.getItem('featuredCollapsed');
+    const hiddenKey = localStorage.getItem('featured-hidden');
+    if(collapsedKey !== null) return collapsedKey === 'true';
+    if(hiddenKey !== null) return hiddenKey === 'true';
+    return false;
+  };
+  const setState = (collapsed)=>{
+    localStorage.setItem('featuredCollapsed', collapsed ? 'true' : 'false');
+    localStorage.setItem('featured-hidden', collapsed ? 'true' : 'false');
+  };
+  const applyState = (collapsed)=>{
+    featuredContent.style.display = collapsed ? 'none' : 'block';
+    featuredContent.classList.toggle('collapsed', collapsed);
+    featuredToggle.classList.toggle('collapsed', collapsed);
+    const hint = featuredToggle.querySelector('.toggle-hint-text') || featuredToggle.querySelector('.toggle-text');
+    if(hint) hint.textContent = collapsed ? 'Показати' : 'Сховати';
+    const icon = featuredToggle.querySelector('.toggle-icon svg');
+    if(icon) icon.style.transform = collapsed ? 'rotate(180deg)' : 'rotate(0deg)';
+    featuredToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  };
+
+  applyState(getState());
   featuredToggle.addEventListener('click', function() {
-    const isCollapsed = featuredContent.classList.contains('collapsed');
-    
-    // Добавляем эффект пульсации заголовка-кнопки
     featuredToggle.classList.add('pulsing');
-    setTimeout(() => featuredToggle.classList.remove('pulsing'), 800);
-    
-    if (isCollapsed) {
-      // Показываем блок
-      featuredContent.classList.remove('collapsed');
-      featuredToggle.classList.remove('collapsed');
-      featuredToggle.querySelector('.toggle-hint-text').textContent = 'Сховати';
-      localStorage.setItem('featured-hidden', 'false');
-      
-      // Анимация появления
-      featuredContent.style.display = 'block';
-      void featuredContent.offsetHeight; // Форсируем reflow
-      featuredContent.classList.add('expanding');
-      
-      // Убираем класс анимации после завершения
-      setTimeout(() => {
-        featuredContent.classList.remove('expanding');
-      }, 800);
-      
-    } else {
-      // Скрываем блок
-      featuredContent.classList.add('collapsing');
-      featuredToggle.classList.add('collapsed');
-      featuredToggle.querySelector('.toggle-hint-text').textContent = 'Показати';
-      localStorage.setItem('featured-hidden', 'true');
-      
-      // Анимация скрытия
-      setTimeout(() => {
-        featuredContent.classList.remove('collapsing');
-        featuredContent.classList.add('collapsed');
-        featuredContent.style.display = 'none';
-      }, 800);
+    setTimeout(() => featuredToggle.classList.remove('pulsing'), 600);
+    const collapsedNext = featuredContent.style.display !== 'none';
+    applyState(collapsedNext);
+    setState(collapsedNext);
+  });
+});
+
+// ===== Выравнивание карточек по высоте (общая инициализация) =====
+document.addEventListener('DOMContentLoaded', function(){
+  const rows = document.querySelectorAll('.row[data-stagger-grid]');
+  if(!rows.length) return;
+  function equalizeCardHeights(){
+    rows.forEach(row=>{
+      const cards = row.querySelectorAll('.card.product');
+      if(!cards.length) return;
+      cards.forEach(card=>{ card.style.height='auto'; card.style.minHeight='auto'; card.style.maxHeight='none'; });
+      setTimeout(()=>{
+        let maxHeight = 0;
+        cards.forEach(card=>{ const h = card.offsetHeight; if(h>maxHeight) maxHeight=h; });
+        cards.forEach(card=>{ card.style.height=maxHeight+'px'; card.style.minHeight=maxHeight+'px'; card.style.maxHeight=maxHeight+'px'; });
+      }, 50);
+    });
+  }
+  window.equalizeCardHeights = equalizeCardHeights;
+  const debouncedEqualize = debounce(equalizeCardHeights, 120);
+  setTimeout(equalizeCardHeights, 100);
+  window.addEventListener('load', equalizeCardHeights);
+  window.addEventListener('resize', debouncedEqualize);
+  rows.forEach(row=>{
+    if('ResizeObserver' in window){
+      const ro = new ResizeObserver(()=> debouncedEqualize());
+      ro.observe(row);
     }
+    const mo = new MutationObserver(()=> debouncedEqualize());
+    mo.observe(row, {childList:true, subtree:true});
   });
 });
 
@@ -732,12 +767,26 @@ function showNotification(message, type = 'info') {
 // Инициализация статуса избранного для всех кнопок при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
   const favoriteButtons = document.querySelectorAll('.favorite-btn');
-  favoriteButtons.forEach(button => {
-    const productId = button.getAttribute('data-product-id');
-    if (productId) {
-      checkFavoriteStatus(productId, button);
-    }
-  });
+  if(!favoriteButtons.length) return;
+  // Ленивая проверка статуса избранного — только при появлении в вьюпорте
+  if('IntersectionObserver' in window){
+    const io = new IntersectionObserver(entries=>{
+      entries.forEach(entry=>{
+        if(!entry.isIntersecting) return;
+        const button = entry.target;
+        const productId = button.getAttribute('data-product-id');
+        if (productId) { checkFavoriteStatus(productId, button); }
+        io.unobserve(button);
+      });
+    }, {root:null, rootMargin:'100px 0px', threshold:0.01});
+    favoriteButtons.forEach(btn=> io.observe(btn));
+  } else {
+    // Фолбэк: проверяем сразу
+    favoriteButtons.forEach(button => {
+      const productId = button.getAttribute('data-product-id');
+      if (productId) { checkFavoriteStatus(productId, button); }
+    });
+  }
 });
 
 // ===== ФУНКЦИОНАЛЬНОСТЬ СВОРАЧИВАНИЯ КАТЕГОРИЙ =====

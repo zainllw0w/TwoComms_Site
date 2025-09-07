@@ -420,43 +420,4 @@
   </div>
 </div>
 
-<script>
-// Force hide cart and profile on mobile
-document.addEventListener('DOMContentLoaded', function() {
-  function hideOnMobile() {
-    const cartContainer = document.querySelector('.cart-container[data-mobile-hide="true"]');
-    const profileContainer = document.querySelector('.user-profile-container[data-mobile-hide="true"]');
-    
-    if (window.innerWidth <= 991.98) {
-      if (cartContainer) {
-        cartContainer.style.display = 'none';
-        cartContainer.style.visibility = 'hidden';
-        cartContainer.style.opacity = '0';
-      }
-      if (profileContainer) {
-        profileContainer.style.display = 'none';
-        profileContainer.style.visibility = 'hidden';
-        profileContainer.style.opacity = '0';
-      }
-    } else {
-      if (cartContainer) {
-        cartContainer.style.display = '';
-        cartContainer.style.visibility = '';
-        cartContainer.style.opacity = '';
-      }
-      if (profileContainer) {
-        profileContainer.style.display = '';
-        profileContainer.style.visibility = '';
-        profileContainer.style.opacity = '';
-      }
-    }
-  }
-  
-  // Run on load
-  hideOnMobile();
-  
-  // Run on resize
-  function debounce(fn, wait){ let t; return function(){ const ctx=this, args=arguments; clearTimeout(t); t=setTimeout(function(){ fn.apply(ctx,args); }, wait); }; }
-  window.addEventListener('resize', debounce(hideOnMobile, 120));
-});
-</script>
+<!-- hideOnMobile moved to main.js -->
