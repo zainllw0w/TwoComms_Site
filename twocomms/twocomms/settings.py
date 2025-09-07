@@ -111,6 +111,11 @@ WSGI_APPLICATION = 'twocomms.wsgi.application'
 # Sites framework
 SITE_ID = 1
 
+# URL для входа в систему
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'
+
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases

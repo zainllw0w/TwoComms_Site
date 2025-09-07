@@ -36,6 +36,7 @@ else:
         'www.test.com',
         'localhost',
         '127.0.0.1',
+        'testserver',  # Для Django тестового клиента
     ]
 
 _csrf_origins_env = os.environ.get('CSRF_TRUSTED_ORIGINS')
@@ -206,6 +207,11 @@ LOGGING = {
 
 # Sites framework
 SITE_ID = 1
+
+# URL для входа в систему
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'
 
 # Настройки для отправки email (опционально)
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
