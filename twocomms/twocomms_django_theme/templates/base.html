@@ -50,6 +50,7 @@
   <!-- Stylesheets -->
   <link href='{% static 'css/styles.css' %}?v=2025.09.06.012' rel='stylesheet'>
   <link href='{% static 'css/performance.css' %}?v=2025.01.07.001' rel='stylesheet'>
+  <link href='{% static 'css/mini-panels-fix.css' %}?v=2025.01.07.001' rel='stylesheet'>
   {% block extra_css %}{% endblock %}
   
   <!-- Structured Data (JSON-LD) -->
@@ -835,5 +836,8 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
+
+<!-- Исправление для мини-корзины и мини-профиля -->
+<script src="{% static 'js/mini-panels-fix.js' %}?v=2025.01.07.001"></script>
 
 </body></html>
