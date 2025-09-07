@@ -426,30 +426,37 @@ setInterval(equalizeCardHeights, 2000);
               loadMoreContainer.style.display = 'none';
             }
             
-            // Запускаем простую анимацию появления для новых карточек
+            // Делаем новые карточки видимыми сразу
             const allCards = productsContainer.querySelectorAll('.product-card-wrap');
             const newCards = Array.from(allCards).slice(-8); // Берем последние 8 карточек (новые)
             
             console.log('Найдено новых карточек:', newCards.length);
             console.log('Всего карточек в контейнере:', allCards.length);
             
-            // Убираем классы reveal-stagger если они есть
-            newCards.forEach(card => {
-              card.classList.remove('reveal-stagger', 'stagger-item');
-            });
-            
+            // Убираем ВСЕ классы анимации и делаем карточки видимыми
             newCards.forEach((card, index) => {
-              // Устанавливаем начальное состояние
-              card.style.opacity = '0';
-              card.style.transform = 'translateY(20px)';
-              card.style.transition = 'all 0.6s ease';
+              // Убираем все классы анимации
+              card.classList.remove('reveal-stagger', 'stagger-item', 'reveal-fast', 'reveal');
               
-              // Запускаем анимацию с задержкой
-              setTimeout(() => {
-                card.style.opacity = '1';
-                card.style.transform = 'translateY(0)';
-                console.log(`Анимация карточки ${index + 1} запущена`);
-              }, index * 150);
+              // Убираем все стили анимации
+              card.style.opacity = '1';
+              card.style.transform = 'none';
+              card.style.transition = 'none';
+              
+              // Убираем классы анимации у дочерних элементов
+              const childCards = card.querySelectorAll('.card');
+              childCards.forEach(childCard => {
+                childCard.classList.remove('reveal-stagger', 'stagger-item', 'reveal-fast', 'reveal');
+                childCard.style.opacity = '1';
+                childCard.style.transform = 'none';
+                childCard.style.transition = 'none';
+              });
+              
+              console.log(`Карточка ${index + 1} сделана видимой`);
+              console.log(`  - opacity: ${card.style.opacity}`);
+              console.log(`  - transform: ${card.style.transform}`);
+              console.log(`  - display: ${window.getComputedStyle(card).display}`);
+              console.log(`  - visibility: ${window.getComputedStyle(card).visibility}`);
             });
           } else {
             console.log('HTML пустой или нет товаров');
