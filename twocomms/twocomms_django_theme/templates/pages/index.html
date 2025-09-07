@@ -263,21 +263,32 @@
     console.log('current_page:', {{ current_page }});
   </script>
   
-  {% if has_more_products %}
+  <!-- ВРЕМЕННО: Принудительно показываем кнопку для тестирования -->
   <div class="text-center mt-4" id="load-more-container">
     <button class="btn btn-outline-primary" id="load-more-btn" data-page="2">
-      <span class="btn-text">Показать еще</span>
+      <span class="btn-text">Показать еще (ТЕСТ)</span>
       <span class="btn-spinner d-none">
         <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
         Загрузка...
       </span>
     </button>
   </div>
-  {% else %}
-  <div class="text-center mt-4">
-    <p class="text-muted">Кнопка "Показать еще" не отображается, так как has_more_products = False</p>
+  
+  <!-- Отладочная информация -->
+  <div class="text-center mt-2">
+    <small class="text-muted">
+      has_more_products: {{ has_more_products|yesno:"true,false" }} | 
+      current_page: {{ current_page }} |
+      {% if has_more_products %}Кнопка должна быть видна{% else %}Кнопка скрыта{% endif %}
+    </small>
   </div>
-  {% endif %}
+  
+  <!-- ТЕСТОВАЯ КНОПКА -->
+  <div class="text-center mt-2">
+    <button class="btn btn-warning btn-sm" id="test-btn">
+      ТЕСТ: Добавить карточку
+    </button>
+  </div>
 </section>
 
 <script>
@@ -337,7 +348,9 @@ setInterval(equalizeCardHeights, 2000);
 
   // ===== ФУНКЦИОНАЛЬНОСТЬ ЗАГРУЗКИ ДОПОЛНИТЕЛЬНЫХ ТОВАРОВ =====
   document.addEventListener('DOMContentLoaded', function() {
+    console.log('=== НАЧАЛО ИНИЦИАЛИЗАЦИИ КНОПКИ ПОКАЗАТЬ ЕЩЕ ===');
     console.log('DOM загружен, ищем элементы...');
+    
     const loadMoreBtn = document.getElementById('load-more-btn');
     const productsContainer = document.getElementById('products-container');
     const loadMoreContainer = document.getElementById('load-more-container');
@@ -346,12 +359,32 @@ setInterval(equalizeCardHeights, 2000);
     console.log('productsContainer:', productsContainer);
     console.log('loadMoreContainer:', loadMoreContainer);
     
-    if (!loadMoreBtn || !productsContainer) {
-      console.log('Элементы не найдены, выходим');
+    if (!loadMoreBtn) {
+      console.error('КНОПКА НЕ НАЙДЕНА!');
       return;
     }
     
-    console.log('Элементы найдены, добавляем обработчик события');
+    if (!productsContainer) {
+      console.error('КОНТЕЙНЕР ТОВАРОВ НЕ НАЙДЕН!');
+      return;
+    }
+    
+    console.log('✅ Все элементы найдены, добавляем обработчик события');
+    console.log('Кнопка видима:', loadMoreBtn.offsetParent !== null);
+    console.log('Кнопка отображается:', loadMoreBtn.style.display !== 'none');
+    
+    // Добавляем тестовую кнопку
+    const testBtn = document.getElementById('test-btn');
+    if (testBtn) {
+      testBtn.addEventListener('click', function() {
+        console.log('ТЕСТОВАЯ КНОПКА НАЖАТА!');
+        const testCard = document.createElement('div');
+        testCard.className = 'product-card-wrap';
+        testCard.innerHTML = '<div class="card product"><div class="card-body"><h5>ТЕСТОВАЯ КАРТОЧКА</h5><p>Это тестовая карточка для проверки</p></div></div>';
+        productsContainer.appendChild(testCard);
+        console.log('Тестовая карточка добавлена');
+      });
+    }
     
     loadMoreBtn.addEventListener('click', function() {
       console.log('Кнопка "Показать еще" нажата!');
