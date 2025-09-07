@@ -116,7 +116,7 @@
         </div>
         
         <!-- Кнопка сворачивания в центре -->
-        <button class="featured-toggle-btn" id="featuredToggle" aria-label="Свернуть/развернуть рекомендации">
+        <button class="featured-toggle-btn" id="featuredToggle" aria-label="Свернуть/развернуть рекомендации" aria-expanded="false" aria-controls="featured-content">
           <div class="toggle-btn-content">
             <span class="toggle-text">Сховати</span>
             <div class="toggle-icon">
@@ -504,31 +504,36 @@ setInterval(equalizeCardHeights, 2000);
     // Проверяем состояние из localStorage (по умолчанию скрыто)
     const isCollapsed = localStorage.getItem('featuredCollapsed') !== 'false';
     
-    if (isCollapsed) {
-      featuredContent.style.display = 'none';
-      featuredToggle.classList.add('collapsed');
-      featuredToggle.querySelector('.toggle-text').textContent = 'Показати';
-      featuredToggle.querySelector('.toggle-icon svg').style.transform = 'rotate(180deg)';
-    }
+          if (isCollapsed) {
+            featuredContent.style.display = 'none';
+            featuredToggle.classList.add('collapsed');
+            featuredToggle.querySelector('.toggle-text').textContent = 'Показати';
+            featuredToggle.querySelector('.toggle-icon svg').style.transform = 'rotate(180deg)';
+            featuredToggle.setAttribute('aria-expanded', 'false');
+          } else {
+            featuredToggle.setAttribute('aria-expanded', 'true');
+          }
     
     featuredToggle.addEventListener('click', function() {
       const isCurrentlyCollapsed = featuredContent.style.display === 'none';
       
-      if (isCurrentlyCollapsed) {
-        // Разворачиваем
-        featuredContent.style.display = 'block';
-        featuredToggle.classList.remove('collapsed');
-        featuredToggle.querySelector('.toggle-text').textContent = 'Сховати';
-        featuredToggle.querySelector('.toggle-icon svg').style.transform = 'rotate(0deg)';
-        localStorage.setItem('featuredCollapsed', 'false');
-      } else {
-        // Сворачиваем
-        featuredContent.style.display = 'none';
-        featuredToggle.classList.add('collapsed');
-        featuredToggle.querySelector('.toggle-text').textContent = 'Показати';
-        featuredToggle.querySelector('.toggle-icon svg').style.transform = 'rotate(180deg)';
-        localStorage.setItem('featuredCollapsed', 'true');
-      }
+        if (isCurrentlyCollapsed) {
+          // Разворачиваем
+          featuredContent.style.display = 'block';
+          featuredToggle.classList.remove('collapsed');
+          featuredToggle.querySelector('.toggle-text').textContent = 'Сховати';
+          featuredToggle.querySelector('.toggle-icon svg').style.transform = 'rotate(0deg)';
+          featuredToggle.setAttribute('aria-expanded', 'true');
+          localStorage.setItem('featuredCollapsed', 'false');
+        } else {
+          // Сворачиваем
+          featuredContent.style.display = 'none';
+          featuredToggle.classList.add('collapsed');
+          featuredToggle.querySelector('.toggle-text').textContent = 'Показати';
+          featuredToggle.querySelector('.toggle-icon svg').style.transform = 'rotate(180deg)';
+          featuredToggle.setAttribute('aria-expanded', 'false');
+          localStorage.setItem('featuredCollapsed', 'true');
+        }
     });
   });
 </script>
