@@ -452,8 +452,16 @@ setInterval(equalizeCardHeights, 2000);
             
             // Добавляем небольшую задержку перед началом анимаций
             setTimeout(() => {
+              console.log('Начинаем анимацию новых карточек...');
               // Добавляем классы для оригинальной анимации
               newCards.forEach((card, index) => {
+                console.log(`Обрабатываем карточку ${index + 1}:`, card);
+                
+                // Убеждаемся, что карточка скрыта изначально
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(24px) scale(0.94)';
+                card.style.filter = 'blur(10px)';
+                
                 // Добавляем классы для анимации
                 card.classList.add('stagger-item', 'reveal-stagger');
                 
@@ -461,10 +469,12 @@ setInterval(equalizeCardHeights, 2000);
                 const step = 190; // тот же шаг что и в main.js
                 card.style.setProperty('--d', (index * step) + 'ms');
                 
+                console.log(`Карточка ${index + 1} подготовлена, задержка: ${index * step}ms`);
+                
                 // Запускаем анимацию с задержкой (как в main.js)
                 setTimeout(() => {
                   card.classList.add('visible');
-                  console.log(`Анимация карточки ${index + 1} запущена`);
+                  console.log(`Анимация карточки ${index + 1} запущена, классы:`, card.className);
                   
                   // Анимация цветов товаров - СТРОГО вместе с карточкой
                   const colorDots = card.querySelector('.product-card-dots');
