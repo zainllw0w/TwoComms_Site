@@ -575,6 +575,92 @@ document.addEventListener('DOMContentLoaded', function(){
   setTimeout(()=>{ rafStop=true; window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onResize); if(mo){ try{ mo.disconnect(); }catch(_){ } } const durationSec=(performance.now()-startTs)/1000; const fps=diag.frames/durationSec; const features=featurePresence(); const fmtKB=(b)=>(Math.round(b/102.4)/10)+' KB'; console.group('%cPerfDiag','color:#7c3aed;font-weight:700'); console.log('Duration:', durationSec.toFixed(1),'s'); console.log('FPS avg:', fps.toFixed(1), 'Slow frames (>50ms):', diag.slowFrames, 'Worst frame ms:', diag.worstFrameMs.toFixed(1)); console.log('Long tasks:', diag.longTasks, 'Total long task ms:', diag.longTaskTotalMs.toFixed(1)); console.log('Events: scroll', diag.scrollEvents, 'resize', diag.resizeEvents, 'mutations', diag.mutations); console.log('Resources:', {img: fmtKB(diag.resources.imgBytes), css: fmtKB(diag.resources.cssBytes), js: fmtKB(diag.resources.jsBytes), font: fmtKB(diag.resources.fontBytes), other: fmtKB(diag.resources.otherBytes)}); console.log('Heavy CSS features:', features, 'heavyCounts', diag.heavyCounts); console.log('Hint: set localStorage("perf-debug","0") to disable diagnostics'); console.groupEnd(); }, 10000);
 });
 
+// ===== Авто-оптимизация тяжёлых эффектов без изменения вида =====
+document.addEventListener('DOMContentLoaded', function(){
+  try{ if(localStorage.getItem('perf-debug')!=='1'){} }catch(_){ }
+  // Собираем потенциально тяжёлые узлы (ограниченный список, чтобы не перебирать весь DOM)
+  const candidateSelectors = [
+    '.hero.bg-hero', '.bottom-nav', '#mini-cart-panel-mobile', '#user-panel-mobile',
+    '.featured-bg-unified', '.categories-bg-unified', '.card.product',
+    '[class*="particles" i]', '[class*="spark" i]', '[class*="glow" i]'
+  ];
+  const unique = new Set();
+  const candidates = [];
+  candidateSelectors.forEach(sel=>{
+    document.querySelectorAll(sel).forEach(el=>{
+      if(!el || unique.has(el)) return; unique.add(el); candidates.push(el);
+    });
+  });
+
+  // Отбираем реальные «тяжёлые» по computed styles
+  const heavyNodes = candidates.filter(el=>{
+    try{
+      const cs = getComputedStyle(el);
+      const hasBackdrop = (cs.backdropFilter && cs.backdropFilter!=='none');
+      const hasBlur = (cs.filter||'').includes('blur');
+      const hasBigShadow = (cs.boxShadow||'').includes('px');
+      const isAnimatedInf = (cs.animationIterationCount||'').includes('infinite');
+      return hasBackdrop || hasBlur || hasBigShadow || isAnimatedInf;
+    }catch(_){ return false; }
+  });
+
+  // Мягкое облегчение на время активной прокрутки: уменьшаем blur и приостанавливаем бесконечные анимации
+  let relaxTimer = null;
+  let relaxed = false;
+  function relaxHeavy(){
+    if(relaxed) return; relaxed = true;
+    heavyNodes.forEach(el=>{
+      try{
+        const cs = getComputedStyle(el);
+        if(cs.backdropFilter && cs.backdropFilter!=='none'){
+          el.style.setProperty('backdrop-filter','blur(6px) saturate(110%)','important');
+          el.style.setProperty('-webkit-backdrop-filter','blur(6px) saturate(110%)','important');
+        }
+        if((cs.filter||'').includes('blur')){
+          // Сохраняем лёгкий blur, чтобы вид не поменялся
+          el.style.setProperty('filter', (cs.filter||'').replace(/blur\([^\)]+\)/g,'blur(2px)'),'important');
+        }
+        if((cs.animationIterationCount||'').includes('infinite')){
+          el.style.setProperty('animation-play-state','paused','important');
+        }
+      }catch(_){ }
+    });
+  }
+  function restoreHeavy(){
+    if(!relaxed) return; relaxed = false;
+    heavyNodes.forEach(el=>{
+      try{
+        el.style.removeProperty('backdrop-filter');
+        el.style.removeProperty('-webkit-backdrop-filter');
+        el.style.removeProperty('filter');
+        el.style.removeProperty('animation-play-state');
+      }catch(_){ }
+    });
+  }
+  function onScroll(){
+    relaxHeavy();
+    if(relaxTimer) clearTimeout(relaxTimer);
+    relaxTimer = setTimeout(restoreHeavy, 350);
+  }
+  window.addEventListener('scroll', onScroll, {passive:true});
+
+  // Пауза бесконечных анимаций, когда элемент вне вьюпорта
+  if('IntersectionObserver' in window){
+    const io = new IntersectionObserver(entries=>{
+      entries.forEach(entry=>{
+        const el = entry.target; const visible = entry.isIntersecting;
+        try{
+          const cs = getComputedStyle(el);
+          if((cs.animationIterationCount||'').includes('infinite')){
+            el.style.setProperty('animation-play-state', visible ? 'running' : 'paused','important');
+          }
+        }catch(_){ }
+      });
+    },{threshold:0.05});
+    heavyNodes.forEach(el=>{ try{ io.observe(el); }catch(_){ } });
+  }
+});
+
 
 // Делегирование клика "добавить в корзину"
 document.addEventListener('click', (e)=>{
