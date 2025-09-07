@@ -1,0 +1,145 @@
+{% comment %}
+Система аналитики и мониторинга для продакшена
+{% endcomment %}
+
+<!-- Google Analytics 4 -->
+{% if not debug %}
+<script async src="https://www.googletagmanager.com/gtag/js?id=GA_MEASUREMENT_ID"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'GA_MEASUREMENT_ID', {
+    'custom_map': {'custom_parameter_1': 'user_type'},
+    'send_page_view': true
+  });
+  
+  // Enhanced Ecommerce для отслеживания покупок
+  gtag('config', 'GA_MEASUREMENT_ID', {
+    'send_page_view': false,
+    'custom_map': {
+      'custom_parameter_1': 'user_type',
+      'custom_parameter_2': 'product_category'
+    }
+  });
+</script>
+{% endif %}
+
+<!-- Yandex Metrica -->
+{% if not debug %}
+<script type="text/javascript">
+   (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+   m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
+   (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+
+   ym(YANDEX_METRICA_ID, "init", {
+        clickmap:true,
+        trackLinks:true,
+        accurateTrackBounce:true,
+        webvisor:true
+   });
+</script>
+<noscript><div><img src="https://mc.yandex.ru/watch/YANDEX_METRICA_ID" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+{% endif %}
+
+<!-- Facebook Pixel -->
+{% if not debug %}
+<script>
+  !function(f,b,e,v,n,t,s)
+  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+  n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];
+  s.parentNode.insertBefore(t,s)}(window, document,'script',
+  'https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', 'FACEBOOK_PIXEL_ID');
+  fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none"
+  src="https://www.facebook.com/tr?id=FACEBOOK_PIXEL_ID&ev=PageView&noscript=1"
+/></noscript>
+{% endif %}
+
+<!-- Performance monitoring -->
+<script>
+// Мониторинг производительности
+window.addEventListener('load', function() {
+  // Core Web Vitals
+  if ('web-vital' in window) {
+    getCLS(function(metric) {
+      gtag('event', 'web_vitals', {
+        'event_category': 'Performance',
+        'event_label': 'CLS',
+        'value': Math.round(metric.value * 1000)
+      });
+    });
+    
+    getFID(function(metric) {
+      gtag('event', 'web_vitals', {
+        'event_category': 'Performance',
+        'event_label': 'FID',
+        'value': Math.round(metric.value)
+      });
+    });
+    
+    getLCP(function(metric) {
+      gtag('event', 'web_vitals', {
+        'event_category': 'Performance',
+        'event_label': 'LCP',
+        'value': Math.round(metric.value)
+      });
+    });
+  }
+  
+  // Отслеживание ошибок JavaScript
+  window.addEventListener('error', function(e) {
+    gtag('event', 'javascript_error', {
+      'event_category': 'Error',
+      'event_label': e.message,
+      'value': 1
+    });
+  });
+});
+</script>
+
+<!-- Custom tracking для e-commerce -->
+<script>
+// Функции для отслеживания e-commerce событий
+function trackProductView(productId, productName, category, price) {
+  gtag('event', 'view_item', {
+    'currency': 'UAH',
+    'value': price,
+    'items': [{
+      'item_id': productId,
+      'item_name': productName,
+      'category': category,
+      'quantity': 1,
+      'price': price
+    }]
+  });
+}
+
+function trackAddToCart(productId, productName, category, price) {
+  gtag('event', 'add_to_cart', {
+    'currency': 'UAH',
+    'value': price,
+    'items': [{
+      'item_id': productId,
+      'item_name': productName,
+      'category': category,
+      'quantity': 1,
+      'price': price
+    }]
+  });
+}
+
+function trackPurchase(transactionId, value, items) {
+  gtag('event', 'purchase', {
+    'transaction_id': transactionId,
+    'currency': 'UAH',
+    'value': value,
+    'items': items
+  });
+}
+</script>
