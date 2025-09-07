@@ -21,3 +21,12 @@ pycparser==2.22
 
 # Типизация
 typing_extensions==4.15.0
+
+# Оптимизация и сжатие
+django-compressor==4.4
+rcssmin==1.1.2
+rjsmin==1.2.2
+
+# Кэширование (опционально для продакшена)
+redis==5.0.1
+django-redis==5.4.0
