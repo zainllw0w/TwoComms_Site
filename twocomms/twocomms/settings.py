@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",   # ← только один раз!
+    "compressor",                   # Сжатие статических файлов
     "storefront.apps.StorefrontConfig",  # наше приложение из пакета
     "accounts",                     # регистрируем приложение аккаунтов
     "orders.apps.OrdersConfig",     # заказы (корректный AppConfig)
@@ -218,23 +219,82 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Настройки безопасности для SSL
+# ===== КЭШИРОВАНИЕ =====
+# Настройки кэширования для улучшения производительности
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+        'TIMEOUT': 300,  # 5 минут
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,
+            'CULL_FREQUENCY': 3,
+        }
+    }
+}
+
+# Кэширование сессий
+SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
+SESSION_CACHE_ALIAS = 'default'
+
+# Кэширование шаблонов (только для продакшена)
+if not DEBUG:
+    TEMPLATES[0]['OPTIONS']['loaders'] = [
+        ('django.template.loaders.cached.Loader', [
+            'django.template.loaders.filesystem.Loader',
+            'django.template.loaders.app_directories.Loader',
+        ]),
+    ]
+    TEMPLATES[0]['APP_DIRS'] = False
+
+# ===== НАСТРОЙКИ СЖАТИЯ СТАТИЧЕСКИХ ФАЙЛОВ =====
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+    'compressor.finders.CompressorFinder',
+]
+
+COMPRESS_ENABLED = not DEBUG
+COMPRESS_OFFLINE = not DEBUG
+COMPRESS_CSS_FILTERS = [
+    'compressor.filters.css_default.CssAbsoluteFilter',
+    'compressor.filters.cssmin.rCSSMinFilter',
+]
+COMPRESS_JS_FILTERS = [
+    'compressor.filters.jsmin.rJSMinFilter',
+]
+
+# Настройки для продакшена
+if not DEBUG:
+    COMPRESS_CSS_HASHING_METHOD = 'content'
+    COMPRESS_JS_HASHING_METHOD = 'content'
+
+# ===== НАСТРОЙКИ БЕЗОПАСНОСТИ =====
+# Базовые настройки безопасности
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
-# Настройки сессий (адаптивные для локальной разработки и продакшена)
-SESSION_COOKIE_SECURE = not DEBUG   # HTTPS только в продакшене
-CSRF_COOKIE_SECURE = not DEBUG      # HTTPS только в продакшене
+# Дополнительные настройки безопасности
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
+SECURE_CROSS_ORIGIN_EMBEDDER_POLICY = 'require-corp'
 
-# Дополнительные настройки безопасности (адаптивные)
-SECURE_SSL_REDIRECT = not DEBUG     # Перенаправление только в продакшене
+# Настройки для продакшена
 if not DEBUG:
-    SECURE_HSTS_SECONDS = 31536000 # HTTP Strict Transport Security
+    SECURE_HSTS_SECONDS = 31536000  # 1 год
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+
+# Настройки сессий (адаптивные для локальной разработки и продакшена)
+SESSION_COOKIE_SECURE = not DEBUG   # HTTPS только в продакшене
+CSRF_COOKIE_SECURE = not DEBUG      # HTTPS только в продакшене
 
 # CSRF настройки
 CSRF_TRUSTED_ORIGINS = [

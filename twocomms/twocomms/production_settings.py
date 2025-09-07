@@ -106,6 +106,53 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# ===== ОПТИМИЗАЦИИ ДЛЯ ПРОДАКШЕНА =====
+
+# Кэширование
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+        'TIMEOUT': 300,  # 5 минут
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,
+            'CULL_FREQUENCY': 3,
+        }
+    }
+}
+
+# Кэширование сессий
+SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
+SESSION_CACHE_ALIAS = 'default'
+
+# Кэширование шаблонов
+TEMPLATES[0]['OPTIONS']['loaders'] = [
+    ('django.template.loaders.cached.Loader', [
+        'django.template.loaders.filesystem.Loader',
+        'django.template.loaders.app_directories.Loader',
+    ]),
+]
+TEMPLATES[0]['APP_DIRS'] = False
+
+# Настройки сжатия статических файлов
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+    'compressor.finders.CompressorFinder',
+]
+
+COMPRESS_ENABLED = True
+COMPRESS_OFFLINE = True
+COMPRESS_CSS_FILTERS = [
+    'compressor.filters.css_default.CssAbsoluteFilter',
+    'compressor.filters.cssmin.rCSSMinFilter',
+]
+COMPRESS_JS_FILTERS = [
+    'compressor.filters.jsmin.rJSMinFilter',
+]
+COMPRESS_CSS_HASHING_METHOD = 'content'
+COMPRESS_JS_HASHING_METHOD = 'content'
+
 # Настройки для правильной работы медиа-файлов на PythonAnywhere
 MEDIAFILES_DIRS = [
     BASE_DIR / 'media',
