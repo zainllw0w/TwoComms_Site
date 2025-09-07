@@ -856,7 +856,6 @@ def clean_cart(request):
     
     cleaned_count = 0
     if missing_products:
-        print(f"[clean_cart] Missing products: {missing_products}")
         # Удаляем несуществующие товары из корзины
         cart_to_clean = dict(cart)
         for key, item in cart_to_clean.items():
@@ -1148,7 +1147,6 @@ def cart(request):
     missing_products = set(ids) - found_products
     
     if missing_products:
-        print(f"[cart] Missing products: {missing_products}")
         # Удаляем несуществующие товары из корзины
         cart_to_clean = dict(cart_sess)
         for key, item in cart_to_clean.items():
@@ -1320,11 +1318,7 @@ def profile_setup_db(request):
         
         # Отладочная информация для аватара
         if form.cleaned_data.get('avatar'):
-            print(f"DEBUG: Загружается аватар: {form.cleaned_data['avatar']}")
             prof.avatar = form.cleaned_data['avatar']
-            print(f"DEBUG: Аватар сохранен: {prof.avatar}")
-        else:
-            print("DEBUG: Аватар не загружен")
             
         if prof.is_ubd and form.cleaned_data.get('ubd_doc'):
             prof.ubd_doc = form.cleaned_data['ubd_doc']
@@ -1481,7 +1475,6 @@ def admin_panel(request):
             payment_filter = request.GET.get('payment', 'all')
             user_id_filter = request.GET.get('user_id', None)
             
-            print(f"DEBUG: status_filter={status_filter}, payment_filter={payment_filter}, user_id_filter={user_id_filter}")  # Отладка
             
             # Базовый queryset
             orders = Order.objects.select_related('user').prefetch_related('items','items__product')
@@ -1489,17 +1482,14 @@ def admin_panel(request):
             # Применяем фильтры
             if status_filter != 'all':
                 orders = orders.filter(status=status_filter)
-                print(f"DEBUG: Applied status filter: {status_filter}")  # Отладка
             
             if payment_filter != 'all':
                 orders = orders.filter(payment_status=payment_filter)
-                print(f"DEBUG: Applied payment filter: {payment_filter}")  # Отладка
             
             # Фильтр по конкретному пользователю
             user_filter_info = None
             if user_id_filter:
                 orders = orders.filter(user_id=user_id_filter)
-                print(f"DEBUG: Applied user filter: {user_id_filter}")  # Отладка
                 
                 # Получаем информацию о пользователе для отображения
                 try:
@@ -1517,14 +1507,12 @@ def admin_panel(request):
                         'username': user_obj.username,
                         'full_name': full_name
                     }
-                    print(f"DEBUG: User filter info: {user_filter_info}")  # Отладка
                 except User.DoesNotExist:
-                    print(f"DEBUG: User with ID {user_id_filter} not found")  # Отладка
+                    pass
                     user_filter_info = None
             
             # Получаем отфильтрованные заказы
             orders = orders.all()
-            print(f"DEBUG: Final orders count: {orders.count()}")  # Отладка
             
             # Подсчет заказов по статусам
             status_counts = {}
@@ -1696,7 +1684,6 @@ def admin_panel(request):
             
         except Exception as e:
             # В случае ошибки возвращаем базовые значения
-            print(f"Error in admin_panel stats: {e}")  # Отладочная информация
             # Получаем период из параметров для fallback
             period = request.GET.get('period', 'today')
             if period == 'today':
@@ -2530,7 +2517,6 @@ def admin_product_new(request):
                 color_images = request.FILES.getlist('color_images')
                 
                 if color_name and primary_hex and color_images:
-                    print(f"DEBUG: Creating color - name: {color_name}, primary: {primary_hex}, secondary: {secondary_hex}, images: {len(color_images)}")
                     
                     # Проверяем, существует ли уже такой цвет
                     color = Color.objects.filter(
@@ -2538,7 +2524,6 @@ def admin_product_new(request):
                         secondary_hex=secondary_hex if secondary_hex else None
                     ).first()
                     
-                    print(f"DEBUG: Found existing color: {color}")
                     
                     if color:
                         # Если цвет существует, обновляем его название
@@ -2558,17 +2543,14 @@ def admin_product_new(request):
                         color=color
                     )
                     
-                    print(f"DEBUG: Color variant created: {created}, variant ID: {color_variant.id}")
                     
                     # Добавляем изображения (всегда, если они есть)
                     if color_images:
                         for i, image_file in enumerate(color_images):
-                            print(f"DEBUG: Creating image {i+1}: {image_file.name}")
                             ProductColorImage.objects.create(
                                 color_variant=color_variant,
                                 image=image_file
                             )
-                        print(f"DEBUG: Created {len(color_images)} images for color variant {color_variant.id}")
                     
                     if created:
                         message = 'Колір успішно додано!'
@@ -2655,15 +2637,8 @@ def admin_product_edit(request, pk):
     from .models import Product
     obj = get_object_or_404(Product, pk=pk)
     
-    print(f"=== admin_product_edit для товара {pk} ===")
-    print(f"Метод запроса: {request.method}")
-    if request.method == 'POST':
-        print(f"POST данные: {dict(request.POST)}")
-        print(f"FILES данные: {dict(request.FILES)}")
-
     # Если пришло действие с цветами — обрабатываем и возвращаемся на эту же страницу
     action = (request.POST.get('action') or '').strip() if request.method == 'POST' else ''
-    print(f"Action: '{action}'")
     
     # Если это POST запрос для цветов, обрабатываем его
     if action and request.method == 'POST':
@@ -2706,32 +2681,20 @@ def admin_product_edit(request, pk):
     # Основная форма товара
     form = ProductForm(request.POST or None, request.FILES or None, instance=obj)
     if request.method == 'POST':
-        print(f"=== Обработка основной формы ===")
-        print(f"POST данные: {request.POST}")
-        print(f"points_reward в POST: {request.POST.get('points_reward')}")
-        print(f"action в POST: {request.POST.get('action')}")
         
         # Проверяем, что это не запрос для цветов
         if not request.POST.get('action'):
-            print("Это запрос для основной формы товара")
             
             if form.is_valid():
-                print("Форма валидна!")
                 product = form.save(commit=False)
                 # Автогенерація slug, якщо порожній
                 if not getattr(product, 'slug', None):
                     base = slugify(product.title or '')
                     product.slug = unique_slugify(Product, base)
                 product.save()
-                print(f"Товар сохранен! ID: {product.id}, баллы: {product.points_reward}")
                 return redirect('/admin-panel/?section=catalogs')
             else:
-                print("=== ОШИБКИ ФОРМЫ ===")
-                print("Ошибки формы:")
-                for field, errors in form.errors.items():
-                    print(f"  {field}: {errors}")
         else:
-            print("Это запрос для цветов, пропускаем обработку основной формы")
 
     # Данные для блока «Кольори»
     used_colors = []

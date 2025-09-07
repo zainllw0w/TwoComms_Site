@@ -1,0 +1,24 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://twocomms.com/sitemap.xml
+
+# Disallow admin and private areas
+Disallow: /admin/
+Disallow: /admin-panel/
+Disallow: /add-product/
+Disallow: /add-category/
+Disallow: /debug/
+Disallow: /media/debug/
+
+# Allow important pages
+Allow: /catalog/
+Allow: /product/
+Allow: /search/
+Allow: /about/
+Allow: /contacts/
+Allow: /cooperation/
+
+# Crawl delay
+Crawl-delay: 1
