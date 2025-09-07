@@ -237,7 +237,7 @@
     <h2 class="h5 mb-0">Новинки</h2>
   </div>
   
-  <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4" data-stagger-grid id="products-container">
+  <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4" id="products-container">
     {% for p in products %}
     <div class="product-card-wrap stagger-item reveal-stagger">
       {% include "partials/product_card.html" with p=p stagger=True %}
