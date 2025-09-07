@@ -434,40 +434,49 @@ setInterval(equalizeCardHeights, 2000);
               btnText.textContent = `Показать еще (стр. ${currentPage + 1})`;
             }
             
+            // Обновляем переменную в консоли для отладки
+            console.log('current_page обновлен на:', currentPage + 1);
+            
             // Если больше нет товаров, скрываем кнопку
             if (!data.has_more) {
               loadMoreContainer.style.display = 'none';
             }
             
-            // Запускаем красивую анимацию появления для новых карточек
+            // Запускаем оригинальную анимацию как в начале
             const allCards = productsContainer.querySelectorAll('.product-card-wrap');
             const newCards = Array.from(allCards).slice(-8); // Берем последние 8 карточек (новые)
             
             console.log('Найдено новых карточек:', newCards.length);
             console.log('Всего карточек в контейнере:', allCards.length);
             
-            // Убираем классы анимации и запускаем красивую анимацию
+            // Добавляем классы для оригинальной анимации
             newCards.forEach((card, index) => {
-              // Убираем все классы анимации
-              card.classList.remove('reveal-stagger', 'stagger-item', 'reveal-fast', 'reveal');
+              // Добавляем классы для анимации
+              card.classList.add('stagger-item', 'reveal-stagger');
               
-              // Убираем классы анимации у дочерних элементов
-              const childCards = card.querySelectorAll('.card');
-              childCards.forEach(childCard => {
-                childCard.classList.remove('reveal-stagger', 'stagger-item', 'reveal-fast', 'reveal');
-              });
+              // Устанавливаем задержку анимации (как в main.js)
+              const step = 190; // тот же шаг что и в main.js
+              card.style.setProperty('--d', (index * step) + 'ms');
               
-              // Устанавливаем начальное состояние для анимации
-              card.style.opacity = '0';
-              card.style.transform = 'translateY(30px) scale(0.95)';
-              card.style.transition = 'all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1)';
-              
-              // Запускаем анимацию с задержкой
+              // Запускаем анимацию с задержкой (как в main.js)
               setTimeout(() => {
-                card.style.opacity = '1';
-                card.style.transform = 'translateY(0) scale(1)';
+                card.classList.add('visible');
                 console.log(`Анимация карточки ${index + 1} запущена`);
-              }, index * 120); // Уменьшил задержку для более быстрой анимации
+                
+                // Анимация цветов товаров - СТРОГО вместе с карточкой
+                const colorDots = card.querySelector('.product-card-dots');
+                if(colorDots) {
+                  // Цвета появляются одновременно с карточкой
+                  colorDots.classList.add('visible');
+                  // Анимация отдельных цветовых точек
+                  const dots = colorDots.querySelectorAll('.color-dot');
+                  dots.forEach((dot, dotIndex) => {
+                    setTimeout(() => {
+                      dot.classList.add('visible');
+                    }, dotIndex * 60); // Быстрая анимация точек
+                  });
+                }
+              }, index * step);
             });
           } else {
             console.log('HTML пустой или нет товаров');
