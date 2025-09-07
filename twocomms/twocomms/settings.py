@@ -66,6 +66,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",   # ← только один раз!
+    "django.contrib.sitemaps",      # Sitemap для SEO
+    "django.contrib.redirects",     # Редиректы для SEO
     "compressor",                   # Сжатие статических файлов
     "storefront.apps.StorefrontConfig",  # наше приложение из пакета
     "accounts",                     # регистрируем приложение аккаунтов
@@ -82,6 +84,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "django.contrib.redirects.middleware.RedirectFallbackMiddleware",  # SEO редиректы
 ]
 
 ROOT_URLCONF = 'twocomms.urls'
@@ -97,6 +100,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'storefront.context_processors.orders_processing_count',
+                'storefront.ab_testing.ab_test_context',  # A/B тестирование
             ],
         },
     },

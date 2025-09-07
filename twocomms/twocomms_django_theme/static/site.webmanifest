@@ -1,19 +1,60 @@
 {
-  "name": "TwoComms",
+  "name": "TwoComms - Стріт & Мілітарі Одяг",
   "short_name": "TwoComms",
+  "description": "Магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a1a",
+  "theme_color": "#1a1a1a",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "uk",
+  "dir": "ltr",
+  "categories": ["shopping", "fashion", "lifestyle"],
   "icons": [
     {
       "src": "/static/img/favicon-192x192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/static/img/favicon-512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/img/favicon-180x180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
     }
   ],
-  "theme_color": "#111111",
-  "background_color": "#111111",
-  "display": "standalone"
+  "shortcuts": [
+    {
+      "name": "Каталог",
+      "short_name": "Каталог",
+      "description": "Перейти в каталог товаров",
+      "url": "/catalog/",
+      "icons": [
+        {
+          "src": "/static/img/icons/catalog.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Корзина",
+      "short_name": "Корзина",
+      "description": "Перейти в корзину",
+      "url": "/cart/",
+      "icons": [
+        {
+          "src": "/static/img/icons/cart.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ]
 }
