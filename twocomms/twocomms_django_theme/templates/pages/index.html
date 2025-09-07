@@ -260,10 +260,10 @@
   {% if has_more_products %}
   <div class="text-center mt-4" id="load-more-container">
     <button class="btn btn-outline-primary" id="load-more-btn" data-page="2">
-      <span class="btn-text">Показать еще</span>
+      <span class="btn-text">Показати ще</span>
       <span class="btn-spinner d-none">
         <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-        Загрузка...
+        Завантаження...
       </span>
     </button>
   </div>
@@ -272,7 +272,7 @@
   <!-- Селектор страниц -->
   <div class="text-center mt-3" id="page-selector-container">
     <div class="d-flex justify-content-center align-items-center gap-3">
-      <span class="text-muted small">Страница:</span>
+      <span class="text-muted small">Сторінка:</span>
       <select class="form-select form-select-sm" id="page-selector" style="width: auto;">
         <option value="1" selected>1</option>
         <option value="2">2</option>
@@ -280,7 +280,7 @@
         <option value="4">4</option>
         <option value="5">5</option>
       </select>
-      <span class="text-muted small">из <span id="total-pages">5</span></span>
+      <span class="text-muted small">з <span id="total-pages">5</span></span>
     </div>
   </div>
 </section>
@@ -381,7 +381,7 @@ setInterval(equalizeCardHeights, 2000);
           }
         })
         .catch(error => {
-          console.error('Ошибка загрузки товаров:', error);
+          console.error('Помилка завантаження товарів:', error);
         })
         .finally(() => {
           // Скрываем спиннер
