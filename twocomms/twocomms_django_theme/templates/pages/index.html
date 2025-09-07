@@ -429,6 +429,7 @@ setInterval(equalizeCardHeights, 2000);
             }
             
             // Обновляем текст кнопки
+            const btnText = this.querySelector('.btn-text');
             if (btnText) {
               btnText.textContent = `Показать еще (стр. ${currentPage + 1})`;
             }
@@ -438,14 +439,14 @@ setInterval(equalizeCardHeights, 2000);
               loadMoreContainer.style.display = 'none';
             }
             
-            // Запускаем оригинальную анимацию cardLift для новых карточек
+            // Запускаем красивую анимацию появления для новых карточек
             const allCards = productsContainer.querySelectorAll('.product-card-wrap');
             const newCards = Array.from(allCards).slice(-8); // Берем последние 8 карточек (новые)
             
             console.log('Найдено новых карточек:', newCards.length);
             console.log('Всего карточек в контейнере:', allCards.length);
             
-            // Используем оригинальную анимацию cardLift
+            // Убираем классы анимации и запускаем красивую анимацию
             newCards.forEach((card, index) => {
               // Убираем все классы анимации
               card.classList.remove('reveal-stagger', 'stagger-item', 'reveal-fast', 'reveal');
@@ -456,29 +457,17 @@ setInterval(equalizeCardHeights, 2000);
                 childCard.classList.remove('reveal-stagger', 'stagger-item', 'reveal-fast', 'reveal');
               });
               
-              // Устанавливаем начальное состояние как в оригинальной анимации
+              // Устанавливаем начальное состояние для анимации
               card.style.opacity = '0';
-              card.style.transform = 'translateY(24px) scale(0.94)';
-              card.style.filter = 'blur(10px)';
-              card.style.transition = 'none'; // Убираем transition для ручной анимации
+              card.style.transform = 'translateY(30px) scale(0.95)';
+              card.style.transition = 'all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1)';
               
-              // Запускаем оригинальную анимацию cardLift с задержкой
+              // Запускаем анимацию с задержкой
               setTimeout(() => {
-                // Этап 1: 60% анимации (336ms из 560ms)
-                card.style.transition = 'all 336ms cubic-bezier(0.2, 0.8, 0.2, 1)';
                 card.style.opacity = '1';
-                card.style.transform = 'translateY(-2px) scale(1.01)';
-                card.style.filter = 'blur(0)';
-                
-                // Этап 2: завершение анимации (оставшиеся 224ms)
-                setTimeout(() => {
-                  card.style.transition = 'all 224ms cubic-bezier(0.2, 0.8, 0.2, 1)';
-                  card.style.transform = 'translateY(0) scale(1)';
-                  console.log(`Анимация карточки ${index + 1} завершена`);
-                }, 336);
-                
+                card.style.transform = 'translateY(0) scale(1)';
                 console.log(`Анимация карточки ${index + 1} запущена`);
-              }, index * 190); // Используем оригинальную задержку 190ms
+              }, index * 120); // Уменьшил задержку для более быстрой анимации
             });
           } else {
             console.log('HTML пустой или нет товаров');
