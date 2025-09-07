@@ -439,10 +439,17 @@ setInterval(equalizeCardHeights, 2000);
         })
         .catch(error => {
           console.error('Ошибка загрузки товаров:', error);
+          console.error('Тип ошибки:', error.name);
+          console.error('Сообщение ошибки:', error.message);
+          
           // Показываем сообщение об ошибке
           const errorDiv = document.createElement('div');
           errorDiv.className = 'alert alert-warning mt-3';
-          errorDiv.textContent = 'Произошла ошибка при загрузке товаров. Попробуйте еще раз.';
+          errorDiv.innerHTML = `
+            <strong>Ошибка загрузки товаров:</strong><br>
+            ${error.message}<br>
+            <small>Проверьте, что сервер запущен и доступен.</small>
+          `;
           loadMoreContainer.appendChild(errorDiv);
         })
         .finally(() => {
