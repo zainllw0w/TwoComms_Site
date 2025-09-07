@@ -24,9 +24,15 @@
   <meta name="apple-mobile-web-app-title" content="TwoComms">
   
   <!-- Favicon and Icons -->
-  <link rel='apple-touch-icon' sizes='180x180' href='{% static 'img/favicon-180x180.png' %}'>
+  <!-- PNG иконки с приоритетом -->
   <link rel='icon' type='image/png' sizes='32x32' href='{% static 'img/favicon-32x32.png' %}'>
   <link rel='icon' type='image/png' sizes='192x192' href='{% static 'img/favicon-192x192.png' %}'>
+  <link rel='icon' type='image/png' sizes='512x512' href='{% static 'img/favicon-512x512.png' %}'>
+  
+  <!-- Apple Touch Icon -->
+  <link rel='apple-touch-icon' sizes='180x180' href='{% static 'img/favicon-180x180.png' %}'>
+  
+  <!-- Web App Manifest -->
   <link rel='manifest' href='{% static 'site.webmanifest' %}'>
   
   <!-- Facebook Pixel -->
@@ -37,6 +43,8 @@
   <meta name='msapplication-TileColor' content='#111111'>
   <meta name='msapplication-TileImage' content='{% static 'img/favicon-180x180.png' %}'>
   <link rel='mask-icon' href='{% static 'img/logo.svg' %}' color='#7c3aed'>
+  
+  <!-- ICO как fallback (в конце) -->
   <link rel='icon' href='{% static 'img/favicon.ico' %}' sizes='any' type='image/x-icon'>
   
   <!-- Stylesheets -->
