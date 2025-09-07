@@ -1,4 +1,41 @@
-{% extends "base.html" %}{% load static %}{% block title %}{{ product.title }} — TwoComms{% endblock %}{% block content %}
+{% extends "base.html" %}{% load static %}
+
+{% block title %}{{ product.title }} — TwoComms | Купити {{ product.category.name|lower }}{% endblock %}
+
+{% block description %}Купити {{ product.title }} в TwoComms. {{ product.category.name }} з ексклюзивним дизайном. Ціна: {{ product.final_price }} грн. Якісний стріт & мілітарі одяг. Швидка доставка по Україні.{% endblock %}
+
+{% block keywords %}{{ product.title }}, {{ product.category.name|lower }}, стріт одяг, мілітарі одяг, TwoComms, ексклюзивний дизайн, якісний одяг, купити {{ product.category.name|lower }}{% endblock %}
+
+{% block og_type %}product{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "{{ product.title }}",
+  "description": "{{ product.description|default:product.title }}",
+  "image": "{% if product.main_image %}{{ request.scheme }}://{{ request.get_host }}{{ product.main_image.url }}{% endif %}",
+  "brand": {
+    "@type": "Brand",
+    "name": "TwoComms"
+  },
+  "category": "{{ product.category.name }}",
+  "offers": {
+    "@type": "Offer",
+    "price": "{{ product.final_price }}",
+    "priceCurrency": "UAH",
+    "availability": "https://schema.org/InStock",
+    "seller": {
+      "@type": "Organization",
+      "name": "TwoComms"
+    }
+  }
+}
+</script>
+{% endblock %}
+
+{% block content %}
 <div class="row g-4">
   <div class="col-12 col-lg-6">
     <div class="ratio ratio-1x1 rounded-4 overflow-hidden bg-elevate glass position-relative">

@@ -1,9 +1,36 @@
-{% extends "base.html" %}{% load static %}{% block title %}TwoComms — Головна{% endblock %}{% block content %}
+{% extends "base.html" %}{% load static %}
+
+{% block title %}TwoComms — Стріт & Мілітарі Одяг | Головна{% endblock %}
+
+{% block description %}TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю. Швидка доставка по Україні.{% endblock %}
+
+{% block keywords %}стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, одяг з характером, стріт стиль, мілітарі стиль{% endblock %}
+
+{% block og_type %}website{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "TwoComms",
+  "url": "{{ request.scheme }}://{{ request.get_host }}",
+  "description": "Магазин стріт & мілітарі одягу з ексклюзивним дизайном",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "{{ request.scheme }}://{{ request.get_host }}/search/?q={search_term_string}",
+    "query-input": "required name=search_term_string"
+  }
+}
+</script>
+{% endblock %}
+
+{% block content %}
 <section class="hero-section mb-4 mb-md-5 reveal">
   <div class="hero-container">
     <!-- Фоновый логотип -->
     <div class="hero-logo-bg">
-      <img src="{% static 'img/logo.svg' %}" alt="TWO COMMS" class="hero-logo-image">
+      <img src="{% static 'img/logo.svg' %}" alt="TwoComms - Стріт & Мілітарі Одяг" class="hero-logo-image">
     </div>
     
     <!-- Основной контент -->
@@ -60,15 +87,15 @@
       <div class="featured-gradient-1"></div>
       <div class="featured-gradient-2"></div>
       <div class="featured-floating-logos">
-        <div class="floating-logo logo-1">
-          <img src="{% static 'img/logo.svg' %}" alt="Logo" width="14" height="14">
-        </div>
-        <div class="floating-logo logo-2">
-          <img src="{% static 'img/logo.svg' %}" alt="Logo" width="12" height="12">
-        </div>
-        <div class="floating-logo logo-3">
-          <img src="{% static 'img/logo.svg' %}" alt="Logo" width="16" height="16">
-        </div>
+              <div class="floating-logo logo-1">
+                <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="14" height="14">
+              </div>
+              <div class="floating-logo logo-2">
+                <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="12" height="12">
+              </div>
+              <div class="floating-logo logo-3">
+                <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="16" height="16">
+              </div>
       </div>
     </div>
     
@@ -108,11 +135,11 @@
     <div class="featured-content-unified" id="featured-content">
       <div class="featured-card-compact">
         <div class="featured-image-compact">
-          <img
-            src="{% if featured.display_image %}{{ featured.display_image.url }}{% else %}{% static 'img/placeholder.jpg' %}{% endif %}"
-            class="featured-img"
-            alt="{{ featured.title }}"
-          >
+                  <img
+                    src="{% if featured.display_image %}{{ featured.display_image.url }}{% else %}{% static 'img/placeholder.jpg' %}{% endif %}"
+                    class="featured-img"
+                    alt="{{ featured.title }} - {{ featured.category.name }} TwoComms"
+                  >
           {% if featured.has_discount and featured.discount_percent %}
             <div class="featured-discount-compact">-{{ featured.discount_percent }}%</div>
           {% endif %}
