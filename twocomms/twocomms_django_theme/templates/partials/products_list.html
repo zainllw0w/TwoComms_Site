@@ -1,6 +1,6 @@
 {% load static %}
 {% for p in products %}
-<div class="product-card-wrap stagger-item reveal-stagger">
+<div class="product-card-wrap">
   {% include "partials/product_card.html" with p=p stagger=True %}
   {% if p.colors_preview %}
   <div class="product-card-dots">
