@@ -389,7 +389,7 @@ setInterval(equalizeCardHeights, 2000);
     
     loadMoreBtn.addEventListener('click', function() {
       console.log('Кнопка "Показать еще" нажата!');
-      const currentPage = parseInt(this.getAttribute('data-page'));
+      let currentPage = parseInt(this.getAttribute('data-page'));
       const btnText = this.querySelector('.btn-text');
       const btnSpinner = this.querySelector('.btn-spinner');
       
@@ -426,18 +426,18 @@ setInterval(equalizeCardHeights, 2000);
             // Обновляем отладочную информацию на странице
             const debugInfo = document.querySelector('.text-muted');
             if (debugInfo) {
-              debugInfo.textContent = `has_more_products: true | current_page: ${window.currentPage} | Кнопка должна быть видна`;
+              debugInfo.textContent = `has_more_products: true | current_page: ${currentPage} | Кнопка должна быть видна`;
             }
             
             // Обновляем текст кнопки
             const btnText = this.querySelector('.btn-text');
             if (btnText) {
-              btnText.textContent = `Показать еще (стр. ${window.currentPage})`;
+              btnText.textContent = `Показать еще (стр. ${currentPage})`;
             }
             
             // Обновляем переменную в консоли для отладки
-            window.currentPage = currentPage + 1;
-            console.log('current_page обновлен на:', window.currentPage);
+            currentPage = currentPage + 1;
+            console.log('current_page обновлен на:', currentPage);
             
             // Если больше нет товаров, скрываем кнопку
             if (!data.has_more) {
