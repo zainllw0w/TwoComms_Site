@@ -257,39 +257,17 @@
     {% endfor %}
   </div>
   
-  <!-- Отладочная информация -->
-  <script>
-    let initialPage = {{ current_page }};
-    console.log('has_more_products:', {{ has_more_products|yesno:"true,false" }});
-    console.log('initial_page:', initialPage);
-  </script>
-  
-  <!-- ВРЕМЕННО: Принудительно показываем кнопку для тестирования -->
+  {% if has_more_products %}
   <div class="text-center mt-4" id="load-more-container">
     <button class="btn btn-outline-primary" id="load-more-btn" data-page="2">
-      <span class="btn-text">Показать еще (стр. 2)</span>
+      <span class="btn-text">Показать еще</span>
       <span class="btn-spinner d-none">
         <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
         Загрузка...
       </span>
     </button>
   </div>
-  
-  <!-- Отладочная информация -->
-  <div class="text-center mt-2">
-    <small class="text-muted">
-      has_more_products: {{ has_more_products|yesno:"true,false" }} | 
-      current_page: {{ current_page }} |
-      {% if has_more_products %}Кнопка должна быть видна{% else %}Кнопка скрыта{% endif %}
-    </small>
-  </div>
-  
-  <!-- ТЕСТОВАЯ КНОПКА -->
-  <div class="text-center mt-2">
-    <button class="btn btn-warning btn-sm" id="test-btn">
-      ТЕСТ: Добавить карточку
-    </button>
-  </div>
+  {% endif %}
 </section>
 
 <script>
@@ -374,18 +352,7 @@ setInterval(equalizeCardHeights, 2000);
     console.log('Кнопка видима:', loadMoreBtn.offsetParent !== null);
     console.log('Кнопка отображается:', loadMoreBtn.style.display !== 'none');
     
-    // Добавляем тестовую кнопку
-    const testBtn = document.getElementById('test-btn');
-    if (testBtn) {
-      testBtn.addEventListener('click', function() {
-        console.log('ТЕСТОВАЯ КНОПКА НАЖАТА!');
-        const testCard = document.createElement('div');
-        testCard.className = 'product-card-wrap';
-        testCard.innerHTML = '<div class="card product"><div class="card-body"><h5>ТЕСТОВАЯ КАРТОЧКА</h5><p>Это тестовая карточка для проверки</p></div></div>';
-        productsContainer.appendChild(testCard);
-        console.log('Тестовая карточка добавлена');
-      });
-    }
+    // Тестовая кнопка удалена для упрощения
     
     loadMoreBtn.addEventListener('click', function() {
       console.log('Кнопка "Показать еще" нажата!');
@@ -424,11 +391,7 @@ setInterval(equalizeCardHeights, 2000);
             button.setAttribute('data-page', currentPage + 1);
             console.log('Обновлен data-page на:', currentPage + 1);
             
-            // Обновляем отладочную информацию на странице
-            const debugInfo = document.querySelector('.text-muted');
-            if (debugInfo) {
-              debugInfo.textContent = `has_more_products: true | current_page: ${currentPage} | Кнопка должна быть видна`;
-            }
+            // Отладочная информация удалена для упрощения
             
             // Обновляем текст кнопки
             if (btnText) {
@@ -451,13 +414,10 @@ setInterval(equalizeCardHeights, 2000);
             console.log('Найдено новых карточек:', newCards.length);
             console.log('Всего карточек в контейнере:', allCards.length);
             
-            // Просто показываем карточки без анимации
-            console.log('Показываем новые карточки...');
-            newCards.forEach((card, index) => {
-              console.log(`Обрабатываем карточку ${index + 1}:`, card);
-              
+            // Просто показываем карточки - никаких анимаций
+            newCards.forEach((card) => {
               // Убираем все классы анимации
-              card.classList.remove('stagger-item', 'reveal-stagger');
+              card.classList.remove('stagger-item', 'reveal-stagger', 'reveal-fast');
               
               // Принудительно делаем карточку видимой
               card.style.opacity = '1';
@@ -465,13 +425,10 @@ setInterval(equalizeCardHeights, 2000);
               card.style.filter = 'none';
               card.style.transition = 'none';
               
-              console.log(`Карточка ${index + 1} принудительно показана`);
-              
               // Показываем цвета
               const colorDots = card.querySelector('.product-card-dots');
               if(colorDots) {
                 colorDots.style.opacity = '1';
-                console.log(`Цвета карточки ${index + 1} показаны`);
               }
             });
           } else {
