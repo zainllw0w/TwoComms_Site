@@ -215,7 +215,8 @@ def logout_view(request):
 def home(request):
     featured = Product.objects.filter(featured=True).order_by('-id').first()
     categories = Category.objects.order_by('order','name')
-    products = list(Product.objects.order_by('-id')[:12])
+    # Показываем только первые 8 товаров
+    products = list(Product.objects.order_by('-id')[:8])
     # Варіанти кольорів для featured (якщо є додаток і дані)
     featured_variants = []
     # Варіанти кольорів для «Новинок»
@@ -246,11 +247,71 @@ def home(request):
         for p in products:
             setattr(p, 'colors_preview', [])
         featured_variants = featured_variants or []
+    # Проверяем есть ли еще товары для пагинации
+    total_products = Product.objects.count()
+    has_more = total_products > 8
+    
     return render(
         request,
         'pages/index.html',
-        {'featured': featured, 'categories': categories, 'products': products, 'featured_variants': featured_variants}
+        {
+            'featured': featured, 
+            'categories': categories, 
+            'products': products, 
+            'featured_variants': featured_variants,
+            'has_more_products': has_more,
+            'current_page': 1
+        }
     )
+
+def load_more_products(request):
+    """AJAX view для загрузки дополнительных товаров"""
+    if request.method == 'GET':
+        page = int(request.GET.get('page', 1))
+        per_page = 8
+        
+        # Вычисляем offset
+        offset = (page - 1) * per_page
+        
+        # Получаем товары для текущей страницы
+        products = list(Product.objects.order_by('-id')[offset:offset + per_page])
+        
+        # Подготавливаем цвета для товаров
+        try:
+            from productcolors.models import ProductColorVariant
+            prod_ids = [p.id for p in products]
+            if prod_ids:
+                vlist = ProductColorVariant.objects.select_related('color').filter(product_id__in=prod_ids).order_by('product_id','order','id')
+                colors_map = {}
+                for v in vlist:
+                    colors_map.setdefault(v.product_id, []).append({
+                        'primary_hex': v.color.primary_hex,
+                        'secondary_hex': v.color.secondary_hex or '',
+                    })
+                for p in products:
+                    setattr(p, 'colors_preview', colors_map.get(p.id, []))
+        except Exception:
+            for p in products:
+                setattr(p, 'colors_preview', [])
+        
+        # Проверяем есть ли еще товары
+        total_products = Product.objects.count()
+        has_more = (offset + per_page) < total_products
+        
+        # Рендерим HTML для товаров
+        from django.template.loader import render_to_string
+        products_html = render_to_string('partials/products_list.html', {
+            'products': products,
+            'page': page
+        })
+        
+        return JsonResponse({
+            'html': products_html,
+            'has_more': has_more,
+            'next_page': page + 1 if has_more else None
+        })
+    
+    return JsonResponse({'error': 'Invalid request'}, status=400)
 
 def catalog(request, cat_slug=None):
     categories = Category.objects.order_by('order','name')

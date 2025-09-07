@@ -1,0 +1,18 @@
+{% load static %}
+{% for p in products %}
+<div class="product-card-wrap">
+  {% include "partials/product_card.html" with p=p stagger=True %}
+  {% if p.colors_preview %}
+  <div class="product-card-dots">
+    <span class="text-secondary small me-1">Кольори:</span>
+    <div class="d-flex align-items-center gap-1">
+      {% for v in p.colors_preview %}
+        <span class="color-dot" title="{{ v.primary_hex }}{% if v.secondary_hex %}+{{ v.secondary_hex }}{% endif %}" style="--c1: {{ v.primary_hex }}; --c2: {{ v.secondary_hex|default:'' }};"></span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% empty %}
+<div class="text-secondary small">Немає товарів.</div>
+{% endfor %}
