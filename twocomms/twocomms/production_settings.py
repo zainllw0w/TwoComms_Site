@@ -204,7 +204,8 @@ LOGGING = {
     },
 }
 
-# Настройки кэширования уже определены выше
+# Sites framework
+SITE_ID = 1
 
 # Настройки для отправки email (опционально)
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'

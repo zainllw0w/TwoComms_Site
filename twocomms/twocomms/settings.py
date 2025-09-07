@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",   # ← только один раз!
+    "django.contrib.sites",         # Sites framework для redirects
     "django.contrib.sitemaps",      # Sitemap для SEO
     "django.contrib.redirects",     # Редиректы для SEO
     "compressor",                   # Сжатие статических файлов
@@ -100,13 +101,15 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'storefront.context_processors.orders_processing_count',
-                'storefront.ab_testing.ab_test_context',  # A/B тестирование
             ],
         },
     },
 ]
 
 WSGI_APPLICATION = 'twocomms.wsgi.application'
+
+# Sites framework
+SITE_ID = 1
 
 
 # Database
@@ -250,6 +253,9 @@ if not DEBUG:
         ]),
     ]
     TEMPLATES[0]['APP_DIRS'] = False
+else:
+    # В режиме разработки используем стандартные загрузчики
+    TEMPLATES[0]['APP_DIRS'] = True
 
 # ===== НАСТРОЙКИ СЖАТИЯ СТАТИЧЕСКИХ ФАЙЛОВ =====
 STATICFILES_FINDERS = [
