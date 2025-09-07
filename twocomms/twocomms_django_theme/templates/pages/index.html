@@ -46,87 +46,92 @@
 </section>
 {% if featured %}
 <section class="mb-4 mb-md-5 reveal" id="featured-section">
-  <!-- Заголовок-кнопка управления блоком -->
-  <div class="featured-header-btn" id="featured-toggle">
-    <div class="featured-header-content">
-      <div class="featured-badge">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-        </svg>
-        Рекомендовано
+  <!-- Компактный блок рекомендаций в стиле категорий -->
+  <div class="featured-unified-block">
+    <!-- Фоновые эффекты -->
+    <div class="featured-bg-unified">
+      <div class="featured-particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
       </div>
-      <div class="featured-subtitle">Найкращий вибір тижня</div>
-      <div class="featured-toggle-hint">
-        <span class="toggle-hint-text">Сховати</span>
-        <svg class="toggle-hint-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M7 10l5 5 5-5z"/>
-        </svg>
+      <div class="featured-glow"></div>
+      <div class="featured-gradient-1"></div>
+      <div class="featured-gradient-2"></div>
+      <div class="featured-floating-logos">
+        <div class="floating-logo logo-1">
+          <img src="{% static 'img/logo.svg' %}" alt="Logo" width="14" height="14">
+        </div>
+        <div class="floating-logo logo-2">
+          <img src="{% static 'img/logo.svg' %}" alt="Logo" width="12" height="12">
+        </div>
+        <div class="floating-logo logo-3">
+          <img src="{% static 'img/logo.svg' %}" alt="Logo" width="16" height="16">
+        </div>
       </div>
     </div>
-  </div>
-  
-  <!-- Скрываемый контент -->
-  <div class="featured-section" id="featured-content">
     
-    <div class="featured-card">
-      <div class="featured-image-container">
-        <div class="featured-image-wrapper">
-                      <img
-              src="{% if featured.display_image %}{{ featured.display_image.url }}{% else %}{% static 'img/placeholder.jpg' %}{% endif %}"
-              class="featured-image"
-              alt="{{ featured.title }}"
-            >
-          <div class="featured-overlay">
-            <div class="featured-overlay-content">
-              <div class="featured-category">{{ featured.category.name }}</div>
-              {% if featured_variants %}
-                <div class="featured-colors">
-                  <span class="featured-colors-label">Доступні кольори:</span>
-                  <div class="featured-color-dots">
-                    {% for v in featured_variants %}
-                      <span class="featured-color-dot" title="{{ v.primary_hex }}{% if v.secondary_hex %}+{{ v.secondary_hex }}{% endif %}" style="--c1: {{ v.primary_hex }}; --c2: {{ v.secondary_hex|default:'' }};"></span>
-                    {% endfor %}
-                  </div>
-                </div>
-              {% endif %}
+    <!-- Заголовок с кнопкой сворачивания -->
+    <div class="featured-header-unified">
+      <div class="d-flex justify-content-between align-items-center">
+        <div class="featured-title-compact">
+          <div class="title-with-star-icon">
+            <h2 class="featured-title-text">Рекомендовано</h2>
+            <div class="featured-star-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
             </div>
           </div>
-        </div>
-      </div>
-      
-      <div class="featured-content">
-        <div class="featured-title-section">
-          <h3 class="featured-title">{{ featured.title }}</h3>
-          <div class="featured-description">{{ featured.description|default:'Ексклюзивний дизайн з найкращих матеріалів'|truncatechars:150 }}</div>
+          <div class="featured-accent-line"></div>
         </div>
         
-        <div class="featured-price-section">
-          <div class="featured-price-info">
-            {% if featured.has_discount and featured.discount_percent %}
-              <div class="featured-discount-badge">-{{ featured.discount_percent }}%</div>
-            {% endif %}
-            <div class="featured-price">
-              <span class="featured-price-current">{{ featured.final_price }} грн</span>
-              {% if featured.has_discount %}
-                <span class="featured-price-old">{{ featured.price }} грн</span>
-              {% endif %}
-            </div>
-          </div>
-          
-          <div class="featured-actions">
-            <a href="{% url 'product' featured.slug %}" class="featured-btn-primary">
-              <span>Переглянути</span>
+        <!-- Кнопка сворачивания в центре -->
+        <button class="featured-toggle-btn" id="featuredToggle" aria-label="Свернуть/развернуть рекомендации">
+          <div class="toggle-btn-content">
+            <span class="toggle-text">Сховати</span>
+            <div class="toggle-icon">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                <path d="M7 10l5 5 5-5z"/>
               </svg>
-            </a>
-            <div class="featured-exclusive-badge">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.57L19 8l-9 9z"/>
-              </svg>
-              Ексклюзив
             </div>
           </div>
+        </button>
+        
+        <div class="featured-spacer"></div>
+      </div>
+    </div>
+    
+    <!-- Скрываемый контент -->
+    <div class="featured-content-unified" id="featured-content">
+      <div class="featured-card-compact">
+        <div class="featured-image-compact">
+          <img
+            src="{% if featured.display_image %}{{ featured.display_image.url }}{% else %}{% static 'img/placeholder.jpg' %}{% endif %}"
+            class="featured-img"
+            alt="{{ featured.title }}"
+          >
+          {% if featured.has_discount and featured.discount_percent %}
+            <div class="featured-discount-compact">-{{ featured.discount_percent }}%</div>
+          {% endif %}
+        </div>
+        
+        <div class="featured-info-compact">
+          <div class="featured-category-compact">{{ featured.category.name }}</div>
+          <h3 class="featured-title-compact-text">{{ featured.title }}</h3>
+          <div class="featured-price-compact">
+            <span class="featured-price-current-compact">{{ featured.final_price }} грн</span>
+            {% if featured.has_discount %}
+              <span class="featured-price-old-compact">{{ featured.price }} грн</span>
+            {% endif %}
+          </div>
+          <a href="{% url 'product' featured.slug %}" class="featured-btn-compact">
+            <span>Переглянути</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+            </svg>
+          </a>
         </div>
       </div>
     </div>
@@ -459,6 +464,44 @@ setInterval(equalizeCardHeights, 2000);
     
     // Инициализация селектора
     updatePageSelector(1, true);
+  });
+  
+  // ===== ФУНКЦИОНАЛЬНОСТЬ СВОРАЧИВАНИЯ БЛОКА РЕКОМЕНДАЦИЙ =====
+  document.addEventListener('DOMContentLoaded', function() {
+    const featuredToggle = document.getElementById('featuredToggle');
+    const featuredContent = document.getElementById('featured-content');
+    
+    if (!featuredToggle || !featuredContent) return;
+    
+    // Проверяем состояние из localStorage (по умолчанию скрыто)
+    const isCollapsed = localStorage.getItem('featuredCollapsed') !== 'false';
+    
+    if (isCollapsed) {
+      featuredContent.style.display = 'none';
+      featuredToggle.classList.add('collapsed');
+      featuredToggle.querySelector('.toggle-text').textContent = 'Показати';
+      featuredToggle.querySelector('.toggle-icon svg').style.transform = 'rotate(180deg)';
+    }
+    
+    featuredToggle.addEventListener('click', function() {
+      const isCurrentlyCollapsed = featuredContent.style.display === 'none';
+      
+      if (isCurrentlyCollapsed) {
+        // Разворачиваем
+        featuredContent.style.display = 'block';
+        featuredToggle.classList.remove('collapsed');
+        featuredToggle.querySelector('.toggle-text').textContent = 'Сховати';
+        featuredToggle.querySelector('.toggle-icon svg').style.transform = 'rotate(0deg)';
+        localStorage.setItem('featuredCollapsed', 'false');
+      } else {
+        // Сворачиваем
+        featuredContent.style.display = 'none';
+        featuredToggle.classList.add('collapsed');
+        featuredToggle.querySelector('.toggle-text').textContent = 'Показати';
+        featuredToggle.querySelector('.toggle-icon svg').style.transform = 'rotate(180deg)';
+        localStorage.setItem('featuredCollapsed', 'true');
+      }
+    });
   });
 </script>
 {% endblock %}
