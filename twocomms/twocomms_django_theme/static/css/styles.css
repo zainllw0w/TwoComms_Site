@@ -9866,6 +9866,7 @@ body::after {
 }
 
 .product-card-wrap{position:relative}
+.product-card-wrap, .card.product { content-visibility: auto; contain-intrinsic-size: 350px 300px; }
 .product-card-dots{
   position:absolute;
   right:10px;

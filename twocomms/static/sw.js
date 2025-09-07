@@ -5,6 +5,11 @@ const CACHE_NAME = 'twocomms-v1.0.0';
 const STATIC_CACHE = 'twocomms-static-v1.0.0';
 const DYNAMIC_CACHE = 'twocomms-dynamic-v1.0.0';
 
+// Управление логированием SW
+const DEBUG_SW = false;
+const swlog = DEBUG_SW ? ((...args)=>{ try{ console.log('[SW]', ...args);}catch(_){} }) : (()=>{});
+const swwarn = DEBUG_SW ? ((...args)=>{ try{ console.warn('[SW]', ...args);}catch(_){} }) : (()=>{});
+
 // Файлы для кэширования
 const STATIC_FILES = [
     '/',
@@ -19,16 +24,16 @@ const STATIC_FILES = [
 
 // Установка Service Worker
 self.addEventListener('install', event => {
-    console.log('Service Worker: Installing...');
+    swlog('Installing...');
     
     event.waitUntil(
         caches.open(STATIC_CACHE)
             .then(cache => {
-                console.log('Service Worker: Caching static files');
+                swlog('Caching static files');
                 return cache.addAll(STATIC_FILES);
             })
             .then(() => {
-                console.log('Service Worker: Installation complete');
+                swlog('Installation complete');
                 return self.skipWaiting();
             })
             .catch(error => {
@@ -39,7 +44,7 @@ self.addEventListener('install', event => {
 
 // Активация Service Worker
 self.addEventListener('activate', event => {
-    console.log('Service Worker: Activating...');
+    swlog('Activating...');
     
     event.waitUntil(
         caches.keys()
@@ -47,14 +52,14 @@ self.addEventListener('activate', event => {
                 return Promise.all(
                     cacheNames.map(cacheName => {
                         if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
-                            console.log('Service Worker: Deleting old cache', cacheName);
+                            swlog('Deleting old cache', cacheName);
                             return caches.delete(cacheName);
                         }
                     })
                 );
             })
             .then(() => {
-                console.log('Service Worker: Activation complete');
+                swlog('Activation complete');
                 return self.clients.claim();
             })
     );
@@ -118,7 +123,7 @@ async function networkFirst(request) {
         }
         return networkResponse;
     } catch (error) {
-        console.log('Network failed, trying cache:', error);
+        swwarn('Network failed, trying cache:', error);
         const cachedResponse = await caches.match(request);
         if (cachedResponse) {
             return cachedResponse;
@@ -147,7 +152,7 @@ async function staleWhileRevalidate(request) {
 
 // Обработка push уведомлений
 self.addEventListener('push', event => {
-    console.log('Service Worker: Push received');
+    swlog('Push received');
     
     const options = {
         body: event.data ? event.data.text() : 'Новое уведомление от TwoComms',
@@ -179,7 +184,7 @@ self.addEventListener('push', event => {
 
 // Обработка кликов по уведомлениям
 self.addEventListener('notificationclick', event => {
-    console.log('Service Worker: Notification click received');
+    swlog('Notification click received');
     
     event.notification.close();
     
@@ -199,7 +204,7 @@ self.addEventListener('notificationclick', event => {
 
 // Синхронизация в фоне
 self.addEventListener('sync', event => {
-    console.log('Service Worker: Background sync', event.tag);
+    swlog('Background sync', event.tag);
     
     if (event.tag === 'background-sync') {
         event.waitUntil(doBackgroundSync());
@@ -208,5 +213,5 @@ self.addEventListener('sync', event => {
 
 async function doBackgroundSync() {
     // Здесь можно добавить логику для синхронизации данных
-    console.log('Service Worker: Performing background sync');
+    swlog('Performing background sync');
 }

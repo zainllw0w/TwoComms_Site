@@ -1,4 +1,8 @@
 // Анимации появления
+const prefersReducedMotion = (function(){
+  try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+  catch(_) { return false; }
+})();
 const io=new IntersectionObserver(e=>{e.forEach(t=>{if(t.isIntersecting){t.target.classList.add('visible');io.unobserve(t.target)}})},{threshold:.12});
 document.addEventListener('DOMContentLoaded',()=>{
   // Обычные лёгкие появления
@@ -16,7 +20,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         .sort((a,b)=> (a.rect.top - b.rect.top) || (a.rect.left - b.rect.left))
         .map(x=>x.el);
 
-      const step = 190; // шаг задержки между карточками (мс) — заметно по очереди
+      const step = prefersReducedMotion ? 0 : 190; // шаг задержки между карточками (мс)
       ordered.forEach((el,i)=>{
         el.style.setProperty('--d', (i*step)+'ms'); // дублируем задержку в CSS (на всякий)
         setTimeout(()=>{ 
@@ -32,7 +36,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             dots.forEach((dot, dotIndex) => {
               setTimeout(() => {
                 dot.classList.add('visible');
-              }, dotIndex * 60); // Быстрая анимация точек
+              }, prefersReducedMotion ? 0 : (dotIndex * 60)); // Быстрая анимация точек
             });
           }
         }, i*step);
@@ -45,9 +49,17 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 
 // ===== Корзина (AJAX) =====
-// Временный дебаггер UI: включается локально через localStorage `ui-debug` = '1'
-const UI_DEBUG = true; // временно всегда включено для локального дебага
-const dlog = (...args)=>{ try{ console.log('[UI]', ...args);}catch(_){} };
+// Дебаггер UI: включается локально через localStorage `ui-debug` = '1'
+const UI_DEBUG = (()=>{ try{ return localStorage.getItem('ui-debug')==='1'; }catch(_) { return false; } })();
+const dlog = UI_DEBUG ? ((...args)=>{ try{ console.log('[UI]', ...args);}catch(_){} }) : (()=>{});
+
+// Простая утилита debounce для снижения частоты перерисовок при resize
+function debounce(fn, wait){
+  let t; return function debounced(){
+    const ctx=this, args=arguments; clearTimeout(t);
+    t=setTimeout(function(){ fn.apply(ctx,args); }, wait);
+  };
+}
 let uiEventSeq = 0;
 const nextEvt = ()=> (++uiEventSeq);
 const nowTs = ()=> Date.now();
@@ -323,7 +335,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(!el) return;
     if(el.dataset.uiBoundCart==='1') return;
     el.dataset.uiBoundCart = '1';
-    el.addEventListener('pointerdown', (e)=>{ suppressNextDocPointerdownUntil = Date.now()+250; dlog('cart toggle pointerdown'); });
+    el.addEventListener('pointerdown', (e)=>{ suppressNextDocPointerdownUntil = Date.now()+250; dlog('cart toggle pointerdown'); }, {passive:true});
     el.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); dlog('cart toggle click'); toggleMiniCart(); });
   };
   bindCartToggle(document.getElementById('cart-toggle'));
@@ -338,10 +350,10 @@ document.addEventListener('DOMContentLoaded',()=>{
     const closeUser=(reason)=>{ const id=nextEvt(); userPanel._opId = (userPanel._opId||0)+1; const opId=userPanel._opId; dlog('closeUser', {id, reason:reason||'', now:nowTs(), state: panelState()}); userPanel.classList.remove('show'); userPanel.classList.add('hiding'); const t=setTimeout(()=>{ if(opId!==userPanel._opId) return; userPanel.classList.add('d-none'); userPanel.classList.remove('hiding'); },220); userPanel._hideTimeout=t; userPanel.addEventListener('transitionend', function onEnd(e){ if(e.target!==userPanel) return; userPanel.removeEventListener('transitionend', onEnd); if(opId!==userPanel._opId) return; clearTimeout(t); userPanel.classList.add('d-none'); userPanel.classList.remove('hiding'); dlog('closeUser:transitionend', {id}); }); };
     if(!userToggle.dataset.uiBoundUser){
       userToggle.dataset.uiBoundUser = '1';
-      userToggle.addEventListener('pointerdown',(e)=>{ suppressNextDocPointerdownUntil = Date.now()+250; dlog('user toggle pointerdown'); });
+      userToggle.addEventListener('pointerdown',(e)=>{ suppressNextDocPointerdownUntil = Date.now()+250; dlog('user toggle pointerdown'); }, {passive:true});
       userToggle.addEventListener('click',(e)=>{ const id=nextEvt(); e.preventDefault(); e.stopPropagation(); dlog('userToggle:click', {id, now:nowTs(), uiGuardUntil, suppressNextDocPointerdownUntil, suppressGlobalCloseUntil, state: panelState()}); if(Date.now() < uiGuardUntil){ dlog('userToggle ignored by uiGuard', {id}); return;} const cartOpen = miniCartPanel() && !miniCartPanel().classList.contains('d-none'); if(cartOpen) closeMiniCart('userToggle'); if(userPanel.classList.contains('d-none') || !userPanel.classList.contains('show')){ openUser(); } else { closeUser('userToggle'); } suppressGlobalCloseUntil = Date.now() + 220; dlog('set suppressGlobalCloseUntil', {id, suppressGlobalCloseUntil}); });
     }
-    document.addEventListener('pointerdown',(e)=>{ const id=nextEvt(); const tgt = e.target; const state = panelState(); const supNext = Date.now() < suppressNextDocPointerdownUntil; const supGlob = Date.now() < suppressGlobalCloseUntil; const outside = !userPanel.contains(tgt) && !userToggle.contains(tgt); dlog('doc pointerdown(userPanel)', {id, supNext, supGlob, outside, target: tgt && (tgt.tagName||'') , state}); if(supNext || supGlob) return; if(userPanel.classList.contains('d-none')) return; if(outside){ closeUser('docOutside'); }});
+    document.addEventListener('pointerdown',(e)=>{ const id=nextEvt(); const tgt = e.target; const state = panelState(); const supNext = Date.now() < suppressNextDocPointerdownUntil; const supGlob = Date.now() < suppressGlobalCloseUntil; const outside = !userPanel.contains(tgt) && !userToggle.contains(tgt); dlog('doc pointerdown(userPanel)', {id, supNext, supGlob, outside, target: tgt && (tgt.tagName||'') , state}); if(supNext || supGlob) return; if(userPanel.classList.contains('d-none')) return; if(outside){ closeUser('docOutside'); }}, {passive:true});
     const uc = document.querySelector('[data-user-close]'); if(uc){ uc.addEventListener('click',(e)=>{ e.preventDefault(); closeUser();}); }
     document.addEventListener('keydown',(e)=>{ if(e.key==='Escape') closeUser(); });
   }
@@ -354,10 +366,10 @@ document.addEventListener('DOMContentLoaded',()=>{
     const closeUserMobile=(reason)=>{ const id=nextEvt(); userPanelMobile._opId=(userPanelMobile._opId||0)+1; const opId=userPanelMobile._opId; dlog('closeUserMobile', {id, reason:reason||'', now:nowTs(), state: panelState()}); userPanelMobile.classList.remove('show'); userPanelMobile.classList.add('hiding'); const t=setTimeout(()=>{ if(opId!==userPanelMobile._opId) return; userPanelMobile.classList.add('d-none'); userPanelMobile.classList.remove('hiding'); },220); userPanelMobile._hideTimeout=t; userPanelMobile.addEventListener('transitionend', function onEnd(e){ if(e.target!==userPanelMobile) return; userPanelMobile.removeEventListener('transitionend', onEnd); if(opId!==userPanelMobile._opId) return; clearTimeout(t); userPanelMobile.classList.add('d-none'); userPanelMobile.classList.remove('hiding'); dlog('closeUserMobile:transitionend', {id}); }); };
     if(!userToggleMobile.dataset.uiBoundUser){
       userToggleMobile.dataset.uiBoundUser = '1';
-      userToggleMobile.addEventListener('pointerdown',(e)=>{ suppressNextDocPointerdownUntil = Date.now()+250; dlog('user toggle mobile pointerdown'); });
+      userToggleMobile.addEventListener('pointerdown',(e)=>{ suppressNextDocPointerdownUntil = Date.now()+250; dlog('user toggle mobile pointerdown'); }, {passive:true});
       userToggleMobile.addEventListener('click',(e)=>{ const id=nextEvt(); e.preventDefault(); e.stopPropagation(); dlog('userToggleMobile:click', {id, now:nowTs(), uiGuardUntil, suppressNextDocPointerdownUntil, suppressGlobalCloseUntil, state: panelState()}); if(Date.now() < uiGuardUntil){ dlog('userToggleMobile ignored by uiGuard', {id}); return;} const cartOpen = miniCartPanel() && !miniCartPanel().classList.contains('d-none'); if(cartOpen) closeMiniCart('userToggleMobile'); if(userPanelMobile.classList.contains('d-none') || !userPanelMobile.classList.contains('show')){ openUserMobile(); } else { closeUserMobile('userToggleMobile'); } suppressGlobalCloseUntil = Date.now() + 220; dlog('set suppressGlobalCloseUntil (mobile)', {id, suppressGlobalCloseUntil}); });
     }
-    document.addEventListener('pointerdown',(e)=>{ const id=nextEvt(); const tgt=e.target; const state=panelState(); const supNext= Date.now() < suppressNextDocPointerdownUntil; const supGlob= Date.now() < suppressGlobalCloseUntil; const outside = !userPanelMobile.contains(tgt) && !userToggleMobile.contains(tgt); dlog('doc pointerdown(userPanelMobile)', {id, supNext, supGlob, outside, target: tgt && (tgt.tagName||''), state}); if(supNext || supGlob) return; if(userPanelMobile.classList.contains('d-none')) return; if(outside){ closeUserMobile('docOutside'); }});
+    document.addEventListener('pointerdown',(e)=>{ const id=nextEvt(); const tgt=e.target; const state=panelState(); const supNext= Date.now() < suppressNextDocPointerdownUntil; const supGlob= Date.now() < suppressGlobalCloseUntil; const outside = !userPanelMobile.contains(tgt) && !userToggleMobile.contains(tgt); dlog('doc pointerdown(userPanelMobile)', {id, supNext, supGlob, outside, target: tgt && (tgt.tagName||''), state}); if(supNext || supGlob) return; if(userPanelMobile.classList.contains('д-none')) return; if(outside){ closeUserMobile('docOutside'); }}, {passive:true});
     const ucMobile = userPanelMobile.querySelector('[data-user-close-mobile]'); if(ucMobile){ ucMobile.addEventListener('click',(e)=>{ e.preventDefault(); closeUserMobile();}); }
     document.addEventListener('keydown',(e)=>{ if(e.key==='Escape') closeUserMobile(); });
   }
@@ -391,12 +403,12 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(outside){
       closeMiniCart('docOutside');
     }
-  });
+  }, {passive:true});
   // Закрытие по ESC
   document.addEventListener('keydown',(e)=>{ if(e.key==='Escape') closeMiniCart(); });
 
   // Адаптация при ресайзе
-  window.addEventListener('resize', ()=>{
+  window.addEventListener('resize', debounce(()=>{
     const panel=miniCartPanel();
     if(panel && !panel.classList.contains('d-none')){
       // пересчитать позиционирование, сохраняя анимационные классы
@@ -415,7 +427,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       void panel.offsetHeight;
       if(wasShown) panel.classList.add('show');
     }
-  });
+  }, 150));
 
   // ===== Мобильное нижнее меню: скрытие/показ по скроллу, фокусу и свайпу =====
   (function(){
@@ -437,6 +449,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
     const maybeShowHint = ()=>{
       if(hintShown) return;
+      if(prefersReducedMotion) { hintShown = true; return; }
       bottomNav.classList.add('hint-wiggle');
       setTimeout(()=> bottomNav.classList.remove('hint-wiggle'), 950);
       sessionStorage.setItem('bottom-nav-hint','1');
@@ -546,7 +559,6 @@ document.addEventListener('click', (e)=>{
     if(d && d.ok){
       updateCartBadge(d.count);
       refreshMiniCart(); // сразу обновим мини‑корзину
-      openMiniCart();    // и откроем её
       openMiniCart();    // и откроем её для подтверждения действия
       // Небольшой визуальный отклик
       btn.classList.add('btn-success');
@@ -621,20 +633,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ===== ФУНКЦИИ ДЛЯ ИЗБРАННЫХ ТОВАРОВ =====
-function getCookie(name) {
-  let cookieValue = null;
-  if (document.cookie && document.cookie !== '') {
-    const cookies = document.cookie.split(';');
-    for (let i = 0; i < cookies.length; i++) {
-      const cookie = cookies[i].trim();
-      if (cookie.substring(0, name.length + 1) === (name + '=')) {
-        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-        break;
-      }
-    }
-  }
-  return cookieValue;
-}
 
 // Функция для переключения избранного
 function toggleFavorite(productId, button) {

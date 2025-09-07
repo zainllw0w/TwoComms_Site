@@ -102,10 +102,22 @@ function equalizeCardHeights() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+  // debounce
+  function debounce(fn, wait){ let t; return function(){ const ctx=this, args=arguments; clearTimeout(t); t=setTimeout(function(){ fn.apply(ctx,args); }, wait); }; }
+  const debouncedEqualize = debounce(equalizeCardHeights, 120);
+
   setTimeout(equalizeCardHeights, 100);
   window.addEventListener('load', equalizeCardHeights);
-  window.addEventListener('resize', equalizeCardHeights);
-  setInterval(equalizeCardHeights, 2000);
+  window.addEventListener('resize', debouncedEqualize);
+  
+  // Наблюдаем сетку на изменения и догрузы
+  const grids = document.querySelectorAll('.row[data-stagger-grid]');
+  if(window.ResizeObserver){
+    const ro = new ResizeObserver(()=>debouncedEqualize());
+    grids.forEach(g=> ro.observe(g));
+  }
+  const mo = new MutationObserver(()=> debouncedEqualize());
+  grids.forEach(g=> mo.observe(g, {childList:true, subtree:true}));
 });
 </script>
 {% endblock %}
