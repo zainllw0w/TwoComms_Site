@@ -2689,7 +2689,11 @@ def admin_product_edit(request, pk):
                 product.save()
                 return redirect('/admin-panel/?section=catalogs')
             else:
+                # Обработка ошибок формы
+                pass
         else:
+            # Это запрос для цветов, пропускаем обработку основной формы
+            pass
 
     # Данные для блока «Кольори»
     used_colors = []
@@ -2700,13 +2704,14 @@ def admin_product_edit(request, pk):
         variants = (ProductColorVariant.objects.select_related('color')
                     .prefetch_related('images')
                     .filter(product=obj).order_by('order', 'id'))
-        except Exception as e:
-            # Логируем ошибку для отладки
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Error in admin_panel stats: {e}")
-            # Возвращаем базовые значения
-            pass
+    except Exception as e:
+        # Логируем ошибку для отладки
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error loading product colors: {e}")
+        # Возвращаем базовые значения
+        used_colors = []
+        variants = []
 
     return render(
         request,
