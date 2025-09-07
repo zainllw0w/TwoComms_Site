@@ -16,6 +16,15 @@ from django.conf import settings
 from django.utils.text import slugify
 from django.core.cache import cache
 
+# Импорты оптимизированных модулей
+try:
+    from .cache_manager import CacheManager
+    from .query_optimizer import QueryOptimizer
+    from .models_performance import ProductManager, CategoryManager, OrderManager, UserManager
+    OPTIMIZATIONS_AVAILABLE = True
+except ImportError:
+    OPTIMIZATIONS_AVAILABLE = False
+
 def unique_slugify(model, base_slug):
     """
     Створює унікальний slug на основі base_slug для заданої моделі.
@@ -212,11 +221,27 @@ def logout_view(request):
 
 @cache_page(300)  # Кэшируем на 5 минут
 def home(request):
-    # Оптимизированные запросы с select_related и prefetch_related
-    featured = Product.objects.select_related('category').filter(featured=True).order_by('-id').first()
-    categories = Category.objects.filter(is_active=True).order_by('order','name')
-    # Показываем только первые 8 товаров с оптимизацией
-    products = list(Product.objects.select_related('category').order_by('-id')[:8])
+    # Используем оптимизированные запросы если доступны
+    if OPTIMIZATIONS_AVAILABLE:
+        try:
+            # Используем кэшированные данные
+            data = CacheManager.get_cached_home_data()
+            featured = data['featured']
+            categories = data['categories']
+            products = data['products']
+            total_products = data['total_products']
+        except:
+            # Fallback к обычным запросам
+            featured = Product.objects.select_related('category').filter(featured=True).order_by('-id').first()
+            categories = Category.objects.filter(is_active=True).order_by('order','name')
+            products = list(Product.objects.select_related('category').order_by('-id')[:8])
+            total_products = Product.objects.count()
+    else:
+        # Обычные запросы
+        featured = Product.objects.select_related('category').filter(featured=True).order_by('-id').first()
+        categories = Category.objects.filter(is_active=True).order_by('order','name')
+        products = list(Product.objects.select_related('category').order_by('-id')[:8])
+        total_products = Product.objects.count()
     # Варіанти кольорів для featured (якщо є додаток і дані)
     featured_variants = []
     # Варіанти кольорів для «Новинок»
@@ -275,8 +300,19 @@ def load_more_products(request):
         # Вычисляем offset
         offset = (page - 1) * per_page
         
-        # Получаем товары для текущей страницы с оптимизацией
-        products = list(Product.objects.select_related('category').order_by('-id')[offset:offset + per_page])
+        # Используем оптимизированные запросы если доступны
+        if OPTIMIZATIONS_AVAILABLE:
+            try:
+                products = QueryOptimizer.get_optimized_products_list(per_page, offset)
+                total_products = CacheManager.get_products_count_cached()
+            except:
+                # Fallback к обычным запросам
+                products = list(Product.objects.select_related('category').order_by('-id')[offset:offset + per_page])
+                total_products = Product.objects.count()
+        else:
+            # Обычные запросы
+            products = list(Product.objects.select_related('category').order_by('-id')[offset:offset + per_page])
+            total_products = Product.objects.count()
         
         
         # Подготавливаем цвета для товаров
@@ -1357,8 +1393,17 @@ def admin_panel(request):
     # Импорты для всех секций
     from django.db.models import Sum, Count, Avg
     if section == 'users':
-        # Оптимизированный запрос с select_related и prefetch_related
-        users = User.objects.select_related('userprofile').prefetch_related('points', 'orders').order_by('username')
+        # Используем оптимизированные запросы если доступны
+        if OPTIMIZATIONS_AVAILABLE:
+            try:
+                users = QueryOptimizer.get_optimized_users_with_stats()
+            except:
+                # Fallback к обычным запросам
+                users = User.objects.select_related('userprofile').prefetch_related('points', 'orders').order_by('username')
+        else:
+            # Обычные запросы
+            users = User.objects.select_related('userprofile').prefetch_related('points', 'orders').order_by('username')
+        
         from accounts.models import UserPoints
         from orders.models import Order
         
@@ -1472,6 +1517,19 @@ def admin_panel(request):
             payment_filter = request.GET.get('payment', 'all')
             user_id_filter = request.GET.get('user_id', None)
             
+            # Используем оптимизированные запросы если доступны
+            if OPTIMIZATIONS_AVAILABLE:
+                try:
+                    orders = QueryOptimizer.get_optimized_orders_with_filters(
+                        status_filter, payment_filter, user_id_filter
+                    )
+                except:
+                    # Fallback к обычным запросам
+                    orders = Order.objects.select_related('user', 'promo_code').order_by('-created')
+            else:
+                # Обычные запросы
+                orders = Order.objects.select_related('user', 'promo_code').order_by('-created')
+            
             
             # Базовый queryset
             orders = Order.objects.select_related('user').prefetch_related('items','items__product')
@@ -1550,6 +1608,18 @@ def admin_panel(request):
         try:
             from orders.models import Order
             from django.utils import timezone
+            
+            # Используем оптимизированные запросы если доступны
+            if OPTIMIZATIONS_AVAILABLE:
+                try:
+                    # Получаем кэшированную статистику
+                    stats = CacheManager.get_orders_stats_cached()
+                except:
+                    # Fallback к обычным запросам
+                    stats = {}
+            else:
+                # Обычные запросы
+                stats = {}
             from datetime import timedelta
             from django.db.models import Sum, Count, Avg
             from accounts.models import UserPoints
