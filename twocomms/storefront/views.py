@@ -251,6 +251,9 @@ def home(request):
     total_products = Product.objects.count()
     has_more = total_products > 8
     
+    print(f"DEBUG HOME: total_products = {total_products}, has_more = {has_more}")
+    print(f"DEBUG HOME: products count = {len(products)}")
+    
     return render(
         request,
         'pages/index.html',
