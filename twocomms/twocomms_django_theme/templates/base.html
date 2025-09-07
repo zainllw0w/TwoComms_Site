@@ -19,7 +19,7 @@
   
   <!-- PWA Support -->
   <link rel="manifest" href="{% static 'site.webmanifest' %}">
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="TwoComms">
   
@@ -818,10 +818,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 {% block extra_js %}{% endblock %}
 
-<!-- Analytics and Performance Monitoring -->
+{% comment %}
+<!-- Analytics and Performance Monitoring - ОТКЛЮЧЕНО -->
 {% include 'partials/analytics.html' %}
+{% endcomment %}
 
-<!-- Service Worker for PWA -->
+{% comment %}
+<!-- Service Worker for PWA - ОТКЛЮЧЕН -->
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
@@ -835,5 +838,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
+{% endcomment %}
 
 </body></html>
