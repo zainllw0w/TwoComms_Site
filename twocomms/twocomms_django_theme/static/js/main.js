@@ -616,10 +616,6 @@ document.addEventListener('DOMContentLoaded', function(){
           el.style.setProperty('backdrop-filter','blur(6px) saturate(110%)','important');
           el.style.setProperty('-webkit-backdrop-filter','blur(6px) saturate(110%)','important');
         }
-        if((cs.filter||'').includes('blur')){
-          // Сохраняем лёгкий blur, чтобы вид не поменялся
-          el.style.setProperty('filter', (cs.filter||'').replace(/blur\([^\)]+\)/g,'blur(2px)'),'important');
-        }
         if((cs.animationIterationCount||'').includes('infinite')){
           el.style.setProperty('animation-play-state','paused','important');
         }
@@ -632,7 +628,6 @@ document.addEventListener('DOMContentLoaded', function(){
       try{
         el.style.removeProperty('backdrop-filter');
         el.style.removeProperty('-webkit-backdrop-filter');
-        el.style.removeProperty('filter');
         el.style.removeProperty('animation-play-state');
       }catch(_){ }
     });
