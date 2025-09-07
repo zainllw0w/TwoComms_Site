@@ -1,0 +1,327 @@
+/* Исправление для мини-корзины и мини-профиля */
+
+/* Убираем лишние стрелочки */
+.menu-arrow,
+.cart-menu-arrow {
+    display: none !important;
+}
+
+/* Убираем псевдоэлементы, которые могут создавать стрелочки */
+.menu-item::after,
+.cart-menu-item::after,
+.btn::after,
+button::after {
+    content: none !important;
+}
+
+/* Убираем стрелочки из текста кнопок */
+.menu-item,
+.cart-menu-item,
+.btn,
+button {
+    text-decoration: none !important;
+}
+
+.menu-item:hover,
+.cart-menu-item:hover,
+.btn:hover,
+button:hover {
+    text-decoration: none !important;
+}
+
+/* Исправляем позиционирование мини-панелей */
+#mini-cart-panel,
+#user-panel {
+    z-index: 1050 !important;
+    position: absolute !important;
+}
+
+#mini-cart-panel-mobile,
+#user-panel-mobile {
+    z-index: 1050 !important;
+    position: fixed !important;
+}
+
+/* Убираем лишние анимации, которые могут мешать */
+#mini-cart-panel,
+#user-panel,
+#mini-cart-panel-mobile,
+#user-panel-mobile {
+    transition: opacity 0.2s ease, transform 0.2s ease !important;
+}
+
+/* Исправляем кнопки переключения */
+#cart-toggle,
+#user-toggle,
+#cart-toggle-mobile,
+#user-toggle-mobile {
+    cursor: pointer !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+}
+
+/* Убираем outline при фокусе */
+#cart-toggle:focus,
+#user-toggle:focus,
+#cart-toggle-mobile:focus,
+#user-toggle-mobile:focus {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Исправляем hover эффекты */
+#cart-toggle:hover,
+#user-toggle:hover,
+#cart-toggle-mobile:hover,
+#user-toggle-mobile:hover {
+    opacity: 0.8 !important;
+    transform: none !important;
+}
+
+/* Убираем лишние псевдоэлементы из кнопок */
+#cart-toggle::before,
+#user-toggle::before,
+#cart-toggle-mobile::before,
+#user-toggle-mobile::before,
+#cart-toggle::after,
+#user-toggle::after,
+#cart-toggle-mobile::after,
+#user-toggle-mobile::after {
+    content: none !important;
+    display: none !important;
+}
+
+/* Исправляем стили для мобильных панелей */
+@media (max-width: 768px) {
+    #mini-cart-panel-mobile,
+    #user-panel-mobile {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        max-width: none !important;
+        max-height: none !important;
+        border-radius: 0 !important;
+        transform: translateY(100%) !important;
+        transition: transform 0.3s ease !important;
+    }
+    
+    #mini-cart-panel-mobile.show,
+    #user-panel-mobile.show {
+        transform: translateY(0) !important;
+    }
+}
+
+/* Исправляем стили для десктопных панелей */
+@media (min-width: 769px) {
+    #mini-cart-panel,
+    #user-panel {
+        position: absolute !important;
+        top: calc(100% + 8px) !important;
+        right: 0 !important;
+        width: 380px !important;
+        max-width: 380px !important;
+        transform: translateY(-10px) scale(0.95) !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        transition: all 0.2s ease !important;
+    }
+    
+    #mini-cart-panel.show,
+    #user-panel.show {
+        transform: translateY(0) scale(1) !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+}
+
+/* Убираем лишние стрелочки из всех элементов */
+*::before,
+*::after {
+    content: none !important;
+}
+
+/* Восстанавливаем нужные псевдоэлементы */
+.spark::before,
+.points-card::before,
+.menu-item::before,
+.cart-menu-item::before,
+.cart-item::before,
+.order-card::before,
+.user-card::before,
+.btn-cta::before {
+    content: '' !important;
+}
+
+/* Убираем стрелочки из текста */
+.menu-item .menu-arrow,
+.cart-menu-item .cart-menu-arrow {
+    display: none !important;
+}
+
+/* Исправляем стили для кнопок закрытия */
+.close-btn {
+    background: none !important;
+    border: none !important;
+    color: #9ca3af !important;
+    font-size: 1.5rem !important;
+    cursor: pointer !important;
+    padding: 0.5rem !important;
+    border-radius: 50% !important;
+    transition: all 0.3s ease !important;
+}
+
+.close-btn:hover {
+    background: rgba(139, 92, 246, 0.1) !important;
+    color: #8b5cf6 !important;
+    transform: scale(1.1) !important;
+}
+
+/* Убираем лишние анимации */
+@keyframes none {
+    0% { opacity: 1; }
+    100% { opacity: 1; }
+}
+
+/* Отключаем анимации для элементов с проблемами */
+.menu-item,
+.cart-menu-item,
+.btn,
+button {
+    animation: none !important;
+}
+
+/* Исправляем z-index для панелей */
+#mini-cart-panel,
+#user-panel,
+#mini-cart-panel-mobile,
+#user-panel-mobile {
+    z-index: 1050 !important;
+}
+
+/* Убираем лишние тени и эффекты */
+#mini-cart-panel,
+#user-panel,
+#mini-cart-panel-mobile,
+#user-panel-mobile {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+    backdrop-filter: blur(10px) !important;
+}
+
+/* Исправляем стили для заголовков панелей */
+.cart-header,
+.user-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    padding: 1rem 1.5rem !important;
+}
+
+/* Исправляем стили для содержимого панелей */
+.cart-content,
+.user-menu {
+    padding: 1rem 1.5rem !important;
+    max-height: 400px !important;
+    overflow-y: auto !important;
+}
+
+/* Убираем лишние стрелочки из меню */
+.menu-item .menu-arrow,
+.cart-menu-item .cart-menu-arrow {
+    display: none !important;
+}
+
+/* Исправляем стили для элементов меню */
+.menu-item,
+.cart-menu-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 1rem !important;
+    padding: 1rem 1.5rem !important;
+    border-radius: 12px !important;
+    transition: all 0.3s ease !important;
+    cursor: pointer !important;
+    text-decoration: none !important;
+    color: inherit !important;
+}
+
+.menu-item:hover,
+.cart-menu-item:hover {
+    background: rgba(139, 92, 246, 0.1) !important;
+    transform: none !important;
+    text-decoration: none !important;
+}
+
+/* Убираем лишние стрелочки из иконок */
+.menu-icon,
+.cart-menu-icon {
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(139, 92, 246, 0.1) !important;
+    color: #8b5cf6 !important;
+    font-size: 1.2rem !important;
+}
+
+/* Исправляем стили для текста меню */
+.menu-text,
+.cart-menu-text {
+    flex: 1 !important;
+    font-weight: 500 !important;
+    color: #e5e7eb !important;
+}
+
+/* Убираем лишние стрелочки из всех элементов */
+.menu-item::after,
+.cart-menu-item::after {
+    content: none !important;
+    display: none !important;
+}
+
+/* Исправляем стили для мобильных панелей */
+@media (max-width: 768px) {
+    .cart-header,
+    .user-header {
+        padding: 1.25rem !important;
+        border-radius: 20px 20px 0 0 !important;
+    }
+    
+    .cart-content,
+    .user-menu {
+        padding: 0 1.25rem 1.25rem !important;
+    }
+}
+
+/* Убираем лишние стрелочки из всех элементов */
+*[class*="arrow"] {
+    display: none !important;
+}
+
+/* Исправляем стили для кнопок */
+.btn,
+button {
+    text-decoration: none !important;
+    border: none !important;
+    outline: none !important;
+}
+
+.btn:hover,
+button:hover {
+    text-decoration: none !important;
+    transform: none !important;
+}
+
+/* Убираем лишние стрелочки из всех элементов */
+*::before[content*=">"],
+*::after[content*=">"],
+*::before[content*="→"],
+*::after[content*="→"] {
+    content: none !important;
+    display: none !important;
+}
