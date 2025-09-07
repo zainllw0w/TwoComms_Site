@@ -451,53 +451,39 @@ setInterval(equalizeCardHeights, 2000);
             console.log('Найдено новых карточек:', newCards.length);
             console.log('Всего карточек в контейнере:', allCards.length);
             
-            // Добавляем небольшую задержку перед началом анимаций
-            setTimeout(() => {
-              console.log('Начинаем анимацию новых карточек...');
-              // Добавляем классы для оригинальной анимации
-              newCards.forEach((card, index) => {
-                console.log(`Обрабатываем карточку ${index + 1}:`, card);
+            // Простая анимация появления карточек
+            console.log('Начинаем простую анимацию новых карточек...');
+            newCards.forEach((card, index) => {
+              console.log(`Обрабатываем карточку ${index + 1}:`, card);
+              
+              // Убираем все классы анимации
+              card.classList.remove('stagger-item', 'reveal-stagger');
+              
+              // Устанавливаем начальное состояние
+              card.style.opacity = '0';
+              card.style.transform = 'translateY(20px)';
+              card.style.transition = 'all 0.5s ease-out';
+              
+              console.log(`Карточка ${index + 1} подготовлена`);
+              
+              // Запускаем анимацию с задержкой
+              setTimeout(() => {
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+                console.log(`Карточка ${index + 1} появилась`);
                 
-                // Убеждаемся, что карточка скрыта изначально
-                card.style.opacity = '0';
-                card.style.transform = 'translateY(24px) scale(0.94)';
-                card.style.filter = 'blur(10px)';
-                
-                // Добавляем классы для анимации
-                card.classList.add('stagger-item', 'reveal-stagger');
-                
-                // Устанавливаем задержку анимации (как в main.js)
-                const step = 190; // тот же шаг что и в main.js
-                card.style.setProperty('--d', (index * step) + 'ms');
-                
-                console.log(`Карточка ${index + 1} подготовлена, задержка: ${index * step}ms`);
-                
-                // Запускаем анимацию с задержкой (как в main.js)
-                setTimeout(() => {
-                  card.classList.add('visible');
-                  console.log(`Анимация карточки ${index + 1} запущена, классы:`, card.className);
-                  
-                  // Принудительно делаем карточку видимой
-                  card.style.opacity = '1';
-                  card.style.transform = 'none';
-                  card.style.filter = 'none';
-                  
-                  // Анимация цветов товаров - СТРОГО вместе с карточкой
-                  const colorDots = card.querySelector('.product-card-dots');
-                  if(colorDots) {
-                    // Цвета появляются одновременно с карточкой
-                    colorDots.classList.add('visible');
-                    // Анимация отдельных цветовых точек
-                    const dots = colorDots.querySelectorAll('.color-dot');
-                    dots.forEach((dot, dotIndex) => {
-                      setTimeout(() => {
-                        dot.classList.add('visible');
-                      }, dotIndex * 60); // Быстрая анимация точек
-                    });
-                  }
-                }, index * step);
-              });
-            }, 100); // Небольшая задержка перед началом анимаций
+                // Анимация цветов товаров
+                const colorDots = card.querySelector('.product-card-dots');
+                if(colorDots) {
+                  colorDots.style.opacity = '0';
+                  colorDots.style.transition = 'opacity 0.3s ease-out';
+                  setTimeout(() => {
+                    colorDots.style.opacity = '1';
+                    console.log(`Цвета карточки ${index + 1} появились`);
+                  }, 200);
+                }
+              }, index * 100); // Задержка 100ms между карточками
+            });
           } else {
             console.log('HTML пустой или нет товаров');
             // Если HTML пустой, скрываем кнопку
