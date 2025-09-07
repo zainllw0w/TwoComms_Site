@@ -1,3 +1,4 @@
+{% load static %}
 {% comment %}
 Расширенные SEO мета-теги для продакшена
 {% endcomment %}
@@ -16,8 +17,8 @@
 <!-- Open Graph / Facebook -->
 <meta property="og:type" content="{% block og_type %}website{% endblock %}">
 <meta property="og:url" content="{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}">
-<meta property="og:title" content="{% block og_title %}{% block title %}{{ default_title|default:"TwoComms - Стріт & Мілітарі Одяг" }}{% endblock %}{% endblock %}">
-<meta property="og:description" content="{% block og_description %}{% block description %}{{ default_description|default:"TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером." }}{% endblock %}{% endblock %}">
+<meta property="og:title" content="{% block og_title %}{{ default_title|default:"TwoComms - Стріт & Мілітарі Одяг" }}{% endblock %}">
+<meta property="og:description" content="{% block og_description %}{{ default_description|default:"TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером." }}{% endblock %}">
 <meta property="og:image" content="{% block og_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo.svg' %}{% endblock %}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -27,8 +28,8 @@
 <!-- Twitter -->
 <meta property="twitter:card" content="summary_large_image">
 <meta property="twitter:url" content="{% block twitter_url %}{{ request.build_absolute_uri }}{% endblock %}">
-<meta property="twitter:title" content="{% block twitter_title %}{% block title %}{{ default_title|default:"TwoComms - Стріт & Мілітарі Одяг" }}{% endblock %}{% endblock %}">
-<meta property="twitter:description" content="{% block twitter_description %}{% block description %}{{ default_description|default:"TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном." }}{% endblock %}{% endblock %}">
+<meta property="twitter:title" content="{% block twitter_title %}{{ default_title|default:"TwoComms - Стріт & Мілітарі Одяг" }}{% endblock %}">
+<meta property="twitter:description" content="{% block twitter_description %}{{ default_description|default:"TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном." }}{% endblock %}">
 <meta property="twitter:image" content="{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo.svg' %}{% endblock %}">
 
 <!-- Дополнительные мета-теги для SEO -->
