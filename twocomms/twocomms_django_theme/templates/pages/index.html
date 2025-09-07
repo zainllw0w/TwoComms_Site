@@ -389,16 +389,17 @@ setInterval(equalizeCardHeights, 2000);
     
     loadMoreBtn.addEventListener('click', function() {
       console.log('Кнопка "Показать еще" нажата!');
-      let currentPage = parseInt(this.getAttribute('data-page'));
-      const btnText = this.querySelector('.btn-text');
-      const btnSpinner = this.querySelector('.btn-spinner');
+      const button = this;
+      let currentPage = parseInt(button.getAttribute('data-page'));
+      const btnText = button.querySelector('.btn-text');
+      const btnSpinner = button.querySelector('.btn-spinner');
       
       console.log('Текущая страница:', currentPage);
       
       // Показываем спиннер
       btnText.classList.add('d-none');
       btnSpinner.classList.remove('d-none');
-      this.disabled = true;
+      button.disabled = true;
       
       // Отправляем AJAX запрос
       console.log('Загружаем страницу:', currentPage);
@@ -420,7 +421,7 @@ setInterval(equalizeCardHeights, 2000);
             console.log('HTML добавлен в контейнер');
             
             // Обновляем номер страницы
-            this.setAttribute('data-page', currentPage + 1);
+            button.setAttribute('data-page', currentPage + 1);
             console.log('Обновлен data-page на:', currentPage + 1);
             
             // Обновляем отладочную информацию на странице
@@ -510,7 +511,7 @@ setInterval(equalizeCardHeights, 2000);
           // Скрываем спиннер
           btnText.classList.remove('d-none');
           btnSpinner.classList.add('d-none');
-          this.disabled = false;
+          button.disabled = false;
         });
     });
   });
