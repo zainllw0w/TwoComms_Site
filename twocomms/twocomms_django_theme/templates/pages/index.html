@@ -239,8 +239,8 @@
   
   <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4" id="products-container">
     {% for p in products %}
-    <div class="product-card-wrap stagger-item reveal-stagger">
-      {% include "partials/product_card.html" with p=p stagger=True %}
+    <div class="product-card-wrap">
+      {% include "partials/product_card.html" with p=p %}
       {% if p.colors_preview %}
       <div class="product-card-dots">
         <span class="text-secondary small me-1">Кольори:</span>
