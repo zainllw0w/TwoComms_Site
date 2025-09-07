@@ -1353,6 +1353,9 @@ def admin_panel(request):
         return redirect('home')
     section = request.GET.get('section', 'stats')
     ctx = {'section': section}
+    
+    # Импорты для всех секций
+    from django.db.models import Sum, Count, Avg
     if section == 'users':
         # Оптимизированный запрос с select_related и prefetch_related
         users = User.objects.select_related('userprofile').prefetch_related('points', 'orders').order_by('username')
