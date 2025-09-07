@@ -546,6 +546,23 @@ document.addEventListener('DOMContentLoaded',()=>{
   })();
 });
 
+// ===== Runtime diagnostics (opt-in via localStorage 'perf-debug' = '1') =====
+document.addEventListener('DOMContentLoaded', function(){
+  try{ if(localStorage.getItem('perf-debug') !== '1') return; }catch(_){ return; }
+  const startTs = performance.now();
+  const diag = { frames:0, slowFrames:0, worstFrameMs:0, longTasks:0, longTaskTotalMs:0, scrollEvents:0, resizeEvents:0, mutations:0, resources:{imgBytes:0,cssBytes:0,jsBytes:0,fontBytes:0,otherBytes:0} };
+  let rafPrev = performance.now(); let rafStop=false;
+  function onRaf(){ if(rafStop) return; const now=performance.now(); const dt=now-rafPrev; rafPrev=now; diag.frames++; if(dt>50) diag.slowFrames++; if(dt>diag.worstFrameMs) diag.worstFrameMs=dt; requestAnimationFrame(onRaf);} requestAnimationFrame(onRaf);
+  try{ if('PerformanceObserver' in window){ const po=new PerformanceObserver(list=>{ list.getEntries().forEach(e=>{ diag.longTasks++; diag.longTaskTotalMs += e.duration||0; });}); po.observe({entryTypes:['longtask']}); setTimeout(()=>{ try{ po.disconnect(); }catch(_){ } },12000);} }catch(_){ }
+  const onScroll=()=>{ diag.scrollEvents++; }; const onResize=()=>{ diag.resizeEvents++; };
+  window.addEventListener('scroll', onScroll, {passive:true}); window.addEventListener('resize', onResize, {passive:true});
+  let mo; try{ mo=new MutationObserver(()=>{ diag.mutations++; }); mo.observe(document.documentElement, {childList:true, subtree:true}); }catch(_){ }
+  try{ const res=performance.getEntriesByType&&performance.getEntriesByType('resource')||[]; res.forEach(r=>{ const size=(r.transferSize||0)||(r.encodedBodySize||0)||0; switch(r.initiatorType){ case 'img': diag.resources.imgBytes+=size; break; case 'link': if((r.name||'').includes('.css')) diag.resources.cssBytes+=size; else diag.resources.otherBytes+=size; break; case 'script': diag.resources.jsBytes+=size; break; case 'css': diag.resources.cssBytes+=size; break; case 'font': diag.resources.fontBytes+=size; break; default: diag.resources.otherBytes+=size; break; }}); }catch(_){ }
+  function featurePresence(){ const nodes=[document.querySelector('.hero.bg-hero'), document.querySelector('.bottom-nav'), document.getElementById('mini-cart-panel-mobile'), document.getElementById('user-panel-mobile')].filter(Boolean); const features={backdropFilterNodes:0}; nodes.forEach(n=>{ try{ const cs=getComputedStyle(n); if(cs.backdropFilter && cs.backdropFilter!=='none') features.backdropFilterNodes++; }catch(_){ } }); return features; }
+  setTimeout(()=>{ rafStop=true; window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onResize); if(mo){ try{ mo.disconnect(); }catch(_){ } } const durationSec=(performance.now()-startTs)/1000; const fps=diag.frames/durationSec; const features=featurePresence(); const fmtKB=(b)=>(Math.round(b/102.4)/10)+' KB'; console.group('%cPerfDiag','color:#7c3aed;font-weight:700'); console.log('Duration:', durationSec.toFixed(1),'s'); console.log('FPS avg:', fps.toFixed(1), 'Slow frames (>50ms):', diag.slowFrames, 'Worst frame ms:', diag.worstFrameMs.toFixed(1)); console.log('Long tasks:', diag.longTasks, 'Total long task ms:', diag.longTaskTotalMs.toFixed(1)); console.log('Events: scroll', diag.scrollEvents, 'resize', diag.resizeEvents, 'mutations', diag.mutations); console.log('Resources:', {img: fmtKB(diag.resources.imgBytes), css: fmtKB(diag.resources.cssBytes), js: fmtKB(diag.resources.jsBytes), font: fmtKB(diag.resources.fontBytes), other: fmtKB(diag.resources.otherBytes)}); console.log('Heavy CSS features:', features); console.log('Hint: set localStorage("perf-debug","0") to disable diagnostics'); console.groupEnd(); }, 10000);
+});
+
+
 // Делегирование клика "добавить в корзину"
 document.addEventListener('click', (e)=>{
   const btn = e.target.closest('[data-add-to-cart]');
@@ -665,6 +682,106 @@ document.addEventListener('DOMContentLoaded', function(){
     const mo = new MutationObserver(()=> debouncedEqualize());
     mo.observe(row, {childList:true, subtree:true});
   });
+});
+
+// ===== Загрузка дополнительных товаров (главная страница) =====
+document.addEventListener('DOMContentLoaded', function() {
+  const loadMoreBtn = document.getElementById('load-more-btn');
+  const productsContainer = document.getElementById('products-container');
+  const loadMoreContainer = document.getElementById('load-more-container');
+  const pageSelector = document.getElementById('page-selector');
+  const totalPagesSpan = document.getElementById('total-pages');
+  if (!loadMoreBtn || !productsContainer || !pageSelector) return;
+
+  function parseTotalPages(){
+    const txt = (totalPagesSpan && totalPagesSpan.textContent || '').trim();
+    const n = parseInt(txt, 10);
+    return isNaN(n) ? 1 : n;
+  }
+
+  function updatePageSelector(currentPage){
+    const totalPages = parseTotalPages();
+    if(totalPagesSpan) totalPagesSpan.textContent = String(totalPages);
+    pageSelector.innerHTML = '';
+    for (let i = 1; i <= totalPages; i++) {
+      const option = document.createElement('option');
+      option.value = String(i);
+      option.textContent = String(i);
+      if (i === currentPage) option.selected = true;
+      pageSelector.appendChild(option);
+    }
+    loadMoreBtn.setAttribute('data-page', String(currentPage + 1));
+  }
+
+  function animateNewCards(){
+    const allCards = productsContainer.querySelectorAll('.product-card-wrap');
+    const newCards = Array.from(allCards).slice(-8);
+    newCards.forEach((card, index) => {
+      if(prefersReducedMotion){
+        card.style.opacity = '';
+        card.style.transform = '';
+        card.style.filter = '';
+        card.style.transition = '';
+        return;
+      }
+      card.classList.remove('reveal-stagger','stagger-item','reveal-fast','reveal');
+      const childCards = card.querySelectorAll('.card');
+      childCards.forEach(childCard => childCard.classList.remove('reveal-stagger','stagger-item','reveal-fast','reveal'));
+      card.style.opacity = '0';
+      card.style.transform = 'translateY(24px) scale(0.94)';
+      card.style.filter = 'blur(10px)';
+      card.style.transition = 'none';
+      setTimeout(() => {
+        card.style.transition = 'all 560ms cubic-bezier(0.2, 0.8, 0.2, 1)';
+        setTimeout(() => {
+          card.style.opacity = '1';
+          card.style.transform = 'translateY(0) scale(1)';
+          card.style.filter = 'blur(0)';
+        }, 50);
+      }, index * 120);
+    });
+  }
+
+  function loadPage(pageNumber){
+    const btnText = loadMoreBtn.querySelector('.btn-text');
+    const btnSpinner = loadMoreBtn.querySelector('.btn-spinner');
+    if(btnText && btnSpinner){
+      btnText.classList.add('d-none');
+      btnSpinner.classList.remove('d-none');
+    }
+    loadMoreBtn.disabled = true;
+    fetch(`/load-more-products/?page=${pageNumber}`)
+      .then(response => response.json())
+      .then(data => {
+        if (data && data.html && data.html.trim() !== '') {
+          productsContainer.insertAdjacentHTML('beforeend', data.html);
+          updatePageSelector(pageNumber);
+          animateNewCards();
+          setTimeout(()=>{ try{ window.equalizeCardHeights && window.equalizeCardHeights(); }catch(_){} }, 200);
+          if (!data.has_more && loadMoreContainer) {
+            loadMoreContainer.style.display = 'none';
+          }
+        }
+      })
+      .catch(()=>{})
+      .finally(() => {
+        if(btnText && btnSpinner){
+          btnText.classList.remove('d-none');
+          btnSpinner.classList.add('d-none');
+        }
+        loadMoreBtn.disabled = false;
+      });
+  }
+
+  loadMoreBtn.addEventListener('click', function(){
+    const currentPage = parseInt(this.getAttribute('data-page')||'2', 10);
+    loadPage(currentPage);
+  });
+  pageSelector.addEventListener('change', function(){
+    const selectedPage = parseInt(this.value||'1', 10);
+    loadPage(selectedPage);
+  });
+  updatePageSelector(1);
 });
 
 // ===== ФУНКЦИИ ДЛЯ ИЗБРАННЫХ ТОВАРОВ =====
