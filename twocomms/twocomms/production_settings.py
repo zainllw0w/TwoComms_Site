@@ -204,12 +204,7 @@ LOGGING = {
     },
 }
 
-# Настройки кэширования (опционально)
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-    }
-}
+# Настройки кэширования уже определены выше
 
 # Настройки для отправки email (опционально)
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
