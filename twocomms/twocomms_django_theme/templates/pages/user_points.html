@@ -99,7 +99,7 @@
               </div>
               <div class="history-content">
                 <div class="history-amount {% if record.change_type == 'earned' %}earned{% else %}spent{% endif %}">
-                  {% if record.change_type == 'earned' %}+{% else %}-{% endif %}{{ record.points_change|abs }} балів
+                  {% if record.change_type == 'earned' %}+{% else %}-{% endif %}{{ record.points_change|floatformat:0|slice:"1:" }} балів
                 </div>
                 <div class="history-reason">{{ record.reason|default:"Операція з балів" }}</div>
                 <div class="history-date">{{ record.created_at|date:"d.m.Y H:i" }}</div>
