@@ -61,45 +61,50 @@
   .perf-lite .hint-wiggle,
   .perf-lite .reveal,
   .perf-lite .reveal-fast { transition: none !important; }
-
-  /* Pro site-wide background: layered gradients + grain + micro-grid */
-  body {
+  
+  /* Pro site-wide background v2: refined gradients + grain + vignette */
+  .bg-pro {
     background-color: var(--tc-bg);
     background-image:
-      radial-gradient(1200px 800px at 82% 8%, rgba(139,92,246,0.16), transparent 60%),
-      radial-gradient(900px 700px at 12% 92%, rgba(16,185,129,0.12), transparent 60%),
-      conic-gradient(from 180deg at 50% 30%, rgba(255,255,255,0.03), transparent 20%),
-      repeating-linear-gradient(0deg, rgba(255,255,255,0.02) 0, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 14px),
-      url('{% static 'img/noise.png' %}');
+      radial-gradient(1200px 800px at 85% 8%, rgba(139,92,246,0.12), transparent 60%),
+      radial-gradient(900px 700px at 15% 92%, rgba(16,185,129,0.10), transparent 60%),
+      radial-gradient(800px 600px at 50% -10%, rgba(59,130,246,0.06), transparent 60%),
+      url("{% static 'img/noise.png' %}"),
+      radial-gradient(1000px 700px at 50% 50%, rgba(0,0,0,0), rgba(0,0,0,0.28) 70%);
     background-size:
       1200px 800px,
       900px 700px,
-      200% 200%,
-      100% 14px,
-      256px 256px;
+      800px 600px,
+      256px 256px,
+      100% 100%;
     background-repeat:
       no-repeat,
       no-repeat,
       no-repeat,
       repeat,
-      repeat;
+      no-repeat;
     background-position:
-      82% 8%,
-      12% 92%,
-      50% 30%,
+      85% 8%,
+      15% 92%,
+      50% -10%,
       0 0,
-      0 0;
-    background-attachment: scroll;
+      50% 50%;
+    background-attachment:
+      scroll, scroll, scroll, scroll, scroll;
     background-blend-mode:
-      screen,
-      screen,
-      overlay,
-      normal,
-      normal;
+      screen, screen, screen, normal, multiply;
   }
 
+  /* Disable legacy background pseudo-layers when pro background enabled */
+  .bg-pro::before,
+  .bg-pro::after { display: none !important; content: none !important; }
+
   /* In lite mode, disable decorative layers to save resources */
-  .perf-lite body { background-image: none !important; }
+  .perf-lite .bg-pro { background-image: none !important; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bg-pro { background-attachment: scroll; }
+  }
   </style>
   {% block extra_css %}{% endblock %}
   
@@ -147,7 +152,7 @@
   /></noscript>
   <!-- End Meta Pixel Code -->
   {% block structured_data %}{% endblock %}
-</head><body class='bg-body text-body' style='font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;'>{% include 'partials/header.html' %}<main class='container-xxl py-4 py-md-5'>{% block content %}{% endblock %}</main>{% include 'partials/footer.html' %}
+</head><body class='bg-body text-body bg-pro' style='font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;'>{% include 'partials/header.html' %}<main class='container-xxl py-4 py-md-5'>{% block content %}{% endblock %}</main>{% include 'partials/footer.html' %}
 
 <!-- Мобильные мини-панели (только для мобильной версии) -->
 <div id="mini-cart-panel-mobile" class="cart-panel d-none d-md-none">
