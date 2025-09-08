@@ -496,6 +496,7 @@
 
 {% block extra_js %}
 <script>
+// Валидация форм, промокоды и удаление строк перенесены в main.js
 document.addEventListener('DOMContentLoaded', function() {
     const guestForm = document.getElementById('guest-form');
     const deliveryForm = document.getElementById('deliveryForm');
@@ -563,9 +564,15 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Настраиваем валидацию для обеих форм
-    setupFormValidation(guestForm);
-    setupFormValidation(deliveryForm);
+    // Настраиваем подсветку серверных ошибок, остальная логика в main.js
+    (function highlightServerErrors(){
+      [guestForm, deliveryForm].forEach(function(form){
+        if(!form) return; form.querySelectorAll('.cart-form-error').forEach(function(err){
+          var field = err.previousElementSibling && err.previousElementSibling.querySelector('input, select');
+          if(field){ field.classList.add('cart-form-input-error'); }
+        });
+      });
+    })();
     
     function validateField(field) {
         const value = field.value.trim();
@@ -666,146 +673,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 5000);
     }
 });
-
-// ===== ПРОМОКОДЫ =====
-
-function applyPromoCode() {
-    const promoInput = document.getElementById('promo-code-input');
-    const promoCode = promoInput.value.trim().toUpperCase();
-    const messageDiv = document.getElementById('promo-message');
-    
-    if (!promoCode) {
-        showPromoMessage('Введіть код промокоду', 'error');
-        return;
-    }
-    
-    // Показываем загрузку
-    showPromoMessage('Застосовуємо промокод...', 'info');
-    
-    fetch('{% url "apply_promo_code" %}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-        },
-        body: 'promo_code=' + encodeURIComponent(promoCode)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showPromoMessage(data.message, 'success');
-            // Перезагружаем страницу для обновления данных
-            setTimeout(() => {
-                window.location.reload();
-            }, 1500);
-        } else {
-            showPromoMessage(data.message, 'error');
-        }
-    })
-    .catch(error => {
-        showPromoMessage('Помилка при застосуванні промокоду', 'error');
-    });
-}
-
-function removePromoCode() {
-    fetch('{% url "remove_promo_code" %}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Перезагружаем страницу для обновления данных
-            window.location.reload();
-        }
-    })
-    .catch(error => {
-        console.error('Помилка при видаленні промокоду:', error);
-    });
-}
-
-function showPromoMessage(message, type) {
-    const messageDiv = document.getElementById('promo-message');
-    const typeClass = type === 'success' ? 'cart-promo-message-success' : 
-                     type === 'error' ? 'cart-promo-message-error' : 'cart-promo-message-info';
-    
-    messageDiv.innerHTML = `<div class="cart-promo-message ${typeClass}">${message}</div>`;
-    
-    // Убираем сообщение через 5 секунд
-    setTimeout(() => {
-        messageDiv.innerHTML = '';
-    }, 5000);
-}
-
-// Обработка Enter в поле промокода
-document.addEventListener('DOMContentLoaded', function() {
-    const promoInput = document.getElementById('promo-code-input');
-    if (promoInput) {
-        promoInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                applyPromoCode();
-            }
-        });
-    }
-    
-    // Дополнительная обработка кнопок удаления
-    const removeButtons = document.querySelectorAll('.cart-item-remove-btn');
-    removeButtons.forEach(function(button) {
-        console.log('Found remove button:', button);
-        
-        // Добавляем обработчик клика
-        button.addEventListener('click', function(e) {
-            console.log('Button clicked!', e);
-            const key = this.getAttribute('data-key');
-            console.log('Removing item with key:', key);
-            CartRemoveKey(key, this);
-            e.preventDefault();
-            e.stopPropagation();
-        });
-        
-        // Добавляем обработчик для проверки доступности
-        button.addEventListener('mouseenter', function() {
-            console.log('Mouse entered button:', this.getAttribute('data-key'));
-        });
-        
-        button.addEventListener('mouseleave', function() {
-            console.log('Mouse left button:', this.getAttribute('data-key'));
-        });
-    });
-});
-
-// ===== ОЧИСТКА КОРЗИНЫ =====
-
-function cleanCart() {
-    if (!confirm('Ви впевнені, що хочете очистити кошик від несуществующих товарів?')) {
-        return;
-    }
-    
-    fetch('{% url "clean_cart" %}', {
-        method: 'GET',
-        headers: {
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.ok) {
-            alert(data.message);
-            // Перезагружаем страницу для обновления данных
-            window.location.reload();
-        } else {
-            alert('Помилка при очищенні кошика');
-        }
-    })
-    .catch(error => {
-        console.error('Помилка при очищенні кошика:', error);
-        alert('Помилка при очищенні кошика');
-    });
-}
 </script>
 {% endblock %}
 
