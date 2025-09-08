@@ -2,6 +2,7 @@ from __future__ import annotations
 from django.utils.deprecation import MiddlewareMixin
 from django.utils import timezone
 from django.db import transaction
+from django.conf import settings
 from .models import SiteSession, PageView
 
 
@@ -22,17 +23,31 @@ class SimpleAnalyticsMiddleware(MiddlewareMixin):
 
     def process_request(self, request):
         try:
-            # Получаем / создаём session_key
+            # Не трекаем ботов и служебные пути
+            ua = request.META.get('HTTP_USER_AGENT', '')
+            path = request.path or ''
+            if is_bot(ua) or path.startswith('/admin') or path.startswith('/static') or path.startswith('/media'):
+                return
+
+            # Для анонимов не создаём новую серверную сессию на простых GET (избежим write I/O)
+            if not request.user.is_authenticated:
+                if request.method == 'GET':
+                    # Учитываем только уже существующие пользовательские сессии
+                    session_key = request.session.session_key
+                    if not session_key:
+                        return
+                else:
+                    # На POST/PUT/DELETE нам важна сессия: не выходим досрочно
+                    if not request.session.session_key:
+                        request.session.save()
+
+            # На этом этапе сессия может существовать (или пользователь авторизован)
             if not request.session.session_key:
                 request.session.save()
             session_key = request.session.session_key
 
-            ua = request.META.get('HTTP_USER_AGENT', '')
             ip = request.META.get('REMOTE_ADDR')
             bot = is_bot(ua)
-            path = request.path
-            if path.startswith('/admin'):
-                return
 
             with transaction.atomic():
                 sess, _ = SiteSession.objects.select_for_update().get_or_create(
