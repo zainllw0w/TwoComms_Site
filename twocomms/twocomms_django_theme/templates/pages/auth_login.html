@@ -12,4 +12,14 @@
     </div>
   </div>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  try{
+    var form=document.querySelector('form.vstack');
+    if(form){
+      form.addEventListener('submit', function(){ try{ if(window.trackEvent){ window.trackEvent('Lead', {lead_type:'login'}); } }catch(_){ } });
+    }
+  }catch(_){ }
+});
+</script>
 {% endblock %}

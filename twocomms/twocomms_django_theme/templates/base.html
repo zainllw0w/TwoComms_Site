@@ -418,6 +418,7 @@
       var input=typeof selector==='string'?document.querySelector(selector):selector;
       if(!input){ return; }
       var v=parseInt(input.value||'1',10)||1; input.value=Math.max(1,v+1);
+      try{ if(window.trackEvent){ var pid=(document.querySelector('[data-add-to-cart]')||{}).getAttribute&&document.querySelector('[data-add-to-cart]').getAttribute('data-add-to-cart'); if(pid){ window.trackEvent('CustomizeProduct',{content_ids:[String(pid)], content_type:'product', action:'inc_qty'}); } } }catch(_){ }
     };
   }
   if(typeof window.QtyDec!=='function'){
@@ -425,6 +426,7 @@
       var input=typeof selector==='string'?document.querySelector(selector):selector;
       if(!input){ return; }
       var v=parseInt(input.value||'1',10)||1; input.value=Math.max(1,v-1);
+      try{ if(window.trackEvent){ var pid=(document.querySelector('[data-add-to-cart]')||{}).getAttribute&&document.querySelector('[data-add-to-cart]').getAttribute('data-add-to-cart'); if(pid){ window.trackEvent('CustomizeProduct',{content_ids:[String(pid)], content_type:'product', action:'dec_qty'}); } } }catch(_){ }
     };
   }
   if(typeof window.CartRemoveKey!=='function'){
@@ -456,13 +458,14 @@
       }).then(function(d){
         dlog('Response data:', d);
         if(d&&d.ok){
-          try{ if(window.updateCartBadge) window.updateCartBadge(d.count); }catch(_){}
+          try{ if(window.updateCartBadge) window.updateCartBadge(d.count); }catch(_){ }
           if(el){
             var row=el.closest('[data-cart-row]')||el.closest('.d-flex');
             if(row&&row.parentElement) row.parentElement.removeChild(row);
           }
-          try{ if(window.refreshMiniCart) window.refreshMiniCart(); }catch(_){}
+          try{ if(window.refreshMiniCart) window.refreshMiniCart(); }catch(_){ }
           if(document.getElementById('cart-list')) location.reload();
+          try{ if(window.trackEvent){ window.trackEvent('RemoveFromCart', {content_ids:[String(key.split(':')[0])], content_type:'product'}); } }catch(_){ }
         } else {
           console.error('Cart remove failed:', d);
           alert('Помилка при видаленні товару: ' + (d.error || 'Невідома помилка'));
