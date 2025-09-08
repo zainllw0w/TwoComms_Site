@@ -273,16 +273,18 @@ if not DISABLE_REDIS and REDIS_URL:
         'TIMEOUT': int(os.environ.get('CACHE_DEFAULT_TIMEOUT', '300')),
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'SOCKET_TIMEOUT': float(os.environ.get('REDIS_SOCKET_TIMEOUT', '2.0')),
+            'SOCKET_CONNECT_TIMEOUT': float(os.environ.get('REDIS_SOCKET_CONNECT_TIMEOUT', '2.0')),
+            'IGNORE_EXCEPTIONS': os.environ.get('REDIS_IGNORE_EXCEPTIONS', 'true').lower() in ('1', 'true', 'yes'),
         },
     }
-
-    # Сессии через Redis-кэш (fallback выше остаётся для случая без Redis)
-    SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+    # Используем кэш+DB для сессий, чтобы не потерять их при падении Redis
+    SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
     SESSION_CACHE_ALIAS = 'default'
-
-# Кэширование сессий
-SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
-SESSION_CACHE_ALIAS = 'default'
+else:
+    # Явно фиксируем движок сессий для случая без Redis
+    SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
+    SESSION_CACHE_ALIAS = 'default'
 
 # Кэширование шаблонов (только для продакшена)
 if not DEBUG:

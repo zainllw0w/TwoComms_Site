@@ -333,7 +333,10 @@ def load_more_products(request):
 
 @cache_page_for_anon(600)  # Кэшируем каталог на 10 минут только для анонимов
 def catalog(request, cat_slug=None):
-    categories = Category.objects.order_by('order','name')
+    categories = cache.get('categories_ordered')
+    if categories is None:
+        categories = list(Category.objects.order_by('order','name'))
+        cache.set('categories_ordered', categories, 600)
     if cat_slug:
         category = get_object_or_404(Category, slug=cat_slug)
         products = Product.objects.filter(category=category).order_by('-id')
@@ -360,6 +363,7 @@ def catalog(request, cat_slug=None):
     
     return render(request,'pages/catalog.html',{'categories':categories,'category':category,'products':products,'show_category_cards':show_category_cards})
 
+@cache_page_for_anon(600)  # Кэшируем карточку товара на 10 минут для анонимов
 def product_detail(request, slug):
     product = get_object_or_404(Product, slug=slug)
     images = product.images.all()
@@ -593,11 +597,16 @@ def about(request): return render(request,'pages/about.html')
 
 def contacts(request): return render(request,'pages/contacts.html')
 
+@cache_page_for_anon(120)  # Кэшируем результаты поиска на 2 минуты для анонимов
 def search(request):
     q=(request.GET.get('q') or '').strip()
     qs = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images')
     if q: qs=qs.filter(title__icontains=q)
-    return render(request,'pages/catalog.html',{'categories':Category.objects.order_by('order','name'),'products':qs.order_by('-id'),'show_category_cards':False})
+    categories = cache.get('categories_ordered')
+    if categories is None:
+        categories = list(Category.objects.order_by('order','name'))
+        cache.set('categories_ordered', categories, 600)
+    return render(request,'pages/catalog.html',{'categories':categories,'products':qs.order_by('-id'),'show_category_cards':False})
 
 def debug_media(request):
     """Диагностика медиа-файлов"""
@@ -2101,7 +2110,7 @@ def order_create(request):
         line = unit * it['qty']
         total_sum += line
         OrderItem.objects.create(
-            order=order, product=p, color_variant=color_variant, title=p.title, size=it.get('size',''),
+            order=order, product=p, color_variant=color_variant, title=p.title, size=it.get('size', ''),
             qty=it['qty'], unit_price=unit, line_total=line
         )
     
