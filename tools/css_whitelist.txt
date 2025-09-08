@@ -1,0 +1,40 @@
+# Regex patterns, one per line, for classes/ids to be kept
+# Bootstrap & common utility prefixes
+^col-
+^row$
+^container$
+^btn$
+^btn-
+^nav$
+^navbar
+^dropdown
+^input-
+^form-
+^alert
+^badge
+^breadcrumb
+^card
+^table
+^d-
+^text-
+^bg-
+^mt-
+^mb-
+^ms-
+^me-
+# State/dynamic flags
+^show$
+^fade$
+^active$
+^disabled$
+^open$
+^is-
+^has-
+^js-
+^aria-
+# JS libraries
+^swiper-
+^toast-
+^modal
+^offcanvas
+^collapse

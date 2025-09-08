@@ -109,22 +109,33 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # ===== ОПТИМИЗАЦИИ ДЛЯ ПРОДАКШЕНА =====
 
-# Кэширование
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-snowflake',
-        'TIMEOUT': 300,  # 5 минут
+# Кэширование (по умолчанию LocMem, но если задан Redis — используем его)
+if REDIS_URL:
+    CACHES['default'] = {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': REDIS_URL,
+        'KEY_PREFIX': os.environ.get('REDIS_KEY_PREFIX', 'twocomms'),
+        'TIMEOUT': int(os.environ.get('CACHE_DEFAULT_TIMEOUT', '300')),
         'OPTIONS': {
-            'MAX_ENTRIES': 1000,
-            'CULL_FREQUENCY': 3,
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        },
+    }
+    SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+    SESSION_CACHE_ALIAS = 'default'
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'unique-snowflake',
+            'TIMEOUT': 300,  # 5 минут
+            'OPTIONS': {
+                'MAX_ENTRIES': 1000,
+                'CULL_FREQUENCY': 3,
+            }
         }
     }
-}
-
-# Кэширование сессий
-SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
-SESSION_CACHE_ALIAS = 'default'
+    SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
+    SESSION_CACHE_ALIAS = 'default'
 
 # Кэширование шаблонов
 TEMPLATES[0]['OPTIONS']['loaders'] = [
@@ -174,16 +185,21 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
-# Настройки сессий (временно смягчены для диагностики)
-SESSION_COOKIE_SECURE = False  # Временно отключено для диагностики
-CSRF_COOKIE_SECURE = False     # Временно отключено для диагностики
+# Принудительный HTTPS и доверие заголовку прокси
+SECURE_SSL_REDIRECT = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-# Дополнительные настройки безопасности для HTTPS (временно отключены)
-SECURE_SSL_REDIRECT = False    # Временно отключено для диагностики
-# SECURE_HSTS_SECONDS = 31536000 # Временно отключено
-# SECURE_HSTS_INCLUDE_SUBDOMAINS = True # Временно отключено
-# SECURE_HSTS_PRELOAD = True # Временно отключено
-# SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https') # Временно отключено
+# HSTS
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+
+# Куки
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_HTTPONLY = True
 
 # Настройки логирования
 LOGGING = {
