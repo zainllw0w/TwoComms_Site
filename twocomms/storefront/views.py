@@ -13,6 +13,7 @@ from .forms import ProductForm, CategoryForm, PrintProposalForm
 from accounts.models import UserProfile, FavoriteProduct
 from django import forms
 from django.conf import settings
+from django.http import HttpResponse
 from django.utils.text import slugify
 from django.core.cache import cache
 
@@ -3491,3 +3492,27 @@ def admin_offline_store_delete(request, pk):
     store.delete()
     
     return redirect('admin_offline_stores')
+
+def robots_txt(request):
+    lines = [
+        "User-agent: *",
+        "Allow: /",
+        "",
+        "Disallow: /admin/",
+        "Disallow: /admin-panel/",
+        "Disallow: /debug/",
+        "Disallow: /media/debug/",
+        "Disallow: /cart/",
+        "Disallow: /checkout/",
+        "Disallow: /orders/",
+        "Disallow: /my/",
+        "Disallow: /login/",
+        "Disallow: /logout/",
+        "Disallow: /register/",
+        "Disallow: /profile/",
+        "Disallow: /search/",
+        "",
+        "Sitemap: https://twocomms.shop/sitemap.xml",
+        "Sitemap: https://www.twocomms.shop/sitemap.xml",
+    ]
+    return HttpResponse("\n".join(lines) + "\n", content_type="text/plain; charset=utf-8")
