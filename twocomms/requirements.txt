@@ -31,8 +31,5 @@ rjsmin==1.2.2
 redis==5.0.1
 django-redis==5.4.0
 
-# Env loader (optional)
-python-dotenv==1.0.1
-
 # Загрузка конфигурации из файла .env/.env.production
 python-dotenv==1.0.1
