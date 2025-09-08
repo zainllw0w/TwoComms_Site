@@ -524,6 +524,7 @@
             if(window.refreshMiniCart) window.refreshMiniCart();
             if(window.openMiniCart) window.openMiniCart();
           }catch(_){}
+          try{ if(window.fbq){ fbq('track','AddToCart',{content_ids:[String(productId)], content_type:'product'}); } }catch(_){}
         } else {
           console.error('Add to cart failed:', d);
         }
