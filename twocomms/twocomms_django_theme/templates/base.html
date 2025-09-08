@@ -152,7 +152,7 @@
   .bg-pro::after { display: none !important; content: none !important; }
   
   /* Dedicated rich background stage */
-  .bg-stage{position:fixed;inset:0;z-index:-1;pointer-events:none;}
+  .bg-stage{position:fixed;inset:0;z-index:0;pointer-events:none;}
   .bg-stage .blob{position:absolute;border-radius:50%;filter:blur(40px) saturate(1.05);opacity:.9;mix-blend-mode:screen;}
   .bg-stage .blob-1{left:6%;top:8%;width:42vw;height:42vw;background:radial-gradient(circle at 40% 40%, rgba(139,92,246,.35), rgba(139,92,246,.05) 55%, transparent 70%);animation:blobMove1 38s ease-in-out infinite alternate;}
   .bg-stage .blob-2{right:8%;top:16%;width:36vw;height:36vw;background:radial-gradient(circle at 60% 30%, rgba(59,130,246,.28), rgba(59,130,246,.05) 55%, transparent 70%);animation:blobMove2 44s ease-in-out infinite alternate-reverse;}
@@ -172,6 +172,9 @@
   @keyframes bokehFloat1{0%{transform:translate3d(0,0,0)}50%{transform:translate3d(.8vw,-.6vh,0)}100%{transform:translate3d(0,0,0)}}
   @keyframes bokehFloat2{0%{transform:translate3d(0,0,0)}50%{transform:translate3d(-1vw,.8vh,0)}100%{transform:translate3d(0,0,0)}}
   @keyframes bokehFloat3{0%{transform:translate3d(0,0,0)}50%{transform:translate3d(.6vw,.6vh,0)}100%{transform:translate3d(0,0,0)}}
+
+  /* Ensure content is above background stage */
+  header, main, footer { position: relative; z-index: 1; }
   
   /* Debug badge to verify background version on live */
   .bg-version-badge{
