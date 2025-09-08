@@ -1,24 +1,37 @@
+# robots.txt for TwoComms
+# Документация: https://developers.google.com/search/docs/crawling-indexing/robots/intro
+
 User-agent: *
 Allow: /
 
-# Sitemap
-Sitemap: https://twocomms.com/sitemap.xml
-
-# Disallow admin and private areas
+# Disallow admin and приватные/служебные разделы
 Disallow: /admin/
 Disallow: /admin-panel/
-Disallow: /add-product/
-Disallow: /add-category/
 Disallow: /debug/
 Disallow: /media/debug/
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /orders/
+Disallow: /my/
+Disallow: /login/
+Disallow: /logout/
+Disallow: /register/
+Disallow: /profile/
 
-# Allow important pages
+# Позволяем публичные страницы
 Allow: /catalog/
 Allow: /product/
-Allow: /search/
 Allow: /about/
 Allow: /contacts/
 Allow: /cooperation/
+Allow: /favorites/
 
-# Crawl delay
+# Не индексировать страницы поиска (часто считается нежелательным контентом)
+Disallow: /search/
+
+# Crawl-delay (опционально, у Google игнорируется, но учтут другие боты)
 Crawl-delay: 1
+
+# Sitemap
+Sitemap: https://twocomms.shop/sitemap.xml
+Sitemap: https://www.twocomms.shop/sitemap.xml
