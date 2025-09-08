@@ -74,7 +74,7 @@
     <div class="d-flex gap-2 mt-3 overflow-auto pb-1" style="scrollbar-width: thin;">
       {% for ph in images %}
       <button type="button" class="btn btn-outline-light p-0 border-0 thumb rounded-3" data-img="{{ ph.image.url }}" style="width:68px;height:68px;overflow:hidden;flex:0 0 auto;">
-        <img src="{{ ph.image.url }}" class="w-100 h-100 object-fit-cover" alt="" loading="lazy" decoding="async" fetchpriority="low">
+        <img src="{{ ph.image.url }}" class="w-100 h-100 object-fit-cover" alt="{{ product.title }} — додаткове фото" loading="lazy" decoding="async" fetchpriority="low">
       </button>
       {% endfor %}
     </div>
