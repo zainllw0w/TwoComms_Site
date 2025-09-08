@@ -810,7 +810,6 @@ def cart_mini(request):
     
     items = []
     total = 0
-    total_points = 0
     for key, it in cart_sess.items():
         p = prods.get(it['product_id'])
         if not p:
@@ -829,12 +828,6 @@ def cart_mini(request):
         unit = p.final_price
         line = unit * it['qty']
         total += line
-        # Баллы за товар, если предусмотрены
-        try:
-            if getattr(p, 'points_reward', 0):
-                total_points += int(p.points_reward) * int(it['qty'])
-        except Exception:
-            pass
         items.append({
             'key': key,
             'product': p,
@@ -1225,7 +1218,6 @@ def cart(request):
         'total': total,
         'discount': total - grand_total if applied_promo else 0,
         'grand_total': grand_total,
-        'total_points': total_points,
         'applied_promo': applied_promo
     }
     
