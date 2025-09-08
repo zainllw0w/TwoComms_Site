@@ -700,6 +700,17 @@ document.addEventListener('click', (e)=>{
       // Небольшой визуальный отклик
       btn.classList.add('btn-success');
       setTimeout(()=>btn.classList.remove('btn-success'),400);
+      // Унифицированный трекинг AddToCart
+      try{
+        if(window.trackEvent){
+          window.trackEvent('AddToCart', {
+            content_ids: [String(productId)],
+            content_type: 'product',
+            value: d && d.total ? Number(d.total) : undefined,
+            currency: 'UAH'
+          });
+        }
+      }catch(_){ }
     } else {
       btn.classList.add('btn-danger');
       setTimeout(()=>btn.classList.remove('btn-danger'),600);
@@ -1000,8 +1011,10 @@ function toggleFavorite(productId, button) {
       // Обновляем состояние кнопки
       if (data.is_favorite) {
         button.classList.add('is-favorite');
+        try{ if(window.trackEvent){ window.trackEvent('AddToWishlist', {content_ids:[String(productId)], content_type:'product'}); } }catch(_){ }
       } else {
         button.classList.remove('is-favorite');
+        try{ if(window.trackEvent){ window.trackEvent('RemoveFromWishlist', {content_ids:[String(productId)], content_type:'product'}); } }catch(_){ }
       }
       
       // Показываем уведомление
@@ -1156,3 +1169,48 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 });
+
+// Поиск в шапке
+document.addEventListener('DOMContentLoaded', function(){
+  const headerSearch = document.querySelector('form[role="search"] input[name="q"]');
+  if(headerSearch){
+    headerSearch.addEventListener('search', function(){
+      const term = (headerSearch.value||'').trim();
+      if(term){ try{ if(window.trackEvent){ window.trackEvent('Search', {search_string: term}); } }catch(_){ } }
+    });
+    headerSearch.form && headerSearch.form.addEventListener('submit', function(){
+      const term = (headerSearch.value||'').trim();
+      if(term){ try{ if(window.trackEvent){ window.trackEvent('Search', {search_string: term}); } }catch(_){ } }
+    });
+  }
+});
+
+// Трекинг выбора отделения НП (поле np_office в корзине/чекауте)
+document.addEventListener('input', function(e){
+  const el = e.target;
+  if(!el || el.name !== 'np_office') return;
+  const val = (el.value||'').trim();
+  if(val && val.length >= 3){
+    try{ if(window.trackEvent){ window.trackEvent('FindLocation', {query: val}); } }catch(_){ }
+  }
+});
+
+// Трекинг просмотра контента в списках (когда карточка входит во вьюпорт)
+(function(){
+  try{
+    if(!('IntersectionObserver' in window)) return;
+    const io = new IntersectionObserver(entries=>{
+      entries.forEach(entry=>{
+        if(!entry.isIntersecting) return;
+        const card = entry.target;
+        const pid = card.getAttribute('data-product-id');
+        const title = card.getAttribute('data-product-title');
+        if(pid && window.trackEvent){
+          window.trackEvent('ViewContent', {content_ids:[String(pid)], content_type:'product', content_name: title});
+        }
+        io.unobserve(card);
+      });
+    },{root:null, rootMargin:'50px', threshold:0.1});
+    document.querySelectorAll('[data-product-id]').forEach(el=> io.observe(el));
+  }catch(_){ }
+})();

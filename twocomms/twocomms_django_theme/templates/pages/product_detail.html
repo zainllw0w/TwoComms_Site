@@ -229,6 +229,13 @@
 
     <!-- Дані про варіанти для JS (безпечний валідний JSON) -->
     {{ color_variants|json_script:"variant-data" }}
+    <div id="product-analytics-payload"
+         data-id="{{ product.id }}"
+         data-title="{{ product.title|escapejs }}"
+         data-category="{{ product.category.name|escapejs }}"
+         data-price="{{ product.final_price }}"
+         data-has_discount="{{ product.has_discount|yesno:'1,0' }}">
+    </div>
 
     <script>
     (function(){
@@ -614,6 +621,25 @@ document.addEventListener('DOMContentLoaded', function() {
 {% block extra_js %}
 <script>
 (function(){
+  // ViewContent при загрузке карточки
+  try{
+    var pe=document.getElementById('product-analytics-payload');
+    if(pe && window.trackEvent){
+      var pid = pe.dataset.id;
+      var title = pe.dataset.title;
+      var category = pe.dataset.category;
+      var price = parseFloat(pe.dataset.price||'0');
+      window.trackEvent('ViewContent', {
+        content_ids: [String(pid)],
+        content_name: title,
+        content_type: 'product',
+        content_category: category,
+        value: price,
+        currency: 'UAH'
+      });
+    }
+  }catch(_){ }
+
   const main = document.getElementById('mainImage');
   if(!main) return;
   
@@ -693,6 +719,17 @@ document.addEventListener('DOMContentLoaded', function() {
           {% for v in color_variants %}
             if (variantId === '{{ v.id }}' && '{{ v.images.0 }}') {
               main.src = '{{ v.images.0 }}';
+              try{
+                if(window.trackEvent){
+                  var pe=document.getElementById('product-analytics-payload');
+                  var pid=pe && pe.dataset.id;
+                  window.trackEvent('CustomizeProduct', {
+                    content_ids: [String(pid)],
+                    content_type: 'product',
+                    variant_id: '{{ v.id }}'
+                  });
+                }
+              }catch(_){ }
             }
           {% endfor %}
         {% endif %}
