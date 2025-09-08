@@ -229,7 +229,7 @@
             <div class="cart-form-group">
               <label class="cart-form-label">Тип оплати *</label>
               <div class="cart-form-input-wrapper">
-                <select name="pay_type" class="cart-form-select" required>
+                <select name="pay_type" class="cart-form-select" id="pay_type_auth" required aria-label="Тип оплати">
                   <option value="">Оберіть тип оплати</option>
                   <option value="partial" {% if prof.pay_type == 'partial' %}selected{% endif %}>Часткова передоплата</option>
                   <option value="full" {% if prof.pay_type == 'full' %}selected{% endif %}>Повна передоплата</option>
@@ -323,7 +323,7 @@
             <div class="cart-form-group">
               <label class="cart-form-label">Тип оплати *</label>
               <div class="cart-form-input-wrapper">
-                <select name="pay_type" class="cart-form-select" required>
+                <select name="pay_type" class="cart-form-select" id="pay_type_guest" required aria-label="Тип оплати">
                   <option value="">Оберіть тип оплати</option>
                   <option value="partial">Часткова передоплата</option>
                   <option value="full">Повна передоплата</option>
