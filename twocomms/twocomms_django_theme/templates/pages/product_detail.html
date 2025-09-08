@@ -19,7 +19,12 @@
   "@type": "Product",
   "name": "{{ product.title }}",
   "description": "{{ product.description|default:product.title }}",
-  "image": "{% if product.main_image %}{{ request.scheme }}://{{ request.get_host }}{{ product.main_image.url }}{% endif %}",
+  "image": [
+    {% if product.main_image %}"{{ request.scheme }}://{{ request.get_host }}{{ product.main_image.url }}"{% if images %},{% endif %}{% endif %}
+    {% for ph in images %}"{{ request.scheme }}://{{ request.get_host }}{{ ph.image.url }}"{% if not forloop.last %},{% endif %}{% endfor %}
+  ],
+  "sku": "TC-{{ product.id }}",
+  "url": "{{ request.scheme }}://{{ request.get_host }}{{ request.path }}",
   "brand": {
     "@type": "Brand",
     "name": "TwoComms"
@@ -30,6 +35,8 @@
     "price": "{{ product.final_price }}",
     "priceCurrency": "UAH",
     "availability": "https://schema.org/InStock",
+    "itemCondition": "https://schema.org/NewCondition",
+    "url": "{{ request.scheme }}://{{ request.get_host }}{{ request.path }}",
     "seller": {
       "@type": "Organization",
       "name": "TwoComms"
