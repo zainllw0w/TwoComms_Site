@@ -248,9 +248,10 @@ CACHES = {
 # Если задан Redis, переключаем кэш на django-redis (переменные окружения)
 # Основной способ — REDIS_URL, например: redis://:password@host:6379/1 или rediss://...
 REDIS_URL = os.environ.get('REDIS_URL')
+DISABLE_REDIS = os.environ.get('DISABLE_REDIS', 'false').lower() in ('1', 'true', 'yes')
 
 # Альтернативная сборка URL, если заданы REDIS_HOST/PORT/DB
-if not REDIS_URL and os.environ.get('REDIS_HOST'):
+if not DISABLE_REDIS and not REDIS_URL and os.environ.get('REDIS_HOST'):
     _redis_scheme = os.environ.get('REDIS_SCHEME', 'redis')
     _redis_host = os.environ.get('REDIS_HOST')
     _redis_port = os.environ.get('REDIS_PORT', '6379')
@@ -264,7 +265,7 @@ if not REDIS_URL and os.environ.get('REDIS_HOST'):
         _auth = f":{_redis_password}@"
     REDIS_URL = f"{_redis_scheme}://{_auth}{_redis_host}:{_redis_port}/{_redis_db}"
 
-if REDIS_URL:
+if not DISABLE_REDIS and REDIS_URL:
     CACHES['default'] = {
         'BACKEND': 'django_redis.cache.RedisCache',
         'LOCATION': REDIS_URL,
