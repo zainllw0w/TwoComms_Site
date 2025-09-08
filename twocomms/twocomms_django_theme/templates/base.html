@@ -38,8 +38,8 @@
   <link rel='mask-icon' href='{% static 'img/logo.svg' %}' color='#7c3aed'>
   <link rel='icon' href='{% static 'img/favicon.ico' %}' sizes='any' type='image/x-icon'>
   
-  <!-- Early performance hint: enable lite mode for save-data/low-memory/low-CPU with debug + override -->
-  <script>(function(){try{var doc=document.documentElement;var c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;var save=!!(c&&c.saveData);var mem=navigator.deviceMemory;var hc=navigator.hardwareConcurrency;var lowRam=typeof mem==='number'&&mem>0&&mem<=2;var lowCPU=typeof hc==='number'&&hc>0&&hc<=2;var reasons=[];if(save)reasons.push('saveData');if(lowRam)reasons.push('lowRam:'+mem+'GB');if(lowCPU)reasons.push('lowCPU:'+hc+'t');if(save||lowRam||lowCPU){doc.classList.add('perf-lite');}doc.setAttribute('data-perf-reasons',reasons.join(','));var sp=new URLSearchParams(location.search);var perf=sp.get('perf');var ov=localStorage.getItem('perfOverride');if(perf==='on'){doc.classList.remove('perf-lite');localStorage.setItem('perfOverride','on');}else if(perf==='off'||perf==='lite'){doc.classList.add('perf-lite');localStorage.setItem('perfOverride','off');}else if(ov==='on'){doc.classList.remove('perf-lite');}else if(ov==='off'){doc.classList.add('perf-lite');}if(sp.get('bgdebug')==='1'){doc.classList.add('bg-debug');}if(sp.get('motion')==='on'){var st=document.createElement('style');st.textContent='*{animation-play-state:running !important}';document.head.appendChild(st);} }catch(e){}})();</script>
+  <!-- Early performance hint: enable lite mode for save-data/low-memory/low-CPU -->
+  <script>(function(){try{var c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;var save=c&&c.saveData;var lowRam=Number(navigator.deviceMemory||0)&&navigator.deviceMemory<=2;var lowCPU=Number(navigator.hardwareConcurrency||0)&&navigator.hardwareConcurrency<=2;if(save||lowRam||lowCPU){document.documentElement.classList.add('perf-lite');}}catch(e){}})();</script>
   
   <!-- Stylesheets -->
   <!-- Inline tiny critical to avoid flash while CSS loads -->
@@ -47,8 +47,8 @@
     :root{--tc-bg:#0e0f12;--tc-text:#e8e9ec}
     html,body{background:var(--tc-bg);color:var(--tc-text)}
   </style>
-  <link rel="preload" href="{% static 'css/styles.css' %}?v=2025.09.08.001" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <noscript><link href="{% static 'css/styles.css' %}?v=2025.09.08.001" rel="stylesheet"></noscript>
+  <link rel="preload" href="{% static 'css/styles.css' %}?v=2025.09.06.014" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="{% static 'css/styles.css' %}?v=2025.09.06.014" rel="stylesheet"></noscript>
   <style>
   /* Lite mode on constrained devices: reduce expensive visual effects */
   .perf-lite .hero.bg-hero,
@@ -61,205 +61,6 @@
   .perf-lite .hint-wiggle,
   .perf-lite .reveal,
   .perf-lite .reveal-fast { transition: none !important; }
-  
-  /* Pro site-wide background v3: premium aurora + bokeh + vignette */
-  .bg-pro {
-    background-color: var(--tc-bg);
-    background-image:
-      radial-gradient(1200px 800px at 80% 10%, rgba(139,92,246,0.22), transparent 62%),
-      radial-gradient(1000px 700px at 15% 85%, rgba(16,185,129,0.16), transparent 62%),
-      radial-gradient(circle, rgba(255,255,255,0.02) 1px, transparent 1px),
-      url("{% static 'img/noise.png' %}"),
-      radial-gradient(1400px 1000px at 50% 50%, rgba(0,0,0,0), rgba(0,0,0,0.36) 70%);
-    background-size:
-      1200px 800px,
-      1000px 700px,
-      4px 4px,
-      256px 256px,
-      100% 100%;
-    background-repeat:
-      no-repeat,
-      no-repeat,
-      repeat,
-      repeat,
-      no-repeat;
-    background-position:
-      80% 10%,
-      15% 85%,
-      0 0,
-      0 0,
-      50% 50%;
-    background-attachment:
-      scroll, scroll, scroll, scroll, scroll;
-    background-blend-mode:
-      screen, screen, normal, normal, multiply;
-  }
-
-  /* Aurora layer */
-  .bg-pro::before {
-    content: '';
-    position: fixed;
-    inset: -10vh -10vw;
-    z-index: -1;
-    background:
-      conic-gradient(from 220deg at 62% 42%, rgba(139,92,246,0.12), transparent 35%, rgba(59,130,246,0.08) 55%, transparent 78%),
-      radial-gradient(800px 520px at 68% 32%, rgba(99,102,241,0.12), transparent 60%);
-    filter: blur(28px) saturate(1.05);
-    mix-blend-mode: screen;
-    animation: auroraMove 28s ease-in-out infinite alternate;
-    pointer-events: none;
-  }
-
-  /* Bokeh lights + vignette overlay */
-  .bg-pro::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    background:
-      radial-gradient(140px 140px at 22% 30%, rgba(255,255,255,0.06), transparent 60%),
-      radial-gradient(200px 200px at 78% 70%, rgba(139,92,246,0.07), transparent 65%),
-      radial-gradient(160px 160px at 32% 82%, rgba(16,185,129,0.06), transparent 65%),
-      url("{% static 'img/vignette.png' %}");
-    background-repeat: no-repeat, no-repeat, no-repeat, no-repeat;
-    background-size: auto, auto, auto, cover;
-    background-position: 22% 30%, 78% 70%, 32% 82%, 50% 50%;
-    mix-blend-mode: lighten;
-    animation: bokehDrift 40s ease-in-out infinite;
-    pointer-events: none;
-  }
-
-  @keyframes auroraMove {
-    0%   { transform: translateY(-2%) translateX(0.5%) rotate(0.2deg); opacity: 0.85; }
-    50%  { transform: translateY(1%) translateX(-0.5%) rotate(-0.2deg); opacity: 1; }
-    100% { transform: translateY(-1%) translateX(0.2%) rotate(0.1deg); opacity: 0.9; }
-  }
-
-  @keyframes bokehDrift {
-    0%   { background-position: 20% 28%, 76% 68%, 30% 80%, 50% 50%; }
-    50%  { background-position: 24% 32%, 74% 72%, 28% 78%, 50% 50%; }
-    100% { background-position: 20% 28%, 76% 68%, 30% 80%, 50% 50%; }
-  }
-
-  /* Keep full experience (no lite override for bg-pro by request) */
-
-  @media (prefers-reduced-motion: reduce) {
-    .bg-pro { background-attachment: scroll; }
-  }
-  
-  /* Disable previous pseudo-layers to use dedicated background stage */
-  .bg-pro::before,
-  .bg-pro::after { display: none !important; content: none !important; }
-  
-  /* Dedicated rich background stage */
-  .bg-stage{position:fixed;inset:0;z-index:0;pointer-events:none;}
-  .bg-stage .blob{position:absolute;border-radius:50%;filter:blur(60px) saturate(1.25);opacity:1;mix-blend-mode:normal;will-change:transform,opacity;transform:translateZ(0);}
-  .bg-stage .blob-1{left:6%;top:8%;width:44vw;height:44vw;background:radial-gradient(circle at 40% 40%, rgba(139,92,246,.65), rgba(139,92,246,.18) 48%, transparent 70%);animation:blobMove1 34s ease-in-out infinite alternate !important;}
-  .bg-stage .blob-2{right:8%;top:16%;width:38vw;height:38vw;background:radial-gradient(circle at 60% 30%, rgba(59,130,246,.55), rgba(59,130,246,.16) 48%, transparent 70%);animation:blobMove2 40s ease-in-out infinite alternate-reverse !important;}
-  .bg-stage .blob-3{left:18%;bottom:10%;width:36vw;height:36vw;background:radial-gradient(circle at 50% 60%, rgba(16,185,129,.45), rgba(16,185,129,.14) 50%, transparent 70%);animation:blobMove3 46s ease-in-out infinite alternate !important;}
-  .bg-stage .blob-4{right:20%;bottom:6%;width:30vw;height:30vw;background:radial-gradient(circle at 50% 50%, rgba(168,85,247,.45), rgba(168,85,247,.12) 52%, transparent 72%);animation:blobMove4 54s ease-in-out infinite alternate-reverse !important;}
-
-  /* Decorative ribbons */
-  .bg-stage .ribbon{position:absolute;inset:-15vh -15vw;filter:blur(28px) saturate(1.1);opacity:.55;mix-blend-mode:screen;z-index:2}
-  .bg-stage .ribbon-1{
-    background: conic-gradient(from 200deg at 50% 50%, rgba(139,92,246,.45), rgba(59,130,246,.35), rgba(16,185,129,.35), rgba(139,92,246,.45));
-    -webkit-mask-image: radial-gradient(80% 40% at 50% 50%, #fff 40%, transparent 62%);
-            mask-image: radial-gradient(80% 40% at 50% 50%, #fff 40%, transparent 62%);
-    will-change: transform, opacity; transform: translateZ(0);
-    animation: ribbonWave1 52s ease-in-out infinite alternate !important;
-  }
-  .bg-stage .ribbon-2{
-    background: conic-gradient(from 40deg at 50% 50%, rgba(59,130,246,.35), rgba(139,92,246,.45), rgba(16,185,129,.30), rgba(59,130,246,.35));
-    -webkit-mask-image: radial-gradient(70% 38% at 50% 50%, #fff 38%, transparent 60%);
-            mask-image: radial-gradient(70% 38% at 50% 50%, #fff 38%, transparent 60%);
-    will-change: transform, opacity; transform: translateZ(0);
-    animation: ribbonWave2 64s ease-in-out infinite alternate-reverse !important;
-  }
-
-  /* Star dust layer */
-  .bg-stage .stars{position:absolute;inset:0;z-index:0;background-image:radial-gradient(circle, rgba(255,255,255,.07) 1px, transparent 1px),radial-gradient(circle, rgba(255,255,255,.05) 1px, transparent 1px);background-size:3px 3px,4px 4px;background-position:0 0,1px 1px;opacity:.12;animation:starsDrift 90s linear infinite !important}
-
-  /* Light sweep */
-  .bg-stage .glow-sweep{position:absolute;inset:-20vh -20vw;z-index:4;background:linear-gradient(100deg, transparent 35%, rgba(255,255,255,.10) 50%, transparent 65%);filter:blur(22px);opacity:.6;will-change: transform, opacity; transform: translateZ(0);animation:sweep 18s ease-in-out infinite !important}
-
-  /* Scanlines */
-  .bg-stage .scanline{position:absolute;inset:0;z-index:5;background:linear-gradient(to bottom, rgba(255,255,255,.06) 0, rgba(255,255,255,.02) 1px, transparent 2px);background-size:100% 10px;opacity:.05;animation:scanMove 14s linear infinite !important}
-  
-  .bg-stage .bokeh{position:absolute;border-radius:50%;filter:blur(10px);opacity:.35;mix-blend-mode:lighten;}
-  .bg-stage .bokeh-1{left:20%;top:30%;width:110px;height:110px;background:radial-gradient(closest-side, rgba(255,255,255,.25), transparent);will-change: transform, opacity; transform: translateZ(0);animation:bokehFloat1 26s ease-in-out infinite !important;}
-  .bg-stage .bokeh-2{right:18%;top:64%;width:160px;height:160px;background:radial-gradient(closest-side, rgba(139,92,246,.28), transparent);will-change: transform, opacity; transform: translateZ(0);animation:bokehFloat2 32s ease-in-out infinite !important;}
-  .bg-stage .bokeh-3{left:32%;bottom:14%;width:130px;height:130px;background:radial-gradient(closest-side, rgba(16,185,129,.24), transparent);will-change: transform, opacity; transform: translateZ(0);animation:bokehFloat3 30s ease-in-out infinite !important;}
-  
-  @keyframes blobMove1{0%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(2vw,-1vh,0) scale(1.05)}100%{transform:translate3d(-1vw,1vh,0) scale(1.02)}}
-  @keyframes blobMove2{0%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(-2vw,1.5vh,0) scale(1.04)}100%{transform:translate3d(1vw,-1vh,0) scale(1.01)}}
-  @keyframes blobMove3{0%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(1.5vw,-1vh,0) scale(1.03)}100%{transform:translate3d(-1vw,.5vh,0) scale(1.04)}}
-  @keyframes blobMove4{0%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(-1vw,1vh,0) scale(1.02)}100%{transform:translate3d(1vw,-.5vh,0) scale(1.03)}}
-  
-  @keyframes bokehFloat1{0%{transform:translate3d(0,0,0)}50%{transform:translate3d(.8vw,-.6vh,0)}100%{transform:translate3d(0,0,0)}}
-  @keyframes bokehFloat2{0%{transform:translate3d(0,0,0)}50%{transform:translate3d(-1vw,.8vh,0)}100%{transform:translate3d(0,0,0)}}
-  @keyframes bokehFloat3{0%{transform:translate3d(0,0,0)}50%{transform:translate3d(.6vw,.6vh,0)}100%{transform:translate3d(0,0,0)}}
-
-  @keyframes ribbonWave1{0%{transform:rotate(16deg) translate3d(-2vw,-1vh,0)}50%{transform:rotate(20deg) translate3d(1vw,2vh,0)}100%{transform:rotate(14deg) translate3d(-1vw,1vh,0)}}
-  @keyframes ribbonWave2{0%{transform:rotate(-18deg) translate3d(2vw,1vh,0)}50%{transform:rotate(-22deg) translate3d(-1vw,-2vh,0)}100%{transform:rotate(-16deg) translate3d(1vw,-1vh,0)}}
-  @keyframes sweep{0%{transform:translateX(-8vw)}50%{transform:translateX(8vw)}100%{transform:translateX(-8vw)}}
-  @keyframes starsDrift{0%{background-position:0 0,1px 1px}100%{background-position:100px 60px, 101px 61px}}
-  @keyframes scanMove{0%{background-position-y:0}100%{background-position-y:10px}}
-
-  /* Ensure content is above background stage */
-  header, main, footer { position: relative; z-index: 1; }
-
-  /* Force body background to apply over any resets */
-  .bg-pro {
-    background: 
-      radial-gradient(1200px 800px at 80% 10%, rgba(139,92,246,0.22), transparent 62%),
-      radial-gradient(1000px 700px at 15% 85%, rgba(16,185,129,0.16), transparent 62%),
-      radial-gradient(circle, rgba(255,255,255,0.02) 1px, transparent 1px),
-      url("{% static 'img/noise.png' %}"),
-      radial-gradient(1400px 1000px at 50% 50%, rgba(0,0,0,0), rgba(0,0,0,0.36) 70%) !important;
-    background-size: 1200px 800px, 1000px 700px, 4px 4px, 256px 256px, 100% 100% !important;
-    background-repeat: no-repeat, no-repeat, repeat, repeat, no-repeat !important;
-    background-position: 80% 10%, 15% 85%, 0 0, 0 0, 50% 50% !important;
-  }
-
-  /* Overlay base gradient above body color to ensure visibility */
-  body.bg-pro::before{
-    content:"";
-    position:fixed;
-    inset:0;
-    z-index:0;
-    pointer-events:none;
-    background:
-      radial-gradient(1200px 800px at 78% 12%, rgba(139,92,246,0.18), transparent 62%),
-      radial-gradient(1000px 700px at 18% 88%, rgba(16,185,129,0.14), transparent 62%),
-      radial-gradient(1400px 1000px at 50% 50%, rgba(0,0,0,0), rgba(0,0,0,0.32) 70%);
-    background-repeat:no-repeat,no-repeat,no-repeat;
-    background-size:1200px 800px,1000px 700px,100% 100%;
-    background-position:78% 12%,18% 88%,50% 50%;
-  }
-
-  /* Debug helpers: enable via ?bgdebug=1 */
-  .bg-debug .bg-stage{background: rgba(255,0,0,.10) !important;}
-  .bg-debug .blob,.bg-debug .bokeh{opacity:1 !important; filter:none !important;}
-  
-  /* Debug badge to verify background version on live */
-  .bg-version-badge{
-    position: fixed;
-    right: 12px;
-    bottom: 12px;
-    z-index: 2147483647;
-    padding: 4px 8px;
-    background: rgba(20,22,27,0.72);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 8px;
-    color: var(--tc-text);
-    font-size: 12px;
-    line-height: 1;
-    font-weight: 600;
-    letter-spacing: .03em;
-    text-transform: uppercase;
-    pointer-events: none;
-    box-shadow: 0 6px 24px rgba(0,0,0,.35);
-  }
   </style>
   {% block extra_css %}{% endblock %}
   
@@ -307,7 +108,7 @@
   /></noscript>
   <!-- End Meta Pixel Code -->
   {% block structured_data %}{% endblock %}
-</head><body class='bg-body text-body bg-pro' style='font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;'>{% include 'partials/header.html' %}<main class='container-xxl py-4 py-md-5'>{% block content %}{% endblock %}</main>{% include 'partials/footer.html' %}
+</head><body class='bg-body text-body' style='font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;'>{% include 'partials/header.html' %}<main class='container-xxl py-4 py-md-5'>{% block content %}{% endblock %}</main>{% include 'partials/footer.html' %}
 
 <!-- Мобильные мини-панели (только для мобильной версии) -->
 <div id="mini-cart-panel-mobile" class="cart-panel d-none d-md-none">
@@ -1062,23 +863,5 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 {% endcomment %}
-
-<div class="bg-version-badge">BG v3</div>
-
-<!-- Dedicated background stage for rich effects -->
-<div class="bg-stage" aria-hidden="true">
-  <div class="blob blob-1"></div>
-  <div class="blob blob-2"></div>
-  <div class="blob blob-3"></div>
-  <div class="blob blob-4"></div>
-  <div class="ribbon ribbon-1"></div>
-  <div class="ribbon ribbon-2"></div>
-  <div class="stars"></div>
-  <div class="glow-sweep"></div>
-  <div class="scanline"></div>
-  <div class="bokeh bokeh-1"></div>
-  <div class="bokeh bokeh-2"></div>
-  <div class="bokeh bokeh-3"></div>
-</div>
 
 </body></html>
