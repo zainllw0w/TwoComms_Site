@@ -28,6 +28,8 @@ urlpatterns = [
     )),
     # Явный маршрут для /robots.txt → прямая отдача, без статики
     path("robots.txt", storefront_views.robots_txt, name="robots_txt"),
+    # Fallback на случай, если где-то закешировался старый редирект на /static/robots.txt
+    path("static/robots.txt", storefront_views.robots_txt),
 ]
 
 # Добавляем обработку медиа-файлов для разработки и продакшена
