@@ -106,11 +106,12 @@
                   <div class="cart-item-detail">
                     <span class="cart-item-label">Колір:</span>
                     <div class="cart-item-color">
-                      <span class="cart-item-swatch" 
-                            style="background: {{ it.color_variant.color.primary_hex }};" 
-                            data-primary="{{ it.color_variant.color.primary_hex }}" 
-                            data-secondary="{{ it.color_variant.color.secondary_hex|default:'' }}">
+                      {% with p=it.color_variant.color.primary_hex s=it.color_variant.color.secondary_hex %}
+                      <span class="cart-item-swatch"
+                            data-primary="{{ p }}"
+                            data-secondary="{{ s|default:'' }}">
                       </span>
+                      {% endwith %}
                     </div>
                   </div>
                   {% endif %}
