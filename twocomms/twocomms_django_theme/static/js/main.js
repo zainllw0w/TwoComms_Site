@@ -107,6 +107,23 @@ function updateCartBadge(count){
   if(mobile){ mobile.textContent=n; mobile.style.display='inline-block'; }
 }
 
+// Применение цветов свотчей (включая комбинированные) по data-* атрибутам
+function applySwatchColors(root){
+  try{
+    const scope = root || document;
+    const list = scope.querySelectorAll('.cart-item-swatch, .swatch, .order-item-swatch, .color-dot, .featured-color-dot');
+    list.forEach(function(el){
+      const primary = el.getAttribute('data-primary') || '';
+      const secondary = el.getAttribute('data-secondary') || '';
+      if(secondary && secondary !== 'None'){
+        el.style.background = 'linear-gradient(90deg, '+primary+' 50%, '+secondary+' 50%)';
+      } else if(primary){
+        el.style.background = primary;
+      }
+    });
+  }catch(_){ }
+}
+
 // Мини‑корзина
 function miniCartPanel(){ 
   if(window.innerWidth < 576){
@@ -182,7 +199,7 @@ function refreshMiniCart(){
   content.innerHTML = "<div class='text-secondary small'>Завантаження…</div>";
   fetch('/cart/mini/',{headers:{'X-Requested-With':'XMLHttpRequest'}})
     .then(r=>r.text())
-    .then(html=>{ content.innerHTML = html; })
+    .then(html=>{ content.innerHTML = html; try{ applySwatchColors(content); }catch(_){ } })
     .catch(()=>{ content.innerHTML="<div class='text-danger small'>Не вдалося завантажити кошик</div>"; });
 }
 
@@ -195,6 +212,9 @@ document.addEventListener('DOMContentLoaded',()=>{
       .then(d=>{ if(d&&d.ok){ updateCartBadge(d.count); }})
       .catch(()=>{});
   });
+
+  // Применим цвета для свотчей на текущей странице
+  scheduleIdle(function(){ try{ applySwatchColors(document); }catch(_){ } });
 
   // Перемещаем галерею товара в левую колонку и синхронизируем миниатюры
   scheduleIdle(function(){
