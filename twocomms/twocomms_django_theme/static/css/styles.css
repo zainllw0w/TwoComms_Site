@@ -1923,10 +1923,12 @@ body::after {
   top: 0; height: 100%; width: 50%;
 }
 .cart-item-swatch.swatch::after {
-  left: 0; background: var(--primary-color, transparent);
+  left: -0.5px; width: calc(50% + 1px); background: var(--primary-color, transparent);
+  border-radius: 50% 0 0 50%;
 }
 .cart-item-swatch.swatch::before {
-  right: 0; background: var(--secondary-color, transparent);
+  right: -0.5px; width: calc(50% + 1px); background: var(--secondary-color, transparent);
+  border-radius: 0 50% 50% 0;
 }
 
 .cart-item-price {
