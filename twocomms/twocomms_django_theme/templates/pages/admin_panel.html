@@ -566,6 +566,17 @@
                         {{ o.created|date:"d.m.Y о H:i" }}
                       </div>
                     </div>
++                    <div class="order-actions-inline">
++                      <form method="post" action="{% url 'admin_order_delete' o.id %}" onsubmit="return confirm('Видалити замовлення #{{ o.order_number }}?');">
++                        {% csrf_token %}
++                        <button type="submit" class="order-action-btn danger" title="Видалити замовлення">
++                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
++                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
++                          </svg>
++                          <span>Видалити</span>
++                        </button>
++                      </form>
++                    </div>
                   </div>
                 </div>
               </div>
@@ -1134,7 +1145,7 @@
                               {% if promocode.is_used %}Використано{% else %}Активний{% endif %}
                             </div>
                             <div class="promocode-actions">
-                              <button class="promocode-btn remove" onclick="removePromocode('{{ promocode.id }}')">
+                              <button class="promocode-btn remove" data-action="remove-promocode" data-id="{{ promocode.id }}">
                                 Видалити
                               </button>
                             </div>
@@ -1360,7 +1371,7 @@
                     </svg>
                     Редагувати
                   </a>
-                  <button class="action-btn delete" onclick="deleteCategory({{ category.id }}, '{{ category.name }}')">
+                  <button class="action-btn delete" data-action="delete-category" data-id="{{ category.id }}" data-name="{{ category.name }}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                     </svg>
@@ -1471,7 +1482,7 @@
                     </svg>
                     Редагувати
                   </a>
-                  <button class="action-btn delete" onclick="deleteProduct({{ product.id }}, '{{ product.title }}')">
+                  <button class="action-btn delete" data-action="delete-product" data-id="{{ product.id }}" data-name="{{ product.title }}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                     </svg>
@@ -1619,13 +1630,13 @@
                     </svg>
                     Редагувати
                   </a>
-                  <button class="action-btn toggle" onclick="togglePromocode({{ promocode.id }}, '{{ promocode.code }}')">
+                  <button class="action-btn toggle" data-action="toggle-promocode" data-id="{{ promocode.id }}" data-code="{{ promocode.code }}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                     </svg>
                     {% if promocode.is_active %}Деактивувати{% else %}Активувати{% endif %}
                   </button>
-                  <button class="action-btn delete" onclick="deletePromocode({{ promocode.id }}, '{{ promocode.code }}')">
+                  <button class="action-btn delete" data-action="delete-promocode" data-id="{{ promocode.id }}" data-code="{{ promocode.code }}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                     </svg>
@@ -1777,13 +1788,13 @@
                     </svg>
                     Редагувати
                   </a>
-                  <button class="action-btn toggle" onclick="toggleOfflineStore({{ store.id }}, '{{ store.name }}')">
+                  <button class="action-btn toggle" data-action="toggle-store" data-id="{{ store.id }}" data-name="{{ store.name }}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                     </svg>
                     {% if store.is_active %}Деактивувати{% else %}Активувати{% endif %}
                   </button>
-                  <button class="action-btn delete" onclick="deleteOfflineStore({{ store.id }}, '{{ store.name }}')">
+                  <button class="action-btn delete" data-action="delete-store" data-id="{{ store.id }}" data-name="{{ store.name }}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                     </svg>
@@ -1977,26 +1988,26 @@
                 
                 <div class="print-proposal-actions">
                   {% if proposal.status == 'pending' %}
-                    <button class="action-btn approve" onclick="updateProposalStatus({{ proposal.id }}, 'approved')">
+                    <button class="action-btn approve" data-action="proposal-status" data-id="{{ proposal.id }}" data-status="approved">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                       </svg>
                       Схвалити
                     </button>
-                    <button class="action-btn reject" onclick="updateProposalStatus({{ proposal.id }}, 'rejected')">
+                    <button class="action-btn reject" data-action="proposal-status" data-id="{{ proposal.id }}" data-status="rejected">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
                       </svg>
                       Відхилити
                     </button>
                   {% endif %}
-                  <button class="action-btn award-points" onclick="awardPoints({{ proposal.id }})">
+                  <button class="action-btn award-points" data-action="award-points" data-id="{{ proposal.id }}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                     </svg>
                     Бали
                   </button>
-                  <button class="action-btn award-promocode" onclick="awardPromocode({{ proposal.id }})">
+                  <button class="action-btn award-promocode" data-action="award-promocode" data-id="{{ proposal.id }}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                     </svg>
@@ -2024,11 +2035,11 @@
 </div>
 
 <script>
-// Функции для админ-панели
+/* Функции для админ-панели */
 
-// Функция фильтрации пользователей по имени или логину
+/* Функция фильтрации пользователей по имени или логину */
 function filterUsers(searchTerm) {
-  console.log('Filtering users with term:', searchTerm); // Отладка
+  // console.log('Filtering users with term:', searchTerm);
   
   const userCards = document.querySelectorAll('.user-card');
   const usersCount = document.getElementById('users-count');
@@ -2036,14 +2047,14 @@ function filterUsers(searchTerm) {
   
   searchTerm = searchTerm.toLowerCase().trim();
   
-  console.log('Found user cards:', userCards.length); // Отладка
+  // console.log('Found user cards:', userCards.length);
   
   userCards.forEach((card, index) => {
     const username = card.querySelector('.user-name')?.textContent?.toLowerCase() || '';
     const fullName = card.querySelector('.user-full-name')?.textContent?.toLowerCase() || '';
     const email = card.querySelector('.user-email')?.textContent?.toLowerCase() || '';
     
-    console.log(`Card ${index}: username="${username}", fullName="${fullName}", email="${email}"`); // Отладка
+    // console.log(`Card ${index}: username="${username}", fullName="${fullName}", email="${email}"`);
     
     const isVisible = username.includes(searchTerm) || 
                      fullName.includes(searchTerm) || 
@@ -2057,20 +2068,20 @@ function filterUsers(searchTerm) {
     }
   });
   
-  console.log('Visible count:', visibleCount); // Отладка
+  // console.log('Visible count:', visibleCount);
   
   // Обновляем счетчик видимых пользователей
   if (usersCount) {
     usersCount.textContent = visibleCount;
   }
   
-  // Показываем уведомление о результатах поиска
+  /* Показываем уведомление о результатах поиска */
   if (searchTerm) {
     showNotification(`Знайдено ${visibleCount} користувачів`, 'info');
   }
 }
 
-// Функция очистки поиска пользователей
+/* Функция очистки поиска пользователей */
 function clearUserSearch() {
   const searchInput = document.getElementById('users-search');
   if (searchInput) {
@@ -2081,12 +2092,12 @@ function clearUserSearch() {
 }
 
 function filterOrders(status, payment) {
-  console.log('Filtering orders:', status, payment); // Отладка
+  // console.log('Filtering orders:', status, payment);
   
   const currentUrl = new URL(window.location);
   currentUrl.searchParams.set('section', 'orders');
   
-  // Устанавливаем фильтры только если они не 'all'
+  /* Устанавливаем фильтры только если они не 'all' */
   if (status !== 'all') {
     currentUrl.searchParams.set('status', status);
   } else {
@@ -2099,29 +2110,29 @@ function filterOrders(status, payment) {
     currentUrl.searchParams.delete('payment');
   }
   
-  console.log('Redirecting to:', currentUrl.toString()); // Отладка
+  // console.log('Redirecting to:', currentUrl.toString());
   window.location.href = currentUrl.toString();
 }
 
-// Функция для фильтрации заказов конкретного пользователя
+/* Функция для фильтрации заказов конкретного пользователя */
 function filterUserOrders(userId, filterType, filterValue) {
-  console.log('Filtering user orders:', userId, filterType, filterValue); // Отладка
-  console.log('Current URL:', window.location.href); // Отладка
+  // console.log('Filtering user orders:', userId, filterType, filterValue);
+  // console.log('Current URL:', window.location.href);
   
   const currentUrl = new URL(window.location);
   currentUrl.searchParams.set('section', 'orders');
   currentUrl.searchParams.set('user_id', userId);
   currentUrl.searchParams.set(filterType, filterValue);
   
-  console.log('New URL:', currentUrl.toString()); // Отладка
-  console.log('Search params:', currentUrl.searchParams.toString()); // Отладка
+  // console.log('New URL:', currentUrl.toString());
+  // console.log('Search params:', currentUrl.searchParams.toString());
   
   window.location.href = currentUrl.toString();
 }
 
-// Функции для управления каталогами
+/* Функции для управления каталогами */
 
-// Функция фильтрации каталогов
+/* Функция фильтрации каталогов */
 function filterCatalogs(searchTerm) {
   console.log('Filtering catalogs with term:', searchTerm);
   
@@ -2135,13 +2146,13 @@ function filterCatalogs(searchTerm) {
   
   searchTerm = searchTerm.toLowerCase().trim();
   
-  // Показываем/скрываем кнопку очистки поиска
+  /* Показываем/скрываем кнопку очистки поиска */
   const clearBtn = document.querySelector('.search-clear-btn');
   if (clearBtn) {
     clearBtn.style.display = searchTerm ? 'block' : 'none';
   }
   
-  // Фильтруем категории
+  /* Фильтруем категории */
   categoryCards.forEach(card => {
     const categoryName = card.getAttribute('data-category-name') || '';
     const isVisible = categoryName.includes(searchTerm);
@@ -2154,7 +2165,7 @@ function filterCatalogs(searchTerm) {
     }
   });
   
-  // Фильтруем товары
+  /* Фильтруем товары */
   productCards.forEach(card => {
     const productName = card.getAttribute('data-product-name') || '';
     const categoryName = card.getAttribute('data-category-name') || '';
@@ -2168,7 +2179,7 @@ function filterCatalogs(searchTerm) {
     }
   });
   
-  // Обновляем счетчики
+  /* Обновляем счетчики */
   if (categoriesCount) {
     categoriesCount.textContent = visibleCategories;
   }
@@ -2176,13 +2187,13 @@ function filterCatalogs(searchTerm) {
     productsCount.textContent = visibleProducts;
   }
   
-  // Показываем уведомление о результатах поиска
+  /* Показываем уведомление о результатах поиска */
   if (searchTerm) {
     showNotification(`Знайдено ${visibleCategories} категорій та ${visibleProducts} товарів`, 'info');
   }
 }
 
-// Функция очистки поиска каталогов
+/* Функция очистки поиска каталогов */
 function clearCatalogsSearch() {
   const searchInput = document.getElementById('catalogs-search');
   if (searchInput) {
@@ -2192,33 +2203,33 @@ function clearCatalogsSearch() {
   }
 }
 
-// Функция удаления категории
+/* Функция удаления категории */
 function deleteCategory(categoryId, categoryName) {
   if (confirm(`Ви впевнені, що хочете видалити категорію "${categoryName}"? Це також видалить всі товари в цій категорії!`)) {
-    // Перенаправляем на страницу удаления
+    /* Перенаправляем на страницу удаления */
     window.location.href = `/admin-panel/category/${categoryId}/delete/`;
   }
 }
 
-// Функция удаления товара
+/* Функция удаления товара */
 function deleteProduct(productId, productName) {
   if (confirm(`Ви впевнені, що хочете видалити товар "${productName}"?`)) {
-    // Перенаправляем на страницу удаления
+    /* Перенаправляем на страницу удаления */
     window.location.href = `/admin-panel/product/${productId}/delete/`;
   }
 }
 
 function updateOrderStatus(orderId, newStatus) {
-  console.log('updateOrderStatus called with:', orderId, newStatus); // Отладка
+  // console.log('updateOrderStatus called with:', orderId, newStatus);
   
-  // Проверяем CSRF токен
+  /* Проверяем CSRF токен */
   const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
   if (!csrfToken) {
     console.error('CSRF token not found!');
     showNotification('Помилка: CSRF токен не знайдено', 'error');
     return;
   }
-  console.log('CSRF token found:', csrfToken.value); // Отладка
+  // console.log('CSRF token found:', csrfToken.value);
   
   const statusText = {
     'new': 'В обробці',
@@ -2228,11 +2239,11 @@ function updateOrderStatus(orderId, newStatus) {
     'cancelled': 'Скасовано'
   };
   
-  // Если статус "Відправлено", запрашиваем ТТН
+  /* Если статус "Відправлено", запрашиваем ТТН */
   if (newStatus === 'ship') {
     const ttn = prompt('Введіть номер ТТН Нової Пошти:');
     if (ttn === null) {
-      // Пользователь отменил
+      /* Пользователь отменил */
       const select = document.querySelector(`[data-order-id="${orderId}"] select[onchange*="updateOrderStatus"]`);
       if (select) {
         select.value = select.getAttribute('data-original-value');
@@ -2249,33 +2260,33 @@ function updateOrderStatus(orderId, newStatus) {
     }
     
     if (confirm(`Змінити статус замовлення на "${statusText[newStatus]}" з ТТН: ${ttn.trim()}?`)) {
-      // Отправляем запрос с ТТН
+      /* Отправляем запрос с ТТН */
       const formData = new FormData();
       formData.append('order_id', orderId);
       formData.append('status', newStatus);
       formData.append('tracking_number', ttn.trim());
       formData.append('csrfmiddlewaretoken', csrfToken.value);
       
-      console.log('Sending request with TTN:', ttn.trim()); // Отладка
+      // console.log('Sending request with TTN:', ttn.trim());
       
       fetch('{% url "admin_update_order_status" %}', {
         method: 'POST',
         body: formData
       })
       .then(response => {
-        console.log('Response status:', response.status); // Отладка
+        // console.log('Response status:', response.status);
         return response.json();
       })
       .then(data => {
-        console.log('Response data:', data); // Отладка
+        // console.log('Response data:', data);
         if (data.success) {
           showNotification(data.message, 'success');
-          // Обновляем селект в интерфейсе
+          /* Обновляем селект в интерфейсе */
           const select = document.querySelector(`[data-order-id="${orderId}"] select[onchange*="updateOrderStatus"]`);
           if (select) {
             select.value = newStatus;
           }
-          // Обновляем отображение ТТН
+          /* Обновляем отображение ТТН */
           const ttnElement = document.querySelector(`[data-order-id="${orderId}"] .delivery-item[data-field="ttn"]`);
           if (ttnElement) {
             ttnElement.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -2285,7 +2296,7 @@ function updateOrderStatus(orderId, newStatus) {
           }
         } else {
           showNotification('Помилка: ' + data.error, 'error');
-          // Возвращаем предыдущее значение
+          /* Возвращаем предыдущее значение */
           const select = document.querySelector(`[data-order-id="${orderId}"] select[onchange*="updateOrderStatus"]`);
           if (select) {
             select.value = select.getAttribute('data-original-value');
@@ -2295,7 +2306,7 @@ function updateOrderStatus(orderId, newStatus) {
       .catch(error => {
         console.error('Error:', error);
         showNotification('Помилка оновлення статусу', 'error');
-        // Возвращаем предыдущее значение
+        /* Возвращаем предыдущее значение */
         const select = document.querySelector(`[data-order-id="${orderId}"] select[onchange*="updateOrderStatus"]`);
         if (select) {
           select.value = select.getAttribute('data-original-value');
@@ -2303,7 +2314,7 @@ function updateOrderStatus(orderId, newStatus) {
       });
       return;
     } else {
-      // Пользователь отменил
+      /* Пользователь отменил */
       const select = document.querySelector(`[data-order-id="${orderId}"] select[onchange*="updateOrderStatus"]`);
       if (select) {
         select.value = select.getAttribute('data-original-value');
@@ -2318,29 +2329,29 @@ function updateOrderStatus(orderId, newStatus) {
     formData.append('status', newStatus);
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
     
-    console.log('Sending request to:', '{% url "admin_update_order_status" %}'); // Отладка
-    console.log('FormData:', formData); // Отладка
+    // console.log('Sending request to:', '{% url "admin_update_order_status" %}');
+    // console.log('FormData:', formData);
     
     fetch('{% url "admin_update_order_status" %}', {
       method: 'POST',
       body: formData
     })
     .then(response => {
-      console.log('Response status:', response.status); // Отладка
+      // console.log('Response status:', response.status);
       return response.json();
     })
     .then(data => {
-      console.log('Response data:', data); // Отладка
+      // console.log('Response data:', data);
       if (data.success) {
         showNotification(data.message, 'success');
-        // Обновляем селект в интерфейсе
+        /* Обновляем селект в интерфейсе */
         const select = document.querySelector(`[data-order-id="${orderId}"] select[onchange*="updateOrderStatus"]`);
         if (select) {
           select.value = newStatus;
         }
       } else {
         showNotification('Помилка: ' + data.error, 'error');
-        // Возвращаем предыдущее значение
+        /* Возвращаем предыдущее значение */
         const select = document.querySelector(`[data-order-id="${orderId}"] select[onchange*="updateOrderStatus"]`);
         if (select) {
           select.value = select.getAttribute('data-original-value');
@@ -2350,14 +2361,14 @@ function updateOrderStatus(orderId, newStatus) {
     .catch(error => {
       console.error('Error:', error);
       showNotification('Помилка оновлення статусу', 'error');
-      // Возвращаем предыдущее значение
+      /* Возвращаем предыдущее значение */
       const select = document.querySelector(`[data-order-id="${orderId}"] select[onchange*="updateOrderStatus"]`);
       if (select) {
         select.value = select.getAttribute('data-original-value');
       }
     });
   } else {
-    // Возвращаем предыдущее значение если пользователь отменил
+    /* Возвращаем предыдущее значение если пользователь отменил */
     const select = document.querySelector(`[data-order-id="${orderId}"] select[onchange*="updateOrderStatus"]`);
     if (select) {
       select.value = select.getAttribute('data-original-value');
@@ -2387,14 +2398,14 @@ function updatePaymentStatus(orderId, newPaymentStatus) {
     .then(data => {
       if (data.success) {
         showNotification(data.message, 'success');
-        // Обновляем селект в интерфейсе
+        /* Обновляем селект в интерфейсе */
         const select = document.querySelector(`[data-order-id="${orderId}"] select[onchange*="updatePaymentStatus"]`);
         if (select) {
           select.value = newPaymentStatus;
         }
       } else {
         showNotification('Помилка: ' + data.error, 'error');
-        // Возвращаем предыдущее значение
+        /* Возвращаем предыдущее значение */
         const select = document.querySelector(`[data-order-id="${orderId}"] select[onchange*="updatePaymentStatus"]`);
         if (select) {
           select.value = select.getAttribute('data-original-value');
@@ -2404,14 +2415,14 @@ function updatePaymentStatus(orderId, newPaymentStatus) {
     .catch(error => {
       console.error('Error:', error);
       showNotification('Помилка оновлення статусу оплати', 'error');
-      // Возвращаем предыдущее значение
+      /* Возвращаем предыдущее значение */
       const select = document.querySelector(`[data-order-id="${orderId}"] select[onchange*="updatePaymentStatus"]`);
       if (select) {
         select.value = select.getAttribute('data-original-value');
       }
     });
   } else {
-    // Возвращаем предыдущее значение если пользователь отменил
+    /* Возвращаем предыдущее значение если пользователь отменил */
     const select = document.querySelector(`[data-order-id="${orderId}"] select[onchange*="updatePaymentStatus"]`);
     if (select) {
       select.value = select.getAttribute('data-original-value');
@@ -2443,12 +2454,12 @@ function approvePayment(orderId) {
     .then(data => {
       if (data.success) {
         showNotification(data.message, 'success');
-        // Обновляем статус в интерфейсе
+        /* Обновляем статус в интерфейсе */
         const statusSelect = document.querySelector(`[data-order-id="${orderId}"] .status-select[onchange*="updatePaymentStatus"]`);
         if (statusSelect) {
           statusSelect.value = data.new_status;
         }
-        // Скрываем секцию скриншота
+        /* Скрываем секцию скриншота */
         const screenshotSection = document.querySelector(`[data-order-id="${orderId}"] .payment-screenshot-section`);
         if (screenshotSection) {
           screenshotSection.style.display = 'none';
@@ -2479,12 +2490,12 @@ function rejectPayment(orderId) {
     .then(data => {
       if (data.success) {
         showNotification(data.message, 'success');
-        // Обновляем статус в интерфейсе
+        /* Обновляем статус в интерфейсе */
         const statusSelect = document.querySelector(`[data-order-id="${orderId}"] .status-select[onchange*="updatePaymentStatus"]`);
         if (statusSelect) {
           statusSelect.value = data.new_status;
         }
-        // Скрываем секцию скриншота
+        /* Скрываем секцию скриншота */
         const screenshotSection = document.querySelector(`[data-order-id="${orderId}"] .payment-screenshot-section`);
         if (screenshotSection) {
           screenshotSection.style.display = 'none';
@@ -2517,20 +2528,20 @@ function toggleScreenshot(orderId) {
 }
 
 function showNotification(message, type) {
-  // Создаем уведомление
+  /* Создаем уведомление */
   const notification = document.createElement('div');
   notification.className = `notification notification-${type}`;
   notification.textContent = message;
   
-  // Добавляем в DOM
+  /* Добавляем в DOM */
   document.body.appendChild(notification);
   
-  // Показываем с анимацией
+  /* Показываем с анимацией */
   setTimeout(() => {
     notification.classList.add('show');
   }, 100);
   
-  // Удаляем через 3 секунды
+  /* Удаляем через 3 секунды */
   setTimeout(() => {
     notification.classList.remove('show');
     setTimeout(() => {
@@ -2539,9 +2550,9 @@ function showNotification(message, type) {
   }, 3000);
 }
 
-// ===== ФУНКЦИИ ДЛЯ ПРОМОКОДОВ =====
+/* ===== ФУНКЦИИ ДЛЯ ПРОМОКОДОВ ===== */
 
-// Функция фильтрации промокодов
+/* Функция фильтрации промокодов */
 function filterPromocodes(searchTerm) {
   const promocodeCards = document.querySelectorAll('.promocode-card');
   const promocodesCount = document.getElementById('promocodes-count');
@@ -2558,7 +2569,7 @@ function filterPromocodes(searchTerm) {
     if (isVisible) {
       card.style.display = 'block';
       visibleCount++;
-      // Проверяем, активен ли промокод
+      /* Проверяем, активен ли промокод */
       const statusElement = card.querySelector('.promocode-status');
       if (statusElement && statusElement.classList.contains('active')) {
         visibleActiveCount++;
@@ -2568,23 +2579,23 @@ function filterPromocodes(searchTerm) {
     }
   });
   
-  // Обновляем счетчики
+  /* Обновляем счетчики */
   if (promocodesCount) promocodesCount.textContent = visibleCount;
   if (activePromocodesCount) activePromocodesCount.textContent = visibleActiveCount;
   
-  // Показываем/скрываем кнопку очистки
+  /* Показываем/скрываем кнопку очистки */
   const clearBtn = document.querySelector('.promocodes-search-section .search-clear-btn');
   if (clearBtn) {
     clearBtn.style.display = searchTerm ? 'block' : 'none';
   }
   
-  // Показываем уведомление о результатах поиска
+  /* Показываем уведомление о результатах поиска */
   if (searchTerm) {
     showNotification(`Знайдено ${visibleCount} промокодів`, 'info');
   }
 }
 
-// Функция очистки поиска промокодов
+/* Функция очистки поиска промокодов */
 function clearPromocodesSearch() {
   const searchInput = document.getElementById('promocodes-search');
   if (searchInput) {
@@ -2594,23 +2605,23 @@ function clearPromocodesSearch() {
   }
 }
 
-// Функция переключения статуса промокода
+/* Функция переключения статуса промокода */
 function togglePromocode(promocodeId, promocodeCode) {
   if (confirm(`Змінити статус промокоду "${promocodeCode}"?`)) {
     window.location.href = `/admin-panel/promocode/${promocodeId}/toggle/`;
   }
 }
 
-// Функция удаления промокода
+/* Функция удаления промокода */
 function deletePromocode(promocodeId, promocodeCode) {
   if (confirm(`Ви впевнені, що хочете видалити промокод "${promocodeCode}"?`)) {
     window.location.href = `/admin-panel/promocode/${promocodeId}/delete/`;
   }
 }
 
-// ===== ФУНКЦИИ ДЛЯ ОФФЛАЙН МАГАЗИНОВ =====
+/* ===== ФУНКЦИИ ДЛЯ ОФФЛАЙН МАГАЗИНОВ ===== */
 
-// Функция фильтрации оффлайн магазинов
+/* Функция фильтрации оффлайн магазинов */
 function filterOfflineStores(searchTerm) {
   const storeCards = document.querySelectorAll('.offline-store-card');
   const storesCount = document.getElementById('stores-count');
@@ -2627,7 +2638,7 @@ function filterOfflineStores(searchTerm) {
     if (isVisible) {
       card.style.display = 'block';
       visibleCount++;
-      // Проверяем, активен ли магазин
+      /* Проверяем, активен ли магазин */
       const statusElement = card.querySelector('.offline-store-status');
       if (statusElement && statusElement.classList.contains('active')) {
         visibleActiveCount++;
@@ -2637,23 +2648,23 @@ function filterOfflineStores(searchTerm) {
     }
   });
   
-  // Обновляем счетчики
+  /* Обновляем счетчики */
   if (storesCount) storesCount.textContent = visibleCount;
   if (activeStoresCount) activeStoresCount.textContent = visibleActiveCount;
   
-  // Показываем/скрываем кнопку очистки
+  /* Показываем/скрываем кнопку очистки */
   const clearBtn = document.querySelector('.offline-stores-search-section .search-clear-btn');
   if (clearBtn) {
     clearBtn.style.display = searchTerm ? 'block' : 'none';
   }
   
-  // Показываем уведомление о результатах поиска
+  /* Показываем уведомление о результатах поиска */
   if (searchTerm) {
     showNotification(`Знайдено ${visibleCount} магазинів`, 'info');
   }
 }
 
-// Функция очистки поиска оффлайн магазинов
+/* Функция очистки поиска оффлайн магазинов */
 function clearOfflineStoresSearch() {
   const searchInput = document.getElementById('offline-stores-search');
   if (searchInput) {
@@ -2663,23 +2674,23 @@ function clearOfflineStoresSearch() {
   }
 }
 
-// Функция переключения статуса оффлайн магазина
+/* Функция переключения статуса оффлайн магазина */
 function toggleOfflineStore(storeId, storeName) {
   if (confirm(`Змінити статус магазину "${storeName}"?`)) {
     window.location.href = `/admin-panel/offline-store/${storeId}/toggle/`;
   }
 }
 
-// Функция удаления оффлайн магазина
+/* Функция удаления оффлайн магазина */
 function deleteOfflineStore(storeId, storeName) {
   if (confirm(`Ви впевнені, що хочете видалити магазин "${storeName}"?`)) {
     window.location.href = `/admin-panel/offline-store/${storeId}/delete/`;
   }
 }
 
-// ===== ФУНКЦИИ ДЛЯ ЗАПРОПОНОВАНИХ ПРИНТОВ =====
+/* ===== ФУНКЦИИ ДЛЯ ЗАПРОПОНОВАНИХ ПРИНТОВ ===== */
 
-// Функция фильтрации запропонованных принтов
+/* Функция фильтрации запропонованих принтів */
 function filterPrintProposals(searchTerm) {
   const proposalCards = document.querySelectorAll('.print-proposal-card');
   const proposalsCount = document.getElementById('proposals-count');
@@ -2697,7 +2708,7 @@ function filterPrintProposals(searchTerm) {
     if (isVisible) {
       card.style.display = 'block';
       visibleCount++;
-      // Проверяем, находится ли принт на рассмотрении
+      /* Проверяем, находится ли принт на рассмотрении */
       const statusElement = card.querySelector('.status-badge');
       if (statusElement && statusElement.classList.contains('pending')) {
         visiblePendingCount++;
@@ -2707,23 +2718,23 @@ function filterPrintProposals(searchTerm) {
     }
   });
   
-  // Обновляем счетчики
+  /* Обновляем счетчики */
   if (proposalsCount) proposalsCount.textContent = visibleCount;
   if (pendingProposalsCount) pendingProposalsCount.textContent = visiblePendingCount;
   
-  // Показываем/скрываем кнопку очистки
+  /* Показываем/скрываем кнопку очистки */
   const clearBtn = document.querySelector('.print-proposals-search-section .search-clear-btn');
   if (clearBtn) {
     clearBtn.style.display = searchTerm ? 'block' : 'none';
   }
   
-  // Показываем уведомление о результатах поиска
+  /* Показываем уведомление о результатах поиска */
   if (searchTerm) {
     showNotification(`Знайдено ${visibleCount} принтів`, 'info');
   }
 }
 
-// Функция очистки поиска запропонованных принтов
+/* Функция очистки поиска запропонованих принтів */
 function clearPrintProposalsSearch() {
   const searchInput = document.getElementById('print-proposals-search');
   if (searchInput) {
@@ -2733,7 +2744,7 @@ function clearPrintProposalsSearch() {
   }
 }
 
-// Функция обновления статуса принта
+/* Функция обновления статуса принта */
 function updateProposalStatus(proposalId, status) {
   const action = status === 'approved' ? 'схвалити' : 'відхилити';
   if (confirm(`Ви впевнені, що хочете ${action} цей принт?`)) {
@@ -2750,13 +2761,13 @@ function updateProposalStatus(proposalId, status) {
     .then(data => {
       if (data.success) {
         showNotification(data.message, 'success');
-        // Обновляем статус в интерфейсе
+        /* Обновляем статус в интерфейсе */
         const statusElement = document.querySelector(`[data-proposal-id="${proposalId}"] .status-badge`);
         if (statusElement) {
           statusElement.textContent = data.new_status_text;
           statusElement.className = `status-badge ${status}`;
         }
-        // Обновляем счетчики
+        /* Обновляем счетчики */
         filterPrintProposals(document.getElementById('print-proposals-search').value);
       } else {
         showNotification('Помилка: ' + data.error, 'error');
@@ -2769,7 +2780,7 @@ function updateProposalStatus(proposalId, status) {
   }
 }
 
-// Функция награждения баллами
+/* Функция награждения баллами */
 function awardPoints(proposalId) {
   const points = prompt('Введіть кількість балів для нагородження:');
   if (points && !isNaN(points) && parseInt(points) > 0) {
@@ -2786,7 +2797,7 @@ function awardPoints(proposalId) {
     .then(data => {
       if (data.success) {
         showNotification(data.message, 'success');
-        // Обновляем интерфейс
+        /* Обновляем интерфейс */
         location.reload();
       } else {
         showNotification('Помилка: ' + data.error, 'error');
@@ -2799,7 +2810,7 @@ function awardPoints(proposalId) {
   }
 }
 
-// Функция награждения промокодом
+/* Функция награждения промокодом */
 function awardPromocode(proposalId) {
   const amount = prompt('Введіть суму промокоду в гривнях:');
   if (amount && !isNaN(amount) && parseInt(amount) > 0) {
@@ -2816,7 +2827,7 @@ function awardPromocode(proposalId) {
     .then(data => {
       if (data.success) {
         showNotification(data.message, 'success');
-        // Обновляем интерфейс
+        /* Обновляем интерфейс */
         location.reload();
       } else {
         showNotification('Помилка: ' + data.error, 'error');
