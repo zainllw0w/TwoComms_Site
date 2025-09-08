@@ -700,6 +700,7 @@ document.addEventListener('DOMContentLoaded', function(){
       if(btn._icBound) return; btn._icBound = true;
       btn.addEventListener('click', function(){
         try{ if(window.trackEvent){ window.trackEvent('InitiateCheckout', payload); } }catch(_){ }
+        try{ if(window.trackEvent){ window.trackEvent('Lead', {lead_type:'checkout', value: payload && payload.value, currency: payload && payload.currency, num_items: payload && payload.num_items}); } }catch(_){ }
       }, {passive:true});
     });
   }catch(_){ }
