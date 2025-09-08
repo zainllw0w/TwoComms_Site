@@ -1,3 +1,11 @@
+/* Глобальное уважение prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
 /* PERF: soften global glassmorphism where expensive */
 .perf-lite .modal,.perf-lite .offcanvas,.perf-lite .bottom-nav,.perf-lite .navbar.bg-body,
 .perf-lite .hero.bg-hero,.perf-lite .card.glassy,.perf-lite .profile-card,.perf-lite .points-card,
@@ -66,19 +74,7 @@ body::after {
 .perf-lite body::before, .perf-lite body::after { animation: none !important; }
 
 /* Дополнительные декоративные элементы */
-body::before {
-  background-image: 
-    radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
-    radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
-    linear-gradient(135deg, 
-      #0a0b0f 0%,
-      #0e0f12 25%,
-      #121318 50%,
-      #0e0f12 75%,
-      #0a0b0f 100%
-    );
-}
+/* Удалён дублирующий блок body::before background-image */
 
 /* Плавные и ненавязчивые анимации фона */
 @keyframes backgroundShift {
