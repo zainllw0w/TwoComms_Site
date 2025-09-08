@@ -33,7 +33,6 @@ DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') if os.environ.get('ALLOWED_HOSTS') else [
     'test.com',
     'www.test.com',
-    'twocomms.pythonanywhere.com',
     'twocomms.shop',
     'www.twocomms.shop',
     'localhost',
@@ -350,8 +349,7 @@ CSRF_COOKIE_SECURE = not DEBUG      # HTTPS только в продакшене
 CSRF_TRUSTED_ORIGINS = [
     'http://twocomms.shop',
     'http://www.twocomms.shop',
-    'http://twocomms.pythonanywhere.com',
     'https://twocomms.shop',
     'https://www.twocomms.shop',
-    'https://twocomms.pythonanywhere.com',
+    # удалён домен pythonanywhere по требованию
 ]
