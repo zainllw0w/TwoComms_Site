@@ -5,6 +5,19 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.cache import cache_page
+from functools import wraps
+from django.utils.decorators import available_attrs
+
+def cache_page_for_anon(timeout):
+    """Кэширует только для анонимных пользователей (избегаем проблем с персональными данными)."""
+    def decorator(view_func):
+        @wraps(view_func)
+        def _wrapped_view(request, *args, **kwargs):
+            if request.user.is_authenticated:
+                return view_func(request, *args, **kwargs)
+            return cache_page(timeout)(view_func)(request, *args, **kwargs)
+        return _wrapped_view
+    return decorator
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -211,7 +224,7 @@ def logout_view(request):
 
 
 
-@cache_page(300)  # Кэшируем на 5 минут
+@cache_page_for_anon(300)  # Кэшируем на 5 минут только для анонимов
 def home(request):
     # Оптимизированные запросы с select_related и prefetch_related
     featured = Product.objects.select_related('category').filter(featured=True).order_by('-id').first()
@@ -319,7 +332,7 @@ def load_more_products(request):
     
     return JsonResponse({'error': 'Invalid request'}, status=400)
 
-@cache_page(600)  # Кэшируем каталог на 10 минут
+@cache_page_for_anon(600)  # Кэшируем каталог на 10 минут только для анонимов
 def catalog(request, cat_slug=None):
     categories = Category.objects.order_by('order','name')
     if cat_slug:
