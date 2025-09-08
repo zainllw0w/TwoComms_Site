@@ -9791,14 +9791,14 @@ body::after {
 .btn-cta:active {
   transform: translateY(0);
   box-shadow: 0 6px 24px rgba(139,92,246,.4);
-}.bottom-nav{position:fixed;left:0;right:0;bottom:10px;margin:0 auto;width:min(560px,92%);background:rgba(20,22,27,.86);border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(8px) saturate(120%);border-radius:18px;padding:8px;z-index:1030}.bottom-nav .btn{flex:1 1 0;background:transparent;border:none;color:var(--tc-text);opacity:.8}.bottom-nav .btn.active,.bottom-nav .btn:hover{opacity:1}.reveal{opacity:0;transform:translateY(12px);transition:400ms ease}.reveal.visible{opacity:1;transform:none}.reveal-fast{opacity:0;transform:translateY(8px) scale(.98);transition:260ms cubic-bezier(.2,.8,.2,1);will-change:transform,opacity}.reveal-fast.visible{opacity:1;transform:none}
+}.bottom-nav{position:fixed;left:0;right:0;bottom:10px;margin:0 auto;width:min(560px,92%);background:rgba(20,22,27,.86);border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(8px) saturate(120%);border-radius:18px;padding:8px;z-index:1030}.bottom-nav .btn{flex:1 1 0;background:transparent;border:none;color:var(--tc-text);opacity:.8}.bottom-nav .btn.active,.bottom-nav .btn:hover{opacity:1}.reveal{opacity:0;transform:translateY(12px);transition:400ms ease}.reveal.visible{opacity:1;transform:none}.reveal-fast{opacity:0;transform:translateY(8px) scale(.98);transition:260ms cubic-bezier(.2,.8,.2,1)}.reveal-fast.visible{opacity:1;transform:none}
 /* Поочередное красивое появление карточек — keyframes + индивидуальная задержка */
 @keyframes cardLift {
   0%   { opacity:0; transform:translateY(24px) scale(.94); filter:blur(10px); }
   60%  { opacity:1; transform:translateY(-2px) scale(1.01); filter:blur(0); }
   100% { opacity:1; transform:none; filter:none; }
 }
-.reveal-stagger{opacity:0;will-change:transform,opacity,filter}
+.reveal-stagger{opacity:0}
 .reveal-stagger.visible{animation:cardLift 560ms cubic-bezier(.2,.8,.2,1) both; animation-delay:var(--d,0ms)}
 /* Масштабирование: растягивание в контейнер без обрезания */
 .object-fit-fill{object-fit:fill}
