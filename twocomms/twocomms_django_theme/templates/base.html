@@ -62,21 +62,44 @@
   .perf-lite .reveal,
   .perf-lite .reveal-fast { transition: none !important; }
 
-  /* Subtle site-wide background (cheap, no blur, no fixed attachment) */
+  /* Pro site-wide background: layered gradients + grain + micro-grid */
   body {
     background-color: var(--tc-bg);
     background-image:
-      radial-gradient(1200px 800px at 80% 10%, rgba(139, 92, 246, 0.12), transparent 60%),
-      radial-gradient(900px 700px at 10% 90%, rgba(16, 185, 129, 0.08), transparent 60%),
-      radial-gradient(800px 600px at 50% -10%, rgba(255, 255, 255, 0.04), transparent 50%);
-    background-repeat: no-repeat;
+      radial-gradient(1200px 800px at 82% 8%, rgba(139,92,246,0.16), transparent 60%),
+      radial-gradient(900px 700px at 12% 92%, rgba(16,185,129,0.12), transparent 60%),
+      conic-gradient(from 180deg at 50% 30%, rgba(255,255,255,0.03), transparent 20%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.02) 0, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 14px),
+      url('{% static 'img/noise.png' %}');
+    background-size:
+      1200px 800px,
+      900px 700px,
+      200% 200%,
+      100% 14px,
+      256px 256px;
+    background-repeat:
+      no-repeat,
+      no-repeat,
+      no-repeat,
+      repeat,
+      repeat;
+    background-position:
+      82% 8%,
+      12% 92%,
+      50% 30%,
+      0 0,
+      0 0;
     background-attachment: scroll;
+    background-blend-mode:
+      screen,
+      screen,
+      overlay,
+      normal,
+      normal;
   }
 
-  /* In lite mode, disable decorative background to save resources */
-  .perf-lite body {
-    background-image: none !important;
-  }
+  /* In lite mode, disable decorative layers to save resources */
+  .perf-lite body { background-image: none !important; }
   </style>
   {% block extra_css %}{% endblock %}
   
