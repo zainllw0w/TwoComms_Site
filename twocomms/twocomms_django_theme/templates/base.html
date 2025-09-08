@@ -39,7 +39,7 @@
   <link rel='icon' href='{% static 'img/favicon.ico' %}' sizes='any' type='image/x-icon'>
   
   <!-- Early performance hint: enable lite mode for save-data/low-memory/low-CPU with debug + override -->
-  <script>(function(){try{var doc=document.documentElement;var c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;var save=!!(c&&c.saveData);var mem=navigator.deviceMemory;var hc=navigator.hardwareConcurrency;var lowRam=typeof mem==='number'&&mem>0&&mem<=2;var lowCPU=typeof hc==='number'&&hc>0&&hc<=2;var reasons=[];if(save)reasons.push('saveData');if(lowRam)reasons.push('lowRam:'+mem+'GB');if(lowCPU)reasons.push('lowCPU:'+hc+'t');if(save||lowRam||lowCPU){doc.classList.add('perf-lite');}doc.setAttribute('data-perf-reasons',reasons.join(','));var sp=new URLSearchParams(location.search);var perf=sp.get('perf');var ov=localStorage.getItem('perfOverride');if(perf==='on'){doc.classList.remove('perf-lite');localStorage.setItem('perfOverride','on');}else if(perf==='off'||perf==='lite'){doc.classList.add('perf-lite');localStorage.setItem('perfOverride','off');}else if(ov==='on'){doc.classList.remove('perf-lite');}else if(ov==='off'){doc.classList.add('perf-lite');}}catch(e){}})();</script>
+  <script>(function(){try{var doc=document.documentElement;var c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;var save=!!(c&&c.saveData);var mem=navigator.deviceMemory;var hc=navigator.hardwareConcurrency;var lowRam=typeof mem==='number'&&mem>0&&mem<=2;var lowCPU=typeof hc==='number'&&hc>0&&hc<=2;var reasons=[];if(save)reasons.push('saveData');if(lowRam)reasons.push('lowRam:'+mem+'GB');if(lowCPU)reasons.push('lowCPU:'+hc+'t');if(save||lowRam||lowCPU){doc.classList.add('perf-lite');}doc.setAttribute('data-perf-reasons',reasons.join(','));var sp=new URLSearchParams(location.search);var perf=sp.get('perf');var ov=localStorage.getItem('perfOverride');if(perf==='on'){doc.classList.remove('perf-lite');localStorage.setItem('perfOverride','on');}else if(perf==='off'||perf==='lite'){doc.classList.add('perf-lite');localStorage.setItem('perfOverride','off');}else if(ov==='on'){doc.classList.remove('perf-lite');}else if(ov==='off'){doc.classList.add('perf-lite');}if(sp.get('bgdebug')==='1'){doc.classList.add('bg-debug');}}catch(e){}})();</script>
   
   <!-- Stylesheets -->
   <!-- Inline tiny critical to avoid flash while CSS loads -->
@@ -175,6 +175,39 @@
 
   /* Ensure content is above background stage */
   header, main, footer { position: relative; z-index: 1; }
+
+  /* Force body background to apply over any resets */
+  .bg-pro {
+    background: 
+      radial-gradient(1200px 800px at 80% 10%, rgba(139,92,246,0.22), transparent 62%),
+      radial-gradient(1000px 700px at 15% 85%, rgba(16,185,129,0.16), transparent 62%),
+      radial-gradient(circle, rgba(255,255,255,0.02) 1px, transparent 1px),
+      url("{% static 'img/noise.png' %}"),
+      radial-gradient(1400px 1000px at 50% 50%, rgba(0,0,0,0), rgba(0,0,0,0.36) 70%) !important;
+    background-size: 1200px 800px, 1000px 700px, 4px 4px, 256px 256px, 100% 100% !important;
+    background-repeat: no-repeat, no-repeat, repeat, repeat, no-repeat !important;
+    background-position: 80% 10%, 15% 85%, 0 0, 0 0, 50% 50% !important;
+  }
+
+  /* Overlay base gradient above body color to ensure visibility */
+  body.bg-pro::before{
+    content:"";
+    position:fixed;
+    inset:0;
+    z-index:0;
+    pointer-events:none;
+    background:
+      radial-gradient(1200px 800px at 78% 12%, rgba(139,92,246,0.18), transparent 62%),
+      radial-gradient(1000px 700px at 18% 88%, rgba(16,185,129,0.14), transparent 62%),
+      radial-gradient(1400px 1000px at 50% 50%, rgba(0,0,0,0), rgba(0,0,0,0.32) 70%);
+    background-repeat:no-repeat,no-repeat,no-repeat;
+    background-size:1200px 800px,1000px 700px,100% 100%;
+    background-position:78% 12%,18% 88%,50% 50%;
+  }
+
+  /* Debug helpers: enable via ?bgdebug=1 */
+  .bg-debug .bg-stage{background: rgba(255,0,0,.10) !important;}
+  .bg-debug .blob,.bg-debug .bokeh{opacity:1 !important; filter:none !important;}
   
   /* Debug badge to verify background version on live */
   .bg-version-badge{
