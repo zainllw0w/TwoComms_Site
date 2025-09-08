@@ -83,6 +83,18 @@ if os.environ.get('DB_NAME') and os.environ.get('DB_USER'):
                 'OPTIONS': _options,
             }
         }
+        # Включаем строгий режим MariaDB/MySQL если не выключен явно
+        _sql_mode = os.environ.get('DB_SQL_MODE')
+        if not _sql_mode:
+            # Добавляем строгие флаги; удаляем ONLY_FULL_GROUP_BY для совместимости при необходимости
+            _sql_mode_list = [
+                'STRICT_TRANS_TABLES',
+                'ERROR_FOR_DIVISION_BY_ZERO',
+                'NO_ZERO_DATE',
+                'NO_ZERO_IN_DATE',
+                'NO_ENGINE_SUBSTITUTION',
+            ]
+            _options['init_command'] += "; SET SESSION sql_mode='" + ",".join(_sql_mode_list) + "'"
     else:
         DATABASES = {
             'default': {
