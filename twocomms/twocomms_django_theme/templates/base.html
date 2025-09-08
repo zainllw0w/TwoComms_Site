@@ -85,6 +85,14 @@
   }
   </script>
   <!-- Meta Pixel Code -->
+  <div id="am"
+       {% if request.user.is_authenticated %}
+         data-external-id="{{ request.user.id }}"
+         {% if request.user.email %}data-em="{{ request.user.email|lower|escapejs }}"{% elif request.user.userprofile and request.user.userprofile.email %}data-em="{{ request.user.userprofile.email|lower|escapejs }}"{% endif %}
+         {% if request.user.userprofile and request.user.userprofile.phone %}data-ph="{{ request.user.userprofile.phone|escapejs }}"{% endif %}
+         {% if request.user.userprofile and request.user.userprofile.full_name %}data-fn="{{ request.user.userprofile.full_name|escapejs|cut:'\n'|cut:'\r'|cut:'  ' }}"{% else %}data-fn="{{ request.user.first_name|escapejs }} {{ request.user.last_name|escapejs }}"{% endif %}
+         {% if request.user.userprofile and request.user.userprofile.city %}data-ct="{{ request.user.userprofile.city|escapejs }}"{% endif %}
+       {% endif %} style="display:none"></div>
   <script>
   !function(f,b,e,v,n,t,s)
   {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -94,7 +102,20 @@
   t.src=v;s=b.getElementsByTagName(e)[0];
   s.parentNode.insertBefore(t,s)}(window, document,'script',
   'https://connect.facebook.net/en_US/fbevents.js');
-  fbq('init', '823958313630148');
+  try{
+    var amEl=document.getElementById('am');
+    var am={};
+    if(amEl){
+      var fn = (amEl.dataset.fn||'').trim();
+      var parts = fn.split(/\s+/);
+      if(fn && parts.length>1){ am.fn=parts[0]; am.ln=parts.slice(1).join(' '); } else if(fn){ am.fn=fn; }
+      if(amEl.dataset.externalId) am.external_id = amEl.dataset.externalId;
+      if(amEl.dataset.em) am.em = amEl.dataset.em;
+      if(amEl.dataset.ph) am.ph = amEl.dataset.ph;
+      if(amEl.dataset.ct) am.ct = amEl.dataset.ct;
+    }
+    fbq('init', '823958313630148', am);
+  }catch(_){ try{ fbq('init', '823958313630148'); }catch(__){} }
   fbq('track', 'PageView');
   </script>
   <noscript><img height="1" width="1" style="display:none"
