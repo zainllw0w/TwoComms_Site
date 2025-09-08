@@ -141,7 +141,8 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # ===== ОПТИМИЗАЦИИ ДЛЯ ПРОДАКШЕНА =====
 
 # Кэширование (по умолчанию LocMem, но если задан Redis — используем его)
-if REDIS_URL:
+DISABLE_REDIS = os.environ.get('DISABLE_REDIS', 'false').lower() in ('1', 'true', 'yes')
+if REDIS_URL and not DISABLE_REDIS:
     CACHES['default'] = {
         'BACKEND': 'django_redis.cache.RedisCache',
         'LOCATION': REDIS_URL,
