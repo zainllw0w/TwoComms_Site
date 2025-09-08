@@ -202,7 +202,19 @@ document.addEventListener('DOMContentLoaded', function() {
   showPhoneBtn.addEventListener('click', function() {
     phoneNumber.style.display = 'inline-block';
     showPhoneBtn.style.display = 'none';
+    try{ if(window.trackEvent){ window.trackEvent('Contact', {method: 'phone_reveal'}); } }catch(_){ }
   });
+  try{ if(window.trackEvent){ window.trackEvent('Contact', {method: 'page_view'}); } }catch(_){ }
+  const form = document.querySelector('.contact-form');
+  if(form){
+    form.addEventListener('submit', function(){
+      try{ if(window.trackEvent){
+        const name = (form.querySelector('#name')||{}).value||'';
+        const subject = (form.querySelector('#subject')||{}).value||'';
+        window.trackEvent('Contact', {method:'form_submit', name:name, subject:subject});
+      } }catch(_){ }
+    });
+  }
 });
 </script>
 {% endblock %}
