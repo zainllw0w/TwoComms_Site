@@ -4,6 +4,8 @@
   --tc-border-10: 1px solid rgba(255,255,255,0.10);
   --tc-border-15: 1px solid rgba(255,255,255,0.15);
   --tc-glass-soft: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0));
+  --tc-glass-0803: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+  --tc-glass-1005: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
 }
 /* Глобальное уважение prefers-reduced-motion */
 @media (prefers-reduced-motion: reduce) {
@@ -5275,8 +5277,8 @@ body::after {
   align-items: center;
   justify-content: center;
   padding: 1rem 0.75rem;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--tc-glass-0803);
+  border: var(--tc-border-15);
   border-radius: 20px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
@@ -10062,8 +10064,8 @@ body::after {
 }
 
 .featured-card {
-  background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
-  border: 1px solid rgba(255,255,255,0.1);
+  background: var(--tc-glass-1005);
+  border: var(--tc-border-10);
   border-radius: 20px;
   overflow: hidden;
   box-shadow: 0 16px 48px rgba(0,0,0,0.3);
@@ -10338,8 +10340,8 @@ body::after {
 
 /* Заголовок-кнопка управления блоком "Рекомендовано" */
 .featured-header-btn {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--tc-glass-0803);
+  border: var(--tc-border-10);
   border-radius: 16px;
   padding: 1.5rem 2rem;
   cursor: pointer;
@@ -11211,8 +11213,8 @@ body::after {
 }
 
 .order-success-card {
-  background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
-  border: 1px solid rgba(255,255,255,0.1);
+  background: var(--tc-glass-1005);
+  border: var(--tc-border-10);
   border-radius: 20px;
   overflow: hidden;
   box-shadow: 0 20px 60px rgba(0,0,0,0.3);
@@ -11463,8 +11465,8 @@ body::after {
 }
 
 .orders-header {
-  background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
-  border: 1px solid rgba(255,255,255,0.1);
+  background: var(--tc-glass-1005);
+  border: var(--tc-border-10);
   border-radius: 16px;
   padding: 1.5rem;
   backdrop-filter: blur(20px);
@@ -11526,8 +11528,8 @@ body::after {
 }
 
 .order-card {
-  background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
-  border: 1px solid rgba(255,255,255,0.1);
+  background: var(--tc-glass-1005);
+  border: var(--tc-border-10);
   border-radius: 16px;
   overflow: hidden;
   backdrop-filter: blur(20px);
@@ -17563,8 +17565,8 @@ input[type="file"].form-control:hover {
 }
 
 .category-card {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--tc-glass-0803);
+  border: var(--tc-border-15);
   border-radius: 20px;
   padding: 1.5rem;
   position: relative;
@@ -17760,8 +17762,8 @@ input[type="file"].form-control:hover {
 }
 
 .product-card {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--tc-glass-0803);
+  border: var(--tc-border-15);
   border-radius: 20px;
   padding: 1.5rem;
   position: relative;
