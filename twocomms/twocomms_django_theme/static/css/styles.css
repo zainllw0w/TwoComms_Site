@@ -1917,7 +1917,7 @@ body::after {
 }
 
 .cart-item-swatch[data-secondary]:not([data-secondary=""]) {
-  background: linear-gradient(90deg, var(--primary) 50%, var(--secondary) 50%);
+  background: linear-gradient(90deg, var(--primary-color) 50%, var(--secondary-color) 50%);
 }
 
 .cart-item-price {
