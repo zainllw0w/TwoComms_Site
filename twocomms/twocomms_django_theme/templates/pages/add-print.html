@@ -328,7 +328,6 @@
       submitBtn.disabled = false;
       
       if(res && res.ok && res.proposal){
-        try{ if(window.trackEvent){ window.trackEvent('Lead', {lead_type:'print_proposal'}); } }catch(_){ }
         // Показываем сообщение об успехе
         showSuccessMessage('Принт успішно відправлено на розгляд!');
         
