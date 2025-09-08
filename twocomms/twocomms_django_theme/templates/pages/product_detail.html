@@ -128,7 +128,7 @@
               </svg>
             </div>
             <span class="points-text-small">{{ product.points_reward }} балів</span>
-            <button type="button" class="btn btn-sm btn-outline-light points-help-small" 
+            <button type="button" class="btn btn-sm btn-outline-light points-help-small" aria-label="Дізнатись про бали" 
                     data-bs-toggle="modal" data-bs-target="#pointsInfoModal" 
                     data-product-title="{{ product.title }}" data-points-amount="{{ product.points_reward }}"
                     onclick="event.stopPropagation();">
