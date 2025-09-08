@@ -2,9 +2,9 @@
 <nav class='navbar navbar-expand-lg border-bottom sticky-top bg-body backdrop-blur'>
   <div class='container-xxl'>
     <a class='navbar-brand fw-bold d-flex align-items-center gap-2' href='{% url 'home' %}'>
-      <img src='{% static 'img/logo.svg' %}' width='28' height='28'> TwoComms
+      <img src='{% static 'img/logo.svg' %}' width='28' height='28' alt=''> TwoComms
     </a>
-    <button class='navbar-toggler position-relative' type='button' data-bs-toggle='collapse' data-bs-target='#navMain'>
+    <button class='navbar-toggler position-relative' type='button' data-bs-toggle='collapse' data-bs-target='#navMain' aria-controls='navMain' aria-label='Перемикач навігації'>
       <span class='navbar-toggler-icon'></span>
     </button>
     <div class='collapse navbar-collapse' id='navMain'>
@@ -16,7 +16,7 @@
         <li class='nav-item'><a class='nav-link' href='{% url 'contacts' %}'>Контакти</a></li>
       </ul>
       <form class='d-none d-lg-flex me-3' role='search' action='{% url 'search' %}'>
-        <input class='form-control form-control-sm bg-elevate' type='search' name='q' placeholder='Пошук…'>
+        <input class='form-control form-control-sm bg-elevate' type='search' name='q' placeholder='Пошук…' aria-label='Пошук'>
       </form>
       <div class='d-flex align-items-center gap-2 position-relative'>
         <a class='btn btn-sm btn-gradient-suggest' href='{% url 'add_print' %}'>
@@ -27,7 +27,7 @@
         </a>
         <!-- Контейнер корзины -->
         <div class="cart-container position-relative d-none d-lg-block" style="display: none !important;" data-mobile-hide="true">
-          <button id="cart-toggle" type="button" class="cart-btn">
+          <button id="cart-toggle" type="button" class="cart-btn" aria-label="Відкрити міні-корзину">
             <div class="cart-icon-wrapper">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="cart-icon">
                 <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
@@ -118,7 +118,7 @@
         </div>
         <!-- Аватар/профіль -->
         <div class="user-profile-container position-relative d-none d-lg-block" style="display: none !important;" data-mobile-hide="true">
-          <button id="user-toggle" type="button" class="user-avatar-btn">
+          <button id="user-toggle" type="button" class="user-avatar-btn" aria-label="Відкрити панель користувача">
             <div class="avatar-wrapper">
               {% if request.user.is_authenticated and request.user.userprofile and request.user.userprofile.avatar %}
                 <img src="{{ request.user.userprofile.avatar.url }}" alt="" class="avatar-image">
@@ -361,7 +361,7 @@
     
     <!-- Корзина -->
     <div class="bottom-nav-item cart-container-mobile">
-      <button id="cart-toggle-mobile" type="button" class="cart-btn-mobile">
+      <button id="cart-toggle-mobile" type="button" class="cart-btn-mobile" aria-label="Відкрити міні-корзину">
         <div class="cart-icon-wrapper-mobile">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="cart-icon">
             <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
@@ -386,7 +386,7 @@
     <!-- Профиль -->
     <div class="bottom-nav-item user-profile-container-mobile">
       {% if request.user.is_authenticated %}
-      <button id="user-toggle-mobile" type="button" class="user-avatar-btn-mobile">
+      <button id="user-toggle-mobile" type="button" class="user-avatar-btn-mobile" aria-label="Відкрити панель користувача">
         <div class="avatar-wrapper-mobile">
           {% if request.user.userprofile and request.user.userprofile.avatar %}
             <img src="{{ request.user.userprofile.avatar.url }}" alt="" class="avatar-image-mobile">
