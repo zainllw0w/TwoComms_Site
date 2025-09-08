@@ -222,7 +222,8 @@ SECURE_CROSS_ORIGIN_OPENER_POLICY = None
 SECURE_CROSS_ORIGIN_EMBEDDER_POLICY = None
 
 # Принудительный HTTPS и доверие заголовку прокси
-SECURE_SSL_REDIRECT = True
+# Разрешим переключать редирект через переменную окружения, чтобы избежать возможных циклов редиректа
+SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'True').lower() in ('1', 'true', 'yes')
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # HSTS
