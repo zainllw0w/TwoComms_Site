@@ -4,6 +4,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.views.generic.base import RedirectView
+from storefront import views as storefront_views
 from django.contrib.sitemaps.views import sitemap
 from storefront.sitemaps import StaticViewSitemap, ProductSitemap, CategorySitemap
 
@@ -25,10 +26,8 @@ urlpatterns = [
     path("favicon.ico", RedirectView.as_view(
         url=staticfiles_storage.url("img/favicon.ico"), permanent=False
     )),
-    # Явный маршрут для /robots.txt → статический файл
-    path("robots.txt", RedirectView.as_view(
-        url=staticfiles_storage.url("robots.txt"), permanent=False
-    )),
+    # Явный маршрут для /robots.txt → прямая отдача, без статики
+    path("robots.txt", storefront_views.robots_txt, name="robots_txt"),
 ]
 
 # Добавляем обработку медиа-файлов для разработки и продакшена
