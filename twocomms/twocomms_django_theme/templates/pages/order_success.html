@@ -85,3 +85,22 @@
   </div>
 </section>
 {% endblock %}
+
+{% block extra_js %}
+<div id="purchase-payload"
+     data-value="{{ order.total_sum|floatformat:2 }}"
+     data-currency="UAH"
+     data-contents='[{% for item in order.items.all %}{"id":"{{ item.product.id }}","quantity":{{ item.qty }}}{% if not forloop.last %},{% endif %}{% endfor %}]'>
+</div>
+<script>
+try{
+  var el=document.getElementById('purchase-payload');
+  if(el && window.fbq){
+    var value=parseFloat(el.dataset.value||'0');
+    var currency=el.dataset.currency||'UAH';
+    var contents=[]; try{ contents=JSON.parse(el.dataset.contents||'[]'); }catch(_){ contents=[]; }
+    fbq('track','Purchase',{ value:value, currency:currency, contents:contents, content_type:'product' });
+  }
+}catch(e){}
+</script>
+{% endblock %}
