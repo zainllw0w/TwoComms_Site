@@ -12,6 +12,7 @@ class StaticViewSitemap(Sitemap):
     """
     priority = 0.8
     changefreq = 'weekly'
+    protocol = 'https'
     
     def items(self):
         return [
@@ -34,9 +35,14 @@ class ProductSitemap(Sitemap):
     """
     changefreq = 'weekly'
     priority = 0.9
+    protocol = 'https'
     
     def items(self):
-        return Product.objects.filter(is_active=True)
+        # В проекте может не быть поля is_active у Product — подстрахуемся
+        try:
+            return Product.objects.filter(is_active=True)
+        except Exception:
+            return Product.objects.all()
     
     def lastmod(self, obj):
         # Защита от отсутствующих полей времени
@@ -54,6 +60,7 @@ class CategorySitemap(Sitemap):
     """
     changefreq = 'monthly'
     priority = 0.7
+    protocol = 'https'
     
     def items(self):
         return Category.objects.filter(is_active=True)
