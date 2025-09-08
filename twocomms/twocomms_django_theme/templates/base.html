@@ -16,8 +16,8 @@
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="{% block og_type %}website{% endblock %}">
   <meta property="og:url" content="{% block og_url %}{{ request.scheme }}://{{ request.get_host }}{{ request.path }}{% endblock %}">
-  <meta property="og:title" content="{% block og_title %}{% block title %}TwoComms — Стріт & Мілітарі Одяг{% endblock %}{% endblock %}">
-  <meta property="og:description" content="{% block og_description %}{% block description %}TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю.{% endblock %}{% endblock %}">
+  <meta property="og:title" content="{% block og_title %}TwoComms — Стріт & Мілітарі Одяг{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю.{% endblock %}">
   <meta property="og:image" content="{% block og_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo.svg' %}{% endblock %}">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -27,8 +27,8 @@
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image">
   <meta property="twitter:url" content="{% block twitter_url %}{{ request.scheme }}://{{ request.get_host }}{{ request.path }}{% endblock %}">
-  <meta property="twitter:title" content="{% block twitter_title %}{% block title %}TwoComms — Стріт & Мілітарі Одяг{% endblock %}{% endblock %}">
-  <meta property="twitter:description" content="{% block twitter_description %}{% block description %}TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю.{% endblock %}{% endblock %}">
+  <meta property="twitter:title" content="{% block twitter_title %}TwoComms — Стріт & Мілітарі Одяг{% endblock %}">
+  <meta property="twitter:description" content="{% block twitter_description %}TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю.{% endblock %}">
   <meta property="twitter:image" content="{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo.svg' %}{% endblock %}">
   
   {% include 'partials/seo_meta.html' %}
