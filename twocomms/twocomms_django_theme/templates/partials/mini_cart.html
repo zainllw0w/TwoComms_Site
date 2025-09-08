@@ -14,7 +14,7 @@
               {% if it.color_variant %}
               <br>
               <div class="d-flex align-items-center gap-1">
-                <span class="swatch" style="width: 12px; height: 12px; background: {{ it.color_variant.color.primary_hex }};" 
+                <span class="swatch" style="width: 12px; height: 12px; --primary-color: {{ it.color_variant.color.primary_hex }}; --secondary-color: {{ it.color_variant.color.secondary_hex|default:'' }}; background: {{ it.color_variant.color.primary_hex }};" 
                       data-primary="{{ it.color_variant.color.primary_hex }}" 
                       data-secondary="{{ it.color_variant.color.secondary_hex|default:'' }}">
                 </span>

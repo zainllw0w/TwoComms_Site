@@ -182,7 +182,7 @@ function refreshMiniCart(){
   content.innerHTML = "<div class='text-secondary small'>Завантаження…</div>";
   fetch('/cart/mini/',{headers:{'X-Requested-With':'XMLHttpRequest'}})
     .then(r=>r.text())
-    .then(html=>{ content.innerHTML = html; })
+    .then(html=>{ content.innerHTML = html; try{ applySwatchVars(content); }catch(_){ } })
     .catch(()=>{ content.innerHTML="<div class='text-danger small'>Не вдалося завантажити кошик</div>"; });
 }
 
@@ -190,10 +190,10 @@ function refreshMiniCart(){
 document.addEventListener('DOMContentLoaded',()=>{
   // Отложим, чтобы не мешать первому рендеру
   scheduleIdle(()=>{
-    fetch('/cart/summary/',{headers:{'X-Requested-With':'XMLHttpRequest'}})
-      .then(r=>r.ok?r.json():null)
-      .then(d=>{ if(d&&d.ok){ updateCartBadge(d.count); }})
-      .catch(()=>{});
+  fetch('/cart/summary/',{headers:{'X-Requested-With':'XMLHttpRequest'}})
+    .then(r=>r.ok?r.json():null)
+    .then(d=>{ if(d&&d.ok){ updateCartBadge(d.count); }})
+    .catch(()=>{});
   });
 
   // Перемещаем галерею товара в левую колонку и синхронизируем миниатюры
@@ -937,6 +937,8 @@ document.addEventListener('DOMContentLoaded', function(){
   const colorPicker = document.getElementById('color-picker');
   const carousel = document.getElementById('productCarousel');
   if(!variantTag || !colorPicker || !carousel) return;
+  // Применяем CSS переменные для комбинированных swatch
+  try{ applySwatchVars(document); }catch(_){ }
   let variants=[]; try{ variants=JSON.parse(variantTag.textContent||'[]'); }catch(_){ variants=[]; }
   const inner = carousel.querySelector('.carousel-inner');
   const indicators = carousel.querySelector('.carousel-indicators');
@@ -953,6 +955,8 @@ document.addEventListener('DOMContentLoaded', function(){
 // ====== CONTACTS: показать телефон ======
 document.addEventListener('DOMContentLoaded', function(){
   const btn=document.getElementById('show-phone-btn'); const phone=document.getElementById('phone-number'); if(btn&&phone){ btn.addEventListener('click', ()=>{ phone.style.display='inline-block'; btn.style.display='none'; }); }
+  // Присвоим CSS-переменные для всех swatch на странице (корзина, заказы, мини‑кошик)
+  try{ applySwatchVars(document); }catch(_){ }
 });
 
 // ===== ФУНКЦИИ ДЛЯ ИЗБРАННЫХ ТОВАРОВ =====
@@ -1070,11 +1074,11 @@ document.addEventListener('DOMContentLoaded', function() {
     favoriteButtons.forEach(btn=> io.observe(btn));
   } else {
     // Фолбэк: проверяем сразу
-    favoriteButtons.forEach(button => {
-      const productId = button.getAttribute('data-product-id');
+  favoriteButtons.forEach(button => {
+    const productId = button.getAttribute('data-product-id');
       if (productId) { checkFavoriteStatus(productId, button); }
     });
-  }
+    }
 });
 
 // ===== ФУНКЦИОНАЛЬНОСТЬ СВОРАЧИВАНИЯ КАТЕГОРИЙ =====
