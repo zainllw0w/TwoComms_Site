@@ -3494,6 +3494,8 @@ def admin_offline_store_delete(request, pk):
     return redirect('admin_offline_stores')
 
 def robots_txt(request):
+    host = request.get_host() or "twocomms.shop"
+    scheme = "https"
     lines = [
         "User-agent: *",
         "Allow: /",
@@ -3512,7 +3514,12 @@ def robots_txt(request):
         "Disallow: /profile/",
         "Disallow: /search/",
         "",
-        "Sitemap: https://twocomms.shop/sitemap.xml",
-        "Sitemap: https://www.twocomms.shop/sitemap.xml",
+        f"Sitemap: {scheme}://{host}/sitemap.xml",
     ]
-    return HttpResponse("\n".join(lines) + "\n", content_type="text/plain; charset=utf-8")
+    resp = HttpResponse("\n".join(lines) + "\n", content_type="text/plain; charset=utf-8")
+    # Снимаем кэш, чтобы поисковики и CDN не держали старый редирект
+    resp["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp["Pragma"] = "no-cache"
+    resp["Expires"] = "0"
+    resp["Content-Disposition"] = 'inline; filename="robots.txt"'
+    return resp
