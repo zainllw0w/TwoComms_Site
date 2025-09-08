@@ -39,7 +39,11 @@ class ProductSitemap(Sitemap):
         return Product.objects.filter(is_active=True)
     
     def lastmod(self, obj):
-        return obj.updated_at or obj.created_at
+        # Защита от отсутствующих полей времени
+        try:
+            return getattr(obj, 'updated_at', None) or getattr(obj, 'created_at', None)
+        except Exception:
+            return None
     
     def location(self, obj):
         return reverse('product', kwargs={'slug': obj.slug})
@@ -55,6 +59,7 @@ class CategorySitemap(Sitemap):
         return Category.objects.filter(is_active=True)
     
     def lastmod(self, obj):
+        # Можно использовать реальное время изменения, если поле появится в модели
         return timezone.now()
     
     def location(self, obj):
