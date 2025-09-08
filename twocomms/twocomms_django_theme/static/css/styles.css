@@ -1,3 +1,10 @@
+:root{
+  --tc-border-05: 1px solid rgba(255,255,255,0.05);
+  --tc-border-08: 1px solid rgba(255,255,255,0.08);
+  --tc-border-10: 1px solid rgba(255,255,255,0.10);
+  --tc-border-15: 1px solid rgba(255,255,255,0.15);
+  --tc-glass-soft: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0));
+}
 /* Глобальное уважение prefers-reduced-motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -402,7 +409,7 @@ body::after {
   body::after {
     animation: none;
   }
-}.bg-elevate{background-color:var(--tc-elevate)!important}.hero.bg-hero{border:1px solid rgba(255,255,255,.06);border-radius:1.25rem;background:url('../img/vignette.png') center/cover no-repeat,linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02))/*,backdrop-filter:blur(8px) saturate(120%)*/}.card.product{border:1px solid rgba(255,255,255,.06);background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));border-radius:1.25rem;transition:transform .25s,box-shadow .25s,border-color .25s}
+}.bg-elevate{background-color:var(--tc-elevate)!important}.hero.bg-hero{border:1px solid rgba(255,255,255,.06);border-radius:1.25rem;background:url('../img/vignette.png') center/cover no-repeat,linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02))/*,backdrop-filter:blur(8px) saturate(120%)*/}.card.product{border:var(--tc-border-05);background:var(--tc-glass-soft);border-radius:1.25rem;transition:transform .25s,box-shadow .25s,border-color .25s}
 
 /* ВЫРАВНИВАНИЕ КАРТОЧЕК С ПОДДЕРЖКОЙ JAVASCRIPT */
 .row[data-stagger-grid] {
