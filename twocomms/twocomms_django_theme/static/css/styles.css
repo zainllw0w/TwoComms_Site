@@ -1,3 +1,15 @@
+/* PERF: soften global glassmorphism where expensive */
+.perf-lite .modal,.perf-lite .offcanvas,.perf-lite .bottom-nav,.perf-lite .navbar.bg-body,
+.perf-lite .hero.bg-hero,.perf-lite .card.glassy,.perf-lite .profile-card,.perf-lite .points-card,
+.perf-lite .cart-checkout-card,.perf-lite .cart-sidebar-card{
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Reduce strong blurs to cheaper values */
+.navbar.bg-body{backdrop-filter:saturate(120%) blur(5px)}
+.bottom-nav{backdrop-filter:blur(5px) saturate(110%)}
+.modal-glass, .panel-glass, .card.glassy{backdrop-filter: blur(8px)}
 :root{
   --tc-bg: #0e0f12;
   --tc-elevate: #14161b;
@@ -31,8 +43,9 @@ body::before {
       #0a0b0f 100%
     );
   animation: backgroundShift 120s ease-in-out infinite;
-  backdrop-filter: blur(3px);
-  filter: blur(1px);
+  /* Убираем backdrop-filter как самый тяжёлый эффект, оставляем лёгкий фильтр */
+  /* backdrop-filter: blur(3px); */
+  filter: blur(0.4px);
 }
 
 /* Анимированные частицы фона - менее подвижные */
@@ -44,8 +57,9 @@ body::after {
   background: url('../img/noise.png') repeat;
   opacity: 0.06;
   animation: noiseMove 150s linear infinite;
-  backdrop-filter: blur(2px);
-  filter: blur(0.5px);
+  /* Убираем backdrop-filter, оставляем лёгкий фильтр */
+  /* backdrop-filter: blur(2px); */
+  filter: blur(0.3px);
 }
 
 /* Дополнительные декоративные элементы */
@@ -389,7 +403,7 @@ body::after {
   body::after {
     animation: none;
   }
-}.bg-elevate{background-color:var(--tc-elevate)!important}.hero.bg-hero{border:1px solid rgba(255,255,255,.06);border-radius:1.25rem;background:url('../img/vignette.png') center/cover no-repeat,linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));backdrop-filter:blur(8px) saturate(120%)}.card.product{border:1px solid rgba(255,255,255,.06);background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));border-radius:1.25rem;transition:transform .25s,box-shadow .25s,border-color .25s}
+}.bg-elevate{background-color:var(--tc-elevate)!important}.hero.bg-hero{border:1px solid rgba(255,255,255,.06);border-radius:1.25rem;background:url('../img/vignette.png') center/cover no-repeat,linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02))/*,backdrop-filter:blur(8px) saturate(120%)*/}.card.product{border:1px solid rgba(255,255,255,.06);background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));border-radius:1.25rem;transition:transform .25s,box-shadow .25s,border-color .25s}
 
 /* ВЫРАВНИВАНИЕ КАРТОЧЕК С ПОДДЕРЖКОЙ JAVASCRIPT */
 .row[data-stagger-grid] {
@@ -9877,7 +9891,7 @@ body::after {
 }
 
 .product-card-wrap{position:relative}
-.product-card-wrap, .card.product { content-visibility: auto; contain-intrinsic-size: 350px 300px; }
+.product-card-wrap, .card.product { content-visibility: auto; contain-intrinsic-size: 320px 280px; }
 .product-card-dots{
   position:absolute;
   right:10px;
@@ -10026,9 +10040,11 @@ body::after {
   animation: featuredGlow 3s ease-in-out infinite alternate;
 }
 
-@keyframes featuredGlow {
-  0% { box-shadow: 0 8px 32px rgba(139, 92, 246, 0.3); }
-  100% { box-shadow: 0 12px 48px rgba(139, 92, 246, 0.5); }
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes featuredGlow {
+    0% { box-shadow: 0 8px 32px rgba(139, 92, 246, 0.3); }
+    100% { box-shadow: 0 12px 48px rgba(139, 92, 246, 0.5); }
+  }
 }
 
 .featured-subtitle {
