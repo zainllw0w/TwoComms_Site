@@ -147,6 +147,32 @@
     .bg-pro { background-attachment: scroll; }
   }
   
+  /* Disable previous pseudo-layers to use dedicated background stage */
+  .bg-pro::before,
+  .bg-pro::after { display: none !important; content: none !important; }
+  
+  /* Dedicated rich background stage */
+  .bg-stage{position:fixed;inset:0;z-index:-1;pointer-events:none;}
+  .bg-stage .blob{position:absolute;border-radius:50%;filter:blur(40px) saturate(1.05);opacity:.9;mix-blend-mode:screen;}
+  .bg-stage .blob-1{left:6%;top:8%;width:42vw;height:42vw;background:radial-gradient(circle at 40% 40%, rgba(139,92,246,.35), rgba(139,92,246,.05) 55%, transparent 70%);animation:blobMove1 38s ease-in-out infinite alternate;}
+  .bg-stage .blob-2{right:8%;top:16%;width:36vw;height:36vw;background:radial-gradient(circle at 60% 30%, rgba(59,130,246,.28), rgba(59,130,246,.05) 55%, transparent 70%);animation:blobMove2 44s ease-in-out infinite alternate-reverse;}
+  .bg-stage .blob-3{left:18%;bottom:10%;width:34vw;height:34vw;background:radial-gradient(circle at 50% 60%, rgba(16,185,129,.22), rgba(16,185,129,.05) 55%, transparent 70%);animation:blobMove3 52s ease-in-out infinite alternate;}
+  .bg-stage .blob-4{right:20%;bottom:6%;width:28vw;height:28vw;background:radial-gradient(circle at 50% 50%, rgba(168,85,247,.18), rgba(168,85,247,.04) 55%, transparent 70%);animation:blobMove4 60s ease-in-out infinite alternate-reverse;}
+  
+  .bg-stage .bokeh{position:absolute;border-radius:50%;filter:blur(10px);opacity:.35;mix-blend-mode:lighten;}
+  .bg-stage .bokeh-1{left:20%;top:30%;width:110px;height:110px;background:radial-gradient(closest-side, rgba(255,255,255,.25), transparent);animation:bokehFloat1 26s ease-in-out infinite;}
+  .bg-stage .bokeh-2{right:18%;top:64%;width:160px;height:160px;background:radial-gradient(closest-side, rgba(139,92,246,.28), transparent);animation:bokehFloat2 32s ease-in-out infinite;}
+  .bg-stage .bokeh-3{left:32%;bottom:14%;width:130px;height:130px;background:radial-gradient(closest-side, rgba(16,185,129,.24), transparent);animation:bokehFloat3 30s ease-in-out infinite;}
+  
+  @keyframes blobMove1{0%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(2vw,-1vh,0) scale(1.05)}100%{transform:translate3d(-1vw,1vh,0) scale(1.02)}}
+  @keyframes blobMove2{0%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(-2vw,1.5vh,0) scale(1.04)}100%{transform:translate3d(1vw,-1vh,0) scale(1.01)}}
+  @keyframes blobMove3{0%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(1.5vw,-1vh,0) scale(1.03)}100%{transform:translate3d(-1vw,.5vh,0) scale(1.04)}}
+  @keyframes blobMove4{0%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(-1vw,1vh,0) scale(1.02)}100%{transform:translate3d(1vw,-.5vh,0) scale(1.03)}}
+  
+  @keyframes bokehFloat1{0%{transform:translate3d(0,0,0)}50%{transform:translate3d(.8vw,-.6vh,0)}100%{transform:translate3d(0,0,0)}}
+  @keyframes bokehFloat2{0%{transform:translate3d(0,0,0)}50%{transform:translate3d(-1vw,.8vh,0)}100%{transform:translate3d(0,0,0)}}
+  @keyframes bokehFloat3{0%{transform:translate3d(0,0,0)}50%{transform:translate3d(.6vw,.6vh,0)}100%{transform:translate3d(0,0,0)}}
+  
   /* Debug badge to verify background version on live */
   .bg-version-badge{
     position: fixed;
@@ -970,5 +996,16 @@ if ('serviceWorker' in navigator) {
 {% endcomment %}
 
 <div class="bg-version-badge">BG v3</div>
+
+<!-- Dedicated background stage for rich effects -->
+<div class="bg-stage" aria-hidden="true">
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+  <div class="blob blob-4"></div>
+  <div class="bokeh bokeh-1"></div>
+  <div class="bokeh bokeh-2"></div>
+  <div class="bokeh bokeh-3"></div>
+</div>
 
 </body></html>
