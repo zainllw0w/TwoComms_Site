@@ -1567,9 +1567,9 @@ def admin_panel(request):
             from orders.models import Order
             from django.utils import timezone
             from datetime import timedelta
-            from django.db.models import Sum, Count, Avg
+            from django.db.models import Sum, Count, Avg, F, ExpressionWrapper, DurationField
             from accounts.models import UserPoints
-            from .models import Product, Category, PrintProposal, FavoriteProduct
+            from .models import Product, Category, PrintProposal, FavoriteProduct, SiteSession, PageView
             
             # Получаем период из параметров
             period = request.GET.get('period', 'today')
@@ -1640,14 +1640,20 @@ def admin_panel(request):
             
             users_with_points = UserPoints.objects.filter(points__gt=0).count()
             
-            # === НЕРАБОЧИЕ МЕТРИКИ (заглушки) ===
-            
-            # Сайт метрики (требуют Google Analytics или подобного)
-            online_users = 0  # Нужна система отслеживания онлайн пользователей
-            unique_visitors_today = 0  # Нужна система аналитики
-            page_views_today = 0  # Нужна система аналитики
-            bounce_rate = 0  # Нужна система аналитики
-            avg_session_duration = 0  # Нужна система аналитики
+            # === МЕТРИКИ ПОСЕЩАЕМОСТИ (встроенная лёгкая аналитика) ===
+            online_threshold = timezone.now() - timedelta(minutes=5)
+            online_users = SiteSession.objects.filter(last_seen__gte=online_threshold, is_bot=False).count()
+            unique_visitors_today = SiteSession.objects.filter(first_seen__date=today, is_bot=False).count()
+            page_views_today = PageView.objects.filter(when__date=today, is_bot=False).count()
+            today_sessions = SiteSession.objects.filter(first_seen__date=today, is_bot=False)
+            sv = today_sessions.filter(pageviews__lte=1).count()
+            bounce_rate = round((sv / today_sessions.count()) * 100, 2) if today_sessions.exists() else 0
+            durations = today_sessions.annotate(dur=ExpressionWrapper(F('last_seen') - F('first_seen'), output_field=DurationField())).values_list('dur', flat=True)
+            if durations:
+                total_seconds = sum((d.total_seconds() for d in durations if d is not None), 0)
+                avg_session_duration = int(total_seconds / max(len(durations), 1))
+            else:
+                avg_session_duration = 0
             
             # Продажи метрики
             conversion_rate = 0  # Нужна система аналитики для расчета
