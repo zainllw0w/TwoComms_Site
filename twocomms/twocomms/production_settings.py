@@ -49,9 +49,8 @@ if _allowed_hosts_env:
     else:
         ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts_env.split(',') if h.strip()]
 else:
-    # Значения по умолчанию: pythonanywhere и ваш домен
+    # Значения по умолчанию: ваш домен(ы)
     ALLOWED_HOSTS = [
-        'twocomms.pythonanywhere.com',
         'twocomms.shop',
         'www.twocomms.shop',
         'test.com',
@@ -146,6 +145,11 @@ if REDIS_URL:
         'TIMEOUT': int(os.environ.get('CACHE_DEFAULT_TIMEOUT', '300')),
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            # Болеe безопасные и устойчивые таймауты соединения
+            'SOCKET_TIMEOUT': float(os.environ.get('REDIS_SOCKET_TIMEOUT', '2.0')),
+            'SOCKET_CONNECT_TIMEOUT': float(os.environ.get('REDIS_SOCKET_CONNECT_TIMEOUT', '2.0')),
+            # Не падать при кратковременных сбоях Redis
+            'IGNORE_EXCEPTIONS': os.environ.get('REDIS_IGNORE_EXCEPTIONS', 'true').lower() in ('1', 'true', 'yes'),
         },
     }
     SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
