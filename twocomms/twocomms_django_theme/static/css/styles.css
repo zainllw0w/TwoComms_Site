@@ -1404,7 +1404,7 @@ body::after {
   background: rgba(139, 92, 246, 0.4);
   border-radius: 50%;
   opacity: 0;
-  animation: cartPageSparkFloat 6s ease-in-out infinite;
+  animation: cartPageSparkFloat 8s ease-in-out infinite;
 }
 
 .cart-page-spark::before {
@@ -1461,6 +1461,7 @@ body::after {
   animation-duration: 6.2s;
 }
 
+@media (prefers-reduced-motion: no-preference) {
 @keyframes cartPageSparkFloat {
   0%, 100% { 
     opacity: 0; 
@@ -1474,6 +1475,7 @@ body::after {
     opacity: 0.6; 
     transform: translateY(-40px) scale(0.8); 
   }
+}
 }
 
 /* Заголовок страницы корзины */
