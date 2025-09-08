@@ -62,19 +62,19 @@
   .perf-lite .reveal,
   .perf-lite .reveal-fast { transition: none !important; }
   
-  /* Pro site-wide background v2: refined gradients + grain + vignette */
+  /* Pro site-wide background v3: premium aurora + bokeh + vignette */
   .bg-pro {
     background-color: var(--tc-bg);
     background-image:
-      radial-gradient(900px 600px at 82% 10%, rgba(139,92,246,0.12), transparent 60%),
-      radial-gradient(700px 500px at 15% 88%, rgba(16,185,129,0.08), transparent 60%),
-      radial-gradient(circle, rgba(255,255,255,0.02) 1px, transparent 1px),
+      radial-gradient(1100px 750px at 80% 10%, rgba(139,92,246,0.16), transparent 60%),
+      radial-gradient(900px 650px at 15% 85%, rgba(16,185,129,0.10), transparent 60%),
+      radial-gradient(circle, rgba(255,255,255,0.018) 1px, transparent 1px),
       url("{% static 'img/noise.png' %}"),
-      radial-gradient(1000px 700px at 50% 50%, rgba(0,0,0,0), rgba(0,0,0,0.24) 70%);
+      radial-gradient(1200px 900px at 50% 50%, rgba(0,0,0,0), rgba(0,0,0,0.30) 72%);
     background-size:
-      900px 600px,
-      700px 500px,
-      3px 3px,
+      1100px 750px,
+      900px 650px,
+      4px 4px,
       256px 256px,
       100% 100%;
     background-repeat:
@@ -84,23 +84,64 @@
       repeat,
       no-repeat;
     background-position:
-      82% 10%,
-      15% 88%,
+      80% 10%,
+      15% 85%,
       0 0,
       0 0,
       50% 50%;
     background-attachment:
       scroll, scroll, scroll, scroll, scroll;
     background-blend-mode:
-      screen, screen, normal, normal, multiply;
+      screen, screen, overlay, normal, multiply;
   }
 
-  /* Disable legacy background pseudo-layers when pro background enabled */
-  .bg-pro::before,
-  .bg-pro::after { display: none !important; content: none !important; }
+  /* Aurora layer */
+  .bg-pro::before {
+    content: '';
+    position: fixed;
+    inset: -10vh -10vw;
+    z-index: -1;
+    background:
+      conic-gradient(from 220deg at 62% 42%, rgba(139,92,246,0.12), transparent 35%, rgba(59,130,246,0.08) 55%, transparent 78%),
+      radial-gradient(800px 520px at 68% 32%, rgba(99,102,241,0.12), transparent 60%);
+    filter: blur(28px) saturate(1.05);
+    mix-blend-mode: screen;
+    animation: auroraMove 28s ease-in-out infinite alternate;
+    pointer-events: none;
+  }
 
-  /* In lite mode, disable decorative layers to save resources */
-  .perf-lite .bg-pro { background-image: none !important; }
+  /* Bokeh lights + vignette overlay */
+  .bg-pro::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background:
+      radial-gradient(140px 140px at 22% 30%, rgba(255,255,255,0.06), transparent 60%),
+      radial-gradient(200px 200px at 78% 70%, rgba(139,92,246,0.07), transparent 65%),
+      radial-gradient(160px 160px at 32% 82%, rgba(16,185,129,0.06), transparent 65%),
+      url("{% static 'img/vignette.png' %}");
+    background-repeat: no-repeat, no-repeat, no-repeat, no-repeat;
+    background-size: auto, auto, auto, cover;
+    background-position: 22% 30%, 78% 70%, 32% 82%, 50% 50%;
+    mix-blend-mode: lighten;
+    animation: bokehDrift 40s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  @keyframes auroraMove {
+    0%   { transform: translateY(-2%) translateX(0.5%) rotate(0.2deg); opacity: 0.85; }
+    50%  { transform: translateY(1%) translateX(-0.5%) rotate(-0.2deg); opacity: 1; }
+    100% { transform: translateY(-1%) translateX(0.2%) rotate(0.1deg); opacity: 0.9; }
+  }
+
+  @keyframes bokehDrift {
+    0%   { background-position: 20% 28%, 76% 68%, 30% 80%, 50% 50%; }
+    50%  { background-position: 24% 32%, 74% 72%, 28% 78%, 50% 50%; }
+    100% { background-position: 20% 28%, 76% 68%, 30% 80%, 50% 50%; }
+  }
+
+  /* Keep full experience (no lite override for bg-pro by request) */
 
   @media (prefers-reduced-motion: reduce) {
     .bg-pro { background-attachment: scroll; }
