@@ -192,3 +192,43 @@ class OfflineStore(models.Model):
     
     def __str__(self):
         return self.name
+
+
+# ===== Лёгкая аналитика посещений =====
+class SiteSession(models.Model):
+    """
+    Агрегированная сессионная метрика по посетителю.
+    Используем session_key как идентификатор уникального визита (для анонимов),
+    а для авторизованных — связываем с пользователем.
+    """
+    session_key = models.CharField(max_length=40, unique=True, db_index=True)
+    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True, null=True)
+    is_bot = models.BooleanField(default=False, db_index=True)
+    first_seen = models.DateTimeField(auto_now_add=True, db_index=True)
+    last_seen = models.DateTimeField(auto_now=True, db_index=True)
+    last_path = models.CharField(max_length=512, blank=True)
+    pageviews = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['-last_seen']
+
+    def __str__(self) -> str:
+        return f"{self.session_key} ({'bot' if self.is_bot else 'user'})"
+
+
+class PageView(models.Model):
+    """Запись отдельного просмотра страницы"""
+    session = models.ForeignKey(SiteSession, on_delete=models.CASCADE, related_name='views')
+    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
+    path = models.CharField(max_length=512)
+    referrer = models.CharField(max_length=512, blank=True)
+    when = models.DateTimeField(auto_now_add=True, db_index=True)
+    is_bot = models.BooleanField(default=False, db_index=True)
+
+    class Meta:
+        ordering = ['-when']
+
+    def __str__(self) -> str:
+        return f"{self.path} @ {self.when}"
