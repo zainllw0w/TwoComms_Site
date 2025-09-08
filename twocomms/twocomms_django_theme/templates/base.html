@@ -146,6 +146,26 @@
   @media (prefers-reduced-motion: reduce) {
     .bg-pro { background-attachment: scroll; }
   }
+  
+  /* Debug badge to verify background version on live */
+  .bg-version-badge{
+    position: fixed;
+    right: 12px;
+    bottom: 12px;
+    z-index: 2147483647;
+    padding: 4px 8px;
+    background: rgba(20,22,27,0.72);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    color: var(--tc-text);
+    font-size: 12px;
+    line-height: 1;
+    font-weight: 600;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    pointer-events: none;
+    box-shadow: 0 6px 24px rgba(0,0,0,.35);
+  }
   </style>
   {% block extra_css %}{% endblock %}
   
@@ -948,5 +968,7 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 {% endcomment %}
+
+<div class="bg-version-badge">BG v3</div>
 
 </body></html>
