@@ -4,7 +4,12 @@ Production settings for TwoComms project on PythonAnywhere.
 
 from pathlib import Path
 import os
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except Exception:
+    # Если python-dotenv не установлен в окружении — тихо пропускаем
+    def load_dotenv(*args, **kwargs):
+        return False
 
 # Загрузим переменные окружения из файла репозитория ДО импортирования базовых настроек.
 # Приоритет: DJANGO_ENV_FILE -> .env.production -> .env
