@@ -1568,7 +1568,11 @@ def admin_panel(request):
             from django.utils import timezone
             from datetime import timedelta
             from django.db.models import Sum, Count, Avg, F, ExpressionWrapper, DurationField
-            from accounts.models import UserPoints
+            # Импортируем опциональные модели с защитой от отсутствующих таблиц
+            try:
+                from accounts.models import UserPoints
+            except Exception:
+                UserPoints = None
             from .models import Product, Category, PrintProposal, FavoriteProduct, SiteSession, PageView
             
             # Получаем период из параметров
@@ -1633,12 +1637,19 @@ def admin_panel(request):
             # Промокоды использованные
             promocodes_used = orders_qs.exclude(promo_code__isnull=True).count()
             
-            # Баллы
-            total_points_earned = UserPoints.objects.aggregate(
-                total=Sum('points')
-            )['total'] or 0
-            
-            users_with_points = UserPoints.objects.filter(points__gt=0).count()
+            # Баллы (защита, если таблицы ещё нет)
+            if UserPoints is not None:
+                try:
+                    total_points_earned = UserPoints.objects.aggregate(
+                        total=Sum('points')
+                    )['total'] or 0
+                    users_with_points = UserPoints.objects.filter(points__gt=0).count()
+                except Exception:
+                    total_points_earned = 0
+                    users_with_points = 0
+            else:
+                total_points_earned = 0
+                users_with_points = 0
             
             # === МЕТРИКИ ПОСЕЩАЕМОСТИ (встроенная лёгкая аналитика) ===
             online_threshold = timezone.now() - timedelta(minutes=5)
