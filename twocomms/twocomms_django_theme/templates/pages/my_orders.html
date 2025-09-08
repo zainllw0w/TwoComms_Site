@@ -95,21 +95,12 @@
         </div>
 
         {% if o.status == 'new' %}
-        <div class="order-attention-card">
-          <div class="oac-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-            </svg>
-          </div>
-          <div class="oac-content">
-            <div class="oac-title">Ваше замовлення в обробці</div>
-            <div class="oac-text">Очікуйте: з вами зв'яжеться менеджер для підтвердження деталей. Або ви можете <strong>оплатити прямо зараз</strong> — так ми відправимо швидше.</div>
-            <div class="oac-actions">
-              {% if o.pay_type == 'partial' %}
-                <button class="oac-btn oac-btn-primary" onclick="payPartial('{{ o.id }}')">Внести передплату</button>
-              {% else %}
-                <button class="oac-btn oac-btn-primary" onclick="payFull('{{ o.id }}')">Оплатити повністю</button>
-              {% endif %}
+        <div class="featured-unified-block" style="margin:12px 16px 0 16px;">
+          <div class="featured-content-unified">
+            <div class="featured-title-compact">Ваше замовлення в обробці</div>
+            <div class="featured-subtitle-compact">Очікуйте: з вами зв'яжеться менеджер для підтвердження деталей. Або ви можете <strong>оплатити прямо зараз</strong> — так ми відправимо швидше.</div>
+            <div class="featured-actions">
+              <button class="featured-btn-compact" onclick="payPartial('{{ o.id }}')">Внести передплату</button>
             </div>
           </div>
         </div>
@@ -828,19 +819,3 @@ function confirmPayment() {
 </script>
 
 {% endblock %}
-
-<style>
-.order-attention-card{
-  display:flex; align-items:flex-start; gap:12px; margin:12px 16px 0 16px; padding:12px 14px;
-  border:1px solid rgba(255,255,255,.14); border-radius:14px;
-  background:linear-gradient(180deg, rgba(124,58,237,.14), rgba(124,58,237,.06));
-}
-.oac-icon{flex-shrink:0; display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:10px; background:rgba(124,58,237,.2); color:#fff}
-.oac-content{flex:1 1 auto}
-.oac-title{font-weight:800; margin-bottom:4px}
-.oac-text{color:var(--text-secondary); margin-bottom:8px}
-.oac-actions{display:flex; gap:8px; flex-wrap:wrap}
-.oac-btn{border:none; border-radius:10px; padding:.5rem .9rem; font-weight:700; cursor:pointer}
-.oac-btn-primary{background:linear-gradient(135deg,var(--accent-color),#7c3aed); color:#fff}
-.oac-btn-primary:hover{filter:brightness(1.06)}
-</style>
