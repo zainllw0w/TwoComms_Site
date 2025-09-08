@@ -27,14 +27,14 @@
   <aside class="col-12">
     <div class="d-flex flex-wrap gap-2 mb-3">
       <a href="{% url 'catalog' %}" class="btn btn-outline-light {% if not category %}active{% endif %} d-inline-flex align-items-center gap-2">
-        <img src="{% static 'img/icons/all.svg' %}" width="18" height="18" alt=""> Усі
+        <img src="{% static 'img/icons/all.svg' %}" width="18" height="18" alt="Усі товари"> Усі
       </a>
       {% for c in categories %}
         <a href="{% url 'catalog_by_cat' c.slug %}" class="btn btn-outline-light {% if category and category.id == c.id %}active{% endif %} d-inline-flex align-items-center gap-2">
           {% if c.icon %}
-            <img src="{{ c.icon.url }}" width="18" height="18" alt="">
+            <img src="{{ c.icon.url }}" width="18" height="18" alt="{{ c.name }}">
           {% else %}
-            <img src="{% static 'img/icons/default.svg' %}" width="18" height="18" alt="">
+            <img src="{% static 'img/icons/default.svg' %}" width="18" height="18" alt="Категорія">
           {% endif %}
           {{ c.name }}
         </a>
@@ -49,7 +49,7 @@
           <div class="col">
             <a href="{% url 'catalog_by_cat' c.slug %}" class="card product glass hover-raise text-decoration-none text-body">
               <div class="ratio ratio-1x1 rounded-top-4 overflow-hidden bg-elevate">
-                {% if c.cover %}<img src="{{ c.cover.url }}" class="w-100 h-100 object-fit-cover" alt="">{% endif %}
+                {% if c.cover %}<img src="{{ c.cover.url }}" class="w-100 h-100 object-fit-cover" alt="{{ c.name }}">{% endif %}
               </div>
               <div class="card-body">
                 <div class="fw-semibold">{{ c.name }}</div>
