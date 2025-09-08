@@ -1573,7 +1573,7 @@ def admin_panel(request):
                 from accounts.models import UserPoints
             except Exception:
                 UserPoints = None
-            from .models import Product, Category, PrintProposal, FavoriteProduct, SiteSession, PageView
+            from .models import Product, Category, PrintProposal, SiteSession, PageView
             
             # Получаем период из параметров
             period = request.GET.get('period', 'today')
