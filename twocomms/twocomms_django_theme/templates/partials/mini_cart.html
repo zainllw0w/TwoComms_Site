@@ -15,7 +15,7 @@
               <br>
               <div class="d-flex align-items-center gap-1">
                 {% with p=it.color_variant.color.primary_hex s=it.color_variant.color.secondary_hex %}
-                <span class="swatch" style="width: 12px; height: 12px;" 
+                <span class="swatch" style="width: 12px; height: 12px; --primary-color: {{ p }};{% if s %} --secondary-color: {{ s }};{% endif %}" 
                       data-primary="{{ p }}" 
                       data-secondary="{{ s|default:'' }}">
                 </span>
