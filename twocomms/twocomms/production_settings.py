@@ -26,6 +26,10 @@ else:
         load_dotenv(_env_default)
 
 from .settings import *
+
+# Возможность отключить аналитическую мидлварь через переменную окружения
+if os.environ.get('DISABLE_ANALYTICS', 'false').lower() in ('1', 'true', 'yes'):
+    MIDDLEWARE = [m for m in MIDDLEWARE if m != "storefront.tracking.SimpleAnalyticsMiddleware"]
 import pymysql
 
 # Настройка PyMySQL для работы с MySQL
