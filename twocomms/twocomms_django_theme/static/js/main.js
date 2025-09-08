@@ -696,6 +696,7 @@ document.addEventListener('click', (e)=>{
       updateCartBadge(d.count);
       refreshMiniCart(); // сразу обновим мини‑корзину
       openMiniCart();    // и откроем её для подтверждения действия
+      try{ if(window.fbq){ fbq('track','AddToCart',{content_ids:[String(productId)], content_type:'product'}); } }catch(_){ }
       // Небольшой визуальный отклик
       btn.classList.add('btn-success');
       setTimeout(()=>btn.classList.remove('btn-success'),400);
