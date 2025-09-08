@@ -115,10 +115,11 @@ function applySwatchColors(root){
     list.forEach(function(el){
       const primary = el.getAttribute('data-primary') || '';
       const secondary = el.getAttribute('data-secondary') || '';
+      if(primary) el.style.setProperty('--primary-color', primary);
       if(secondary && secondary !== 'None'){
-        el.style.background = 'linear-gradient(90deg, '+primary+' 50%, '+secondary+' 50%)';
-      } else if(primary){
-        el.style.background = primary;
+        el.style.setProperty('--secondary-color', secondary);
+      } else {
+        el.style.removeProperty('--secondary-color');
       }
     });
   }catch(_){ }

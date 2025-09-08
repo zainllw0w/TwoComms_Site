@@ -1916,8 +1916,17 @@ body::after {
   overflow: hidden;
 }
 
-.cart-item-swatch[data-secondary]:not([data-secondary=""]) {
-  background: linear-gradient(90deg, var(--primary) 50%, var(--secondary) 50%);
+.cart-item-swatch.swatch::after,
+.cart-item-swatch.swatch::before {
+  content: '';
+  position: absolute;
+  top: 0; height: 100%; width: 50%;
+}
+.cart-item-swatch.swatch::after {
+  left: 0; background: var(--primary-color, transparent);
+}
+.cart-item-swatch.swatch::before {
+  right: 0; background: var(--secondary-color, transparent);
 }
 
 .cart-item-price {
