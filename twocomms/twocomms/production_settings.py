@@ -2,8 +2,25 @@
 Production settings for TwoComms project on PythonAnywhere.
 """
 
-from .settings import *
+from pathlib import Path
 import os
+from dotenv import load_dotenv
+
+# Загрузим переменные окружения из файла репозитория ДО импортирования базовых настроек.
+# Приоритет: DJANGO_ENV_FILE -> .env.production -> .env
+BASE_DIR = Path(__file__).resolve().parent.parent
+_explicit_env_file = os.environ.get('DJANGO_ENV_FILE')
+if _explicit_env_file:
+    load_dotenv(_explicit_env_file)
+else:
+    _env_prod = BASE_DIR / '.env.production'
+    _env_default = BASE_DIR / '.env'
+    if _env_prod.exists():
+        load_dotenv(_env_prod)
+    elif _env_default.exists():
+        load_dotenv(_env_default)
+
+from .settings import *
 import pymysql
 
 # Настройка PyMySQL для работы с MySQL
@@ -83,18 +100,12 @@ if os.environ.get('DB_NAME') and os.environ.get('DB_USER'):
                 'OPTIONS': _options,
             }
         }
-        # Включаем строгий режим MariaDB/MySQL если не выключен явно
+        # Включаем строгий режим MariaDB/MySQL: задаём через отдельный параметр
         _sql_mode = os.environ.get('DB_SQL_MODE')
-        if not _sql_mode:
-            # Добавляем строгие флаги; удаляем ONLY_FULL_GROUP_BY для совместимости при необходимости
-            _sql_mode_list = [
-                'STRICT_TRANS_TABLES',
-                'ERROR_FOR_DIVISION_BY_ZERO',
-                'NO_ZERO_DATE',
-                'NO_ZERO_IN_DATE',
-                'NO_ENGINE_SUBSTITUTION',
-            ]
-            _options['init_command'] += "; SET SESSION sql_mode='" + ",".join(_sql_mode_list) + "'"
+        if _sql_mode:
+            _options['sql_mode'] = _sql_mode
+        else:
+            _options['sql_mode'] = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ZERO_DATE,NO_ZERO_IN_DATE,NO_ENGINE_SUBSTITUTION'
     else:
         DATABASES = {
             'default': {
