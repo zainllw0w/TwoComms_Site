@@ -1645,6 +1645,25 @@ def admin_panel(request):
             online_users = SiteSession.objects.filter(last_seen__gte=online_threshold, is_bot=False).count()
             unique_visitors_today = SiteSession.objects.filter(first_seen__date=today, is_bot=False).count()
             page_views_today = PageView.objects.filter(when__date=today, is_bot=False).count()
+
+            # Fallback: если по какой‑то причине онлайн/уники не посчитались через SiteSession,
+            # попробуем оценить их через PageView (уникальные сессии по просмотрам)
+            if online_users == 0:
+                online_users = (
+                    PageView.objects
+                    .filter(when__gte=online_threshold, is_bot=False)
+                    .values('session_id')
+                    .distinct()
+                    .count()
+                )
+            if unique_visitors_today == 0:
+                unique_visitors_today = (
+                    PageView.objects
+                    .filter(when__date=today, is_bot=False)
+                    .values('session_id')
+                    .distinct()
+                    .count()
+                )
             today_sessions = SiteSession.objects.filter(first_seen__date=today, is_bot=False)
             sv = today_sessions.filter(pageviews__lte=1).count()
             bounce_rate = round((sv / today_sessions.count()) * 100, 2) if today_sessions.exists() else 0
