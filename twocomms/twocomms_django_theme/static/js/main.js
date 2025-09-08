@@ -553,57 +553,11 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 
 // ===== Runtime diagnostics (opt-in via localStorage 'perf-debug' = '1') =====
-document.addEventListener('DOMContentLoaded', function(){
-  try{ if(localStorage.getItem('perf-debug') !== '1') return; }catch(_){ return; }
-  const startTs = performance.now();
-  const diag = { frames:0, slowFrames:0, worstFrameMs:0, longTasks:0, longTaskTotalMs:0, scrollEvents:0, resizeEvents:0, mutations:0, resources:{imgBytes:0,cssBytes:0,jsBytes:0,fontBytes:0,otherBytes:0},
-    heavyCounts:{backdropFilter:0, boxShadow:0, blurFilters:0, animatedInfinite:0} };
-  let rafPrev = performance.now(); let rafStop=false;
-  function onRaf(){ if(rafStop) return; const now=performance.now(); const dt=now-rafPrev; rafPrev=now; diag.frames++; if(dt>50) diag.slowFrames++; if(dt>diag.worstFrameMs) diag.worstFrameMs=dt; requestAnimationFrame(onRaf);} requestAnimationFrame(onRaf);
-  try{ if('PerformanceObserver' in window){ const po=new PerformanceObserver(list=>{ list.getEntries().forEach(e=>{ diag.longTasks++; diag.longTaskTotalMs += e.duration||0; });}); po.observe({entryTypes:['longtask']}); setTimeout(()=>{ try{ po.disconnect(); }catch(_){ } },12000);} }catch(_){ }
-  const onScroll=()=>{ diag.scrollEvents++; }; const onResize=()=>{ diag.resizeEvents++; };
-  window.addEventListener('scroll', onScroll, {passive:true}); window.addEventListener('resize', onResize, {passive:true});
-  let mo; try{ mo=new MutationObserver(()=>{ diag.mutations++; }); mo.observe(document.documentElement, {childList:true, subtree:true}); }catch(_){ }
-  try{ const res=performance.getEntriesByType&&performance.getEntriesByType('resource')||[]; res.forEach(r=>{ const size=(r.transferSize||0)||(r.encodedBodySize||0)||0; switch(r.initiatorType){ case 'img': diag.resources.imgBytes+=size; break; case 'link': if((r.name||'').includes('.css')) diag.resources.cssBytes+=size; else diag.resources.otherBytes+=size; break; case 'script': diag.resources.jsBytes+=size; break; case 'css': diag.resources.cssBytes+=size; break; case 'font': diag.resources.fontBytes+=size; break; default: diag.resources.otherBytes+=size; break; }}); }catch(_){ }
-  function featurePresence(){
-    const features={backdropFilterNodes:0, topOffenders:[]};
-    const baseNodes=[document.querySelector('.hero.bg-hero'), document.querySelector('.bottom-nav'), document.getElementById('mini-cart-panel-mobile'), document.getElementById('user-panel-mobile')].filter(Boolean);
-    const extraNodes = Array.from(document.querySelectorAll('[class*="glow" i], [class*="particles" i], .featured-bg-unified, .categories-bg-unified, .card.product'));
-    const checkList = baseNodes.concat(extraNodes).slice(0,120);
-    const offenders=[];
-    checkList.forEach(n=>{ try{
-      const cs=getComputedStyle(n);
-      const rect=n.getBoundingClientRect(); const area=Math.max(1, Math.round(rect.width*rect.height));
-      const bf=cs.backdropFilter&&cs.backdropFilter!=='none';
-      const bfPx = (()=>{ const m=(cs.backdropFilter||'').match(/blur\((\d+\.?\d*)px\)/); return m?parseFloat(m[1]):0; })();
-      const fil=(cs.filter||''); const blurPx=(()=>{ const m=fil.match(/blur\((\d+\.?\d*)px\)/); return m?parseFloat(m[1]):0; })();
-      const bs=(cs.boxShadow||''); const boxBlurPx=(()=>{ const m=bs.match(/(-?\d+\.?\d*px)\s+(-?\d+\.?\d*px)\s+(\d+\.?\d*)px/); return m?parseFloat(m[3]):0; })();
-      const animInf=(cs.animationIterationCount||'').includes('infinite');
-      if(bf) {features.backdropFilterNodes++; diag.heavyCounts.backdropFilter++;}
-      if(bs.includes('px')) diag.heavyCounts.boxShadow++;
-      if(blurPx>0) diag.heavyCounts.blurFilters++;
-      if(animInf) diag.heavyCounts.animatedInfinite++;
-      if(bf || blurPx>0 || boxBlurPx>0 || animInf){
-        const id=n.id?('#'+n.id):''; const cls=(n.className||'').toString().split(' ').slice(0,3).filter(Boolean).map(c=>'.'+c).join('');
-        const label=n.tagName+id+cls;
-        const score = area*(bf?1:0) + area*0.06*blurPx + area*0.03*boxBlurPx + (animInf?area*0.12:0);
-        offenders.push({label, area, backdropBlurPx:bfPx, filterBlurPx:blurPx, boxShadowBlurPx:boxBlurPx, animInfinite:animInf, score:Math.round(score)});
-      }
-    }catch(_){ } });
-    offenders.sort((a,b)=>b.score-a.score);
-    features.topOffenders = offenders.slice(0,12);
-    // Подсветка топ‑3 по хоткею Alt+Shift+P
-    try{
-      if(!window.__perfHiLiteBound){ window.__perfHiLiteBound=true; window.addEventListener('keydown', (e)=>{ if(e.altKey && e.shiftKey && (e.key==='P' || e.key==='п' || e.key==='З')){ offenders.slice(0,3).forEach(off=>{ try{ const parts=off.label.split('#'); const idPart=(parts[1]||'').split('.')[0]; let el=null; if(idPart) el=document.getElementById(idPart); if(!el){ /* fallback by class */ el=document.querySelector(parts[0].toLowerCase()); } if(el){ el.style.outline='2px solid #f59e0b'; el.style.outlineOffset='2px'; setTimeout(()=>{ try{ el.style.outline=''; el.style.outlineOffset=''; }catch(_){ } }, 1500); } }catch(_){ } }); } }); }
-    }catch(_){ }
-    return features;
-  }
-  setTimeout(()=>{ rafStop=true; window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onResize); if(mo){ try{ mo.disconnect(); }catch(_){ } } const durationSec=(performance.now()-startTs)/1000; const fps=diag.frames/durationSec; const features=featurePresence(); const fmtKB=(b)=>(Math.round(b/102.4)/10)+' KB'; console.group('%cPerfDiag','color:#7c3aed;font-weight:700'); console.log('Duration:', durationSec.toFixed(1),'s'); console.log('FPS avg:', fps.toFixed(1), 'Slow frames (>50ms):', diag.slowFrames, 'Worst frame ms:', diag.worstFrameMs.toFixed(1)); console.log('Long tasks:', diag.longTasks, 'Total long task ms:', diag.longTaskTotalMs.toFixed(1)); console.log('Events: scroll', diag.scrollEvents, 'resize', diag.resizeEvents, 'mutations', diag.mutations); console.log('Resources:', {img: fmtKB(diag.resources.imgBytes), css: fmtKB(diag.resources.cssBytes), js: fmtKB(diag.resources.jsBytes), font: fmtKB(diag.resources.fontBytes), other: fmtKB(diag.resources.otherBytes)}); console.log('Heavy CSS features:', features, 'heavyCounts', diag.heavyCounts); try{ console.table(features.topOffenders); }catch(_){ console.log('Offenders:', features.topOffenders); } console.log('Hint: set localStorage("perf-debug","0") to disable diagnostics'); console.groupEnd(); }, 10000);
-});
+// Diagnostics removed (was gated by localStorage 'perf-debug')
 
 // ===== Авто-оптимизация тяжёлых эффектов без изменения вида =====
 document.addEventListener('DOMContentLoaded', function(){
-  try{ if(localStorage.getItem('perf-debug')!=='1'){} }catch(_){ }
+  // always on; safe adjustments only during scroll and offscreen
   // Собираем потенциально тяжёлые узлы (ограниченный список, чтобы не перебирать весь DOM)
   const candidateSelectors = [
     '.hero.bg-hero', '.bottom-nav', '#mini-cart-panel-mobile', '#user-panel-mobile',
@@ -903,6 +857,102 @@ document.addEventListener('DOMContentLoaded', function() {
     loadPage(selectedPage);
   });
   updatePageSelector(1);
+});
+
+// ====== CART: промокоды, удаление, валидация форм ======
+document.addEventListener('DOMContentLoaded', function(){
+  const promoInput = document.getElementById('promo-code-input');
+  const applyBtn = document.querySelector('.cart-promo-apply-btn');
+  const removeBtn = document.querySelector('.cart-promo-remove-btn');
+  const msgBox = document.getElementById('promo-message');
+
+  function showPromoMessage(message, type){
+    if(!msgBox) return;
+    const typeClass = type==='success' ? 'cart-promo-message-success' : type==='error' ? 'cart-promo-message-error' : 'cart-promo-message-info';
+    msgBox.innerHTML = '<div class="cart-promo-message '+typeClass+'">'+message+'</div>';
+    setTimeout(()=>{ try{ msgBox.innerHTML=''; }catch(_){ } }, 5000);
+  }
+  function csrf(){ try{ return document.querySelector('meta[name="csrf-token"]').getAttribute('content') || getCookie('csrftoken'); }catch(_){ return getCookie('csrftoken'); } }
+  function applyPromo(){
+    if(!promoInput) return;
+    const code = (promoInput.value||'').trim().toUpperCase();
+    if(!code){ showPromoMessage('Введіть код промокоду','error'); return; }
+    showPromoMessage('Застосовуємо промокод...','info');
+    fetch('/cart/apply-promo/',{ method:'POST', headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8', 'X-CSRFToken': csrf() }, body:'promo_code='+encodeURIComponent(code) })
+      .then(r=>r.json())
+      .then(d=>{ if(d&&d.success){ showPromoMessage(d.message||'Застосовано','success'); setTimeout(()=>location.reload(), 900); } else { showPromoMessage((d&&d.message)||'Помилка','error'); } })
+      .catch(()=> showPromoMessage('Помилка при застосуванні','error'));
+  }
+  function removePromo(){
+    fetch('/cart/remove-promo/',{ method:'POST', headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8', 'X-CSRFToken': csrf() }})
+      .then(r=>r.json()).then(()=> location.reload()).catch(()=>{});
+  }
+  if(applyBtn){ applyBtn.addEventListener('click', (e)=>{ e.preventDefault(); applyPromo(); }); }
+  if(removeBtn){ removeBtn.addEventListener('click', (e)=>{ e.preventDefault(); removePromo(); }); }
+  if(promoInput){ promoInput.addEventListener('keypress',(e)=>{ if(e.key==='Enter'){ e.preventDefault(); applyPromo(); }}); }
+
+  // Делегирование удаления позиции из корзины
+  document.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.cart-item-remove-btn');
+    if(!btn) return;
+    e.preventDefault(); e.stopPropagation();
+    const key = btn.getAttribute('data-key');
+    if(key){ try{ CartRemoveKey(key, btn); }catch(_){ } }
+  });
+
+  // Лёгкая валидация форм корзины
+  function setupValidation(form){
+    if(!form) return;
+    const inputs = form.querySelectorAll('input, select');
+    function markError(field, msg){
+      field.classList.add('cart-form-input-error');
+      const wrap = field.closest('.cart-form-group') || field.parentElement;
+      if(!wrap) return;
+      let err = wrap.querySelector('.cart-form-error');
+      if(!err){ err=document.createElement('div'); err.className='cart-form-error'; wrap.appendChild(err); }
+      err.textContent = msg;
+      err.style.display = 'block';
+    }
+    function clearError(field){
+      field.classList.remove('cart-form-input-error');
+      const wrap = field.closest('.cart-form-group') || field.parentElement; if(!wrap) return;
+      const err = wrap.querySelector('.cart-form-error'); if(err) err.style.display='none';
+    }
+    function validate(field){
+      const v=(field.value||'').trim(); clearError(field);
+      if(field.hasAttribute('required') && !v){ markError(field, "Це поле обов'язкове"); return false; }
+      if(v){ if(field.name==='phone'){ const p=v.replace(/[^\d+]/g,''); if(!p.startsWith('+380')||p.length!==13){ markError(field,'Телефон у форматі +380XXXXXXXXX'); return false; } } }
+      return true;
+    }
+    inputs.forEach(inp=>{ inp.addEventListener('input', ()=> clearError(inp)); inp.addEventListener('blur', ()=> validate(inp)); });
+    form.addEventListener('submit', (e)=>{ let ok=true; inputs.forEach(inp=>{ if(!validate(inp)) ok=false; }); if(!ok){ e.preventDefault(); const first=form.querySelector('.cart-form-input-error'); if(first){ first.scrollIntoView({behavior:'smooth', block:'center'}); first.focus(); } } });
+  }
+  setupValidation(document.getElementById('guest-form'));
+  setupValidation(document.getElementById('deliveryForm'));
+});
+
+// ====== PRODUCT DETAIL: цвета и галерея ======
+document.addEventListener('DOMContentLoaded', function(){
+  const variantTag = document.getElementById('variant-data');
+  const colorPicker = document.getElementById('color-picker');
+  const carousel = document.getElementById('productCarousel');
+  if(!variantTag || !colorPicker || !carousel) return;
+  let variants=[]; try{ variants=JSON.parse(variantTag.textContent||'[]'); }catch(_){ variants=[]; }
+  const inner = carousel.querySelector('.carousel-inner');
+  const indicators = carousel.querySelector('.carousel-indicators');
+  const thumbs = document.getElementById('product-thumbs');
+  function rebuild(images){ if(!(inner&&indicators&&thumbs)) return; inner.innerHTML=''; indicators.innerHTML=''; thumbs.innerHTML=''; const list=(images&&images.length)?images:[(document.getElementById('mainImage')||{}).src||'']; list.forEach((url,idx)=>{ const item=document.createElement('div'); item.className='carousel-item'+(idx===0?' active':''); item.innerHTML='<img src="'+url+'" class="d-block w-100 h-100 object-fit-contain" alt="">'; inner.appendChild(item); const ind=document.createElement('button'); ind.type='button'; ind.setAttribute('data-bs-target','#productCarousel'); ind.setAttribute('data-bs-slide-to', String(idx)); if(idx===0){ ind.className='active'; ind.setAttribute('aria-current','true'); } indicators.appendChild(ind); const th=document.createElement('button'); th.type='button'; th.className='btn p-0 thumb'; th.setAttribute('data-bs-target','#productCarousel'); th.setAttribute('data-bs-slide-to', String(idx)); th.innerHTML='<img src="'+url+'" class="rounded-3 object-fit-cover" style="width:72px;height:72px;" alt="">'; thumbs.appendChild(th); }); }
+  function onColorClick(btn){ const id=parseInt(btn.getAttribute('data-variant')||'-1',10); const v=variants.find(x=>x.id===id); if(!v) return; colorPicker.querySelectorAll('.color-swatch').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); rebuild(v.images||[]); }
+  if(variants.length){ const def=variants.find(v=>v.is_default)||variants[0]; rebuild(def&&def.images?def.images:[]); }
+  colorPicker.querySelectorAll('.color-swatch').forEach(b=> b.addEventListener('click', ()=> onColorClick(b)) );
+  // Points info modal binding
+  const pointsInfoModal = document.getElementById('pointsInfoModal');
+  if(pointsInfoModal){ pointsInfoModal.addEventListener('show.bs.modal', function(event){ const button=event.relatedTarget; if(!button) return; const title=button.getAttribute('data-product-title'); const points=button.getAttribute('data-points-amount'); const t=document.getElementById('modalProductTitle'); const p=document.getElementById('modalPointsAmount'); if(t) t.textContent=title||''; if(p) p.textContent=points||'0'; }); }
+});
+
+// ====== CONTACTS: показать телефон ======
+document.addEventListener('DOMContentLoaded', function(){
+  const btn=document.getElementById('show-phone-btn'); const phone=document.getElementById('phone-number'); if(btn&&phone){ btn.addEventListener('click', ()=>{ phone.style.display='inline-block'; btn.style.display='none'; }); }
 });
 
 // ===== ФУНКЦИИ ДЛЯ ИЗБРАННЫХ ТОВАРОВ =====

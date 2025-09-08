@@ -39,9 +39,6 @@
   
   <!-- Early performance hint: enable lite mode for save-data/low-memory/low-CPU -->
   <script>(function(){try{var c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;var save=c&&c.saveData;var lowRam=Number(navigator.deviceMemory||0)&&navigator.deviceMemory<=2;var lowCPU=Number(navigator.hardwareConcurrency||0)&&navigator.hardwareConcurrency<=2;if(save||lowRam||lowCPU){document.documentElement.classList.add('perf-lite');}}catch(e){}})();</script>
-  {% if request.user.is_staff or request.user.is_superuser %}
-  <script>(function(){try{localStorage.setItem('perf-debug','1');}catch(e){}})();</script>
-  {% endif %}
   
   <!-- Stylesheets -->
   <link href='{% static 'css/styles.css' %}?v=2025.09.06.012' rel='stylesheet'>
