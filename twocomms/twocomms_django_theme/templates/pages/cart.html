@@ -675,6 +675,37 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+{% if items %}
+<div id="checkout-payload"
+     data-value="{{ grand_total }}"
+     data-currency="UAH"
+     data-num-items="{{ items|length }}"
+     data-ids='[{% for it in items %}"{{ it.product.id }}"{% if not forloop.last %},{% endif %}{% endfor %}]'
+     data-contents='[{% for it in items %}{"id":"{{ it.product.id }}","quantity":{{ it.qty }},"item_price":{{ it.unit_price }}}{% if not forloop.last %},{% endif %}{% endfor %}]'
+     style="display:none"></div>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  try{
+    var el = document.getElementById('checkout-payload');
+    if(!el) return;
+    var payload = (function(){
+      var contents=[]; try{ contents = JSON.parse(el.dataset.contents||'[]'); }catch(_){ contents=[]; }
+      var ids=[]; try{ ids = JSON.parse(el.dataset.ids||'[]'); }catch(_){ ids=[]; }
+      var value = parseFloat(el.dataset.value||'0');
+      var currency = el.dataset.currency||'UAH';
+      var numItems = parseInt(el.dataset.numItems||String(contents.length)||'0',10) || contents.length;
+      return { contents: contents, content_ids: ids, content_type: 'product', value: value, currency: currency, num_items: numItems };
+    })();
+    document.querySelectorAll('.cart-checkout-btn').forEach(function(btn){
+      if(btn._icBound) return; btn._icBound = true;
+      btn.addEventListener('click', function(){
+        try{ if(window.trackEvent){ window.trackEvent('InitiateCheckout', payload); } }catch(_){ }
+      }, {passive:true});
+    });
+  }catch(_){ }
+});
+</script>
+{% endif %}
 {% endblock %}
 
 {% endblock %}
