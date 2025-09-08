@@ -158,6 +158,30 @@
   .bg-stage .blob-2{right:8%;top:16%;width:38vw;height:38vw;background:radial-gradient(circle at 60% 30%, rgba(59,130,246,.55), rgba(59,130,246,.16) 48%, transparent 70%);animation:blobMove2 40s ease-in-out infinite alternate-reverse;}
   .bg-stage .blob-3{left:18%;bottom:10%;width:36vw;height:36vw;background:radial-gradient(circle at 50% 60%, rgba(16,185,129,.45), rgba(16,185,129,.14) 50%, transparent 70%);animation:blobMove3 46s ease-in-out infinite alternate;}
   .bg-stage .blob-4{right:20%;bottom:6%;width:30vw;height:30vw;background:radial-gradient(circle at 50% 50%, rgba(168,85,247,.45), rgba(168,85,247,.12) 52%, transparent 72%);animation:blobMove4 54s ease-in-out infinite alternate-reverse;}
+
+  /* Decorative ribbons */
+  .bg-stage .ribbon{position:absolute;inset:-15vh -15vw;filter:blur(28px) saturate(1.1);opacity:.55;mix-blend-mode:screen;z-index:2}
+  .bg-stage .ribbon-1{
+    background: conic-gradient(from 200deg at 50% 50%, rgba(139,92,246,.45), rgba(59,130,246,.35), rgba(16,185,129,.35), rgba(139,92,246,.45));
+    -webkit-mask-image: radial-gradient(80% 40% at 50% 50%, #fff 40%, transparent 62%);
+            mask-image: radial-gradient(80% 40% at 50% 50%, #fff 40%, transparent 62%);
+    animation: ribbonWave1 52s ease-in-out infinite alternate;
+  }
+  .bg-stage .ribbon-2{
+    background: conic-gradient(from 40deg at 50% 50%, rgba(59,130,246,.35), rgba(139,92,246,.45), rgba(16,185,129,.30), rgba(59,130,246,.35));
+    -webkit-mask-image: radial-gradient(70% 38% at 50% 50%, #fff 38%, transparent 60%);
+            mask-image: radial-gradient(70% 38% at 50% 50%, #fff 38%, transparent 60%);
+    animation: ribbonWave2 64s ease-in-out infinite alternate-reverse;
+  }
+
+  /* Star dust layer */
+  .bg-stage .stars{position:absolute;inset:0;z-index:0;background-image:radial-gradient(circle, rgba(255,255,255,.07) 1px, transparent 1px),radial-gradient(circle, rgba(255,255,255,.05) 1px, transparent 1px);background-size:3px 3px,4px 4px;background-position:0 0,1px 1px;opacity:.12;animation:starsDrift 90s linear infinite}
+
+  /* Light sweep */
+  .bg-stage .glow-sweep{position:absolute;inset:-20vh -20vw;z-index:4;background:linear-gradient(100deg, transparent 35%, rgba(255,255,255,.10) 50%, transparent 65%);filter:blur(22px);opacity:.6;animation:sweep 18s ease-in-out infinite}
+
+  /* Scanlines */
+  .bg-stage .scanline{position:absolute;inset:0;z-index:5;background:linear-gradient(to bottom, rgba(255,255,255,.06) 0, rgba(255,255,255,.02) 1px, transparent 2px);background-size:100% 10px;opacity:.05;animation:scanMove 14s linear infinite}
   
   .bg-stage .bokeh{position:absolute;border-radius:50%;filter:blur(10px);opacity:.35;mix-blend-mode:lighten;}
   .bg-stage .bokeh-1{left:20%;top:30%;width:110px;height:110px;background:radial-gradient(closest-side, rgba(255,255,255,.25), transparent);animation:bokehFloat1 26s ease-in-out infinite;}
@@ -172,6 +196,12 @@
   @keyframes bokehFloat1{0%{transform:translate3d(0,0,0)}50%{transform:translate3d(.8vw,-.6vh,0)}100%{transform:translate3d(0,0,0)}}
   @keyframes bokehFloat2{0%{transform:translate3d(0,0,0)}50%{transform:translate3d(-1vw,.8vh,0)}100%{transform:translate3d(0,0,0)}}
   @keyframes bokehFloat3{0%{transform:translate3d(0,0,0)}50%{transform:translate3d(.6vw,.6vh,0)}100%{transform:translate3d(0,0,0)}}
+
+  @keyframes ribbonWave1{0%{transform:rotate(16deg) translate3d(-2vw,-1vh,0)}50%{transform:rotate(20deg) translate3d(1vw,2vh,0)}100%{transform:rotate(14deg) translate3d(-1vw,1vh,0)}}
+  @keyframes ribbonWave2{0%{transform:rotate(-18deg) translate3d(2vw,1vh,0)}50%{transform:rotate(-22deg) translate3d(-1vw,-2vh,0)}100%{transform:rotate(-16deg) translate3d(1vw,-1vh,0)}}
+  @keyframes sweep{0%{transform:translateX(-8vw)}50%{transform:translateX(8vw)}100%{transform:translateX(-8vw)}}
+  @keyframes starsDrift{0%{background-position:0 0,1px 1px}100%{background-position:100px 60px, 101px 61px}}
+  @keyframes scanMove{0%{background-position-y:0}100%{background-position-y:10px}}
 
   /* Ensure content is above background stage */
   header, main, footer { position: relative; z-index: 1; }
@@ -1039,6 +1069,11 @@ if ('serviceWorker' in navigator) {
   <div class="blob blob-2"></div>
   <div class="blob blob-3"></div>
   <div class="blob blob-4"></div>
+  <div class="ribbon ribbon-1"></div>
+  <div class="ribbon ribbon-2"></div>
+  <div class="stars"></div>
+  <div class="glow-sweep"></div>
+  <div class="scanline"></div>
   <div class="bokeh bokeh-1"></div>
   <div class="bokeh bokeh-2"></div>
   <div class="bokeh bokeh-3"></div>
