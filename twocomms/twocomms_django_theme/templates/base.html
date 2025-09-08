@@ -42,13 +42,7 @@
   <script>(function(){try{var c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;var save=c&&c.saveData;var lowRam=Number(navigator.deviceMemory||0)&&navigator.deviceMemory<=2;var lowCPU=Number(navigator.hardwareConcurrency||0)&&navigator.hardwareConcurrency<=2;if(save||lowRam||lowCPU){document.documentElement.classList.add('perf-lite');}}catch(e){}})();</script>
   
   <!-- Stylesheets -->
-  <!-- Inline tiny critical to avoid flash while CSS loads -->
-  <style>
-    :root{--tc-bg:#0e0f12;--tc-text:#e8e9ec}
-    html,body{background:var(--tc-bg);color:var(--tc-text)}
-  </style>
-  <link rel="preload" href="{% static 'css/styles.css' %}?v=2025.09.06.014" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <noscript><link href="{% static 'css/styles.css' %}?v=2025.09.06.014" rel="stylesheet"></noscript>
+  <link href='{% static 'css/styles.css' %}?v=2025.09.06.013' rel='stylesheet'>
   <style>
   /* Lite mode on constrained devices: reduce expensive visual effects */
   .perf-lite .hero.bg-hero,
