@@ -6,6 +6,7 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.views.generic.base import RedirectView
 from storefront import views as storefront_views
 from django.contrib.sitemaps.views import sitemap
+from django.views.decorators.cache import cache_page
 from storefront.sitemaps import StaticViewSitemap, ProductSitemap, CategorySitemap
 
 # Sitemap configuration
@@ -20,7 +21,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     
     # Sitemap
-    path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
+    path('sitemap.xml', cache_page(600)(sitemap), {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
     
     # Явный маршрут для /favicon.ico → статический файл
     path("favicon.ico", RedirectView.as_view(
