@@ -1195,22 +1195,15 @@ document.addEventListener('input', function(e){
   }
 });
 
-// Трекинг просмотра контента в списках (когда карточка входит во вьюпорт)
-(function(){
+// ViewContent на листингах — по клику на любую область карточки
+document.addEventListener('click', function(e){
   try{
-    if(!('IntersectionObserver' in window)) return;
-    const io = new IntersectionObserver(entries=>{
-      entries.forEach(entry=>{
-        if(!entry.isIntersecting) return;
-        const card = entry.target;
-        const pid = card.getAttribute('data-product-id');
-        const title = card.getAttribute('data-product-title');
-        if(pid && window.trackEvent){
-          window.trackEvent('ViewContent', {content_ids:[String(pid)], content_type:'product', content_name: title});
-        }
-        io.unobserve(card);
-      });
-    },{root:null, rootMargin:'50px', threshold:0.1});
-    document.querySelectorAll('[data-product-id]').forEach(el=> io.observe(el));
+    const card = e.target.closest && e.target.closest('.card.product');
+    if(!card) return;
+    const pid = card.getAttribute('data-product-id');
+    const title = card.getAttribute('data-product-title');
+    if(pid && window.trackEvent){
+      window.trackEvent('ViewContent', {content_ids:[String(pid)], content_type:'product', content_name: title});
+    }
   }catch(_){ }
-})();
+});
