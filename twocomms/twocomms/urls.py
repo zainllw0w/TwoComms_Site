@@ -25,6 +25,10 @@ urlpatterns = [
     path("favicon.ico", RedirectView.as_view(
         url=staticfiles_storage.url("img/favicon.ico"), permanent=False
     )),
+    # Явный маршрут для /robots.txt → статический файл
+    path("robots.txt", RedirectView.as_view(
+        url=staticfiles_storage.url("robots.txt"), permanent=False
+    )),
 ]
 
 # Добавляем обработку медиа-файлов для разработки и продакшена
