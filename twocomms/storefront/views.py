@@ -6,7 +6,6 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.cache import cache_page
 from functools import wraps
-from django.utils.decorators import available_attrs
 
 def cache_page_for_anon(timeout):
     """Кэширует только для анонимных пользователей (избегаем проблем с персональными данными)."""
