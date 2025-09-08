@@ -3529,3 +3529,18 @@ def robots_txt(request):
     resp["Expires"] = "0"
     resp["Content-Disposition"] = 'inline; filename="robots.txt"'
     return resp
+
+@login_required
+def admin_order_delete(request, pk: int):
+    if not request.user.is_staff:
+        return redirect('home')
+    try:
+        from orders.models import Order
+        order = Order.objects.get(pk=pk)
+        order.delete()
+        from django.contrib import messages
+        messages.success(request, f"Замовлення #{order.order_number} видалено")
+    except Exception as e:
+        from django.contrib import messages
+        messages.error(request, f"Помилка видалення: {e}")
+    return redirect('admin_panel')

@@ -29,6 +29,7 @@ urlpatterns=[
     path('admin-panel/order/update-status/', views.admin_order_update, name='admin_update_order_status'),
     path('admin-panel/order/update-payment-status/', views.admin_update_payment_status, name='admin_update_payment_status'),
     path('admin-panel/order/approve-payment/', views.admin_approve_payment, name='admin_approve_payment'),
+    path('admin-panel/order/<int:pk>/delete/', views.admin_order_delete, name='admin_order_delete'),
     # orders
     path('orders/create/', views.order_create, name='order_create'),
     path('orders/success/<int:order_id>/', views.order_success, name='order_success'),
