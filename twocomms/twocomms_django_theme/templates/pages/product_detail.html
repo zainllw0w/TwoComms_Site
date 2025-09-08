@@ -125,7 +125,7 @@
                   data-variant="{{ v.id }}"
                   data-primary="{{ v.primary_hex }}"
                   data-secondary="{{ v.secondary_hex }}">
-            <span class="swatch" style="{% if v.secondary_hex %}background: {{ v.primary_hex }};{% else %}background: {{ v.primary_hex }};{% endif %}" data-primary="{{ v.primary_hex }}" data-secondary="{{ v.secondary_hex }}"></span>
+            <span class="swatch" data-primary="{{ v.primary_hex }}" data-secondary="{{ v.secondary_hex }}"></span>
           </button>
         {% endfor %}
       </div>
@@ -643,97 +643,37 @@ document.addEventListener('DOMContentLoaded', function() {
   const main = document.getElementById('mainImage');
   if(!main) return;
   
-  // Автоматический выбор первого цвета, если есть цветовые варианты
-  {% if color_variants %}
-    const firstColorVariant = document.querySelector('.color-swatch[data-variant="{{ color_variants.0.id }}"]');
-    if (firstColorVariant && firstColorVariant.querySelector('.swatch')) {
-      const swatch = firstColorVariant.querySelector('.swatch');
-      const primaryColor = swatch.getAttribute('data-primary');
-      const secondaryColor = swatch.getAttribute('data-secondary');
-      
-      // Устанавливаем CSS переменные для комбинированного цвета
-      if (secondaryColor) {
-        swatch.style.setProperty('--primary-color', primaryColor);
-        swatch.style.setProperty('--secondary-color', secondaryColor);
-      }
-      
-      // Добавляем активный класс к первому цвету (если нет активного)
-      const activeColor = document.querySelector('.color-swatch.active');
-      if (!activeColor) {
-        document.querySelectorAll('.color-swatch').forEach(btn => btn.classList.remove('active'));
-        firstColorVariant.classList.add('active');
-      }
-      
-      // Если нет основной картинки и у первого цвета есть изображения, устанавливаем первое как основное
-      {% if auto_select_first_color and color_variants.0.images %}
-        const firstImage = '{{ color_variants.0.images.0 }}';
-        if (firstImage) {
-          main.src = firstImage;
-        }
-      {% endif %}
-    }
-  {% endif %}
+  // Выбор цвета по умолчанию и первичное изображение обрабатываются выше в логике галереи
   
-  document.querySelectorAll('.thumb[data-img]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const url = btn.getAttribute('data-img');
-      if(url){ main.src = url; }
-      document.querySelectorAll('.thumb').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
+  try{
+    document.querySelectorAll('.thumb[data-img]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var url = btn.getAttribute('data-img');
+        if(url){ main.src = url; }
+        document.querySelectorAll('.thumb').forEach(function(b){ b.classList.remove('active'); });
+        btn.classList.add('active');
+      });
     });
-  });
+  }catch(_){ }
 
   // Подсветка выбранного размера (Bootstrap btn-check это уже делает, добавим только читаемость)
-  document.querySelectorAll('input[name="size"]').forEach(input=>{
-    input.addEventListener('change', ()=>{
-      // при необходимости можно сохранить выбранный размер в hidden или локально
+  try{
+    document.querySelectorAll('input[name="size"]').forEach(function(input){
+      input.addEventListener('change', function(){});
     });
-  });
+  }catch(_){ }
 
-  // Обработчик выбора цвета
-  document.querySelectorAll('.color-swatch').forEach(button => {
-    button.addEventListener('click', function() {
-      // Убираем активный класс со всех цветовых кнопок
-      document.querySelectorAll('.color-swatch').forEach(btn => btn.classList.remove('active'));
-      // Добавляем активный класс к выбранной кнопке
-      this.classList.add('active');
-      
-      // Обновляем CSS переменные для комбинированного цвета
-      const swatch = this.querySelector('.swatch');
-      if (swatch) {
-        const primaryColor = swatch.getAttribute('data-primary');
-        const secondaryColor = swatch.getAttribute('data-secondary');
-        
-        if (secondaryColor) {
-          swatch.style.setProperty('--primary-color', primaryColor);
-          swatch.style.setProperty('--secondary-color', secondaryColor);
+  // Трекинг выбора цвета (изображения обновляет верхний блок логики)
+  document.querySelectorAll('.color-swatch').forEach(function(button){
+    button.addEventListener('click', function(){
+      try{
+        if(window.trackEvent){
+          var pe=document.getElementById('product-analytics-payload');
+          var pid=pe && pe.dataset.id;
+          var variantId=this.getAttribute('data-variant');
+          window.trackEvent('CustomizeProduct', { content_ids:[String(pid)], content_type:'product', variant_id: variantId });
         }
-      }
-      
-      // Обновляем изображение при выборе цвета
-      const variantId = this.getAttribute('data-variant');
-      if (variantId) {
-        // Здесь можно добавить логику для загрузки изображений выбранного цвета
-        // Пока что просто обновляем основное изображение, если есть
-        {% if color_variants %}
-          {% for v in color_variants %}
-            if (variantId === '{{ v.id }}' && '{{ v.images.0 }}') {
-              main.src = '{{ v.images.0 }}';
-              try{
-                if(window.trackEvent){
-                  var pe=document.getElementById('product-analytics-payload');
-                  var pid=pe && pe.dataset.id;
-                  window.trackEvent('CustomizeProduct', {
-                    content_ids: [String(pid)],
-                    content_type: 'product',
-                    variant_id: '{{ v.id }}'
-                  });
-                }
-              }catch(_){ }
-            }
-          {% endfor %}
-        {% endif %}
-      }
+      }catch(_){ }
     });
   });
 
