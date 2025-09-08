@@ -86,6 +86,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django.contrib.redirects.middleware.RedirectFallbackMiddleware",  # SEO редиректы
+    "storefront.tracking.SimpleAnalyticsMiddleware",  # простая аналитика посещений
 ]
 
 ROOT_URLCONF = 'twocomms.urls'
