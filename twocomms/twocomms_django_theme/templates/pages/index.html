@@ -33,7 +33,7 @@
     <div class="hero-logo-bg">
       <link rel="preload" as="image" href="{% static 'img/logo.svg' %}">
       {% static 'img/logo.svg' as hero_logo_url %}
-      {% picture hero_logo_url alt='TwoComms - Стріт & Мілітарі Одяг' width=256 height=256 cls='hero-logo-image' eager=True %}
+      <img src="{{ hero_logo_url }}" alt="TwoComms - Стріт & Мілітарі Одяг" width="256" height="256" class="hero-logo-image" loading="eager">
     </div>
     
     <!-- Основной контент -->

@@ -5,7 +5,11 @@
     <div class="ratio ratio-1x1 rounded-top-4 overflow-hidden bg-elevate position-relative">
       {% if forloop.first %}<link rel="preload" as="image" href="{% if p.display_image %}{{ p.display_image.url }}{% else %}{% static 'img/placeholder.jpg' %}{% endif %}">{% endif %}
       {% static 'img/placeholder.jpg' as ph_url %}
-      {% picture p.display_image.url|default:ph_url alt=p.title width=600 height=600 cls='w-100 h-100 object-fit-cover' eager=forloop.first %}
+      <img src="{% if p.display_image %}{{ p.display_image.url }}{% else %}{{ ph_url }}{% endif %}"
+           alt="{{ p.title }}"
+           width="600" height="600"
+           class="w-100 h-100 object-fit-cover"
+           loading="{% if forloop.first %}eager{% else %}lazy{% endif %}">
       <!-- Кнопка избранного -->
       <button type="button" class="favorite-btn" data-product-id="{{ p.id }}" onclick="event.stopPropagation(); toggleFavorite(this.getAttribute('data-product-id'), this);" aria-label="Додати до обраних">
         <div class="favorite-btn-icon">
