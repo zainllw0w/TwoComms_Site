@@ -23,10 +23,18 @@ class SimpleAnalyticsMiddleware(MiddlewareMixin):
 
     def process_request(self, request):
         try:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"=== ANALYTICS MIDDLEWARE START ===")
+            logger.info(f"Path: {request.path}")
+            logger.info(f"User-Agent: {request.META.get('HTTP_USER_AGENT', '')}")
+            logger.info(f"User authenticated: {request.user.is_authenticated}")
+            
             # Не трекаем ботов и служебные пути
             ua = request.META.get('HTTP_USER_AGENT', '')
             path = request.path or ''
             if is_bot(ua) or path.startswith('/admin') or path.startswith('/static') or path.startswith('/media'):
+                logger.info(f"⚠ Skipping tracking: bot={is_bot(ua)}, path={path}")
                 return
 
             # Для анонимов не создаём новую серверную сессию на простых GET (избежим write I/O)
@@ -77,8 +85,13 @@ class SimpleAnalyticsMiddleware(MiddlewareMixin):
                     referrer=request.META.get('HTTP_REFERER', '')[:512],
                     is_bot=bot,
                 )
-        except Exception:
+                logger.info(f"✓ Analytics data saved: session_id={sess.id}, pageview created")
+        except Exception as e:
             # Никогда не ломаем страницу из-за аналитики
-            pass
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"✗ Analytics middleware error: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
 
 
