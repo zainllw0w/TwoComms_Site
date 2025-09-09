@@ -82,6 +82,10 @@ if 'social_django.context_processors.backends' not in TEMPLATES[0]['OPTIONS']['c
 if 'social_django.context_processors.login_redirect' not in TEMPLATES[0]['OPTIONS']['context_processors']:
     TEMPLATES[0]['OPTIONS']['context_processors'].append('social_django.context_processors.login_redirect')
 
+# Telegram Bot настройки
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
+
 AUTHENTICATION_BACKENDS = (
     'social_core.backends.google.GoogleOAuth2',
     'django.contrib.auth.backends.ModelBackend',
