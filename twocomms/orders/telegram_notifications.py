@@ -126,6 +126,69 @@ class TelegramNotifier:
         message += f"⏰ {timezone.now().strftime('%d.%m.%Y %H:%M')}"
         
         return self.send_message(message)
+    
+    def send_ttn_added_notification(self, order):
+        """
+        Отправляет уведомление о добавлении ТТН к заказу
+        
+        Args:
+            order (Order): Заказ с добавленным ТТН
+            
+        Returns:
+            bool: True если сообщение отправлено успешно
+        """
+        if not self.is_configured():
+            return False
+            
+        if not order.user:
+            return False
+            
+        # Получаем Telegram username из профиля пользователя
+        try:
+            from accounts.models import UserProfile
+            profile = UserProfile.objects.get(user=order.user)
+            telegram_username = profile.telegram
+            
+            if not telegram_username:
+                return False
+                
+            # Формируем сообщение
+            message = self._format_ttn_added_message(order)
+            
+            # Отправляем сообщение с упоминанием пользователя
+            if telegram_username.startswith('@'):
+                telegram_username = telegram_username[1:]
+                
+            full_message = f"@{telegram_username}\n\n{message}"
+            return self.send_message(full_message)
+            
+        except Exception as e:
+            print(f"Ошибка при отправке уведомления о ТТН: {e}")
+            return False
+    
+    def _format_ttn_added_message(self, order):
+        """
+        Форматирует сообщение о добавлении ТТН
+        
+        Args:
+            order (Order): Заказ с ТТН
+            
+        Returns:
+            str: Отформатированное сообщение
+        """
+        message = f"""📦 <b>ТТН ДОБАВЛЕН К ЗАКАЗУ</b>
+
+🆔 <b>Заказ:</b> #{order.order_number}
+📋 <b>ТТН:</b> {order.tracking_number}
+
+📊 <b>Статус заказа:</b> {order.get_status_display()}
+💰 <b>Сумма:</b> {order.total_sum} грн
+
+🕐 <b>Время добавления:</b> {timezone.now().strftime('%d.%m.%Y %H:%M')}
+
+<i>Теперь вы можете отслеживать статус вашей посылки!</i>"""
+        
+        return message
 
 
 # Глобальный экземпляр для использования

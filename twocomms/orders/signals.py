@@ -17,17 +17,23 @@ from .telegram_notifications import telegram_notifier
 
 
 @receiver(pre_save, sender=Order)
-def track_order_status_change(sender, instance, **kwargs):
-    """Отслеживает изменение статуса заказа"""
+def track_order_changes(sender, instance, **kwargs):
+    """Отслеживает изменения в заказе"""
     if instance.pk:
         try:
             old_instance = Order.objects.get(pk=instance.pk)
+            
+            # Отслеживаем изменение статуса заказа
             if old_instance.status != instance.status:
-                # Отправляем уведомление об изменении статуса
                 telegram_notifier.send_order_status_update(
                     instance, 
                     old_instance.get_status_display(), 
                     instance.get_status_display()
                 )
+            
+            # Отслеживаем добавление ТТН
+            if not old_instance.tracking_number and instance.tracking_number:
+                telegram_notifier.send_ttn_added_notification(instance)
+                
         except Order.DoesNotExist:
             pass
