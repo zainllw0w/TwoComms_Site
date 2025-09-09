@@ -117,9 +117,43 @@ class RegisterForm(forms.Form):
 
 # --------- AUTH VIEWS ---------
 def login_view(request):
-    # Простой тест - возвращаем простой HTML
-    from django.http import HttpResponse
-    return HttpResponse("<h1>Login page works!</h1><p>Django is working correctly.</p>")
+    if request.user.is_authenticated:
+        return redirect('profile_setup')
+    form = LoginForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        user = authenticate(request, username=form.cleaned_data['username'], password=form.cleaned_data['password'])
+        if user:
+            login(request, user)
+            
+            # Переносим избранные товары из сессии в базу данных
+            session_favorites = request.session.get('favorites', [])
+            if session_favorites:
+                for product_id in session_favorites:
+                    try:
+                        product = Product.objects.get(id=product_id)
+                        FavoriteProduct.objects.get_or_create(
+                            user=user,
+                            product=product
+                        )
+                    except Product.DoesNotExist:
+                        # Товар был удален, пропускаем
+                        continue
+                
+                # Очищаем сессию
+                del request.session['favorites']
+                request.session.modified = True
+            
+            # если профиль пустой по телефону — просим заповнення
+            try:
+                prof = user.userprofile
+            except UserProfile.DoesNotExist:
+                prof = UserProfile.objects.create(user=user)
+            if not prof.phone:
+                return redirect('profile_setup')
+            return redirect('home')
+        else:
+            form.add_error(None, "Невірний логін або пароль")
+    return render(request, 'pages/auth_login.html', {'form': form})
 
 def register_view(request):
     if request.user.is_authenticated:
