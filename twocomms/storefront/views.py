@@ -89,79 +89,11 @@ class ProfileSetupForm(forms.Form):
         return d
 
 # --- Аутентификация/профиль ---
-def login_view(request):
-    if request.user.is_authenticated:
-        return redirect('profile_setup')
-    form = LoginForm(request.POST or None)
-    if request.method=='POST' and form.is_valid():
-        user = authenticate(request, username=form.cleaned_data['username'], password=form.cleaned_data['password'])
-        if user:
-            login(request,user)
-            
-            # Переносим избранные товары из сессии в базу данных
-            session_favorites = request.session.get('favorites', [])
-            if session_favorites:
-                for product_id in session_favorites:
-                    try:
-                        product = Product.objects.get(id=product_id)
-                        FavoriteProduct.objects.get_or_create(
-                            user=user,
-                            product=product
-                        )
-                    except Product.DoesNotExist:
-                        # Товар был удален, пропускаем
-                        continue
-                
-                # Очищаем сессию
-                del request.session['favorites']
-                request.session.modified = True
-            
-            # если профиль пустой по телефону — просим заповнення
-            try:
-                prof = user.userprofile
-            except UserProfile.DoesNotExist:
-                prof = UserProfile.objects.create(user=user)
-            if not prof.phone:
-                return redirect('profile_setup')
-            return redirect('home')
-        form.add_error(None,"Невірний логін або пароль")
-    return render(request,'pages/login.html',{'form':form})
+# Старая функция login_view удалена - используется новая ниже
 
-def register_view(request):
-    if request.user.is_authenticated:
-        return redirect('profile_setup')
-    form = RegisterForm(request.POST or None)
-    if request.method=='POST' and form.is_valid():
-        from django.contrib.auth.models import User
-        if User.objects.filter(username=form.cleaned_data['username']).exists():
-            form.add_error('username','Користувач з таким логіном вже існує')
-        else:
-            user = User.objects.create_user(username=form.cleaned_data['username'], password=form.cleaned_data['password1'])
-            login(request,user)
-            
-            # Переносим избранные товары из сессии в базу данных
-            session_favorites = request.session.get('favorites', [])
-            if session_favorites:
-                for product_id in session_favorites:
-                    try:
-                        product = Product.objects.get(id=product_id)
-                        FavoriteProduct.objects.get_or_create(
-                            user=user,
-                            product=product
-                        )
-                    except Product.DoesNotExist:
-                        # Товар был удален, пропускаем
-                        continue
-                
-                # Очищаем сессию
-                del request.session['favorites']
-                request.session.modified = True
-            
-            return redirect('profile_setup')
-    return render(request,'pages/auth_register.html',{'form':form})
+# Старая функция register_view удалена - используется новая ниже
 
-def logout_view(request):
-    logout(request); return redirect('home')
+# Старая функция logout_view удалена - используется новая ниже
 
 
 from django import forms
@@ -192,8 +124,31 @@ def login_view(request):
         user = authenticate(request, username=form.cleaned_data['username'], password=form.cleaned_data['password'])
         if user:
             login(request, user)
-            # Если нет телефона в сессии — запрошу заповнення
-            if not request.session.get('profile_phone'):
+            
+            # Переносим избранные товары из сессии в базу данных
+            session_favorites = request.session.get('favorites', [])
+            if session_favorites:
+                for product_id in session_favorites:
+                    try:
+                        product = Product.objects.get(id=product_id)
+                        FavoriteProduct.objects.get_or_create(
+                            user=user,
+                            product=product
+                        )
+                    except Product.DoesNotExist:
+                        # Товар был удален, пропускаем
+                        continue
+                
+                # Очищаем сессию
+                del request.session['favorites']
+                request.session.modified = True
+            
+            # если профиль пустой по телефону — просим заповнення
+            try:
+                prof = user.userprofile
+            except UserProfile.DoesNotExist:
+                prof = UserProfile.objects.create(user=user)
+            if not prof.phone:
                 return redirect('profile_setup')
             return redirect('home')
         else:
@@ -214,6 +169,25 @@ def register_view(request):
                 password=form.cleaned_data['password1']
             )
             login(request, user)
+            
+            # Переносим избранные товары из сессии в базу данных
+            session_favorites = request.session.get('favorites', [])
+            if session_favorites:
+                for product_id in session_favorites:
+                    try:
+                        product = Product.objects.get(id=product_id)
+                        FavoriteProduct.objects.get_or_create(
+                            user=user,
+                            product=product
+                        )
+                    except Product.DoesNotExist:
+                        # Товар был удален, пропускаем
+                        continue
+                
+                # Очищаем сессию
+                del request.session['favorites']
+                request.session.modified = True
+            
             return redirect('profile_setup')
     return render(request, 'pages/auth_register.html', {'form': form})
 
