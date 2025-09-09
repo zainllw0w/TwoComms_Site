@@ -31,7 +31,8 @@
   <div class="hero-container">
     <!-- Фоновый логотип -->
     <div class="hero-logo-bg">
-      <img src="{% static 'img/logo.svg' %}" alt="TwoComms - Стріт & Мілітарі Одяг" class="hero-logo-image">
+      <link rel="preload" as="image" href="{% static 'img/logo.svg' %}">
+      <img src="{% static 'img/logo.svg' %}" width="256" height="256" fetchpriority="high" alt="TwoComms - Стріт & Мілітарі Одяг" class="hero-logo-image">
     </div>
     
     <!-- Основной контент -->
