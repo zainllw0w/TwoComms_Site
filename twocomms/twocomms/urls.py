@@ -17,10 +17,11 @@ sitemaps = {
 }
 
 urlpatterns = [
+    # Social auth (до остальных, чтобы /login/google-oauth2/ резолвился корректно)
+    path('', include('social_django.urls', namespace='social')),
+    # Core
     path("", include("storefront.urls")),
     path("admin/", admin.site.urls),
-    # Social auth
-    path('oauth/', include('social_django.urls', namespace='social')),
     
     # Sitemap
     path('sitemap.xml', cache_page(600)(sitemap), {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
