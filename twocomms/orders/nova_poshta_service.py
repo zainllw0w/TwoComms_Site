@@ -123,9 +123,7 @@ class NovaPoshtaService:
             # Формируем сообщение
             message = self._format_status_message(order, old_status, new_status)
             
-            # Отправляем сообщение
-            # Здесь нужно будет реализовать отправку конкретному пользователю
-            # Пока что отправляем в общий чат с упоминанием
+            # Отправляем сообщение с упоминанием пользователя
             if telegram_username.startswith('@'):
                 telegram_username = telegram_username[1:]
                 
