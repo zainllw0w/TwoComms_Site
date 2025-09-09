@@ -201,22 +201,22 @@ class NovaPoshtaService:
         Returns:
             str: Отформатированное сообщение
         """
-        message = f"""🎉 <b>ПОСЫЛКА ПОЛУЧЕНА!</b>
+        message = f"""🎉 <b>ПОСИЛКА ОТРИМАНА!</b>
 
-🆔 <b>Заказ:</b> #{order.order_number}
+🆔 <b>Замовлення:</b> #{order.order_number}
 📋 <b>ТТН:</b> {order.tracking_number}
 📦 <b>Статус:</b> {shipment_status}
 
-✅ <b>Ваш заказ успешно доставлен!</b>
-💰 <b>Сумма:</b> {order.total_sum} грн
+✅ <b>Ваше замовлення успішно доставлено!</b>
+💰 <b>Сума:</b> {order.total_sum} грн
 
-🕐 <b>Время получения:</b> {timezone.now().strftime('%d.%m.%Y %H:%M')}
+🕐 <b>Час отримання:</b> {timezone.now().strftime('%d.%m.%Y %H:%M')}
 
-<i>Спасибо за покупку! Надеемся, что товар вам понравился.</i>
+<i>Дякуємо за покупку! Сподіваємося, що товар вам сподобався.</i>
 
-🔗 <b>Полезные ссылки:</b>
-• <a href="https://t.me/twocomms">💬 Помощь в Telegram</a>
-• <a href="https://twocomms.shop/my-orders/">📋 Мои заказы</a>"""
+🔗 <b>Корисні посилання:</b>
+• <a href="https://t.me/twocomms">💬 Допомога в Telegram</a>
+• <a href="https://twocomms.shop/my-orders/">📋 Мої замовлення</a>"""
         
         return message
     
@@ -232,22 +232,22 @@ class NovaPoshtaService:
         Returns:
             str: Отформатированное сообщение
         """
-        message = f"""📦 <b>ОБНОВЛЕНИЕ СТАТУСА ПОСЫЛКИ</b>
+        message = f"""📦 <b>ОНОВЛЕННЯ СТАТУСУ ПОСИЛКИ</b>
 
-🆔 <b>Заказ:</b> #{order.order_number}
+🆔 <b>Замовлення:</b> #{order.order_number}
 📋 <b>ТТН:</b> {order.tracking_number}
 
-📊 <b>Статус изменен:</b>
-├─ Было: {old_status or 'Неизвестно'}
+📊 <b>Статус змінено:</b>
+├─ Було: {old_status or 'Невідомо'}
 └─ Стало: <b>{new_status}</b>
 
-🕐 <b>Время обновления:</b> {timezone.now().strftime('%d.%m.%Y %H:%M')}
+🕐 <b>Час оновлення:</b> {timezone.now().strftime('%d.%m.%Y %H:%M')}
 
-<i>Следите за обновлениями статуса вашей посылки!</i>
+<i>Слідкуйте за оновленнями статусу вашої посилки!</i>
 
-🔗 <b>Полезные ссылки:</b>
-• <a href="https://t.me/twocomms">💬 Помощь в Telegram</a>
-• <a href="https://twocomms.shop/my-orders/">📋 Мои заказы</a>"""
+🔗 <b>Корисні посилання:</b>
+• <a href="https://t.me/twocomms">💬 Допомога в Telegram</a>
+• <a href="https://twocomms.shop/my-orders/">📋 Мої замовлення</a>"""
         
         return message
     

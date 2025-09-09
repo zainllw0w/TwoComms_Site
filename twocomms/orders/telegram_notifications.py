@@ -56,7 +56,7 @@ class TelegramNotifier:
     def format_order_message(self, order):
         """Форматирует HTML сообщение о заказе с поддержкой Telegram"""
         # Основная информация о заказе
-        order_header = f"🆕 <b>НОВЫЙ ЗАКАЗ #{order.order_number}</b>\n"
+        order_header = f"🆕 <b>НОВЕ ЗАМОВЛЕННЯ #{order.order_number}</b>\n"
         
         # Подсчитываем товары
         total_items = 0
@@ -121,9 +121,9 @@ class TelegramNotifier:
         # Добавляем ссылки
         links = """
 
-🔗 <b>Полезные ссылки:</b>
-• <a href="https://t.me/twocomms">💬 Помощь в Telegram</a>
-• <a href="https://twocomms.shop/my-orders/">📋 Мои заказы</a>"""
+🔗 <b>Корисні посилання:</b>
+• <a href="https://t.me/twocomms">💬 Допомога в Telegram</a>
+• <a href="https://twocomms.shop/my-orders/">📋 Мої замовлення</a>"""
         
         # Собираем полное сообщение
         message = f"{order_header}\n{full_block}\n{links}"
@@ -143,10 +143,10 @@ class TelegramNotifier:
         if not self.is_configured():
             return False
             
-        message = f"📊 <b>Обновление заказа #{order.order_number}</b>\n\n"
+        message = f"📊 <b>Оновлення замовлення #{order.order_number}</b>\n\n"
         message += f"👤 {order.full_name}\n"
         message += f"📞 {order.phone}\n\n"
-        message += f"Статус изменен: <b>{old_status}</b> → <b>{new_status}</b>\n"
+        message += f"Статус змінено: <b>{old_status}</b> → <b>{new_status}</b>\n"
         message += f"⏰ {timezone.now().strftime('%d.%m.%Y %H:%M')}"
         
         return self.send_message(message)
@@ -200,21 +200,21 @@ class TelegramNotifier:
         Returns:
             str: Отформатированное сообщение
         """
-        message = f"""📦 <b>ТТН ДОБАВЛЕН К ЗАКАЗУ</b>
+        message = f"""📦 <b>ТТН ДОДАНО ДО ЗАМОВЛЕННЯ</b>
 
-🆔 <b>Заказ:</b> #{order.order_number}
+🆔 <b>Замовлення:</b> #{order.order_number}
 📋 <b>ТТН:</b> {order.tracking_number}
 
-📊 <b>Статус заказа:</b> {order.get_status_display()}
-💰 <b>Сумма:</b> {order.total_sum} грн
+📊 <b>Статус замовлення:</b> {order.get_status_display()}
+💰 <b>Сума:</b> {order.total_sum} грн
 
-🕐 <b>Время добавления:</b> {timezone.now().strftime('%d.%m.%Y %H:%M')}
+🕐 <b>Час додавання:</b> {timezone.now().strftime('%d.%m.%Y %H:%M')}
 
-<i>Теперь вы можете отслеживать статус вашей посылки!</i>
+<i>Тепер ви можете відстежувати статус вашої посилки!</i>
 
-🔗 <b>Полезные ссылки:</b>
-• <a href="https://t.me/twocomms">💬 Помощь в Telegram</a>
-• <a href="https://twocomms.shop/my-orders/">📋 Мои заказы</a>"""
+🔗 <b>Корисні посилання:</b>
+• <a href="https://t.me/twocomms">💬 Допомога в Telegram</a>
+• <a href="https://twocomms.shop/my-orders/">📋 Мої замовлення</a>"""
         
         return message
     
@@ -236,23 +236,23 @@ class TelegramNotifier:
     
     def _format_status_update_message(self, order, old_status, new_status):
         """Форматирует сообщение об изменении статуса заказа"""
-        message = f"""📋 <b>ОБНОВЛЕНИЕ СТАТУСА ЗАКАЗА</b>
+        message = f"""📋 <b>ОНОВЛЕННЯ СТАТУСУ ЗАМОВЛЕННЯ</b>
 
-🆔 <b>Заказ:</b> #{order.order_number}
+🆔 <b>Замовлення:</b> #{order.order_number}
 
-📊 <b>Статус изменен:</b>
-├─ Было: {old_status}
+📊 <b>Статус змінено:</b>
+├─ Було: {old_status}
 └─ Стало: <b>{new_status}</b>
 
-💰 <b>Сумма:</b> {order.total_sum} грн
+💰 <b>Сума:</b> {order.total_sum} грн
 
-🕐 <b>Время обновления:</b> {timezone.now().strftime('%d.%m.%Y %H:%M')}
+🕐 <b>Час оновлення:</b> {timezone.now().strftime('%d.%m.%Y %H:%M')}
 
-<i>Следите за обновлениями вашего заказа!</i>
+<i>Слідкуйте за оновленнями вашого замовлення!</i>
 
-🔗 <b>Полезные ссылки:</b>
-• <a href="https://t.me/twocomms">💬 Помощь в Telegram</a>
-• <a href="https://twocomms.shop/my-orders/">📋 Мои заказы</a>"""
+🔗 <b>Корисні посилання:</b>
+• <a href="https://t.me/twocomms">💬 Допомога в Telegram</a>
+• <a href="https://twocomms.shop/my-orders/">📋 Мої замовлення</a>"""
 
         return message
 
