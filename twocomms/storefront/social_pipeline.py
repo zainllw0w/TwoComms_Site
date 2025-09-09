@@ -56,34 +56,39 @@ def create_or_update_profile(strategy, details, backend, user=None, social=None,
                 profile.full_name = full_name
                 logger.info(f"Set full_name from first/last for user {user.username}: {full_name}")
         
-        # Сохраняем аватарку
+        # Сохраняем аватарку (заменяем существующую)
         avatar_url = kwargs.get('avatar_url')
         if avatar_url:
-            if not profile.avatar:
-                try:
-                    import requests
-                    from django.core.files.base import ContentFile
+            try:
+                import requests
+                from django.core.files.base import ContentFile
+                
+                logger.info(f"Downloading avatar for user {user.username} from: {avatar_url}")
+                # Скачиваем аватарку
+                response = requests.get(avatar_url, timeout=10)
+                if response.status_code == 200:
+                    # Удаляем старую аватарку если есть
+                    if profile.avatar:
+                        try:
+                            profile.avatar.delete(save=False)
+                            logger.info(f"Deleted old avatar for user {user.username}")
+                        except Exception as e:
+                            logger.warning(f"Could not delete old avatar for user {user.username}: {e}")
                     
-                    logger.info(f"Downloading avatar for user {user.username} from: {avatar_url}")
-                    # Скачиваем аватарку
-                    response = requests.get(avatar_url, timeout=10)
-                    if response.status_code == 200:
-                        # Создаем имя файла
-                        filename = f"avatar_{user.id}_{user.username}.jpg"
-                        
-                        # Сохраняем файл
-                        profile.avatar.save(
-                            filename,
-                            ContentFile(response.content),
-                            save=False  # Не сохраняем сразу, сохраним в конце
-                        )
-                        logger.info(f"Avatar saved for user {user.username}")
-                    else:
-                        logger.error(f"Failed to download avatar, status code: {response.status_code}")
-                except Exception as e:
-                    logger.error(f"Failed to save avatar for user {user.username}: {e}")
-            else:
-                logger.info(f"Avatar already exists for user {user.username}")
+                    # Создаем имя файла
+                    filename = f"avatar_{user.id}_{user.username}.jpg"
+                    
+                    # Сохраняем новый файл
+                    profile.avatar.save(
+                        filename,
+                        ContentFile(response.content),
+                        save=False  # Не сохраняем сразу, сохраним в конце
+                    )
+                    logger.info(f"Avatar saved for user {user.username}")
+                else:
+                    logger.error(f"Failed to download avatar, status code: {response.status_code}")
+            except Exception as e:
+                logger.error(f"Failed to save avatar for user {user.username}: {e}")
         
         # Сохраняем все изменения
         profile.save()
