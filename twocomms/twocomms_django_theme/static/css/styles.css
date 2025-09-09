@@ -1349,6 +1349,21 @@ body::after {
   text-decoration: none;
 }
 
+.auth-btn.apple {
+  background: #000000;
+  border: 1px solid #333333;
+  color: #ffffff;
+}
+
+.auth-btn.apple:hover {
+  background: #1a1a1a;
+  border-color: #444444;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  color: #ffffff;
+  text-decoration: none;
+}
+
 .auth-info {
   display: flex;
   align-items: flex-start;
@@ -15216,6 +15231,19 @@ input[type="file"].form-control:hover {
   border-color: rgba(255, 255, 255, 0.2);
   transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+#user-panel-mobile .auth-btn.apple {
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid #333333;
+}
+
+#user-panel-mobile .auth-btn.apple:hover {
+  background: #1a1a1a;
+  border-color: #444444;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
 }
 
 #user-panel-mobile .auth-info {
