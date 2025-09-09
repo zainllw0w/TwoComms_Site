@@ -176,6 +176,13 @@ SESSION_CACHE_ALIAS = 'default'
 TEMPLATES[0]['OPTIONS'].pop('loaders', None)
 TEMPLATES[0]['APP_DIRS'] = True
 
+# Временно отключаем все кэши
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+    }
+}
+
 # Настройки сжатия статических файлов
 STATICFILES_FINDERS = [
     'django.contrib.staticfiles.finders.FileSystemFinder',
