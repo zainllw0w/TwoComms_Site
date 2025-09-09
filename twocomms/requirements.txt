@@ -34,3 +34,6 @@ python-dotenv==1.0.1
 
 # Социальная аутентификация (Google OAuth)
 social-auth-app-django==5.4.1
+
+# Статика и кэширование (долгий Cache-Control, компрессия)
+whitenoise==6.7.0

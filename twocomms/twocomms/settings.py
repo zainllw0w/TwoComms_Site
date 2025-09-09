@@ -80,6 +80,7 @@ INSTALLED_APPS = [
 # Явно переопределим список middleware, чтобы исключить любые лишние строки
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -315,6 +316,10 @@ COMPRESS_JS_FILTERS = [
 if not DEBUG:
     COMPRESS_CSS_HASHING_METHOD = 'content'
     COMPRESS_JS_HASHING_METHOD = 'content'
+    # WhiteNoise: gzip+brotli, агрессивный кэш
+    STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    WHITENOISE_MAX_AGE = 60*60*24*180  # 180 дней
+    WHITENOISE_IMMUTABLE_FILE_TEST = lambda path, url: True
 
 # ===== НАСТРОЙКИ БЕЗОПАСНОСТИ =====
 # Базовые настройки безопасности
