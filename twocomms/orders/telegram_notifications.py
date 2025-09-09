@@ -41,40 +41,47 @@ class TelegramNotifier:
         # Основная информация о заказе
         order_header = f"🆕 <b>НОВЫЙ ЗАКАЗ #{order.order_number}</b>\n"
         
-        # Информация о клиенте
+        # Информация о клиенте в блоке pre
         user_info = f"""
-👤 <b>Информация о клиенте</b>
-<b>Имя:</b> {order.full_name}
-<b>Телефон:</b> <code>{order.phone}</code>
-<b>Город:</b> {order.city}
-<b>НП:</b> {order.np_office}
-
+<pre language="yaml">
+👤 КЛИЕНТ:
+  Имя: {order.full_name}
+  Телефон: {order.phone}
+  Город: {order.city}
+  НП: {order.np_office}
+</pre>
 """
         
-        # Детали заказа
+        # Детали заказа в блоке pre
         order_details = f"""
-📋 <b>Детали заказа</b>
-<b>Статус оплаты:</b> <i>{order.get_payment_status_display()}</i>
-<b>Статус заказа:</b> <i>{order.get_status_display()}</i>
-<b>Время создания:</b> <code>{order.created.strftime('%d.%m.%Y %H:%M')}</code>
-
+<pre language="json">
+📋 ДЕТАЛИ ЗАКАЗА:
+{{
+  "Статус оплаты": "{order.get_payment_status_display()}",
+  "Статус заказа": "{order.get_status_display()}",
+  "Время создания": "{order.created.strftime('%d.%m.%Y %H:%M')}"
+}}
+</pre>
 """
         
-        # Товары в заказе
-        items_info = f"📦 <b>Товары в заказе ({order.items.count()} позиций):</b>\n"
+        # Товары в заказе в блоке pre
+        items_info = f"""
+<pre language="text">
+📦 ТОВАРЫ В ЗАКАЗЕ ({order.items.count()} позиций):
+"""
         total_items = 0
         subtotal = 0
         
         for i, item in enumerate(order.items.all(), 1):
             details = []
             if item.size:
-                details.append(f"<code>{item.size}</code>")
+                details.append(f"Размер: {item.size}")
             if item.color_variant:
-                details.append(f"<i>{item.color_variant.color.name}</i>")
+                details.append(f"Цвет: {item.color_variant.color.name}")
             
             details_str = f" ({', '.join(details)})" if details else ""
-            items_info += f"<b>{i}.</b> {item.title}{details_str}\n"
-            items_info += f"   └ <b>{item.qty}</b> × <b>{item.unit_price}</b> = <b>{item.line_total} грн</b>\n"
+            items_info += f"{i}. {item.title}{details_str}\n"
+            items_info += f"   └ {item.qty} × {item.unit_price} = {item.line_total} грн\n"
             
             if i < order.items.count():
                 items_info += "   ───────────────\n"
@@ -82,22 +89,22 @@ class TelegramNotifier:
             total_items += item.qty
             subtotal += item.line_total
         
-        items_info += "\n"
+        items_info += "</pre>\n"
         
-        # Итоговая информация
+        # Итоговая информация в блоке pre
         total_section = f"""
-📊 <b>Всего товаров:</b> {total_items} шт.
-💰 <b>Сумма товаров:</b> {subtotal} грн
+<pre language="text">
+📊 ИТОГОВАЯ ИНФОРМАЦИЯ:
+Всего товаров: {total_items} шт.
+Сумма товаров: {subtotal} грн
 """
         
         if order.promo_code:
-            total_section += f"""
-🎫 <b>Промокод:</b> <code>{order.promo_code.code}</code>
-💸 <b>Скидка:</b> -{order.discount_amount} грн
-"""
+            total_section += f"Промокод: {order.promo_code.code}\n"
+            total_section += f"Скидка: -{order.discount_amount} грн\n"
         
-        total_section += f"""
-💳 <b>ИТОГО К ОПЛАТЕ: {order.total_sum} грн</b>
+        total_section += f"ИТОГО К ОПЛАТЕ: {order.total_sum} грн
+</pre>
 """
         
         # Красивый блок с итоговой информацией
