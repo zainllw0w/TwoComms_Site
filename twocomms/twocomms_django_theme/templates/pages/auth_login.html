@@ -1,4 +1,4 @@
-{% extends 'base.html' %}{% load static form_filters %}{% block title %}Вхід — TwoComms{% endblock %}{% block content %}
+{% extends 'base.html' %}{% load static %}{% block title %}Вхід — TwoComms{% endblock %}{% block content %}
 <div class="row justify-content-center">
   <div class="col-12 col-md-7 col-lg-5">
     <div class="card glass p-3 p-md-4">
@@ -26,7 +26,7 @@
       <form method="post" novalidate class="vstack gap-3 position-relative">{% csrf_token %}
         <div>
           <label for="id_username" class="form-label">Логін</label>
-          {{ form.username|add_class:"form-control bg-elevate" }}
+          {{ form.username }}
           <div class="form-text">Використовуйте свій нікнейм. Реєстрація — за хвилину.</div>
           {% if form.username.errors %}
             <div class="invalid-feedback d-block">
@@ -37,7 +37,7 @@
         <div>
           <label for="id_password" class="form-label">Пароль</label>
           <div class="input-group">
-            {{ form.password|add_class:"form-control bg-elevate" }}
+            {{ form.password }}
             <button class="btn btn-outline-secondary" type="button" data-toggle-password aria-label="Показати пароль">👁</button>
           </div>
           {% if form.password.errors %}

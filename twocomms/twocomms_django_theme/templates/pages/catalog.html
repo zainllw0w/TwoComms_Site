@@ -45,7 +45,7 @@
 
   {% if show_category_cards %}
     <section class="col-12">
-      {% cache 600 catalog_categories %}
+      {% cache 1800 catalog_categories %}
         <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4">
           {% for c in categories %}
             <div class="col">
@@ -65,11 +65,13 @@
     </section>
   {% else %}
     <section class="col-12">
-      {% cache 300 catalog_products cat_slug %}
+      {% cache 600 catalog_products cat_slug %}
         <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4" data-stagger-grid>
           {% for p in products %}
             <div class="product-card-wrap">
-              {% include "partials/product_card.html" with p=p stagger=True %}
+              {% cache 900 product_card p.id p.final_price p.discount_percent p.display_image.name p.category_id %}
+                {% include "partials/product_card.html" with p=p stagger=True %}
+              {% endcache %}
               {% if p.colors_preview %}
               <div class="product-card-dots">
                 <span class="text-secondary small me-1">Кольори:</span>
