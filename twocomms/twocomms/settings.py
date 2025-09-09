@@ -134,21 +134,31 @@ SOCIAL_AUTH_URL_NAMESPACE = 'social'
 
 # Redirects for social-auth
 SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/profile/setup/'
-SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/'
-SOCIAL_AUTH_LOGIN_ERROR_URL = '/login/'
 
-# Pipeline: если email не найден/пользователь новый — перенаправляем на настройку профиля
+# Pipeline для обработки данных из Google
 SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.social_details',
     'social_core.pipeline.social_auth.social_uid',
     'social_core.pipeline.social_auth.auth_allowed',
     'social_core.pipeline.social_auth.social_user',
     'social_core.pipeline.user.get_username',
+    'storefront.social_pipeline.require_email',
+    'social_core.pipeline.social_auth.associate_by_email',
     'social_core.pipeline.user.create_user',
     'social_core.pipeline.social_auth.associate_user',
     'social_core.pipeline.social_auth.load_extra_data',
     'social_core.pipeline.user.user_details',
+    'storefront.social_pipeline.get_avatar_url',
+    'storefront.social_pipeline.create_or_update_profile',
 )
+
+# Дополнительные настройки для Google OAuth
+SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
+    'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/userinfo.profile',
+]
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/'
+SOCIAL_AUTH_LOGIN_ERROR_URL = '/login/'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases

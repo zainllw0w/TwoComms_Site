@@ -37,3 +37,6 @@ social-auth-app-django==5.4.1
 
 # Статика и кэширование (долгий Cache-Control, компрессия)
 whitenoise==6.7.0
+
+# HTTP запросы для скачивания аватарок
+requests==2.32.5
