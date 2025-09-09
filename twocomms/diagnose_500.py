@@ -13,7 +13,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'twocomms.production_settings')
 django.setup()
 
 from django.conf import settings
-from storefront.views import index
+from storefront.views import home
 
 print("=== Диагностика 500 ошибки ===")
 
@@ -27,7 +27,7 @@ print("\n=== Тестирование view ===")
 try:
     factory = RequestFactory()
     request = factory.get('/', HTTP_HOST='www.twocomms.shop')
-    response = index(request)
+    response = home(request)
     print(f"Главная страница: {response.status_code}")
     if response.status_code != 200:
         print(f"Содержимое ответа: {response.content[:200]}...")
