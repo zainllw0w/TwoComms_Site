@@ -131,6 +131,11 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
 SOCIAL_AUTH_REDIRECT_IS_HTTPS = os.environ.get('SOCIAL_AUTH_REDIRECT_IS_HTTPS', 'True').lower() in ('1','true','yes')
 SOCIAL_AUTH_URL_NAMESPACE = 'social'
 
+# Redirects for social-auth
+SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/profile/setup/'
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/'
+SOCIAL_AUTH_LOGIN_ERROR_URL = '/login/'
+
 # Pipeline: если email не найден/пользователь новый — перенаправляем на настройку профиля
 SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.social_details',
