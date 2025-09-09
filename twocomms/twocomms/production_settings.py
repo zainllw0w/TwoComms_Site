@@ -284,11 +284,13 @@ WHITENOISE_AUTOREFRESH = False  # Отключаем автообновлени�
 WHITENOISE_SKIP_COMPRESS_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'ico', 'woff', 'woff2', 'ttf', 'eot']
 
 # Настройки кеширования статических файлов
-WHITENOISE_ADD_HEADERS_FUNCTION = 'whitenoise.middleware.add_headers_function'
-WHITENOISE_ADD_HEADERS_FUNCTION = lambda headers, path, url: headers.update({
-    'Cache-Control': 'public, max-age=15552000, immutable',  # 180 дней
-    'Vary': 'Accept-Encoding',
-}) if any(path.endswith(ext) for ext in ['.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.woff', '.woff2', '.ttf', '.eot']) else None
+def add_cache_headers(headers, path, url):
+    """Добавляет заголовки кеширования для статических файлов"""
+    if any(path.endswith(ext) for ext in ['.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.woff', '.woff2', '.ttf', '.eot']):
+        headers['Cache-Control'] = 'public, max-age=15552000, immutable'  # 180 дней
+        headers['Vary'] = 'Accept-Encoding'
+
+WHITENOISE_ADD_HEADERS_FUNCTION = add_cache_headers
 
 COMPRESS_ENABLED = True
 COMPRESS_OFFLINE = True
