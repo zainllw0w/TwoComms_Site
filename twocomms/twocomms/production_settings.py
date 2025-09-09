@@ -140,39 +140,20 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # ===== ОПТИМИЗАЦИИ ДЛЯ ПРОДАКШЕНА =====
 
-# Кэширование (по умолчанию LocMem, но если задан Redis — используем его)
-DISABLE_REDIS = os.environ.get('DISABLE_REDIS', 'false').lower() in ('1', 'true', 'yes')
-if REDIS_URL and not DISABLE_REDIS:
-    CACHES['default'] = {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': REDIS_URL,
-        'KEY_PREFIX': os.environ.get('REDIS_KEY_PREFIX', 'twocomms'),
-        'TIMEOUT': int(os.environ.get('CACHE_DEFAULT_TIMEOUT', '300')),
+# Кэширование: всегда локальный кэш (LocMem), без Redis и без переменных окружения
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'twocomms-local',
+        'TIMEOUT': 300,
         'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            # Болеe безопасные и устойчивые таймауты соединения
-            'SOCKET_TIMEOUT': float(os.environ.get('REDIS_SOCKET_TIMEOUT', '2.0')),
-            'SOCKET_CONNECT_TIMEOUT': float(os.environ.get('REDIS_SOCKET_CONNECT_TIMEOUT', '2.0')),
-            # Не падать при кратковременных сбоях Redis
-            'IGNORE_EXCEPTIONS': os.environ.get('REDIS_IGNORE_EXCEPTIONS', 'true').lower() in ('1', 'true', 'yes'),
-        },
-    }
-    SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
-    SESSION_CACHE_ALIAS = 'default'
-else:
-    CACHES = {
-        'default': {
-            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-            'LOCATION': 'unique-snowflake',
-            'TIMEOUT': 300,  # 5 минут
-            'OPTIONS': {
-                'MAX_ENTRIES': 1000,
-                'CULL_FREQUENCY': 3,
-            }
+            'MAX_ENTRIES': 2000,
+            'CULL_FREQUENCY': 3,
         }
     }
-    SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
-    SESSION_CACHE_ALIAS = 'default'
+}
+SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
+SESSION_CACHE_ALIAS = 'default'
 
 # Кэширование шаблонов
 TEMPLATES[0]['OPTIONS']['loaders'] = [
