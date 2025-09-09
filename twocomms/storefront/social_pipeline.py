@@ -6,7 +6,7 @@ from social_core.pipeline.social_auth import load_extra_data
 from social_core.pipeline.user import user_details
 from social_core.exceptions import AuthException
 from django.contrib.auth.models import User
-from .models import UserProfile
+from accounts.models import UserProfile
 import logging
 
 logger = logging.getLogger(__name__)
