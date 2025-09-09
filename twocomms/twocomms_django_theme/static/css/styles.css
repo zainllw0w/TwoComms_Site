@@ -21685,3 +21685,69 @@ input[type="file"].form-control:hover {
 }
 
 /* Анимация появления новых карточек теперь использует существующую систему reveal-stagger */
+
+/* Стили для кнопки подтверждения Telegram */
+.telegram-field-container {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+.telegram-button-container {
+  flex-shrink: 0;
+}
+
+.telegram-confirm-btn,
+.telegram-status-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  min-width: 140px;
+  justify-content: center;
+}
+
+.telegram-confirm-btn {
+  background: linear-gradient(135deg, #0088cc 0%, #006699 100%);
+  border: 1px solid #0088cc;
+  color: white;
+}
+
+.telegram-confirm-btn:hover {
+  background: linear-gradient(135deg, #006699 0%, #004466 100%);
+  border-color: #006699;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 136, 204, 0.3);
+}
+
+.telegram-status-btn {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border: 1px solid #10b981;
+  color: white;
+  cursor: default;
+}
+
+.telegram-confirm-btn svg,
+.telegram-status-btn svg {
+  flex-shrink: 0;
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 768px) {
+  .telegram-field-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+  
+  .telegram-confirm-btn,
+  .telegram-status-btn {
+    min-width: auto;
+    width: 100%;
+  }
+}
