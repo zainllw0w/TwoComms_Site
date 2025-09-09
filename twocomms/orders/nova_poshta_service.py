@@ -157,30 +157,17 @@ class NovaPoshtaService:
             order (Order): Заказ
             shipment_status (str): Статус посылки
         """
-        if not order.user:
+        if not order.user or not order.user.userprofile.telegram_id:
             return
             
-        # Получаем Telegram username из профиля пользователя
-        try:
-            from accounts.models import UserProfile
-            profile = UserProfile.objects.get(user=order.user)
-            telegram_username = profile.telegram
-            
-            if not telegram_username:
-                return
-                
-            # Формируем сообщение о доставке
-            message = self._format_delivery_message(order, shipment_status)
-            
-            # Отправляем сообщение с упоминанием пользователя
-            if telegram_username.startswith('@'):
-                telegram_username = telegram_username[1:]
-                
-            full_message = f"@{telegram_username}\n\n{message}"
-            self.telegram_notifier.send_message(full_message)
-            
-        except Exception as e:
-            print(f"Ошибка при отправке уведомления о доставке: {e}")
+        # Формируем сообщение о доставке
+        message = self._format_delivery_message(order, shipment_status)
+        
+        # Отправляем личное сообщение пользователю
+        self.telegram_notifier.send_personal_message(
+            order.user.userprofile.telegram_id, 
+            message
+        )
     
     def _send_status_notification(self, order, old_status, new_status):
         """
@@ -191,30 +178,17 @@ class NovaPoshtaService:
             old_status (str): Старый статус
             new_status (str): Новый статус
         """
-        if not order.user:
+        if not order.user or not order.user.userprofile.telegram_id:
             return
             
-        # Получаем Telegram username из профиля пользователя
-        try:
-            from accounts.models import UserProfile
-            profile = UserProfile.objects.get(user=order.user)
-            telegram_username = profile.telegram
-            
-            if not telegram_username:
-                return
-                
-            # Формируем сообщение
-            message = self._format_status_message(order, old_status, new_status)
-            
-            # Отправляем сообщение с упоминанием пользователя
-            if telegram_username.startswith('@'):
-                telegram_username = telegram_username[1:]
-                
-            full_message = f"@{telegram_username}\n\n{message}"
-            self.telegram_notifier.send_message(full_message)
-            
-        except Exception as e:
-            print(f"Ошибка при отправке уведомления о статусе: {e}")
+        # Формируем сообщение
+        message = self._format_status_message(order, old_status, new_status)
+        
+        # Отправляем личное сообщение пользователю
+        self.telegram_notifier.send_personal_message(
+            order.user.userprofile.telegram_id, 
+            message
+        )
     
     def _format_delivery_message(self, order, shipment_status):
         """
