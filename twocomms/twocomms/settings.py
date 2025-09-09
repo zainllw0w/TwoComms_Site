@@ -124,6 +124,7 @@ LOGOUT_REDIRECT_URL = '/'
 # Социальная аутентификация (Google)
 AUTHENTICATION_BACKENDS = (
     'social_core.backends.google.GoogleOAuth2',
+    'social_core.backends.apple.AppleIdAuth',
     'django.contrib.auth.backends.ModelBackend',
 )
 
@@ -131,6 +132,14 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.environ.get('GOOGLE_CLIENT_ID', '')
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
 SOCIAL_AUTH_REDIRECT_IS_HTTPS = os.environ.get('SOCIAL_AUTH_REDIRECT_IS_HTTPS', 'True').lower() in ('1','true','yes')
 SOCIAL_AUTH_URL_NAMESPACE = 'social'
+
+# Apple Sign In настройки
+SOCIAL_AUTH_APPLE_ID_CLIENT = os.environ.get('APPLE_SERVICE_ID', '')  # Service ID
+SOCIAL_AUTH_APPLE_ID_TEAM = os.environ.get('APPLE_TEAM_ID', '')       # Team ID
+SOCIAL_AUTH_APPLE_ID_KEY = os.environ.get('APPLE_KEY_ID', '')         # Key ID
+SOCIAL_AUTH_APPLE_ID_SECRET = os.environ.get('APPLE_PRIVATE_KEY', '') # Private Key (.p8 содержимое)
+SOCIAL_AUTH_APPLE_ID_SCOPE = ['name', 'email']
+SOCIAL_AUTH_APPLE_ID_EMAIL_AS_USERNAME = True
 
 # Redirects for social-auth
 SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/profile/setup/'
