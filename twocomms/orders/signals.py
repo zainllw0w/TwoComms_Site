@@ -7,12 +7,13 @@ from .models import Order
 from .telegram_notifications import telegram_notifier
 
 
-@receiver(post_save, sender=Order)
-def send_new_order_notification(sender, instance, created, **kwargs):
-    """Отправляет уведомление при создании нового заказа"""
-    if created:
-        # Отправляем уведомление о новом заказе
-        telegram_notifier.send_new_order_notification(instance)
+# Отключен автоматический сигнал - уведомления отправляются вручную в views
+# @receiver(post_save, sender=Order)
+# def send_new_order_notification(sender, instance, created, **kwargs):
+#     """Отправляет уведомление при создании нового заказа"""
+#     if created:
+#         # Отправляем уведомление о новом заказе
+#         telegram_notifier.send_new_order_notification(instance)
 
 
 @receiver(pre_save, sender=Order)
