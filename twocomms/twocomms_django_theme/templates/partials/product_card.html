@@ -22,18 +22,6 @@
         </div>
         <div class="favorite-btn-glow"></div>
       </button>
-      
-      <!-- Кнопка информации о баллах - поверх всей карточки -->
-      {% if p.points_reward > 0 %}
-      <button type="button" class="points-info-overlay-btn" 
-              data-bs-toggle="modal" data-bs-target="#pointsInfoModal" 
-              data-product-title="{{ p.title }}" data-points-amount="{{ p.points_reward }}"
-              onclick="event.stopPropagation();" aria-label="Дізнатись про бали">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
-        </svg>
-      </button>
-      {% endif %}
     </div>
     <div class="card-body d-flex flex-column">
       <div class="small text-secondary">{{ p.category.name }}</div>
@@ -52,8 +40,8 @@
         {% endif %}
       </div>
       
-      <!-- Баллы за покупку - упрощенная версия -->
-      <div class="points-reward-card mt-auto">
+      <!-- Баллы за покупку с кнопкой информации -->
+      <div class="points-reward-card mt-auto position-relative">
         {% if p.points_reward > 0 %}
         <div class="d-flex align-items-center justify-content-center gap-1">
           <div class="points-icon-small">
@@ -63,6 +51,15 @@
           </div>
           <span class="points-text-small">{{ p.points_reward }} балів</span>
         </div>
+        <!-- Кнопка информации о баллах - поверх блока с баллами -->
+        <button type="button" class="points-info-overlay-btn" 
+                data-bs-toggle="modal" data-bs-target="#pointsInfoModal" 
+                data-product-title="{{ p.title }}" data-points-amount="{{ p.points_reward }}"
+                onclick="event.stopPropagation();" aria-label="Дізнатись про бали">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+          </svg>
+        </button>
         {% else %}
         <div class="d-flex align-items-center justify-content-center gap-1">
           <div class="points-icon-small" style="visibility: hidden;">
