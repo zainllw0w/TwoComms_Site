@@ -73,19 +73,15 @@ class TelegramNotifier:
         for i, item in enumerate(order.items.all(), 1):
             full_block += f"│     {i}. {item.title}\n"
             
-            # Собираем детали товара
-            details = []
+            # Добавляем детали товара каждая на новой строке с └
             if item.size:
-                details.append(f"Размер: {item.size}")
+                full_block += f"│        └ Размер: {item.size}\n"
             if item.qty:
-                details.append(f"Количество: {item.qty}")
+                full_block += f"│        └ Количество: {item.qty}\n"
             if item.color_variant:
-                details.append(f"Цвет: {item.color_variant.color.name}")
+                full_block += f"│        └ Цвет: {item.color_variant.color.name}\n"
             if item.unit_price:
-                details.append(f"Цена: {item.unit_price} грн")
-            
-            details_str = ", ".join(details)
-            full_block += f"│        └ {details_str}\n"
+                full_block += f"│        └ Цена: {item.unit_price} грн\n"
             
             if i < order.items.count():
                 full_block += "│     ───────────────────────────────────\n"
