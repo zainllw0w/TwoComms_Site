@@ -232,59 +232,22 @@ MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ===== КЭШИРОВАНИЕ =====
-# Настройки кэширования для улучшения производительности
+# Всегда используем локальный кэш, без переменных окружения и Redis
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-snowflake',
-        'TIMEOUT': 300,  # 5 минут
+        'LOCATION': 'twocomms-local',
+        'TIMEOUT': 300,
         'OPTIONS': {
-            'MAX_ENTRIES': 1000,
+            'MAX_ENTRIES': 2000,
             'CULL_FREQUENCY': 3,
         }
     }
 }
 
-# Если задан Redis, переключаем кэш на django-redis (переменные окружения)
-# Основной способ — REDIS_URL, например: redis://:password@host:6379/1 или rediss://...
-REDIS_URL = os.environ.get('REDIS_URL')
-DISABLE_REDIS = os.environ.get('DISABLE_REDIS', 'false').lower() in ('1', 'true', 'yes')
-
-# Альтернативная сборка URL, если заданы REDIS_HOST/PORT/DB
-if not DISABLE_REDIS and not REDIS_URL and os.environ.get('REDIS_HOST'):
-    _redis_scheme = os.environ.get('REDIS_SCHEME', 'redis')
-    _redis_host = os.environ.get('REDIS_HOST')
-    _redis_port = os.environ.get('REDIS_PORT', '6379')
-    _redis_db = os.environ.get('REDIS_DB', '1')
-    _redis_username = os.environ.get('REDIS_USERNAME')
-    _redis_password = os.environ.get('REDIS_PASSWORD')
-    _auth = ''
-    if _redis_username and _redis_password:
-        _auth = f"{_redis_username}:{_redis_password}@"
-    elif _redis_password:
-        _auth = f":{_redis_password}@"
-    REDIS_URL = f"{_redis_scheme}://{_auth}{_redis_host}:{_redis_port}/{_redis_db}"
-
-if not DISABLE_REDIS and REDIS_URL:
-    CACHES['default'] = {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': REDIS_URL,
-        'KEY_PREFIX': os.environ.get('REDIS_KEY_PREFIX', 'twocomms'),
-        'TIMEOUT': int(os.environ.get('CACHE_DEFAULT_TIMEOUT', '300')),
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            'SOCKET_TIMEOUT': float(os.environ.get('REDIS_SOCKET_TIMEOUT', '2.0')),
-            'SOCKET_CONNECT_TIMEOUT': float(os.environ.get('REDIS_SOCKET_CONNECT_TIMEOUT', '2.0')),
-            'IGNORE_EXCEPTIONS': os.environ.get('REDIS_IGNORE_EXCEPTIONS', 'true').lower() in ('1', 'true', 'yes'),
-        },
-    }
-    # Используем кэш+DB для сессий, чтобы не потерять их при падении Redis
-    SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
-    SESSION_CACHE_ALIAS = 'default'
-else:
-    # Явно фиксируем движок сессий для случая без Redis
-    SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
-    SESSION_CACHE_ALIAS = 'default'
+# Сессии через cached_db (локальный кэш поверх БД)
+SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
+SESSION_CACHE_ALIAS = 'default'
 
 # Кэширование шаблонов (только для продакшена)
 if not DEBUG:
