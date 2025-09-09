@@ -81,8 +81,8 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
-    "storefront.mobile_middleware.MobileOptimizationMiddleware",  # мобильная оптимизация
-    "storefront.mobile_middleware.MobilePerformanceMiddleware",  # мониторинг производительности
+    # "storefront.mobile_middleware.MobileOptimizationMiddleware",  # мобильная оптимизация
+    # "storefront.mobile_middleware.MobilePerformanceMiddleware",  # мониторинг производительности
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -106,8 +106,8 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'storefront.context_processors.orders_processing_count',
-                'storefront.mobile_context.mobile_optimization',
-                'storefront.mobile_context.mobile_performance_hints',
+                # 'storefront.mobile_context.mobile_optimization',
+                # 'storefront.mobile_context.mobile_performance_hints',
                 'social_django.context_processors.backends',
                 'social_django.context_processors.login_redirect',
             ],
