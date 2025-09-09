@@ -12,7 +12,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 def get_avatar_url(strategy, details, backend, user=None, social=None, *args, **kwargs):
-    """Извлекает URL аватарки из Google или Apple"""
+    """Извлекает URL аватарки из Google"""
     logger.info(f"get_avatar_url called for backend: {backend.name}, response: {kwargs.get('response', {})}")
     
     if backend.name == 'google-oauth2':
@@ -20,17 +20,13 @@ def get_avatar_url(strategy, details, backend, user=None, social=None, *args, **
         avatar_url = response.get('picture')
         if avatar_url:
             kwargs['avatar_url'] = avatar_url
-            logger.info(f"Found Google avatar URL: {avatar_url}")
+            logger.info(f"Found avatar URL: {avatar_url}")
         else:
             logger.warning("No avatar URL found in Google response")
-    elif backend.name == 'apple-id':
-        # Apple не предоставляет аватарки, используем placeholder
-        logger.info("Apple Sign In - no avatar provided, will use placeholder")
-        kwargs['avatar_url'] = None
     return kwargs
 
 def create_or_update_profile(strategy, details, backend, user=None, social=None, *args, **kwargs):
-    """Создает или обновляет профиль пользователя с данными из Google или Apple"""
+    """Создает или обновляет профиль пользователя с данными из Google"""
     logger.info(f"create_or_update_profile called for user: {user}, details: {details}, kwargs: {kwargs}")
     
     if not user:
@@ -62,7 +58,7 @@ def create_or_update_profile(strategy, details, backend, user=None, social=None,
         
         # Сохраняем аватарку (заменяем существующую)
         avatar_url = kwargs.get('avatar_url')
-        if avatar_url and backend.name == 'google-oauth2':
+        if avatar_url:
             try:
                 import requests
                 from django.core.files.base import ContentFile
@@ -105,7 +101,7 @@ def create_or_update_profile(strategy, details, backend, user=None, social=None,
 
 def require_email(strategy, details, backend, user=None, social=None, *args, **kwargs):
     """Требует email для регистрации"""
-    if backend.name in ['google-oauth2', 'apple-id']:
+    if backend.name == 'google-oauth2':
         if not details.get('email'):
             raise AuthException(backend, 'Email is required for registration')
     return kwargs
