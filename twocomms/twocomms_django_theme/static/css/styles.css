@@ -21863,3 +21863,41 @@ input[type="file"].form-control:hover {
     transform: rotate(360deg);
   }
 }
+
+/* Кнопка информации о баллах поверх карточки */
+.points-info-overlay-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(4px);
+}
+
+.points-info-overlay-btn:hover {
+  background: rgba(0, 0, 0, 0.9);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: scale(1.1);
+  color: #ffd700;
+}
+
+.points-info-overlay-btn:active {
+  transform: scale(0.95);
+}
+
+.points-info-overlay-btn svg {
+  transition: all 0.3s ease;
+}
+
+.points-info-overlay-btn:hover svg {
+  transform: rotate(180deg);
+}
