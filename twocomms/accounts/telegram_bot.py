@@ -8,7 +8,7 @@ import json
 from django.conf import settings
 
 # Настройка Django
-os.environ.setdefault('DJANGRAM_SETTINGS_MODULE', 'twocomms.production_settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'twocomms.production_settings')
 django.setup()
 
 from accounts.models import UserProfile
