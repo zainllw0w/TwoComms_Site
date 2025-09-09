@@ -3764,6 +3764,31 @@ body::after {
   border-radius: 50%;
   border: 2px solid rgba(139, 92, 246, 0.3);
   flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.order-item-swatch::after,
+.order-item-swatch::before {
+  content: '';
+  position: absolute;
+  top: 0; 
+  height: 100%; 
+  width: 50%;
+}
+
+.order-item-swatch::after {
+  left: -0.5px; 
+  width: calc(50% + 1px); 
+  background: var(--primary-color, #000000);
+  border-radius: 50% 0 0 50%;
+}
+
+.order-item-swatch::before {
+  right: -0.5px; 
+  width: calc(50% + 1px); 
+  background: var(--secondary-color, transparent);
+  border-radius: 0 50% 50% 0;
 }
 
 .color-name {
