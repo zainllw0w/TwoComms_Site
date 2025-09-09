@@ -31,3 +31,6 @@ rjsmin==1.2.2
 
 # Загрузка конфигурации из файла .env/.env.production
 python-dotenv==1.0.1
+
+# Социальная аутентификация (Google OAuth)
+social-auth-app-django==5.4.1
