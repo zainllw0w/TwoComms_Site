@@ -52,7 +52,7 @@ class TelegramNotifier:
         # Информация о товарах
         items_info = "📦 <b>Товары:</b>\n"
         for item in order.items.all():
-            items_info += f"• {item.product.title} - {item.quantity} шт\n"
+            items_info += f"• {item.title} - {item.qty} шт ({item.unit_price} грн/шт)\n"
             if item.color_variant:
                 items_info += f"  Цвет: {item.color_variant.color.name}\n"
         
