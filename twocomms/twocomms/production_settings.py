@@ -237,15 +237,10 @@ TEMPLATES[0]['APP_DIRS'] = True
 if 'loaders' in TEMPLATES[0]['OPTIONS']:
     del TEMPLATES[0]['OPTIONS']['loaders']
 
-# Восстанавливаем кэширование
+# Временно отключаем все кэши для отладки
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-snowflake',
-        'TIMEOUT': 300,
-        'OPTIONS': {
-            'MAX_ENTRIES': 1000,
-        }
+        'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
     }
 }
 
