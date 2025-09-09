@@ -2126,56 +2126,70 @@ def order_create(request):
         messages.error(request, 'Замовлення вже було створено нещодавно. Спробуйте ще раз через кілька хвилин.')
         return redirect('cart')
 
-    # Пересчёт total и создание заказа
-    ids = [i['product_id'] for i in cart.values()]
-    prods = Product.objects.in_bulk(ids)
-    total_sum = 0
-    order = Order.objects.create(
-        user=request.user,
-        full_name=full_name,
-        phone=phone, city=city, np_office=np_office,
-        pay_type=pay_type, total_sum=0, status='new'
-    )
+    # Пересчёт total и создание заказа в одной транзакции
+    from django.db import transaction
     
-    for key, it in cart.items():
-        p = prods.get(it['product_id'])
-        if not p:
-            continue
+    with transaction.atomic():
+        ids = [i['product_id'] for i in cart.values()]
+        prods = Product.objects.in_bulk(ids)
+        total_sum = 0
         
-        # Получаем информацию о цвете
-        color_variant = None
-        color_variant_id = it.get('color_variant_id')
-        if color_variant_id:
+        # Создаем заказ
+        order = Order.objects.create(
+            user=request.user,
+            full_name=full_name,
+            phone=phone, city=city, np_office=np_office,
+            pay_type=pay_type, total_sum=0, status='new'
+        )
+        
+        # Создаем все товары заказа
+        order_items = []
+        for key, it in cart.items():
+            p = prods.get(it['product_id'])
+            if not p:
+                continue
+            
+            # Получаем информацию о цвете
+            color_variant = None
+            color_variant_id = it.get('color_variant_id')
+            if color_variant_id:
+                try:
+                    from productcolors.models import ProductColorVariant
+                    color_variant = ProductColorVariant.objects.get(id=color_variant_id)
+                except ProductColorVariant.DoesNotExist:
+                    pass
+            
+            unit = p.final_price
+            line = unit * it['qty']
+            total_sum += line
+            
+            # Создаем OrderItem
+            order_item = OrderItem(
+                order=order, product=p, color_variant=color_variant, title=p.title, size=it.get('size', ''),
+                qty=it['qty'], unit_price=unit, line_total=line
+            )
+            order_items.append(order_item)
+        
+        # Создаем все товары одним запросом
+        OrderItem.objects.bulk_create(order_items)
+        
+        # Применяем промокод если есть
+        promo_code = request.session.get('applied_promo_code')
+        if promo_code:
+            from .models import PromoCode
             try:
-                from productcolors.models import ProductColorVariant
-                color_variant = ProductColorVariant.objects.get(id=color_variant_id)
-            except ProductColorVariant.DoesNotExist:
+                promo = PromoCode.objects.get(code=promo_code, is_active=True)
+                if promo.can_be_used():
+                    discount = promo.calculate_discount(total_sum)
+                    order.discount_amount = discount
+                    order.promo_code = promo
+                    promo.use()  # Увеличиваем счетчик использований
+            except PromoCode.DoesNotExist:
                 pass
         
-        unit = p.final_price
-        line = unit * it['qty']
-        total_sum += line
-        OrderItem.objects.create(
-            order=order, product=p, color_variant=color_variant, title=p.title, size=it.get('size', ''),
-            qty=it['qty'], unit_price=unit, line_total=line
-        )
-    
-    # Применяем промокод если есть
-    promo_code = request.session.get('applied_promo_code')
-    if promo_code:
-        from .models import PromoCode
-        try:
-            promo = PromoCode.objects.get(code=promo_code, is_active=True)
-            if promo.can_be_used():
-                discount = promo.calculate_discount(total_sum)
-                order.discount_amount = discount
-                order.promo_code = promo
-                promo.use()  # Увеличиваем счетчик использований
-        except PromoCode.DoesNotExist:
-            pass
-    
-    order.total_sum = total_sum
-    order.save()
+        # Обновляем общую сумму заказа
+        order.total_sum = total_sum
+        order.save()
 
     # Очищаем корзину и промокод
     request.session['cart'] = {}

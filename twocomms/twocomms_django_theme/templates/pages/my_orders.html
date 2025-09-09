@@ -821,4 +821,22 @@ function confirmPayment() {
 }
 </script>
 
+<script>
+// Установка цветов для order-item-swatch
+document.addEventListener('DOMContentLoaded', function() {
+    const colorSwatches = document.querySelectorAll('.order-item-swatch');
+    colorSwatches.forEach(function(swatch) {
+        const primaryColor = swatch.getAttribute('data-primary');
+        const secondaryColor = swatch.getAttribute('data-secondary');
+        
+        if (primaryColor) {
+            swatch.style.setProperty('--primary-color', primaryColor);
+        }
+        if (secondaryColor) {
+            swatch.style.setProperty('--secondary-color', secondaryColor);
+        }
+    });
+});
+</script>
+
 {% endblock %}
