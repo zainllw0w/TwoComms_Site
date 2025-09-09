@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% load static %}{% load cache %}
+{% extends "base.html" %}{% load static %}{% load cache %}{% load form_filters %}
 
 {% block title %}TwoComms — Стріт & Мілітарі Одяг | Головна{% endblock %}
 
@@ -32,7 +32,7 @@
     <!-- Фоновый логотип -->
     <div class="hero-logo-bg">
       <link rel="preload" as="image" href="{% static 'img/logo.svg' %}">
-      <img src="{% static 'img/logo.svg' %}" width="256" height="256" fetchpriority="high" alt="TwoComms - Стріт & Мілітарі Одяг" class="hero-logo-image">
+      {% picture static('img/logo.svg') alt='TwoComms - Стріт & Мілітарі Одяг' width=256 height=256 cls='hero-logo-image' eager=True %}
     </div>
     
     <!-- Основной контент -->

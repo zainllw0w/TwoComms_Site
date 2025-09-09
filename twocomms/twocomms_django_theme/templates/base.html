@@ -436,6 +436,11 @@
                   </svg>
                   <span>Зареєструватись</span>
                 </a>
+                
+                <a href="{% url 'social:begin' 'google-oauth2' %}" class="auth-btn secondary">
+                  <img src="{% static 'img/google.svg' %}" width="16" height="16" alt="Google" loading="lazy">
+                  <span>Увійти через Google</span>
+                </a>
               </div>
               
               <div class="auth-info">
