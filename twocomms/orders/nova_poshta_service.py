@@ -104,6 +104,15 @@ class NovaPoshtaService:
                 self._send_status_notification(order, old_status, full_status)
             
             return True
+        else:
+            # Если статус посылки не изменился, но заказ еще не "done", 
+            # проверяем, нужно ли изменить статус заказа
+            if order.status != 'done':
+                order_status_changed = self._update_order_status_if_delivered(order, status, status_description)
+                if order_status_changed:
+                    order.save()
+                    self._send_delivery_notification(order, full_status)
+                    return True
             
         return False
     
