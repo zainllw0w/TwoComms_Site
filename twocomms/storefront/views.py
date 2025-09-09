@@ -1559,6 +1559,9 @@ def admin_panel(request):
     else:
         # stats — основная статистика с фильтрами по времени
         try:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info("Starting stats calculation")
             from orders.models import Order
             from django.utils import timezone
             from datetime import timedelta
@@ -1744,7 +1747,12 @@ def admin_panel(request):
                 total_users_fallback = User.objects.count()
                 total_products_fallback = Product.objects.count()
                 total_categories_fallback = Category.objects.count()
-            except:
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Error in stats calculation: {e}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
                 total_users_fallback = 0
                 total_products_fallback = 0
                 total_categories_fallback = 0
