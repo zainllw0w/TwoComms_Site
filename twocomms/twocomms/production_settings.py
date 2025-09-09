@@ -91,6 +91,29 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
 SOCIAL_AUTH_REDIRECT_IS_HTTPS = os.environ.get('SOCIAL_AUTH_REDIRECT_IS_HTTPS', 'True').lower() in ('1','true','yes')
 SOCIAL_AUTH_URL_NAMESPACE = 'social'
 
+# Pipeline для обработки данных из Google
+SOCIAL_AUTH_PIPELINE = (
+    'social_core.pipeline.social_auth.social_details',
+    'social_core.pipeline.social_auth.social_uid',
+    'social_core.pipeline.social_auth.auth_allowed',
+    'social_core.pipeline.social_auth.social_user',
+    'social_core.pipeline.user.get_username',
+    'storefront.social_pipeline.require_email',
+    'social_core.pipeline.social_auth.associate_by_email',
+    'social_core.pipeline.user.create_user',
+    'social_core.pipeline.social_auth.associate_user',
+    'social_core.pipeline.social_auth.load_extra_data',
+    'social_core.pipeline.user.user_details',
+    'storefront.social_pipeline.get_avatar_url',
+    'storefront.social_pipeline.create_or_update_profile',
+)
+
+# Дополнительные настройки для Google OAuth
+SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
+    'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/userinfo.profile',
+]
+
 # База данных: выбираем по DB_ENGINE (mysql | postgresql), иначе SQLite как фолбэк
 DB_ENGINE = os.environ.get('DB_ENGINE', '').lower()
 if os.environ.get('DB_NAME') and os.environ.get('DB_USER'):
