@@ -92,12 +92,16 @@ class NovaPoshtaService:
             order.shipment_status_updated = timezone.now()
             
             # Автоматически меняем статус заказа при получении посылки
-            self._update_order_status_if_delivered(order, status, status_description)
+            order_status_changed = self._update_order_status_if_delivered(order, status, status_description)
             
             order.save()
             
             # Отправляем уведомление в Telegram если есть пользователь с Telegram
-            self._send_status_notification(order, old_status, full_status)
+            # Если статус заказа изменился на "отримано", отправляем специальное уведомление
+            if order_status_changed:
+                self._send_delivery_notification(order, full_status)
+            else:
+                self._send_status_notification(order, old_status, full_status)
             
             return True
             
@@ -111,6 +115,9 @@ class NovaPoshtaService:
             order (Order): Заказ
             status (str): Статус посылки
             status_description (str): Описание статуса
+            
+        Returns:
+            bool: True если статус заказа был изменен
         """
         # Проверяем, что посылка получена
         delivered_keywords = [
@@ -129,6 +136,42 @@ class NovaPoshtaService:
             old_order_status = order.status
             order.status = 'done'
             print(f"Заказ {order.order_number}: статус изменен с '{old_order_status}' на 'done' (посылка получена)")
+            return True
+        
+        return False
+    
+    def _send_delivery_notification(self, order, shipment_status):
+        """
+        Отправляет специальное уведомление о получении посылки
+        
+        Args:
+            order (Order): Заказ
+            shipment_status (str): Статус посылки
+        """
+        if not order.user:
+            return
+            
+        # Получаем Telegram username из профиля пользователя
+        try:
+            from accounts.models import UserProfile
+            profile = UserProfile.objects.get(user=order.user)
+            telegram_username = profile.telegram
+            
+            if not telegram_username:
+                return
+                
+            # Формируем сообщение о доставке
+            message = self._format_delivery_message(order, shipment_status)
+            
+            # Отправляем сообщение с упоминанием пользователя
+            if telegram_username.startswith('@'):
+                telegram_username = telegram_username[1:]
+                
+            full_message = f"@{telegram_username}\n\n{message}"
+            self.telegram_notifier.send_message(full_message)
+            
+        except Exception as e:
+            print(f"Ошибка при отправке уведомления о доставке: {e}")
     
     def _send_status_notification(self, order, old_status, new_status):
         """
@@ -164,6 +207,36 @@ class NovaPoshtaService:
         except Exception as e:
             print(f"Ошибка при отправке уведомления о статусе: {e}")
     
+    def _format_delivery_message(self, order, shipment_status):
+        """
+        Форматирует красивое сообщение о получении посылки
+        
+        Args:
+            order (Order): Заказ
+            shipment_status (str): Статус посылки
+            
+        Returns:
+            str: Отформатированное сообщение
+        """
+        message = f"""🎉 <b>ПОСЫЛКА ПОЛУЧЕНА!</b>
+
+🆔 <b>Заказ:</b> #{order.order_number}
+📋 <b>ТТН:</b> {order.tracking_number}
+📦 <b>Статус:</b> {shipment_status}
+
+✅ <b>Ваш заказ успешно доставлен!</b>
+💰 <b>Сумма:</b> {order.total_sum} грн
+
+🕐 <b>Время получения:</b> {timezone.now().strftime('%d.%m.%Y %H:%M')}
+
+<i>Спасибо за покупку! Надеемся, что товар вам понравился.</i>
+
+🔗 <b>Полезные ссылки:</b>
+• <a href="https://t.me/twocomms">💬 Помощь в Telegram</a>
+• <a href="https://twocomms.shop/my-orders/">📋 Мои заказы</a>"""
+        
+        return message
+    
     def _format_status_message(self, order, old_status, new_status):
         """
         Форматирует сообщение об изменении статуса
@@ -187,7 +260,11 @@ class NovaPoshtaService:
 
 🕐 <b>Время обновления:</b> {timezone.now().strftime('%d.%m.%Y %H:%M')}
 
-<i>Следите за обновлениями статуса вашей посылки!</i>"""
+<i>Следите за обновлениями статуса вашей посылки!</i>
+
+🔗 <b>Полезные ссылки:</b>
+• <a href="https://t.me/twocomms">💬 Помощь в Telegram</a>
+• <a href="https://twocomms.shop/my-orders/">📋 Мои заказы</a>"""
         
         return message
     
