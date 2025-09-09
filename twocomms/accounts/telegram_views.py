@@ -46,3 +46,23 @@ def link_telegram_account(request):
     except Exception as e:
         print(f"Ошибка связывания аккаунта: {e}")
         return JsonResponse({'success': False, 'error': str(e)})
+
+
+@require_http_methods(["GET"])
+def check_telegram_status(request):
+    """Проверяет статус подтверждения Telegram для текущего пользователя"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    
+    try:
+        profile = request.user.userprofile
+        is_confirmed = bool(profile.telegram_id)
+        
+        return JsonResponse({
+            'is_confirmed': is_confirmed,
+            'telegram_username': profile.telegram or '',
+            'telegram_id': profile.telegram_id
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

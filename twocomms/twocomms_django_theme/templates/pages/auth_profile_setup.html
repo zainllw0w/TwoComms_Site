@@ -503,7 +503,119 @@ function confirmTelegram() {
   window.open(botUrl, '_blank');
   
   // Показываем инструкцию
-  alert('Откроется Telegram бот. Нажмите /start для подтверждения. После этого обновите страницу.');
+  alert('Откроется Telegram бот. Напишите любое сообщение для подтверждения. Статус обновится автоматически.');
+  
+  // Показываем индикатор загрузки
+  showTelegramLoadingIndicator();
+  
+  // Запускаем проверку статуса
+  startTelegramStatusCheck();
+}
+
+// Функция для проверки статуса подтверждения Telegram
+function checkTelegramStatus() {
+  fetch('/accounts/telegram/status/')
+    .then(response => response.json())
+    .then(data => {
+      if (data.is_confirmed) {
+        // Обновляем кнопку на подтвержденную
+        updateTelegramButton(true);
+        // Останавливаем проверку
+        stopTelegramStatusCheck();
+      }
+    })
+    .catch(error => {
+      console.error('Ошибка проверки статуса Telegram:', error);
+    });
+}
+
+// Функция для обновления кнопки Telegram
+function updateTelegramButton(isConfirmed) {
+  const buttonContainer = document.querySelector('.telegram-button-container');
+  if (!buttonContainer) return;
+  
+  if (isConfirmed) {
+    buttonContainer.innerHTML = `
+      <button type="button" class="btn btn-success btn-sm telegram-status-btn" disabled>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+        </svg>
+        ✅ Подтверждено
+      </button>
+    `;
+  } else {
+    buttonContainer.innerHTML = `
+      <button type="button" class="btn btn-primary btn-sm telegram-confirm-btn" 
+              onclick="confirmTelegram()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.14 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06-.01.13-.02.2z"/>
+        </svg>
+        📱 Получать статусы
+      </button>
+    `;
+  }
+}
+
+// Переменные для управления проверкой статуса
+let telegramStatusInterval = null;
+let telegramStatusCheckCount = 0;
+const MAX_TELEGRAM_STATUS_CHECKS = 30; // Максимум 30 проверок (5 минут)
+
+// Функция для запуска проверки статуса
+function startTelegramStatusCheck() {
+  // Останавливаем предыдущую проверку если есть
+  stopTelegramStatusCheck();
+  
+  // Сбрасываем счетчик
+  telegramStatusCheckCount = 0;
+  
+  // Запускаем проверку каждые 10 секунд
+  telegramStatusInterval = setInterval(() => {
+    telegramStatusCheckCount++;
+    
+    if (telegramStatusCheckCount >= MAX_TELEGRAM_STATUS_CHECKS) {
+      // Прекращаем проверку после 5 минут
+      stopTelegramStatusCheck();
+      return;
+    }
+    
+    checkTelegramStatus();
+  }, 10000); // 10 секунд
+  
+  // Первая проверка сразу
+  checkTelegramStatus();
+}
+
+// Функция для остановки проверки статуса
+function stopTelegramStatusCheck() {
+  if (telegramStatusInterval) {
+    clearInterval(telegramStatusInterval);
+    telegramStatusInterval = null;
+  }
+}
+
+// Функция для показа индикатора загрузки
+function showTelegramLoadingIndicator() {
+  const buttonContainer = document.querySelector('.telegram-button-container');
+  if (!buttonContainer) return;
+  
+  buttonContainer.innerHTML = `
+    <button type="button" class="btn btn-warning btn-sm telegram-loading-btn" disabled>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="spinning">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+      </svg>
+      🔄 Проверяем...
+    </button>
+  `;
+}
+
+// Функция для скрытия индикатора загрузки
+function hideTelegramLoadingIndicator() {
+  const buttonContainer = document.querySelector('.telegram-button-container');
+  if (!buttonContainer) return;
+  
+  // Возвращаем обычную кнопку
+  updateTelegramButton(false);
 }
 </script>
 {% endblock %}
