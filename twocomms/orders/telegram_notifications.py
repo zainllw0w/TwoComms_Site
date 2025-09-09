@@ -53,7 +53,7 @@ class TelegramNotifier:
         full_block = f"""
 <pre language="text">
 ┌─────────────────────────────────────────┐
-│  🆕 ЗАКАЗ #{order.order_number}                    │
+│  🆕 ЗАКАЗ #{order.order_number}                   │
 ├─────────────────────────────────────────┤
 │  👤 КЛИЕНТ:                             │
 │     Имя: {order.full_name}
@@ -61,27 +61,31 @@ class TelegramNotifier:
 │     Город: {order.city}
 │     НП: {order.np_office}
 ├─────────────────────────────────────────┤
-│  📋 ДЕТАЛИ ЗАКАЗА:                      │
+│  📋 ДЕТАЛИ ЗАКАЗА:                     │
 │     Статус оплаты: {order.get_payment_status_display()}
 │     Статус заказа: {order.get_status_display()}
 │     Время создания: {order.created.strftime('%d.%m.%Y %H:%M')}
 ├─────────────────────────────────────────┤
-│  📦 ТОВАРЫ В ЗАКАЗЕ ({order.items.count()} позиций):        │
+│  📦 ТОВАРЫ В ЗАКАЗЕ ({order.items.count()} позиций):       │
 """
         
         # Добавляем товары
         for i, item in enumerate(order.items.all(), 1):
+            full_block += f"│     {i}. {item.title}\n"
+            
+            # Собираем детали товара
             details = []
             if item.size:
                 details.append(f"Размер: {item.size}")
+            if item.qty:
+                details.append(f"Количество: {item.qty}")
             if item.color_variant:
                 details.append(f"Цвет: {item.color_variant.color.name}")
+            if item.unit_price:
+                details.append(f"Цена: {item.unit_price} грн")
             
-            details_str = f" ({', '.join(details)})" if details else ""
-            item_title = f"{i}. {item.title}{details_str}"
-            
-            full_block += f"│     {item_title}\n"
-            full_block += f"│        └ {item.qty} × {item.unit_price} = {item.line_total} грн\n"
+            details_str = ", ".join(details)
+            full_block += f"│        └ {details_str}\n"
             
             if i < order.items.count():
                 full_block += "│     ───────────────────────────────────\n"
