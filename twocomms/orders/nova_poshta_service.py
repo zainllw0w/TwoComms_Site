@@ -90,6 +90,10 @@ class NovaPoshtaService:
             old_status = order.shipment_status
             order.shipment_status = full_status
             order.shipment_status_updated = timezone.now()
+            
+            # Автоматически меняем статус заказа при получении посылки
+            self._update_order_status_if_delivered(order, status, status_description)
+            
             order.save()
             
             # Отправляем уведомление в Telegram если есть пользователь с Telegram
@@ -98,6 +102,33 @@ class NovaPoshtaService:
             return True
             
         return False
+    
+    def _update_order_status_if_delivered(self, order, status, status_description):
+        """
+        Автоматически меняет статус заказа на 'done' при получении посылки
+        
+        Args:
+            order (Order): Заказ
+            status (str): Статус посылки
+            status_description (str): Описание статуса
+        """
+        # Проверяем, что посылка получена
+        delivered_keywords = [
+            'отримано', 'получено', 'доставлено', 'вручено', 
+            'отримано отримувачем', 'получено получателем'
+        ]
+        
+        status_lower = status.lower()
+        description_lower = status_description.lower() if status_description else ''
+        
+        is_delivered = any(keyword in status_lower or keyword in description_lower 
+                          for keyword in delivered_keywords)
+        
+        # Если посылка получена и статус заказа еще не 'done'
+        if is_delivered and order.status != 'done':
+            old_order_status = order.status
+            order.status = 'done'
+            print(f"Заказ {order.order_number}: статус изменен с '{old_order_status}' на 'done' (посылка получена)")
     
     def _send_status_notification(self, order, old_status, new_status):
         """
