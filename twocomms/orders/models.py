@@ -30,6 +30,8 @@ class Order(models.Model):
     promo_code = models.ForeignKey(PromoCode, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Використаний промокод')
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='new')
     tracking_number = models.CharField(max_length=50, blank=True, null=True, verbose_name='Номер ТТН')
+    shipment_status = models.CharField(max_length=100, blank=True, null=True, verbose_name='Статус посылки')
+    shipment_status_updated = models.DateTimeField(null=True, blank=True, verbose_name='Время обновления статуса')
     payment_screenshot = models.ImageField(upload_to='payment_screenshots/', blank=True, null=True, verbose_name='Скріншот оплати')
     points_awarded = models.BooleanField(default=False, verbose_name='Бали нараховані')
     created = models.DateTimeField(auto_now_add=True)

@@ -95,6 +95,9 @@ if 'social_django.context_processors.login_redirect' not in TEMPLATES[0]['OPTION
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
 
+# Nova Poshta API настройки
+NOVA_POSHTA_API_KEY = os.environ.get('NOVA_POSHTA_API_KEY', '')
+
 AUTHENTICATION_BACKENDS = (
     'social_core.backends.google.GoogleOAuth2',
     'django.contrib.auth.backends.ModelBackend',

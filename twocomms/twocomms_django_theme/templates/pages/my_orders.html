@@ -131,6 +131,11 @@
             <span class="ttn-info">
               {% if o.tracking_number %}
                 {{ o.tracking_number }}
+                {% if o.shipment_status %}
+                  <span class="shipment-status" title="Статус посылки: {{ o.shipment_status }}">
+                    📦 {{ o.shipment_status|truncatechars:30 }}
+                  </span>
+                {% endif %}
               {% else %}
                 <span class="ttn-pending">ТТН очікується</span>
               {% endif %}
