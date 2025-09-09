@@ -74,6 +74,23 @@ else:
         if h not in ('localhost', '127.0.0.1') and not h.startswith('*'):
             CSRF_TRUSTED_ORIGINS.extend([f"http://{h}", f"https://{h}"])
 
+# Social Auth: приложения и контекст-процессоры уже подключены из base settings
+if 'social_django' not in INSTALLED_APPS:
+    INSTALLED_APPS.append('social_django')
+if 'social_django.context_processors.backends' not in TEMPLATES[0]['OPTIONS']['context_processors']:
+    TEMPLATES[0]['OPTIONS']['context_processors'].append('social_django.context_processors.backends')
+if 'social_django.context_processors.login_redirect' not in TEMPLATES[0]['OPTIONS']['context_processors']:
+    TEMPLATES[0]['OPTIONS']['context_processors'].append('social_django.context_processors.login_redirect')
+
+AUTHENTICATION_BACKENDS = (
+    'social_core.backends.google.GoogleOAuth2',
+    'django.contrib.auth.backends.ModelBackend',
+)
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.environ.get('GOOGLE_CLIENT_ID', '')
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
+SOCIAL_AUTH_REDIRECT_IS_HTTPS = os.environ.get('SOCIAL_AUTH_REDIRECT_IS_HTTPS', 'True').lower() in ('1','true','yes')
+SOCIAL_AUTH_URL_NAMESPACE = 'social'
+
 # База данных: выбираем по DB_ENGINE (mysql | postgresql), иначе SQLite как фолбэк
 DB_ENGINE = os.environ.get('DB_ENGINE', '').lower()
 if os.environ.get('DB_NAME') and os.environ.get('DB_USER'):
@@ -214,7 +231,7 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # HSTS
 SECURE_HSTS_SECONDS = 31536000
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_INCLUDE_SUBDOMАINS = True
 SECURE_HSTS_PRELOAD = True
 
 # Куки

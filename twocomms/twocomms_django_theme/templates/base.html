@@ -42,7 +42,8 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' rel='stylesheet'>
+  <link rel="preload" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' rel='stylesheet'></noscript>
   <link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap' rel='preload' as='style' onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap' rel='stylesheet'></noscript>
   
@@ -64,10 +65,11 @@
   <link rel='icon' href='{% static 'img/favicon.ico' %}' sizes='any' type='image/x-icon'>
   
   <!-- Early performance hint: enable lite mode for save-data/low-memory/low-CPU -->
-  <script>(function(){try{var c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;var save=c&&c.saveData;var lowRam=Number(navigator.deviceMemory||0)&&navigator.deviceMemory<=2;var lowCPU=Number(navigator.hardwareConcurrency||0)&&navigator.hardwareConcurrency<=2;if(save||lowRam||lowCPU){document.documentElement.classList.add('perf-lite');}}catch(e){}})();</script>
+  <script>(function(){try{var c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;var save=c&&c.saveData;var lowRam=Number(navigator.deviceMemory||0)&&navigator.deviceMemory<=2;var lowCPU=Number(navigator.hardwareConcurrency||0)&&navigator.hardwareConcurrency<=2;var smallVp=(window.matchMedia&&window.matchMedia('(max-width: 576px)').matches)||window.innerWidth<=576;if(save||lowRam||lowCPU||smallVp){document.documentElement.classList.add('perf-lite');}}catch(e){}})();</script>
   
   <!-- Stylesheets -->
-  <link href='{% static 'css/styles.css' %}?v=2025.09.06.013' rel='stylesheet'>
+  <link rel="preload" href="{% static 'css/styles.css' %}?v=2025.09.06.013" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="{% static 'css/styles.css' %}?v=2025.09.06.013" rel="stylesheet"></noscript>
   <style>
   /* Lite mode on constrained devices: reduce expensive visual effects */
   .perf-lite .hero.bg-hero,
@@ -80,6 +82,13 @@
   .perf-lite .hint-wiggle,
   .perf-lite .reveal,
   .perf-lite .reveal-fast { transition: none !important; }
+  /* Отключаем тяжелые фоновые эффекты и анимации на слабых устройствах */
+  .perf-lite body::before, .perf-lite body::after { display: none !important; animation: none !important; backdrop-filter: none !important; filter: none !important; }
+  .perf-lite * { animation-duration: 0s !important; animation-iteration-count: 0 !important; transition: none !important; }
+  .perf-lite .cart-sparks-container, .perf-lite .avatar-glow, .perf-lite .avatar-glow-large, .perf-lite .avatar-glow-mobile, .perf-lite .cart-glow, .perf-lite .cart-glow-mobile { display: none !important; }
+  @media (max-width: 576px){
+    .perf-lite .bottom-nav { box-shadow: none !important; }
+  }
   </style>
   {% block extra_css %}{% endblock %}
   
@@ -109,7 +118,7 @@
     ]
   }
   </script>
-  <!-- Meta Pixel Code -->
+  <!-- Meta Pixel Code (deferred) -->
   <div id="am"
        {% if request.user.is_authenticated %}
          data-external-id="{{ request.user.id }}"
@@ -119,41 +128,49 @@
          {% if request.user.userprofile and request.user.userprofile.city %}data-ct="{{ request.user.userprofile.city|escapejs }}"{% endif %}
        {% endif %} style="display:none"></div>
   <script>
-  !function(f,b,e,v,n,t,s)
-  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-  n.queue=[];t=b.createElement(e);t.async=!0;
-  t.src=v;s=b.getElementsByTagName(e)[0];
-  s.parentNode.insertBefore(t,s)}(window, document,'script',
-  'https://connect.facebook.net/en_US/fbevents.js');
-  try{
-    var amEl=document.getElementById('am');
-    var am={};
-    if(amEl){
-      var fn = (amEl.dataset.fn||'').trim();
-      var parts = fn.split(/\s+/);
-      if(fn && parts.length>1){ am.fn=parts[0]; am.ln=parts.slice(1).join(' '); } else if(fn){ am.fn=fn; }
-      if(amEl.dataset.externalId) am.external_id = amEl.dataset.externalId;
-      if(amEl.dataset.em) am.em = amEl.dataset.em;
-      if(amEl.dataset.ph) am.ph = amEl.dataset.ph;
-      if(amEl.dataset.ct) am.ct = amEl.dataset.ct;
+  (function(){
+    function loadPixel(){
+      !function(f,b,e,v,n,t,s){
+        if(f.fbq)return; n=f.fbq=function(){ n.callMethod ? n.callMethod.apply(n,arguments) : n.queue.push(arguments) };
+        if(!f._fbq) f._fbq=n; n.push=n; n.loaded=!0; n.version='2.0'; n.queue=[]; t=b.createElement(e); t.async=!0; t.src=v; s=b.getElementsByTagName(e)[0]; s.parentNode.insertBefore(t,s);
+      }(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');
+      try{
+        var amEl=document.getElementById('am');
+        var am={};
+        if(amEl){
+          var fn=(amEl.dataset.fn||'').trim();
+          var parts=fn.split(/\s+/);
+          if(fn && parts.length>1){ am.fn=parts[0]; am.ln=parts.slice(1).join(' ');} else if(fn){ am.fn=fn; }
+          if(amEl.dataset.externalId) am.external_id=amEl.dataset.externalId;
+          if(amEl.dataset.em) am.em=amEl.dataset.em;
+          if(amEl.dataset.ph) am.ph=amEl.dataset.ph;
+          if(amEl.dataset.ct) am.ct=amEl.dataset.ct;
+        }
+        fbq('init','823958313630148', am);
+      }catch(_){ try{ fbq('init','823958313630148'); }catch(__){} }
+      try{ fbq('track','PageView'); }catch(__){}
     }
-    fbq('init', '823958313630148', am);
-  }catch(_){ try{ fbq('init', '823958313630148'); }catch(__){} }
-  fbq('track', 'PageView');
+    if('requestIdleCallback' in window){ requestIdleCallback(loadPixel, {timeout: 1200}); }
+    else { window.addEventListener('load', loadPixel, {once:true}); }
+  })();
   </script>
   <noscript><img height="1" width="1" style="display:none"
   src="https://www.facebook.com/tr?id=823958313630148&ev=PageView&noscript=1"
   /></noscript>
   <!-- End Meta Pixel Code -->
-  <!-- Clarity tracking code for https://twocomms.shop/ -->
+  <!-- Clarity tracking code (deferred) for https://twocomms.shop/ -->
   <script>
-  (function(c,l,a,r,i,t,y){
-      c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-      t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i+"?ref=bwt";
-      y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-  })(window, document, "clarity", "script", "t7shrtow0k");
+  (function(){
+    function loadClarity(){
+      (function(c,l,a,r,i,t,y){
+          c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+          t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i+"?ref=bwt";
+          y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+      })(window, document, "clarity", "script", "t7shrtow0k");
+    }
+    if('requestIdleCallback' in window){ requestIdleCallback(loadClarity, {timeout: 1500}); }
+    else { window.addEventListener('load', loadClarity, {once:true}); }
+  })();
   </script>
   {% block structured_data %}{% endblock %}
   <script>
@@ -253,11 +270,11 @@
               <div class="user-header">
                 <div class="user-avatar-large">
                   {% if request.user.userprofile and request.user.userprofile.avatar %}
-                    <img src="{{ request.user.userprofile.avatar.url }}" class="avatar-image" alt="">
+                    <img src="{{ request.user.userprofile.avatar.url }}" class="avatar-image" loading="lazy" decoding="async" fetchpriority="low" alt="Аватар користувача">
                   {% elif request.session.profile_avatar %}
-                    <img src="{{ MEDIA_URL }}{{ request.session.profile_avatar }}" class="avatar-image" alt="">
+                    <img src="{{ MEDIA_URL }}{{ request.session.profile_avatar }}" class="avatar-image" loading="lazy" decoding="async" fetchpriority="low" alt="Аватар користувача">
                   {% else %}
-                    <img src="{% static 'img/placeholder.jpg' %}" class="avatar-image" alt="">
+                    <img src="{% static 'img/placeholder.jpg' %}" class="avatar-image" loading="lazy" decoding="async" fetchpriority="low" alt="Плейсхолдер аватара">
                   {% endif %}
                   <div class="avatar-glow-large"></div>
                 </div>
