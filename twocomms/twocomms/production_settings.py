@@ -225,13 +225,15 @@ SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
 SESSION_CACHE_ALIAS = 'default'
 
 # Кэширование шаблонов (включено обратно)
-TEMPLATES[0]['OPTIONS']['loaders'] = [
-    ('django.template.loaders.cached.Loader', [
-        'django.template.loaders.filesystem.Loader',
-        'django.template.loaders.app_directories.Loader',
-    ]),
-]
-TEMPLATES[0]['APP_DIRS'] = False
+# Временно отключаем кэширование шаблонов для отладки
+# TEMPLATES[0]['OPTIONS']['loaders'] = [
+#     ('django.template.loaders.cached.Loader', [
+#         'django.template.loaders.filesystem.Loader',
+#         'django.template.loaders.app_directories.Loader',
+#     ]),
+# ]
+# TEMPLATES[0]['APP_DIRS'] = False
+TEMPLATES[0]['APP_DIRS'] = True
 
 # Восстанавливаем кэширование
 CACHES = {
