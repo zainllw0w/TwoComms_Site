@@ -36,6 +36,23 @@ class TelegramNotifier:
         except Exception as e:
             return False
     
+    def send_personal_message(self, telegram_id, message, parse_mode='HTML'):
+        """Отправляет личное сообщение пользователю по telegram_id"""
+        if not self.bot_token or not telegram_id:
+            return False
+            
+        try:
+            url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
+            data = {
+                'chat_id': telegram_id,
+                'text': message,
+                'parse_mode': parse_mode
+            }
+            response = requests.post(url, data=data, timeout=10)
+            return response.status_code == 200
+        except Exception as e:
+            return False
+    
     def format_order_message(self, order):
         """Форматирует HTML сообщение о заказе с поддержкой Telegram"""
         # Основная информация о заказе
@@ -199,6 +216,44 @@ class TelegramNotifier:
 • <a href="https://t.me/twocomms">💬 Помощь в Telegram</a>
 • <a href="https://twocomms.shop/my-orders/">📋 Мои заказы</a>"""
         
+        return message
+    
+    def send_ttn_added_notification(self, order):
+        """Отправляет уведомление пользователю о добавлении ТТН"""
+        if not order.user or not order.user.userprofile.telegram_id:
+            return False
+        
+        message = self._format_ttn_added_message(order)
+        return self.send_personal_message(order.user.userprofile.telegram_id, message)
+    
+    def send_order_status_update(self, order, old_status, new_status):
+        """Отправляет уведомление пользователю об изменении статуса заказа"""
+        if not order.user or not order.user.userprofile.telegram_id:
+            return False
+        
+        message = self._format_status_update_message(order, old_status, new_status)
+        return self.send_personal_message(order.user.userprofile.telegram_id, message)
+    
+    def _format_status_update_message(self, order, old_status, new_status):
+        """Форматирует сообщение об изменении статуса заказа"""
+        message = f"""📋 <b>ОБНОВЛЕНИЕ СТАТУСА ЗАКАЗА</b>
+
+🆔 <b>Заказ:</b> #{order.order_number}
+
+📊 <b>Статус изменен:</b>
+├─ Было: {old_status}
+└─ Стало: <b>{new_status}</b>
+
+💰 <b>Сумма:</b> {order.total_sum} грн
+
+🕐 <b>Время обновления:</b> {timezone.now().strftime('%d.%m.%Y %H:%M')}
+
+<i>Следите за обновлениями вашего заказа!</i>
+
+🔗 <b>Полезные ссылки:</b>
+• <a href="https://t.me/twocomms">💬 Помощь в Telegram</a>
+• <a href="https://twocomms.shop/my-orders/">📋 Мои заказы</a>"""
+
         return message
 
 
