@@ -5,9 +5,6 @@ from django.core.cache import cache
 from django.db import connection
 from django.utils import timezone
 import time
-import logging
-
-logger = logging.getLogger(__name__)
 
 class PerformanceMonitor:
     """
@@ -39,11 +36,7 @@ class PerformanceMonitor:
         metrics = self.get_metrics()
         
         if metrics['execution_time'] > threshold:
-            logger.warning(
-                f"Slow request detected: {request.path} - "
-                f"{metrics['execution_time']:.2f}s, "
-                f"{metrics['queries_count']} queries"
-            )
+            pass
     
     def cache_performance_metrics(self, view_name, metrics):
         """

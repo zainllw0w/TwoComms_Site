@@ -2839,6 +2839,45 @@ function awardPromocode(proposalId) {
     });
   }
 }
+
+/* Функция для принудительного обновления данных при переключении периодов */
+document.addEventListener('DOMContentLoaded', function() {
+  // Находим все кнопки периодов
+  const periodButtons = document.querySelectorAll('.period-btn');
+  
+  periodButtons.forEach(button => {
+    button.addEventListener('click', function(e) {
+      // Добавляем параметр для принудительного обновления
+      const url = new URL(this.href);
+      url.searchParams.set('_t', Date.now());
+      this.href = url.toString();
+      
+      // Показываем индикатор загрузки
+      const loadingIndicator = document.createElement('div');
+      loadingIndicator.innerHTML = 'Завантаження...';
+      loadingIndicator.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0,0,0,0.8);
+        color: white;
+        padding: 20px;
+        border-radius: 8px;
+        z-index: 9999;
+        font-size: 16px;
+      `;
+      document.body.appendChild(loadingIndicator);
+      
+      // Удаляем индикатор через 2 секунды
+      setTimeout(() => {
+        if (loadingIndicator.parentNode) {
+          loadingIndicator.parentNode.removeChild(loadingIndicator);
+        }
+      }, 2000);
+    });
+  });
+});
 </script>
 
 {% endblock %}
