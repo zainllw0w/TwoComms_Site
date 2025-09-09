@@ -24,6 +24,9 @@ urlpatterns = [
     path("", include("storefront.urls")),
     path("admin/", admin.site.urls),
     
+    # Accounts
+    path("accounts/", include("accounts.urls")),
+    
     # Sitemap
     path('sitemap.xml', cache_page(600)(sitemap), {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
     

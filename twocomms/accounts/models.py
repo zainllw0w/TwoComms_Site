@@ -16,6 +16,7 @@ class UserProfile(models.Model):
     full_name = models.CharField(max_length=200, blank=True)
     email = models.EmailField(max_length=254, blank=True, verbose_name='Email')
     telegram = models.CharField(max_length=100, blank=True, verbose_name='Telegram')
+    telegram_id = models.BigIntegerField(null=True, blank=True, verbose_name='Telegram ID')
     instagram = models.CharField(max_length=100, blank=True, verbose_name='Instagram')
     is_ubd = models.BooleanField(default=False, verbose_name='УБД')
     ubd_doc = models.ImageField(upload_to='ubd_docs/', blank=True, null=True, verbose_name='Фото посвідчення УБД')
