@@ -103,9 +103,7 @@ class TelegramNotifier:
             total_section += f"Промокод: {order.promo_code.code}\n"
             total_section += f"Скидка: -{order.discount_amount} грн\n"
         
-        total_section += f"ИТОГО К ОПЛАТЕ: {order.total_sum} грн
-</pre>
-"""
+        total_section += f"ИТОГО К ОПЛАТЕ: {order.total_sum} грн\n</pre>\n"""
         
         # Красивый блок с итоговой информацией
         summary_block = f"""
