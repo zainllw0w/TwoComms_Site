@@ -1018,6 +1018,15 @@ def process_guest_order(request):
     request.session.pop('applied_promo_code', None)
     request.session.modified = True
     
+    # Отправляем Telegram уведомление после создания заказа и товаров
+    try:
+        from orders.telegram_notifications import TelegramNotifier
+        notifier = TelegramNotifier()
+        notifier.send_new_order_notification(order)
+    except Exception as e:
+        # Не прерываем процесс, если уведомление не отправилось
+        pass
+    
     from django.contrib import messages
     messages.success(request, f'Замовлення #{order.order_number} успішно створено!')
     
@@ -2195,6 +2204,15 @@ def order_create(request):
     request.session['cart'] = {}
     request.session.pop('applied_promo_code', None)
     request.session.modified = True
+
+    # Отправляем Telegram уведомление после создания заказа и товаров
+    try:
+        from orders.telegram_notifications import TelegramNotifier
+        notifier = TelegramNotifier()
+        notifier.send_new_order_notification(order)
+    except Exception as e:
+        # Не прерываем процесс, если уведомление не отправилось
+        pass
 
     from django.contrib import messages
     messages.success(request, f'Замовлення #{order.order_number} успішно створено!')
