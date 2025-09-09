@@ -1,26 +1,115 @@
 {% extends 'base.html' %}{% load static %}{% block title %}Реєстрація — TwoComms{% endblock %}{% block content %}
 <div class="row justify-content-center">
-  <div class="col-12 col-md-6 col-lg-5">
+  <div class="col-12 col-md-7 col-lg-5">
     <div class="card glass p-3 p-md-4">
-      <h1 class="h5 fw-bold mb-3">Реєстрація</h1>
-      <form method="post" class="vstack gap-3">{% csrf_token %}
-        <div>{{ form.username.label_tag }}{{ form.username }}</div>
-        <div>{{ form.password1.label_tag }}{{ form.password1 }}</div>
-        <div>{{ form.password2.label_tag }}{{ form.password2 }}</div>
-        <button class="btn btn-cta">Створити акаунт</button>
+      <div class="d-flex align-items-center mb-3" style="gap:.75rem">
+        <div class="rounded-3 d-inline-flex align-items-center justify-content-center" style="width:44px;height:44px;background:linear-gradient(135deg,var(--accent-color),#7c3aed);color:#fff">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+        </div>
+        <div>
+          <h1 class="h5 fw-bold mb-0">Створення акаунту</h1>
+          <div class="text-secondary small">Отримуйте бонуси, спостерігайте за замовленнями та обраним</div>
+        </div>
+      </div>
+
+      {% if form.non_field_errors %}
+      <div class="alert alert-danger" role="alert">
+        {% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}
+      </div>
+      {% endif %}
+
+      <form method="post" novalidate class="vstack gap-3 position-relative">{% csrf_token %}
+        <div>
+          <label for="id_username" class="form-label">Логін</label>
+          {{ form.username|add_class:"form-control bg-elevate" }}
+          <div class="form-text">Мін. 3 символи, латиниця/цифри/._-</div>
+          {% if form.username.errors %}
+            <div class="invalid-feedback d-block">
+              {% for e in form.username.errors %}{{ e }}{% if not forloop.last %}<br>{% endif %}{% endfor %}
+            </div>
+          {% endif %}
+        </div>
+        <div>
+          <label for="id_password1" class="form-label">Пароль</label>
+          <div class="input-group">
+            {{ form.password1|add_class:"form-control bg-elevate" }}
+            <button class="btn btn-outline-secondary" type="button" data-toggle-pwd1 aria-label="Показати пароль">👁</button>
+          </div>
+          <div class="form-text">8+ символів, бажано букви велики/малі та цифри</div>
+          <div class="progress mt-2" style="height: 6px;">
+            <div class="progress-bar" role="progressbar" style="width:0%" data-pwd-meter aria-label="Складність паролю"></div>
+          </div>
+          {% if form.password1.errors %}
+            <div class="invalid-feedback d-block">
+              {% for e in form.password1.errors %}{{ e }}{% if not forloop.last %}<br>{% endif %}{% endfor %}
+            </div>
+          {% endif %}
+        </div>
+        <div>
+          <label for="id_password2" class="form-label">Повтор паролю</label>
+          <div class="input-group">
+            {{ form.password2|add_class:"form-control bg-elevate" }}
+            <button class="btn btn-outline-secondary" type="button" data-toggle-pwd2 aria-label="Показати пароль">👁</button>
+          </div>
+          {% if form.password2.errors %}
+            <div class="invalid-feedback d-block">
+              {% for e in form.password2.errors %}{{ e }}{% if not forloop.last %}<br>{% endif %}{% endfor %}
+            </div>
+          {% endif %}
+        </div>
+        <button class="btn btn-cta d-inline-flex align-items-center" type="submit" data-submit-btn style="gap:.5rem">
+          <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <span>Створити акаунт</span>
+        </button>
       </form>
+
       <div class="text-secondary small mt-3">Вже маєте акаунт? <a href="{% url 'login' %}">Увійти</a></div>
     </div>
   </div>
 </div>
+
+{% block extra_js %}{% endblock %}
 <script>
-document.addEventListener('DOMContentLoaded', function(){
-  try{
-    var form=document.querySelector('form.vstack');
-    if(form){
-      form.addEventListener('submit', function(){ try{ if(window.trackEvent){ window.trackEvent('CompleteRegistration'); } }catch(_){ } });
-    }
-  }catch(_){ }
-});
+(function(){
+  function scorePassword(p){
+    var s = 0; if(!p) return s; 
+    var letters = {}; for(var i=0;i<p.length;i++){ letters[p[i]] = (letters[p[i]] || 0) + 1; s += 5.0/letters[p[i]]; }
+    var variations = {digits:/\d/.test(p), lower:/[a-z]/.test(p), upper:/[A-Z]/.test(p), nonWords:/\W/.test(p)};
+    var variationCount = 0; for (var k in variations){ variationCount += (variations[k] === true) ? 1 : 0; }
+    s += (variationCount - 1) * 10;
+    s = Math.min(100, Math.max(0, Math.round(s)));
+    return s;
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    try{
+      var form = document.querySelector('form.vstack');
+      var btn = form && form.querySelector('[data-submit-btn]');
+      if(form){
+        form.addEventListener('submit', function(){
+          try{ if(window.trackEvent){ window.trackEvent('CompleteRegistration'); } }catch(_){ }
+          if(btn){ var sp=btn.querySelector('.spinner-border'); if(sp){ sp.classList.remove('d-none'); } btn.setAttribute('disabled','disabled'); }
+        });
+      }
+      var pwd1 = document.getElementById('id_password1');
+      var meter = document.querySelector('[data-pwd-meter]');
+      if(pwd1 && meter){
+        var update = function(){
+          var v = pwd1.value||''; var sc = scorePassword(v);
+          meter.style.width = sc + '%';
+          meter.classList.remove('bg-danger','bg-warning','bg-success');
+          meter.classList.add(sc<40?'bg-danger':(sc<70?'bg-warning':'bg-success'));
+        };
+        pwd1.addEventListener('input', update); update();
+      }
+      var t1 = document.querySelector('[data-toggle-pwd1]');
+      var t2 = document.querySelector('[data-toggle-pwd2]');
+      var p1 = document.getElementById('id_password1');
+      var p2 = document.getElementById('id_password2');
+      if(t1 && p1){ t1.addEventListener('click', function(){ p1.type = (p1.type==='password' ? 'text' : 'password'); }); }
+      if(t2 && p2){ t2.addEventListener('click', function(){ p2.type = (p2.type==='password' ? 'text' : 'password'); }); }
+    }catch(_){ }
+  });
+})();
 </script>
 {% endblock %}

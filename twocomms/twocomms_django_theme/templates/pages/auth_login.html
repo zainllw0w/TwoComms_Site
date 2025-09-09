@@ -1,25 +1,88 @@
 {% extends 'base.html' %}{% load static %}{% block title %}Вхід — TwoComms{% endblock %}{% block content %}
 <div class="row justify-content-center">
-  <div class="col-12 col-md-6 col-lg-5">
+  <div class="col-12 col-md-7 col-lg-5">
     <div class="card glass p-3 p-md-4">
-      <h1 class="h5 fw-bold mb-3">Вхід</h1>
-      <form method="post" class="vstack gap-3">{% csrf_token %}
-        <div>{{ form.username.label_tag }}{{ form.username }}</div>
-        <div>{{ form.password.label_tag }}{{ form.password }}</div>
-        <button class="btn btn-cta">Увійти</button>
+      <div class="d-flex align-items-center mb-3" style="gap:.75rem">
+        <div class="rounded-3 d-inline-flex align-items-center justify-content-center" style="width:44px;height:44px;background:linear-gradient(135deg,var(--accent-color),#7c3aed);color:#fff">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5z"/></svg>
+        </div>
+        <div>
+          <h1 class="h5 fw-bold mb-0">Вхід до акаунту</h1>
+          <div class="text-secondary small">Швидкий доступ до замовлень, балів та обраного</div>
+        </div>
+      </div>
+
+      {% if form.non_field_errors %}
+      <div class="alert alert-danger" role="alert">
+        <div class="d-flex" style="gap:.5rem;align-items:flex-start">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" class="flex-shrink-0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+          <div>
+            {% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <form method="post" novalidate class="vstack gap-3 position-relative">{% csrf_token %}
+        <div>
+          <label for="id_username" class="form-label">Логін</label>
+          {{ form.username|add_class:"form-control bg-elevate" }}
+          <div class="form-text">Використовуйте свій нікнейм. Реєстрація — за хвилину.</div>
+          {% if form.username.errors %}
+            <div class="invalid-feedback d-block">
+              {% for e in form.username.errors %}{{ e }}{% if not forloop.last %}<br>{% endif %}{% endfor %}
+            </div>
+          {% endif %}
+        </div>
+        <div>
+          <label for="id_password" class="form-label">Пароль</label>
+          <div class="input-group">
+            {{ form.password|add_class:"form-control bg-elevate" }}
+            <button class="btn btn-outline-secondary" type="button" data-toggle-password aria-label="Показати пароль">👁</button>
+          </div>
+          {% if form.password.errors %}
+            <div class="invalid-feedback d-block">
+              {% for e in form.password.errors %}{{ e }}{% if not forloop.last %}<br>{% endif %}{% endfor %}
+            </div>
+          {% endif %}
+        </div>
+        <button class="btn btn-cta d-inline-flex align-items-center" type="submit" data-submit-btn style="gap:.5rem">
+          <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5z"/></svg>
+          <span>Увійти</span>
+        </button>
       </form>
+
       <div class="text-secondary small mt-3">Немає облікового запису? <a href="{% url 'register' %}">Зареєструватись</a></div>
     </div>
   </div>
 </div>
+
+{% block extra_js %}{% endblock %}
 <script>
-document.addEventListener('DOMContentLoaded', function(){
-  try{
-    var form=document.querySelector('form.vstack');
-    if(form){
-      form.addEventListener('submit', function(){ try{ if(window.trackEvent){ window.trackEvent('Lead', {lead_type:'login'}); } }catch(_){ } });
-    }
-  }catch(_){ }
-});
+(function(){
+  document.addEventListener('DOMContentLoaded', function(){
+    try{
+      var form = document.querySelector('form.vstack');
+      var btn = form && form.querySelector('[data-submit-btn]');
+      if(form){
+        // Трекинг
+        form.addEventListener('submit', function(){
+          try{ if(window.trackEvent){ window.trackEvent('Lead', {lead_type:'login'}); } }catch(_){ }
+          if(btn){ var sp=btn.querySelector('.spinner-border'); if(sp){ sp.classList.remove('d-none'); } btn.setAttribute('disabled','disabled'); }
+        });
+      }
+      // Переключатель видимости пароля
+      var toggle = document.querySelector('[data-toggle-password]');
+      var pwd = document.getElementById('id_password');
+      if(toggle && pwd){
+        toggle.addEventListener('click', function(){
+          var t = pwd.getAttribute('type') === 'password' ? 'text' : 'password';
+          pwd.setAttribute('type', t);
+        });
+      }
+    }catch(_){ }
+  });
+})();
 </script>
 {% endblock %}
