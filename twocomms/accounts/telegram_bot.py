@@ -94,8 +94,51 @@ class TelegramBot:
                 self.send_message(user_id, message)
                 return True
             else:
-                # Пользователь не найден - нужно связать аккаунт
-                message = f"""👋 <b>Добро пожаловать в TwoComms!</b>
+                # Автоматически подтверждаем пользователя
+                return self.auto_confirm_user(user_id, username)
+                
+        except Exception as e:
+            print(f"Ошибка обработки команды /start: {e}")
+            return False
+    
+    def auto_confirm_user(self, user_id, username=None):
+        """Автоматически подтверждает пользователя"""
+        try:
+            # Ищем пользователя по telegram username
+            if username:
+                # Убираем @ если есть
+                clean_username = username.lstrip('@')
+                
+                # Ищем точное совпадение
+                profile = UserProfile.objects.filter(telegram=clean_username).first()
+                
+                # Если не найдено, ищем с @
+                if not profile:
+                    profile = UserProfile.objects.filter(telegram=f"@{clean_username}").first()
+                
+                if profile and not profile.telegram_id:
+                    # Связываем аккаунт
+                    profile.telegram_id = user_id
+                    profile.save()
+                    
+                    message = f"""🎉 <b>Отлично! Ваш Telegram успешно подтвержден!</b>
+
+Теперь вы будете получать уведомления о статусе ваших заказов.
+
+🔔 <b>Вы будете получать уведомления о:</b>
+• Новых заказах
+• Изменении статуса посылок  
+• Получении заказов
+
+📋 <b>Полезные ссылки:</b>
+• <a href="https://twocomms.shop/my-orders/">Мои заказы</a>
+• <a href="https://twocomms.shop/profile/">Профиль</a>"""
+                    
+                    self.send_message(user_id, message)
+                    return True
+            
+            # Если пользователь не найден, показываем инструкцию
+            message = f"""👋 <b>Добро пожаловать в TwoComms!</b>
 
 Для получения уведомлений о статусе ваших заказов нужно связать ваш Telegram с аккаунтом на сайте.
 
@@ -103,15 +146,15 @@ class TelegramBot:
 1. Зайдите в свой профиль на сайте
 2. В поле "Telegram" введите ваш username: @{username or 'ваш_username'}
 3. Нажмите кнопку "Получать статусы в Telegram"
-4. Вернитесь сюда и нажмите /start
+4. Вернитесь сюда и напишите любое сообщение
 
 🌐 <a href="https://twocomms.shop/profile/">Перейти в профиль</a>"""
-                
-                self.send_message(user_id, message)
-                return False
+            
+            self.send_message(user_id, message)
+            return False
                 
         except Exception as e:
-            print(f"Ошибка обработки команды /start: {e}")
+            print(f"Ошибка автоматического подтверждения: {e}")
             return False
     
     def link_user_account(self, telegram_id, telegram_username):
@@ -168,10 +211,44 @@ class TelegramBot:
                 
                 if text == '/start':
                     return self.process_start_command(user_id, username)
+                else:
+                    # Обрабатываем любое другое сообщение
+                    return self.process_any_message(user_id, username, text)
                     
         except Exception as e:
             print(f"Ошибка обработки webhook: {e}")
         return False
+    
+    def process_any_message(self, user_id, username=None, text=''):
+        """Обрабатывает любое сообщение от пользователя"""
+        try:
+            # Проверяем, подтвержден ли уже пользователь
+            profile = UserProfile.objects.filter(telegram_id=user_id).first()
+            
+            if profile:
+                # Пользователь уже подтвержден
+                message = f"""✅ <b>Привет, {profile.user.username}!</b>
+
+Ваш Telegram уже подтвержден для получения уведомлений.
+
+🔔 <b>Вы получаете уведомления о:</b>
+• Новых заказах
+• Изменении статуса посылок
+• Получении заказов
+
+📋 <b>Полезные ссылки:</b>
+• <a href="https://twocomms.shop/my-orders/">Мои заказы</a>
+• <a href="https://twocomms.shop/profile/">Профиль</a>"""
+                
+                self.send_message(user_id, message)
+                return True
+            else:
+                # Пытаемся автоматически подтвердить пользователя
+                return self.auto_confirm_user(user_id, username)
+                
+        except Exception as e:
+            print(f"Ошибка обработки сообщения: {e}")
+            return False
 
 
 # Глобальный экземпляр бота
