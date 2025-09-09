@@ -224,20 +224,16 @@ CACHES = {
 SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
 SESSION_CACHE_ALIAS = 'default'
 
-# Кэширование шаблонов (временно отключено для отладки)
-# TEMPLATES[0]['OPTIONS']['loaders'] = [
-#     ('django.template.loaders.cached.Loader', [
-#         'django.template.loaders.filesystem.Loader',
-#         'django.template.loaders.app_directories.Loader',
-#     ]),
-# ]
-# TEMPLATES[0]['APP_DIRS'] = False
-TEMPLATES[0]['APP_DIRS'] = True
-# Удаляем loaders если они есть
-if 'loaders' in TEMPLATES[0]['OPTIONS']:
-    del TEMPLATES[0]['OPTIONS']['loaders']
+# Кэширование шаблонов (включено для продакшена)
+TEMPLATES[0]['OPTIONS']['loaders'] = [
+    ('django.template.loaders.cached.Loader', [
+        'django.template.loaders.filesystem.Loader',
+        'django.template.loaders.app_directories.Loader',
+    ]),
+]
+TEMPLATES[0]['APP_DIRS'] = False  # Отключаем APP_DIRS при использовании loaders
 
-# Восстанавливаем кэширование
+# Восстанавливаем кэширование с оптимизацией для статических файлов
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
@@ -245,6 +241,14 @@ CACHES = {
         'TIMEOUT': 300,
         'OPTIONS': {
             'MAX_ENTRIES': 1000,
+        }
+    },
+    'staticfiles': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'staticfiles-cache',
+        'TIMEOUT': 86400,  # 24 часа для статических файлов
+        'OPTIONS': {
+            'MAX_ENTRIES': 5000,
         }
     }
 }
@@ -256,10 +260,22 @@ STATICFILES_FINDERS = [
     'compressor.finders.CompressorFinder',
 ]
 
-# WhiteNoise: включаем сжатие и манифест
+# WhiteNoise: включаем сжатие и манифест с агрессивным кешированием
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-WHITENOISE_MAX_AGE = int(os.environ.get('WHITENOISE_MAX_AGE', str(60*60*24*180)))
+WHITENOISE_MAX_AGE = int(os.environ.get('WHITENOISE_MAX_AGE', str(60*60*24*180)))  # 180 дней
 WHITENOISE_IMMUTABLE_FILE_TEST = lambda path, url: True
+
+# Дополнительные настройки WhiteNoise для лучшего кеширования
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_AUTOREFRESH = False  # Отключаем автообновление в продакшене
+WHITENOISE_SKIP_COMPRESS_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'ico', 'woff', 'woff2', 'ttf', 'eot']
+
+# Настройки кеширования статических файлов
+WHITENOISE_ADD_HEADERS_FUNCTION = 'whitenoise.middleware.add_headers_function'
+WHITENOISE_ADD_HEADERS_FUNCTION = lambda headers, path, url: headers.update({
+    'Cache-Control': 'public, max-age=15552000, immutable',  # 180 дней
+    'Vary': 'Accept-Encoding',
+}) if any(path.endswith(ext) for ext in ['.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.woff', '.woff2', '.ttf', '.eot']) else None
 
 COMPRESS_ENABLED = True
 COMPRESS_OFFLINE = True
