@@ -1,4 +1,5 @@
 {% load static %}
+{% load cache %}
 <nav class='navbar navbar-expand-lg border-bottom sticky-top bg-body backdrop-blur'>
   <div class='container-xxl'>
     <a class='navbar-brand fw-bold d-flex align-items-center gap-2' href='{% url 'home' %}'>
@@ -8,6 +9,7 @@
       <span class='navbar-toggler-icon'></span>
     </button>
     <div class='collapse navbar-collapse' id='navMain'>
+      {% cache 3600 header_nav request.resolver_match.url_name %}
       <ul class='navbar-nav me-auto mb-2 mb-lg-0'>
         <li class='nav-item'><a class='nav-link' href='{% url 'catalog' %}'>Каталог</a></li>
         <li class='nav-item'><a class='nav-link' href='{% url 'favorites' %}'>Обрані товари</a></li>
@@ -15,6 +17,7 @@
         <li class='nav-item'><a class='nav-link' href='{% url 'about' %}'>Про бренд</a></li>
         <li class='nav-item'><a class='nav-link' href='{% url 'contacts' %}'>Контакти</a></li>
       </ul>
+      {% endcache %}
       <form class='d-none d-lg-flex me-3' role='search' action='{% url 'search' %}'>
         <input class='form-control form-control-sm bg-elevate' type='search' name='q' placeholder='Пошук…' aria-label='Пошук'>
       </form>

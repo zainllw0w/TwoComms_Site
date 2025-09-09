@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% load static %}
+{% extends "base.html" %}{% load static %}{% load cache %}
 
 {% block title %}{{ product.title }} — TwoComms | Купити {{ product.category.name|lower }}{% endblock %}
 
@@ -13,6 +13,7 @@
 {% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}{% if product.main_image %}{{ product.main_image.url }}{% else %}{% static 'img/logo.svg' %}{% endif %}{% endblock %}
 
 {% block structured_data %}
+{% cache 3600 product_ld_json product.id product.final_price product.category_id %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -44,6 +45,8 @@
   }
 }
 </script>
+{% endcache %}
+{% cache 3600 product_breadcrumbs product.id product.category_id %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -56,6 +59,7 @@
   ]
 }
 </script>
+{% endcache %}
 {% endblock %}
 
 {% block content %}

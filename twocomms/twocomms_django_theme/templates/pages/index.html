@@ -26,6 +26,7 @@
 {% endblock %}
 
 {% block content %}
+{% cache 1800 hero_block %}
 <section class="hero-section mb-4 mb-md-5 reveal">
   <div class="hero-container">
     <!-- Фоновый логотип -->
@@ -71,7 +72,9 @@
     </div>
   </div>
 </section>
+{% endcache %}
 {% if featured %}
+{% cache 1200 featured_block featured.id featured.final_price featured.discount_percent %}
 <section class="mb-4 mb-md-5 reveal" id="featured-section">
   <!-- Компактный блок рекомендаций в стиле категорий -->
   <div class="featured-unified-block">
@@ -165,8 +168,9 @@
     </div>
   </div>
 </section>
+{% endcache %}
 {% endif %}
-{% cache 300 categories_block %}
+{% cache 1800 categories_block %}
 <section class="mb-4 mb-md-5 reveal categories-section">
   <!-- Единый блок категорий без разделения -->
   <div class="categories-unified-block">
@@ -275,7 +279,9 @@
   <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4" data-stagger-grid id="products-container">
     {% for p in products %}
     <div class="product-card-wrap stagger-item reveal-stagger">
-      {% include "partials/product_card.html" with p=p stagger=True %}
+      {% cache 900 product_card p.id p.final_price p.discount_percent p.display_image.name p.category_id %}
+        {% include "partials/product_card.html" with p=p stagger=True %}
+      {% endcache %}
       {% if p.colors_preview %}
       <div class="product-card-dots">
         <span class="text-secondary small me-1">Кольори:</span>
