@@ -44,25 +44,56 @@ class TelegramNotifier:
         user_info += f"📦 {order.np_office}\n\n"
         
         order_info = f"🛒 <b>Заказ #{order.order_number}</b>\n"
-        order_info += f"💰 Сумма: {order.total_sum} грн\n"
         order_info += f"💳 Оплата: {order.get_payment_status_display()}\n"
         order_info += f"📊 Статус: {order.get_status_display()}\n"
         order_info += f"⏰ Время: {order.created.strftime('%d.%m.%Y %H:%M')}\n\n"
         
         # Информация о товарах
-        items_info = "📦 <b>Товары:</b>\n"
-        for item in order.items.all():
-            items_info += f"• {item.title} - {item.qty} шт ({item.unit_price} грн/шт)\n"
+        items_info = "📦 <b>Товары в заказе:</b>\n"
+        items_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        
+        total_items = 0
+        subtotal = 0
+        
+        for i, item in enumerate(order.items.all(), 1):
+            # Основная информация о товаре
+            items_info += f"<b>{i}.</b> {item.title}\n"
+            
+            # Детали товара
+            details = []
+            if item.size:
+                details.append(f"Размер: {item.size}")
             if item.color_variant:
-                items_info += f"  Цвет: {item.color_variant.color.name}\n"
+                details.append(f"Цвет: {item.color_variant.color.name}")
+            if details:
+                items_info += f"   └ {', '.join(details)}\n"
+            
+            # Количество и цена
+            items_info += f"   └ Количество: <b>{item.qty} шт.</b>\n"
+            items_info += f"   └ Цена за шт.: <b>{item.unit_price} грн</b>\n"
+            items_info += f"   └ Сумма: <b>{item.line_total} грн</b>\n"
+            
+            if i < order.items.count():
+                items_info += "   ────────────────────────────────────────────\n"
+            
+            total_items += item.qty
+            subtotal += item.line_total
         
-        # Промокод если есть
-        promo_info = ""
+        items_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        items_info += f"📊 Всего товаров: <b>{total_items} шт.</b>\n"
+        items_info += f"💰 Сумма товаров: <b>{subtotal} грн</b>\n"
+        
+        # Промокод и скидка
         if order.promo_code:
-            promo_info = f"\n🎫 Промокод: {order.promo_code.code}\n"
-            promo_info += f"💸 Скидка: {order.discount_amount} грн\n"
+            items_info += f"🎫 Промокод: <b>{order.promo_code.code}</b>\n"
+            items_info += f"💸 Скидка: <b>-{order.discount_amount} грн</b>\n"
+            items_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            items_info += f"💳 <b>ИТОГО К ОПЛАТЕ: {order.total_sum} грн</b>\n"
+        else:
+            items_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            items_info += f"💳 <b>ИТОГО К ОПЛАТЕ: {order.total_sum} грн</b>\n"
         
-        message = f"🆕 <b>Новый заказ!</b>\n\n{user_info}{order_info}{items_info}{promo_info}"
+        message = f"🆕 <b>НОВЫЙ ЗАКАЗ!</b>\n\n{user_info}{order_info}{items_info}"
         return message
     
     def send_new_order_notification(self, order):
