@@ -43,8 +43,10 @@ def create_test_order():
         OrderItem.objects.create(
             order=order,
             product=product,
-            quantity=1,
-            price=product.price
+            title=product.title,
+            qty=1,
+            unit_price=product.price,
+            line_total=product.price
         )
         
         print(f"✅ Тестовый заказ создан: #{order.order_number}")
