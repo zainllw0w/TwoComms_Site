@@ -12,6 +12,12 @@
         </div>
       </div>
 
+      <a href="{% url 'social:begin' 'google-oauth2' %}" class="btn btn-outline-light w-100 mb-3 d-flex align-items-center justify-content-center" style="gap:.5rem">
+        <img src="{% static 'img/google.svg' %}" alt="Google" width="18" height="18" loading="lazy">
+        <span>Увійти через Google</span>
+      </a>
+      <div class="text-secondary small mb-3">Продовжуючи, ви погоджуєтесь з умовами використання</div>
+
       {% if form.non_field_errors %}
       <div class="alert alert-danger" role="alert">
         <div class="d-flex" style="gap:.5rem;align-items:flex-start">
