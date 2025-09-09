@@ -1,18 +1,18 @@
 {% load static %}
 {% load cache %}
-{% load mobile_optimization %}
+{# {% load mobile_optimization %} #}
 <!DOCTYPE html>
 <html lang='uk' data-bs-theme='dark'>
 <head>
   <meta charset='utf-8'>
-  {% mobile_viewport_meta %}
+  <meta name='viewport' content='width=device-width, initial-scale=1'>
   <meta name="csrf-token" content="{{ csrf_token }}">
   
   <!-- Критические ресурсы для мобильных -->
-  {% mobile_preload_critical %}
+  {# {% mobile_preload_critical %} #}
   
   <!-- Touch оптимизация -->
-  {% mobile_touch_optimization %}
+  {# {% mobile_touch_optimization %} #}
   
   <!-- Расширенные SEO Meta Tags -->
   <title>{% block title %}TwoComms — Стріт & Мілітарі Одяг{% endblock %}</title>
@@ -75,9 +75,9 @@
   
   <!-- Stylesheets -->
   <!-- Критический CSS для мобильных -->
-  {% if request|is_mobile_device %}
+  {# {% if request|is_mobile_device %}
   <link href="{% static 'css/mobile-critical.css' %}?v=2025.09.09.001" rel="stylesheet">
-  {% endif %}
+  {% endif %} #}
   <link href="{% static 'css/styles.css' %}?v=2025.09.06.013" rel="stylesheet">
   <style>
   /* Lite mode on constrained devices: reduce expensive visual effects */
@@ -468,9 +468,9 @@
           </div>
 
 <script defer src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js'></script>
-{% if is_mobile %}
+{# {% if is_mobile %}
 <script defer src='{% static 'js/mobile-optimization.js' %}?v=2025.09.09.001'></script>
-{% endif %}
+{% endif %} #}
 <script defer src='{% static 'js/main.js' %}?v=29'></script><script>
 /* Fallback: глобальные функции, если основной JS не заинициализирован */
 (function(){
