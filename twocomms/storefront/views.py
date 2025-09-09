@@ -1661,12 +1661,14 @@ def admin_panel(request):
                 total_users = User.objects.count()
                 new_users_period = users_qs.count()
                 active_users_today = User.objects.filter(last_login__date=today).count()
+                active_users_period = User.objects.filter(last_login__date__range=[start_date, end_date]).count() if start_date and end_date else User.objects.filter(last_login__date=today).count()
                 logger.info(f"✓ Users: total={total_users}, new_period={new_users_period}, active_today={active_users_today}")
             except Exception as e:
                 logger.error(f"✗ Users calculation failed: {e}")
                 total_users = 0
                 new_users_period = 0
                 active_users_today = 0
+                active_users_period = 0
             
             # Товары
             try:
@@ -1789,6 +1791,7 @@ def admin_panel(request):
                 'total_users': total_users,
                 'new_users_today': new_users_period,
                 'active_users_today': active_users_today,
+                'active_users_period': active_users_period,
                 'total_products': total_products,
                 'total_categories': total_categories,
                 'print_proposals_pending': print_proposals_pending,
@@ -1801,6 +1804,14 @@ def admin_panel(request):
                 'online_users': online_users,
                 'unique_visitors_today': unique_visitors_today,
                 'page_views_today': page_views_today,
+                'page_views_period': page_views_today if period == 'today' else (
+                    PageView.objects.filter(when__date__range=[start_date, end_date], is_bot=False).count() if start_date and end_date 
+                    else PageView.objects.filter(is_bot=False).count()
+                ),
+                'sessions_period': unique_visitors_today if period == 'today' else (
+                    SiteSession.objects.filter(first_seen__date__range=[start_date, end_date], is_bot=False).count() if start_date and end_date 
+                    else SiteSession.objects.filter(is_bot=False).count()
+                ),
                 'bounce_rate': bounce_rate,
                 'avg_session_duration': avg_session_duration,
                 'conversion_rate': conversion_rate,
@@ -1852,6 +1863,7 @@ def admin_panel(request):
                 'total_users': total_users_fallback,
                 'new_users_today': 0,
                 'active_users_today': 0,
+                'active_users_period': 0,
                 'total_products': total_products_fallback,
                 'total_categories': total_categories_fallback,
                 'print_proposals_pending': 0,
@@ -1862,6 +1874,8 @@ def admin_panel(request):
                 'online_users': 0,
                 'unique_visitors_today': 0,
                 'page_views_today': 0,
+                'page_views_period': 0,
+                'sessions_period': 0,
                 'bounce_rate': 0,
                 'avg_session_duration': 0,
                 'conversion_rate': 0,
