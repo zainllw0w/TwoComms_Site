@@ -868,7 +868,73 @@ function confirmTelegramFromOrders() {
   window.open(botUrl, '_blank');
   
   // Показываем инструкцию
-  alert('Откроется Telegram бот. Нажмите /start для подтверждения. После этого обновите страницу.');
+  alert('Откроется Telegram бот. Напишите любое сообщение для подтверждения. Статус обновится автоматически.');
+  
+  // Запускаем проверку статуса
+  startTelegramStatusCheckFromOrders();
+}
+
+// Функция для проверки статуса подтверждения Telegram из заказов
+function checkTelegramStatusFromOrders() {
+  fetch('/accounts/telegram/status/')
+    .then(response => response.json())
+    .then(data => {
+      if (data.is_confirmed) {
+        // Скрываем кнопку подтверждения
+        hideTelegramNotificationButton();
+        // Останавливаем проверку
+        stopTelegramStatusCheckFromOrders();
+      }
+    })
+    .catch(error => {
+      console.error('Ошибка проверки статуса Telegram:', error);
+    });
+}
+
+// Функция для скрытия кнопки уведомлений Telegram
+function hideTelegramNotificationButton() {
+  const notificationItems = document.querySelectorAll('.telegram-notification-item');
+  notificationItems.forEach(item => {
+    item.style.display = 'none';
+  });
+}
+
+// Переменные для управления проверкой статуса из заказов
+let telegramStatusIntervalFromOrders = null;
+let telegramStatusCheckCountFromOrders = 0;
+const MAX_TELEGRAM_STATUS_CHECKS_FROM_ORDERS = 30; // Максимум 30 проверок (5 минут)
+
+// Функция для запуска проверки статуса из заказов
+function startTelegramStatusCheckFromOrders() {
+  // Останавливаем предыдущую проверку если есть
+  stopTelegramStatusCheckFromOrders();
+  
+  // Сбрасываем счетчик
+  telegramStatusCheckCountFromOrders = 0;
+  
+  // Запускаем проверку каждые 10 секунд
+  telegramStatusIntervalFromOrders = setInterval(() => {
+    telegramStatusCheckCountFromOrders++;
+    
+    if (telegramStatusCheckCountFromOrders >= MAX_TELEGRAM_STATUS_CHECKS_FROM_ORDERS) {
+      // Прекращаем проверку после 5 минут
+      stopTelegramStatusCheckFromOrders();
+      return;
+    }
+    
+    checkTelegramStatusFromOrders();
+  }, 10000); // 10 секунд
+  
+  // Первая проверка сразу
+  checkTelegramStatusFromOrders();
+}
+
+// Функция для остановки проверки статуса из заказов
+function stopTelegramStatusCheckFromOrders() {
+  if (telegramStatusIntervalFromOrders) {
+    clearInterval(telegramStatusIntervalFromOrders);
+    telegramStatusIntervalFromOrders = null;
+  }
 }
 </script>
 
