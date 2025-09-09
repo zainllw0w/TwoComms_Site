@@ -77,7 +77,7 @@ class TelegramNotifier:
             items_info += f"   └ <b>{item.qty}</b> × <b>{item.unit_price}</b> = <b>{item.line_total} грн</b>\n"
             
             if i < order.items.count():
-                items_info += "   ─────────────────────────────\n"
+                items_info += "   ───────────────\n"
             
             total_items += item.qty
             subtotal += item.line_total
@@ -100,8 +100,35 @@ class TelegramNotifier:
 💳 <b>ИТОГО К ОПЛАТЕ: {order.total_sum} грн</b>
 """
         
+        # Красивый блок с итоговой информацией
+        summary_block = f"""
+<pre language="text">
+┌─────────────────────────────┐
+│  🆕 ЗАКАЗ #{order.order_number}        │
+├─────────────────────────────┤
+│  👤 {order.full_name:<25} │
+│  📞 {order.phone:<25} │
+│  🏙️ {order.city:<25} │
+│  📦 {order.np_office:<25} │
+├─────────────────────────────┤
+│  💳 {order.get_payment_status_display():<25} │
+│  📊 {order.get_status_display():<25} │
+│  ⏰ {order.created.strftime('%d.%m.%Y %H:%M'):<25} │
+├─────────────────────────────┤
+│  📊 Товаров: {total_items} шт.        │
+│  💰 Сумма: {subtotal} грн        │
+"""
+        
+        if order.promo_code:
+            summary_block += f"│  🎫 Промокод: {order.promo_code.code:<15} │\n"
+            summary_block += f"│  💸 Скидка: -{order.discount_amount} грн        │\n"
+        
+        summary_block += f"│  💳 ИТОГО: {order.total_sum} грн        │\n"
+        summary_block += "└─────────────────────────────┘"
+        summary_block += "</pre>"
+        
         # Собираем полное сообщение
-        message = f"{order_header}\n{user_info}{order_details}{items_info}{total_section}"
+        message = f"{order_header}\n{user_info}{order_details}{items_info}{total_section}\n{summary_block}"
         
         return message
     
