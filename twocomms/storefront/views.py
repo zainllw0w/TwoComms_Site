@@ -1561,22 +1561,37 @@ def admin_panel(request):
         try:
             import logging
             logger = logging.getLogger(__name__)
-            logger.info("Starting stats calculation")
+            logger.info("=== STARTING STATS CALCULATION ===")
+            
+            # Импорты
+            logger.info("Step 1: Importing modules...")
             from orders.models import Order
             from django.utils import timezone
             from datetime import timedelta
             from django.db.models import Sum, Count, Avg, F, ExpressionWrapper, DurationField
+            logger.info("✓ Basic imports successful")
+            
             # Импортируем опциональные модели с защитой от отсутствующих таблиц
             try:
                 from accounts.models import UserPoints
-            except Exception:
+                logger.info("✓ UserPoints import successful")
+            except Exception as e:
                 UserPoints = None
-            from .models import Product, Category, PrintProposal, SiteSession, PageView
+                logger.warning(f"⚠ UserPoints import failed: {e}")
+            
+            try:
+                from .models import Product, Category, PrintProposal, SiteSession, PageView
+                logger.info("✓ Storefront models import successful")
+            except Exception as e:
+                logger.error(f"✗ Storefront models import failed: {e}")
+                raise
             
             # Получаем период из параметров
+            logger.info("Step 2: Setting up time period...")
             period = request.GET.get('period', 'today')
             now = timezone.now()
             today = now.date()
+            logger.info(f"Period: {period}, Today: {today}")
             
             # Определяем временные рамки
             if period == 'today':
@@ -1596,83 +1611,155 @@ def admin_panel(request):
                 end_date = None
                 period_name = 'За весь час'
             
+            logger.info(f"✓ Time period set: {period_name} ({start_date} to {end_date})")
+            
             # Базовые QuerySet'ы для фильтрации
+            logger.info("Step 3: Setting up base querysets...")
             if start_date and end_date:
                 orders_qs = Order.objects.filter(created__date__range=[start_date, end_date])
                 users_qs = User.objects.filter(date_joined__date__range=[start_date, end_date])
             else:
                 orders_qs = Order.objects.all()
                 users_qs = User.objects.all()
+            logger.info(f"✓ Base querysets created")
             
             # === РАБОЧИЕ МЕТРИКИ ===
+            logger.info("Step 4: Calculating basic metrics...")
             
             # Заказы
-            orders_count = orders_qs.count()
-            orders_today = Order.objects.filter(created__date=today).count()
+            try:
+                orders_count = orders_qs.count()
+                orders_today = Order.objects.filter(created__date=today).count()
+                logger.info(f"✓ Orders: {orders_count} (today: {orders_today})")
+            except Exception as e:
+                logger.error(f"✗ Orders calculation failed: {e}")
+                orders_count = 0
+                orders_today = 0
             
             # Выручка
-            revenue = orders_qs.filter(payment_status='paid').aggregate(
-                total=Sum('total_sum')
-            )['total'] or 0
+            try:
+                revenue = orders_qs.filter(payment_status='paid').aggregate(
+                    total=Sum('total_sum')
+                )['total'] or 0
+                logger.info(f"✓ Revenue: {revenue}")
+            except Exception as e:
+                logger.error(f"✗ Revenue calculation failed: {e}")
+                revenue = 0
             
             # Средний чек
-            avg_order_value = orders_qs.filter(payment_status='paid').aggregate(
-                avg=Avg('total_sum')
-            )['avg'] or 0
+            try:
+                avg_order_value = orders_qs.filter(payment_status='paid').aggregate(
+                    avg=Avg('total_sum')
+                )['avg'] or 0
+                logger.info(f"✓ Average order value: {avg_order_value}")
+            except Exception as e:
+                logger.error(f"✗ Average order value calculation failed: {e}")
+                avg_order_value = 0
             
             # Пользователи
-            total_users = User.objects.count()
-            new_users_period = users_qs.count()
-            active_users_today = User.objects.filter(last_login__date=today).count()
+            try:
+                total_users = User.objects.count()
+                new_users_period = users_qs.count()
+                active_users_today = User.objects.filter(last_login__date=today).count()
+                logger.info(f"✓ Users: total={total_users}, new_period={new_users_period}, active_today={active_users_today}")
+            except Exception as e:
+                logger.error(f"✗ Users calculation failed: {e}")
+                total_users = 0
+                new_users_period = 0
+                active_users_today = 0
             
             # Товары
-            total_products = Product.objects.count()
-            total_categories = Category.objects.count()
+            try:
+                total_products = Product.objects.count()
+                total_categories = Category.objects.count()
+                logger.info(f"✓ Products: {total_products}, Categories: {total_categories}")
+            except Exception as e:
+                logger.error(f"✗ Products/Categories calculation failed: {e}")
+                total_products = 0
+                total_categories = 0
             
             # Принты на рассмотрении
-            print_proposals_pending = PrintProposal.objects.filter(status='pending').count()
+            try:
+                print_proposals_pending = PrintProposal.objects.filter(status='pending').count()
+                logger.info(f"✓ Print proposals pending: {print_proposals_pending}")
+            except Exception as e:
+                logger.error(f"✗ Print proposals calculation failed: {e}")
+                print_proposals_pending = 0
             
             # Промокоды использованные
-            promocodes_used = orders_qs.exclude(promo_code__isnull=True).count()
+            try:
+                promocodes_used = orders_qs.exclude(promo_code__isnull=True).count()
+                logger.info(f"✓ Promocodes used: {promocodes_used}")
+            except Exception as e:
+                logger.error(f"✗ Promocodes calculation failed: {e}")
+                promocodes_used = 0
             
             # Баллы (защита, если таблицы ещё нет)
+            logger.info("Step 5: Calculating points...")
             if UserPoints is not None:
                 try:
                     total_points_earned = UserPoints.objects.aggregate(
                         total=Sum('points')
                     )['total'] or 0
                     users_with_points = UserPoints.objects.filter(points__gt=0).count()
-                except Exception:
+                    logger.info(f"✓ Points: total={total_points_earned}, users_with_points={users_with_points}")
+                except Exception as e:
+                    logger.error(f"✗ Points calculation failed: {e}")
                     total_points_earned = 0
                     users_with_points = 0
             else:
+                logger.info("⚠ UserPoints model not available")
                 total_points_earned = 0
                 users_with_points = 0
             
             # === МЕТРИКИ ПОСЕЩАЕМОСТИ (встроенная лёгкая аналитика) ===
-            online_threshold = timezone.now() - timedelta(minutes=5)
-            online_users = SiteSession.objects.filter(last_seen__gte=online_threshold, is_bot=False).count()
-            unique_visitors_today = SiteSession.objects.filter(first_seen__date=today, is_bot=False).count()
-            page_views_today = PageView.objects.filter(when__date=today, is_bot=False).count()
+            logger.info("Step 6: Calculating analytics metrics...")
+            try:
+                online_threshold = timezone.now() - timedelta(minutes=5)
+                logger.info(f"Online threshold: {online_threshold}")
+                
+                # Проверяем наличие данных в таблицах аналитики
+                site_sessions_count = SiteSession.objects.count()
+                page_views_count = PageView.objects.count()
+                logger.info(f"Analytics data: SiteSessions={site_sessions_count}, PageViews={page_views_count}")
+                
+                online_users = SiteSession.objects.filter(last_seen__gte=online_threshold, is_bot=False).count()
+                unique_visitors_today = SiteSession.objects.filter(first_seen__date=today, is_bot=False).count()
+                page_views_today = PageView.objects.filter(when__date=today, is_bot=False).count()
+                
+                logger.info(f"✓ Primary analytics: online={online_users}, unique_today={unique_visitors_today}, pageviews_today={page_views_today}")
 
-            # Fallback: если по какой‑то причине онлайн/уники не посчитались через SiteSession,
-            # попробуем оценить их через PageView (уникальные сессии по просмотрам)
-            if online_users == 0:
-                online_users = (
-                    PageView.objects
-                    .filter(when__gte=online_threshold, is_bot=False)
-                    .values('session_id')
-                    .distinct()
-                    .count()
-                )
-            if unique_visitors_today == 0:
-                unique_visitors_today = (
-                    PageView.objects
-                    .filter(when__date=today, is_bot=False)
-                    .values('session_id')
-                    .distinct()
-                    .count()
-                )
+                # Fallback: если по какой‑то причине онлайн/уники не посчитались через SiteSession,
+                # попробуем оценить их через PageView (уникальные сессии по просмотрам)
+                if online_users == 0:
+                    logger.info("⚠ Online users is 0, trying fallback via PageView...")
+                    online_users = (
+                        PageView.objects
+                        .filter(when__gte=online_threshold, is_bot=False)
+                        .values('session_id')
+                        .distinct()
+                        .count()
+                    )
+                    logger.info(f"✓ Fallback online users: {online_users}")
+                
+                if unique_visitors_today == 0:
+                    logger.info("⚠ Unique visitors today is 0, trying fallback via PageView...")
+                    unique_visitors_today = (
+                        PageView.objects
+                        .filter(when__date=today, is_bot=False)
+                        .values('session_id')
+                        .distinct()
+                        .count()
+                    )
+                    logger.info(f"✓ Fallback unique visitors today: {unique_visitors_today}")
+                    
+            except Exception as e:
+                logger.error(f"✗ Analytics calculation failed: {e}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
+                online_users = 0
+                unique_visitors_today = 0
+                page_views_today = 0
             today_sessions = SiteSession.objects.filter(first_seen__date=today, is_bot=False)
             sv = today_sessions.filter(pageviews__lte=1).count()
             bounce_rate = round((sv / today_sessions.count()) * 100, 2) if today_sessions.exists() else 0
