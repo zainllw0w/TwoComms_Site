@@ -43,6 +43,11 @@ try:
         }
     )
     
+    # Обновляем telegram если профиль уже существовал
+    if not created:
+        profile.telegram = 'testuser'
+        profile.save()
+    
     print(f"✅ Создан тестовый профиль: {profile.user.username}")
     print(f"📱 Telegram username: {profile.telegram}")
     print(f"🆔 Telegram ID: {profile.telegram_id}")
