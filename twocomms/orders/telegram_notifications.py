@@ -59,22 +59,23 @@ class TelegramNotifier:
             # Основная информация о товаре
             items_info += f"<b>{i}.</b> {item.title}\n"
             
-            # Детали товара
+            # Детали товара в одной строке
             details = []
             if item.size:
                 details.append(f"Размер: {item.size}")
             if item.color_variant:
                 details.append(f"Цвет: {item.color_variant.color.name}")
-            if details:
-                items_info += f"   └ {', '.join(details)}\n"
             
-            # Количество и цена
-            items_info += f"   └ Количество: <b>{item.qty} шт.</b>\n"
-            items_info += f"   └ Цена за шт.: <b>{item.unit_price} грн</b>\n"
-            items_info += f"   └ Сумма: <b>{item.line_total} грн</b>\n"
+            # Количество и цена в одной строке
+            price_info = f"<b>{item.qty} шт.</b> × <b>{item.unit_price} грн</b> = <b>{item.line_total} грн</b>"
+            
+            if details:
+                items_info += f"   └ {', '.join(details)} | {price_info}\n"
+            else:
+                items_info += f"   └ {price_info}\n"
             
             if i < order.items.count():
-                items_info += "   ────────────────────────────────────────────\n"
+                items_info += "   ───────────────────────────────────────\n"
             
             total_items += item.qty
             subtotal += item.line_total
