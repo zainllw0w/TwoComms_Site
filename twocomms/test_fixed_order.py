@@ -31,13 +31,19 @@ try:
     # Создаем тестовые продукты, если их нет
     products = []
     for i in range(2):
+        # Получаем первую категорию для тестового продукта
+        from storefront.models import Category
+        category = Category.objects.first()
+        if not category:
+            category = Category.objects.create(name='Тестовая категория', slug='test-category')
+        
         product, created = Product.objects.get_or_create(
             slug=f'test-product-{i+1}',
             defaults={
                 'title': f'Тестовая футболка {i+1}',
                 'description': f'Тестовая футболка {i+1} для проверки исправлений',
-                'price': 299.99 + i * 100,
-                'is_active': True
+                'price': int(299.99 + i * 100),
+                'category': category
             }
         )
         if created:
