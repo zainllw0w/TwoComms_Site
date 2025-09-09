@@ -183,6 +183,11 @@ STATICFILES_FINDERS = [
     'compressor.finders.CompressorFinder',
 ]
 
+# WhiteNoise: включаем сжатие и манифест
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+WHITENOISE_MAX_AGE = int(os.environ.get('WHITENOISE_MAX_AGE', str(60*60*24*180)))
+WHITENOISE_IMMUTABLE_FILE_TEST = lambda path, url: True
+
 COMPRESS_ENABLED = True
 COMPRESS_OFFLINE = True
 COMPRESS_CSS_FILTERS = [
