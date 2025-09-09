@@ -39,60 +39,62 @@ class TelegramNotifier:
     def format_order_message(self, order):
         """Форматирует сообщение о заказе"""
         user_info = f"👤 <b>{order.full_name}</b>\n"
-        user_info += f"📞 {order.phone}\n"
+        user_info += f"📞 <code>{order.phone}</code>\n"
         user_info += f"🏙️ {order.city}\n"
         user_info += f"📦 {order.np_office}\n\n"
         
         order_info = f"🛒 <b>Заказ #{order.order_number}</b>\n"
-        order_info += f"💳 Оплата: {order.get_payment_status_display()}\n"
-        order_info += f"📊 Статус: {order.get_status_display()}\n"
-        order_info += f"⏰ Время: {order.created.strftime('%d.%m.%Y %H:%M')}\n\n"
+        order_info += f"💳 Оплата: <i>{order.get_payment_status_display()}</i>\n"
+        order_info += f"📊 Статус: <i>{order.get_status_display()}</i>\n"
+        order_info += f"⏰ Время: <code>{order.created.strftime('%d.%m.%Y %H:%M')}</code>\n\n"
         
         # Информация о товарах
         items_info = "📦 <b>Товары в заказе:</b>\n"
-        items_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        items_info += "┌─────────────────────────────────────┐\n"
         
         total_items = 0
         subtotal = 0
         
         for i, item in enumerate(order.items.all(), 1):
             # Основная информация о товаре
-            items_info += f"<b>{i}.</b> {item.title}\n"
+            items_info += f"│ <b>{i}.</b> {item.title}\n"
             
             # Детали товара в одной строке
             details = []
             if item.size:
-                details.append(f"Размер: {item.size}")
+                details.append(f"<code>{item.size}</code>")
             if item.color_variant:
-                details.append(f"Цвет: {item.color_variant.color.name}")
+                details.append(f"<i>{item.color_variant.color.name}</i>")
             
             # Количество и цена в одной строке
-            price_info = f"<b>{item.qty} шт.</b> × <b>{item.unit_price} грн</b> = <b>{item.line_total} грн</b>"
+            price_info = f"<b>{item.qty}</b> × <b>{item.unit_price}</b> = <b>{item.line_total} грн</b>"
             
             if details:
-                items_info += f"   └ {', '.join(details)} | {price_info}\n"
+                items_info += f"│    {', '.join(details)} | {price_info}\n"
             else:
-                items_info += f"   └ {price_info}\n"
+                items_info += f"│    {price_info}\n"
             
             if i < order.items.count():
-                items_info += "   ───────────────────────────────────────\n"
+                items_info += "│ ─────────────────────────────────────\n"
             
             total_items += item.qty
             subtotal += item.line_total
         
-        items_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        items_info += "└─────────────────────────────────────┘\n"
         items_info += f"📊 Всего товаров: <b>{total_items} шт.</b>\n"
         items_info += f"💰 Сумма товаров: <b>{subtotal} грн</b>\n"
         
         # Промокод и скидка
         if order.promo_code:
-            items_info += f"🎫 Промокод: <b>{order.promo_code.code}</b>\n"
+            items_info += f"🎫 Промокод: <code>{order.promo_code.code}</code>\n"
             items_info += f"💸 Скидка: <b>-{order.discount_amount} грн</b>\n"
-            items_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            items_info += f"💳 <b>ИТОГО К ОПЛАТЕ: {order.total_sum} грн</b>\n"
+            items_info += "┌─────────────────────────────────────┐\n"
+            items_info += f"│ 💳 <b>ИТОГО К ОПЛАТЕ: {order.total_sum} грн</b> │\n"
+            items_info += "└─────────────────────────────────────┘\n"
         else:
-            items_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            items_info += f"💳 <b>ИТОГО К ОПЛАТЕ: {order.total_sum} грн</b>\n"
+            items_info += "┌─────────────────────────────────────┐\n"
+            items_info += f"│ 💳 <b>ИТОГО К ОПЛАТЕ: {order.total_sum} грн</b> │\n"
+            items_info += "└─────────────────────────────────────┘\n"
         
         message = f"🆕 <b>НОВЫЙ ЗАКАЗ!</b>\n\n{user_info}{order_info}{items_info}"
         return message
