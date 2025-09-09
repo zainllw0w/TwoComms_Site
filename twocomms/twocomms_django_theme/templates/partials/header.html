@@ -31,12 +31,12 @@
         <!-- Контейнер корзины -->
         <div class="cart-container position-relative d-none d-lg-block" style="display: none !important;" data-mobile-hide="true">
           <button id="cart-toggle" type="button" class="cart-btn" aria-label="Відкрити міні-корзину">
-            <div class="cart-icon-wrapper">
+            <div class="cart-icon-wrapper" aria-live="polite" aria-atomic="true">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="cart-icon">
                 <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
               </svg>
               <div class="cart-glow"></div>
-              <span id="cart-count" class="cart-badge">0</span>
+              <span id="cart-count" class="cart-badge" aria-label="Кількість товарів у кошику">0</span>
             </div>
           </button>
           
@@ -365,12 +365,12 @@
     <!-- Корзина -->
     <div class="bottom-nav-item cart-container-mobile">
       <button id="cart-toggle-mobile" type="button" class="cart-btn-mobile" aria-label="Відкрити міні-корзину">
-        <div class="cart-icon-wrapper-mobile">
+        <div class="cart-icon-wrapper-mobile" aria-live="polite" aria-atomic="true">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="cart-icon">
             <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
           </svg>
           <div class="cart-glow-mobile"></div>
-          <span id="cart-count-mobile" class="cart-badge-mobile">0</span>
+          <span id="cart-count-mobile" class="cart-badge-mobile" aria-label="Кількість товарів у кошику">0</span>
         </div>
       </button>
       <span class="bottom-nav-label">Кошик</span>
