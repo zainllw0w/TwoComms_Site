@@ -172,14 +172,9 @@ CACHES = {
 SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
 SESSION_CACHE_ALIAS = 'default'
 
-# Кэширование шаблонов
-TEMPLATES[0]['OPTIONS']['loaders'] = [
-    ('django.template.loaders.cached.Loader', [
-        'django.template.loaders.filesystem.Loader',
-        'django.template.loaders.app_directories.Loader',
-    ]),
-]
-TEMPLATES[0]['APP_DIRS'] = False
+# Кэширование шаблонов (временно отключено для корректного обновления шаблонов)
+TEMPLATES[0]['OPTIONS'].pop('loaders', None)
+TEMPLATES[0]['APP_DIRS'] = True
 
 # Настройки сжатия статических файлов
 STATICFILES_FINDERS = [
