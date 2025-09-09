@@ -21864,13 +21864,14 @@ input[type="file"].form-control:hover {
   }
 }
 
-/* Кнопка информации о баллах поверх карточки */
+/* Кнопка информации о баллах поверх блока с баллами */
 .points-info-overlay-btn {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 32px;
-  height: 32px;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -21886,12 +21887,12 @@ input[type="file"].form-control:hover {
 .points-info-overlay-btn:hover {
   background: rgba(0, 0, 0, 0.9);
   border-color: rgba(255, 255, 255, 0.4);
-  transform: scale(1.1);
+  transform: translateY(-50%) scale(1.1);
   color: #ffd700;
 }
 
 .points-info-overlay-btn:active {
-  transform: scale(0.95);
+  transform: translateY(-50%) scale(0.95);
 }
 
 .points-info-overlay-btn svg {
