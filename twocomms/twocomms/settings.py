@@ -135,7 +135,7 @@ SOCIAL_AUTH_URL_NAMESPACE = 'social'
 # OpenAI API key from environment
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY') or os.environ.get('OPEN_API_KEY', '')
 # Default OpenAI model for AI-assisted SEO keyword generation
-OPENAI_MODEL = os.environ.get('OPENAI_MODEL', 'gpt-5')
+OPENAI_MODEL = os.environ.get('OPENAI_MODEL', 'gpt-4o')
 # Whether to use AI-generated keywords in addition to rule-based keywords
 USE_AI_KEYWORDS = os.environ.get('USE_AI_KEYWORDS', 'False').lower() in ('1','true','yes')
 # Whether to use AI-generated product descriptions in SEO meta (experimental)
