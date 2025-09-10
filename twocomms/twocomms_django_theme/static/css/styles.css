@@ -8455,6 +8455,7 @@ body::after {
   border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px);
   transition: all 0.3s ease;
+  box-sizing: border-box;
 }
 
 .favorites-icon-wrapper:hover {
@@ -8557,6 +8558,7 @@ body::after {
   min-width: 16px;
   height: 16px;
   border-radius: 8px;
+  box-sizing: border-box;
   display: flex; /* Всегда виден */
   align-items: center;
   justify-content: center;
@@ -15568,6 +15570,7 @@ input[type="file"].form-control:hover {
   min-width: 16px;
   height: 16px;
   border-radius: 8px;
+  box-sizing: border-box;
   display: none; /* Скрыт по умолчанию */
   align-items: center;
   justify-content: center;
