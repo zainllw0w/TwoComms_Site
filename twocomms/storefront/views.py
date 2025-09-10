@@ -3669,3 +3669,8 @@ def admin_order_delete(request, pk: int):
         from django.contrib import messages
         messages.error(request, f"Помилка видалення: {e}")
     return redirect('admin_panel')
+
+
+def delivery_view(request):
+    """Страница доставки и оплаты"""
+    return render(request, 'pages/delivery.html')
