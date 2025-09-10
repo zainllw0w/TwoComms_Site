@@ -103,19 +103,13 @@ class SEOKeywordGenerator:
         except ImportError:
             pass
         
-        # Убираем дубликаты и возвращаем уникальный список
-        # При включенной AI-подстановке расширяем словарь ключевых слов
-        try:
-            use_ai = getattr(settings, 'USE_AI_KEYWORDS', False)
-            if isinstance(use_ai, str):
-                use_ai = use_ai.lower() in ('1', 'true', 'yes')
-        except Exception:
-            use_ai = False
-        if use_ai:
-            ai_keywords = cls.generate_product_keywords_ai(product)
+        # Добавляем сохраненные AI-ключевые слова, если они есть
+        if hasattr(product, 'ai_keywords') and product.ai_keywords:
+            ai_keywords = [kw.strip() for kw in product.ai_keywords.split(',') if kw.strip()]
             for kw in ai_keywords:
                 if kw and kw not in keywords:
                     keywords.append(kw)
+        
         return list(dict.fromkeys(keywords))[:20]  # Максимум 20 ключевых слов
 
     @classmethod
@@ -190,16 +184,13 @@ class SEOKeywordGenerator:
             desc_keywords = cls.extract_keywords_from_text(category.description)
             keywords.extend(desc_keywords)
         
-        # If AI keywords for category are enabled, extend with AI-generated keywords
-        try:
-            from django.conf import settings
-            if getattr(settings, 'USE_AI_KEYWORDS', False):
-                ai_keywords = cls.generate_category_keywords_ai(category)
-                for kw in ai_keywords:
-                    if kw and kw not in keywords:
-                        keywords.append(kw)
-        except Exception:
-            pass
+        # Добавляем сохраненные AI-ключевые слова, если они есть
+        if hasattr(category, 'ai_keywords') and category.ai_keywords:
+            ai_keywords = [kw.strip() for kw in category.ai_keywords.split(',') if kw.strip()]
+            for kw in ai_keywords:
+                if kw and kw not in keywords:
+                    keywords.append(kw)
+        
         return list(dict.fromkeys(keywords))[:15]
 
     @classmethod
@@ -246,6 +237,11 @@ class SEOKeywordGenerator:
     @classmethod
     def generate_meta_description(cls, product: Product) -> str:
         """Генерирует мета-описание для товара"""
+        # Используем сохраненное AI-описание, если оно есть
+        if hasattr(product, 'ai_description') and product.ai_description:
+            return product.ai_description[:160]
+        
+        # Иначе генерируем стандартное описание
         base_desc = f"Купити {product.title} в TwoComms. "
         
         if product.description:
@@ -308,13 +304,18 @@ class SEOMetaGenerator:
         keywords = SEOKeywordGenerator.generate_category_keywords(category)
         
         title = f"{category.name} - TwoComms"
-        description = f"Купити {category.name.lower()} в TwoComms. Якісний одяг з ексклюзивним дизайном. Швидка доставка по Україні."
         
-        if category.description:
-            clean_desc = re.sub(r'<[^>]+>', '', category.description)
-            if len(clean_desc) > 120:
-                clean_desc = clean_desc[:117] + "..."
-            description = clean_desc
+        # Используем сохраненное AI-описание, если оно есть
+        if hasattr(category, 'ai_description') and category.ai_description:
+            description = category.ai_description[:160]
+        else:
+            description = f"Купити {category.name.lower()} в TwoComms. Якісний одяг з ексклюзивним дизайном. Швидка доставка по Україні."
+            
+            if category.description:
+                clean_desc = re.sub(r'<[^>]+>', '', category.description)
+                if len(clean_desc) > 120:
+                    clean_desc = clean_desc[:117] + "..."
+                description = clean_desc
         
         return {
             'title': title,
