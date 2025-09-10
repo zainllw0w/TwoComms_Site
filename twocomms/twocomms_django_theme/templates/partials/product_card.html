@@ -51,7 +51,8 @@
                     data-secondary="{{ color.secondary_hex }}"
                     data-product-id="{{ p.id }}"
                     onclick="event.stopPropagation(); switchProductColor(this, '{{ p.id }}');"
-                    aria-label="Переключить на цвет {{ color.primary_hex }}">
+                    aria-label="Переключить на цвет {{ color.primary_hex }}"
+                    style="--primary-color: {{ color.primary_hex }}; --secondary-color: {{ color.secondary_hex|default:color.primary_hex }};">
               <span class="swatch" 
                     data-primary="{{ color.primary_hex }}" 
                     data-secondary="{{ color.secondary_hex }}"></span>

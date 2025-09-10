@@ -1273,13 +1273,20 @@ document.addEventListener('click', function(e){
 
 // Функция переключения цветов товара
 function switchProductColor(button, productId) {
+  console.log('switchProductColor called', button, productId);
   if (!button) return;
   
   const productCard = button.closest('.card.product');
-  if (!productCard) return;
+  if (!productCard) {
+    console.log('Product card not found');
+    return;
+  }
   
   const productImage = productCard.querySelector('img');
-  if (!productImage) return;
+  if (!productImage) {
+    console.log('Product image not found');
+    return;
+  }
   
   // Убираем активный класс у всех кнопок цветов этого товара
   const allColorButtons = productCard.querySelectorAll('.color-switch-btn');
