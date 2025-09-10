@@ -534,15 +534,15 @@
     backdrop-filter: blur(15px);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 12px;
-    padding: 12px;
-    margin-bottom: 10px;
+    padding: 10px;
+    margin-bottom: 8px;
     box-shadow: 
         0 4px 12px rgba(0, 0, 0, 0.25),
         0 0 0 1px rgba(139, 92, 246, 0.1);
     border-left: 3px solid #8b5cf6;
     position: relative;
     transition: all 0.3s ease;
-    min-height: 90px;
+    min-height: 80px;
 }
 
 .order-item-content {
@@ -554,14 +554,14 @@
 
 .order-item-image {
     flex-shrink: 0;
-    width: 50px;
-    height: 50px;
+    width: 45px;
+    height: 45px;
 }
 
 .order-product-image {
     width: 100%;
     height: 100%;
-    border-radius: 8px;
+    border-radius: 6px;
     object-fit: cover;
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
@@ -587,20 +587,20 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
 }
 
 .order-item-title {
     font-weight: 600;
     color: var(--tc-text);
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     line-height: 1.2;
     display: -webkit-box;
-    -webkit-line-clamp: 1;
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     flex: 1;
-    margin-right: 8px;
+    margin-right: 6px;
 }
 
 .order-item-details {
@@ -612,32 +612,38 @@
 
 .order-item-specs {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
 }
 
 .order-item-prices {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
     text-align: right;
+    min-width: 60px;
 }
 
 .order-item-size,
 .order-item-color,
 .order-item-quantity {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: rgba(232, 233, 236, 0.7);
+    background: rgba(255, 255, 255, 0.05);
+    padding: 1px 4px;
+    border-radius: 3px;
+    white-space: nowrap;
 }
 
 .order-item-cost {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: #ef4444;
     font-weight: 600;
 }
 
 .order-item-selling {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: #10b981;
     font-weight: 600;
 }
@@ -1012,11 +1018,15 @@
                                     <span class="product-name">{{ product.title }}</span>
                                 </div>
                                 <div class="product-colors">
-                                    {% for color_variant in product.color_variants.all|slice:":3" %}
-                                        <span class="color-dot" style="background-color: {{ color_variant.color.hex_code }};" title="{{ color_variant.color.name }}"></span>
-                                    {% endfor %}
-                                    {% if product.color_variants.count > 3 %}
-                                        <span class="color-more">+{{ product.color_variants.count|add:"-3" }}</span>
+                                    {% if product.color_variants.exists %}
+                                        {% for color_variant in product.color_variants.all|slice:":3" %}
+                                            <span class="color-dot" style="background-color: {{ color_variant.color.hex_code }};" title="{{ color_variant.color.name }}"></span>
+                                        {% endfor %}
+                                        {% if product.color_variants.count > 3 %}
+                                            <span class="color-more">+{{ product.color_variants.count|add:"-3" }}</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="color-dot" style="background-color: #000000;" title="Чорний (дефолт)"></span>
                                     {% endif %}
                                 </div>
                                 <div class="product-price">{{ product.final_price }} грн</div>
@@ -1346,10 +1356,34 @@ function selectProduct(productId) {
 
 // Загрузка цветов товара
 function loadProductColors(productId) {
-    // Здесь можно добавить AJAX запрос для загрузки цветов
-    // Пока используем заглушку
     const colorSelect = document.getElementById('productColor');
-    colorSelect.innerHTML = '<option value="default">Чорний (дефолт)</option>';
+    
+    // AJAX запрос для получения цветов товара
+    fetch(`/admin-panel/offline-store/{{ store.id }}/product/${productId}/colors/`, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.colors.length > 0) {
+            // Если есть цвета у товара, показываем их
+            let options = '';
+            data.colors.forEach(color => {
+                options += `<option value="${color.id}">${color.name}</option>`;
+            });
+            colorSelect.innerHTML = options;
+        } else {
+            // Если нет цветов, показываем дефолтный черный
+            colorSelect.innerHTML = '<option value="default">Чорний (дефолт)</option>';
+        }
+    })
+    .catch(error => {
+        console.error('Error loading colors:', error);
+        // В случае ошибки показываем дефолтный черный
+        colorSelect.innerHTML = '<option value="default">Чорний (дефолт)</option>';
+    });
 }
 
 // Добавление товара в заказ
