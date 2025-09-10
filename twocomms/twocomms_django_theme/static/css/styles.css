@@ -10131,6 +10131,39 @@ body::after {
   transform: scale(1);
 }
 
+/* Активное состояние цветовой точки */
+.color-dot.active {
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3), 0 2px 8px rgba(0, 0, 0, 0.3);
+  transform: scale(1.1);
+}
+
+/* Анимация переключения изображений */
+.product-main-image {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.product-main-image.switching {
+  opacity: 0.7;
+  transform: scale(1.05);
+}
+
+/* Анимация пульсации при переключении цветов */
+@keyframes colorSwitchPulse {
+  0% { 
+    transform: scale(1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  }
+  50% { 
+    transform: scale(1.02);
+    box-shadow: 0 8px 30px rgba(139, 92, 246, 0.2);
+  }
+  100% { 
+    transform: scale(1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  }
+}
+
 .product-card-wrap{position:relative}
 .product-card-wrap, .card.product { content-visibility: auto; contain-intrinsic-size: 320px 280px; }
 .product-card-dots{
@@ -17654,127 +17687,6 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   }
 }
 
-/* Переключатель цветов на карточках товаров */
-.color-switcher {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  z-index: 10;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
-  border-radius: 20px;
-  padding: 4px;
-  display: flex;
-  gap: 4px;
-  opacity: 0;
-  transform: translateY(-10px);
-  transition: all 0.3s ease;
-}
-
-.card.product:hover .color-switcher {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.color-switcher-inner {
-  display: flex;
-  gap: 4px;
-}
-
-.color-switch-btn {
-  width: 24px;
-  height: 24px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-  background: none;
-  padding: 0;
-  z-index: 10;
-}
-
-.color-switch-btn:hover {
-  border-color: rgba(255, 255, 255, 0.6);
-  transform: scale(1.1);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.color-switch-btn.active {
-  border-color: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4);
-  transform: scale(1.15);
-}
-
-.color-switch-btn .swatch {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  border-radius: 50%;
-  background: var(--primary-color);
-  z-index: 1;
-}
-
-.color-switch-btn .swatch[data-secondary]:not([data-secondary=""])::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 50%;
-  height: 100%;
-  background: var(--primary-color);
-  border-radius: 50% 0 0 50%;
-}
-
-.color-switch-btn .swatch[data-secondary]:not([data-secondary=""])::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 50%;
-  height: 100%;
-  background: var(--secondary-color);
-  border-radius: 0 50% 50% 0;
-}
-
-.swatch-secondary {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 50%;
-  height: 100%;
-  border-radius: 0 50% 50% 0;
-}
-
-/* Анимация переключения изображений */
-.product-main-image {
-  transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-.product-main-image.switching {
-  opacity: 0.7;
-  transform: scale(1.05);
-}
-
-/* Анимация пульсации при переключении цветов */
-@keyframes colorSwitchPulse {
-  0% { 
-    transform: scale(1);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  }
-  50% { 
-    transform: scale(1.02);
-    box-shadow: 0 8px 30px rgba(139, 92, 246, 0.2);
-  }
-  100% { 
-    transform: scale(1);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  }
-}
-
 /* Адаптивные стили для мобильных устройств */
 @media (max-width: 768px) {
   .favorite-btn {
@@ -17901,17 +17813,6 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 .guest-avatar-mobile:hover {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(147, 197, 253, 0.2));
   transform: scale(1.05);
-}
-  
-.color-switch-btn {
-  width: 20px;
-  height: 20px;
-  border-width: 1.5px;
-}
-
-.color-switcher {
-  padding: 3px;
-  gap: 3px;
 }
 
 /* ===== УВЕДОМЛЕНИЯ ===== */
