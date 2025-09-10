@@ -1,0 +1,898 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Доставка і оплата - TwoComms{% endblock %}
+
+{% block content %}
+<div class="delivery-page">
+  <!-- Hero Section -->
+  <section class="delivery-hero">
+    <div class="container">
+      <div class="row align-items-center min-vh-50">
+        <div class="col-lg-6">
+          <div class="hero-content">
+            <h1 class="hero-title">
+              <span class="title-main">Доставка</span>
+              <span class="title-accent">& Оплата</span>
+            </h1>
+            <p class="hero-subtitle">Швидка та надійна доставка по всій Україні та за кордон</p>
+            <div class="hero-stats">
+              <div class="stat-item">
+                <div class="stat-number">1-5</div>
+                <div class="stat-label">робочих днів</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-number">24/7</div>
+                <div class="stat-label">відстеження</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-number">100%</div>
+                <div class="stat-label">безпека</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="hero-visual">
+            <div class="delivery-animation">
+              <div class="truck-container">
+                <svg class="truck-icon" viewBox="0 0 100 60" fill="none">
+                  <rect x="10" y="25" width="50" height="20" rx="3" fill="#3b82f6"/>
+                  <rect x="60" y="30" width="25" height="15" rx="2" fill="#3b82f6"/>
+                  <circle cx="25" cy="50" r="8" fill="#1e40af"/>
+                  <circle cx="70" cy="50" r="8" fill="#1e40af"/>
+                  <rect x="15" y="20" width="40" height="8" rx="2" fill="#60a5fa"/>
+                </svg>
+              </div>
+              <div class="package-container">
+                <div class="package package-1"></div>
+                <div class="package package-2"></div>
+                <div class="package package-3"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Delivery Options -->
+  <section class="delivery-options">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Варіанти доставки</h2>
+        <p class="section-subtitle">Оберіть найзручніший для вас спосіб отримання замовлення</p>
+      </div>
+      
+      <div class="row g-4">
+        <!-- Ukraine Delivery -->
+        <div class="col-lg-6">
+          <div class="delivery-card ukraine-delivery">
+            <div class="card-header">
+              <div class="delivery-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+              <h3 class="card-title">Доставка по Україні</h3>
+            </div>
+            <div class="card-content">
+              <div class="delivery-time">
+                <span class="time-label">Термін доставки:</span>
+                <span class="time-value">1-5 робочих днів</span>
+              </div>
+              <div class="delivery-methods">
+                <div class="method-item">
+                  <div class="method-header">
+                    <span class="method-name">Часткова оплата</span>
+                    <button class="info-btn" data-bs-toggle="tooltip" data-bs-placement="top" 
+                            title="Потрібно для покриття витрат на відправку, якщо клієнт навіть не прийде оглядати товар">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                      </svg>
+                    </button>
+                  </div>
+                  <p class="method-desc">Накладений платіж + комісія</p>
+                </div>
+                <div class="method-item">
+                  <div class="method-header">
+                    <span class="method-name">Повна оплата</span>
+                  </div>
+                  <p class="method-desc">Без комісії, відправка одразу</p>
+                </div>
+              </div>
+              <div class="delivery-note">
+                <p>Доставку сплачує отримувач згідно тарифів перевізника</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- International Delivery -->
+        <div class="col-lg-6">
+          <div class="delivery-card international-delivery">
+            <div class="card-header">
+              <div class="delivery-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+              <h3 class="card-title">Міжнародна доставка</h3>
+            </div>
+            <div class="card-content">
+              <div class="delivery-time">
+                <span class="time-label">Термін доставки:</span>
+                <span class="time-value">7-21 робочий день</span>
+              </div>
+              <div class="delivery-methods">
+                <div class="method-item">
+                  <div class="method-header">
+                    <span class="method-name">Тільки повна оплата</span>
+                  </div>
+                  <p class="method-desc">Через Укрпошту або Нову пошту</p>
+                </div>
+              </div>
+              <div class="delivery-note">
+                <p>Ціна залежить від об'єму та країни призначення</p>
+                <p>Оплата послуги доставки разом з оплатою товару</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Payment Methods -->
+  <section class="payment-methods">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Способи оплати</h2>
+        <p class="section-subtitle">Зручні та безпечні варіанти оплати вашого замовлення</p>
+      </div>
+      
+      <div class="row g-4">
+        <div class="col-md-6 col-lg-3">
+          <div class="payment-card">
+            <div class="payment-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
+              </svg>
+            </div>
+            <h4 class="payment-title">Оплата через сайт</h3>
+            <p class="payment-desc">Безпечна оплата карткою онлайн</p>
+          </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-3">
+          <div class="payment-card">
+            <div class="payment-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+              </svg>
+            </div>
+            <h4 class="payment-title">Дзвінок менеджера</h3>
+            <p class="payment-desc">Очікуйте дзвінка для підтвердження</p>
+          </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-3">
+          <div class="payment-card">
+            <div class="payment-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </div>
+            <h4 class="payment-title">Накладений платіж</h3>
+            <p class="payment-desc">Оплата при отриманні товару</p>
+          </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-3">
+          <div class="payment-card">
+            <div class="payment-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+            </div>
+            <h4 class="payment-title">Бали та промокоди</h3>
+            <p class="payment-desc">Використовуйте накопичені бали</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tracking Section -->
+  <section class="tracking-section">
+    <div class="container">
+      <div class="row align-items-center">
+        <div class="col-lg-6">
+          <div class="tracking-content">
+            <h2 class="section-title">Відстеження замовлення</h2>
+            <p class="section-subtitle">Повний контроль над вашим замовленням на кожному етапі</p>
+            
+            <div class="tracking-features">
+              <div class="feature-item">
+                <div class="feature-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  </svg>
+                </div>
+                <div class="feature-content">
+                  <h4>ТТН на сайті</h4>
+                  <p>Отримуйте номер ТТН та відстежуйте статус на сайті</p>
+                </div>
+              </div>
+              
+              <div class="feature-item">
+                <div class="feature-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  </svg>
+                </div>
+                <div class="feature-content">
+                  <h4>Telegram сповіщення</h4>
+                  <p>Автоматичні сповіщення про всі етапи доставки</p>
+                </div>
+              </div>
+              
+              <div class="feature-item">
+                <div class="feature-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  </svg>
+                </div>
+                <div class="feature-content">
+                  <h4>Додаток Нової пошти</h4>
+                  <p>Відстеження через офіційний додаток перевізника</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-lg-6">
+          <div class="tracking-visual">
+            <div class="phone-mockup">
+              <div class="phone-screen">
+                <div class="tracking-interface">
+                  <div class="tracking-header">
+                    <h3>Відстеження замовлення</h3>
+                    <div class="tracking-number">ТТН: 20450123456789</div>
+                  </div>
+                  <div class="tracking-steps">
+                    <div class="step completed">
+                      <div class="step-icon">✓</div>
+                      <div class="step-content">
+                        <div class="step-title">Замовлення прийнято</div>
+                        <div class="step-time">10:30</div>
+                      </div>
+                    </div>
+                    <div class="step completed">
+                      <div class="step-icon">✓</div>
+                      <div class="step-content">
+                        <div class="step-title">Товар зібрано</div>
+                        <div class="step-time">14:20</div>
+                      </div>
+                    </div>
+                    <div class="step active">
+                      <div class="step-icon">🚚</div>
+                      <div class="step-content">
+                        <div class="step-title">В дорозі</div>
+                        <div class="step-time">16:45</div>
+                      </div>
+                    </div>
+                    <div class="step">
+                      <div class="step-icon">📦</div>
+                      <div class="step-content">
+                        <div class="step-title">Доставлено</div>
+                        <div class="step-time">—</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Additional Info -->
+  <section class="additional-info">
+    <div class="container">
+      <div class="row g-4">
+        <div class="col-lg-4">
+          <div class="info-card">
+            <div class="info-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </div>
+            <h3 class="info-title">Обмін та повернення</h3>
+            <p class="info-desc">14 днів на обмін товару згідно з законом України</p>
+            <a href="#" class="info-link">Детальніше</a>
+          </div>
+        </div>
+        
+        <div class="col-lg-4">
+          <div class="info-card">
+            <div class="info-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </div>
+            <h3 class="info-title">Контакти</h3>
+            <p class="info-desc">Зв'яжіться з нами для отримання додаткової інформації</p>
+            <a href="{% url 'contacts' %}" class="info-link">Контакти</a>
+          </div>
+        </div>
+        
+        <div class="col-lg-4">
+          <div class="info-card">
+            <div class="info-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </div>
+            <h3 class="info-title">Співпраця</h3>
+            <p class="info-desc">Станьте нашим партнером та отримуйте вигідні умови</p>
+            <a href="{% url 'cooperation' %}" class="info-link">Співпраця</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<style>
+/* Delivery Page Styles */
+.delivery-page {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+}
+
+.delivery-hero {
+  padding: 4rem 0;
+  color: white;
+}
+
+.hero-title {
+  font-size: 3.5rem;
+  font-weight: 800;
+  margin-bottom: 1.5rem;
+  line-height: 1.1;
+}
+
+.title-main {
+  display: block;
+  color: white;
+}
+
+.title-accent {
+  display: block;
+  background: linear-gradient(45deg, #ffd700, #ffed4e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-subtitle {
+  font-size: 1.25rem;
+  margin-bottom: 2rem;
+  opacity: 0.9;
+}
+
+.hero-stats {
+  display: flex;
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-number {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #ffd700;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  opacity: 0.8;
+}
+
+.hero-visual {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+
+.delivery-animation {
+  position: relative;
+  width: 300px;
+  height: 200px;
+}
+
+.truck-container {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  animation: truckMove 3s ease-in-out infinite;
+}
+
+.truck-icon {
+  width: 100px;
+  height: 60px;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+}
+
+.package-container {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+}
+
+.package {
+  width: 30px;
+  height: 30px;
+  background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
+  border-radius: 4px;
+  margin-bottom: 10px;
+  animation: packageFloat 2s ease-in-out infinite;
+}
+
+.package-2 {
+  animation-delay: 0.5s;
+  background: linear-gradient(45deg, #4ecdc4, #6ee7e0);
+}
+
+.package-3 {
+  animation-delay: 1s;
+  background: linear-gradient(45deg, #45b7d1, #6bc5d8);
+}
+
+@keyframes truckMove {
+  0%, 100% { transform: translateY(-50%) translateX(0); }
+  50% { transform: translateY(-50%) translateX(50px); }
+}
+
+@keyframes packageFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.delivery-options, .payment-methods, .tracking-section, .additional-info {
+  padding: 4rem 0;
+  background: white;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.section-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: #1e293b;
+}
+
+.section-subtitle {
+  font-size: 1.125rem;
+  color: #64748b;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.delivery-card {
+  background: white;
+  border-radius: 1rem;
+  padding: 2rem;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  border: 1px solid #e2e8f0;
+  transition: all 0.3s ease;
+  height: 100%;
+}
+
+.delivery-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.delivery-icon {
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.card-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.delivery-time {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.time-label {
+  font-weight: 500;
+  color: #64748b;
+}
+
+.time-value {
+  font-weight: 600;
+  color: #3b82f6;
+}
+
+.method-item {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 0.5rem;
+}
+
+.method-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.method-name {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.info-btn {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: #3b82f6;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.info-btn:hover {
+  background: #1d4ed8;
+  transform: scale(1.1);
+}
+
+.method-desc {
+  color: #64748b;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.delivery-note {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #fef3c7;
+  border-radius: 0.5rem;
+  border-left: 4px solid #f59e0b;
+}
+
+.delivery-note p {
+  margin: 0;
+  color: #92400e;
+  font-size: 0.875rem;
+}
+
+.payment-card {
+  text-align: center;
+  padding: 2rem;
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+  height: 100%;
+}
+
+.payment-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+}
+
+.payment-icon {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  margin: 0 auto 1rem;
+}
+
+.payment-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 0.5rem;
+}
+
+.payment-desc {
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.tracking-content {
+  padding-right: 2rem;
+}
+
+.tracking-features {
+  margin-top: 2rem;
+}
+
+.feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.feature-icon {
+  width: 50px;
+  height: 50px;
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+}
+
+.feature-content h4 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 0.25rem;
+}
+
+.feature-content p {
+  color: #64748b;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.tracking-visual {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.phone-mockup {
+  width: 280px;
+  height: 500px;
+  background: #1e293b;
+  border-radius: 2rem;
+  padding: 1rem;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
+
+.phone-screen {
+  width: 100%;
+  height: 100%;
+  background: white;
+  border-radius: 1.5rem;
+  overflow: hidden;
+}
+
+.tracking-interface {
+  padding: 1.5rem;
+  height: 100%;
+}
+
+.tracking-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.tracking-header h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 0.5rem;
+}
+
+.tracking-number {
+  font-size: 0.875rem;
+  color: #64748b;
+  font-family: monospace;
+}
+
+.tracking-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.step.completed {
+  background: #f0fdf4;
+  border-left: 4px solid #10b981;
+}
+
+.step.active {
+  background: #eff6ff;
+  border-left: 4px solid #3b82f6;
+}
+
+.step-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.step.completed .step-icon {
+  background: #10b981;
+  color: white;
+}
+
+.step.active .step-icon {
+  background: #3b82f6;
+  color: white;
+}
+
+.step:not(.completed):not(.active) .step-icon {
+  background: #e2e8f0;
+  color: #64748b;
+}
+
+.step-content {
+  flex: 1;
+}
+
+.step-title {
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 0.25rem;
+}
+
+.step-time {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.info-card {
+  text-align: center;
+  padding: 2rem;
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+  height: 100%;
+}
+
+.info-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+}
+
+.info-icon {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  margin: 0 auto 1.5rem;
+}
+
+.info-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 1rem;
+}
+
+.info-desc {
+  color: #64748b;
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.info-link {
+  color: #3b82f6;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.info-link:hover {
+  color: #1d4ed8;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .hero-title {
+    font-size: 2.5rem;
+  }
+  
+  .hero-stats {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .delivery-animation {
+    width: 250px;
+    height: 150px;
+  }
+  
+  .section-title {
+    font-size: 2rem;
+  }
+  
+  .tracking-content {
+    padding-right: 0;
+    margin-bottom: 2rem;
+  }
+  
+  .phone-mockup {
+    width: 250px;
+    height: 450px;
+  }
+}
+</style>
+
+<script>
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+  var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+  var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl);
+  });
+});
+</script>
+{% endblock %}
