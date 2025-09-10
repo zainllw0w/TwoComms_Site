@@ -29,7 +29,7 @@
           Запропонувати принт
         </a>
         <!-- Контейнер корзины и избранного -->
-        <div class="cart-favorites-container d-none d-lg-flex align-items-center gap-2">
+        <div class="cart-favorites-container d-flex align-items-center gap-2">
           <!-- Избранное для незарегистрированных пользователей -->
           {% if not request.user.is_authenticated %}
           <div class="favorites-container position-relative">
