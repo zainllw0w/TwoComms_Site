@@ -3793,7 +3793,7 @@ def admin_store_get_product_colors(request, store_id, product_id):
         return JsonResponse({'error': 'Доступ запрещен'}, status=403)
     
     from .models import OfflineStore, Product
-    from productcolors.models import Color
+    from productcolors.models import Color, ProductColorVariant
     
     try:
         store = get_object_or_404(OfflineStore, pk=store_id)
@@ -3802,10 +3802,16 @@ def admin_store_get_product_colors(request, store_id, product_id):
         # Получаем цвета товара через color_variants
         colors = []
         for variant in product.color_variants.all():
+            # Получаем первое изображение для этого цветового варианта
+            first_image = variant.images.first()
+            image_url = first_image.image.url if first_image else None
+            
             colors.append({
                 'id': variant.color.id,
-                'name': variant.color.name,
-                'hex_code': variant.color.hex_code
+                'name': variant.color.name or variant.color.primary_hex,
+                'hex_code': variant.color.primary_hex,
+                'image_url': image_url,
+                'variant_id': variant.id
             })
         
         return JsonResponse({
@@ -3883,22 +3889,39 @@ def admin_store_add_product_to_order(request, store_id):
                 quantity=quantity
             )
         
-        return JsonResponse({
-            'success': True,
-            'order_id': order.id,
-            'item': {
-                'id': item.id,
-                'product_name': item.product.title,
-                'size': item.size or '',
-                'color_name': item.color.name if item.color else 'Чорний',
-                'color_hex': item.color.hex_code if item.color else '#000000',
-                'quantity': item.quantity,
-                'cost_price': float(item.cost_price),
-                'selling_price': float(item.selling_price),
-                'product_image': item.product.display_image.url if item.product.display_image else None,
-            },
-            'message': 'Товар добавлен в заказ'
-        })
+                    # Получаем изображение цвета, если есть
+                    color_image_url = None
+                    if item.color:
+                        try:
+                            from productcolors.models import ProductColorVariant
+                            color_variant = ProductColorVariant.objects.filter(
+                                product=item.product, 
+                                color=item.color
+                            ).first()
+                            if color_variant:
+                                first_image = color_variant.images.first()
+                                if first_image:
+                                    color_image_url = first_image.image.url
+                        except:
+                            pass
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'order_id': order.id,
+                        'item': {
+                            'id': item.id,
+                            'product_name': item.product.title,
+                            'size': item.size or '',
+                            'color_name': item.color.name if item.color else 'Чорний',
+                            'color_hex': item.color.primary_hex if item.color else '#000000',
+                            'color_image': color_image_url,
+                            'quantity': item.quantity,
+                            'cost_price': float(item.cost_price),
+                            'selling_price': float(item.selling_price),
+                            'product_image': item.product.display_image.url if item.product.display_image else None,
+                        },
+                        'message': 'Товар добавлен в заказ'
+                    })
         
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
