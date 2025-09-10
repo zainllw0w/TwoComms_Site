@@ -3,6 +3,7 @@ SEO утилиты для автоматической генерации мет
 """
 import re
 import json
+import os
 from typing import List, Dict, Optional, Tuple
 from django.conf import settings
 from django.utils.text import slugify
@@ -103,7 +104,73 @@ class SEOKeywordGenerator:
             pass
         
         # Убираем дубликаты и возвращаем уникальный список
+        # При включенной AI-подстановке расширяем словарь ключевых слов
+        try:
+            use_ai = getattr(settings, 'USE_AI_KEYWORDS', False)
+            if isinstance(use_ai, str):
+                use_ai = use_ai.lower() in ('1', 'true', 'yes')
+        except Exception:
+            use_ai = False
+        if use_ai:
+            ai_keywords = cls.generate_product_keywords_ai(product)
+            for kw in ai_keywords:
+                if kw and kw not in keywords:
+                    keywords.append(kw)
         return list(dict.fromkeys(keywords))[:20]  # Максимум 20 ключевых слов
+
+    @classmethod
+    def generate_product_keywords_ai(cls, product: Product) -> List[str]:
+        """Генерирует ключевые слова для товара с помощью OpenAI (если доступно)"""
+        model = getattr(settings, 'OPENAI_MODEL', 'gpt-5')
+        api_key = getattr(settings, 'OPENAI_API_KEY', None) or os.environ.get('OPENAI_API_KEY')
+        if not api_key:
+            return []
+        try:
+            import openai
+            openai.api_key = api_key
+        except Exception:
+            return []
+
+        color_names = []
+        try:
+            from productcolors.models import ProductColorVariant
+            for variant in ProductColorVariant.objects.filter(product=product):
+                if variant.color and getattr(variant.color, 'name', None):
+                    color_names.append(variant.color.name)
+        except Exception:
+            color_names = []
+
+        prompt = (
+            f"Створіть до 20 SEO ключових слів для товару. Назва: {product.title}. "
+            f"Категорія: {product.category.name if product.category else 'N/A'}. "
+            f"Опис: {product.description or ''}. "
+            f"Кольори: {', '.join(color_names) if color_names else 'N/A'}. "
+            "Виведіть ключові слова через кому."
+        )
+        try:
+            response = openai.ChatCompletion.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "Ви - генератор SEO ключових слів."},
+                    {"role": "user", "content": prompt},
+                ],
+            )
+            text = response.choices[0].message.get('content', '') if hasattr(response, 'choices') else ''
+        except Exception:
+            return []
+        if not text:
+            return []
+        raw = [t.strip() for t in text.replace('\n', ',').split(',') if t.strip()]
+        seen = set()
+        keywords = []
+        for w in raw:
+            lw = w.lower()
+            if lw not in seen:
+                seen.add(lw)
+                keywords.append(w)
+            if len(keywords) >= 20:
+                break
+        return keywords
     
     @classmethod
     def generate_category_keywords(cls, category: Category) -> List[str]:
@@ -123,7 +190,58 @@ class SEOKeywordGenerator:
             desc_keywords = cls.extract_keywords_from_text(category.description)
             keywords.extend(desc_keywords)
         
+        # If AI keywords for category are enabled, extend with AI-generated keywords
+        try:
+            from django.conf import settings
+            if getattr(settings, 'USE_AI_KEYWORDS', False):
+                ai_keywords = cls.generate_category_keywords_ai(category)
+                for kw in ai_keywords:
+                    if kw and kw not in keywords:
+                        keywords.append(kw)
+        except Exception:
+            pass
         return list(dict.fromkeys(keywords))[:15]
+
+    @classmethod
+    def generate_category_keywords_ai(cls, category: Category) -> List[str]:
+        """Генерирует ключевые слова для категории с помощью OpenAI (если доступно)"""
+        model = getattr(settings, 'OPENAI_MODEL', 'gpt-5')
+        api_key = getattr(settings, 'OPENAI_API_KEY', None) or os.environ.get('OPENAI_API_KEY')
+        if not api_key:
+            return []
+        try:
+            import openai
+            openai.api_key = api_key
+        except Exception:
+            return []
+        prompt = (
+            f"Створіть до 20 SEO ключових слів для категорії '{category.name}'. "
+            f"Опис: {category.description or ''}."
+        )
+        try:
+            resp = openai.ChatCompletion.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "Ви - генератор SEO ключових слів."},
+                    {"role": "user", "content": prompt},
+                ],
+            )
+            text = resp.choices[0].message.get('content', '') if hasattr(resp, 'choices') else ''
+        except Exception:
+            return []
+        if not text:
+            return []
+        raw = [t.strip() for t in text.replace('\n', ',').split(',') if t.strip()]
+        seen = set()
+        keywords = []
+        for w in raw:
+            lw = w.lower()
+            if lw not in seen:
+                seen.add(lw)
+                keywords.append(w)
+            if len(keywords) >= 20:
+                break
+        return keywords
     
     @classmethod
     def generate_meta_description(cls, product: Product) -> str:
@@ -161,16 +279,26 @@ class SEOMetaGenerator:
     def generate_product_meta(product: Product) -> Dict[str, str]:
         """Генерирует все мета-теги для товара"""
         keywords = SEOKeywordGenerator.generate_product_keywords(product)
+        description = SEOKeywordGenerator.generate_meta_description(product)
+        # Пробуем заменить описание AI-генерируемым текстом, если опция включена
+        try:
+            from django.conf import settings
+            if getattr(settings, 'USE_AI_DESCRIPTIONS', False):
+                ai_desc = SEOContentOptimizer.generate_ai_product_description(product)
+                if ai_desc:
+                    description = ai_desc[:160]
+        except Exception:
+            pass
         
         return {
             'title': SEOKeywordGenerator.generate_meta_title(product),
-            'description': SEOKeywordGenerator.generate_meta_description(product),
+            'description': description,
             'keywords': ', '.join(keywords),
             'og_title': SEOKeywordGenerator.generate_meta_title(product),
-            'og_description': SEOKeywordGenerator.generate_meta_description(product),
+            'og_description': description,
             'og_image': product.display_image.url if product.display_image else '',
             'twitter_title': SEOKeywordGenerator.generate_meta_title(product),
-            'twitter_description': SEOKeywordGenerator.generate_meta_description(product),
+            'twitter_description': description,
             'twitter_image': product.display_image.url if product.display_image else '',
         }
     
@@ -598,6 +726,71 @@ class SEOContentOptimizer:
             return f"Зображення {' '.join(words[:3])}"
         
         return "Зображення товару TwoComms"
+
+    @staticmethod
+    def generate_ai_category_description(category: Category) -> str:
+        """Генерирует AI-описание категории для SEO (если доступно)"""
+        try:
+            from django.conf import settings
+            if not getattr(settings, 'USE_AI_DESCRIPTIONS', False):
+                return ''
+            api_key = getattr(settings, 'OPENAI_API_KEY', None) or __import__('os').environ.get('OPENAI_API_KEY')
+            if not api_key:
+                return ''
+            import openai
+            openai.api_key = api_key
+            model = getattr(settings, 'OPENAI_MODEL', 'gpt-5')
+            prompt = (
+                f"Напишіть стислий SEO-дружній опис категорії '{category.name}'. "
+            )
+            if category.description:
+                prompt += f" Опис: {category.description}."
+            resp = openai.ChatCompletion.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "Ви - SEO-копірайтер."},
+                    {"role": "user", "content": prompt},
+                ],
+            )
+            text = resp.choices[0].message.get('content', '') if hasattr(resp, 'choices') and resp.choices else ''
+            return text.strip() if text else ''
+        except Exception:
+            return ''
+
+    @staticmethod
+    def generate_ai_product_description(product: Product) -> str:
+        """Генерирует AI-описание товара для SEO (если доступно)"""
+        try:
+            from django.conf import settings
+            use_descriptions = getattr(settings, 'USE_AI_DESCRIPTIONS', False)
+            if isinstance(use_descriptions, str):
+                use_descriptions = use_descriptions.lower() in ('1','true','yes')
+            if not use_descriptions:
+                return ''
+            api_key = getattr(settings, 'OPENAI_API_KEY', None) or os.environ.get('OPENAI_API_KEY')
+            if not api_key:
+                return ''
+            import openai
+            openai.api_key = api_key
+            model = getattr(settings, 'OPENAI_MODEL', 'gpt-5')
+            prompt = (
+                f"Напишіть стислий SEO-дружній опис товару '{product.title}'. "
+                f"Категорія: {product.category.name if product.category else 'N/A'}. "
+                f"Ціна: {product.final_price}." 
+            )
+            resp = openai.ChatCompletion.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "Ви - SEO-копірайтер."},
+                    {"role": "user", "content": prompt},
+                ],
+            )
+            text = ''
+            if hasattr(resp, 'choices') and resp.choices:
+                text = resp.choices[0].message.get('content', '') if isinstance(resp.choices[0].message, dict) else ''
+            return text.strip() if text else ''
+        except Exception:
+            return ''
 
 
 # Глобальные функции для использования в шаблонах
