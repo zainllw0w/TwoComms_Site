@@ -1145,8 +1145,8 @@
                                 <div class="order-item-title">{{ item.product.title }}</div>
                                 
                                 <div class="order-item-color-section">
-                                    <span class="order-item-color-text">{{ item.color.name if item.color else 'Чорний' }}</span>
-                                    <span class="order-item-color-dot" style="background-color: {{ item.color.hex_code if item.color else '#000000' }};"></span>
+                                    <span class="order-item-color-text">{% if item.color %}{{ item.color.name }}{% else %}Чорний{% endif %}</span>
+                                    <span class="order-item-color-dot" style="background-color: {% if item.color %}{{ item.color.hex_code }}{% else %}#000000{% endif %};"></span>
                                 </div>
                                 
                                 {% if item.size %}
