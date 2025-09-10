@@ -43,3 +43,6 @@ requests==2.32.5
 
 # OpenAI Python client for AI-generated content (optional)
 openai
+
+# Excel файлы для накладных
+openpyxl==3.1.2
