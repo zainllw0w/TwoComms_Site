@@ -1271,51 +1271,57 @@ document.addEventListener('click', function(e){
   }catch(_){ }
 });
 
-// Функция переключения цветов товаров
-function switchProductColor(button) {
-  try {
-    const productId = button.getAttribute('data-product-id');
-    const variantId = button.getAttribute('data-variant-id');
-    const imageUrl = button.getAttribute('data-image-url');
-    
-    if (!productId || !imageUrl) return;
-    
-    // Находим карточку товара
-    const card = button.closest('.card.product');
-    if (!card) return;
-    
-    // Находим изображение товара
-    const productImage = card.querySelector('.product-main-image');
-    if (!productImage) return;
-    
-    // Добавляем класс для анимации
-    productImage.classList.add('switching');
-    
-    // Переключаем активную кнопку
-    const allColorButtons = card.querySelectorAll('.color-switch-btn');
-    allColorButtons.forEach(btn => btn.classList.remove('active'));
-    button.classList.add('active');
-    
-    // Меняем изображение с плавной анимацией
-    setTimeout(() => {
-      productImage.src = imageUrl;
-      productImage.classList.remove('switching');
-    }, 150);
-    
-    // Трекинг события
-    if (window.trackEvent) {
-      window.trackEvent('ViewContent', {
-        content_ids: [String(productId)],
-        content_type: 'product_variant',
-        content_name: `Color variant ${variantId}`,
-        custom_data: {
-          variant_id: variantId,
-          product_id: productId
-        }
-      });
+// Функция переключения цветов товара
+function switchProductColor(button, productId) {
+  if (!button) return;
+  
+  const productCard = button.closest('.card.product');
+  if (!productCard) return;
+  
+  const productImage = productCard.querySelector('img');
+  if (!productImage) return;
+  
+  // Убираем активный класс у всех кнопок цветов этого товара
+  const allColorButtons = productCard.querySelectorAll('.color-switch-btn');
+  allColorButtons.forEach(btn => btn.classList.remove('active'));
+  
+  // Добавляем активный класс к нажатой кнопке
+  button.classList.add('active');
+  
+  // Получаем данные о цвете
+  const primaryColor = button.getAttribute('data-primary');
+  const secondaryColor = button.getAttribute('data-secondary');
+  
+  // Анимация переключения изображения
+  productImage.classList.add('switching');
+  
+  // Здесь можно добавить AJAX запрос для получения изображения нужного цвета
+  // Пока что просто меняем стили для демонстрации
+  setTimeout(() => {
+    // Добавляем эффект свечения цвета
+    productCard.style.setProperty('--primary-color', primaryColor);
+    if (secondaryColor) {
+      productCard.style.setProperty('--secondary-color', secondaryColor);
     }
     
-  } catch (error) {
-    console.error('Error switching product color:', error);
-  }
+    // Убираем класс анимации
+    productImage.classList.remove('switching');
+    
+    // Добавляем кратковременный эффект пульсации
+    productCard.style.animation = 'none';
+    setTimeout(() => {
+      productCard.style.animation = 'colorSwitchPulse 0.6s ease-out';
+    }, 10);
+  }, 150);
+  
+  // Отслеживание события
+  try {
+    if (window.trackEvent) {
+      window.trackEvent('ColorSwitch', {
+        content_ids: [String(productId)],
+        content_type: 'product',
+        color: primaryColor
+      });
+    }
+  } catch(_) {}
 }
