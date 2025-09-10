@@ -17454,8 +17454,14 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 .favorite-btn.is-favorite .favorite-icon-filled {
   opacity: 1;
   transform: translate(-50%, -50%) scale(1);
-  animation: heartBeat 0.8s cubic-bezier(0.4, 0, 0.2, 1), favoriteHeartGlow 2s ease-in-out infinite;
-  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.8)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  animation: heartBeat 0.8s cubic-bezier(0.4, 0, 0.2, 1), favoriteHeartGlow 2s ease-in-out infinite, goldenHeartShimmer 3s ease-in-out infinite;
+  filter: drop-shadow(0 0 12px rgba(239, 68, 68, 1)) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 20px rgba(255, 215, 0, 0.6));
+  background: linear-gradient(45deg, #ff6b6b, #ffd700, #ff6b6b, #ffd700);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: heartBeat 0.8s cubic-bezier(0.4, 0, 0.2, 1), favoriteHeartGlow 2s ease-in-out infinite, goldenHeartShimmer 3s ease-in-out infinite, goldenGradientShift 4s ease-in-out infinite;
 }
 
 .favorite-btn-glow {
@@ -17508,8 +17514,15 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   right: -6px;
   bottom: -6px;
   border-radius: 50%;
-  background: conic-gradient(from 0deg, transparent, rgba(239, 68, 68, 0.6), transparent, rgba(239, 68, 68, 0.6), transparent);
-  animation: favoriteSparkle 2s linear infinite;
+  background: conic-gradient(from 0deg, 
+    transparent, 
+    rgba(239, 68, 68, 0.6), 
+    rgba(255, 215, 0, 0.6), 
+    rgba(138, 43, 226, 0.6), 
+    rgba(0, 191, 255, 0.6), 
+    rgba(50, 205, 50, 0.6), 
+    transparent);
+  animation: favoriteSparkle 2s linear infinite, multicolorRotate 8s linear infinite;
   z-index: -2;
   opacity: 1;
 }
@@ -17525,6 +17538,45 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   background: radial-gradient(circle, rgba(239, 68, 68, 0.4) 0%, transparent 70%);
   animation: favoriteSparkleGlow 1.5s ease-in-out infinite;
   z-index: -1;
+}
+
+/* Дополнительные разноцветные эффекты */
+.favorite-btn.is-favorite .favorite-btn-icon::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  border-radius: 50%;
+  background: conic-gradient(from 180deg, 
+    rgba(255, 0, 150, 0.3), 
+    rgba(0, 255, 255, 0.3), 
+    rgba(255, 255, 0, 0.3), 
+    rgba(255, 0, 255, 0.3), 
+    rgba(0, 255, 0, 0.3), 
+    rgba(255, 0, 150, 0.3));
+  animation: rainbowRotate 6s linear infinite reverse;
+  z-index: -3;
+  opacity: 0.8;
+}
+
+.favorite-btn.is-favorite .favorite-btn-icon::after {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  right: -10px;
+  bottom: -10px;
+  border-radius: 50%;
+  background: radial-gradient(circle, 
+    rgba(255, 215, 0, 0.2) 0%, 
+    rgba(255, 0, 150, 0.1) 25%, 
+    rgba(0, 255, 255, 0.1) 50%, 
+    rgba(255, 255, 0, 0.1) 75%, 
+    transparent 100%);
+  animation: rainbowPulse 4s ease-in-out infinite;
+  z-index: -4;
 }
 
 /* Анимация загрузки */
@@ -17639,6 +17691,63 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   50% { 
     opacity: 1;
     transform: scale(1.2);
+  }
+}
+
+/* Новые анимации для золотого свечения и разноцветных эффектов */
+@keyframes goldenHeartShimmer {
+  0%, 100% { 
+    filter: drop-shadow(0 0 12px rgba(239, 68, 68, 1)) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 20px rgba(255, 215, 0, 0.6));
+  }
+  25% { 
+    filter: drop-shadow(0 0 15px rgba(239, 68, 68, 1)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 25px rgba(255, 215, 0, 0.8));
+  }
+  50% { 
+    filter: drop-shadow(0 0 18px rgba(239, 68, 68, 1)) drop-shadow(0 5px 10px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 30px rgba(255, 215, 0, 1));
+  }
+  75% { 
+    filter: drop-shadow(0 0 15px rgba(239, 68, 68, 1)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 25px rgba(255, 215, 0, 0.8));
+  }
+}
+
+@keyframes goldenGradientShift {
+  0% { 
+    background-position: 0% 50%;
+  }
+  50% { 
+    background-position: 100% 50%;
+  }
+  100% { 
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes multicolorRotate {
+  0% { 
+    transform: rotate(0deg);
+  }
+  100% { 
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes rainbowRotate {
+  0% { 
+    transform: rotate(0deg);
+  }
+  100% { 
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes rainbowPulse {
+  0%, 100% { 
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.6;
+    transform: scale(1.1);
   }
 }
 
