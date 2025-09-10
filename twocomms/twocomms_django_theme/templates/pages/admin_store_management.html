@@ -1314,6 +1314,18 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeCategoryFilter();
     initializeProductClick();
     
+    // Инициализация обработчика изменения цвета
+    const productColorSelect = document.getElementById('productColor');
+    if (productColorSelect) {
+        productColorSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const imageUrl = selectedOption.getAttribute('data-image');
+            if (imageUrl) {
+                updateProductImage(imageUrl);
+            }
+        });
+    }
+    
     // Инициализируем currentOrderId если есть активные заказы
     const firstOrderItem = document.querySelector('.order-item');
     if (firstOrderItem) {
@@ -1441,10 +1453,16 @@ function loadProductColors(productId) {
         if (data.success && data.colors.length > 0) {
             // Если есть цвета у товара, показываем их
             let options = '';
-            data.colors.forEach(color => {
-                options += `<option value="${color.id}">${color.name}</option>`;
+            data.colors.forEach((color, index) => {
+                const selected = index === 0 ? 'selected' : '';
+                options += `<option value="${color.id}" data-image="${color.image_url || ''}" ${selected}>${color.name}</option>`;
             });
             colorSelect.innerHTML = options;
+            
+            // Устанавливаем первое изображение по умолчанию
+            if (data.colors[0] && data.colors[0].image_url) {
+                updateProductImage(data.colors[0].image_url);
+            }
         } else {
             // Если нет цветов, показываем дефолтный черный
             colorSelect.innerHTML = '<option value="default">Чорний (дефолт)</option>';
@@ -1455,6 +1473,14 @@ function loadProductColors(productId) {
         // В случае ошибки показываем дефолтный черный
         colorSelect.innerHTML = '<option value="default">Чорний (дефолт)</option>';
     });
+}
+
+// Обновление изображения товара при выборе цвета
+function updateProductImage(imageUrl) {
+    const productImage = document.querySelector('#orderForm .product-image');
+    if (productImage && imageUrl) {
+        productImage.src = imageUrl;
+    }
 }
 
 // Добавление товара в заказ
@@ -1518,7 +1544,8 @@ function addOrderItemToDOM(item) {
         emptyMessage.remove();
     }
     
-    const imageUrl = item.product_image || '';
+    // Используем изображение цвета, если есть, иначе основное изображение товара
+    const imageUrl = item.color_image || item.product_image || '';
     const imageHtml = imageUrl ? 
         `<img src="${imageUrl}" alt="${item.product_name}" class="order-product-image">` :
         `<div class="order-product-image" style="background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #718096;">
