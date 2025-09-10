@@ -252,6 +252,36 @@
     background: rgba(139, 92, 246, 0.8);
 }
 
+.order-items-scroll-container,
+.store-products-scroll-container {
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 8px;
+    margin-right: -8px;
+}
+
+.order-items-scroll-container::-webkit-scrollbar,
+.store-products-scroll-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.order-items-scroll-container::-webkit-scrollbar-track,
+.store-products-scroll-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.order-items-scroll-container::-webkit-scrollbar-thumb,
+.store-products-scroll-container::-webkit-scrollbar-thumb {
+    background: rgba(139, 92, 246, 0.6);
+    border-radius: 3px;
+}
+
+.order-items-scroll-container::-webkit-scrollbar-thumb:hover,
+.store-products-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 92, 246, 0.8);
+}
+
 .product-card {
     background: rgba(20, 22, 27, 0.7);
     backdrop-filter: blur(15px);
@@ -343,24 +373,28 @@
 }
 
 .product-category {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.category-name {
     color: rgba(139, 92, 246, 0.8);
     font-size: 0.7rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-bottom: 2px;
 }
 
-.product-title {
-    font-weight: 600;
-    color: var(--tc-text);
-    font-size: 0.8rem;
-    line-height: 1.2;
-    margin-bottom: 4px;
-    display: -webkit-box;
-    -webkit-line-clamp: 1;
-    -webkit-box-orient: vertical;
+.product-name {
+    color: rgba(232, 233, 236, 0.6);
+    font-size: 0.65rem;
+    font-weight: 400;
+    white-space: nowrap;
     overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
 }
 
 .product-colors {
@@ -478,15 +512,37 @@
     background: rgba(20, 22, 27, 0.7);
     backdrop-filter: blur(15px);
     border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 16px;
-    padding: 15px;
-    margin-bottom: 12px;
+    border-radius: 12px;
+    padding: 10px;
+    margin-bottom: 8px;
     box-shadow: 
-        0 6px 20px rgba(0, 0, 0, 0.3),
+        0 4px 12px rgba(0, 0, 0, 0.25),
         0 0 0 1px rgba(139, 92, 246, 0.1);
-    border-left: 4px solid #8b5cf6;
+    border-left: 3px solid #8b5cf6;
     position: relative;
     transition: all 0.3s ease;
+    height: 70px;
+}
+
+.order-item-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 100%;
+}
+
+.order-item-image {
+    flex-shrink: 0;
+    width: 50px;
+    height: 50px;
+}
+
+.order-product-image {
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
+    object-fit: cover;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .order-item:hover {
@@ -497,42 +553,70 @@
     border-left-color: #7c3aed;
 }
 
-.order-item-details {
+.order-item-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+    min-width: 0;
+}
+
+.order-item-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 15px;
-    margin-top: 10px;
+    margin-bottom: 4px;
 }
 
-.order-item-info {
+.order-item-title {
+    font-weight: 600;
+    color: var(--tc-text);
+    font-size: 0.8rem;
+    line-height: 1.2;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    flex: 1;
+    margin-right: 8px;
+}
+
+.order-item-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.order-item-specs {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
 }
 
 .order-item-prices {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
     text-align: right;
 }
 
 .order-item-size,
 .order-item-color,
 .order-item-quantity {
-    font-size: 0.8rem;
-    color: rgba(232, 233, 236, 0.8);
+    font-size: 0.7rem;
+    color: rgba(232, 233, 236, 0.7);
 }
 
 .order-item-cost {
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     color: #ef4444;
     font-weight: 600;
 }
 
 .order-item-selling {
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     color: #10b981;
     font-weight: 600;
 }
@@ -899,8 +983,10 @@
                                 {% endif %}
                             </div>
                             <div class="product-info">
-                                <div class="product-category">{{ product.category.name }}</div>
-                                <div class="product-title">{{ product.title }}</div>
+                                <div class="product-category">
+                                    <span class="category-name">{{ product.category.name }}</span>
+                                    <span class="product-name">{{ product.title }}</span>
+                                </div>
                                 <div class="product-colors">
                                     {% for color_variant in product.color_variants.all|slice:":3" %}
                                         <span class="color-dot" style="background-color: {{ color_variant.color.hex_code }};" title="{{ color_variant.color.name }}"></span>
@@ -932,12 +1018,10 @@
                     <label class="form-label">Розмір</label>
                     <select class="form-select" id="productSize">
                         <option value="">Без розміру</option>
-                        <option value="XS">XS</option>
                         <option value="S">S</option>
                         <option value="M">M</option>
                         <option value="L">L</option>
                         <option value="XL">XL</option>
-                        <option value="XXL">XXL</option>
                     </select>
                 </div>
                 
@@ -973,7 +1057,7 @@
             </div>
             
             <!-- Список товаров в заказе -->
-            <div id="orderItems">
+            <div id="orderItems" class="order-items-scroll-container">
                 {% for order in active_orders %}
                     {% for item in order.order_items.all %}
                         <div class="order-item" data-item-id="{{ item.id }}" data-order-id="{{ order.id }}">
@@ -1022,7 +1106,7 @@
             </div>
             
             <!-- Список товаров в магазине -->
-            <div id="storeProducts">
+            <div id="storeProducts" class="store-products-scroll-container">
                 {% for store_product in store_products %}
                     <div class="store-product" data-product-id="{{ store_product.id }}">
                         <div class="store-product-header">
@@ -1229,7 +1313,10 @@ function addToOrder() {
     .then(data => {
         if (data.success) {
             currentOrderId = data.order_id;
-            loadOrderItems();
+            
+            // Добавляем товар в DOM напрямую
+            addOrderItemToDOM(data.item);
+            
             resetOrderForm();
             showNotification('Товар додано в замовлення', 'success');
         } else {
@@ -1246,6 +1333,52 @@ function resetOrderForm() {
     document.getElementById('orderForm').style.display = 'none';
     document.getElementById('orderDropZone').style.display = 'block';
     currentProduct = null;
+}
+
+// Добавление товара в DOM заказа
+function addOrderItemToDOM(item) {
+    const orderItemsContainer = document.getElementById('orderItems');
+    
+    // Убираем сообщение "Нет товаров" если оно есть
+    const emptyMessage = orderItemsContainer.querySelector('.empty-order');
+    if (emptyMessage) {
+        emptyMessage.remove();
+    }
+    
+    // Создаем HTML для нового товара
+    const itemHTML = `
+        <div class="order-item" data-item-id="${item.id}" data-order-id="${currentOrderId}">
+            <div class="order-item-content">
+                <div class="order-item-image">
+                    <img src="${item.product_image || '/static/img/placeholder.png'}" alt="${item.product_name}" class="order-product-image">
+                </div>
+                <div class="order-item-info">
+                    <div class="order-item-header">
+                        <div class="order-item-title">${item.product_name}</div>
+                        <button class="remove-item-btn" onclick="removeOrderItem(${item.id})">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="order-item-details">
+                        <div class="order-item-specs">
+                            <span class="order-item-size">${item.size}</span>
+                            ${item.color_name ? `<span class="order-item-color">${item.color_name}</span>` : ''}
+                            <span class="order-item-quantity">${item.quantity} шт.</span>
+                        </div>
+                        <div class="order-item-prices">
+                            <span class="order-item-cost">${item.cost_price} грн</span>
+                            <span class="order-item-selling">${item.selling_price} грн</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Добавляем товар в контейнер
+    orderItemsContainer.insertAdjacentHTML('beforeend', itemHTML);
 }
 
 // Загрузка товаров в заказе
@@ -1426,7 +1559,14 @@ function generateInvoice() {
         if (response.ok) {
             return response.blob();
         } else {
-            throw new Error('Помилка генерації накладної');
+            return response.text().then(text => {
+                try {
+                    const data = JSON.parse(text);
+                    throw new Error(data.error || 'Помилка генерації накладної');
+                } catch (e) {
+                    throw new Error('Помилка генерації накладної');
+                }
+            });
         }
     })
     .then(blob => {
@@ -1443,7 +1583,8 @@ function generateInvoice() {
         location.reload();
     })
     .catch(error => {
-        showNotification(error.message, 'error');
+        console.error('Invoice generation error:', error);
+        showNotification(error.message || 'Помилка сервера', 'error');
     });
 }
 
