@@ -1,7 +1,18 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load seo_tags %}
 
-{% block title %}Доставка і оплата - TwoComms{% endblock %}
+{% block seo_meta %}
+  {% seo_meta_tags %}
+{% endblock %}
+
+{% block structured_data %}
+  {% faq_schema faq_items %}
+{% endblock %}
+
+{% block breadcrumbs %}
+  {% breadcrumbs request %}
+{% endblock %}
 
 {% block content %}
 <!-- Анимация искр для всей страницы -->
@@ -499,6 +510,87 @@
             <h3 class="info-title">Співпраця</h3>
             <p class="info-desc">Станьте нашим партнером та отримуйте вигідні умови</p>
             <a href="{% url 'cooperation' %}" class="info-link">Співпраця</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Section -->
+  <section class="faq-section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Часті питання</h2>
+        <p class="section-subtitle">Відповіді на найпоширеніші питання про доставку та оплату</p>
+      </div>
+      
+      <div class="row justify-content-center">
+        <div class="col-lg-8">
+          <div class="accordion" id="faqAccordion">
+            <div class="accordion-item">
+              <h3 class="accordion-header">
+                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                  Як довго триває доставка по Україні?
+                </button>
+              </h3>
+              <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
+                <div class="accordion-body">
+                  Доставка по Україні зазвичай триває 1-5 робочих днів залежно від регіону. У великих містах доставка може бути швидшою.
+                </div>
+              </div>
+            </div>
+            
+            <div class="accordion-item">
+              <h3 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                  Чи можна оплатити товар при отриманні?
+                </button>
+              </h3>
+              <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                <div class="accordion-body">
+                  Так, ми пропонуємо накладений платіж для доставки по Україні. Варто врахувати, що при цьому способі оплати додається комісія перевізника.
+                </div>
+              </div>
+            </div>
+            
+            <div class="accordion-item">
+              <h3 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                  Як відстежити замовлення?
+                </button>
+              </h3>
+              <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                <div class="accordion-body">
+                  Після відправки замовлення ви отримаєте номер ТТН на email або в Telegram. Ви можете відстежити посилку на сайті перевізника або через наш Telegram бот.
+                </div>
+              </div>
+            </div>
+            
+            <div class="accordion-item">
+              <h3 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq4">
+                  Чи можлива доставка за кордон?
+                </button>
+              </h3>
+              <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                <div class="accordion-body">
+                  Так, ми здійснюємо міжнародну доставку через Укрпошту та Нову пошту. Термін доставки 7-21 робочий день залежно від країни.
+                </div>
+              </div>
+            </div>
+            
+            <div class="accordion-item">
+              <h3 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq5">
+                  Які способи оплати доступні?
+                </button>
+              </h3>
+              <div id="faq5" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                <div class="accordion-body">
+                  Ми приймаємо оплату на банківську картку, накладений платіж при отриманні, а також бали за купони для зареєстрованих користувачів.
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

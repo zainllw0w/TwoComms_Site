@@ -1,0 +1,83 @@
+{% comment %}
+Хлебные крошки для навигации
+{% endcomment %}
+
+{% if breadcrumbs %}
+<nav aria-label="breadcrumb" class="breadcrumb-nav">
+  <ol class="breadcrumb">
+    {% for breadcrumb in breadcrumbs %}
+      {% if forloop.last %}
+        <li class="breadcrumb-item active" aria-current="page">
+          {{ breadcrumb.name }}
+        </li>
+      {% else %}
+        <li class="breadcrumb-item">
+          <a href="{{ breadcrumb.url }}" class="breadcrumb-link">
+            {{ breadcrumb.name }}
+          </a>
+        </li>
+      {% endif %}
+    {% endfor %}
+  </ol>
+</nav>
+
+<style>
+.breadcrumb-nav {
+  margin-bottom: 1.5rem;
+  padding: 0.75rem 0;
+}
+
+.breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  background: transparent;
+  border-radius: 0;
+}
+
+.breadcrumb-item {
+  display: flex;
+  align-items: center;
+}
+
+.breadcrumb-item + .breadcrumb-item {
+  padding-left: 0.5rem;
+}
+
+.breadcrumb-item + .breadcrumb-item::before {
+  content: "›";
+  color: var(--tc-text-secondary);
+  margin-right: 0.5rem;
+  font-weight: 600;
+}
+
+.breadcrumb-item.active {
+  color: var(--tc-text);
+  font-weight: 500;
+}
+
+.breadcrumb-link {
+  color: var(--tc-primary);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.breadcrumb-link:hover {
+  color: rgba(139, 92, 246, 0.8);
+  text-decoration: none;
+}
+
+@media (max-width: 768px) {
+  .breadcrumb-nav {
+    margin-bottom: 1rem;
+    padding: 0.5rem 0;
+  }
+  
+  .breadcrumb-item {
+    font-size: 0.875rem;
+  }
+}
+</style>
+{% endif %}
