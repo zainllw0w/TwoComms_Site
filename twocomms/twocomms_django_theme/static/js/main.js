@@ -107,6 +107,32 @@ function updateCartBadge(count){
   if(mobile){ mobile.textContent=n; mobile.style.display='inline-block'; }
 }
 
+// Функция для обновления счетчика избранного
+function updateFavoritesBadge(count){
+  const n = String(count||0);
+  const desktop=document.getElementById('favorites-count');
+  const favoritesWrapper = document.querySelector('.favorites-icon-wrapper');
+  
+  if(desktop){ 
+    desktop.textContent=n; 
+    if(count > 0) {
+      desktop.style.display='flex';
+      desktop.style.visibility='visible';
+      // Добавляем класс для анимации когда есть товары
+      if(favoritesWrapper) {
+        favoritesWrapper.classList.add('has-items');
+      }
+    } else {
+      desktop.style.display='none';
+      desktop.style.visibility='hidden';
+      // Убираем класс когда нет товаров
+      if(favoritesWrapper) {
+        favoritesWrapper.classList.remove('has-items');
+      }
+    }
+  }
+}
+
 // Применение цветов свотчей (включая комбинированные) по data-* атрибутам
 function applySwatchColors(root){
   try{
@@ -211,6 +237,16 @@ document.addEventListener('DOMContentLoaded',()=>{
     fetch('/cart/summary/',{headers:{'X-Requested-With':'XMLHttpRequest'}})
       .then(r=>r.ok?r.json():null)
       .then(d=>{ if(d&&d.ok){ updateCartBadge(d.count); }})
+      .catch(()=>{});
+    
+    // Загружаем счетчик избранного для незарегистрированных пользователей
+    fetch('/favorites/count/',{headers:{'X-Requested-With':'XMLHttpRequest'}})
+      .then(r=>r.ok?r.json():null)
+      .then(d=>{ 
+        if(d&&d.count !== undefined){ 
+          updateFavoritesBadge(d.count); 
+        }
+      })
       .catch(()=>{});
   });
 
@@ -1015,6 +1051,11 @@ function toggleFavorite(productId, button) {
       } else {
         button.classList.remove('is-favorite');
         try{ if(window.trackEvent){ window.trackEvent('RemoveFromWishlist', {content_ids:[String(productId)], content_type:'product'}); } }catch(_){ }
+      }
+      
+      // Обновляем счетчик избранного
+      if (data.favorites_count !== undefined) {
+        updateFavoritesBadge(data.favorites_count);
       }
       
       // Показываем уведомление
