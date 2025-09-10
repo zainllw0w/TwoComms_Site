@@ -865,6 +865,48 @@ body::after {
   }
 }
 
+@keyframes starRotate {
+  0% { 
+    transform: rotate(0deg); 
+  }
+  100% { 
+    transform: rotate(360deg); 
+  }
+}
+
+@keyframes starGlow {
+  0% { 
+    filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.8)) brightness(1);
+  }
+  100% { 
+    filter: drop-shadow(0 0 20px rgba(255, 215, 0, 1)) brightness(1.2);
+  }
+}
+
+@keyframes starFloat {
+  0%, 100% { 
+    transform: translateY(0px) scale(1);
+  }
+  50% { 
+    transform: translateY(-3px) scale(1.05);
+  }
+}
+
+@keyframes pulseRing {
+  0% { 
+    opacity: 0.8; 
+    transform: scale(0.8);
+  }
+  50% { 
+    opacity: 0.3; 
+    transform: scale(1.2);
+  }
+  100% { 
+    opacity: 0; 
+    transform: scale(1.5);
+  }
+}
+
 /* Панель пользователя */
 .user-panel {
   position: absolute;
@@ -1072,6 +1114,34 @@ body::after {
   animation-duration: 4s;
 }
 
+.spark-7 {
+  top: 10%;
+  left: 50%;
+  animation-delay: 2.5s;
+  animation-duration: 3.5s;
+}
+
+.spark-8 {
+  top: 70%;
+  left: 10%;
+  animation-delay: 3.2s;
+  animation-duration: 4.5s;
+}
+
+.spark-9 {
+  top: 40%;
+  right: 10%;
+  animation-delay: 3.9s;
+  animation-duration: 3.8s;
+}
+
+.spark-10 {
+  top: 80%;
+  right: 50%;
+  animation-delay: 4.6s;
+  animation-duration: 4.2s;
+}
+
 @keyframes sparkFloat {
   0% {
     opacity: 0;
@@ -1197,7 +1267,7 @@ body::after {
   border: 3px solid rgba(255, 215, 0, 0.6);
   border-radius: 20px;
   color: #FFD700;
-  animation: pointsIconPulse 3s ease-in-out infinite;
+  animation: pointsIconPulse 2.5s ease-in-out infinite, starRotate 8s linear infinite;
   flex-shrink: 0;
   position: relative;
   z-index: 2;
@@ -1205,7 +1275,13 @@ body::after {
   margin: 0;
   box-shadow: 
     0 0 30px rgba(255, 215, 0, 0.4),
+    0 0 60px rgba(255, 193, 7, 0.2),
     inset 0 2px 4px rgba(255, 255, 255, 0.2);
+}
+
+.points-icon svg {
+  animation: starGlow 2s ease-in-out infinite alternate, starFloat 4s ease-in-out infinite;
+  filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.8));
 }
 
 .points-icon::before {
@@ -1219,6 +1295,19 @@ body::after {
   border-radius: 28px;
   animation: iconGlow 3s ease-in-out infinite;
   z-index: -1;
+}
+
+.points-icon::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  border: 2px solid rgba(255, 215, 0, 0.2);
+  border-radius: 32px;
+  animation: pulseRing 3s ease-in-out infinite;
+  z-index: -2;
 }
 
 .points-info {
@@ -1265,7 +1354,7 @@ body::after {
 }
 
 .points-hint {
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   color: #9ca3af;
   font-weight: 500;
   opacity: 0.9;
@@ -14075,7 +14164,7 @@ input[type="file"].form-control:hover {
   font-weight: 900;
 }
 #user-panel-mobile .points-hint { 
-  font-size: 0.7rem; 
+  font-size: 0.65rem; 
   color: #9ca3af;
   font-weight: 500;
 }
