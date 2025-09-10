@@ -1339,8 +1339,11 @@ document.addEventListener('click', function(e) {
   e.stopPropagation();
   
   const colorDot = e.target;
-  const productCard = colorDot.closest('.card.product');
+  // Ищем карточку товара в родительском контейнере product-card-wrap
+  const productCardWrap = colorDot.closest('.product-card-wrap');
+  const productCard = productCardWrap ? productCardWrap.querySelector('.card.product') : null;
   
+  console.log('Product card wrap found:', productCardWrap);
   console.log('Product card found:', productCard);
   
   if (!productCard) {
