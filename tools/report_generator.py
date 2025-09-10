@@ -12,7 +12,7 @@ from typing import Dict, List, Any
 from pathlib import Path
 
 class PerformanceReportGenerator:
-    def __init__(self, output_dir: str = "/Users/zainllw0w/PycharmProjects/TwoComms"):
+    def __init__(self, output_dir: str = "/home/qlknpodo/TWC/TwoComms_Site/twocomms"):
         self.output_dir = output_dir
         self.reports = {}
         

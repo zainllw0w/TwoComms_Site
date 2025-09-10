@@ -1,0 +1,111 @@
+{
+  "analysis_results": {
+    "models": {
+      "total_models": 17,
+      "total_fields": 122,
+      "models_by_app": {
+        "productcolors": {
+          "models_count": 3,
+          "fields_count": 10,
+          "issues": [
+            "Отсутствуют индексы"
+          ]
+        },
+        "orders": {
+          "models_count": 2,
+          "fields_count": 26,
+          "issues": [
+            "Отсутствуют индексы",
+            "ForeignKey без related_name",
+            "ForeignKey без related_name",
+            "ForeignKey без related_name"
+          ]
+        },
+        "storefront": {
+          "models_count": 8,
+          "fields_count": 62,
+          "issues": [
+            "ForeignKey без related_name",
+            "ForeignKey без related_name",
+            "ForeignKey без related_name"
+          ]
+        },
+        "accounts": {
+          "models_count": 4,
+          "fields_count": 24,
+          "issues": [
+            "Отсутствуют индексы"
+          ]
+        }
+      },
+      "problematic_models": [
+        "productcolors: Отсутствуют индексы",
+        "orders: Отсутствуют индексы, ForeignKey без related_name, ForeignKey без related_name, ForeignKey без related_name",
+        "storefront: ForeignKey без related_name, ForeignKey без related_name, ForeignKey без related_name",
+        "accounts: Отсутствуют индексы"
+      ],
+      "average_fields_per_model": 7.18
+    },
+    "views": {
+      "total_views": 78,
+      "views_by_app": {
+        "storefront": {
+          "function_views": 78,
+          "class_views": 0,
+          "total_views": 78,
+          "issues": [
+            "objects.all() без фильтрации: 7"
+          ]
+        }
+      },
+      "problematic_views": [
+        "storefront: objects.all() без фильтрации: 7"
+      ]
+    },
+    "urls": {
+      "total_urls": 90,
+      "urls_by_app": {
+        "twocomms": 10,
+        "storefront": 77,
+        "accounts": 3
+      },
+      "problematic_urls": [],
+      "recommendations": []
+    },
+    "settings": {
+      "debug_mode": null,
+      "database_engine": null,
+      "cache_backend": null,
+      "security_settings": {},
+      "performance_settings": {},
+      "recommendations": [
+        "Кэширование не настроено - настройте Redis или Memcached"
+      ]
+    },
+    "requirements": {
+      "total_packages": 20,
+      "performance_packages": [],
+      "security_packages": [],
+      "missing_packages": [
+        "redis",
+        "celery",
+        "gunicorn",
+        "psycopg2",
+        "django-redis"
+      ],
+      "recommendations": [
+        "Добавьте Redis для кэширования",
+        "Добавьте Gunicorn для продакшена"
+      ]
+    },
+    "analysis_time": 0.007871150970458984
+  },
+  "recommendations": [
+    "Найдено 4 проблемных моделей - добавьте индексы и оптимизируйте связи",
+    "Найдено 1 проблемных views - упростите логику и добавьте кэширование",
+    "Кэширование не настроено - настройте Redis или Memcached",
+    "Добавьте Redis для кэширования",
+    "Добавьте Gunicorn для продакшена"
+  ],
+  "timestamp": 1757507557.4171484
+}

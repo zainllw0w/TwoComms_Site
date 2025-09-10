@@ -274,11 +274,11 @@ class CSSPerformanceAnalyzer:
 
 def main():
     """Основная функция для запуска анализа"""
-    css_file = "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/twocomms_django_theme/static/css/styles.css"
+    css_file = "/home/qlknpodo/TWC/TwoComms_Site/twocomms/twocomms_django_theme/static/css/styles.css"
     
     # Поиск HTML файлов для анализа использования
     html_files = []
-    templates_dir = "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/twocomms_django_theme/templates"
+    templates_dir = "/home/qlknpodo/TWC/TwoComms_Site/twocomms/twocomms_django_theme/templates"
     if os.path.exists(templates_dir):
         for root, dirs, files in os.walk(templates_dir):
             for file in files:
@@ -290,7 +290,7 @@ def main():
     recommendations = analyzer.generate_recommendations()
     
     # Сохранение результатов
-    output_file = "/Users/zainllw0w/PycharmProjects/TwoComms/css_performance_analysis.json"
+    output_file = "/home/qlknpodo/TWC/TwoComms_Site/twocomms/css_performance_analysis.json"
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump({
             "analysis_results": results,

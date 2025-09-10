@@ -1,0 +1,151 @@
+{
+  "analysis_results": {
+    "file_info": {
+      "size_bytes": 452138,
+      "size_kb": 441.54,
+      "size_mb": 0.43,
+      "compressed_size_bytes": 63742,
+      "compressed_size_kb": 62.25,
+      "compression_ratio": 0.141,
+      "compression_savings_percent": 85.9
+    },
+    "selectors": {
+      "selector_stats": {
+        "universal": 1125,
+        "element": 1,
+        "class": 3840,
+        "id": 406,
+        "attribute": 97,
+        "pseudo_class": 819,
+        "pseudo_element": 165,
+        "descendant": 49337,
+        "child": 82,
+        "adjacent_sibling": 23,
+        "general_sibling": 23
+      },
+      "complex_selectors_count": 2976,
+      "total_rules": 3015,
+      "average_selector_complexity": 98.71
+    },
+    "properties": {
+      "performance_heavy_properties": {
+        "box_shadow": 302,
+        "border_radius": 486,
+        "transform": 572,
+        "filter": 154,
+        "backdrop_filter": 78,
+        "gradient": 509,
+        "animation": 128,
+        "transition": 311,
+        "will_change": 2,
+        "contain": 0
+      },
+      "total_properties": 12316,
+      "unique_properties": 401,
+      "top_duplicate_properties": [
+        [
+          "background",
+          795
+        ],
+        [
+          "color",
+          752
+        ],
+        [
+          "display",
+          570
+        ],
+        [
+          "transform",
+          558
+        ],
+        [
+          "font-size",
+          513
+        ],
+        [
+          "border-radius",
+          486
+        ],
+        [
+          "padding",
+          465
+        ],
+        [
+          "align-items",
+          412
+        ],
+        [
+          "gap",
+          406
+        ],
+        [
+          "position",
+          405
+        ]
+      ],
+      "duplication_ratio": 96.74
+    },
+    "media_queries": {
+      "total_media_queries": 73,
+      "media_query_types": {
+        "max_width": 62,
+        "reduced_motion": 4,
+        "min_width": 8
+      },
+      "media_queries_list": [
+        "(max-width: 768px) ",
+        "(max-width: 480px) ",
+        "(prefers-reduced-motion: reduce) ",
+        "(min-width: 769px) and (max-width: 1024px) ",
+        "(min-width: 1025px) ",
+        "(max-width: 480px) ",
+        "(min-width: 769px) and (max-width: 1024px) ",
+        "(min-width: 1025px) ",
+        "(min-width: 769px) ",
+        "(min-width: 1025px) "
+      ]
+    },
+    "critical_css": {
+      "critical_rules_count": 2462,
+      "non_critical_rules_count": 553,
+      "critical_percentage": 81.66
+    },
+    "analysis_time": 0.12564301490783691,
+    "unused_css": {
+      "total_selectors": 2043,
+      "used_selectors": 826,
+      "unused_selectors": 1217,
+      "usage_percentage": 40.43,
+      "unused_selectors_list": [
+        "/* Адаптивность */\n@media (max-width 1024px)",
+        "/* Анимации для иконок */\n@keyframes pulse-glow",
+        ".image-preview img",
+        ".cart-item-swatch",
+        "/* Комбинированные цвета для featured-color-dot */\n.featured-color-dot ;\"]) transparent\"]) none\"]) ''\"]) undefined\"])",
+        ".menu-item .menu-icon",
+        ".status-item.prep .status-number",
+        ".stat-badge .stat-number",
+        "/* Контент кнопки */\n.toggle-btn-content",
+        ".control-section h5",
+        ".order-number-btn .order-number-text",
+        "/* Enhanced form controls */\n.form-control",
+        ".status-item.status-done .status-number",
+        "/* Анимация появления/исчезновения сетки */\n.categories-grid-compact",
+        "/* Детали промокода */\n.promocode-details",
+        "/* Дополнительные улучшения для планшетов */\n@media (min-width 769px) and (max-width 1024px)",
+        ".cart-item .cart-item-image-glow",
+        "from",
+        "/* Адаптивность для модального окна */\n@media (max-width 768px)",
+        "/* Анимация для кнопок */\n.btn"
+      ]
+    }
+  },
+  "recommendations": [
+    "CSS файл слишком большой (>100KB). Рекомендуется минификация и разделение на модули.",
+    "Слишком много сложных селекторов. Упростите селекторы для лучшей производительности.",
+    "Высокий процент дублирования свойств. Используйте CSS переменные и миксины.",
+    "Только 40.43% CSS используется. Удалите неиспользуемые стили."
+  ],
+  "timestamp": 1757507557.3105814
+}

@@ -227,7 +227,7 @@ class DjangoPerformanceAnalyzer:
                             content = f.read()
                             
                         for pattern, count in query_patterns.items():
-                            matches = len(re.findall(f'\.{pattern}\s*\(', content))
+                            matches = len(re.findall(f'\\.{pattern}\\s*\\(', content))
                             query_patterns[pattern] += matches
             
             query_analysis["query_patterns"] = query_patterns
