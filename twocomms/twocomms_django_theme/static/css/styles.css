@@ -935,7 +935,8 @@ body::after {
   flex-shrink: 0;
   line-height: 1;
   text-align: center;
-  align-self: center;
+  align-self: baseline;
+  margin-bottom: -2px;
 }
 
 .favorites-badge-mini:hover {
@@ -1446,7 +1447,7 @@ body::after {
 
 .menu-item {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
   background: rgba(255, 255, 255, 0.03);
@@ -1491,6 +1492,7 @@ body::after {
   border-radius: 8px;
   color: #8b5cf6;
   transition: all 0.3s ease;
+  align-self: center;
 }
 
 .menu-item:hover .menu-icon {
@@ -1506,6 +1508,7 @@ body::after {
 .menu-arrow {
   color: #6b7280;
   transition: all 0.3s ease;
+  align-self: center;
 }
 
 .menu-item:hover .menu-arrow {
