@@ -17659,6 +17659,8 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.7) 100%);
   backdrop-filter: blur(4px);
   border-radius: 0 0 12px 12px;
+  padding: 0.5rem;
+  margin: 0 -0.75rem -0.75rem -0.75rem;
 }
 
 .color-switch-btn {
@@ -17670,6 +17672,8 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  background: none;
+  padding: 0;
 }
 
 .color-switch-btn:hover {
@@ -17684,16 +17688,37 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   transform: scale(1.15);
 }
 
-.color-switch-btn::before {
-  content: '';
+.color-switch-btn .swatch {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
   border-radius: 50%;
-  background: inherit;
+  background: var(--primary-color);
   z-index: -1;
+}
+
+.color-switch-btn .swatch[data-secondary]:not([data-secondary=""])::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background: var(--primary-color);
+  border-radius: 50% 0 0 50%;
+}
+
+.color-switch-btn .swatch[data-secondary]:not([data-secondary=""])::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 50%;
+  height: 100%;
+  background: var(--secondary-color);
+  border-radius: 0 50% 50% 0;
 }
 
 /* Анимация переключения изображений */
@@ -17703,6 +17728,22 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 
 .product-main-image.switching {
   opacity: 0.7;
+}
+
+/* Анимация пульсации при переключении цветов */
+@keyframes colorSwitchPulse {
+  0% { 
+    transform: scale(1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  }
+  50% { 
+    transform: scale(1.02);
+    box-shadow: 0 8px 30px rgba(139, 92, 246, 0.2);
+  }
+  100% { 
+    transform: scale(1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  }
 }
 
 /* Адаптивные стили для мобильных устройств */
