@@ -1270,3 +1270,52 @@ document.addEventListener('click', function(e){
     }
   }catch(_){ }
 });
+
+// Функция переключения цветов товаров
+function switchProductColor(button) {
+  try {
+    const productId = button.getAttribute('data-product-id');
+    const variantId = button.getAttribute('data-variant-id');
+    const imageUrl = button.getAttribute('data-image-url');
+    
+    if (!productId || !imageUrl) return;
+    
+    // Находим карточку товара
+    const card = button.closest('.card.product');
+    if (!card) return;
+    
+    // Находим изображение товара
+    const productImage = card.querySelector('.product-main-image');
+    if (!productImage) return;
+    
+    // Добавляем класс для анимации
+    productImage.classList.add('switching');
+    
+    // Переключаем активную кнопку
+    const allColorButtons = card.querySelectorAll('.color-switch-btn');
+    allColorButtons.forEach(btn => btn.classList.remove('active'));
+    button.classList.add('active');
+    
+    // Меняем изображение с плавной анимацией
+    setTimeout(() => {
+      productImage.src = imageUrl;
+      productImage.classList.remove('switching');
+    }, 150);
+    
+    // Трекинг события
+    if (window.trackEvent) {
+      window.trackEvent('ViewContent', {
+        content_ids: [String(productId)],
+        content_type: 'product_variant',
+        content_name: `Color variant ${variantId}`,
+        custom_data: {
+          variant_id: variantId,
+          product_id: productId
+        }
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error switching product color:', error);
+  }
+}
