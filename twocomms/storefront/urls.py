@@ -81,6 +81,7 @@ urlpatterns=[
     path('dev/grant-admin/', views.dev_grant_admin, name='dev_grant_admin'),
     # static pages
     path('add-print/', views.add_print, name='add_print'),
+    path('delivery/', views.delivery_view, name='delivery'),
     path('cooperation/', views.cooperation, name='cooperation'),
     path('about/', views.about, name='about'),
     path('contacts/', views.contacts, name='contacts'),
