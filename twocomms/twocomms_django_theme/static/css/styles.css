@@ -15576,13 +15576,13 @@ input[type="file"].form-control:hover {
   transition: all 0.3s ease;
 }
 
-/* Анимация и свечение для мобильного сердечка */
-.bottom-nav-icon.has-items svg {
-  animation: heartBeat 2s ease-in-out infinite;
-  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+/* Анимация и свечение для мобильного сердечка избранного - очень специфичный селектор */
+a[href*="favorites"] .bottom-nav-icon.has-items svg {
+  animation: heartBeat 2s ease-in-out infinite !important;
+  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3)) !important;
 }
 
-.bottom-nav-icon.has-items::before {
+a[href*="favorites"] .bottom-nav-icon.has-items::before {
   content: '';
   position: absolute;
   top: 50%;
@@ -15592,7 +15592,7 @@ input[type="file"].form-control:hover {
   background: radial-gradient(circle, rgba(239, 68, 68, 0.4) 0%, transparent 70%);
   border-radius: 50%;
   transform: translate(-50%, -50%);
-  animation: favoritesConstantGlow 3s ease-in-out infinite;
+  animation: favoritesConstantGlow 3s ease-in-out infinite !important;
   pointer-events: none;
   z-index: -1;
 }
