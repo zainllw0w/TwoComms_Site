@@ -113,7 +113,7 @@ function updateFavoritesBadge(count){
   const desktop=document.getElementById('favorites-count');
   const mobile=document.getElementById('favorites-count-mobile');
   const favoritesWrapper = document.querySelector('.favorites-icon-wrapper');
-  const mobileIcon = document.querySelector('.bottom-nav-icon');
+  const mobileIcon = document.querySelector('a[href*="favorites"] .bottom-nav-icon');
   
   // Обновляем десктопный счетчик
   if(desktop){ 
