@@ -115,7 +115,7 @@ class SEOKeywordGenerator:
     @classmethod
     def generate_product_keywords_ai(cls, product: Product) -> List[str]:
         """Генерирует ключевые слова для товара с помощью OpenAI (если доступно)"""
-        model = getattr(settings, 'OPENAI_MODEL', 'gpt-5')
+        model = getattr(settings, 'OPENAI_MODEL', 'gpt-4o')
         api_key = getattr(settings, 'OPENAI_API_KEY', None) or os.environ.get('OPENAI_API_KEY')
         if not api_key:
             return []
@@ -196,7 +196,7 @@ class SEOKeywordGenerator:
     @classmethod
     def generate_category_keywords_ai(cls, category: Category) -> List[str]:
         """Генерирует ключевые слова для категории с помощью OpenAI (если доступно)"""
-        model = getattr(settings, 'OPENAI_MODEL', 'gpt-5')
+        model = getattr(settings, 'OPENAI_MODEL', 'gpt-4o')
         api_key = getattr(settings, 'OPENAI_API_KEY', None) or os.environ.get('OPENAI_API_KEY')
         if not api_key:
             return []
@@ -740,7 +740,7 @@ class SEOContentOptimizer:
                 return ''
             import openai
             openai.api_key = api_key
-            model = getattr(settings, 'OPENAI_MODEL', 'gpt-5')
+            model = getattr(settings, 'OPENAI_MODEL', 'gpt-4o')
             prompt = (
                 f"Напишіть стислий SEO-дружній опис категорії '{category.name}'. "
             )
@@ -773,7 +773,7 @@ class SEOContentOptimizer:
                 return ''
             import openai
             openai.api_key = api_key
-            model = getattr(settings, 'OPENAI_MODEL', 'gpt-5')
+            model = getattr(settings, 'OPENAI_MODEL', 'gpt-4o')
             prompt = (
                 f"Напишіть стислий SEO-дружній опис товару '{product.title}'. "
                 f"Категорія: {product.category.name if product.category else 'N/A'}. "
