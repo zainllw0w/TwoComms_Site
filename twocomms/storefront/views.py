@@ -150,10 +150,15 @@ def login_view(request):
                 prof = UserProfile.objects.create(user=user)
             if not prof.phone:
                 return redirect('profile_setup')
+            
+            # Проверяем параметр next для перенаправления
+            next_url = request.GET.get('next') or request.POST.get('next')
+            if next_url:
+                return redirect(next_url)
             return redirect('home')
         else:
             form.add_error(None, "Невірний логін або пароль")
-    return render(request, 'pages/auth_login.html', {'form': form})
+    return render(request, 'pages/auth_login.html', {'form': form, 'next': request.GET.get('next')})
 
 def register_view(request):
     if request.user.is_authenticated:

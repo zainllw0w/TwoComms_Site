@@ -30,6 +30,7 @@
       {% endif %}
 
       <form method="post" novalidate class="vstack gap-3 position-relative">{% csrf_token %}
+        {% if request.GET.next %}<input type="hidden" name="next" value="{{ request.GET.next }}">{% endif %}
         <div>
           <label for="id_username" class="form-label">Логін</label>
           {{ form.username }}
