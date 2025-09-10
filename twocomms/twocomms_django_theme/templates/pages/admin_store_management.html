@@ -244,6 +244,7 @@
     overflow-y: auto;
     padding-right: 8px;
     margin-right: -8px;
+    padding-bottom: 0;
 }
 
 .products-scroll-container::-webkit-scrollbar {
@@ -1040,8 +1041,8 @@
             <div class="order-form" id="orderForm" style="display: none;">
                 <div class="form-group">
                     <label class="form-label">Розмір</label>
-                    <select class="form-select" id="productSize">
-                        <option value="">Без розміру</option>
+                    <select class="form-select" id="productSize" required>
+                        <option value="">Оберіть розмір</option>
                         <option value="S">S</option>
                         <option value="M">M</option>
                         <option value="L">L</option>
@@ -1052,7 +1053,7 @@
                 <div class="form-group">
                     <label class="form-label">Колір</label>
                     <select class="form-select" id="productColor">
-                        <option value="">Без кольору</option>
+                        <option value="default">Чорний (дефолт)</option>
                     </select>
                 </div>
                 
@@ -1085,23 +1086,38 @@
                 {% for order in active_orders %}
                     {% for item in order.order_items.all %}
                         <div class="order-item" data-item-id="{{ item.id }}" data-order-id="{{ order.id }}">
-                            <div class="order-item-header">
-                                <div class="order-item-title">{{ item.product.title }}</div>
-                                <button class="remove-item-btn" onclick="removeOrderItem({{ item.id }})">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                                    </svg>
-                                </button>
-                            </div>
-                            <div class="order-item-details">
-                                <div class="order-item-info">
-                                    {% if item.size %}<span class="order-item-size">{{ item.size }}</span>{% endif %}
-                                    {% if item.color %}<span class="order-item-color">{{ item.color.name }}</span>{% endif %}
-                                    <span class="order-item-quantity">{{ item.quantity }} шт.</span>
+                            <div class="order-item-content">
+                                <div class="order-item-image">
+                                    {% if item.product.display_image %}
+                                        <img src="{{ item.product.display_image.url }}" alt="{{ item.product.title }}" class="order-product-image">
+                                    {% else %}
+                                        <div class="order-product-image" style="background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #718096;">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                                            </svg>
+                                        </div>
+                                    {% endif %}
                                 </div>
-                                <div class="order-item-prices">
-                                    <span class="order-item-cost">Собівартість: {{ item.cost_price }} грн</span>
-                                    <span class="order-item-selling">Ціна продажу: {{ item.selling_price }} грн</span>
+                                <div class="order-item-info">
+                                    <div class="order-item-header">
+                                        <div class="order-item-title">{{ item.product.title }}</div>
+                                        <button class="remove-item-btn" onclick="removeOrderItem({{ item.id }})">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    <div class="order-item-details">
+                                        <div class="order-item-specs">
+                                            {% if item.size %}<span class="order-item-size">{{ item.size }}</span>{% endif %}
+                                            {% if item.color %}<span class="order-item-color">{{ item.color.name }}</span>{% endif %}
+                                            <span class="order-item-quantity">{{ item.quantity }} шт.</span>
+                                        </div>
+                                        <div class="order-item-prices">
+                                            <span class="order-item-cost">{{ item.cost_price }} грн</span>
+                                            <span class="order-item-selling">{{ item.selling_price }} грн</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1333,16 +1349,22 @@ function loadProductColors(productId) {
     // Здесь можно добавить AJAX запрос для загрузки цветов
     // Пока используем заглушку
     const colorSelect = document.getElementById('productColor');
-    colorSelect.innerHTML = '<option value="">Без кольору</option>';
+    colorSelect.innerHTML = '<option value="default">Чорний (дефолт)</option>';
 }
 
 // Добавление товара в заказ
 function addToOrder() {
     if (!currentProduct) return;
     
+    const size = document.getElementById('productSize').value;
+    if (!size) {
+        showNotification('Оберіть розмір товару', 'error');
+        return;
+    }
+    
     const formData = new FormData();
     formData.append('product_id', currentProduct);
-    formData.append('size', document.getElementById('productSize').value);
+    formData.append('size', size);
     formData.append('color_id', document.getElementById('productColor').value);
     formData.append('cost_price', document.getElementById('costPrice').value);
     formData.append('selling_price', document.getElementById('sellingPrice').value);

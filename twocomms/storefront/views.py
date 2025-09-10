@@ -3809,8 +3809,14 @@ def admin_store_add_product_to_order(request, store_id):
         
         product = get_object_or_404(Product, pk=product_id)
         color = None
-        if color_id:
+        if color_id and color_id != 'default':
             color = get_object_or_404(Color, pk=color_id)
+        elif color_id == 'default':
+            # Создаем или получаем дефолтный черный цвет
+            color, created = Color.objects.get_or_create(
+                name='Чорний',
+                defaults={'hex_code': '#000000'}
+            )
         
         # Получаем или создаем черновик заказа
         order, created = StoreOrder.objects.get_or_create(
