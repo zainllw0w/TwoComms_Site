@@ -3760,6 +3760,8 @@ def admin_store_get_order_items(request, store_id, order_id):
     if not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Доступ запрещен'})
     
+    from .models import OfflineStore, StoreOrder
+    
     try:
         store = OfflineStore.objects.get(id=store_id)
         order = StoreOrder.objects.get(id=order_id, store=store)
