@@ -164,7 +164,7 @@
         0 25px 50px rgba(0, 0, 0, 0.4),
         0 0 0 1px rgba(139, 92, 246, 0.08),
         inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    min-height: 600px;
+    min-height: 900px;
     position: relative;
     overflow: hidden;
 }
@@ -240,7 +240,7 @@
 }
 
 .products-scroll-container {
-    max-height: 400px;
+    max-height: 600px;
     overflow-y: auto;
     padding-right: 8px;
     margin-right: -8px;
@@ -273,7 +273,7 @@
 }
 
 .store-products-scroll-container {
-    max-height: 350px;
+    max-height: 525px;
     overflow-y: auto;
     padding-right: 8px;
     margin-right: -8px;
@@ -533,15 +533,15 @@
     backdrop-filter: blur(15px);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 12px;
-    padding: 10px;
-    margin-bottom: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
     box-shadow: 
         0 4px 12px rgba(0, 0, 0, 0.25),
         0 0 0 1px rgba(139, 92, 246, 0.1);
     border-left: 3px solid #8b5cf6;
     position: relative;
     transition: all 0.3s ease;
-    height: 70px;
+    min-height: 90px;
 }
 
 .order-item-content {
@@ -1095,9 +1095,9 @@
                             </div>
                             <div class="order-item-details">
                                 <div class="order-item-info">
-                                    <span class="order-item-size">Розмір: {{ item.size }}</span>
-                                    {% if item.color %}<span class="order-item-color">Колір: {{ item.color.name }}</span>{% endif %}
-                                    <span class="order-item-quantity">Кількість: {{ item.quantity }}</span>
+                                    {% if item.size %}<span class="order-item-size">{{ item.size }}</span>{% endif %}
+                                    {% if item.color %}<span class="order-item-color">{{ item.color.name }}</span>{% endif %}
+                                    <span class="order-item-quantity">{{ item.quantity }} шт.</span>
                                 </div>
                                 <div class="order-item-prices">
                                     <span class="order-item-cost">Собівартість: {{ item.cost_price }} грн</span>
@@ -1409,7 +1409,7 @@ function addOrderItemToDOM(item) {
                     </div>
                     <div class="order-item-details">
                         <div class="order-item-specs">
-                            <span class="order-item-size">${item.size}</span>
+                            ${item.size ? `<span class="order-item-size">${item.size}</span>` : ''}
                             ${item.color_name ? `<span class="order-item-color">${item.color_name}</span>` : ''}
                             <span class="order-item-quantity">${item.quantity} шт.</span>
                         </div>
@@ -1472,13 +1472,13 @@ function updateOrderItemsDisplay(items) {
                 </div>
                 <div class="order-item-details">
                     <div class="order-item-info">
-                        <span class="order-item-size">Розмір: ${item.size}</span>
-                        ${item.color_name ? `<span class="order-item-color">Колір: ${item.color_name}</span>` : ''}
-                        <span class="order-item-quantity">Кількість: ${item.quantity}</span>
+                        ${item.size ? `<span class="order-item-size">${item.size}</span>` : ''}
+                        ${item.color_name ? `<span class="order-item-color">${item.color_name}</span>` : ''}
+                        <span class="order-item-quantity">${item.quantity} шт.</span>
                     </div>
                     <div class="order-item-prices">
-                        <span class="order-item-cost">Собівартість: ${item.cost_price} грн</span>
-                        <span class="order-item-selling">Ціна продажу: ${item.selling_price} грн</span>
+                        <span class="order-item-cost">${item.cost_price} грн</span>
+                        <span class="order-item-selling">${item.selling_price} грн</span>
                     </div>
                 </div>
             </div>
