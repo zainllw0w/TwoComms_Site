@@ -920,7 +920,7 @@ body::after {
   font-size: 0.6rem;
   font-weight: 700;
   border-radius: 50%;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
   border: 1.5px solid rgba(255, 255, 255, 0.95);
@@ -934,8 +934,7 @@ body::after {
   flex-shrink: 0;
   line-height: 1;
   text-align: center;
-  vertical-align: middle;
-  margin-top: -2px;
+  align-self: center;
 }
 
 .favorites-badge-mini:hover {
