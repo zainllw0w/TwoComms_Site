@@ -113,6 +113,7 @@ function updateFavoritesBadge(count){
   const desktop=document.getElementById('favorites-count');
   const mobile=document.getElementById('favorites-count-mobile');
   const favoritesWrapper = document.querySelector('.favorites-icon-wrapper');
+  const mobileIcon = document.querySelector('.bottom-nav-icon');
   
   // Обновляем десктопный счетчик
   if(desktop){ 
@@ -137,9 +138,22 @@ function updateFavoritesBadge(count){
   // Обновляем мобильный счетчик
   if(mobile){ 
     mobile.textContent=n; 
-    // Всегда показываем счетчик
-    mobile.style.display='flex';
-    mobile.style.visibility='visible';
+    
+    if(count > 0) {
+      // Показываем счетчик и добавляем анимацию
+      mobile.style.display='flex';
+      mobile.style.visibility='visible';
+      if(mobileIcon) {
+        mobileIcon.classList.add('has-items');
+      }
+    } else {
+      // Скрываем счетчик и убираем анимацию
+      mobile.style.display='none';
+      mobile.style.visibility='hidden';
+      if(mobileIcon) {
+        mobileIcon.classList.remove('has-items');
+      }
+    }
   }
 }
 
