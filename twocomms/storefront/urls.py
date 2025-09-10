@@ -90,4 +90,5 @@ urlpatterns=[
     path('favorites/', views.favorites_list, name='favorites'),
     path('favorites/toggle/<int:product_id>/', views.toggle_favorite, name='toggle_favorite'),
     path('favorites/check/<int:product_id>/', views.check_favorite_status, name='check_favorite_status'),
+    path('favorites/count/', views.favorites_count, name='favorites_count'),
 ]

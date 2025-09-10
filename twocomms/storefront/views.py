@@ -3364,10 +3364,17 @@ def toggle_favorite(request, product_id):
             request.session['favorites'] = session_favorites
             request.session.modified = True
         
+        # Подсчитываем общее количество избранных товаров
+        if request.user.is_authenticated:
+            favorites_count = FavoriteProduct.objects.filter(user=request.user).count()
+        else:
+            favorites_count = len(request.session.get('favorites', []))
+        
         return JsonResponse({
             'success': True,
             'is_favorite': is_favorite,
-            'message': message
+            'message': message,
+            'favorites_count': favorites_count
         })
     except Exception as e:
         return JsonResponse({
@@ -3439,6 +3446,26 @@ def check_favorite_status(request, product_id):
         return JsonResponse({'is_favorite': is_favorite})
     except:
         return JsonResponse({'is_favorite': False})
+
+
+def favorites_count(request):
+    """Получить количество товаров в избранном"""
+    try:
+        if request.user.is_authenticated:
+            # Для авторизованных пользователей - считаем в базе данных
+            count = FavoriteProduct.objects.filter(user=request.user).count()
+        else:
+            # Для неавторизованных пользователей - считаем в сессии
+            session_favorites = request.session.get('favorites', [])
+            count = len(session_favorites)
+        
+        return JsonResponse({
+            'count': count
+        })
+    except Exception as e:
+        return JsonResponse({
+            'error': str(e)
+        }, status=400)
 
 @login_required
 @require_POST
