@@ -3348,15 +3348,17 @@ def toggle_favorite(request, product_id):
         else:
             # Для неавторизованных пользователей - используем сессии
             session_favorites = request.session.get('favorites', [])
+            # Преобразуем product_id в int для корректного сравнения
+            product_id_int = int(product_id)
             
-            if product_id in session_favorites:
+            if product_id_int in session_favorites:
                 # Удаляем из избранного
-                session_favorites.remove(product_id)
+                session_favorites.remove(product_id_int)
                 is_favorite = False
                 message = 'Товар видалено з обраного'
             else:
                 # Добавляем в избранное
-                session_favorites.append(product_id)
+                session_favorites.append(product_id_int)
                 is_favorite = True
                 message = 'Товар додано до обраного'
             
@@ -3441,7 +3443,8 @@ def check_favorite_status(request, product_id):
         else:
             # Для неавторизованных пользователей - проверяем в сессии
             session_favorites = request.session.get('favorites', [])
-            is_favorite = product_id in session_favorites
+            product_id_int = int(product_id)
+            is_favorite = product_id_int in session_favorites
         
         return JsonResponse({'is_favorite': is_favorite})
     except:
