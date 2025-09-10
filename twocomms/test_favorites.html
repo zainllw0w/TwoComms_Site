@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Favorites</title>
+    <style>
+        .favorites-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            font-size: 0.65rem;
+            font-weight: 700;
+            min-width: 16px;
+            height: 16px;
+            border-radius: 8px;
+            display: none; /* Скрыт по умолчанию */
+            align-items: center;
+            justify-content: center;
+            padding: 0 3px;
+            border: 2px solid #1a1a1a;
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+            line-height: 1;
+            z-index: 10;
+            transition: all 0.3s ease;
+        }
+        .favorites-container {
+            position: relative;
+            margin: 50px;
+        }
+        .favorites-icon {
+            width: 20px;
+            height: 20px;
+            color: #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="favorites-container">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="favorites-icon">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        </svg>
+        <span id="favorites-count" class="favorites-badge">0</span>
+    </div>
+    
+    <button onclick="testBadge(0)">Test 0</button>
+    <button onclick="testBadge(1)">Test 1</button>
+    <button onclick="testBadge(5)">Test 5</button>
+    
+    <script>
+        function updateFavoritesBadge(count){
+            const n = String(count||0);
+            const desktop=document.getElementById('favorites-count');
+            const favoritesWrapper = document.querySelector('.favorites-container');
+            
+            console.log('updateFavoritesBadge called with count:', count);
+            console.log('favorites-count element:', desktop);
+            console.log('favorites-container element:', favoritesWrapper);
+            
+            if(desktop){ 
+                desktop.textContent=n; 
+                if(count > 0) {
+                    desktop.style.display='flex';
+                    desktop.style.visibility='visible';
+                } else {
+                    desktop.style.display='none';
+                    desktop.style.visibility='hidden';
+                }
+            } else {
+                console.log('favorites-count element not found!');
+            }
+        }
+        
+        function testBadge(count) {
+            updateFavoritesBadge(count);
+        }
+    </script>
+</body>
+</html>
