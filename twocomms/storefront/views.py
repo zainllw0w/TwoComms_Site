@@ -3568,13 +3568,9 @@ def admin_offline_stores(request):
 
 class OfflineStoreForm(forms.ModelForm):
     class Meta:
-        model = None  # Будет установлено в __init__
-        fields = ['name', 'address', 'phone', 'email', 'working_hours', 'description', 'is_active', 'order']
-    
-    def __init__(self, *args, **kwargs):
         from .models import OfflineStore
-        self.Meta.model = OfflineStore
-        super().__init__(*args, **kwargs)
+        model = OfflineStore
+        fields = ['name', 'address', 'phone', 'email', 'working_hours', 'description', 'is_active', 'order']
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-control bg-elevate',
@@ -3609,6 +3605,9 @@ class OfflineStoreForm(forms.ModelForm):
             }),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 @login_required
@@ -3684,6 +3683,398 @@ def admin_offline_store_delete(request, pk):
     store.delete()
     
     return redirect('admin_offline_stores')
+
+
+# ===== Новые views для функционала оффлайн магазинов =====
+
+@login_required
+def admin_store_management(request, store_id):
+    """Главная страница управления оффлайн магазином"""
+    if not request.user.is_staff:
+        return redirect('home')
+    
+    from .models import OfflineStore, Product, Category, StoreProduct, StoreOrder, StoreOrderItem
+    from productcolors.models import Color
+    
+    store = get_object_or_404(OfflineStore, pk=store_id)
+    
+    # Получаем все товары с их цветами и изображениями
+    products = Product.objects.select_related('category').prefetch_related(
+        'color_variants__color',
+        'color_variants__images'
+    ).all()
+    
+    # Получаем категории для фильтрации
+    categories = Category.objects.filter(is_active=True).order_by('order', 'name')
+    
+    # Получаем товары в магазине
+    store_products = StoreProduct.objects.filter(store=store, is_active=True).select_related(
+        'product__category', 'color'
+    )
+    
+    # Получаем активные заказы
+    active_orders = StoreOrder.objects.filter(store=store, status='draft').prefetch_related(
+        'order_items__product__category', 'order_items__color'
+    )
+    
+    # Статистика магазина
+    store_stats = {
+        'total_products': store_products.count(),
+        'total_cost': sum(sp.total_cost for sp in store_products),
+        'total_selling_price': sum(sp.total_selling_price for sp in store_products),
+        'total_margin': sum(sp.total_margin for sp in store_products),
+        'categories_count': store_products.values('product__category__name').distinct().count(),
+    }
+    
+    # Статистика по категориям
+    category_stats = {}
+    for sp in store_products:
+        cat_name = sp.product.category.name
+        if cat_name not in category_stats:
+            category_stats[cat_name] = {
+                'count': 0,
+                'total_cost': 0,
+                'total_selling_price': 0,
+                'total_margin': 0
+            }
+        category_stats[cat_name]['count'] += sp.quantity
+        category_stats[cat_name]['total_cost'] += sp.total_cost
+        category_stats[cat_name]['total_selling_price'] += sp.total_selling_price
+        category_stats[cat_name]['total_margin'] += sp.total_margin
+    
+    return render(request, 'pages/admin_store_management.html', {
+        'store': store,
+        'products': products,
+        'categories': categories,
+        'store_products': store_products,
+        'active_orders': active_orders,
+        'store_stats': store_stats,
+        'category_stats': category_stats,
+        'section': 'offline_stores'
+    })
+
+
+@login_required
+def admin_store_add_product_to_order(request, store_id):
+    """Добавление товара в заказ через AJAX"""
+    if not request.user.is_staff:
+        return JsonResponse({'error': 'Доступ запрещен'}, status=403)
+    
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Метод не поддерживается'}, status=405)
+    
+    from .models import OfflineStore, Product, StoreOrder, StoreOrderItem
+    from productcolors.models import Color
+    
+    try:
+        store = get_object_or_404(OfflineStore, pk=store_id)
+        product_id = request.POST.get('product_id')
+        size = request.POST.get('size', '').strip()
+        color_id = request.POST.get('color_id')
+        cost_price = int(request.POST.get('cost_price', 0))
+        selling_price = int(request.POST.get('selling_price', 0))
+        quantity = int(request.POST.get('quantity', 1))
+        
+        product = get_object_or_404(Product, pk=product_id)
+        color = None
+        if color_id:
+            color = get_object_or_404(Color, pk=color_id)
+        
+        # Получаем или создаем черновик заказа
+        order, created = StoreOrder.objects.get_or_create(
+            store=store,
+            status='draft',
+            defaults={'notes': ''}
+        )
+        
+        # Проверяем, есть ли уже такой товар в заказе
+        existing_item = StoreOrderItem.objects.filter(
+            order=order,
+            product=product,
+            size=size or None,
+            color=color
+        ).first()
+        
+        if existing_item:
+            # Обновляем существующий товар
+            existing_item.cost_price = cost_price
+            existing_item.selling_price = selling_price
+            existing_item.quantity += quantity
+            existing_item.save()
+        else:
+            # Создаем новый товар в заказе
+            StoreOrderItem.objects.create(
+                order=order,
+                product=product,
+                size=size or None,
+                color=color,
+                cost_price=cost_price,
+                selling_price=selling_price,
+                quantity=quantity
+            )
+        
+        return JsonResponse({
+            'success': True,
+            'order_id': order.id,
+            'message': 'Товар добавлен в заказ'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@login_required
+def admin_store_remove_product_from_order(request, store_id, order_id, item_id):
+    """Удаление товара из заказа"""
+    if not request.user.is_staff:
+        return JsonResponse({'error': 'Доступ запрещен'}, status=403)
+    
+    from .models import StoreOrder, StoreOrderItem
+    
+    try:
+        order = get_object_or_404(StoreOrder, pk=order_id, store_id=store_id)
+        item = get_object_or_404(StoreOrderItem, pk=item_id, order=order)
+        item.delete()
+        
+        return JsonResponse({'success': True, 'message': 'Товар удален из заказа'})
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@login_required
+def admin_store_add_products_to_store(request, store_id):
+    """Добавление товаров из заказа в магазин"""
+    if not request.user.is_staff:
+        return JsonResponse({'error': 'Доступ запрещен'}, status=403)
+    
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Метод не поддерживается'}, status=405)
+    
+    from .models import OfflineStore, StoreOrder, StoreOrderItem, StoreProduct
+    
+    try:
+        store = get_object_or_404(OfflineStore, pk=store_id)
+        order_id = request.POST.get('order_id')
+        
+        order = get_object_or_404(StoreOrder, pk=order_id, store=store)
+        
+        added_count = 0
+        for item in order.order_items.all():
+            # Проверяем, есть ли уже такой товар в магазине
+            existing_product = StoreProduct.objects.filter(
+                store=store,
+                product=item.product,
+                size=item.size,
+                color=item.color
+            ).first()
+            
+            if existing_product:
+                # Обновляем существующий товар
+                existing_product.cost_price = item.cost_price
+                existing_product.selling_price = item.selling_price
+                existing_product.quantity += item.quantity
+                existing_product.is_active = True
+                existing_product.save()
+            else:
+                # Создаем новый товар в магазине
+                StoreProduct.objects.create(
+                    store=store,
+                    product=item.product,
+                    size=item.size,
+                    color=item.color,
+                    cost_price=item.cost_price,
+                    selling_price=item.selling_price,
+                    quantity=item.quantity
+                )
+            added_count += 1
+        
+        # Обновляем статус заказа
+        order.status = 'completed'
+        order.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Добавлено {added_count} товаров в магазин'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@login_required
+def admin_store_generate_invoice(request, store_id):
+    """Генерация Excel накладной"""
+    if not request.user.is_staff:
+        return JsonResponse({'error': 'Доступ запрещен'}, status=403)
+    
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Метод не поддерживается'}, status=405)
+    
+    from .models import OfflineStore, StoreOrder, StoreInvoice
+    from django.http import HttpResponse
+    import openpyxl
+    from openpyxl.styles import Font, Alignment
+    from datetime import datetime
+    import os
+    
+    try:
+        store = get_object_or_404(OfflineStore, pk=store_id)
+        order_id = request.POST.get('order_id')
+        
+        order = get_object_or_404(StoreOrder, pk=order_id, store=store)
+        
+        # Создаем Excel файл
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Накладна"
+        
+        # Заголовки
+        ws['A1'] = f"Накладна для магазину: {store.name}"
+        ws['A1'].font = Font(bold=True, size=14)
+        ws['A2'] = f"Дата: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
+        ws['A2'].font = Font(size=12)
+        
+        # Заголовки таблицы
+        headers = ['Товар', 'Ціна продажу (грн)']
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=4, column=col, value=header)
+            cell.font = Font(bold=True)
+            cell.alignment = Alignment(horizontal='center')
+        
+        # Данные товаров
+        row = 5
+        category_totals = {}
+        
+        for item in order.order_items.all():
+            # Формируем название товара
+            product_name = item.product.title
+            if item.size:
+                product_name += f" ({item.size})"
+            if item.color:
+                product_name += f" [{item.color}]"
+            
+            ws.cell(row=row, column=1, value=product_name)
+            ws.cell(row=row, column=2, value=item.selling_price)
+            
+            # Подсчитываем по категориям
+            category = item.product.category.name
+            if category not in category_totals:
+                category_totals[category] = {'count': 0, 'total': 0}
+            category_totals[category]['count'] += item.quantity
+            category_totals[category]['total'] += item.selling_price * item.quantity
+            
+            row += 1
+        
+        # Итоги по категориям
+        row += 1
+        ws.cell(row=row, column=1, value="Підсумки по категоріях:")
+        ws.cell(row=row, column=1).font = Font(bold=True)
+        row += 1
+        
+        for category, totals in category_totals.items():
+            ws.cell(row=row, column=1, value=f"{category}: {totals['count']} шт., сума {totals['total']} грн")
+            row += 1
+        
+        # Общий итог
+        row += 1
+        total_amount = sum(totals['total'] for totals in category_totals.values())
+        ws.cell(row=row, column=1, value=f"ВСЬОГО: {total_amount} грн")
+        ws.cell(row=row, column=1).font = Font(bold=True, size=12)
+        
+        # Настройка ширины колонок
+        ws.column_dimensions['A'].width = 50
+        ws.column_dimensions['B'].width = 20
+        
+        # Сохраняем файл
+        filename = f"invoice_{store.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        filepath = os.path.join(settings.MEDIA_ROOT, 'invoices', filename)
+        
+        # Создаем директорию если не существует
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        
+        wb.save(filepath)
+        
+        # Сохраняем информацию о накладной в БД
+        StoreInvoice.objects.create(
+            store=store,
+            order=order,
+            file_name=filename,
+            file_path=filepath
+        )
+        
+        # Обновляем статус заказа
+        order.status = 'completed'
+        order.save()
+        
+        # Возвращаем файл для скачивания
+        with open(filepath, 'rb') as f:
+            response = HttpResponse(f.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@login_required
+def admin_store_update_product(request, store_id, product_id):
+    """Обновление товара в магазине"""
+    if not request.user.is_staff:
+        return JsonResponse({'error': 'Доступ запрещен'}, status=403)
+    
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Метод не поддерживается'}, status=405)
+    
+    from .models import StoreProduct
+    
+    try:
+        store_product = get_object_or_404(StoreProduct, pk=product_id, store_id=store_id)
+        
+        cost_price = request.POST.get('cost_price')
+        selling_price = request.POST.get('selling_price')
+        quantity = request.POST.get('quantity')
+        
+        if cost_price:
+            store_product.cost_price = int(cost_price)
+        if selling_price:
+            store_product.selling_price = int(selling_price)
+        if quantity:
+            store_product.quantity = int(quantity)
+        
+        store_product.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Товар обновлен',
+            'data': {
+                'total_cost': store_product.total_cost,
+                'total_selling_price': store_product.total_selling_price,
+                'total_margin': store_product.total_margin
+            }
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@login_required
+def admin_store_remove_product(request, store_id, product_id):
+    """Удаление товара из магазина"""
+    if not request.user.is_staff:
+        return JsonResponse({'error': 'Доступ запрещен'}, status=403)
+    
+    from .models import StoreProduct
+    
+    try:
+        store_product = get_object_or_404(StoreProduct, pk=product_id, store_id=store_id)
+        store_product.delete()
+        
+        return JsonResponse({'success': True, 'message': 'Товар удален из магазина'})
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
 
 def robots_txt(request):
     host = request.get_host() or "twocomms.shop"
