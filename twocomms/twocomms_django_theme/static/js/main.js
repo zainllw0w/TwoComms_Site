@@ -121,9 +121,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ===== Корзина (AJAX) =====
-// Дебаггер UI: включается локально через localStorage `ui-debug` = '1'
-const UI_DEBUG = (()=>{ try{ return localStorage.getItem('ui-debug')==='1'; }catch(_) { return false; } })();
-const dlog = UI_DEBUG ? ((...args)=>{ try{ console.log('[UI]', ...args);}catch(_){} }) : (()=>{});
 
 // Оптимизированная утилита debounce с requestAnimationFrame
 function debounce(fn, wait){
@@ -271,14 +268,12 @@ function openMiniCart(){
   panel.classList.add('show');
   uiGuardUntil = Date.now() + 220;
   suppressGlobalCloseUntil = Date.now() + 180;
-  dlog('openMiniCart', {id, uiGuardUntil, suppressGlobalCloseUntil, state: panelState()});
   refreshMiniCart();
 }
 function closeMiniCart(reason){
   const id=nextEvt();
   const panel=miniCartPanel(); if(!panel) return;
   panel._opId = (panel._opId||0)+1; const opId = panel._opId;
-  dlog('closeMiniCart', {id, reason: reason||'', now: nowTs(), state: panelState()});
   panel.classList.remove('show');
   panel.classList.add('hiding');
   const hideAfter= setTimeout(()=>{
@@ -295,7 +290,6 @@ function closeMiniCart(reason){
     clearTimeout(hideAfter);
     panel.classList.add('d-none');
     panel.classList.remove('hiding');
-    dlog('closeMiniCart:transitionend', {id});
   });
 }
 function toggleMiniCart(){
@@ -504,8 +498,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(!el) return;
     if(el.dataset.uiBoundCart==='1') return;
     el.dataset.uiBoundCart = '1';
-    el.addEventListener('pointerdown', (e)=>{ suppressNextDocPointerdownUntil = Date.now()+250; dlog('cart toggle pointerdown'); }, {passive:true});
-    el.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); dlog('cart toggle click'); toggleMiniCart(); });
+    el.addEventListener('pointerdown', (e)=>{ suppressNextDocPointerdownUntil = Date.now()+250; }, {passive:true});
+    el.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); toggleMiniCart(); });
   };
   bindCartToggle(document.getElementById('cart-toggle'));
   bindCartToggle(document.getElementById('cart-toggle-mobile'));
@@ -515,14 +509,14 @@ document.addEventListener('DOMContentLoaded',()=>{
   const userToggle = document.getElementById('user-toggle');
   const userPanel = document.getElementById('user-panel');
   if(userToggle && userPanel){
-    const openUser=()=>{ const id=nextEvt(); userPanel._opId = (userPanel._opId||0)+1; const opId=userPanel._opId; if(userPanel._hideTimeout){ clearTimeout(userPanel._hideTimeout); userPanel._hideTimeout=null; } userPanel.classList.remove('hiding'); userPanel.classList.remove('d-none'); void userPanel.offsetHeight; userPanel.classList.add('show'); dlog('openUser', {id, state: panelState()}); };
-    const closeUser=(reason)=>{ const id=nextEvt(); userPanel._opId = (userPanel._opId||0)+1; const opId=userPanel._opId; dlog('closeUser', {id, reason:reason||'', now:nowTs(), state: panelState()}); userPanel.classList.remove('show'); userPanel.classList.add('hiding'); const t=setTimeout(()=>{ if(opId!==userPanel._opId) return; userPanel.classList.add('d-none'); userPanel.classList.remove('hiding'); },220); userPanel._hideTimeout=t; userPanel.addEventListener('transitionend', function onEnd(e){ if(e.target!==userPanel) return; userPanel.removeEventListener('transitionend', onEnd); if(opId!==userPanel._opId) return; clearTimeout(t); userPanel.classList.add('d-none'); userPanel.classList.remove('hiding'); dlog('closeUser:transitionend', {id}); }); };
+    const openUser=()=>{ const id=nextEvt(); userPanel._opId = (userPanel._opId||0)+1; const opId=userPanel._opId; if(userPanel._hideTimeout){ clearTimeout(userPanel._hideTimeout); userPanel._hideTimeout=null; } userPanel.classList.remove('hiding'); userPanel.classList.remove('d-none'); void userPanel.offsetHeight; userPanel.classList.add('show'); };
+    const closeUser=(reason)=>{ const id=nextEvt(); userPanel._opId = (userPanel._opId||0)+1; const opId=userPanel._opId; userPanel.classList.remove('show'); userPanel.classList.add('hiding'); const t=setTimeout(()=>{ if(opId!==userPanel._opId) return; userPanel.classList.add('d-none'); userPanel.classList.remove('hiding'); },220); userPanel._hideTimeout=t; userPanel.addEventListener('transitionend', function onEnd(e){ if(e.target!==userPanel) return; userPanel.removeEventListener('transitionend', onEnd); if(opId!==userPanel._opId) return; clearTimeout(t); userPanel.classList.add('d-none'); userPanel.classList.remove('hiding'); }); };
     if(!userToggle.dataset.uiBoundUser){
       userToggle.dataset.uiBoundUser = '1';
-      userToggle.addEventListener('pointerdown',(e)=>{ suppressNextDocPointerdownUntil = Date.now()+250; dlog('user toggle pointerdown'); }, {passive:true});
-      userToggle.addEventListener('click',(e)=>{ const id=nextEvt(); e.preventDefault(); e.stopPropagation(); dlog('userToggle:click', {id, now:nowTs(), uiGuardUntil, suppressNextDocPointerdownUntil, suppressGlobalCloseUntil, state: panelState()}); if(Date.now() < uiGuardUntil){ dlog('userToggle ignored by uiGuard', {id}); return;} const cartOpen = miniCartPanel() && !miniCartPanel().classList.contains('d-none'); if(cartOpen) closeMiniCart('userToggle'); if(userPanel.classList.contains('d-none') || !userPanel.classList.contains('show')){ openUser(); } else { closeUser('userToggle'); } suppressGlobalCloseUntil = Date.now() + 220; dlog('set suppressGlobalCloseUntil', {id, suppressGlobalCloseUntil}); });
+      userToggle.addEventListener('pointerdown',(e)=>{ suppressNextDocPointerdownUntil = Date.now()+250; }, {passive:true});
+      userToggle.addEventListener('click',(e)=>{ const id=nextEvt(); e.preventDefault(); e.stopPropagation(); if(Date.now() < uiGuardUntil){ return;} const cartOpen = miniCartPanel() && !miniCartPanel().classList.contains('d-none'); if(cartOpen) closeMiniCart('userToggle'); if(userPanel.classList.contains('d-none') || !userPanel.classList.contains('show')){ openUser(); } else { closeUser('userToggle'); } suppressGlobalCloseUntil = Date.now() + 220; });
     }
-    document.addEventListener('pointerdown',(e)=>{ const id=nextEvt(); const tgt = e.target; const state = panelState(); const supNext = Date.now() < suppressNextDocPointerdownUntil; const supGlob = Date.now() < suppressGlobalCloseUntil; const outside = !userPanel.contains(tgt) && !userToggle.contains(tgt); dlog('doc pointerdown(userPanel)', {id, supNext, supGlob, outside, target: tgt && (tgt.tagName||'') , state}); if(supNext || supGlob) return; if(userPanel.classList.contains('d-none')) return; if(outside){ closeUser('docOutside'); }}, {passive:true});
+    document.addEventListener('pointerdown',(e)=>{ const id=nextEvt(); const tgt = e.target; const state = panelState(); const supNext = Date.now() < suppressNextDocPointerdownUntil; const supGlob = Date.now() < suppressGlobalCloseUntil; const outside = !userPanel.contains(tgt) && !userToggle.contains(tgt); if(supNext || supGlob) return; if(userPanel.classList.contains('d-none')) return; if(outside){ closeUser('docOutside'); }}, {passive:true});
     const uc = document.querySelector('[data-user-close]'); if(uc){ uc.addEventListener('click',(e)=>{ e.preventDefault(); closeUser();}); }
     document.addEventListener('keydown',(e)=>{ if(e.key==='Escape') closeUser(); });
   }
@@ -531,14 +525,14 @@ document.addEventListener('DOMContentLoaded',()=>{
   const userToggleMobile = document.getElementById('user-toggle-mobile');
   const userPanelMobile = document.getElementById('user-panel-mobile');
   if(userToggleMobile && userPanelMobile){
-    const openUserMobile=()=>{ const id=nextEvt(); userPanelMobile._opId=(userPanelMobile._opId||0)+1; const opId=userPanelMobile._opId; if(userPanelMobile._hideTimeout){ clearTimeout(userPanelMobile._hideTimeout); userPanelMobile._hideTimeout=null; } userPanelMobile.classList.remove('hiding'); userPanelMobile.classList.remove('d-none'); void userPanelMobile.offsetHeight; userPanelMobile.classList.add('show'); dlog('openUserMobile', {id, state: panelState()}); };
-    const closeUserMobile=(reason)=>{ const id=nextEvt(); userPanelMobile._opId=(userPanelMobile._opId||0)+1; const opId=userPanelMobile._opId; dlog('closeUserMobile', {id, reason:reason||'', now:nowTs(), state: panelState()}); userPanelMobile.classList.remove('show'); userPanelMobile.classList.add('hiding'); const t=setTimeout(()=>{ if(opId!==userPanelMobile._opId) return; userPanelMobile.classList.add('d-none'); userPanelMobile.classList.remove('hiding'); },220); userPanelMobile._hideTimeout=t; userPanelMobile.addEventListener('transitionend', function onEnd(e){ if(e.target!==userPanelMobile) return; userPanelMobile.removeEventListener('transitionend', onEnd); if(opId!==userPanelMobile._opId) return; clearTimeout(t); userPanelMobile.classList.add('d-none'); userPanelMobile.classList.remove('hiding'); dlog('closeUserMobile:transitionend', {id}); }); };
+    const openUserMobile=()=>{ const id=nextEvt(); userPanelMobile._opId=(userPanelMobile._opId||0)+1; const opId=userPanelMobile._opId; if(userPanelMobile._hideTimeout){ clearTimeout(userPanelMobile._hideTimeout); userPanelMobile._hideTimeout=null; } userPanelMobile.classList.remove('hiding'); userPanelMobile.classList.remove('d-none'); void userPanelMobile.offsetHeight; userPanelMobile.classList.add('show'); };
+    const closeUserMobile=(reason)=>{ const id=nextEvt(); userPanelMobile._opId=(userPanelMobile._opId||0)+1; const opId=userPanelMobile._opId; userPanelMobile.classList.remove('show'); userPanelMobile.classList.add('hiding'); const t=setTimeout(()=>{ if(opId!==userPanelMobile._opId) return; userPanelMobile.classList.add('d-none'); userPanelMobile.classList.remove('hiding'); },220); userPanelMobile._hideTimeout=t; userPanelMobile.addEventListener('transitionend', function onEnd(e){ if(e.target!==userPanelMobile) return; userPanelMobile.removeEventListener('transitionend', onEnd); if(opId!==userPanelMobile._opId) return; clearTimeout(t); userPanelMobile.classList.add('d-none'); userPanelMobile.classList.remove('hiding'); }); };
     if(!userToggleMobile.dataset.uiBoundUser){
       userToggleMobile.dataset.uiBoundUser = '1';
-      userToggleMobile.addEventListener('pointerdown',(e)=>{ suppressNextDocPointerdownUntil = Date.now()+250; dlog('user toggle mobile pointerdown'); }, {passive:true});
-      userToggleMobile.addEventListener('click',(e)=>{ const id=nextEvt(); e.preventDefault(); e.stopPropagation(); dlog('userToggleMobile:click', {id, now:nowTs(), uiGuardUntil, suppressNextDocPointerdownUntil, suppressGlobalCloseUntil, state: panelState()}); if(Date.now() < uiGuardUntil){ dlog('userToggleMobile ignored by uiGuard', {id}); return;} const cartOpen = miniCartPanel() && !miniCartPanel().classList.contains('d-none'); if(cartOpen) closeMiniCart('userToggleMobile'); if(userPanelMobile.classList.contains('d-none') || !userPanelMobile.classList.contains('show')){ openUserMobile(); } else { closeUserMobile('userToggleMobile'); } suppressGlobalCloseUntil = Date.now() + 220; dlog('set suppressGlobalCloseUntil (mobile)', {id, suppressGlobalCloseUntil}); });
+      userToggleMobile.addEventListener('pointerdown',(e)=>{ suppressNextDocPointerdownUntil = Date.now()+250; }, {passive:true});
+      userToggleMobile.addEventListener('click',(e)=>{ const id=nextEvt(); e.preventDefault(); e.stopPropagation(); if(Date.now() < uiGuardUntil){ return;} const cartOpen = miniCartPanel() && !miniCartPanel().classList.contains('d-none'); if(cartOpen) closeMiniCart('userToggleMobile'); if(userPanelMobile.classList.contains('d-none') || !userPanelMobile.classList.contains('show')){ openUserMobile(); } else { closeUserMobile('userToggleMobile'); } suppressGlobalCloseUntil = Date.now() + 220; });
     }
-    document.addEventListener('pointerdown',(e)=>{ const id=nextEvt(); const tgt=e.target; const state=panelState(); const supNext= Date.now() < suppressNextDocPointerdownUntil; const supGlob= Date.now() < suppressGlobalCloseUntil; const outside = !userPanelMobile.contains(tgt) && !userToggleMobile.contains(tgt); dlog('doc pointerdown(userPanelMobile)', {id, supNext, supGlob, outside, target: tgt && (tgt.tagName||''), state}); if(supNext || supGlob) return; if(userPanelMobile.classList.contains('д-none')) return; if(outside){ closeUserMobile('docOutside'); }}, {passive:true});
+    document.addEventListener('pointerdown',(e)=>{ const id=nextEvt(); const tgt=e.target; const state=panelState(); const supNext= Date.now() < suppressNextDocPointerdownUntil; const supGlob= Date.now() < suppressGlobalCloseUntil; const outside = !userPanelMobile.contains(tgt) && !userToggleMobile.contains(tgt); if(supNext || supGlob) return; if(userPanelMobile.classList.contains('д-none')) return; if(outside){ closeUserMobile('docOutside'); }}, {passive:true});
     const ucMobile = userPanelMobile.querySelector('[data-user-close-mobile]'); if(ucMobile){ ucMobile.addEventListener('click',(e)=>{ e.preventDefault(); closeUserMobile();}); }
     document.addEventListener('keydown',(e)=>{ if(e.key==='Escape') closeUserMobile(); });
   }
@@ -556,7 +550,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.addEventListener('pointerdown',(e)=>{
     const id=nextEvt();
     const supNext = Date.now() < suppressNextDocPointerdownUntil;
-    if(supNext){ dlog('doc pointerdown suppressed (cart)', {id}); return; }
+    if(supNext){ return; }
     const supGuard = Date.now() < uiGuardUntil;
     const supGlob = Date.now() < suppressGlobalCloseUntil;
     const panel=miniCartPanel();
@@ -567,7 +561,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(panel.classList.contains('d-none')) return;
     const tgt = e.target;
     const outside = !panel.contains(tgt) && (!toggle || !toggle.contains(tgt));
-    dlog('doc pointerdown(cart)', {id, supGuard, supGlob, outside, target: tgt && (tgt.tagName||''), state: panelState()});
     if(supGuard || supGlob) return;
     if(outside){
       closeMiniCart('docOutside');
