@@ -115,13 +115,13 @@ class SEOKeywordGenerator:
     @classmethod
     def generate_product_keywords_ai(cls, product: Product) -> List[str]:
         """Генерирует ключевые слова для товара с помощью OpenAI (если доступно)"""
-        model = getattr(settings, 'OPENAI_MODEL', 'gpt-4o')
+        model = getattr(settings, 'OPENAI_MODEL', 'gpt-5')
         api_key = getattr(settings, 'OPENAI_API_KEY', None) or os.environ.get('OPENAI_API_KEY')
         if not api_key:
             return []
         try:
             import openai
-            openai.api_key = api_key
+            client = openai.OpenAI(api_key=api_key)
         except Exception:
             return []
 
@@ -142,7 +142,7 @@ class SEOKeywordGenerator:
             "Виведіть ключові слова через кому."
         )
         try:
-            response = openai.ChatCompletion.create(
+            response = client.chat.completions.create(
                 model=model,
                 messages=[
                     {"role": "system", "content": "Ви - генератор SEO ключових слів."},
@@ -196,13 +196,13 @@ class SEOKeywordGenerator:
     @classmethod
     def generate_category_keywords_ai(cls, category: Category) -> List[str]:
         """Генерирует ключевые слова для категории с помощью OpenAI (если доступно)"""
-        model = getattr(settings, 'OPENAI_MODEL', 'gpt-4o')
+        model = getattr(settings, 'OPENAI_MODEL', 'gpt-5')
         api_key = getattr(settings, 'OPENAI_API_KEY', None) or os.environ.get('OPENAI_API_KEY')
         if not api_key:
             return []
         try:
             import openai
-            openai.api_key = api_key
+            client = openai.OpenAI(api_key=api_key)
         except Exception:
             return []
         prompt = (
@@ -210,7 +210,7 @@ class SEOKeywordGenerator:
             f"Опис: {category.description or ''}."
         )
         try:
-            resp = openai.ChatCompletion.create(
+            resp = client.chat.completions.create(
                 model=model,
                 messages=[
                     {"role": "system", "content": "Ви - генератор SEO ключових слів."},
@@ -739,14 +739,14 @@ class SEOContentOptimizer:
             if not api_key:
                 return ''
             import openai
-            openai.api_key = api_key
-            model = getattr(settings, 'OPENAI_MODEL', 'gpt-4o')
+            client = openai.OpenAI(api_key=api_key)
+            model = getattr(settings, 'OPENAI_MODEL', 'gpt-5')
             prompt = (
                 f"Напишіть стислий SEO-дружній опис категорії '{category.name}'. "
             )
             if category.description:
                 prompt += f" Опис: {category.description}."
-            resp = openai.ChatCompletion.create(
+            resp = client.chat.completions.create(
                 model=model,
                 messages=[
                     {"role": "system", "content": "Ви - SEO-копірайтер."},
@@ -772,14 +772,14 @@ class SEOContentOptimizer:
             if not api_key:
                 return ''
             import openai
-            openai.api_key = api_key
-            model = getattr(settings, 'OPENAI_MODEL', 'gpt-4o')
+            client = openai.OpenAI(api_key=api_key)
+            model = getattr(settings, 'OPENAI_MODEL', 'gpt-5')
             prompt = (
                 f"Напишіть стислий SEO-дружній опис товару '{product.title}'. "
                 f"Категорія: {product.category.name if product.category else 'N/A'}. "
                 f"Ціна: {product.final_price}." 
             )
-            resp = openai.ChatCompletion.create(
+            resp = client.chat.completions.create(
                 model=model,
                 messages=[
                     {"role": "system", "content": "Ви - SEO-копірайтер."},
