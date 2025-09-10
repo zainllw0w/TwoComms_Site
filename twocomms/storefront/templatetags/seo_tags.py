@@ -10,6 +10,7 @@ from ..seo_utils import (
     get_category_seo_meta, 
     get_product_schema, 
     get_breadcrumb_schema,
+    get_google_merchant_schema,
     SEOContentOptimizer
 )
 
@@ -56,6 +57,17 @@ def product_schema(product):
         return ''
     
     schema = get_product_schema(product)
+    return mark_safe(f'<script type="application/ld+json">{schema}</script>')
+
+@register.simple_tag
+def google_merchant_schema(product):
+    """
+    Возвращает JSON-LD schema для Google Merchant Center
+    """
+    if not product:
+        return ''
+    
+    schema = get_google_merchant_schema(product)
     return mark_safe(f'<script type="application/ld+json">{schema}</script>')
 
 

@@ -84,6 +84,8 @@ urlpatterns=[
     path('delivery/', views.delivery_view, name='delivery'),
     path('cooperation/', views.cooperation, name='cooperation'),
     path('about/', views.about, name='about'),
+    # Google Merchant Center
+    path('google-merchant-feed.xml', views.google_merchant_feed, name='google_merchant_feed'),
     path('contacts/', views.contacts, name='contacts'),
     path('search/', views.search, name='search'),
     # favorites
