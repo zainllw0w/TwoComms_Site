@@ -17454,7 +17454,8 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 .favorite-btn.is-favorite .favorite-icon-filled {
   opacity: 1;
   transform: translate(-50%, -50%) scale(1);
-  animation: heartBeat 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: heartBeat 0.8s cubic-bezier(0.4, 0, 0.2, 1), favoriteHeartGlow 2s ease-in-out infinite;
+  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.8)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
 .favorite-btn-glow {
@@ -17473,18 +17474,56 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 
 .favorite-btn.is-favorite .favorite-btn-glow {
   opacity: 1;
-  animation: favoriteGlow 3s ease-in-out infinite;
+  animation: favoriteGlow 3s ease-in-out infinite, favoriteGlowPulse 1.5s ease-in-out infinite;
 }
 
 /* Анимация пульсации для активного состояния */
 .favorite-btn.is-favorite {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.3);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(220, 38, 38, 0.2));
+  border-color: rgba(239, 68, 68, 0.6);
+  box-shadow: 
+    0 0 0 2px rgba(239, 68, 68, 0.3),
+    0 4px 20px rgba(239, 68, 68, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  animation: favoriteButtonPulse 2s ease-in-out infinite;
 }
 
 .favorite-btn.is-favorite:hover {
-  background: rgba(239, 68, 68, 0.25);
-  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.3);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.35), rgba(220, 38, 38, 0.3));
+  border-color: rgba(239, 68, 68, 0.8);
+  box-shadow: 
+    0 0 0 3px rgba(239, 68, 68, 0.4),
+    0 6px 30px rgba(239, 68, 68, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+/* Эффект искр для избранного товара */
+.favorite-btn.is-favorite::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent, rgba(239, 68, 68, 0.3), transparent, rgba(239, 68, 68, 0.3), transparent);
+  animation: favoriteSparkle 3s linear infinite;
+  z-index: -2;
+  opacity: 0.7;
+}
+
+.favorite-btn.is-favorite::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.2) 0%, transparent 70%);
+  animation: favoriteSparkleGlow 2s ease-in-out infinite;
+  z-index: -1;
 }
 
 /* Анимация загрузки */
@@ -17538,6 +17577,67 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   }
   50% { 
     opacity: 0.5;
+  }
+}
+
+/* Новые анимации для улучшенного состояния избранного */
+@keyframes favoriteButtonPulse {
+  0%, 100% { 
+    box-shadow: 
+      0 0 0 2px rgba(239, 68, 68, 0.3),
+      0 4px 20px rgba(239, 68, 68, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+  50% { 
+    box-shadow: 
+      0 0 0 3px rgba(239, 68, 68, 0.5),
+      0 6px 25px rgba(239, 68, 68, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+}
+
+@keyframes favoriteHeartGlow {
+  0%, 100% { 
+    filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.8)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  }
+  50% { 
+    filter: drop-shadow(0 0 15px rgba(239, 68, 68, 1)) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4));
+  }
+}
+
+@keyframes favoriteGlowPulse {
+  0%, 100% { 
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.6;
+  }
+  50% { 
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 1;
+  }
+}
+
+@keyframes favoriteSparkle {
+  0% { 
+    transform: rotate(0deg);
+    opacity: 0.7;
+  }
+  50% { 
+    opacity: 1;
+  }
+  100% { 
+    transform: rotate(360deg);
+    opacity: 0.7;
+  }
+}
+
+@keyframes favoriteSparkleGlow {
+  0%, 100% { 
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.6;
+    transform: scale(1.1);
   }
 }
 
