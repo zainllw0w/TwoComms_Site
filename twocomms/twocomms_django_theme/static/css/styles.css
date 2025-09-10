@@ -17358,7 +17358,7 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   width: 40px;
   height: 40px;
   background: rgba(0, 0, 0, 0.7);
-  border: none;
+  border: 1px solid transparent;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -17371,6 +17371,7 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   transform-origin: center;
   will-change: transform, background-color, box-shadow;
+  box-sizing: border-box;
 }
 
 .favorite-btn:hover {
@@ -17453,7 +17454,7 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 /* Анимация пульсации для активного состояния */
 .favorite-btn.is-favorite {
   background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.3);
 }
 
 .favorite-btn.is-favorite:hover {
@@ -17522,6 +17523,7 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
     height: 36px;
     top: 10px;
     left: 10px;
+    box-sizing: border-box;
   }
   
   .favorite-btn:hover {
@@ -17539,6 +17541,7 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
     height: 32px;
     top: 8px;
     left: 8px;
+    box-sizing: border-box;
   }
   
   .favorite-btn-icon svg {
