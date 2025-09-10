@@ -159,7 +159,7 @@
     backdrop-filter: blur(25px);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 24px;
-    padding: 20px;
+    padding: 10px;
     box-shadow: 
         0 25px 50px rgba(0, 0, 0, 0.4),
         0 0 0 1px rgba(139, 92, 246, 0.08),
@@ -199,8 +199,8 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 20px;
-    padding-bottom: 15px;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
     border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -217,7 +217,7 @@
 }
 
 .category-filter {
-    margin-bottom: 10px;
+    margin-bottom: 5px;
 }
 
 .filter-select {
@@ -308,7 +308,7 @@
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 12px;
     padding: 8px;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
     box-shadow: 
         0 2px 8px rgba(0, 0, 0, 0.2),
         0 0 0 1px rgba(139, 92, 246, 0.05);
@@ -1080,7 +1080,7 @@
                                 </div>
                                 <div class="product-colors">
                                     {% for color_variant in product.color_variants.all|slice:":3" %}
-                                        <span class="color-dot" style="background-color: {{ color_variant.color.hex_code }};" title="{{ color_variant.color.name }}"></span>
+                                        <span class="color-dot" style="background-color: {{ color_variant.color.primary_hex }};" title="{{ color_variant.color.name|default:color_variant.color.primary_hex }}"></span>
                                     {% empty %}
                                         <span class="color-dot" style="background-color: #000000;" title="Чорний (дефолт)"></span>
                                     {% endfor %}
