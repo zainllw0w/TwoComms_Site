@@ -329,6 +329,13 @@ class NetworkPerformanceAnalyzer:
                         "issue": "api_endpoints_cached"
                     })
         
+            except requests.exceptions.RequestException as e:
+                caching_stats["caching_issues"].append({
+                    "endpoint": endpoint,
+                    "issue": "caching_test_failed",
+                    "error": str(e)
+                })
+        
         return caching_stats
     
     def analyze_compression(self, base_url: str = "http://localhost:8000") -> Dict[str, Any]:
@@ -447,7 +454,7 @@ class NetworkPerformanceAnalyzer:
 
 def main():
     """Основная функция для запуска анализа"""
-    project_root = "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms"
+    project_root = "/home/qlknpodo/TWC/TwoComms_Site/twocomms"
     base_url = "http://localhost:8000"  # Измените на ваш URL
     
     analyzer = NetworkPerformanceAnalyzer(project_root)
@@ -455,7 +462,7 @@ def main():
     recommendations = analyzer.generate_recommendations()
     
     # Сохранение результатов
-    output_file = "/Users/zainllw0w/PycharmProjects/TwoComms/network_performance_analysis.json"
+    output_file = "/home/qlknpodo/TWC/TwoComms_Site/twocomms/network_performance_analysis.json"
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump({
             "analysis_results": results,

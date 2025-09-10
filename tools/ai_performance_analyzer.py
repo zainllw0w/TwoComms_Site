@@ -443,7 +443,7 @@ class AIPerformanceAnalyzer:
 
 def main():
     """Основная функция для запуска AI анализа"""
-    project_root = "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms"
+    project_root = "/home/qlknpodo/TWC/TwoComms_Site/twocomms"
     
     # Проверяем наличие API ключа
     api_key = os.getenv('OPENAI_API_KEY')
@@ -464,7 +464,7 @@ def main():
     
     analysis_data = {}
     for file in analysis_files:
-        file_path = os.path.join("/Users/zainllw0w/PycharmProjects/TwoComms", file)
+        file_path = os.path.join("/home/qlknpodo/TWC/TwoComms_Site/twocomms", file)
         if os.path.exists(file_path):
             with open(file_path, 'r', encoding='utf-8') as f:
                 analysis_data[file.replace('_performance_analysis.json', '_analysis')] = json.load(f)
@@ -473,7 +473,7 @@ def main():
     recommendations = analyzer.generate_recommendations()
     
     # Сохранение результатов
-    output_file = "/Users/zainllw0w/PycharmProjects/TwoComms/ai_performance_analysis.json"
+    output_file = "/home/qlknpodo/TWC/TwoComms_Site/twocomms/ai_performance_analysis.json"
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump({
             "analysis_results": results,

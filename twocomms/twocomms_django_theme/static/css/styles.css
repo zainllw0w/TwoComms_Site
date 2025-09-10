@@ -933,6 +933,7 @@ body::after {
   flex-shrink: 0;
   line-height: 1;
   text-align: center;
+  margin-bottom: -1px;
 }
 
 .favorites-badge-mini:hover {
@@ -1502,7 +1503,7 @@ body::after {
 
 .menu-text-container {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
   flex: 1;
 }

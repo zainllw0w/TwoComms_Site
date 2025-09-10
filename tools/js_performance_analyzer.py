@@ -297,14 +297,14 @@ class JavaScriptPerformanceAnalyzer:
 
 def main():
     """Основная функция для запуска анализа"""
-    js_file = "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/staticfiles/js/main.js"
+    js_file = "/home/qlknpodo/TWC/TwoComms_Site/twocomms/staticfiles/js/main.js"
     
     analyzer = JavaScriptPerformanceAnalyzer(js_file)
     results = analyzer.run_full_analysis()
     recommendations = analyzer.generate_recommendations()
     
     # Сохранение результатов
-    output_file = "/Users/zainllw0w/PycharmProjects/TwoComms/js_performance_analysis.json"
+    output_file = "/home/qlknpodo/TWC/TwoComms_Site/twocomms/js_performance_analysis.json"
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump({
             "analysis_results": results,
