@@ -3883,22 +3883,22 @@ def admin_store_add_product_to_order(request, store_id):
                 quantity=quantity
             )
         
-                    return JsonResponse({
-                        'success': True,
-                        'order_id': order.id,
-                        'item': {
-                            'id': item.id,
-                            'product_name': item.product.title,
-                            'size': item.size or '',
-                            'color_name': item.color.name if item.color else 'Чорний',
-                            'color_hex': item.color.hex_code if item.color else '#000000',
-                            'quantity': item.quantity,
-                            'cost_price': float(item.cost_price),
-                            'selling_price': float(item.selling_price),
-                            'product_image': item.product.display_image.url if item.product.display_image else None,
-                        },
-                        'message': 'Товар добавлен в заказ'
-                    })
+        return JsonResponse({
+            'success': True,
+            'order_id': order.id,
+            'item': {
+                'id': item.id,
+                'product_name': item.product.title,
+                'size': item.size or '',
+                'color_name': item.color.name if item.color else 'Чорний',
+                'color_hex': item.color.hex_code if item.color else '#000000',
+                'quantity': item.quantity,
+                'cost_price': float(item.cost_price),
+                'selling_price': float(item.selling_price),
+                'product_image': item.product.display_image.url if item.product.display_image else None,
+            },
+            'message': 'Товар добавлен в заказ'
+        })
         
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
