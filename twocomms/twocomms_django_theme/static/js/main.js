@@ -1,9 +1,63 @@
+// ===== DOM КЭШ ДЛЯ ОПТИМИЗАЦИИ =====
+const DOMCache = {
+  elements: {},
+  
+  get(id) {
+    if (!this.elements[id]) {
+      this.elements[id] = document.getElementById(id);
+    }
+    return this.elements[id];
+  },
+  
+  query(selector) {
+    if (!this.elements[selector]) {
+      this.elements[selector] = document.querySelector(selector);
+    }
+    return this.elements[selector];
+  },
+  
+  queryAll(selector) {
+    if (!this.elements[selector]) {
+      this.elements[selector] = document.querySelectorAll(selector);
+    }
+    return this.elements[selector];
+  },
+  
+  clear() {
+    this.elements = {};
+  },
+  
+  // Очистка кэша при изменении DOM
+  invalidate(selector) {
+    if (selector) {
+      delete this.elements[selector];
+    } else {
+      this.elements = {};
+    }
+  }
+};
+
 // Анимации появления
 const prefersReducedMotion = (function(){
   try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
   catch(_) { return false; }
 })();
-const io=new IntersectionObserver(e=>{e.forEach(t=>{if(t.isIntersecting){t.target.classList.add('visible');io.unobserve(t.target)}})},{threshold:.12});
+
+// Оптимизированные настройки IntersectionObserver
+const observerOptions = {
+  threshold: 0.12,
+  rootMargin: '0px 0px -10% 0px',
+  passive: true
+};
+
+const io = new IntersectionObserver(e => {
+  e.forEach(t => {
+    if (t.isIntersecting) {
+      t.target.classList.add('visible');
+      io.unobserve(t.target);
+    }
+  });
+}, observerOptions);
 document.addEventListener('DOMContentLoaded',()=>{
   // Обычные лёгкие появления
   document.querySelectorAll('.reveal, .reveal-fast').forEach(el=>io.observe(el));
@@ -71,11 +125,15 @@ document.addEventListener('DOMContentLoaded', function() {
 const UI_DEBUG = (()=>{ try{ return localStorage.getItem('ui-debug')==='1'; }catch(_) { return false; } })();
 const dlog = UI_DEBUG ? ((...args)=>{ try{ console.log('[UI]', ...args);}catch(_){} }) : (()=>{});
 
-// Простая утилита debounce для снижения частоты перерисовок при resize
+// Оптимизированная утилита debounce с requestAnimationFrame
 function debounce(fn, wait){
-  let t; return function debounced(){
-    const ctx=this, args=arguments; clearTimeout(t);
-    t=setTimeout(function(){ fn.apply(ctx,args); }, wait);
+  let t; 
+  return function debounced(){
+    const ctx=this, args=arguments; 
+    clearTimeout(t);
+    t=setTimeout(function(){ 
+      requestAnimationFrame(() => fn.apply(ctx,args)); 
+    }, wait);
   };
 }
 // Глобальный признак лёгкого режима
@@ -101,8 +159,8 @@ function getCookie(name){
 }
 function updateCartBadge(count){
   const n = String(count||0);
-  const desktop=document.getElementById('cart-count');
-  const mobile=document.getElementById('cart-count-mobile');
+  const desktop = DOMCache.get('cart-count');
+  const mobile = DOMCache.get('cart-count-mobile');
   if(desktop){ desktop.textContent=n; desktop.style.display='inline-block'; }
   if(mobile){ mobile.textContent=n; mobile.style.display='inline-block'; }
 }
@@ -110,10 +168,10 @@ function updateCartBadge(count){
 // Функция для обновления счетчика избранного
 function updateFavoritesBadge(count){
   const n = String(count||0);
-  const desktop=document.getElementById('favorites-count');
-  const mobile=document.getElementById('favorites-count-mobile');
-  const favoritesWrapper = document.querySelector('.favorites-icon-wrapper');
-  const mobileIcon = document.querySelector('a[href*="favorites"] .bottom-nav-icon');
+  const desktop = DOMCache.get('favorites-count');
+  const mobile = DOMCache.get('favorites-count-mobile');
+  const favoritesWrapper = DOMCache.query('.favorites-icon-wrapper');
+  const mobileIcon = DOMCache.query('a[href*="favorites"] .bottom-nav-icon');
   
   // Обновляем десктопный счетчик
   if(desktop){ 
@@ -175,12 +233,12 @@ function applySwatchColors(root){
   }catch(_){ }
 }
 
-// Мини‑корзина
+// Мини‑корзина с кэшированием
 function miniCartPanel(){ 
   if(window.innerWidth < 576){
-    return document.getElementById('mini-cart-panel-mobile');
+    return DOMCache.get('mini-cart-panel-mobile');
   } else {
-    return document.getElementById('mini-cart-panel');
+    return DOMCache.get('mini-cart-panel');
   }
 }
 // Небольшая защита от мгновенного закрытия при переключении панелей
@@ -1302,7 +1360,7 @@ function getColorImageUrl(colorDot, productCard) {
   return null;
 }
 
-// Функция для анимации смены изображения
+// Оптимизированная функция для анимации смены изображения
 function animateImageChange(img, newSrc) {
   return new Promise((resolve) => {
     // Добавляем класс для анимации
@@ -1313,11 +1371,11 @@ function animateImageChange(img, newSrc) {
       // Меняем src
       img.src = newSrc;
       
-      // Убираем класс анимации через небольшую задержку
-      setTimeout(() => {
+      // Используем requestAnimationFrame для плавной анимации
+      requestAnimationFrame(() => {
         img.classList.remove('switching');
         resolve();
-      }, 150);
+      });
     }).catch(() => {
       // Если не удалось загрузить, убираем класс анимации
       img.classList.remove('switching');
@@ -1326,7 +1384,7 @@ function animateImageChange(img, newSrc) {
   });
 }
 
-// Обработчик клика по цветовым точкам
+// Оптимизированный обработчик клика по цветовым точкам с делегированием
 document.addEventListener('click', function(e) {
   // Проверяем, что клик был по цветовой точке
   if (!e.target.classList.contains('color-dot')) {
@@ -1362,11 +1420,11 @@ document.addEventListener('click', function(e) {
     dot.classList.add('switching');
   });
   
-  // Добавляем активное состояние с задержкой для анимации
-  setTimeout(() => {
+  // Используем requestAnimationFrame для плавной анимации
+  requestAnimationFrame(() => {
     colorDot.classList.remove('switching');
     colorDot.classList.add('active');
-  }, 100);
+  });
   
   if (!newImageUrl) {
     // Если нет URL для изображения, просто меняем активное состояние
@@ -1375,17 +1433,19 @@ document.addEventListener('click', function(e) {
   
   // Анимируем смену изображения
   animateImageChange(mainImage, newImageUrl);
-});
+}, { passive: false });
 
-// Инициализация цветовых точек при загрузке страницы
+// Оптимизированная инициализация цветовых точек при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
-  // Делаем цветовые точки видимыми
+  // Делаем цветовые точки видимыми с использованием requestAnimationFrame
   const colorDots = document.querySelectorAll('.color-dot');
   
   colorDots.forEach((dot, index) => {
-    // Добавляем небольшую задержку для анимации появления
-    setTimeout(() => {
-      dot.classList.add('visible');
-    }, index * 100);
+    // Используем requestAnimationFrame для плавной анимации
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        dot.classList.add('visible');
+      }, index * 60); // Уменьшили задержку для более быстрой анимации
+    });
   });
 });
