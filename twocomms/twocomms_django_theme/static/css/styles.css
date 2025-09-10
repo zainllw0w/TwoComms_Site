@@ -8423,6 +8423,9 @@ body::after {
 /* Стили для иконки избранного */
 .favorites-container {
   position: relative;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
 }
 
 .favorites-btn {
@@ -8434,6 +8437,9 @@ body::after {
   text-decoration: none;
   color: inherit;
   transition: all 0.3s ease;
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .favorites-btn:hover {
@@ -8470,11 +8476,17 @@ body::after {
   color: #ef4444;
   transition: all 0.3s ease;
   filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.4)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  padding: 0;
 }
 
 .favorites-icon-wrapper:hover .favorites-icon {
   color: #fca5a5;
-  transform: scale(1.1);
+  transform: translate(-50%, -50%) scale(1.1);
   filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.8)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
@@ -8486,19 +8498,19 @@ body::after {
 
 @keyframes heartBeat {
   0%, 100% { 
-    transform: scale(1);
+    transform: translate(-50%, -50%) scale(1);
     filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
   }
   25% { 
-    transform: scale(1.1);
+    transform: translate(-50%, -50%) scale(1.1);
     filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.8)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
   }
   50% { 
-    transform: scale(1.05);
+    transform: translate(-50%, -50%) scale(1.05);
     filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.7)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
   }
   75% { 
-    transform: scale(1.1);
+    transform: translate(-50%, -50%) scale(1.1);
     filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.8)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
   }
 }
@@ -8582,20 +8594,6 @@ body::after {
   box-shadow: 0 0 15px rgba(239, 68, 68, 0.6);
 }
 
-/* Дополнительная стабилизация позиционирования */
-.favorites-container {
-  position: relative;
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-}
-
-.favorites-btn {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  display: block;
-}
 
 /* Панель корзины */
 .cart-panel {
