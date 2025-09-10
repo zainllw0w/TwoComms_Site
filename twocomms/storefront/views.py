@@ -3622,7 +3622,7 @@ def admin_offline_store_create(request):
         form = OfflineStoreForm(request.POST)
         if form.is_valid():
             store = form.save()
-            return redirect('admin_offline_stores')
+            return redirect('admin_store_management', store_id=store.id)
     else:
         form = OfflineStoreForm()
     

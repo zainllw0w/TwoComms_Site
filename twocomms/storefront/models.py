@@ -242,3 +242,153 @@ class PageView(models.Model):
 
     def __str__(self) -> str:
         return f"{self.path} @ {self.when}"
+
+
+# ===== Модели для оффлайн магазинов =====
+
+class StoreProduct(models.Model):
+    """Товар в оффлайн магазине"""
+    store = models.ForeignKey(OfflineStore, on_delete=models.CASCADE, related_name='store_products', verbose_name='Магазин')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name='Товар')
+    size = models.CharField(max_length=10, blank=True, null=True, verbose_name='Розмір')
+    color = models.ForeignKey('productcolors.Color', on_delete=models.SET_NULL, blank=True, null=True, verbose_name='Колір')
+    cost_price = models.PositiveIntegerField(verbose_name='Собівартість (грн)')
+    selling_price = models.PositiveIntegerField(verbose_name='Ціна продажу (грн)')
+    quantity = models.PositiveIntegerField(default=1, verbose_name='Кількість')
+    is_active = models.BooleanField(default=True, verbose_name='Активний')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Створено')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Оновлено')
+    
+    class Meta:
+        verbose_name = 'Товар в магазині'
+        verbose_name_plural = 'Товари в магазинах'
+        unique_together = (('store', 'product', 'size', 'color'),)
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        size_str = f" ({self.size})" if self.size else ""
+        color_str = f" [{self.color}]" if self.color else ""
+        return f"{self.product.title}{size_str}{color_str} - {self.store.name}"
+    
+    @property
+    def margin(self):
+        """Маржа (разница между продажной ценой и себестоимостью)"""
+        return self.selling_price - self.cost_price
+    
+    @property
+    def total_cost(self):
+        """Общая себестоимость (себестоимость * количество)"""
+        return self.cost_price * self.quantity
+    
+    @property
+    def total_selling_price(self):
+        """Общая продажная цена (цена продажи * количество)"""
+        return self.selling_price * self.quantity
+    
+    @property
+    def total_margin(self):
+        """Общая маржа"""
+        return self.total_selling_price - self.total_cost
+
+
+class StoreOrder(models.Model):
+    """Заказ/накладная для оффлайн магазина"""
+    STATUS_CHOICES = [
+        ('draft', 'Чернетка'),
+        ('pending', 'В обробці'),
+        ('confirmed', 'Підтверджено'),
+        ('completed', 'Виконано'),
+        ('cancelled', 'Скасовано'),
+    ]
+    
+    store = models.ForeignKey(OfflineStore, on_delete=models.CASCADE, related_name='store_orders', verbose_name='Магазин')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name='Статус')
+    notes = models.TextField(blank=True, null=True, verbose_name='Примітки')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Створено')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Оновлено')
+    
+    class Meta:
+        verbose_name = 'Заказ магазина'
+        verbose_name_plural = 'Заказы магазинов'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Заказ #{self.id} - {self.store.name} ({self.get_status_display()})"
+    
+    @property
+    def total_cost(self):
+        """Общая себестоимость заказа"""
+        return sum(item.total_cost for item in self.order_items.all())
+    
+    @property
+    def total_selling_price(self):
+        """Общая продажная цена заказа"""
+        return sum(item.total_selling_price for item in self.order_items.all())
+    
+    @property
+    def total_margin(self):
+        """Общая маржа заказа"""
+        return sum(item.total_margin for item in self.order_items.all())
+    
+    @property
+    def items_count(self):
+        """Количество товаров в заказе"""
+        return sum(item.quantity for item in self.order_items.all())
+
+
+class StoreOrderItem(models.Model):
+    """Товар в заказе/накладной оффлайн магазина"""
+    order = models.ForeignKey(StoreOrder, on_delete=models.CASCADE, related_name='order_items', verbose_name='Заказ')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name='Товар')
+    size = models.CharField(max_length=10, blank=True, null=True, verbose_name='Розмір')
+    color = models.ForeignKey('productcolors.Color', on_delete=models.SET_NULL, blank=True, null=True, verbose_name='Колір')
+    cost_price = models.PositiveIntegerField(verbose_name='Собівартість (грн)')
+    selling_price = models.PositiveIntegerField(verbose_name='Ціна продажу (грн)')
+    quantity = models.PositiveIntegerField(default=1, verbose_name='Кількість')
+    
+    class Meta:
+        verbose_name = 'Товар в заказі'
+        verbose_name_plural = 'Товари в заказах'
+        ordering = ['id']
+    
+    def __str__(self):
+        size_str = f" ({self.size})" if self.size else ""
+        color_str = f" [{self.color}]" if self.color else ""
+        return f"{self.product.title}{size_str}{color_str} - {self.quantity} шт."
+    
+    @property
+    def margin(self):
+        """Маржа товара"""
+        return self.selling_price - self.cost_price
+    
+    @property
+    def total_cost(self):
+        """Общая себестоимость"""
+        return self.cost_price * self.quantity
+    
+    @property
+    def total_selling_price(self):
+        """Общая продажная цена"""
+        return self.selling_price * self.quantity
+    
+    @property
+    def total_margin(self):
+        """Общая маржа"""
+        return self.margin * self.quantity
+
+
+class StoreInvoice(models.Model):
+    """Накладная (Excel файл) для оффлайн магазина"""
+    store = models.ForeignKey(OfflineStore, on_delete=models.CASCADE, related_name='invoices', verbose_name='Магазин')
+    order = models.ForeignKey(StoreOrder, on_delete=models.CASCADE, related_name='invoices', verbose_name='Заказ', null=True, blank=True)
+    file_name = models.CharField(max_length=255, default='', verbose_name='Назва файлу')
+    file_path = models.CharField(max_length=500, default='', verbose_name='Шлях до файлу')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Створено')
+    
+    class Meta:
+        verbose_name = 'Накладна'
+        verbose_name_plural = 'Накладні'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Накладна {self.file_name} - {self.store.name}"
