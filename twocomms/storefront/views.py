@@ -3833,9 +3833,10 @@ def admin_store_add_product_to_order(request, store_id):
             existing_item.selling_price = selling_price
             existing_item.quantity += quantity
             existing_item.save()
+            item = existing_item
         else:
             # Создаем новый товар в заказе
-            StoreOrderItem.objects.create(
+            item = StoreOrderItem.objects.create(
                 order=order,
                 product=product,
                 size=size or None,
@@ -3848,6 +3849,16 @@ def admin_store_add_product_to_order(request, store_id):
         return JsonResponse({
             'success': True,
             'order_id': order.id,
+            'item': {
+                'id': item.id,
+                'product_name': item.product.title,
+                'size': item.size or '',
+                'color_name': item.color.name if item.color else None,
+                'quantity': item.quantity,
+                'cost_price': float(item.cost_price),
+                'selling_price': float(item.selling_price),
+                'product_image': item.product.display_image.url if item.product.display_image else None,
+            },
             'message': 'Товар добавлен в заказ'
         })
         
