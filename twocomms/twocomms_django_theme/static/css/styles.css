@@ -854,6 +854,17 @@ body::after {
   }
 }
 
+@keyframes borderGlow {
+  0%, 100% { 
+    opacity: 0.3; 
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.6; 
+    transform: scale(1.02);
+  }
+}
+
 /* Панель пользователя */
 .user-panel {
   position: absolute;
@@ -963,8 +974,8 @@ body::after {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 2rem;
-  padding: 2rem;
+  gap: 1.5rem;
+  padding: 1.5rem;
   background: linear-gradient(135deg, 
     rgba(255, 215, 0, 0.08) 0%, 
     rgba(255, 193, 7, 0.12) 25%,
@@ -972,12 +983,12 @@ body::after {
     rgba(255, 215, 0, 0.06) 75%,
     rgba(255, 193, 7, 0.1) 100%);
   border: 2px solid rgba(255, 215, 0, 0.4);
-  border-radius: 24px;
+  border-radius: 20px;
   transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  min-height: 120px;
+  min-height: 100px;
   width: 100%;
   box-shadow: 
     0 8px 32px rgba(255, 215, 0, 0.15),
@@ -1109,7 +1120,7 @@ body::after {
 }
 
 .points-card:hover .spark::before {
-  box-shadow: 0 0 6px rgba(139, 92, 246, 1);
+  box-shadow: 0 0 15px rgba(255, 215, 0, 1);
 }
 
 .points-card::before {
@@ -1119,8 +1130,26 @@ body::after {
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.1), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 215, 0, 0.15), transparent);
   transition: left 0.6s ease;
+}
+
+.points-card::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, 
+    rgba(255, 215, 0, 0.1) 0%, 
+    rgba(255, 193, 7, 0.15) 25%,
+    rgba(255, 152, 0, 0.1) 50%,
+    rgba(255, 215, 0, 0.08) 75%,
+    rgba(255, 193, 7, 0.12) 100%);
+  border-radius: 22px;
+  z-index: -1;
+  animation: borderGlow 4s ease-in-out infinite;
 }
 
 .points-card:hover::before {
@@ -1159,14 +1188,14 @@ body::after {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 80px;
-  height: 80px;
+  width: 70px;
+  height: 70px;
   background: linear-gradient(135deg, 
     rgba(255, 215, 0, 0.2) 0%, 
     rgba(255, 193, 7, 0.3) 50%,
     rgba(255, 152, 0, 0.2) 100%);
   border: 3px solid rgba(255, 215, 0, 0.6);
-  border-radius: 24px;
+  border-radius: 20px;
   color: #FFD700;
   animation: pointsIconPulse 3s ease-in-out infinite;
   flex-shrink: 0;
@@ -1236,13 +1265,12 @@ body::after {
 }
 
 .points-hint {
-  font-size: 0.9rem;
-  color: rgba(255, 215, 0, 0.7);
-  font-weight: 600;
+  font-size: 0.8rem;
+  color: #9ca3af;
+  font-weight: 500;
   opacity: 0.9;
   line-height: 1.4;
   margin: 0;
-  text-shadow: 0 0 8px rgba(255, 215, 0, 0.2);
 }
 
 .points-action {
@@ -14011,10 +14039,10 @@ input[type="file"].form-control:hover {
 /* ===== Мобильный мини‑профиль: компактная карточка баллов ===== */
 #user-panel-mobile .points-card-link { margin-bottom: 1rem; }
 #user-panel-mobile .points-card {
-  padding: 1.2rem 1rem;
-  gap: 1.2rem;
-  border-radius: 18px;
-  min-height: 80px;
+  padding: 1rem 0.8rem;
+  gap: 1rem;
+  border-radius: 16px;
+  min-height: 70px;
   background: linear-gradient(135deg, 
     rgba(255, 215, 0, 0.08) 0%, 
     rgba(255, 193, 7, 0.12) 25%,
@@ -14024,9 +14052,9 @@ input[type="file"].form-control:hover {
   border: 2px solid rgba(255, 215, 0, 0.4);
 }
 #user-panel-mobile .points-icon {
-  width: 50px;
-  height: 50px;
-  border-radius: 16px;
+  width: 45px;
+  height: 45px;
+  border-radius: 14px;
   background: linear-gradient(135deg, 
     rgba(255, 215, 0, 0.2) 0%, 
     rgba(255, 193, 7, 0.3) 50%,
@@ -14035,21 +14063,21 @@ input[type="file"].form-control:hover {
   color: #FFD700;
 }
 #user-panel-mobile .points-label { 
-  font-size: 0.8rem; 
-  margin-bottom: 0.3rem; 
+  font-size: 0.75rem; 
+  margin-bottom: 0.25rem; 
   color: rgba(255, 215, 0, 0.9);
   font-weight: 700;
 }
 #user-panel-mobile .points-amount { 
-  font-size: 1.5rem; 
-  margin-bottom: 0.3rem; 
+  font-size: 1.3rem; 
+  margin-bottom: 0.25rem; 
   color: #FFD700;
   font-weight: 900;
 }
 #user-panel-mobile .points-hint { 
-  font-size: 0.75rem; 
-  color: rgba(255, 215, 0, 0.7);
-  font-weight: 600;
+  font-size: 0.7rem; 
+  color: #9ca3af;
+  font-weight: 500;
 }
 
 #mini-cart-panel-mobile .cart-content,
