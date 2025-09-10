@@ -83,7 +83,7 @@
   <link rel='icon' href='{% static 'img/favicon.ico' %}' sizes='any' type='image/x-icon'>
   
   <!-- Early performance hint: enable lite mode for save-data/low-memory/low-CPU -->
-  <script>(function(){try{var c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;var save=c&&c.saveData;var lowRam=Number(navigator.deviceMemory||0)&&navigator.deviceMemory<=2;var lowCPU=Number(navigator.hardwareConcurrency||0)&&navigator.hardwareConcurrency<=2;var smallVp=(window.matchMedia&&window.matchMedia('(max-width: 576px)').matches)||window.innerWidth<=576;if(save||lowRam||lowCPU||smallVp){document.documentElement.classList.add('perf-lite');}}catch(e){}})();</script>
+  <script>(function(){try{var c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;var save=c&&c.saveData;var lowRam=Number(navigator.deviceMemory||0)&&navigator.deviceMemory<=1;var lowCPU=Number(navigator.hardwareConcurrency||0)&&navigator.hardwareConcurrency<=1;if(save||lowRam||lowCPU){document.documentElement.classList.add('perf-lite');}}catch(e){}})();</script>
   
   <!-- Stylesheets -->
   <link href="{% static 'css/styles.css' %}?v=2025.09.06.013" rel="stylesheet">
@@ -99,10 +99,9 @@
   .perf-lite .hint-wiggle,
   .perf-lite .reveal,
   .perf-lite .reveal-fast { transition: none !important; }
-  /* Отключаем тяжелые фоновые эффекты и анимации на слабых устройствах */
-  .perf-lite body::before, .perf-lite body::after { display: none !important; animation: none !important; backdrop-filter: none !important; filter: none !important; }
-  .perf-lite * { animation-duration: 0s !important; animation-iteration-count: 0 !important; transition: none !important; }
-  .perf-lite .cart-sparks-container, .perf-lite .avatar-glow, .perf-lite .avatar-glow-large, .perf-lite .avatar-glow-mobile, .perf-lite .cart-glow, .perf-lite .cart-glow-mobile { display: none !important; }
+  /* Отключаем только тяжелые фоновые эффекты на слабых устройствах */
+  .perf-lite body::before, .perf-lite body::after { opacity: 0.3 !important; animation-duration: 20s !important; }
+  .perf-lite .cart-sparks-container, .perf-lite .avatar-glow, .perf-lite .avatar-glow-large, .perf-lite .avatar-glow-mobile, .perf-lite .cart-glow, .perf-lite .cart-glow-mobile { opacity: 0.5 !important; }
   @media (max-width: 576px){
     .perf-lite .bottom-nav { box-shadow: none !important; }
   }
