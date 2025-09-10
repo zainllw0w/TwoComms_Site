@@ -115,16 +115,16 @@ function updateFavoritesBadge(count){
   
   if(desktop){ 
     desktop.textContent=n; 
+    // Всегда показываем счетчик
+    desktop.style.display='flex';
+    desktop.style.visibility='visible';
+    
     if(count > 0) {
-      desktop.style.display='flex';
-      desktop.style.visibility='visible';
       // Добавляем класс для анимации когда есть товары
       if(favoritesWrapper) {
         favoritesWrapper.classList.add('has-items');
       }
     } else {
-      desktop.style.display='none';
-      desktop.style.visibility='hidden';
       // Убираем класс когда нет товаров
       if(favoritesWrapper) {
         favoritesWrapper.classList.remove('has-items');
