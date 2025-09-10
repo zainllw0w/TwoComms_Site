@@ -9,3 +9,9 @@ class StorefrontConfig(AppConfig):
             from . import tracking  # noqa: F401
         except Exception:
             pass
+        
+        # Импорт AI сигналов для автоматической генерации контента
+        try:
+            from . import ai_signals  # noqa: F401
+        except Exception:
+            pass
