@@ -17661,6 +17661,8 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   border-radius: 0 0 12px 12px;
   padding: 0.5rem;
   margin: 0 -0.75rem -0.75rem -0.75rem;
+  position: relative;
+  z-index: 5;
 }
 
 .color-switch-btn {
@@ -17674,6 +17676,7 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   overflow: hidden;
   background: none;
   padding: 0;
+  z-index: 10;
 }
 
 .color-switch-btn:hover {
@@ -17696,7 +17699,7 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   bottom: 0;
   border-radius: 50%;
   background: var(--primary-color);
-  z-index: -1;
+  z-index: 1;
 }
 
 .color-switch-btn .swatch[data-secondary]:not([data-secondary=""])::after {
