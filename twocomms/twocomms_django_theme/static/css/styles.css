@@ -8410,9 +8410,16 @@ body::after {
   50% { transform: scale(1.1); }
 }
 
+/* Контейнер для корзины и избранного */
+.cart-favorites-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 /* Стили для иконки избранного */
 .favorites-container {
-  margin-left: 0.5rem;
+  position: relative;
 }
 
 .favorites-btn {
@@ -8466,6 +8473,31 @@ body::after {
   transform: scale(1.1);
 }
 
+/* Анимация сердечка когда есть товары в избранном */
+.favorites-icon-wrapper.has-items .favorites-icon {
+  animation: heartBeat 2s ease-in-out infinite;
+  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+@keyframes heartBeat {
+  0%, 100% { 
+    transform: scale(1);
+    filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  }
+  25% { 
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.8)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  }
+  50% { 
+    transform: scale(1.05);
+    filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.7)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  }
+  75% { 
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.8)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  }
+}
+
 .favorites-glow {
   position: absolute;
   top: 50%;
@@ -8486,9 +8518,28 @@ body::after {
   animation: favoritesPulse 2s ease-in-out infinite;
 }
 
+/* Постоянное свечение когда есть товары в избранном */
+.favorites-icon-wrapper.has-items .favorites-glow {
+  opacity: 0.4;
+  animation: favoritesConstantGlow 3s ease-in-out infinite;
+}
+
 @keyframes favoritesPulse {
   0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.3; }
   50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.6; }
+}
+
+@keyframes favoritesConstantGlow {
+  0%, 100% { 
+    transform: translate(-50%, -50%) scale(1); 
+    opacity: 0.4;
+    background: radial-gradient(circle, rgba(239, 68, 68, 0.4) 0%, transparent 70%);
+  }
+  50% { 
+    transform: translate(-50%, -50%) scale(1.1); 
+    opacity: 0.6;
+    background: radial-gradient(circle, rgba(239, 68, 68, 0.6) 0%, transparent 70%);
+  }
 }
 
 .favorites-badge {
