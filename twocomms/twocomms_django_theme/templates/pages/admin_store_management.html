@@ -21,25 +21,78 @@
     inset: 0;
     z-index: -1;
     background: 
-        radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
-        radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
-        radial-gradient(circle at 40% 40%, rgba(236, 72, 153, 0.1) 0%, transparent 50%);
-    animation: gradientShift 20s ease infinite;
+        radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.2) 0%, transparent 60%),
+        radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.2) 0%, transparent 60%),
+        radial-gradient(circle at 40% 40%, rgba(236, 72, 153, 0.15) 0%, transparent 60%),
+        radial-gradient(circle at 60% 60%, rgba(16, 185, 129, 0.1) 0%, transparent 50%);
+    animation: gradientShift 25s ease infinite;
+}
+
+.store-management-container::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: 
+        linear-gradient(45deg, transparent 30%, rgba(139, 92, 246, 0.03) 50%, transparent 70%),
+        linear-gradient(-45deg, transparent 30%, rgba(59, 130, 246, 0.03) 50%, transparent 70%);
+    animation: shimmer 15s ease infinite;
 }
 
 @keyframes gradientShift {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.8; }
+    0%, 100% { 
+        opacity: 1; 
+        transform: scale(1) rotate(0deg);
+    }
+    33% { 
+        opacity: 0.8; 
+        transform: scale(1.05) rotate(1deg);
+    }
+    66% { 
+        opacity: 0.9; 
+        transform: scale(0.98) rotate(-1deg);
+    }
+}
+
+@keyframes shimmer {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.6; }
 }
 
 .store-header {
-    background: rgba(20, 22, 27, 0.8);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 20px;
-    padding: 30px;
+    background: rgba(20, 22, 27, 0.85);
+    backdrop-filter: blur(25px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 24px;
+    padding: 35px;
     margin-bottom: 30px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    box-shadow: 
+        0 25px 50px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(139, 92, 246, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.store-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(139, 92, 246, 0.8) 25%, 
+        rgba(59, 130, 246, 0.8) 50%, 
+        rgba(236, 72, 153, 0.8) 75%, 
+        transparent 100%);
+    animation: borderGlow 3s ease infinite;
+}
+
+@keyframes borderGlow {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
 }
 
 .store-title {
@@ -102,13 +155,32 @@
 }
 
 .management-column {
-    background: rgba(20, 22, 27, 0.8);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 20px;
+    background: rgba(20, 22, 27, 0.85);
+    backdrop-filter: blur(25px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 24px;
     padding: 25px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    box-shadow: 
+        0 25px 50px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(139, 92, 246, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
     min-height: 600px;
+    position: relative;
+    overflow: hidden;
+}
+
+.management-column::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, 
+        rgba(139, 92, 246, 0.6) 0%, 
+        rgba(59, 130, 246, 0.6) 50%, 
+        rgba(236, 72, 153, 0.6) 100%);
+    border-radius: 24px 24px 0 0;
 }
 
 .column-header {
@@ -156,54 +228,98 @@
 }
 
 .product-card {
-    background: rgba(20, 22, 27, 0.6);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 15px;
-    padding: 15px;
-    margin-bottom: 15px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-    transition: all 0.3s ease;
+    background: rgba(20, 22, 27, 0.7);
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    padding: 12px;
+    margin-bottom: 10px;
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.25),
+        0 0 0 1px rgba(139, 92, 246, 0.05);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     cursor: grab;
+    position: relative;
+    overflow: hidden;
+}
+
+.product-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(139, 92, 246, 0.1), 
+        transparent);
+    transition: left 0.6s ease;
 }
 
 .product-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-    border-color: #8b5cf6;
-    background: rgba(20, 22, 27, 0.8);
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 
+        0 12px 30px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(139, 92, 246, 0.3),
+        0 0 20px rgba(139, 92, 246, 0.2);
+    border-color: rgba(139, 92, 246, 0.4);
+    background: rgba(20, 22, 27, 0.85);
+}
+
+.product-card:hover::before {
+    left: 100%;
 }
 
 .product-card.dragging {
-    opacity: 0.5;
-    transform: rotate(5deg);
+    opacity: 0.7;
+    transform: rotate(3deg) scale(1.05);
+    z-index: 1000;
+    box-shadow: 
+        0 20px 40px rgba(0, 0, 0, 0.5),
+        0 0 0 2px rgba(139, 92, 246, 0.6);
 }
 
 .product-image {
-    width: 60px;
-    height: 60px;
-    border-radius: 10px;
+    width: 100%;
+    height: 80px;
+    border-radius: 12px;
     object-fit: cover;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.product-card:hover .product-image {
+    transform: scale(1.05);
+    border-color: rgba(139, 92, 246, 0.3);
 }
 
 .product-title {
     font-weight: 600;
     color: var(--tc-text);
-    margin-bottom: 5px;
-    font-size: 0.9rem;
+    margin-bottom: 4px;
+    font-size: 0.85rem;
+    line-height: 1.2;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 .product-category {
-    color: rgba(232, 233, 236, 0.7);
-    font-size: 0.8rem;
-    margin-bottom: 8px;
+    color: rgba(232, 233, 236, 0.6);
+    font-size: 0.75rem;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .product-price {
     color: #8b5cf6;
-    font-weight: 600;
+    font-weight: 700;
     font-size: 0.9rem;
+    text-shadow: 0 0 10px rgba(139, 92, 246, 0.3);
 }
 
 .order-form {
@@ -290,14 +406,73 @@
 }
 
 .order-item {
-    background: rgba(20, 22, 27, 0.6);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
+    background: rgba(20, 22, 27, 0.7);
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
     padding: 15px;
-    margin-bottom: 10px;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+    margin-bottom: 12px;
+    box-shadow: 
+        0 6px 20px rgba(0, 0, 0, 0.3),
+        0 0 0 1px rgba(139, 92, 246, 0.1);
     border-left: 4px solid #8b5cf6;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.order-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+        0 10px 30px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(139, 92, 246, 0.2);
+    border-left-color: #7c3aed;
+}
+
+.order-item-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.order-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.order-item-prices {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    text-align: right;
+}
+
+.order-item-size,
+.order-item-color,
+.order-item-quantity {
+    font-size: 0.8rem;
+    color: rgba(232, 233, 236, 0.8);
+}
+
+.order-item-cost {
+    font-size: 0.8rem;
+    color: #ef4444;
+    font-weight: 600;
+}
+
+.order-item-selling {
+    font-size: 0.8rem;
+    color: #10b981;
+    font-weight: 600;
+}
+
+.empty-order {
+    text-align: center;
+    color: rgba(232, 233, 236, 0.6);
+    font-style: italic;
+    padding: 20px;
 }
 
 .order-item-header {
@@ -976,8 +1151,63 @@ function resetOrderForm() {
 
 // Загрузка товаров в заказе
 function loadOrderItems() {
-    // Здесь можно добавить AJAX запрос для загрузки актуальных товаров в заказе
-    // Пока используем существующие данные
+    if (!currentOrderId) return;
+    
+    fetch(`/admin-panel/offline-store/{{ store.id }}/order/${currentOrderId}/items/`, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateOrderItemsDisplay(data.items);
+        }
+    })
+    .catch(error => {
+        console.error('Error loading order items:', error);
+    });
+}
+
+// Обновление отображения товаров в заказе
+function updateOrderItemsDisplay(items) {
+    const orderItemsContainer = document.getElementById('orderItems');
+    if (!orderItemsContainer) return;
+    
+    if (items.length === 0) {
+        orderItemsContainer.innerHTML = '<div class="empty-order">Немає товарів в замовленні</div>';
+        return;
+    }
+    
+    let html = '';
+    items.forEach(item => {
+        html += `
+            <div class="order-item" data-item-id="${item.id}">
+                <div class="order-item-header">
+                    <div class="order-item-title">${item.product_name}</div>
+                    <button class="remove-item-btn" onclick="removeOrderItem(${item.id})">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="order-item-details">
+                    <div class="order-item-info">
+                        <span class="order-item-size">Розмір: ${item.size}</span>
+                        ${item.color_name ? `<span class="order-item-color">Колір: ${item.color_name}</span>` : ''}
+                        <span class="order-item-quantity">Кількість: ${item.quantity}</span>
+                    </div>
+                    <div class="order-item-prices">
+                        <span class="order-item-cost">Собівартість: ${item.cost_price} грн</span>
+                        <span class="order-item-selling">Ціна продажу: ${item.selling_price} грн</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    orderItemsContainer.innerHTML = html;
 }
 
 // Удаление товара из заказа
@@ -1006,13 +1236,16 @@ function removeOrderItem(itemId) {
 
 // Добавление товаров в магазин
 function addToStore() {
-    if (!currentOrderId) {
+    const orderItems = document.querySelectorAll('.order-item');
+    if (orderItems.length === 0) {
         showNotification('Немає товарів в замовленні', 'error');
         return;
     }
     
     const formData = new FormData();
-    formData.append('order_id', currentOrderId);
+    if (currentOrderId) {
+        formData.append('order_id', currentOrderId);
+    }
     
     fetch(`/admin-panel/offline-store/{{ store.id }}/add-to-store/`, {
         method: 'POST',
@@ -1037,7 +1270,8 @@ function addToStore() {
 
 // Генерация накладной
 function generateInvoice() {
-    if (!currentOrderId) {
+    const orderItems = document.querySelectorAll('.order-item');
+    if (orderItems.length === 0) {
         showNotification('Немає товарів в замовленні', 'error');
         return;
     }
