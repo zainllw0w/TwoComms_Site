@@ -39,6 +39,7 @@ class ProductColorImage(models.Model):
     """
     variant = models.ForeignKey(ProductColorVariant, on_delete=models.CASCADE, related_name='images')
     image = models.ImageField(upload_to='product_colors/')
+    alt_text = models.CharField(max_length=200, blank=True, null=True, verbose_name='Alt-текст зображення')
     order = models.PositiveIntegerField(default=0)
 
     class Meta:
