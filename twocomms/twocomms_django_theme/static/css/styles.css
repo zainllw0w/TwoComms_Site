@@ -8465,12 +8465,13 @@ body::after {
   height: 20px;
   color: #ef4444;
   transition: all 0.3s ease;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.4)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
 .favorites-icon-wrapper:hover .favorites-icon {
   color: #fca5a5;
   transform: scale(1.1);
+  filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.8)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
 /* Анимация сердечка когда есть товары в избранном */
