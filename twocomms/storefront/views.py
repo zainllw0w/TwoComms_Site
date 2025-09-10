@@ -3755,6 +3755,36 @@ def admin_store_management(request, store_id):
 
 
 @login_required
+def admin_store_get_order_items(request, store_id, order_id):
+    """Получение товаров заказа для AJAX"""
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Доступ запрещен'})
+    
+    try:
+        store = OfflineStore.objects.get(id=store_id)
+        order = StoreOrder.objects.get(id=order_id, store=store)
+        
+        items = []
+        for item in order.order_items.all():
+            items.append({
+                'id': item.id,
+                'product_name': item.product.name,
+                'size': item.size,
+                'color_name': item.color.name if item.color else None,
+                'quantity': item.quantity,
+                'cost_price': float(item.cost_price),
+                'selling_price': float(item.selling_price),
+            })
+        
+        return JsonResponse({'success': True, 'items': items})
+    
+    except (OfflineStore.DoesNotExist, StoreOrder.DoesNotExist):
+        return JsonResponse({'success': False, 'error': 'Заказ не найден'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
 def admin_store_add_product_to_order(request, store_id):
     """Добавление товара в заказ через AJAX"""
     if not request.user.is_staff:

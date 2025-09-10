@@ -68,6 +68,7 @@ urlpatterns=[
     # store management
     path('admin-panel/offline-store/<int:store_id>/manage/', views.admin_store_management, name='admin_store_management'),
     path('admin-panel/offline-store/<int:store_id>/add-to-order/', views.admin_store_add_product_to_order, name='admin_store_add_product_to_order'),
+    path('admin-panel/offline-store/<int:store_id>/order/<int:order_id>/items/', views.admin_store_get_order_items, name='admin_store_get_order_items'),
     path('admin-panel/offline-store/<int:store_id>/order/<int:order_id>/remove-item/<int:item_id>/', views.admin_store_remove_product_from_order, name='admin_store_remove_product_from_order'),
     path('admin-panel/offline-store/<int:store_id>/add-to-store/', views.admin_store_add_products_to_store, name='admin_store_add_products_to_store'),
     path('admin-panel/offline-store/<int:store_id>/generate-invoice/', views.admin_store_generate_invoice, name='admin_store_generate_invoice'),
