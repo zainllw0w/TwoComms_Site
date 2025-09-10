@@ -159,7 +159,7 @@
     backdrop-filter: blur(25px);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 24px;
-    padding: 25px;
+    padding: 20px;
     box-shadow: 
         0 25px 50px rgba(0, 0, 0, 0.4),
         0 0 0 1px rgba(139, 92, 246, 0.08),
@@ -167,6 +167,8 @@
     min-height: 600px;
     position: relative;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .management-column::before {
@@ -228,10 +230,11 @@
 }
 
 .products-scroll-container {
-    max-height: 500px;
+    flex: 1;
     overflow-y: auto;
     padding-right: 8px;
     margin-right: -8px;
+    min-height: 0;
 }
 
 .products-scroll-container::-webkit-scrollbar {
@@ -254,10 +257,11 @@
 
 .order-items-scroll-container,
 .store-products-scroll-container {
-    max-height: 400px;
+    flex: 1;
     overflow-y: auto;
     padding-right: 8px;
     margin-right: -8px;
+    min-height: 0;
 }
 
 .order-items-scroll-container::-webkit-scrollbar,
@@ -293,7 +297,7 @@
         0 2px 8px rgba(0, 0, 0, 0.2),
         0 0 0 1px rgba(139, 92, 246, 0.05);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    cursor: grab;
+    cursor: pointer;
     position: relative;
     overflow: hidden;
     height: 80px;
@@ -331,6 +335,7 @@
     opacity: 0.7;
     transform: rotate(3deg) scale(1.05);
     z-index: 1000;
+    cursor: grabbing;
     box-shadow: 
         0 20px 40px rgba(0, 0, 0, 0.5),
         0 0 0 2px rgba(139, 92, 246, 0.6);
@@ -668,19 +673,22 @@
 }
 
 .order-actions {
-    margin-top: 20px;
+    margin-top: 15px;
     display: flex;
-    gap: 10px;
+    gap: 8px;
+    padding: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .action-btn {
     flex: 1;
-    padding: 12px;
+    padding: 8px 12px;
     border: none;
-    border-radius: 10px;
+    border-radius: 8px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
+    font-size: 0.8rem;
 }
 
 .add-to-store-btn {
@@ -1052,8 +1060,8 @@
             
             <!-- Зона для перетаскивания -->
             <div class="drop-zone" id="orderDropZone">
-                <div class="drop-zone-text">Перетягніть товар сюди</div>
-                <div class="drop-zone-subtext">або виберіть товар зі списку</div>
+                <div class="drop-zone-text">Перетягніть товар</div>
+                <div class="drop-zone-subtext">або клікніть на товар</div>
             </div>
             
             <!-- Список товаров в заказе -->
@@ -1190,6 +1198,7 @@ let currentEditProductId = null;
 document.addEventListener('DOMContentLoaded', function() {
     initializeDragAndDrop();
     initializeCategoryFilter();
+    initializeProductClick();
     
     // Инициализируем currentOrderId если есть активные заказы
     const firstOrderItem = document.querySelector('.order-item');
@@ -1259,6 +1268,26 @@ function initializeCategoryFilter() {
                 card.style.display = 'none';
             }
         });
+    });
+}
+
+// Инициализация клика по карточкам товаров
+function initializeProductClick() {
+    const productCards = document.querySelectorAll('.product-card');
+    
+    productCards.forEach(card => {
+        card.addEventListener('click', function(e) {
+            // Предотвращаем клик при drag and drop
+            if (e.target.closest('.remove-item-btn')) return;
+            
+            const productId = this.dataset.productId;
+            if (productId) {
+                selectProduct(productId);
+            }
+        });
+        
+        // Добавляем визуальную обратную связь при клике
+        card.style.cursor = 'pointer';
     });
 }
 
