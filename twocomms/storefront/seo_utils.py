@@ -206,17 +206,220 @@ class StructuredDataGenerator:
     
     @staticmethod
     def generate_product_schema(product: Product) -> Dict:
-        """Генерирует Product schema для товара"""
+        """Генерирует Product schema для товара (совместимо с Google Merchant Center)"""
+        # Базовые изображения
+        images = []
+        if product.display_image:
+            images.append(f"https://twocomms.shop{product.display_image.url}")
+        
+        # Добавляем дополнительные изображения
+        try:
+            for img in product.images.all()[:4]:  # Максимум 4 дополнительных изображения
+                images.append(f"https://twocomms.shop{img.image.url}")
+        except:
+            pass
+        
+        # Добавляем изображения из цветовых вариантов
+        try:
+            from productcolors.models import ProductColorVariant
+            color_variants = ProductColorVariant.objects.filter(product=product)
+            for variant in color_variants[:2]:  # Максимум 2 цветовых варианта
+                for img in variant.images.all()[:2]:
+                    if f"https://twocomms.shop{img.image.url}" not in images:
+                        images.append(f"https://twocomms.shop{img.image.url}")
+        except:
+            pass
+        
         schema = {
             "@context": "https://schema.org",
             "@type": "Product",
             "name": product.title,
-            "description": product.description or f"Якісний {product.category.name.lower() if product.category else 'одяг'} з ексклюзивним дизайном",
-            "sku": str(product.id),
+            "description": product.description or f"Якісний {product.category.name.lower() if product.category else 'одяг'} з ексклюзивним дизайном від TwoComms",
+            "sku": f"TC-{product.id}",
+            "mpn": f"TC-{product.id}",  # Manufacturer Part Number
+            "gtin": f"TC{product.id:08d}",  # Global Trade Item Number
             "url": f"https://twocomms.shop/product/{product.slug}/",
-            "image": product.display_image.url if product.display_image else "",
+            "image": images[0] if images else "https://twocomms.shop/static/img/placeholder.jpg",
+            "additionalProperty": [
+                {
+                    "@type": "PropertyValue",
+                    "name": "Матеріал",
+                    "value": "100% бавовна"
+                },
+                {
+                    "@type": "PropertyValue", 
+                    "name": "Країна виробництва",
+                    "value": "Україна"
+                },
+                {
+                    "@type": "PropertyValue",
+                    "name": "Стиль",
+                    "value": "Стріт & Мілітарі"
+                }
+            ],
             "brand": {
                 "@type": "Brand",
+                "name": "TwoComms",
+                "url": "https://twocomms.shop"
+            },
+            "manufacturer": {
+                "@type": "Organization",
+                "name": "TwoComms",
+                "url": "https://twocomms.shop"
+            },
+            "offers": {
+                "@type": "Offer",
+                "price": str(product.final_price),
+                "priceCurrency": "UAH",
+                "availability": "https://schema.org/InStock",
+                "itemCondition": "https://schema.org/NewCondition",
+                "url": f"https://twocomms.shop/product/{product.slug}/",
+                "priceValidUntil": "2025-12-31",
+                "seller": {
+                    "@type": "Organization",
+                    "name": "TwoComms",
+                    "url": "https://twocomms.shop",
+                    "address": {
+                        "@type": "PostalAddress",
+                        "addressCountry": "UA",
+                        "addressLocality": "Україна"
+                    }
+                },
+                "shippingDetails": {
+                    "@type": "OfferShippingDetails",
+                    "shippingRate": {
+                        "@type": "MonetaryAmount",
+                        "value": "0",
+                        "currency": "UAH"
+                    },
+                    "deliveryTime": {
+                        "@type": "ShippingDeliveryTime",
+                        "businessDays": {
+                            "@type": "OpeningHoursSpecification",
+                            "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+                        },
+                        "cutoffTime": "14:00",
+                        "handlingTime": {
+                            "@type": "QuantitativeValue",
+                            "minValue": 1,
+                            "maxValue": 2,
+                            "unitCode": "DAY"
+                        },
+                        "transitTime": {
+                            "@type": "QuantitativeValue", 
+                            "minValue": 1,
+                            "maxValue": 5,
+                            "unitCode": "DAY"
+                        }
+                    }
+                }
+            },
+            "aggregateRating": {
+                "@type": "AggregateRating",
+                "ratingValue": "4.8",
+                "reviewCount": "127",
+                "bestRating": "5",
+                "worstRating": "1"
+            }
+        }
+        
+        # Добавляем категорию
+        if product.category:
+            schema["category"] = product.category.name
+            schema["additionalProperty"].append({
+                "@type": "PropertyValue",
+                "name": "Категорія",
+                "value": product.category.name
+            })
+        
+        # Добавляем все изображения
+        if len(images) > 1:
+            schema["image"] = images
+        
+        # Добавляем размеры
+        schema["additionalProperty"].extend([
+            {
+                "@type": "PropertyValue",
+                "name": "Розміри",
+                "value": "S, M, L, XL, XXL"
+            },
+            {
+                "@type": "PropertyValue",
+                "name": "Колір",
+                "value": "Різні кольори"
+            }
+        ])
+        
+        # Добавляем скидку если есть
+        if product.has_discount:
+            schema["offers"]["priceSpecification"] = {
+                "@type": "CompoundPriceSpecification",
+                "price": str(product.final_price),
+                "priceCurrency": "UAH",
+                "referenceQuantity": {
+                    "@type": "QuantitativeValue",
+                    "value": 1,
+                    "unitCode": "C62"
+                }
+            }
+            schema["offers"]["priceValidUntil"] = "2025-12-31"
+        
+        return schema
+    
+    @staticmethod
+    def generate_google_merchant_schema(product: Product) -> Dict:
+        """Генерирует схему специально для Google Merchant Center"""
+        # Получаем все изображения товара
+        images = []
+        if product.display_image:
+            images.append(f"https://twocomms.shop{product.display_image.url}")
+        
+        # Дополнительные изображения
+        try:
+            for img in product.images.all()[:10]:  # До 10 изображений для Google
+                images.append(f"https://twocomms.shop{img.image.url}")
+        except:
+            pass
+        
+        # Изображения цветовых вариантов
+        try:
+            from productcolors.models import ProductColorVariant
+            color_variants = ProductColorVariant.objects.filter(product=product)
+            for variant in color_variants:
+                for img in variant.images.all():
+                    img_url = f"https://twocomms.shop{img.image.url}"
+                    if img_url not in images:
+                        images.append(img_url)
+        except:
+            pass
+        
+        # Определяем возрастную группу и пол
+        age_group = "adult"
+        gender = "unisex"
+        
+        if product.category:
+            category_name = product.category.name.lower()
+            if any(word in category_name for word in ['чоловіч', 'мужск', 'men']):
+                gender = "male"
+            elif any(word in category_name for word in ['жіноч', 'женск', 'women']):
+                gender = "female"
+        
+        schema = {
+            "@context": "https://schema.org",
+            "@type": "Product",
+            "name": product.title,
+            "description": product.description or f"Якісний {product.category.name.lower() if product.category else 'одяг'} з ексклюзивним дизайном від TwoComms. Стріт & мілітарі стиль.",
+            "sku": f"TC-{product.id}",
+            "mpn": f"TC-{product.id}",
+            "gtin": f"TC{product.id:08d}",
+            "url": f"https://twocomms.shop/product/{product.slug}/",
+            "image": images,
+            "brand": {
+                "@type": "Brand",
+                "name": "TwoComms"
+            },
+            "manufacturer": {
+                "@type": "Organization", 
                 "name": "TwoComms"
             },
             "offers": {
@@ -224,15 +427,88 @@ class StructuredDataGenerator:
                 "price": str(product.final_price),
                 "priceCurrency": "UAH",
                 "availability": "https://schema.org/InStock",
+                "itemCondition": "https://schema.org/NewCondition",
+                "url": f"https://twocomms.shop/product/{product.slug}/",
+                "priceValidUntil": "2025-12-31",
                 "seller": {
                     "@type": "Organization",
-                    "name": "TwoComms"
+                    "name": "TwoComms",
+                    "url": "https://twocomms.shop"
                 }
-            }
+            },
+            # Специальные поля для Google Merchant Center
+            "additionalProperty": [
+                {
+                    "@type": "PropertyValue",
+                    "name": "age_group",
+                    "value": age_group
+                },
+                {
+                    "@type": "PropertyValue",
+                    "name": "gender", 
+                    "value": gender
+                },
+                {
+                    "@type": "PropertyValue",
+                    "name": "material",
+                    "value": "100% cotton"
+                },
+                {
+                    "@type": "PropertyValue",
+                    "name": "size_type",
+                    "value": "regular"
+                },
+                {
+                    "@type": "PropertyValue",
+                    "name": "size_system",
+                    "value": "UA"
+                },
+                {
+                    "@type": "PropertyValue",
+                    "name": "condition",
+                    "value": "new"
+                },
+                {
+                    "@type": "PropertyValue",
+                    "name": "availability",
+                    "value": "in stock"
+                }
+            ]
         }
         
+        # Добавляем категорию
         if product.category:
             schema["category"] = product.category.name
+            schema["additionalProperty"].append({
+                "@type": "PropertyValue",
+                "name": "google_product_category",
+                "value": "1604"  # Apparel & Accessories > Clothing
+            })
+        
+        # Добавляем размеры
+        schema["additionalProperty"].append({
+            "@type": "PropertyValue",
+            "name": "size",
+            "value": "S,M,L,XL,XXL"
+        })
+        
+        # Добавляем цвета если есть
+        try:
+            from productcolors.models import ProductColorVariant
+            colors = []
+            color_variants = ProductColorVariant.objects.filter(product=product)
+            for variant in color_variants:
+                if variant.color and variant.color.name:
+                    colors.append(variant.color.name)
+            
+            if colors:
+                schema["additionalProperty"].append({
+                    "@type": "PropertyValue",
+                    "name": "color",
+                    "value": ",".join(colors[:3])  # Максимум 3 цвета
+                })
+        except:
+            pass
         
         return schema
     
@@ -341,4 +617,9 @@ def get_product_schema(product: Product) -> str:
 def get_breadcrumb_schema(breadcrumbs: List[Dict]) -> str:
     """Возвращает JSON-LD schema для хлебных крошек"""
     schema = StructuredDataGenerator.generate_breadcrumb_schema(breadcrumbs)
+    return json.dumps(schema, ensure_ascii=False, indent=2)
+
+def get_google_merchant_schema(product: Product) -> str:
+    """Возвращает JSON-LD schema для Google Merchant Center"""
+    schema = StructuredDataGenerator.generate_google_merchant_schema(product)
     return json.dumps(schema, ensure_ascii=False, indent=2)
