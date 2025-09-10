@@ -1620,6 +1620,16 @@
   color: rgba(255, 255, 255, 0.6);
 }
 
+/* Spinning animation for Telegram button */
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .hero-title {
@@ -1809,47 +1819,18 @@ setTimeout(animateTruck, 1000);
 
 // Telegram tracking functions
 function enableTelegramTracking() {
-  // Check if user has Telegram ID
-  fetch('/api/check-telegram-id/', {
-    method: 'GET',
-    headers: {
-      'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-      'Content-Type': 'application/json',
-    },
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.has_telegram_id) {
-      // Enable tracking
-      fetch('/api/enable-telegram-tracking/', {
-        method: 'POST',
-        headers: {
-          'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-          'Content-Type': 'application/json',
-        },
-      })
-      .then(response => response.json())
-      .then(result => {
-        if (result.success) {
-          showNotification('Telegram трекінг увімкнено! Ви будете отримувати сповіщення про статус замовлень.', 'success');
-          updateTelegramButton(true);
-        } else {
-          showNotification('Помилка при увімкненні трекінгу. Спробуйте пізніше.', 'error');
-        }
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        showNotification('Помилка при увімкненні трекінгу.', 'error');
-      });
-    } else {
-      // Show modal to connect Telegram
-      showTelegramConnectModal();
-    }
-  })
-  .catch(error => {
-    console.error('Error:', error);
-    showNotification('Помилка при перевірці Telegram ID.', 'error');
-  });
+  // Открываем Telegram бота
+  const botUrl = 'https://t.me/twocommsbot?start=tracking';
+  window.open(botUrl, '_blank');
+  
+  // Показываем инструкцию
+  alert('Відкриється Telegram бот. Напишіть будь-яке повідомлення для підтвердження. Статус оновиться автоматично.');
+  
+  // Показываем индикатор загрузки
+  showTelegramLoadingIndicator();
+  
+  // Запускаем проверку статуса
+  startTelegramStatusCheck();
 }
 
 function requestAuthForTracking() {
@@ -1857,66 +1838,85 @@ function requestAuthForTracking() {
   window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname);
 }
 
-function showTelegramConnectModal() {
-  // Create modal for Telegram connection
-  const modalHtml = `
-    <div class="modal fade" id="telegramConnectModal" tabindex="-1">
-      <div class="modal-dialog">
-        <div class="modal-content" style="background: var(--tc-elevate); border: 1px solid rgba(255,255,255,0.1);">
-          <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-            <h5 class="modal-title" style="color: var(--tc-text);">Підключення Telegram</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body" style="color: var(--tc-text);">
-            <p>Для отримання сповіщень про замовлення в Telegram:</p>
-            <ol>
-              <li>Знайдіть бота <strong>@TwoCommsBot</strong> в Telegram</li>
-              <li>Надішліть команду <code>/start</code></li>
-              <li>Натисніть кнопку "Підключити акаунт"</li>
-            </ol>
-            <div class="text-center mt-3">
-              <a href="https://t.me/TwoCommsBot" target="_blank" class="btn btn-primary">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 8px;">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                </svg>
-                Відкрити Telegram
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-  
-  // Remove existing modal if any
-  const existingModal = document.getElementById('telegramConnectModal');
-  if (existingModal) {
-    existingModal.remove();
-  }
-  
-  // Add modal to body
-  document.body.insertAdjacentHTML('beforeend', modalHtml);
-  
-  // Show modal
-  const modal = new bootstrap.Modal(document.getElementById('telegramConnectModal'));
-  modal.show();
-}
-
-function updateTelegramButton(enabled) {
+// Функция для показа индикатора загрузки Telegram
+function showTelegramLoadingIndicator() {
   const button = document.querySelector('.telegram-tracking-btn');
   if (button) {
-    if (enabled) {
-      button.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-        </svg>
-        Трекінг увімкнено
-      `;
-      button.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-      button.onclick = null;
-    }
+    button.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="spinning">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+      </svg>
+      Перевірка...
+    `;
+    button.disabled = true;
   }
 }
+
+// Функция для проверки статуса подтверждения Telegram
+function checkTelegramStatus() {
+  fetch('/accounts/telegram/status/')
+    .then(response => response.json())
+    .then(data => {
+      if (data.is_confirmed) {
+        // Обновляем кнопку на подтвержденную
+        updateTelegramButton(true);
+        // Останавливаем проверку
+        stopTelegramStatusCheck();
+      }
+    })
+    .catch(error => {
+      console.error('Ошибка проверки статуса Telegram:', error);
+    });
+}
+
+// Функция для обновления кнопки Telegram
+function updateTelegramButton(isConfirmed) {
+  const button = document.querySelector('.telegram-tracking-btn');
+  if (!button) return;
+  
+  if (isConfirmed) {
+    button.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+      </svg>
+      Трекінг увімкнено
+    `;
+    button.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+    button.disabled = true;
+  } else {
+    button.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+      </svg>
+      Отримувати трекінг в Telegram
+    `;
+    button.disabled = false;
+  }
+}
+
+// Переменные для управления проверкой статуса
+let telegramStatusCheckInterval = null;
+
+// Функция для запуска проверки статуса
+function startTelegramStatusCheck() {
+  // Останавливаем предыдущую проверку если есть
+  stopTelegramStatusCheck();
+  
+  // Запускаем новую проверку каждые 2 секунды
+  telegramStatusCheckInterval = setInterval(checkTelegramStatus, 2000);
+  
+  // Останавливаем проверку через 60 секунд
+  setTimeout(stopTelegramStatusCheck, 60000);
+}
+
+// Функция для остановки проверки статуса
+function stopTelegramStatusCheck() {
+  if (telegramStatusCheckInterval) {
+    clearInterval(telegramStatusCheckInterval);
+    telegramStatusCheckInterval = null;
+  }
+}
+
 
 function showNotification(message, type = 'info') {
   // Create notification element
