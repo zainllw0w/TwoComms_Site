@@ -32,7 +32,7 @@ def generate_alt_text_for_product_image(product, image_type="main"):
         )
         
         response = client.chat.completions.create(
-            model='gpt-5',
+            model='gpt-4o',
             messages=[
                 {"role": "system", "content": "Ви - SEO-спеціаліст, який створює оптимізовані alt-тексти для зображень товарів."},
                 {"role": "user", "content": prompt},
@@ -70,7 +70,7 @@ def generate_alt_text_for_color_image(product, color_name, image_type="color"):
         )
         
         response = client.chat.completions.create(
-            model='gpt-5',
+            model='gpt-4o',
             messages=[
                 {"role": "system", "content": "Ви - SEO-спеціаліст, який створює оптимізовані alt-тексти для зображень товарів."},
                 {"role": "user", "content": prompt},
@@ -140,7 +140,7 @@ def main():
         
         for variant in color_variants:
             try:
-                color_images = ProductColorImage.objects.filter(color_variant=variant)
+                color_images = ProductColorImage.objects.filter(variant=variant)
                 for img in color_images:
                     color_name = variant.color.name if variant.color and variant.color.name else "невідомий колір"
                     alt_text = generate_alt_text_for_color_image(variant.product, color_name)
