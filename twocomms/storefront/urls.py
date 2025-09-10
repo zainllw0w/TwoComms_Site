@@ -65,6 +65,14 @@ urlpatterns=[
     path('admin-panel/offline-store/<int:pk>/edit/', views.admin_offline_store_edit, name='admin_offline_store_edit'),
     path('admin-panel/offline-store/<int:pk>/toggle/', views.admin_offline_store_toggle, name='admin_offline_store_toggle'),
     path('admin-panel/offline-store/<int:pk>/delete/', views.admin_offline_store_delete, name='admin_offline_store_delete'),
+    # store management
+    path('admin-panel/offline-store/<int:store_id>/manage/', views.admin_store_management, name='admin_store_management'),
+    path('admin-panel/offline-store/<int:store_id>/add-to-order/', views.admin_store_add_product_to_order, name='admin_store_add_product_to_order'),
+    path('admin-panel/offline-store/<int:store_id>/order/<int:order_id>/remove-item/<int:item_id>/', views.admin_store_remove_product_from_order, name='admin_store_remove_product_from_order'),
+    path('admin-panel/offline-store/<int:store_id>/add-to-store/', views.admin_store_add_products_to_store, name='admin_store_add_products_to_store'),
+    path('admin-panel/offline-store/<int:store_id>/generate-invoice/', views.admin_store_generate_invoice, name='admin_store_generate_invoice'),
+    path('admin-panel/offline-store/<int:store_id>/product/<int:product_id>/update/', views.admin_store_update_product, name='admin_store_update_product'),
+    path('admin-panel/offline-store/<int:store_id>/product/<int:product_id>/remove/', views.admin_store_remove_product, name='admin_store_remove_product'),
     # print proposals
     path('admin-panel/print-proposal/update-status/', views.admin_print_proposal_update_status, name='admin_print_proposal_update_status'),
     path('admin-panel/print-proposal/award-points/', views.admin_print_proposal_award_points, name='admin_print_proposal_award_points'),
