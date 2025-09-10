@@ -8101,7 +8101,7 @@ body::after {
   }
   
   .navbar .cart-container {
-    margin-left: 0 !important; /* Убрано для правильного расстояния */
+    margin-left: 0; /* Убрано для правильного расстояния */
   }
   
   .navbar .btn-sm {
@@ -8251,7 +8251,7 @@ body::after {
   }
   
   .navbar .cart-container {
-    margin-left: 0 !important; /* Убрано для правильного расстояния */
+    margin-left: 0; /* Убрано для правильного расстояния */
   }
   
   .navbar .btn-sm {
@@ -8284,7 +8284,7 @@ body::after {
 
 .navbar .d-flex.align-items-center.gap-2 {
   align-items: center !important;
-  gap: 0.25rem !important; /* Уменьшено с 0.5rem до 0.25rem */
+  gap: 0.25rem; /* Уменьшено с 0.5rem до 0.25rem */
   margin: 0 !important;
   padding: 0 !important;
   margin-left: auto !important;
@@ -8294,11 +8294,11 @@ body::after {
 .navbar .user-profile-container {
   display: inline-flex !important;
   align-items: center !important;
-  margin: 0 !important;
+  /* margin: 0 убрано чтобы ms-4 работал */
 }
 
 .navbar .cart-container {
-  margin-left: 0 !important; /* Убрано для правильного расстояния */
+  margin-left: 0; /* Убрано для правильного расстояния */
 }
 
 .navbar .btn-sm {
@@ -21104,8 +21104,8 @@ input[type="file"].form-control:hover {
   }
 }
 
-/* Hide cart and profile on mobile in header */
-@media (max-width: 991.98px) {
+/* Hide cart and profile on mobile in header - теперь скрыты Bootstrap классами */
+/* @media (max-width: 991.98px) {
   .navbar .cart-container,
   .navbar .user-profile-container {
     display: none !important;
@@ -21115,10 +21115,10 @@ input[type="file"].form-control:hover {
     height: 0 !important;
     overflow: hidden !important;
   }
-}
+} */
 
-/* Force hide cart and profile on mobile - highest priority */
-@media (max-width: 991.98px) {
+/* Force hide cart and profile on mobile - highest priority - теперь скрыты Bootstrap классами */
+/* @media (max-width: 991.98px) {
   .navbar .d-flex .cart-container,
   .navbar .d-flex .user-profile-container {
     display: none !important;
@@ -21132,7 +21132,7 @@ input[type="file"].form-control:hover {
     position: absolute !important;
     left: -9999px !important;
   }
-}
+} */
 
 /* Admin Panel Stats Categories */
 .stats-category {
