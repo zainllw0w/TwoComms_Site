@@ -111,8 +111,10 @@ function updateCartBadge(count){
 function updateFavoritesBadge(count){
   const n = String(count||0);
   const desktop=document.getElementById('favorites-count');
+  const mobile=document.getElementById('favorites-count-mobile');
   const favoritesWrapper = document.querySelector('.favorites-icon-wrapper');
   
+  // Обновляем десктопный счетчик
   if(desktop){ 
     desktop.textContent=n; 
     // Всегда показываем счетчик
@@ -130,6 +132,14 @@ function updateFavoritesBadge(count){
         favoritesWrapper.classList.remove('has-items');
       }
     }
+  }
+  
+  // Обновляем мобильный счетчик
+  if(mobile){ 
+    mobile.textContent=n; 
+    // Всегда показываем счетчик
+    mobile.style.display='flex';
+    mobile.style.visibility='visible';
   }
 }
 
