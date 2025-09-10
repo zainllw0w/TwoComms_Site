@@ -167,6 +167,7 @@ function updateFavoritesBadge(count){
   const n = String(count||0);
   const desktop = DOMCache.get('favorites-count');
   const mobile = DOMCache.get('favorites-count-mobile');
+  const mini = DOMCache.get('favorites-count-mini');
   const favoritesWrapper = DOMCache.query('.favorites-icon-wrapper');
   const mobileIcon = DOMCache.query('a[href*="favorites"] .bottom-nav-icon');
   
@@ -208,6 +209,21 @@ function updateFavoritesBadge(count){
       if(mobileIcon) {
         mobileIcon.classList.remove('has-items');
       }
+    }
+  }
+  
+  // Обновляем счетчик в минипрофиле
+  if(mini){ 
+    mini.textContent=n; 
+    
+    if(count > 0) {
+      // Показываем счетчик
+      mini.style.display='flex';
+      mini.style.visibility='visible';
+    } else {
+      // Скрываем счетчик
+      mini.style.display='none';
+      mini.style.visibility='hidden';
     }
   }
 }
