@@ -29,7 +29,7 @@
           Запропонувати принт
         </a>
         <!-- Контейнер корзины и избранного -->
-        <div class="cart-favorites-container d-flex align-items-center gap-1">
+        <div class="cart-favorites-container d-none d-lg-flex align-items-center gap-1">
           <!-- Избранное для незарегистрированных пользователей -->
           {% if not request.user.is_authenticated %}
           <div class="favorites-container position-relative">
@@ -140,7 +140,7 @@
         </div>
         
         <!-- Аватар/профіль -->
-        <div class="user-profile-container position-relative d-none d-lg-block ms-4" style="display: none !important;" data-mobile-hide="true">
+        <div class="user-profile-container position-relative d-none d-lg-block ms-4" data-mobile-hide="true">
           <button id="user-toggle" type="button" class="user-avatar-btn" aria-label="Відкрити панель користувача">
             <div class="avatar-wrapper">
               {% if request.user.is_authenticated and request.user.userprofile and request.user.userprofile.avatar %}
