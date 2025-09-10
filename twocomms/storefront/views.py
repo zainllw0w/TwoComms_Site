@@ -3787,6 +3787,37 @@ def admin_store_get_order_items(request, store_id, order_id):
 
 
 @login_required
+def admin_store_get_product_colors(request, store_id, product_id):
+    """Получение цветов товара для AJAX"""
+    if not request.user.is_staff:
+        return JsonResponse({'error': 'Доступ запрещен'}, status=403)
+    
+    from .models import OfflineStore, Product
+    from productcolors.models import Color
+    
+    try:
+        store = get_object_or_404(OfflineStore, pk=store_id)
+        product = get_object_or_404(Product, pk=product_id)
+        
+        # Получаем цвета товара через color_variants
+        colors = []
+        for variant in product.color_variants.all():
+            colors.append({
+                'id': variant.color.id,
+                'name': variant.color.name,
+                'hex_code': variant.color.hex_code
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'colors': colors
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@login_required
 def admin_store_add_product_to_order(request, store_id):
     """Добавление товара в заказ через AJAX"""
     if not request.user.is_staff:
