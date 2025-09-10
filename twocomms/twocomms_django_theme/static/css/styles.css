@@ -8101,7 +8101,7 @@ body::after {
   }
   
   .navbar .cart-container {
-    margin-left: 1rem !important;
+    margin-left: 0 !important; /* Убрано для правильного расстояния */
   }
   
   .navbar .btn-sm {
@@ -8251,7 +8251,7 @@ body::after {
   }
   
   .navbar .cart-container {
-    margin-left: 1rem !important;
+    margin-left: 0 !important; /* Убрано для правильного расстояния */
   }
   
   .navbar .btn-sm {
@@ -8284,7 +8284,7 @@ body::after {
 
 .navbar .d-flex.align-items-center.gap-2 {
   align-items: center !important;
-  gap: 0.5rem !important;
+  gap: 0.25rem !important; /* Уменьшено с 0.5rem до 0.25rem */
   margin: 0 !important;
   padding: 0 !important;
   margin-left: auto !important;
@@ -8298,7 +8298,7 @@ body::after {
 }
 
 .navbar .cart-container {
-  margin-left: 1rem !important;
+  margin-left: 0 !important; /* Убрано для правильного расстояния */
 }
 
 .navbar .btn-sm {
