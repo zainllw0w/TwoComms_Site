@@ -309,54 +309,135 @@
         <div class="col-lg-6">
           <div class="tracking-visual">
             <div class="phone-mockup">
-              <div class="phone-screen">
-                <div class="tracking-interface">
-                  <div class="tracking-header">
-                    <h3>Відстеження замовлення</h3>
-                    <div class="tracking-number">ТТН: 20450123456789</div>
+              <div class="phone-frame">
+                <div class="phone-screen">
+                  <div class="phone-status-bar">
+                    <div class="status-time">16:45</div>
+                    <div class="status-icons">
+                      <div class="signal-bars">
+                        <div class="bar"></div>
+                        <div class="bar"></div>
+                        <div class="bar"></div>
+                        <div class="bar"></div>
+                      </div>
+                      <div class="wifi-icon">📶</div>
+                      <div class="battery">🔋</div>
+                    </div>
                   </div>
-                  <div class="tracking-steps">
-                    <div class="step completed">
-                      <div class="step-icon">✓</div>
-                      <div class="step-content">
-                        <div class="step-title">Замовлення прийнято</div>
-                        <div class="step-time">10:30</div>
+                  
+                  <div class="app-header">
+                    <div class="app-title">
+                      <div class="app-icon">📦</div>
+                      <span>TwoComms</span>
+                    </div>
+                    <div class="notification-badge">3</div>
+                  </div>
+
+                  <div class="tracking-interface">
+                    <div class="tracking-header">
+                      <h3>Відстеження замовлення</h3>
+                      <div class="tracking-number">ТТН: 20450123456789</div>
+                      <div class="delivery-progress">
+                        <div class="progress-bar">
+                          <div class="progress-fill" style="width: 75%"></div>
+                        </div>
+                        <span class="progress-text">75% завершено</span>
                       </div>
                     </div>
-                    <div class="tracking-connector">
-                      <div class="tracking-dot tracking-dot-1"></div>
-                      <div class="tracking-dot tracking-dot-2"></div>
-                      <div class="tracking-dot tracking-dot-3"></div>
-                    </div>
-                    <div class="step completed">
-                      <div class="step-icon">✓</div>
-                      <div class="step-content">
-                        <div class="step-title">Товар зібрано</div>
-                        <div class="step-time">14:20</div>
+
+                    <div class="delivery-map">
+                      <div class="map-container">
+                        <div class="map-route">
+                          <div class="route-line"></div>
+                          <div class="location-point start-point">
+                            <div class="point-icon">🏭</div>
+                            <div class="point-label">Склад</div>
+                          </div>
+                          <div class="location-point current-point">
+                            <div class="point-icon moving-truck">🚚</div>
+                            <div class="point-label">В дорозі</div>
+                          </div>
+                          <div class="location-point end-point">
+                            <div class="point-icon">🏠</div>
+                            <div class="point-label">Ваша адреса</div>
+                          </div>
+                        </div>
+                        <div class="map-grid"></div>
                       </div>
                     </div>
-                    <div class="tracking-connector">
-                      <div class="tracking-dot tracking-dot-1"></div>
-                      <div class="tracking-dot tracking-dot-2"></div>
-                      <div class="tracking-dot tracking-dot-3"></div>
-                    </div>
-                    <div class="step active">
-                      <div class="step-icon blinking-truck">🚚</div>
-                      <div class="step-content">
-                        <div class="step-title">В дорозі</div>
-                        <div class="step-time">16:45</div>
+
+                    <div class="tracking-steps">
+                      <div class="step completed">
+                        <div class="step-icon">✓</div>
+                        <div class="step-content">
+                          <div class="step-title">Замовлення прийнято</div>
+                          <div class="step-time">10:30</div>
+                        </div>
+                      </div>
+                      <div class="tracking-connector">
+                        <div class="tracking-dot tracking-dot-1"></div>
+                        <div class="tracking-dot tracking-dot-2"></div>
+                        <div class="tracking-dot tracking-dot-3"></div>
+                      </div>
+                      <div class="step completed">
+                        <div class="step-icon">✓</div>
+                        <div class="step-content">
+                          <div class="step-title">Товар зібрано</div>
+                          <div class="step-time">14:20</div>
+                        </div>
+                      </div>
+                      <div class="tracking-connector">
+                        <div class="tracking-dot tracking-dot-1"></div>
+                        <div class="tracking-dot tracking-dot-2"></div>
+                        <div class="tracking-dot tracking-dot-3"></div>
+                      </div>
+                      <div class="step active">
+                        <div class="step-icon blinking-truck">🚚</div>
+                        <div class="step-content">
+                          <div class="step-title">В дорозі</div>
+                          <div class="step-time">16:45</div>
+                          <div class="step-details">Київ → Львів</div>
+                        </div>
+                      </div>
+                      <div class="tracking-connector">
+                        <div class="tracking-dot tracking-dot-1"></div>
+                        <div class="tracking-dot tracking-dot-2"></div>
+                        <div class="tracking-dot tracking-dot-3"></div>
+                      </div>
+                      <div class="step">
+                        <div class="step-icon">📦</div>
+                        <div class="step-content">
+                          <div class="step-title">Доставлено</div>
+                          <div class="step-time">—</div>
+                        </div>
                       </div>
                     </div>
-                    <div class="tracking-connector">
-                      <div class="tracking-dot tracking-dot-1"></div>
-                      <div class="tracking-dot tracking-dot-2"></div>
-                      <div class="tracking-dot tracking-dot-3"></div>
+
+                    <div class="delivery-info">
+                      <div class="info-item">
+                        <div class="info-icon">⏰</div>
+                        <div class="info-content">
+                          <div class="info-label">Очікувана доставка</div>
+                          <div class="info-value">Завтра, 14:00-18:00</div>
+                        </div>
+                      </div>
+                      <div class="info-item">
+                        <div class="info-icon">📍</div>
+                        <div class="info-content">
+                          <div class="info-label">Поточне місце</div>
+                          <div class="info-value">м. Житомир</div>
+                        </div>
+                      </div>
                     </div>
-                    <div class="step">
-                      <div class="step-icon">📦</div>
-                      <div class="step-content">
-                        <div class="step-title">Доставлено</div>
-                        <div class="step-time">—</div>
+
+                    <div class="notification-panel">
+                      <div class="notification-item">
+                        <div class="notification-icon">🔔</div>
+                        <div class="notification-content">
+                          <div class="notification-title">Нове оновлення</div>
+                          <div class="notification-text">Посилка в дорозі до Житомира</div>
+                          <div class="notification-time">2 хв тому</div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -896,50 +977,305 @@
 }
 
 .phone-mockup {
-  width: 280px;
-  height: 500px;
-  background: var(--tc-elevate);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  width: 320px;
+  height: 600px;
+  background: linear-gradient(145deg, #1a1a1a, #2d2d2d);
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-radius: 2.5rem;
+  padding: 0.5rem;
+  box-shadow: 
+    0 25px 50px rgba(0,0,0,0.4),
+    0 0 0 1px rgba(255,255,255,0.05),
+    inset 0 1px 0 rgba(255,255,255,0.1);
+  backdrop-filter: blur(20px);
+  position: relative;
+}
+
+.phone-mockup::before {
+  content: '';
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 4px;
+  background: rgba(255,255,255,0.3);
+  border-radius: 2px;
+}
+
+.phone-frame {
+  width: 100%;
+  height: 100%;
+  background: #000;
   border-radius: 2rem;
-  padding: 1rem;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-  backdrop-filter: blur(10px);
+  overflow: hidden;
+  position: relative;
 }
 
 .phone-screen {
   width: 100%;
   height: 100%;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 1.5rem;
+  background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
   overflow: hidden;
-  backdrop-filter: blur(8px);
+  position: relative;
+}
+
+.phone-status-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: rgba(0,0,0,0.3);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-icons {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.signal-bars {
+  display: flex;
+  align-items: end;
+  gap: 1px;
+}
+
+.signal-bars .bar {
+  width: 3px;
+  background: white;
+  border-radius: 1px;
+  animation: signalPulse 2s ease-in-out infinite;
+}
+
+.signal-bars .bar:nth-child(1) { height: 4px; animation-delay: 0s; }
+.signal-bars .bar:nth-child(2) { height: 6px; animation-delay: 0.2s; }
+.signal-bars .bar:nth-child(3) { height: 8px; animation-delay: 0.4s; }
+.signal-bars .bar:nth-child(4) { height: 10px; animation-delay: 0.6s; }
+
+@keyframes signalPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(139, 92, 246, 0.1);
+  border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.app-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: white;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.app-icon {
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, var(--tc-primary), rgba(139, 92, 246, 0.8));
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+}
+
+.notification-badge {
+  background: #ef4444;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  animation: badgePulse 2s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
 }
 
 .tracking-interface {
-  padding: 1.5rem;
-  height: 100%;
+  padding: 1rem;
+  height: calc(100% - 120px);
+  overflow-y: auto;
 }
 
 .tracking-header {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .tracking-header h3 {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 600;
-  color: var(--tc-text);
+  color: white;
   margin-bottom: 0.5rem;
 }
 
 .tracking-number {
-  font-size: 0.875rem;
-  color: var(--tc-text);
-  opacity: 0.8;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
   font-family: monospace;
+  margin-bottom: 1rem;
+}
+
+.delivery-progress {
+  margin-top: 1rem;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--tc-primary), rgba(139, 92, 246, 0.8));
+  border-radius: 3px;
+  animation: progressGlow 2s ease-in-out infinite;
+}
+
+@keyframes progressGlow {
+  0%, 100% { box-shadow: 0 0 5px rgba(139, 92, 246, 0.3); }
+  50% { box-shadow: 0 0 15px rgba(139, 92, 246, 0.6); }
+}
+
+.progress-text {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 500;
+}
+
+.delivery-map {
+  margin: 1rem 0;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.map-container {
+  position: relative;
+  height: 120px;
+  background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.map-grid {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+  opacity: 0.3;
+}
+
+.map-route {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+}
+
+.route-line {
+  position: absolute;
+  top: 50%;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--tc-primary), rgba(139, 92, 246, 0.5));
+  transform: translateY(-50%);
+  animation: routeFlow 3s ease-in-out infinite;
+}
+
+@keyframes routeFlow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.location-point {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  z-index: 2;
+}
+
+.point-icon {
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.start-point .point-icon {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: #10b981;
+}
+
+.current-point .point-icon {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #3b82f6;
+  animation: currentPointPulse 2s ease-in-out infinite;
+}
+
+.end-point .point-icon {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: var(--tc-primary);
+}
+
+@keyframes currentPointPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.moving-truck {
+  animation: truckMove 2s ease-in-out infinite;
+}
+
+@keyframes truckMove {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(2px); }
+}
+
+.point-label {
+  font-size: 0.625rem;
+  color: rgba(255, 255, 255, 0.8);
+  text-align: center;
+  font-weight: 500;
 }
 
 .tracking-steps {
@@ -1178,6 +1514,112 @@
   padding: 0 0.75rem;
 }
 
+/* Additional phone interface styles */
+.step-details {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+}
+
+.delivery-info {
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+}
+
+.info-icon {
+  width: 32px;
+  height: 32px;
+  background: rgba(139, 92, 246, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  flex-shrink: 0;
+}
+
+.info-content {
+  flex: 1;
+}
+
+.info-label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 0.25rem;
+}
+
+.info-value {
+  font-size: 0.875rem;
+  color: white;
+  font-weight: 500;
+}
+
+.notification-panel {
+  margin-top: 1rem;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.notification-icon {
+  width: 28px;
+  height: 28px;
+  background: rgba(59, 130, 246, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+  animation: notificationPulse 2s ease-in-out infinite;
+}
+
+@keyframes notificationPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.notification-content {
+  flex: 1;
+}
+
+.notification-title {
+  font-size: 0.875rem;
+  color: white;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.notification-text {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 0.25rem;
+}
+
+.notification-time {
+  font-size: 0.625rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .hero-title {
@@ -1209,8 +1651,24 @@
   }
   
   .phone-mockup {
-    width: 250px;
-    height: 450px;
+    width: 280px;
+    height: 520px;
+  }
+  
+  .delivery-map {
+    margin: 0.75rem 0;
+  }
+  
+  .map-container {
+    height: 100px;
+  }
+  
+  .delivery-info {
+    margin: 0.75rem 0;
+  }
+  
+  .info-item {
+    padding: 0.5rem;
   }
   
   .row.g-4 {
@@ -1224,13 +1682,130 @@
 </style>
 
 <script>
-// Initialize tooltips
+// Initialize tooltips and phone animations
 document.addEventListener('DOMContentLoaded', function() {
   var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
   var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
     return new bootstrap.Tooltip(tooltipTriggerEl);
   });
+  
+  // Initialize phone tracking animations
+  initializePhoneTracking();
 });
+
+// Phone tracking animations and interactions
+function initializePhoneTracking() {
+  const phoneMockup = document.querySelector('.phone-mockup');
+  if (!phoneMockup) return;
+  
+  // Add hover effects
+  phoneMockup.addEventListener('mouseenter', function() {
+    this.style.transform = 'scale(1.02) rotateY(-5deg)';
+    this.style.transition = 'all 0.3s ease';
+  });
+  
+  phoneMockup.addEventListener('mouseleave', function() {
+    this.style.transform = 'scale(1) rotateY(0deg)';
+  });
+  
+  // Animate progress bar
+  animateProgressBar();
+  
+  // Animate tracking steps
+  animateTrackingSteps();
+  
+  // Simulate real-time updates
+  simulateRealTimeUpdates();
+}
+
+function animateProgressBar() {
+  const progressFill = document.querySelector('.progress-fill');
+  if (!progressFill) return;
+  
+  // Animate progress from 0 to 75%
+  let progress = 0;
+  const targetProgress = 75;
+  const interval = setInterval(() => {
+    progress += 2;
+    progressFill.style.width = progress + '%';
+    
+    if (progress >= targetProgress) {
+      clearInterval(interval);
+    }
+  }, 50);
+}
+
+function animateTrackingSteps() {
+  const steps = document.querySelectorAll('.step');
+  steps.forEach((step, index) => {
+    setTimeout(() => {
+      step.style.opacity = '0';
+      step.style.transform = 'translateX(-20px)';
+      step.style.transition = 'all 0.5s ease';
+      
+      setTimeout(() => {
+        step.style.opacity = '1';
+        step.style.transform = 'translateX(0)';
+      }, 100);
+    }, index * 300);
+  });
+}
+
+function simulateRealTimeUpdates() {
+  const notificationPanel = document.querySelector('.notification-panel');
+  const notificationText = document.querySelector('.notification-text');
+  const notificationTime = document.querySelector('.notification-time');
+  const currentLocation = document.querySelector('.info-value');
+  
+  if (!notificationPanel || !notificationText || !notificationTime || !currentLocation) return;
+  
+  const updates = [
+    { text: 'Посилка в дорозі до Житомира', time: '2 хв тому', location: 'м. Житомир' },
+    { text: 'Посилка прибула до Житомира', time: '5 хв тому', location: 'м. Житомир' },
+    { text: 'Посилка в дорозі до Львова', time: '1 хв тому', location: 'м. Львів' },
+    { text: 'Посилка прибула до Львова', time: '3 хв тому', location: 'м. Львів' }
+  ];
+  
+  let currentUpdate = 0;
+  
+  setInterval(() => {
+    if (currentUpdate < updates.length) {
+      const update = updates[currentUpdate];
+      
+      // Animate notification update
+      notificationPanel.style.transform = 'scale(0.95)';
+      notificationPanel.style.transition = 'transform 0.2s ease';
+      
+      setTimeout(() => {
+        notificationText.textContent = update.text;
+        notificationTime.textContent = update.time;
+        currentLocation.textContent = update.location;
+        
+        notificationPanel.style.transform = 'scale(1)';
+      }, 200);
+      
+      currentUpdate++;
+    } else {
+      currentUpdate = 0; // Reset for continuous loop
+    }
+  }, 4000);
+}
+
+// Enhanced truck animation
+function animateTruck() {
+  const truck = document.querySelector('.moving-truck');
+  if (!truck) return;
+  
+  setInterval(() => {
+    truck.style.transform = 'translateX(0)';
+    setTimeout(() => {
+      truck.style.transform = 'translateX(3px)';
+    }, 1000);
+  }, 2000);
+}
+
+// Initialize truck animation
+setTimeout(animateTruck, 1000);
 
 // Telegram tracking functions
 function enableTelegramTracking() {
@@ -1278,11 +1853,8 @@ function enableTelegramTracking() {
 }
 
 function requestAuthForTracking() {
-  showNotification('Для отримання трекінгу в Telegram потрібно увійти в акаунт.', 'info');
-  // Redirect to login with return URL
-  setTimeout(() => {
-    window.location.href = '/accounts/login/?next=' + encodeURIComponent(window.location.pathname);
-  }, 2000);
+  // Redirect to login with return URL immediately
+  window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname);
 }
 
 function showTelegramConnectModal() {
