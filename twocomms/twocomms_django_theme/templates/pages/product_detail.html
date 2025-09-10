@@ -1,10 +1,15 @@
 {% extends "base.html" %}{% load static %}{% load cache %}{% load seo_tags %}
 
-{% block seo_meta %}
-  {% seo_meta_tags product=product %}
-{% endblock %}
-
+{% block title %}{% seo_title product=product %}{% endblock %}
+{% block description %}{% seo_description product=product %}{% endblock %}
+{% block keywords %}{% seo_keywords product=product %}{% endblock %}
 {% block og_type %}product{% endblock %}
+{% block og_title %}{% seo_title product=product %}{% endblock %}
+{% block og_description %}{% seo_description product=product %}{% endblock %}
+{% block og_image %}{% seo_og_image product=product %}{% endblock %}
+{% block twitter_title %}{% seo_title product=product %}{% endblock %}
+{% block twitter_description %}{% seo_description product=product %}{% endblock %}
+{% block twitter_image %}{% seo_og_image product=product %}{% endblock %}
 
 {% block structured_data %}
   {% google_merchant_schema product %}
