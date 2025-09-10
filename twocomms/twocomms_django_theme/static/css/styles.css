@@ -62,8 +62,11 @@ body::after {
   filter: blur(0.3px);
 }
 
-/* В режиме perf-lite отключаем фоновые анимации */
-.perf-lite body::before, .perf-lite body::after { animation: none !important; }
+/* В режиме perf-lite уменьшаем интенсивность фоновых анимаций */
+.perf-lite body::before, .perf-lite body::after { 
+  opacity: 0.3 !important; 
+  animation-duration: 20s !important; 
+}
 
 /* Дополнительные декоративные элементы */
 body::before {
@@ -17065,18 +17068,21 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
     font-size: 0.7rem;
   }
   
-  /* Отключаем сложные анимации на очень маленьких экранах */
+  /* Уменьшаем интенсивность сложных анимаций на очень маленьких экранах */
   .dark-gradient-1,
   .dark-gradient-2 {
-    animation: none;
+    animation-duration: 20s;
+    opacity: 0.5;
   }
   
   .floating-logo {
-    animation: none;
+    animation-duration: 15s;
+    opacity: 0.7;
   }
   
   .dark-particles .particle {
-    animation: none;
+    animation-duration: 25s;
+    opacity: 0.3;
   }
   
   /* Адаптивность кнопки сворачивания для маленьких экранов */
