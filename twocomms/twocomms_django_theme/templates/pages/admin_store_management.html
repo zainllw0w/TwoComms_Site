@@ -169,6 +169,18 @@
     overflow: hidden;
 }
 
+.order-column {
+    display: flex;
+    flex-direction: column;
+}
+
+.order-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
 .management-column::before {
     content: '';
     position: absolute;
@@ -252,7 +264,14 @@
     background: rgba(139, 92, 246, 0.8);
 }
 
-.order-items-scroll-container,
+.order-items-scroll-container {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 8px;
+    margin-right: -8px;
+    min-height: 0;
+}
+
 .store-products-scroll-container {
     max-height: 350px;
     overflow-y: auto;
@@ -1008,7 +1027,7 @@
         </div>
 
         <!-- Колонка 2: Формирование заказа -->
-        <div class="management-column">
+        <div class="management-column order-column">
             <div class="column-header">
                 <svg class="column-icon" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
@@ -1016,7 +1035,8 @@
                 <h3 class="column-title">Формування замовлення</h3>
             </div>
             
-            <!-- Форма добавления товара -->
+            <div class="order-content">
+                <!-- Форма добавления товара -->
             <div class="order-form" id="orderForm" style="display: none;">
                 <div class="form-group">
                     <label class="form-label">Розмір</label>
@@ -1088,14 +1108,15 @@
                     {% endfor %}
                 {% endfor %}
             </div>
+            </div>
             
             <!-- Кнопки действий -->
             <div class="order-actions">
                 <button class="action-btn add-to-store-btn" id="addToStoreBtn" onclick="addToStore()">
-                    Додати в магазин
+                    В магазин
                 </button>
                 <button class="action-btn generate-invoice-btn" id="generateInvoiceBtn" onclick="generateInvoice()">
-                    Сформувати накладну
+                    Накладна
                 </button>
             </div>
         </div>
@@ -1162,7 +1183,7 @@
 
 <!-- Модальное окно для редактирования товара -->
 <div id="editProductModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
-    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 15px; min-width: 400px;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 40px; border-radius: 15px; min-width: 500px; max-width: 600px;">
         <h3 style="margin-bottom: 20px;">Редагувати товар</h3>
         <div class="form-group">
             <label class="form-label">Собівартість (грн)</label>
