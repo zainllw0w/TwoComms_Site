@@ -909,25 +909,31 @@ body::after {
 
 /* Счетчик избранного в минипрофиле */
 .favorites-badge-mini {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  max-width: 18px;
+  max-height: 18px;
   background: linear-gradient(135deg, #ef4444, #dc2626);
   color: white;
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 700;
   border-radius: 50%;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid rgba(255, 255, 255, 0.95);
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
   box-shadow: 
-    0 2px 8px rgba(239, 68, 68, 0.4),
+    0 2px 6px rgba(239, 68, 68, 0.4),
     0 0 0 1px rgba(239, 68, 68, 0.2);
   animation: favoritesPulse 2s ease-in-out infinite;
   z-index: 10;
   transition: all 0.3s ease;
   margin-left: 8px;
   flex-shrink: 0;
+  line-height: 1;
+  text-align: center;
 }
 
 .favorites-badge-mini:hover {
@@ -941,14 +947,14 @@ body::after {
   0%, 100% { 
     transform: scale(1);
     box-shadow: 
-      0 2px 8px rgba(239, 68, 68, 0.4),
+      0 2px 6px rgba(239, 68, 68, 0.4),
       0 0 0 1px rgba(239, 68, 68, 0.2);
   }
   50% { 
-    transform: scale(1.08);
+    transform: scale(1.1);
     box-shadow: 
-      0 4px 12px rgba(239, 68, 68, 0.6),
-      0 0 0 2px rgba(239, 68, 68, 0.4);
+      0 3px 8px rgba(239, 68, 68, 0.6),
+      0 0 0 1.5px rgba(239, 68, 68, 0.4);
   }
 }
 
