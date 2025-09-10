@@ -332,15 +332,15 @@ class MediaPerformanceAnalyzer:
 
 def main():
     """Основная функция для запуска анализа"""
-    media_root = "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/media"
-    templates_dir = "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/twocomms_django_theme/templates"
+    media_root = "/home/qlknpodo/TWC/TwoComms_Site/twocomms/media"
+    templates_dir = "/home/qlknpodo/TWC/TwoComms_Site/twocomms/twocomms_django_theme/templates"
     
     analyzer = MediaPerformanceAnalyzer(media_root)
     results = analyzer.run_full_analysis(templates_dir)
     recommendations = analyzer.generate_recommendations()
     
     # Сохранение результатов
-    output_file = "/Users/zainllw0w/PycharmProjects/TwoComms/media_performance_analysis.json"
+    output_file = "/home/qlknpodo/TWC/TwoComms_Site/twocomms/media_performance_analysis.json"
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump({
             "analysis_results": results,
