@@ -12,13 +12,13 @@ SEO мета-теги для товаров и категорий
   <meta property="og:title" content="{{ meta_data.og_title }}">
   <meta property="og:description" content="{{ meta_data.og_description }}">
   {% if meta_data.og_image %}
-    <meta property="og:image" content="{% og_image_url request meta_data.og_image %}">
+    <meta property="og:image" content="{{ meta_data.og_image }}">
   {% endif %}
   
   <!-- Twitter -->
   <meta property="twitter:title" content="{{ meta_data.twitter_title }}">
   <meta property="twitter:description" content="{{ meta_data.twitter_description }}">
   {% if meta_data.twitter_image %}
-    <meta property="twitter:image" content="{% og_image_url request meta_data.twitter_image %}">
+    <meta property="twitter:image" content="{{ meta_data.twitter_image }}">
   {% endif %}
 {% endif %}

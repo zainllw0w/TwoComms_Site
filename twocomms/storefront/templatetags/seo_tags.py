@@ -17,6 +17,50 @@ from ..seo_utils import (
 register = template.Library()
 
 
+@register.simple_tag(takes_context=True)
+def seo_title(context, product=None, category=None):
+    """Возвращает SEO заголовок"""
+    if product:
+        meta_data = get_product_seo_meta(product)
+        return meta_data.get('title', 'TwoComms — Стріт & Мілітарі Одяг')
+    elif category:
+        meta_data = get_category_seo_meta(category)
+        return meta_data.get('title', 'TwoComms — Стріт & Мілітарі Одяг')
+    return 'TwoComms — Стріт & Мілітарі Одяг'
+
+@register.simple_tag(takes_context=True)
+def seo_description(context, product=None, category=None):
+    """Возвращает SEO описание"""
+    if product:
+        meta_data = get_product_seo_meta(product)
+        return meta_data.get('description', 'TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном.')
+    elif category:
+        meta_data = get_category_seo_meta(category)
+        return meta_data.get('description', 'TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном.')
+    return 'TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном.'
+
+@register.simple_tag(takes_context=True)
+def seo_keywords(context, product=None, category=None):
+    """Возвращает SEO ключевые слова"""
+    if product:
+        meta_data = get_product_seo_meta(product)
+        return meta_data.get('keywords', 'стріт одяг, мілітарі одяг, TwoComms')
+    elif category:
+        meta_data = get_category_seo_meta(category)
+        return meta_data.get('keywords', 'стріт одяг, мілітарі одяг, TwoComms')
+    return 'стріт одяг, мілітарі одяг, TwoComms'
+
+@register.simple_tag(takes_context=True)
+def seo_og_image(context, product=None, category=None):
+    """Возвращает Open Graph изображение"""
+    if product:
+        meta_data = get_product_seo_meta(product)
+        return meta_data.get('og_image', '')
+    elif category:
+        meta_data = get_category_seo_meta(category)
+        return meta_data.get('og_image', '')
+    return ''
+
 @register.inclusion_tag('partials/seo_meta.html', takes_context=True)
 def seo_meta_tags(context, product=None, category=None):
     """
