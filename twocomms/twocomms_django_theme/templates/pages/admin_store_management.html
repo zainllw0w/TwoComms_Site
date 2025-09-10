@@ -244,7 +244,7 @@
     overflow-y: auto;
     padding-right: 8px;
     margin-right: -8px;
-    padding-bottom: 0;
+    padding: 0 8px 0 0;
 }
 
 .products-scroll-container::-webkit-scrollbar {
@@ -308,7 +308,7 @@
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 12px;
     padding: 8px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     box-shadow: 
         0 2px 8px rgba(0, 0, 0, 0.2),
         0 0 0 1px rgba(139, 92, 246, 0.05);
@@ -345,6 +345,14 @@
 
 .product-card:hover::before {
     left: 100%;
+}
+
+.product-card:first-child {
+    margin-top: 0;
+}
+
+.product-card:last-child {
+    margin-bottom: 0;
 }
 
 .product-card.dragging {
