@@ -217,7 +217,7 @@
 }
 
 .category-filter {
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
 .filter-select {
@@ -1079,15 +1079,13 @@
                                     <span class="product-name">{{ product.title }}</span>
                                 </div>
                                 <div class="product-colors">
-                                    {% if product.color_variants.exists %}
-                                        {% for color_variant in product.color_variants.all|slice:":3" %}
-                                            <span class="color-dot" style="background-color: {{ color_variant.color.hex_code }};" title="{{ color_variant.color.name }}"></span>
-                                        {% endfor %}
-                                        {% if product.color_variants.count > 3 %}
-                                            <span class="color-more">+{{ product.color_variants.count|add:"-3" }}</span>
-                                        {% endif %}
-                                    {% else %}
+                                    {% for color_variant in product.color_variants.all|slice:":3" %}
+                                        <span class="color-dot" style="background-color: {{ color_variant.color.hex_code }};" title="{{ color_variant.color.name }}"></span>
+                                    {% empty %}
                                         <span class="color-dot" style="background-color: #000000;" title="Чорний (дефолт)"></span>
+                                    {% endfor %}
+                                    {% if product.color_variants.count > 3 %}
+                                        <span class="color-more">+{{ product.color_variants.count|add:"-3" }}</span>
                                     {% endif %}
                                 </div>
                                 <div class="product-price">{{ product.final_price }} грн</div>
