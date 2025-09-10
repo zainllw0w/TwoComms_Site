@@ -1333,8 +1333,6 @@ document.addEventListener('click', function(e) {
     return;
   }
   
-  console.log('Color dot clicked!', e.target);
-  
   // Предотвращаем всплытие события
   e.stopPropagation();
   
@@ -1343,58 +1341,48 @@ document.addEventListener('click', function(e) {
   const productCardWrap = colorDot.closest('.product-card-wrap');
   const productCard = productCardWrap ? productCardWrap.querySelector('.card.product') : null;
   
-  console.log('Product card wrap found:', productCardWrap);
-  console.log('Product card found:', productCard);
-  
   if (!productCard) {
-    console.log('No product card found');
     return;
   }
   
   // Находим основное изображение карточки
   const mainImage = productCard.querySelector('.ratio img');
   
-  console.log('Main image found:', mainImage);
-  
   if (!mainImage) {
-    console.log('No main image found');
     return;
   }
   
   // Получаем URL изображения для выбранного цвета
   const newImageUrl = getColorImageUrl(colorDot, productCard);
   
-  console.log('New image URL:', newImageUrl);
+  // Анимируем переключение цветовых точек
+  const allDots = productCardWrap.querySelectorAll('.color-dot');
+  allDots.forEach(dot => {
+    dot.classList.remove('active');
+    dot.classList.add('switching');
+  });
+  
+  // Добавляем активное состояние с задержкой для анимации
+  setTimeout(() => {
+    colorDot.classList.remove('switching');
+    colorDot.classList.add('active');
+  }, 100);
   
   if (!newImageUrl) {
-    console.log('No image URL, just changing active state');
     // Если нет URL для изображения, просто меняем активное состояние
-    const allDots = productCard.querySelectorAll('.color-dot');
-    allDots.forEach(dot => dot.classList.remove('active'));
-    colorDot.classList.add('active');
     return;
   }
   
-  console.log('Animating image change...');
-  
   // Анимируем смену изображения
-  animateImageChange(mainImage, newImageUrl).then(() => {
-    console.log('Image change completed');
-    // Меняем активное состояние после успешной смены изображения
-    const allDots = productCard.querySelectorAll('.color-dot');
-    allDots.forEach(dot => dot.classList.remove('active'));
-    colorDot.classList.add('active');
-  });
+  animateImageChange(mainImage, newImageUrl);
 });
 
 // Инициализация цветовых точек при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
   // Делаем цветовые точки видимыми
   const colorDots = document.querySelectorAll('.color-dot');
-  console.log('Found color dots:', colorDots.length);
   
   colorDots.forEach((dot, index) => {
-    console.log('Color dot', index, ':', dot, 'data-image-url:', dot.getAttribute('data-image-url'));
     // Добавляем небольшую задержку для анимации появления
     setTimeout(() => {
       dot.classList.add('visible');
