@@ -909,9 +909,6 @@ body::after {
 
 /* Счетчик избранного в минипрофиле */
 .favorites-badge-mini {
-  position: absolute;
-  top: -6px;
-  right: -6px;
   min-width: 18px;
   height: 18px;
   background: linear-gradient(135deg, #ef4444, #dc2626);
@@ -930,6 +927,7 @@ body::after {
   animation: favoritesPulse 2s ease-in-out infinite;
   z-index: 10;
   transition: all 0.3s ease;
+  margin-left: 8px;
 }
 
 .favorites-badge-mini:hover {
