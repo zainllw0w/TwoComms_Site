@@ -91,5 +91,4 @@ urlpatterns=[
     path('favorites/toggle/<int:product_id>/', views.toggle_favorite, name='toggle_favorite'),
     path('favorites/check/<int:product_id>/', views.check_favorite_status, name='check_favorite_status'),
     path('favorites/count/', views.favorites_count, name='favorites_count'),
-    path('api/product-color-image/<int:product_id>/', views.get_product_color_image, name='product_color_image'),
 ]

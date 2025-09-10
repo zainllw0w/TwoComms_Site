@@ -1,0 +1,4091 @@
+{
+  "redundant_properties": [],
+  "unused_animations": [
+    "backgroundFloat",
+    "backgroundPulse",
+    "backgroundRotate",
+    "editorSlideOut",
+    "colorSwitchPulse",
+    "favoriteHeartGlow",
+    "favoriteGlowPulse"
+  ],
+  "heavy_selectors": [
+    {
+      "type": "too_long",
+      "selector": "/* PERF: soften global glassmorphism where expensive */\n.perf-lite .modal,.perf-lite .offcanvas,.perf-lite .bottom-nav,.perf-lite .navbar.bg-body,\n.perf-lite .hero.bg-hero,.perf-lite .card.glassy,.perf-lite .profile-card,.perf-lite .points-card,\n.perf-lite .cart-checkout-card,.perf-lite .cart-sidebar-card",
+      "length": 306
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* PERF: soften global glassmorphism where expensive */\n.perf-lite .modal,.perf-lite .offcanvas,.perf-lite .bottom-nav,.perf-lite .navbar.bg-body,\n.perf-lite .hero.bg-hero,.perf-lite .card.glassy,.perf-lite .profile-card,.perf-lite .points-card,\n.perf-lite .cart-checkout-card,.perf-lite .cart-sidebar-card",
+      "depth": 17
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Reduce strong blurs to cheaper values */\n.navbar.bg-body",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Основной градиентный фон - менее подвижный и более размытый */\nbody::before",
+      "depth": 10
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Анимированные частицы фона - менее подвижные */\nbody::after",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* В режиме perf-lite уменьшаем интенсивность фоновых анимаций */\n.perf-lite body::before, .perf-lite body::after",
+      "depth": 11
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Плавные и ненавязчивые анимации фона */\n@keyframes backgroundShift",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Дополнительные декоративные элементы для создания глубины */\nbody::before",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Создаем дополнительный слой для эффекта глубины */\nbody::after",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Медленное и плавное вращение фона */\n@keyframes backgroundRotate",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность фона для мобильных устройств */\n@media (max-width: 768px)",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Дополнительные плавающие элементы, отталкивающиеся от фона */\nbody::before",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Дополнительные элементы для создания глубины */\nbody::after",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Отключение анимаций для пользователей с предпочтением уменьшенной анимации */\n@media (prefers-reduced-motion: reduce)",
+      "depth": 11
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* ВЫРАВНИВАНИЕ КАРТОЧЕК С ПОДДЕРЖКОЙ JAVASCRIPT */\n.row[data-stagger-grid]",
+      "depth": 6
+    },
+    {
+      "type": "too_long",
+      "selector": "/* Принудительное выравнивание элементов карточки */\n.card.product .points-reward-card,\n.card.product .d-flex.align-items-center.gap-2,\n.card.product .badge,\n.card.product .text-decoration-line-through",
+      "length": 201
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Принудительное выравнивание элементов карточки */\n.card.product .points-reward-card,\n.card.product .d-flex.align-items-center.gap-2,\n.card.product .badge,\n.card.product .text-decoration-line-through",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Блок с балами прижимается к низу и растягивается */\n.card.product .points-reward-card",
+      "depth": 10
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Правильные отступы для карточек */\n.card.product .card-body",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Правильное распределение элементов */\n.card.product .card-body > * + *",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Предотвращение переноса текста в ценах */\n.card.product .price-text",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Дополнительные стили для плейсхолдеров */\n.card.product .badge.placeholder-element",
+      "depth": 6
+    },
+    {
+      "type": "too_long",
+      "selector": "/* Убираем старые правила для скрытых элементов */\n\n/* Убираем дублирующиеся правила */\n\n/* Убираем конфликтующие правила */\n\n/* Позволяем карточкам растягиваться */\n.product-card-wrap",
+      "length": 184
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Убираем старые правила для скрытых элементов */\n\n/* Убираем дублирующиеся правила */\n\n/* Убираем конфликтующие правила */\n\n/* Позволяем карточкам растягиваться */\n.product-card-wrap",
+      "depth": 19
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Дополнительные стили для принудительного выравнивания */\n.card.product .card-body > *",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Фиксированная высота названия товара - минимум 2 строки */\n.card.product .product-title",
+      "depth": 10
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Принудительное переопределение Bootstrap классов */\n.row[data-stagger-grid] > .product-card-wrap",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Переопределение для всех размеров экрана */\n@media (min-width: 769px) and (max-width: 1024px)",
+      "depth": 11
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Дополнительные переопределения для мобильных устройств */\n@media (max-width: 480px)",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Агрессивное переопределение Bootstrap */\n.row.row-cols-2.row-cols-md-3.row-cols-lg-4[data-stagger-grid] > .product-card-wrap",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Точное позиционирование кнопки закрытия в шапке мини‑профиля */\n.user-panel .user-header .close-btn",
+      "depth": 10
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Усиление анимации при hover */\n.points-card:hover .spark",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* ===== СТРАНИЦА КОРЗИНЫ ===== */\n\n/* Контейнер страницы корзины */\n.cart-page-container",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Анимация искр для страницы корзины */\n.cart-page-sparks",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Информация о баллах в товаре */\n.cart-item-points",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Итого (старые стили для совместимости) */\n.cart-total-card",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* ===== СТРАНИЦА МОИ ЗАКАЗЫ ===== */\n\n/* Основная страница заказов */\n.orders-page",
+      "depth": 10
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Цветовое кодирование статусов заказов */\n.filter-stat-item.status-all .filter-stat-number",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность для мобильных устройств */\n@media (max-width: 768px)",
+      "depth": 7
+    },
+    {
+      "type": "too_long",
+      "selector": "/* Скоупим вертикальную раскладку только для админских карт пользователей,\n     чтобы не ломать мини‑профиль на мобильных */\n  .users-admin-section .user-header",
+      "length": 160
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Скоупим вертикальную раскладку только для админских карт пользователей,\n     чтобы не ломать мини‑профиль на мобильных */\n  .users-admin-section .user-header",
+      "depth": 22
+    },
+    {
+      "type": "too_deep",
+      "selector": ".user-email,\n  .user-phone,\n  .user-full-name,\n  .user-telegram,\n  .user-instagram,\n  .user-ubd-status",
+      "depth": 10
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Дополнительные исправления для очень маленьких экранов */\n  .status-grid,\n  .payment-grid",
+      "depth": 11
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Общие стили для статусов заказов */\n.status-grid,\n.payment-grid",
+      "depth": 6
+    },
+    {
+      "type": "too_many_pseudo",
+      "selector": ".status-item:hover::before,\n.payment-item:hover::before",
+      "pseudo_count": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Цветовая схема для статусов заказов */\n.status-item.status-new .status-number",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Цветовая схема для статусов оплаты */\n.payment-item.payment-unpaid .payment-number",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Мобильная адаптация для сетки пользователей */\n@media (max-width: 768px)",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* УБД статус в основной информации профиля */\n.user-ubd-status",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Кнопка сохранения для управления балами */\n.points-save-btn",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Улучшенный дизайн для секции доставки */\n.delivery-section",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Специальные стили для УБД статуса */\n.delivery-value .ubd-status",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Цветовое кодирование статусов оплаты */\n.filter-stat-item.payment-unpaid .filter-stat-number",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Специальные hover-эффекты для статусов оплаты */\n.filter-stat-item.payment-unpaid:hover,\n.filter-stat-item.payment-checking:hover",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Кликабельные статусы для админа */\n.admin-status-track .status-step",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность для модального окна */\n@media (max-width: 768px)",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивные стили для заказов */\n@media (max-width: 768px)",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* ===== НАВИГАЦИЯ ===== */\n/* Адаптивность для панелей */\n@media (min-width: 769px)",
+      "depth": 10
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Предотвращение выхода за правый край экрана */\n  .cart-container:last-child .cart-panel,\n  .user-profile-container:last-child .user-panel",
+      "depth": 13
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Мобильные стили для navbar */\n  .navbar .container-xxl",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Принудительно устанавливаем позицию логотипа */\n  .navbar > .container-xxl > .navbar-brand",
+      "depth": 11
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Сохраняем горизонтальный заголовок в мини‑профиле на мобильных */\n  #user-panel-mobile .user-header",
+      "depth": 11
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Стили для очень маленьких экранов */\n  .navbar .container-xxl",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Принудительно устанавливаем позицию логотипа */\n  .navbar > .container-xxl > .navbar-brand",
+      "depth": 11
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Принудительно убираем все отступы у контейнера */\n  .navbar > .container-xxl",
+      "depth": 11
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Принудительно убираем все отступы у логотипа */\n  .navbar > .container-xxl > .navbar-brand",
+      "depth": 13
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Принудительно убираем все отступы у navbar */\n  .navbar",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Принудительно убираем все отступы у body и html */\n  body, html",
+      "depth": 12
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Принудительно переопределяем основные стили для мобильных */\n  .navbar > .container-xxl",
+      "depth": 11
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Принудительно убираем все отступы у navbar */\n  .navbar",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Принудительно переопределяем основные стили для мобильных */\n  .navbar > .container-xxl",
+      "depth": 11
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Контейнер для корзины и избранного */\n.cart-favorites-container",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Анимация сердечка когда есть товары в избранном */\n.favorites-icon-wrapper.has-items .favorites-icon",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Постоянное свечение когда есть товары в избранном */\n.favorites-icon-wrapper.has-items .favorites-glow",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Усиление анимации при hover */\n.cart-panel:hover .cart-spark",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* ===== СТРАНИЦА ПРОФИЛЯ ===== */\n\n/* Контейнер профиля */\n.profile-container",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Скрытие файловых инпутов только в определенных контекстах */\n.file-upload-wrapper input[type=\"file\"]",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность для профиля */\n@media (max-width: 768px)",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность для карточек товаров на мобильных устройствах */\n@media (max-width: 768px)",
+      "depth": 10
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Выравнивание сетки на мобильных */\n  .row[data-stagger-grid]",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Фиксированная высота карточек */\n  .card.product",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Фиксированная высота изображения */\n  .card.product .ratio",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": ".card.product .card-title,\n  .card.product h3,\n  .card.product h4,\n  .card.product h5",
+      "depth": 10
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Фиксированная высота названия товара на мобильных */\n  .card.product .product-title",
+      "depth": 10
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Уменьшаем отступы в карточке */\n  .card.product .card-body > *",
+      "depth": 10
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптируем цену */\n  .card.product .d-flex.align-items-center.gap-2",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Предотвращение переноса цен на мобильных */\n  .card.product .price-text",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Выравнивание сетки */\n  .row .col",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Еще более компактно для очень маленьких экранов */\n@media (max-width: 480px)",
+      "depth": 10
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Выравнивание сетки на маленьких экранах */\n  .row[data-stagger-grid]",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Фиксированная высота карточек */\n  .card.product",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Фиксированная высота изображения */\n  .card.product .ratio",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": ".card.product .card-title,\n  .card.product h3,\n  .card.product h4,\n  .card.product h5",
+      "depth": 10
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Фиксированная высота названия товара на очень маленьких экранах */\n  .card.product .product-title",
+      "depth": 12
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Предотвращение переноса цен на очень маленьких экранах */\n  .card.product .price-text",
+      "depth": 11
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптируем сетку карточек */\n  .row .col",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Принудительное выравнивание всех карточек */\n  .product-card-wrap",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Дополнительные улучшения для планшетов */\n@media (min-width: 769px) and (max-width: 1024px)",
+      "depth": 10
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Выравнивание сетки на планшетах */\n  .row[data-stagger-grid]",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Фиксированная высота карточек */\n  .card.product",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Фиксированная высота изображения */\n  .card.product .ratio",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": ".card.product .card-title,\n  .card.product h3,\n  .card.product h4,\n  .card.product h5",
+      "depth": 10
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Выравнивание сетки */\n  .row .col",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Поочередное красивое появление карточек — keyframes + индивидуальная задержка */\n@keyframes cardLift",
+      "depth": 11
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Масштабирование: растягивание в контейнер без обрезания */\n.object-fit-fill",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Admin product form: секции и единый стиль */\n.admin-product-form .form-label",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Кружочки кольорів у карточках (на головній) */\n.color-dot",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность для цветовых точек на мобильных */\n@media (max-width: 768px)",
+      "depth": 9
+    },
+    {
+      "type": "too_long",
+      "selector": "/* Комбинированные цвета для color-dot */\n.color-dot[style*=\"--c2\"]:not([style*=\"--c2: ;\"]):not([style*=\"--c2: transparent\"]):not([style*=\"--c2: none\"]):not([style*=\"--c2: ''\"]):not([style*=\"--c2: undefined\"])",
+      "length": 209
+    },
+    {
+      "type": "too_many_pseudo",
+      "selector": "/* Комбинированные цвета для color-dot */\n.color-dot[style*=\"--c2\"]:not([style*=\"--c2: ;\"]):not([style*=\"--c2: transparent\"]):not([style*=\"--c2: none\"]):not([style*=\"--c2: ''\"]):not([style*=\"--c2: undefined\"])",
+      "pseudo_count": 10
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Комбинированные цвета для color-dot */\n.color-dot[style*=\"--c2\"]:not([style*=\"--c2: ;\"]):not([style*=\"--c2: transparent\"]):not([style*=\"--c2: none\"]):not([style*=\"--c2: ''\"]):not([style*=\"--c2: undefined\"])",
+      "depth": 10
+    },
+    {
+      "type": "too_long",
+      "selector": ".color-dot[style*=\"--c2\"]:not([style*=\"--c2: ;\"]):not([style*=\"--c2: transparent\"]):not([style*=\"--c2: none\"]):not([style*=\"--c2: ''\"]):not([style*=\"--c2: undefined\"])::after",
+      "length": 174
+    },
+    {
+      "type": "too_many_pseudo",
+      "selector": ".color-dot[style*=\"--c2\"]:not([style*=\"--c2: ;\"]):not([style*=\"--c2: transparent\"]):not([style*=\"--c2: none\"]):not([style*=\"--c2: ''\"]):not([style*=\"--c2: undefined\"])::after",
+      "pseudo_count": 12
+    },
+    {
+      "type": "too_long",
+      "selector": ".color-dot[style*=\"--c2\"]:not([style*=\"--c2: ;\"]):not([style*=\"--c2: transparent\"]):not([style*=\"--c2: none\"]):not([style*=\"--c2: ''\"]):not([style*=\"--c2: undefined\"])::before",
+      "length": 175
+    },
+    {
+      "type": "too_many_pseudo",
+      "selector": ".color-dot[style*=\"--c2\"]:not([style*=\"--c2: ;\"]):not([style*=\"--c2: transparent\"]):not([style*=\"--c2: none\"]):not([style*=\"--c2: ''\"]):not([style*=\"--c2: undefined\"])::before",
+      "pseudo_count": 12
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Hover эффект для цветовых точек */\n.color-dot:hover",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Анимация пульсации при переключении цветов */\n@keyframes colorSwitchPulse",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Показываем цветовые точки при hover на карточку */\n.product-card-wrap:hover .product-card-dots",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Стили для информации о баллах в заказах */\n.points-info",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Стили для отображения баллов в админпанели пользователей */\n.points-display",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Блок \"Рекомендовано\" - профессиональный дизайн */\n.featured-section",
+      "depth": 6
+    },
+    {
+      "type": "too_long",
+      "selector": "/* Комбинированные цвета для featured-color-dot */\n.featured-color-dot[style*=\"--c2\"]:not([style*=\"--c2: ;\"]):not([style*=\"--c2: transparent\"]):not([style*=\"--c2: none\"]):not([style*=\"--c2: ''\"]):not([style*=\"--c2: undefined\"])",
+      "length": 227
+    },
+    {
+      "type": "too_many_pseudo",
+      "selector": "/* Комбинированные цвета для featured-color-dot */\n.featured-color-dot[style*=\"--c2\"]:not([style*=\"--c2: ;\"]):not([style*=\"--c2: transparent\"]):not([style*=\"--c2: none\"]):not([style*=\"--c2: ''\"]):not([style*=\"--c2: undefined\"])",
+      "pseudo_count": 10
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Комбинированные цвета для featured-color-dot */\n.featured-color-dot[style*=\"--c2\"]:not([style*=\"--c2: ;\"]):not([style*=\"--c2: transparent\"]):not([style*=\"--c2: none\"]):not([style*=\"--c2: ''\"]):not([style*=\"--c2: undefined\"])",
+      "depth": 10
+    },
+    {
+      "type": "too_long",
+      "selector": ".featured-color-dot[style*=\"--c2\"]:not([style*=\"--c2: ;\"]):not([style*=\"--c2: transparent\"]):not([style*=\"--c2: none\"]):not([style*=\"--c2: ''\"]):not([style*=\"--c2: undefined\"])::after",
+      "length": 183
+    },
+    {
+      "type": "too_many_pseudo",
+      "selector": ".featured-color-dot[style*=\"--c2\"]:not([style*=\"--c2: ;\"]):not([style*=\"--c2: transparent\"]):not([style*=\"--c2: none\"]):not([style*=\"--c2: ''\"]):not([style*=\"--c2: undefined\"])::after",
+      "pseudo_count": 12
+    },
+    {
+      "type": "too_long",
+      "selector": ".featured-color-dot[style*=\"--c2\"]:not([style*=\"--c2: ;\"]):not([style*=\"--c2: transparent\"]):not([style*=\"--c2: none\"]):not([style*=\"--c2: ''\"]):not([style*=\"--c2: undefined\"])::before",
+      "length": 184
+    },
+    {
+      "type": "too_many_pseudo",
+      "selector": ".featured-color-dot[style*=\"--c2\"]:not([style*=\"--c2: ;\"]):not([style*=\"--c2: transparent\"]):not([style*=\"--c2: none\"]):not([style*=\"--c2: ''\"]):not([style*=\"--c2: undefined\"])::before",
+      "pseudo_count": 12
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Анимация для подсказки при скрытии */\n.featured-header-btn.collapsed .toggle-hint-text",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность для мобильных устройств */\n@media (max-width: 768px)",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* ===== КОМПАКТНЫЙ БЛОК РЕКОМЕНДАЦИЙ В СТИЛЕ КАТЕГОРИЙ ===== */\n\n/* Основной блок рекомендаций */\n.featured-unified-block",
+      "depth": 13
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность для страницы успешного заказа */\n@media (max-width: 768px)",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Анимация для полей с ошибками */\n.form-control.is-invalid,\n.form-select.is-invalid",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Админ панель заказов - новый дизайн */\n.orders-admin-section",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность для админ панели заказов */\n@media (max-width: 768px)",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Hero секция с логотипом TWO COMMS */\n.hero-section",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность для hero секции */\n@media (max-width: 768px)",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Селектор кольорів у товарі — темний «вдавлений» */\n.color-swatch",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Перемикачі і панелі для опису/сітки */\n.toggle-chip",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Красивые вкладки для описания и размерной сетки в стиле селектора цветов */\n.product-tabs-container",
+      "depth": 12
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Стили для таблицы размеров в стиле селектора цветов */\n.product-tab-content .table",
+      "depth": 10
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Улучшенная читаемость текста в описании */\n.product-tab-content .text-secondary",
+      "depth": 7
+    },
+    {
+      "type": "too_long",
+      "selector": "/* Унифицированный вид инпутов */\n.admin-product-form input[type=text],\n.admin-product-form input[type=number],\n.admin-product-form input[type=file],\n.admin-product-form select,\n.admin-product-form textarea",
+      "length": 206
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Унифицированный вид инпутов */\n.admin-product-form input[type=text],\n.admin-product-form input[type=number],\n.admin-product-form input[type=file],\n.admin-product-form select,\n.admin-product-form textarea",
+      "depth": 9
+    },
+    {
+      "type": "too_long",
+      "selector": "/* Admin product form: hide slug and extra_images fields if present */\n.card form .form-section p:has(input[name=\"slug\"]),\n.card form .form-section p:has(input[name=\"extra_images\"]),\n.card form .form-section div:has(input[name=\"slug\"]),\n.card form .form-section div:has(input[name=\"extra_images\"])",
+      "length": 297
+    },
+    {
+      "type": "too_many_pseudo",
+      "selector": "/* Admin product form: hide slug and extra_images fields if present */\n.card form .form-section p:has(input[name=\"slug\"]),\n.card form .form-section p:has(input[name=\"extra_images\"]),\n.card form .form-section div:has(input[name=\"slug\"]),\n.card form .form-section div:has(input[name=\"extra_images\"])",
+      "pseudo_count": 5
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Admin product form: hide slug and extra_images fields if present */\n.card form .form-section p:has(input[name=\"slug\"]),\n.card form .form-section p:has(input[name=\"extra_images\"]),\n.card form .form-section div:has(input[name=\"slug\"]),\n.card form .form-section div:has(input[name=\"extra_images\"])",
+      "depth": 23
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Панель користувача — така ж анімація */\n#user-panel",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* ===== ПРОМОКОДЫ ===== */\n\n/* Секция промокодов */\n.promocodes-admin-section",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Стили для информации о промокоде в заказах */\n.promo-info",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Компактное отображение баллов в блоке с цветами */\n.points-reward-compact",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Стили для анимации кнопок сохранения */\n.btn-success",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность для промокодов */\n@media (max-width: 768px)",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Enhanced product edit page styles */\n.nav-pills .nav-link",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Enhanced glass effect for cards */\n.card.glass",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Lighter background matching site style */\n.container-fluid",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Новый стильный дизайн для основных данных */\n.product-info-grid",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Цветовые акценты для разных групп */\n.info-group.category",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Улучшенные стили для полей ввода */\n.form-control, .form-select",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Стили для модала с палитрой цветов */\n.color-type-selector",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Стили для загрузки множественных изображений */\n.image-upload-area",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Стили для цветовых кружков в карточках товаров */\n.color-swatch .swatch",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Стили для цветовых кружков в корзине и заказах */\n.swatch",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Стили для комбинированных цветов в карточках */\n.color-swatch .swatch[data-secondary]:not([data-secondary=\"\"])",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Разделительная линия для комбинированных цветов */\n.color-swatch .swatch[data-secondary]:not([data-secondary=\"\"]) .divider",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Стили для комбинированных цветов в корзине и заказах */\n.swatch[data-secondary]:not([data-secondary=\"\"])",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность для мобильных устройств */\n@media (max-width: 768px)",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Form floating styles - более специфичные селекторы */\n.form-floating",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": ".form-floating > .form-control,\n.form-floating > input.form-control,\n.form-floating > textarea.form-control,\n.form-floating > select.form-control",
+      "depth": 8
+    },
+    {
+      "type": "too_long",
+      "selector": ".form-floating > .form-control:focus,\n.form-floating > input.form-control:focus,\n.form-floating > textarea.form-control:focus,\n.form-floating > select.form-control:focus",
+      "length": 169
+    },
+    {
+      "type": "too_deep",
+      "selector": ".form-floating > .form-control:focus,\n.form-floating > input.form-control:focus,\n.form-floating > textarea.form-control:focus,\n.form-floating > select.form-control:focus",
+      "depth": 8
+    },
+    {
+      "type": "too_long",
+      "selector": ".form-floating > .form-control:not(:placeholder-shown),\n.form-floating > input.form-control:not(:placeholder-shown),\n.form-floating > textarea.form-control:not(:placeholder-shown),\n.form-floating > select.form-control:not(:placeholder-shown)",
+      "length": 241
+    },
+    {
+      "type": "too_many_pseudo",
+      "selector": ".form-floating > .form-control:not(:placeholder-shown),\n.form-floating > input.form-control:not(:placeholder-shown),\n.form-floating > textarea.form-control:not(:placeholder-shown),\n.form-floating > select.form-control:not(:placeholder-shown)",
+      "pseudo_count": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": ".form-floating > .form-control:not(:placeholder-shown),\n.form-floating > input.form-control:not(:placeholder-shown),\n.form-floating > textarea.form-control:not(:placeholder-shown),\n.form-floating > select.form-control:not(:placeholder-shown)",
+      "depth": 8
+    },
+    {
+      "type": "too_long",
+      "selector": ".form-floating > .form-control:not(:placeholder-shown) ~ label,\n.form-floating > input.form-control:not(:placeholder-shown) ~ label,\n.form-floating > textarea.form-control:not(:placeholder-shown) ~ label,\n.form-floating > select.form-control:not(:placeholder-shown) ~ label",
+      "length": 273
+    },
+    {
+      "type": "too_many_pseudo",
+      "selector": ".form-floating > .form-control:not(:placeholder-shown) ~ label,\n.form-floating > input.form-control:not(:placeholder-shown) ~ label,\n.form-floating > textarea.form-control:not(:placeholder-shown) ~ label,\n.form-floating > select.form-control:not(:placeholder-shown) ~ label",
+      "pseudo_count": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": ".form-floating > .form-control:not(:placeholder-shown) ~ label,\n.form-floating > input.form-control:not(:placeholder-shown) ~ label,\n.form-floating > textarea.form-control:not(:placeholder-shown) ~ label,\n.form-floating > select.form-control:not(:placeholder-shown) ~ label",
+      "depth": 16
+    },
+    {
+      "type": "too_long",
+      "selector": ".form-floating > .form-control:focus ~ label,\n.form-floating > input.form-control:focus ~ label,\n.form-floating > textarea.form-control:focus ~ label,\n.form-floating > select.form-control:focus ~ label",
+      "length": 201
+    },
+    {
+      "type": "too_deep",
+      "selector": ".form-floating > .form-control:focus ~ label,\n.form-floating > input.form-control:focus ~ label,\n.form-floating > textarea.form-control:focus ~ label,\n.form-floating > select.form-control:focus ~ label",
+      "depth": 16
+    },
+    {
+      "type": "too_long",
+      "selector": ".form-floating > .form-control:focus ~ label,\n.form-floating > .form-control:not(:placeholder-shown) ~ label,\n.form-floating > input.form-control:focus ~ label,\n.form-floating > input.form-control:not(:placeholder-shown) ~ label,\n.form-floating > textarea.form-control:focus ~ label,\n.form-floating > textarea.form-control:not(:placeholder-shown) ~ label,\n.form-floating > select.form-control:focus ~ label,\n.form-floating > select.form-control:not(:placeholder-shown) ~ label",
+      "length": 476
+    },
+    {
+      "type": "too_many_pseudo",
+      "selector": ".form-floating > .form-control:focus ~ label,\n.form-floating > .form-control:not(:placeholder-shown) ~ label,\n.form-floating > input.form-control:focus ~ label,\n.form-floating > input.form-control:not(:placeholder-shown) ~ label,\n.form-floating > textarea.form-control:focus ~ label,\n.form-floating > textarea.form-control:not(:placeholder-shown) ~ label,\n.form-floating > select.form-control:focus ~ label,\n.form-floating > select.form-control:not(:placeholder-shown) ~ label",
+      "pseudo_count": 12
+    },
+    {
+      "type": "too_deep",
+      "selector": ".form-floating > .form-control:focus ~ label,\n.form-floating > .form-control:not(:placeholder-shown) ~ label,\n.form-floating > input.form-control:focus ~ label,\n.form-floating > input.form-control:not(:placeholder-shown) ~ label,\n.form-floating > textarea.form-control:focus ~ label,\n.form-floating > textarea.form-control:not(:placeholder-shown) ~ label,\n.form-floating > select.form-control:focus ~ label,\n.form-floating > select.form-control:not(:placeholder-shown) ~ label",
+      "depth": 32
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Form floating textarea - специфичные стили */\n.form-floating > textarea.form-control",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Form floating file input - специфичные стили */\n.form-floating > input[type=\"file\"].form-control",
+      "depth": 10
+    },
+    {
+      "type": "too_long",
+      "selector": "/* КРИТИЧЕСКИЕ ИСПРАВЛЕНИЯ ДЛЯ FORM-FLOATING - ПРИНУДИТЕЛЬНОЕ ПРИМЕНЕНИЕ */\n.form-floating > .form-control,\n.form-floating > input.form-control,\n.form-floating > textarea.form-control,\n.form-floating > select.form-control",
+      "length": 221
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* КРИТИЧЕСКИЕ ИСПРАВЛЕНИЯ ДЛЯ FORM-FLOATING - ПРИНУДИТЕЛЬНОЕ ПРИМЕНЕНИЕ */\n.form-floating > .form-control,\n.form-floating > input.form-control,\n.form-floating > textarea.form-control,\n.form-floating > select.form-control",
+      "depth": 16
+    },
+    {
+      "type": "too_long",
+      "selector": ".form-floating > .form-control:focus,\n.form-floating > input.form-control:focus,\n.form-floating > textarea.form-control:focus,\n.form-floating > select.form-control:focus",
+      "length": 169
+    },
+    {
+      "type": "too_deep",
+      "selector": ".form-floating > .form-control:focus,\n.form-floating > input.form-control:focus,\n.form-floating > textarea.form-control:focus,\n.form-floating > select.form-control:focus",
+      "depth": 8
+    },
+    {
+      "type": "too_long",
+      "selector": ".form-floating > .form-control:focus ~ label,\n.form-floating > .form-control:not(:placeholder-shown) ~ label,\n.form-floating > input.form-control:focus ~ label,\n.form-floating > input.form-control:not(:placeholder-shown) ~ label,\n.form-floating > textarea.form-control:focus ~ label,\n.form-floating > textarea.form-control:not(:placeholder-shown) ~ label,\n.form-floating > select.form-control:focus ~ label,\n.form-floating > select.form-control:not(:placeholder-shown) ~ label",
+      "length": 476
+    },
+    {
+      "type": "too_many_pseudo",
+      "selector": ".form-floating > .form-control:focus ~ label,\n.form-floating > .form-control:not(:placeholder-shown) ~ label,\n.form-floating > input.form-control:focus ~ label,\n.form-floating > input.form-control:not(:placeholder-shown) ~ label,\n.form-floating > textarea.form-control:focus ~ label,\n.form-floating > textarea.form-control:not(:placeholder-shown) ~ label,\n.form-floating > select.form-control:focus ~ label,\n.form-floating > select.form-control:not(:placeholder-shown) ~ label",
+      "pseudo_count": 12
+    },
+    {
+      "type": "too_deep",
+      "selector": ".form-floating > .form-control:focus ~ label,\n.form-floating > .form-control:not(:placeholder-shown) ~ label,\n.form-floating > input.form-control:focus ~ label,\n.form-floating > input.form-control:not(:placeholder-shown) ~ label,\n.form-floating > textarea.form-control:focus ~ label,\n.form-floating > textarea.form-control:not(:placeholder-shown) ~ label,\n.form-floating > select.form-control:focus ~ label,\n.form-floating > select.form-control:not(:placeholder-shown) ~ label",
+      "depth": 32
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* КРИТИЧЕСКИЕ ИСПРАВЛЕНИЯ ДЛЯ НАВИГАЦИИ */\n.nav-pills .nav-link",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* ===== КРАСИВОЕ НИЖНЕЕ МЕНЮ ДЛЯ МОБИЛЬНЫХ ===== */\n.bottom-nav",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Анимация при наведении на иконки */\n.bottom-nav-icon svg",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность для очень маленьких экранов */\n@media (max-width: 360px)",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Позиционирование мини-панелей на мобильных устройствах */\n@media (max-width: 768px)",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Убираем отступ снизу у основного контента */\n  main.container-xxl",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Анимация появления снизу */\n  .cart-panel,\n  .user-panel",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Дополнительные стили для мобильных панелей */\n  .cart-panel .cart-header,\n  .user-panel .user-header",
+      "depth": 12
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Улучшенная прокрутка для мобильных */\n  .cart-panel::-webkit-scrollbar,\n  .user-panel::-webkit-scrollbar",
+      "depth": 9
+    },
+    {
+      "type": "too_many_pseudo",
+      "selector": ".cart-panel::-webkit-scrollbar-thumb:hover,\n  .user-panel::-webkit-scrollbar-thumb:hover",
+      "pseudo_count": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Мобильные стили для корзины и профиля в нижнем меню */\n.cart-container-mobile",
+      "depth": 10
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Стили для мобильных панелей в base.html */\n#mini-cart-panel-mobile,\n#user-panel-mobile",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* ===== Мобильный мини‑профиль: кнопки как на десктопе ===== */\n#user-panel-mobile .user-menu",
+      "depth": 10
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* ===== Мобильный мини‑профиль: компактная карточка баллов ===== */\n#user-panel-mobile .points-card-link",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивная высота для панелей */\n@media (max-height: 600px)",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Специальные стили для мобильных панелей */\n#mini-cart-panel-mobile .cart-sparks-container,\n#user-panel-mobile .sparks-container",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Мобильные панели используют общие стили десктопных панелей */\n#mini-cart-panel-mobile .cart-menu,\n#user-panel-mobile .user-menu",
+      "depth": 10
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Мобильные панели используют общие стили десктопных панелей для кнопки выхода */\n#user-panel-mobile .logout-btn",
+      "depth": 12
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Мобильные панели используют общие стили десктопных панелей для блока с баллами */\n#user-panel-mobile .points-card",
+      "depth": 13
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Стили для аутентификации в мобильной панели */\n#user-panel-mobile .auth-header",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Анимация и свечение для мобильного сердечка избранного - специфичный селектор */\na[href*=\"favorites\"] .bottom-nav-icon.has-items svg",
+      "depth": 13
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Активные состояния для мобильных элементов */\n.bottom-nav-item.active .cart-icon-wrapper-mobile,\n.bottom-nav-item.active .avatar-wrapper-mobile",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* МАКСИМАЛЬНО АГРЕССИВНЫЕ СТИЛИ ДЛЯ МОБИЛЬНОГО NAVBAR - В КОНЦЕ ФАЙЛА */\n@media (max-width: 768px)",
+      "depth": 13
+    },
+    {
+      "type": "too_long",
+      "selector": "/* Принудительно переопределяем ВСЕ стили Bootstrap */\n  nav.navbar.navbar-expand-lg.border-bottom.sticky-top.bg-body.backdrop-blur > div.container-xxl",
+      "length": 151
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Принудительно переопределяем ВСЕ стили Bootstrap */\n  nav.navbar.navbar-expand-lg.border-bottom.sticky-top.bg-body.backdrop-blur > div.container-xxl",
+      "depth": 10
+    },
+    {
+      "type": "too_long",
+      "selector": "nav.navbar.navbar-expand-lg.border-bottom.sticky-top.bg-body.backdrop-blur > div.container-xxl > a.navbar-brand.fw-bold.d-flex.align-items-center.gap-2",
+      "length": 151
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* ===== КОМПАКТНЫЙ ТЕМНЫЙ БЛОК КАТЕГОРИЙ В СТИЛЕ HERO ===== */\n\n/* Основная секция категорий */\n.categories-section",
+      "depth": 14
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Фоновые эффекты для единого блока */\n.categories-bg-unified",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* ===== КРАСИВАЯ КНОПКА СВОРАЧИВАНИЯ КАТЕГОРИЙ ===== */\n\n/* Основная кнопка сворачивания */\n.categories-toggle-btn",
+      "depth": 11
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Контент категорий в едином блоке */\n.categories-content-unified",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность для планшетов */\n@media (max-width: 1024px)",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность кнопки сворачивания */\n  .categories-toggle-btn",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность кнопки \"Весь каталог\" */\n  .catalog-link-compact",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Показываем иконку каталога для планшетов */\n  .catalog-icon-mobile",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность для мобильных устройств */\n@media (max-width: 768px)",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Скрываем текст кнопки каталога на мобильных */\n  .catalog-text",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Показываем только иконку */\n  .catalog-icon",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Показываем иконку каталога в заголовке */\n  .catalog-icon-mobile",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Уменьшаем количество частиц на мобильных */\n  .dark-particles .particle",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Упрощаем анимации для лучшей производительности */\n  .dark-gradient-1,\n  .dark-gradient-2",
+      "depth": 10
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность кнопки сворачивания для мобильных */\n  .categories-toggle-btn",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Изменяем порядок элементов в заголовке для мобильных */\n  .categories-header-unified .d-flex",
+      "depth": 11
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность для маленьких мобильных устройств */\n@media (max-width: 480px)",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Скрываем текст кнопки каталога на маленьких экранах */\n  .catalog-text",
+      "depth": 10
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Показываем только иконку */\n  .catalog-icon",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Показываем иконку каталога в заголовке */\n  .catalog-icon-mobile",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Уменьшаем интенсивность сложных анимаций на очень маленьких экранах */\n  .dark-gradient-1,\n  .dark-gradient-2",
+      "depth": 13
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность кнопки сворачивания для маленьких экранов */\n  .categories-toggle-btn",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Изменяем порядок элементов в заголовке для маленьких экранов */\n  .categories-header-unified .d-flex",
+      "depth": 12
+    },
+    {
+      "type": "too_deep",
+      "selector": ".dark-gradient-1,\n  .dark-gradient-2,\n  .floating-logo,\n  .dark-particles .particle,\n  .card-glow-dark,\n  .title-accent-line",
+      "depth": 11
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* ===== КРАСИВЫЕ КНОПКИ КАТЕГОРИЙ (ТОЛЬКО ИКОНКИ) ===== */\n.categories-grid",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Все кнопки категорий в зеленом стиле */\n.category-btn",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Специальная кнопка \"Все\" - можно оставить как есть или сделать еще более выделенной */\n.category-btn-all",
+      "depth": 14
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность для мобильных */\n@media (max-width: 768px)",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Анимация пульсации для активного состояния */\n.favorite-btn.is-favorite",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Эффект искр для избранного товара */\n.favorite-btn.is-favorite::before",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Новые анимации для улучшенного состояния избранного */\n@keyframes favoriteButtonPulse",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивные стили для мобильных устройств */\n@media (max-width: 768px)",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Стили для пустой страницы избранного */\n.empty-favorites",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* ===== АВАТАР ДЛЯ ГОСТЕЙ ===== */\n.guest-avatar",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* CSS v=2025.08.28.185 */\n\n/* Информация о фильтрации по пользователю */\n.user-filter-info",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* CSS v=2025.08.28.188 */\n\n/* ===== СЕКЦИЯ ПРОМОКОДОВ ===== */\n\n.promocodes-admin-section",
+      "depth": 8
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* ===== СЕКЦИЯ ОФФЛАЙН МАГАЗИНОВ ===== */\n\n.offline-stores-admin-section",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* ===== АДАПТИВНОСТЬ ДЛЯ НОВЫХ СЕКЦИЙ ===== */\n\n@media (max-width: 768px)",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* ===== ЗАПРОПОНОВАНІ ПРИНТИ ===== */\n\n/* Секция запропонованих принтов */\n.print-proposals-admin-section",
+      "depth": 9
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность для запропонованных принтов */\n@media (max-width: 768px)",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* ===== КРАСИВАЯ КНОПКА \"ЗАПРОПОНУВАТИ ПРИНТ\" ===== */\n\n.btn-gradient-suggest",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* ===== COOPERATION PAGE STYLES ===== */\n\n.cooperation-hero",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Story Section */\n.story-section, .mission-section, .support-section, .points-section, .future-section",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": ".story-sparkles .sparkle, .mission-sparkles .sparkle, .support-sparkles .sparkle, \n.points-sparkles .sparkle, .future-sparkles .sparkle",
+      "depth": 9
+    },
+    {
+      "type": "too_many_pseudo",
+      "selector": ".highlight-item:hover, .value-item:hover, .benefit-item:hover, .feature-item:hover, .goal-item:hover",
+      "pseudo_count": 5
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Hide cart and profile on mobile in header - теперь скрыты Bootstrap классами */\n/* @media (max-width: 991.98px)",
+      "depth": 17
+    },
+    {
+      "type": "too_deep",
+      "selector": "*/\n\n/* Force hide cart and profile on mobile - highest priority - теперь скрыты Bootstrap классами */\n/* @media (max-width: 991.98px)",
+      "depth": 19
+    },
+    {
+      "type": "too_deep",
+      "selector": ".navbar .d-flex .cart-container,\n  .navbar .d-flex .user-profile-container",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* File inputs в form-group используют стили из .file-upload-wrapper */\n\n/* Стили для textarea в форме категории */\n.form-group textarea",
+      "depth": 17
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Стили для чекбоксов в форме категории */\n.form-group.checkbox-group",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Responsive category buttons */\n@media (max-width: 768px)",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Стили для кнопки \"Показать еще\" */\n#load-more-container",
+      "depth": 6
+    },
+    {
+      "type": "too_long",
+      "selector": "/* Анимация появления новых карточек теперь использует существующую систему reveal-stagger */\n\n/* Стили для кнопки подтверждения Telegram */\n.telegram-input-container",
+      "length": 166
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Анимация появления новых карточек теперь использует существующую систему reveal-stagger */\n\n/* Стили для кнопки подтверждения Telegram */\n.telegram-input-container",
+      "depth": 16
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность для мобильных устройств */\n@media (max-width: 768px)",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Адаптивность для мобильных устройств */\n@media (max-width: 768px)",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Стили для кнопки Telegram в заказах */\n.telegram-notification-item",
+      "depth": 7
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Анимация загрузки для кнопки Telegram */\n.telegram-loading-btn",
+      "depth": 6
+    },
+    {
+      "type": "too_deep",
+      "selector": "/* Кнопка информации о баллах поверх блока с баллами */\n.points-info-overlay-btn",
+      "depth": 9
+    }
+  ],
+  "media_query_issues": [
+    {
+      "type": "duplicate_media",
+      "condition": "(max-width: 768px)",
+      "count": 37
+    },
+    {
+      "type": "duplicate_media",
+      "condition": "(max-width: 480px)",
+      "count": 12
+    },
+    {
+      "type": "duplicate_media",
+      "condition": "(prefers-reduced-motion: reduce)",
+      "count": 2
+    },
+    {
+      "type": "duplicate_media",
+      "condition": "(min-width: 769px) and (max-width: 1024px)",
+      "count": 3
+    },
+    {
+      "type": "duplicate_media",
+      "condition": "(min-width: 1025px)",
+      "count": 3
+    },
+    {
+      "type": "duplicate_media",
+      "condition": "(min-width: 769px)",
+      "count": 2
+    },
+    {
+      "type": "duplicate_media",
+      "condition": "(max-width: 576px)",
+      "count": 3
+    },
+    {
+      "type": "duplicate_media",
+      "condition": "(max-width: 1024px)",
+      "count": 2
+    },
+    {
+      "type": "duplicate_media",
+      "condition": "(max-width: 991.98px)",
+      "count": 2
+    }
+  ],
+  "css_variables_issues": [
+    {
+      "type": "unused_variables",
+      "variables": [
+        "tc-primary",
+        "c2"
+      ]
+    },
+    {
+      "type": "redefined_variables",
+      "variables": {
+        "c2": 30
+      }
+    }
+  ],
+  "performance_anti_patterns": [
+    {
+      "type": "excessive_important",
+      "count": 711
+    },
+    {
+      "type": "excessive_shadows",
+      "count": 312
+    },
+    {
+      "type": "excessive_backdrop",
+      "count": 83
+    },
+    {
+      "type": "excessive_transforms",
+      "count": 608
+    }
+  ],
+  "duplicate_blocks": [
+    {
+      "content": "background-color: transparent !important; border: 1px solid transparent !important; color: transparent !important; opacity: 0 !important; visibility: hidden !important;",
+      "selectors": [
+        ".card.product .discount-badge.placeholder-element",
+        "/* Дополнительные стили для плейсхолдеров */\n.card.product .badge.placeholder-element"
+      ],
+      "count": 2
+    },
+    {
+      "content": "opacity: 0 !important; visibility: hidden !important;",
+      "selectors": [
+        ".card.product .d-flex.placeholder-element",
+        ".card.product .d-flex.placeholder-element *"
+      ],
+      "count": 2
+    },
+    {
+      "content": "flex: 0 0 calc(50% - 0.25rem) !important; max-width: calc(50% - 0.25rem) !important; width: calc(50% - 0.25rem) !important; min-width: calc(50% - 0.25rem) !important;",
+      "selectors": [
+        "/* Принудительное переопределение Bootstrap классов */\n.row[data-stagger-grid] > .product-card-wrap",
+        "/* Агрессивное переопределение Bootstrap */\n.row.row-cols-2.row-cols-md-3.row-cols-lg-4[data-stagger-grid] > .product-card-wrap"
+      ],
+      "count": 2
+    },
+    {
+      "content": "position: relative; display: inline-block;",
+      "selectors": [
+        "/* ===== МИНИ-ПРОФИЛЬ ===== */\n.user-profile-container",
+        "/* ===== КОРЗИНА ===== */\n.cart-container"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: none; border: none; padding: 0; cursor: pointer; position: relative; transition: all 0.3s ease;",
+      "selectors": [
+        ".user-avatar-btn",
+        ".order-number-btn"
+      ],
+      "count": 2
+    },
+    {
+      "content": "transform: scale(1.05);",
+      "selectors": [
+        ".user-avatar-btn:hover",
+        ".cart-item:hover .cart-item-img",
+        ".cart-btn:hover",
+        ".featured-card:hover .featured-image",
+        ".featured-card-compact:hover .featured-img",
+        ".text-center.py-5:hover .position-relative",
+        ".current-image:hover",
+        ".cart-btn-mobile:hover",
+        ".user-avatar-btn-mobile:hover",
+        ".user-login-link-mobile:hover"
+      ],
+      "count": 10
+    },
+    {
+      "content": "border-color: rgba(139, 92, 246, 0.6); box-shadow: 0 0 20px rgba(139, 92, 246, 0.4);",
+      "selectors": [
+        ".avatar-wrapper:hover",
+        ".avatar-wrapper-mobile:hover"
+      ],
+      "count": 2
+    },
+    {
+      "content": "width: 100%; height: 100%; object-fit: cover; border-radius: 50%; transition: all 0.3s ease;",
+      "selectors": [
+        ".avatar-image",
+        ".avatar-image-mobile"
+      ],
+      "count": 2
+    },
+    {
+      "content": "position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: 50%; background: linear-gradient(45deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2)); opacity: 0; transition: opacity 0.3s ease; pointer-events: none;",
+      "selectors": [
+        ".avatar-glow",
+        ".cart-glow",
+        ".avatar-glow-mobile"
+      ],
+      "count": 3
+    },
+    {
+      "content": "opacity: 1; animation: avatarpulse 2s ease-in-out infinite;",
+      "selectors": [
+        ".avatar-wrapper:hover .avatar-glow",
+        ".avatar-wrapper-mobile:hover .avatar-glow-mobile"
+      ],
+      "count": 2
+    },
+    {
+      "content": "0%, 100% { transform: scale(1); opacity: 0.3; } 50% { transform: scale(1.1); opacity: 0.6; }",
+      "selectors": [
+        "@keyframes avatarPulse",
+        "@keyframes cartPulse"
+      ],
+      "count": 2
+    },
+    {
+      "content": "position: absolute; top: -8px; right: -8px; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; font-size: 0.65rem; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 3px; border: 2px solid #1a1a1a; animation: badgepulse 2s ease-in-out infinite; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4); line-height: 1; z-index: 10;",
+      "selectors": [
+        ".orders-badge",
+        ".orders-badge-mobile"
+      ],
+      "count": 2
+    },
+    {
+      "content": "0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); }",
+      "selectors": [
+        "@keyframes badgePulse",
+        "@keyframes statusPulse",
+        "@keyframes cartBadgePulse",
+        "@keyframes successPulse"
+      ],
+      "count": 4
+    },
+    {
+      "content": "opacity: 1; visibility: visible; transform: translatey(0) scale(1);",
+      "selectors": [
+        ".user-panel.show",
+        ".cart-panel.show"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid rgba(139, 92, 246, 0.2);",
+      "selectors": [
+        "/* Заголовок профиля */\n.user-header",
+        "/* Для неавторизованных пользователей */\n.auth-header",
+        "/* Стили для аутентификации в мобильной панели */\n#user-panel-mobile .auth-header"
+      ],
+      "count": 3
+    },
+    {
+      "content": "0%, 100% { opacity: 0.3; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.05); }",
+      "selectors": [
+        "@keyframes avatarGlowLarge",
+        "@keyframes categoryGlowPulse"
+      ],
+      "count": 2
+    },
+    {
+      "content": "flex: 1;",
+      "selectors": [
+        ".user-info",
+        ".cart-promo-applied-content",
+        ".cart-checkout-header-content",
+        ".orders-header-text",
+        ".delivery-info-content",
+        ".order-item-info",
+        ".method-text",
+        ".stat-content",
+        ".user-info-main",
+        ".points-display-content",
+        ".total-content",
+        ".order-promo-content",
+        ".points-content",
+        ".ubd-info",
+        ".document-info",
+        ".featured-title-section",
+        ".auth-buttons .btn",
+        ".promocodes-title-section",
+        ".promocode-code-section",
+        ".form-title-section",
+        ".notification-message",
+        ".category-info",
+        ".product-info",
+        ".print-proposals-title-section",
+        ".user-info",
+        ".link-info",
+        ".value-content, .feature-content",
+        ".method-content",
+        ".stat-content",
+        ".telegram-hint span"
+      ],
+      "count": 30
+    },
+    {
+      "content": "font-size: 0.9rem; color: #9ca3af;",
+      "selectors": [
+        ".user-phone",
+        ".stat-label",
+        ".loading-text",
+        ".order-number-label"
+      ],
+      "count": 4
+    },
+    {
+      "content": "background: none; border: none; color: #9ca3af; padding: 0.5rem; border-radius: 8px; cursor: pointer; transition: all 0.3s ease;",
+      "selectors": [
+        ".close-btn",
+        "#mini-cart-panel-mobile .close-btn,\n#user-panel-mobile .close-btn"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: rgba(139, 92, 246, 0.1); color: #8b5cf6; transform: scale(1.1);",
+      "selectors": [
+        ".close-btn:hover",
+        "#mini-cart-panel-mobile .close-btn:hover,\n#user-panel-mobile .close-btn:hover"
+      ],
+      "count": 2
+    },
+    {
+      "content": "position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 1;",
+      "selectors": [
+        "/* Контейнер для искр */\n.sparks-container",
+        "/* Анимация искр для товара */\n.cart-item-sparks",
+        "/* Анимация искр для заказов */\n.order-sparks",
+        "/* Анимация кружочков для товаров */\n.items-sparks",
+        "/* Контейнер для искр корзины */\n.cart-sparks-container",
+        "/* Специальные стили для мобильных панелей */\n#mini-cart-panel-mobile .cart-sparks-container,\n#user-panel-mobile .sparks-container",
+        "/* Фоновые эффекты для единого блока */\n.categories-bg-unified",
+        "/* Темные фоновые эффекты */\n.categories-bg-dark",
+        "/* Темные фоновые эффекты карточек */\n.card-bg-dark"
+      ],
+      "count": 9
+    },
+    {
+      "content": "content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: inherit; border-radius: inherit; box-shadow: 0 0 4px rgba(139, 92, 246, 0.8);",
+      "selectors": [
+        ".spark::before",
+        ".cart-spark::before"
+      ],
+      "count": 2
+    },
+    {
+      "content": "box-shadow: 0 0 6px rgba(139, 92, 246, 1);",
+      "selectors": [
+        ".points-card:hover .spark::before",
+        ".cart-panel:hover .cart-spark::before"
+      ],
+      "count": 2
+    },
+    {
+      "content": "content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.1), transparent); transition: left 0.6s ease;",
+      "selectors": [
+        ".points-card::before",
+        ".order-item-card::before",
+        ".delivery-item::before",
+        ".feature-card::before"
+      ],
+      "count": 4
+    },
+    {
+      "content": "left: 100%;",
+      "selectors": [
+        ".points-card:hover::before",
+        ".menu-item:hover::before",
+        ".order-points-card:hover::before",
+        ".order-item-card:hover::before",
+        ".user-card:hover::after",
+        ".delivery-item:hover::before",
+        ".admin-order-card:hover::after",
+        ".payment-btn:hover::before",
+        ".cart-menu-item:hover::before",
+        ".btn-cta:hover::before",
+        ".featured-btn-primary:hover::before",
+        ".featured-header-btn:hover::before",
+        ".featured-badge-compact:hover::before",
+        ".featured-toggle-btn:hover::before",
+        ".hero-btn-primary:hover::before",
+        ".nav-pills .nav-link:hover::before",
+        "#user-panel-mobile .auth-btn:hover::before",
+        ".catalog-link-compact:hover::before",
+        ".btn-gradient-suggest:hover::before",
+        ".feature-card:hover::before",
+        ".cta-button:hover::before",
+        ".feature-card:hover::before",
+        ".cta-button:hover::before",
+        ".contact-method:hover::before",
+        ".location-card:hover::before",
+        ".submit-btn:hover::before",
+        ".stat-card:hover::before",
+        ".category-form-container:hover::before"
+      ],
+      "count": 28
+    },
+    {
+      "content": "display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; color: #e8e9ec; text-decoration: none; transition: all 0.3s ease; position: relative; overflow: hidden;",
+      "selectors": [
+        ".menu-item",
+        ".cart-menu-item"
+      ],
+      "count": 2
+    },
+    {
+      "content": "content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.1), transparent); transition: left 0.5s ease;",
+      "selectors": [
+        ".menu-item::before",
+        ".cart-menu-item::before"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.3); transform: translatex(4px); box-shadow: 0 4px 15px rgba(139, 92, 246, 0.2);",
+      "selectors": [
+        ".menu-item:hover",
+        ".cart-menu-item:hover"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; background: rgba(139, 92, 246, 0.1); border-radius: 8px; color: #8b5cf6; transition: all 0.3s ease;",
+      "selectors": [
+        ".menu-icon",
+        ".cart-menu-icon"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: rgba(139, 92, 246, 0.2); transform: scale(1.1);",
+      "selectors": [
+        ".menu-item:hover .menu-icon",
+        ".edit-method-btn:hover",
+        ".cart-menu-item:hover .cart-menu-icon"
+      ],
+      "count": 3
+    },
+    {
+      "content": "flex: 1; font-weight: 500;",
+      "selectors": [
+        ".menu-item span",
+        ".cart-menu-item span"
+      ],
+      "count": 2
+    },
+    {
+      "content": "color: #6b7280; transition: all 0.3s ease;",
+      "selectors": [
+        ".menu-arrow",
+        ".cart-menu-arrow"
+      ],
+      "count": 2
+    },
+    {
+      "content": "color: #8b5cf6; transform: translatex(2px);",
+      "selectors": [
+        ".menu-item:hover .menu-arrow",
+        ".cart-menu-item:hover .cart-menu-arrow"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2)); border-radius: 10px; color: #8b5cf6;",
+      "selectors": [
+        ".auth-icon",
+        ".cart-header-icon"
+      ],
+      "count": 2
+    },
+    {
+      "content": "flex: 1; font-size: 1.1rem; font-weight: 600; color: #e8e9ec;",
+      "selectors": [
+        ".auth-title",
+        ".cart-title",
+        "#user-panel-mobile .auth-title"
+      ],
+      "count": 3
+    },
+    {
+      "content": "display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem;",
+      "selectors": [
+        ".auth-menu",
+        "#user-panel-mobile .auth-menu"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; align-items: flex-start; gap: 0.75rem; padding: 1rem; background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.1); border-radius: 12px;",
+      "selectors": [
+        ".auth-info",
+        "#user-panel-mobile .auth-info"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: rgba(139, 92, 246, 0.1); border-radius: 6px; color: #8b5cf6; flex-shrink: 0;",
+      "selectors": [
+        ".info-icon",
+        ".cart-info-icon",
+        "#mini-cart-panel-mobile .cart-info-icon",
+        "#user-panel-mobile .info-icon"
+      ],
+      "count": 4
+    },
+    {
+      "content": "font-size: 0.85rem; color: #9ca3af; line-height: 1.4;",
+      "selectors": [
+        ".info-text",
+        ".cart-info-text",
+        "#mini-cart-panel-mobile .cart-info-text",
+        "#user-panel-mobile .info-text"
+      ],
+      "count": 4
+    },
+    {
+      "content": "content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(45deg, rgba(139, 92, 246, 0.05), rgba(99, 102, 241, 0.05)); pointer-events: none;",
+      "selectors": [
+        ".cart-page-header::before",
+        ".cart-checkout-card::before",
+        ".orders-header::before",
+        ".order-card::before"
+      ],
+      "count": 4
+    },
+    {
+      "content": "color: #22c55e;",
+      "selectors": [
+        ".cart-message-success .cart-message-text",
+        ".cart-summary-discount .cart-summary-value",
+        ".points-status.earned .points-amount",
+        ".status-step.active .status-step-label",
+        ".status-step.completed .status-step-label",
+        ".status-item.status-done .status-number",
+        ".payment-item.payment-paid .payment-number",
+        ".status-item.done .status-number",
+        ".payment-item.paid .payment-number",
+        ".promocode-status.active"
+      ],
+      "count": 10
+    },
+    {
+      "content": "color: #ef4444;",
+      "selectors": [
+        ".cart-message-error .cart-message-text",
+        ".status-item.status-cancelled .status-number",
+        ".status-item.cancelled .status-number",
+        ".promocode-status.used",
+        ".summary-value.discount"
+      ],
+      "count": 5
+    },
+    {
+      "content": "color: #3b82f6;",
+      "selectors": [
+        ".cart-message-info .cart-message-text",
+        ".status-item.status-prep .status-number",
+        ".status-item.prep .status-number"
+      ],
+      "count": 3
+    },
+    {
+      "content": "position: relative;",
+      "selectors": [
+        "/* Основная секция корзины */\n.cart-main-section",
+        ".cart-form-input-wrapper",
+        ".input-with-icon",
+        "/* Блок \"Рекомендовано\" - профессиональный дизайн */\n.featured-section",
+        "/* Form floating styles - более специфичные селекторы */\n.form-floating"
+      ],
+      "count": 5
+    },
+    {
+      "content": "display: flex; flex-direction: column; gap: 1.5rem;",
+      "selectors": [
+        "/* Контейнер товаров */\n.cart-items-container",
+        ".payment-instruction",
+        "/* Админ панель заказов - новый дизайн */\n.orders-admin-section",
+        ".promocode-form"
+      ],
+      "count": 4
+    },
+    {
+      "content": "width: 100%; height: 100%; object-fit: cover; transition: all 0.3s ease;",
+      "selectors": [
+        ".cart-item-img",
+        ".item-image img"
+      ],
+      "count": 2
+    },
+    {
+      "content": "opacity: 1;",
+      "selectors": [
+        ".cart-item:hover .cart-item-image-glow",
+        ".cart-form-input:focus + .cart-form-input-glow,\n.cart-form-select:focus + .cart-form-input-glow",
+        ".cart-promo-input:focus + .cart-promo-input-glow",
+        ".cart-checkout-btn:hover .cart-checkout-btn-glow",
+        ".order-card:hover .order-card-glow",
+        ".order-number-btn:hover .order-number-glow",
+        ".order-item-card:hover .order-item-image::after",
+        ".status-item:hover::before,\n.payment-item:hover::before",
+        ".avatar-preview:hover .avatar-overlay",
+        ".document-preview:hover .document-overlay",
+        ".featured-card:hover .featured-overlay",
+        ".category-card-compact:hover::before",
+        ".category-btn:hover::before"
+      ],
+      "count": 13
+    },
+    {
+      "content": "display: flex; align-items: center; gap: 0.5rem;",
+      "selectors": [
+        ".cart-item-detail",
+        ".cart-item-price",
+        ".order-item-spec",
+        ".order-item-color",
+        ".order-item-detail",
+        ".order-final-compact",
+        ".color-preview-item"
+      ],
+      "count": 7
+    },
+    {
+      "content": "font-size: 0.85rem; color: #94a3b8; font-weight: 500;",
+      "selectors": [
+        ".cart-item-label",
+        ".cart-item-price-label"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; align-items: center;",
+      "selectors": [
+        ".cart-item-color",
+        ".order-item-color",
+        ".payment-status",
+        ".promocode-status-section",
+        ".promocode-discount"
+      ],
+      "count": 5
+    },
+    {
+      "content": "content: ''; position: absolute; top: 0; height: 100%; width: 50%;",
+      "selectors": [
+        ".cart-item-swatch.swatch::after,\n.cart-item-swatch.swatch::before",
+        ".order-item-swatch::after,\n.order-item-swatch::before"
+      ],
+      "count": 2
+    },
+    {
+      "content": "right: -0.5px; width: calc(50% + 1px); background: var(--secondary-color, transparent); border-radius: 0 50% 50% 0;",
+      "selectors": [
+        ".cart-item-swatch.swatch::before",
+        ".order-item-swatch::before"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem;",
+      "selectors": [
+        ".cart-item-total",
+        ".order-total"
+      ],
+      "count": 2
+    },
+    {
+      "content": "font-size: 1.1rem; font-weight: 700; color: #22c55e;",
+      "selectors": [
+        ".cart-item-total-value",
+        ".order-item-price"
+      ],
+      "count": 2
+    },
+    {
+      "content": "color: #8b5cf6; flex-shrink: 0; margin-top: 0.125rem;",
+      "selectors": [
+        ".cart-sidebar-card-hint svg",
+        ".cart-delivery-info svg"
+      ],
+      "count": 2
+    },
+    {
+      "content": "position: relative; z-index: 2;",
+      "selectors": [
+        "/* Формы корзины */\n.cart-sidebar-form",
+        ".cart-promo-message",
+        "/* Действия оформления */\n.cart-checkout-actions",
+        "/* Мобильные панели используют общие стили десктопных панелей */\n#mini-cart-panel-mobile .cart-menu,\n#user-panel-mobile .user-menu",
+        "#mini-cart-panel-mobile .cart-menu-item,\n#user-panel-mobile .menu-item",
+        "/* Мобильные панели используют общие стили десктопных панелей для кнопки выхода */\n#user-panel-mobile .logout-btn",
+        "/* Мобильные панели используют общие стили десктопных панелей для блока с баллами */\n#user-panel-mobile .points-card",
+        "/* Компактный заголовок */\n.categories-title-compact"
+      ],
+      "count": 8
+    },
+    {
+      "content": "width: 100%; padding: 0.75rem 1rem; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 10px; color: #ffffff; font-size: 0.9rem; transition: all 0.3s ease;",
+      "selectors": [
+        ".cart-form-input,\n.cart-form-select",
+        ".cart-promo-input"
+      ],
+      "count": 2
+    },
+    {
+      "content": "color: #64748b;",
+      "selectors": [
+        ".cart-form-input::placeholder",
+        ".cart-promo-input::placeholder"
+      ],
+      "count": 2
+    },
+    {
+      "content": "outline: none; border-color: rgba(139, 92, 246, 0.6); box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1); background: rgba(15, 23, 42, 0.8);",
+      "selectors": [
+        ".cart-form-input:focus,\n.cart-form-select:focus",
+        ".cart-promo-input:focus"
+      ],
+      "count": 2
+    },
+    {
+      "content": "position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: 10px; background: linear-gradient(45deg, rgba(139, 92, 246, 0.1), rgba(99, 102, 241, 0.1)); opacity: 0; transition: opacity 0.3s ease; pointer-events: none;",
+      "selectors": [
+        ".cart-form-input-glow",
+        ".cart-promo-input-glow"
+      ],
+      "count": 2
+    },
+    {
+      "content": "font-size: 0.85rem; color: #94a3b8;",
+      "selectors": [
+        ".cart-promo-applied-discount",
+        ".cart-points-description"
+      ],
+      "count": 2
+    },
+    {
+      "content": "border-bottom: none;",
+      "selectors": [
+        ".cart-summary-row:last-child",
+        ".info-row:last-child",
+        ".product-tab-content .table tbody tr:last-child td"
+      ],
+      "count": 3
+    },
+    {
+      "content": "font-size: 1.25rem; font-weight: 700; color: #22c55e;",
+      "selectors": [
+        ".cart-summary-total .cart-summary-value",
+        ".offline-store-name"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;",
+      "selectors": [
+        ".cart-points-header",
+        ".product-price"
+      ],
+      "count": 2
+    },
+    {
+      "content": "font-size: 1rem; font-weight: 600; color: #ffffff;",
+      "selectors": [
+        ".cart-points-title",
+        ".order-final-label"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; flex-direction: column; gap: 0.25rem;",
+      "selectors": [
+        ".cart-points-earned",
+        ".date-card-content",
+        ".order-item-details",
+        ".payment-method-text",
+        ".discount-info",
+        ".location-hours"
+      ],
+      "count": 6
+    },
+    {
+      "content": "display: flex; flex-direction: column; gap: 1rem;",
+      "selectors": [
+        ".cart-points-guest",
+        ".order-items-list",
+        ".order-items-list",
+        ".screenshot-container",
+        ".screenshot-container",
+        ".orders-list"
+      ],
+      "count": 6
+    },
+    {
+      "content": "font-size: 1.5rem; font-weight: 700; color: #22c55e;",
+      "selectors": [
+        ".cart-total-amount",
+        ".order-total-amount",
+        ".order-final-amount"
+      ],
+      "count": 3
+    },
+    {
+      "content": "display: flex; flex-direction: column; align-items: center; gap: 1.5rem;",
+      "selectors": [
+        ".orders-header-content",
+        ".hero-text-section"
+      ],
+      "count": 2
+    },
+    {
+      "content": "top: 20%; left: 10%; animation-delay: 0s;",
+      "selectors": [
+        ".order-spark-1",
+        ".user-spark-1",
+        ".particle:nth-child(1)",
+        ".category-spark-1",
+        ".product-spark-1",
+        ".promocode-spark-1",
+        ".offline-store-spark-1",
+        ".print-proposal-spark-1",
+        ".designers-sparkles .sparkle:nth-child(1)",
+        ".sparkle-1",
+        ".story-sparkles .sparkle:nth-child(1)",
+        ".contacts-hero .sparkle-1"
+      ],
+      "count": 12
+    },
+    {
+      "content": "top: 60%; right: 15%; animation-delay: 1s;",
+      "selectors": [
+        ".order-spark-2",
+        ".promocode-spark-2",
+        ".offline-store-spark-2",
+        ".print-proposal-spark-2"
+      ],
+      "count": 4
+    },
+    {
+      "content": "bottom: 30%; left: 20%; animation-delay: 2s;",
+      "selectors": [
+        ".order-spark-3",
+        ".promocode-spark-3",
+        ".offline-store-spark-3",
+        ".print-proposal-spark-3"
+      ],
+      "count": 4
+    },
+    {
+      "content": "color: #8b5cf6;",
+      "selectors": [
+        ".order-number-btn:hover .order-number-text",
+        ".order-items-title svg",
+        ".option-item input[type=\"radio\"]:checked + .option-label svg",
+        ".admin-title svg",
+        ".users-search-input:focus + .search-icon",
+        ".order-date svg",
+        ".promocode-stats .stat-item svg",
+        ".form-label svg",
+        ".form-check-label:hover",
+        ".bottom-nav-item.active",
+        ".subsection-header svg",
+        ".stats-category-title svg",
+        ".stats-filters-title svg",
+        ".category-form-title svg",
+        ".form-section-title svg"
+      ],
+      "count": 15
+    },
+    {
+      "content": "color: #fbbf24;",
+      "selectors": [
+        ".points-status.pending .points-amount",
+        ".payment-modal-title svg"
+      ],
+      "count": 2
+    },
+    {
+      "content": "color: #f59e0b;",
+      "selectors": [
+        ".points-status.pending .points-label",
+        "/* Цветовая схема для статусов заказов */\n.status-item.status-new .status-number",
+        ".status-item.status-ship .status-number",
+        "/* Цветовая схема для статусов оплаты */\n.payment-item.payment-unpaid .payment-number",
+        ".payment-item.payment-checking .payment-number",
+        ".payment-item.payment-partial .payment-number",
+        "/* Цвета статусов */\n.status-item.new .status-number",
+        ".payment-item.unpaid .payment-number,\n.payment-item.checking .payment-number"
+      ],
+      "count": 8
+    },
+    {
+      "content": "0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); }",
+      "selectors": [
+        "@keyframes copySuccess",
+        "@keyframes pulse"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; flex-direction: column; gap: 0.5rem;",
+      "selectors": [
+        ".order-info",
+        ".order-item-specs",
+        ".order-number-section",
+        ".detail-item",
+        ".status-group",
+        ".promocode-usage",
+        ".form-group"
+      ],
+      "count": 7
+    },
+    {
+      "content": "display: flex; align-items: center; gap: 0.5rem; font-size: 1rem; font-weight: 600; color: #e8e9ec;",
+      "selectors": [
+        ".order-number",
+        ".order-items-title"
+      ],
+      "count": 2
+    },
+    {
+      "content": "font-size: 0.9rem; color: #94a3b8;",
+      "selectors": [
+        ".order-date",
+        ".order-total-label"
+      ],
+      "count": 2
+    },
+    {
+      "content": "color: #8b5cf6; flex-shrink: 0;",
+      "selectors": [
+        ".delivery-compact-item svg",
+        ".stat-icon",
+        ".user-email svg,\n.user-phone svg,\n.user-full-name svg,\n.user-telegram svg,\n.user-instagram svg",
+        ".user-ubd-status svg",
+        ".user-filter-header svg",
+        ".contact-item svg",
+        ".benefit-item svg"
+      ],
+      "count": 7
+    },
+    {
+      "content": "color: #fbbf24; font-style: italic;",
+      "selectors": [
+        ".ttn-pending",
+        ".ttn-pending"
+      ],
+      "count": 2
+    },
+    {
+      "content": "color: #10b981;",
+      "selectors": [
+        ".shipment-status-item svg",
+        ".checkbox-label svg"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; align-items: center; gap: 1rem;",
+      "selectors": [
+        ".delivery-info-item",
+        ".customer-contact",
+        ".preview-container",
+        ".phone-container"
+      ],
+      "count": 4
+    },
+    {
+      "content": "display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; background: rgba(139, 92, 246, 0.2); border-radius: 8px; color: #8b5cf6; flex-shrink: 0;",
+      "selectors": [
+        ".delivery-info-icon",
+        ".payment-method-icon"
+      ],
+      "count": 2
+    },
+    {
+      "content": "font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.25rem;",
+      "selectors": [
+        ".delivery-info-label",
+        ".order-promo-label"
+      ],
+      "count": 2
+    },
+    {
+      "content": "from { opacity: 0; transform: translatex(30px); } to { opacity: 1; transform: translatex(0); }",
+      "selectors": [
+        "@keyframes slideInRight",
+        "/* Enhanced animations */\n@keyframes slideInRight"
+      ],
+      "count": 2
+    },
+    {
+      "content": "width: 100%; height: 100%; object-fit: cover;",
+      "selectors": [
+        ".order-item-img",
+        ".order-item-img",
+        ".item-image img",
+        ".document-image",
+        ".customer-avatar img",
+        ".item-image img",
+        ".image-preview-item img",
+        ".category-icon-img",
+        ".product-img",
+        ".user-avatar img"
+      ],
+      "count": 10
+    },
+    {
+      "content": "width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #8b5cf6;",
+      "selectors": [
+        ".order-item-placeholder",
+        ".default-avatar"
+      ],
+      "count": 2
+    },
+    {
+      "content": "font-size: 0.8rem; color: #e8e9ec; font-weight: 500;",
+      "selectors": [
+        ".spec-value",
+        ".color-name"
+      ],
+      "count": 2
+    },
+    {
+      "content": "font-size: 1rem; font-weight: 700; color: #22c55e;",
+      "selectors": [
+        ".order-item-price-amount",
+        ".order-final-amount"
+      ],
+      "count": 2
+    },
+    {
+      "content": "font-size: 0.8rem; color: #9ca3af;",
+      "selectors": [
+        ".order-final-label",
+        ".promocode-status",
+        ".filter-stat-label"
+      ],
+      "count": 3
+    },
+    {
+      "content": "display: flex; align-items: center; gap: 0.75rem;",
+      "selectors": [
+        ".payment-method",
+        ".featured-price-compact",
+        ".checkbox-wrapper",
+        "/* Color picker контейнер */\n.color-picker-container",
+        "/* Заголовок с иконкой каталога */\n.title-with-catalog-icon",
+        ".print-proposal-user"
+      ],
+      "count": 6
+    },
+    {
+      "content": "font-size: 0.9rem; font-weight: 600; color: #e8e9ec;",
+      "selectors": [
+        ".editor-title",
+        ".order-number-section label"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: rgba(239, 68, 68, 0.2); transform: scale(1.1);",
+      "selectors": [
+        ".close-editor-btn:hover",
+        ".payment-modal-close:hover"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.3);",
+      "selectors": [
+        ".option-item:hover",
+        ".control-checkbox:hover"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: none;",
+      "selectors": [
+        ".option-item input[type=\"radio\"]",
+        ".control-checkbox input[type=\"checkbox\"]",
+        "/* Скрытие файловых инпутов только в определенных контекстах */\n.file-upload-wrapper input[type=\"file\"]",
+        ".featured-section.collapsed"
+      ],
+      "count": 4
+    },
+    {
+      "content": "display: flex; align-items: center; gap: 0.75rem; font-size: 1.25rem; font-weight: 600; color: #e8e9ec; margin: 0;",
+      "selectors": [
+        ".payment-modal-title",
+        ".subsection-header h3"
+      ],
+      "count": 2
+    },
+    {
+      "content": "font-size: 1rem; font-weight: 600; color: #e8e9ec; margin-bottom: 1rem;",
+      "selectors": [
+        ".payment-details h5",
+        ".control-section h5",
+        ".payment-screenshot-section h4"
+      ],
+      "count": 3
+    },
+    {
+      "content": "display: flex; flex-direction: column; gap: 0.75rem;",
+      "selectors": [
+        ".payment-details-grid",
+        ".points-input-group",
+        ".control-group"
+      ],
+      "count": 3
+    },
+    {
+      "content": "background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.3); transform: translatey(-1px);",
+      "selectors": [
+        ".copyable-text:hover",
+        ".stat-item-compact:hover",
+        ".filter-stat-item:hover"
+      ],
+      "count": 3
+    },
+    {
+      "content": "font-size: 0.85rem; color: #9ca3af;",
+      "selectors": [
+        ".upload-placeholder span",
+        ".user-full-name"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: linear-gradient(135deg, rgba(34, 197, 94, 1), rgba(22, 163, 74, 0.9)); transform: translatey(-2px); box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);",
+      "selectors": [
+        ".payment-confirm-btn:hover",
+        ".payment-btn-full:hover"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; gap: 0.5rem; flex-wrap: wrap;",
+      "selectors": [
+        ".admin-nav",
+        ".product-features",
+        ".stats-period-buttons"
+      ],
+      "count": 3
+    },
+    {
+      "content": "margin-bottom: 2rem;",
+      "selectors": [
+        "/* Статистика */\n.stats-section",
+        "/* Управление заказами */\n.orders-admin-section",
+        ".promocodes-search-section",
+        ".offline-stores-search-section",
+        "/* Поиск */\n.print-proposals-search-section",
+        "/* Список принтов */\n.print-proposals-list-section"
+      ],
+      "count": 6
+    },
+    {
+      "content": "background: rgba(34, 197, 94, 0.1); border-color: rgba(34, 197, 94, 0.3);",
+      "selectors": [
+        ".payment-stats .filter-stat-item:hover",
+        ".filter-stat-item.status-done:hover",
+        ".filter-stat-item.payment-paid:hover"
+      ],
+      "count": 3
+    },
+    {
+      "content": "padding: 2rem;",
+      "selectors": [
+        "/* ===== СЕКЦИЯ ПОЛЬЗОВАТЕЛЕЙ ===== */\n.users-admin-section",
+        ".order-success-content"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; gap: 1rem;",
+      "selectors": [
+        ".section-stats",
+        ".promocodes-actions",
+        ".form-actions",
+        ".color-type-options"
+      ],
+      "count": 4
+    },
+    {
+      "content": "position: relative; display: flex; align-items: center;",
+      "selectors": [
+        ".search-container",
+        "/* Анимация появления новых карточек теперь использует существующую систему reveal-stagger */\n\n/* Стили для кнопки подтверждения Telegram */\n.telegram-input-container"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: block;",
+      "selectors": [
+        ".users-search-input:not(:placeholder-shown) + .search-clear-btn",
+        ".product-tab-pane.active"
+      ],
+      "count": 2
+    },
+    {
+      "content": "content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent); transition: left 0.6s ease;",
+      "selectors": [
+        ".user-card::after",
+        ".admin-order-card::after",
+        ".featured-header-btn::before"
+      ],
+      "count": 3
+    },
+    {
+      "content": "position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; overflow: hidden;",
+      "selectors": [
+        "/* Анимация искр */\n.user-sparks",
+        ".category-sparks",
+        ".product-sparks",
+        ".promocode-sparks",
+        ".offline-store-sparks",
+        "/* Искры */\n.print-proposal-sparks"
+      ],
+      "count": 6
+    },
+    {
+      "content": "width: 100%; height: 100%; object-fit: cover; border-radius: 50%;",
+      "selectors": [
+        ".avatar-image",
+        ".avatar-image"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: linear-gradient(135deg, #22c55e, #16a34a); color: white;",
+      "selectors": [
+        ".user-status-badge.user",
+        ".promocode-btn.give"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; align-items: center; gap: 0.5rem; color: #9ca3af; font-size: 0.9rem; margin-bottom: 0.25rem;",
+      "selectors": [
+        ".user-email,\n.user-phone,\n.user-full-name",
+        ".user-telegram,\n.user-instagram"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.3); transform: translatey(-2px);",
+      "selectors": [
+        ".stat-item:hover",
+        ".promocode-item:hover"
+      ],
+      "count": 2
+    },
+    {
+      "content": "cursor: pointer; transition: all 0.3s ease;",
+      "selectors": [
+        "/* Кликабельные элементы */\n.clickable",
+        "/* Кликабельные статусы для админа */\n.admin-status-track .status-step"
+      ],
+      "count": 2
+    },
+    {
+      "content": "margin-top: 1rem;",
+      "selectors": [
+        ".points-form",
+        "/* Управление балами */\n.points-control",
+        ".image-preview-container"
+      ],
+      "count": 3
+    },
+    {
+      "content": "flex: 1; padding: 0.75rem; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #e8e9ec; font-size: 0.9rem;",
+      "selectors": [
+        ".points-input",
+        ".reason-input"
+      ],
+      "count": 2
+    },
+    {
+      "content": "width: 18px; height: 18px;",
+      "selectors": [
+        ".points-save-btn svg",
+        ".save-btn svg"
+      ],
+      "count": 2
+    },
+    {
+      "content": "margin: 1rem 0;",
+      "selectors": [
+        "/* Подсекции промокодов */\n.promocodes-subsection",
+        "/* Сумма заказа */\n.order-total-section"
+      ],
+      "count": 2
+    },
+    {
+      "content": "color: #8b5cf6; flex-shrink: 0; width: 14px; height: 14px;",
+      "selectors": [
+        ".stat-icon-compact",
+        ".delivery-item svg"
+      ],
+      "count": 2
+    },
+    {
+      "content": "margin: 1.5rem 0; padding: 1.5rem; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px;",
+      "selectors": [
+        "/* Детальная информация */\n.user-details-expanded",
+        "/* Промокоды и доставка */\n.promocodes-section,\n.delivery-section"
+      ],
+      "count": 2
+    },
+    {
+      "content": "margin-bottom: 1.5rem;",
+      "selectors": [
+        ".orders-status-section,\n.payment-status-section",
+        ".control-section",
+        ".ubd-toggle-container",
+        ".promocode-main-info",
+        ".category-stats",
+        ".product-details",
+        ".promocode-details",
+        ".offline-store-details",
+        ".form-group"
+      ],
+      "count": 9
+    },
+    {
+      "content": "font-size: 1rem; font-weight: 600; color: #e8e9ec; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;",
+      "selectors": [
+        ".orders-status-section h4,\n.payment-status-section h4",
+        ".promocodes-section h4,\n.delivery-section h4"
+      ],
+      "count": 2
+    },
+    {
+      "content": "color: #f97316;",
+      "selectors": [
+        ".status-item.ship .status-number",
+        ".payment-item.partial .payment-number"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; gap: 0.75rem;",
+      "selectors": [
+        ".input-group",
+        ".category-actions",
+        ".product-actions"
+      ],
+      "count": 3
+    },
+    {
+      "content": "color: #9ca3af;",
+      "selectors": [
+        ".points-input::placeholder,\n.reason-input::placeholder",
+        ".catalogs-search-input::placeholder"
+      ],
+      "count": 2
+    },
+    {
+      "content": "transform: translatey(-2px); box-shadow: 0 8px 24px rgba(139, 92, 246, 0.4);",
+      "selectors": [
+        ".save-btn:hover",
+        ".submit-btn:hover"
+      ],
+      "count": 2
+    },
+    {
+      "content": "transform: translatey(0);",
+      "selectors": [
+        ".save-btn:active",
+        ".featured-header-btn:active",
+        ".featured-toggle-btn:active",
+        ".featured-btn-compact:active",
+        "#mini-cart-panel-mobile.show,\n#user-panel-mobile.show"
+      ],
+      "count": 5
+    },
+    {
+      "content": "display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;",
+      "selectors": [
+        ".promocodes-grid",
+        ".status-controls"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: linear-gradient(135deg, #ef4444, #dc2626); color: white;",
+      "selectors": [
+        ".promocode-btn.remove",
+        ".btn-reject",
+        ".action-btn.delete"
+      ],
+      "count": 3
+    },
+    {
+      "content": "background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.3);",
+      "selectors": [
+        "/* Специальные hover-эффекты для статусов */\n.filter-stat-item.status-new:hover",
+        "/* Специальные hover-эффекты для статусов оплаты */\n.filter-stat-item.payment-unpaid:hover,\n.filter-stat-item.payment-checking:hover"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: rgba(249, 115, 22, 0.1); border-color: rgba(249, 115, 22, 0.3);",
+      "selectors": [
+        ".filter-stat-item.status-ship:hover",
+        ".filter-stat-item.payment-partial:hover"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; gap: 1rem; flex-wrap: wrap;",
+      "selectors": [
+        ".filter-controls",
+        ".screenshot-actions",
+        ".screenshot-actions",
+        ".orders-stats",
+        ".promocode-usage"
+      ],
+      "count": 5
+    },
+    {
+      "content": "transform: scale(0.95);",
+      "selectors": [
+        ".admin-status-track .status-step:active",
+        "/* Эффект нажатия */\n.bottom-nav-item:active"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);",
+      "selectors": [
+        ".screenshot-status.checking",
+        ".status-badge.pending"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);",
+      "selectors": [
+        ".screenshot-status.unpaid",
+        ".status-badge.rejected"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: linear-gradient(135deg, #10b981, #059669); color: white;",
+      "selectors": [
+        ".btn-approve",
+        ".promocode-status.active",
+        ".offline-store-status.active"
+      ],
+      "count": 3
+    },
+    {
+      "content": "color: #9ca3af; font-size: 0.9rem;",
+      "selectors": [
+        ".info-label",
+        ".info-label",
+        ".stat-label",
+        ".order-date",
+        ".unit-price",
+        ".commission-label"
+      ],
+      "count": 6
+    },
+    {
+      "content": "font-size: 0.9rem; color: #9ca3af; display: flex; align-items: center; gap: 0.4rem;",
+      "selectors": [
+        ".customer-phone",
+        ".summary-label"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: rgba(255, 255, 255, 0.05); border-color: rgba(139, 92, 246, 0.3);",
+      "selectors": [
+        ".delivery-item:hover",
+        ".form-group.checkbox-group:hover"
+      ],
+      "count": 2
+    },
+    {
+      "content": "transform: scale(1.1);",
+      "selectors": [
+        ".order-item:hover .item-image img",
+        ".card-header:hover .position-relative",
+        ".bottom-nav-item:hover .bottom-nav-icon",
+        ".bottom-nav-item.active .bottom-nav-icon",
+        ".category-btn:hover .category-btn-icon",
+        ".btn-gradient-suggest:hover svg"
+      ],
+      "count": 6
+    },
+    {
+      "content": "font-size: 0.85rem; color: #9ca3af; margin-bottom: 0.5rem; line-height: 1.4;",
+      "selectors": [
+        ".item-description",
+        ".item-description"
+      ],
+      "count": 2
+    },
+    {
+      "content": "font-size: 0.85rem; color: #9ca3af; display: flex; align-items: center; gap: 0.3rem;",
+      "selectors": [
+        ".item-quantity",
+        ".unit-price"
+      ],
+      "count": 2
+    },
+    {
+      "content": "transform: translatex(0);",
+      "selectors": [
+        ".notification.show",
+        ".copy-notification.show"
+      ],
+      "count": 2
+    },
+    {
+      "content": "content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent); transition: left 0.5s ease;",
+      "selectors": [
+        ".payment-btn::before",
+        ".catalog-link-compact::before",
+        ".btn-gradient-suggest::before",
+        ".cta-button::before",
+        ".cta-button::before",
+        ".submit-btn::before"
+      ],
+      "count": 6
+    },
+    {
+      "content": "position: relative; width: 36px; height: 36px; border-radius: 50%; overflow: visible; border: 2px solid rgba(139, 92, 246, 0.3); background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(99, 102, 241, 0.1)); display: flex; align-items: center; justify-content: center; transition: all 0.3s ease; flex-shrink: 0;",
+      "selectors": [
+        ".cart-icon-wrapper",
+        ".cart-icon-wrapper-mobile"
+      ],
+      "count": 2
+    },
+    {
+      "content": "border-color: rgba(139, 92, 246, 0.6); box-shadow: 0 0 20px rgba(139, 92, 246, 0.4); background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2));",
+      "selectors": [
+        ".cart-icon-wrapper:hover",
+        ".cart-icon-wrapper-mobile:hover"
+      ],
+      "count": 2
+    },
+    {
+      "content": "color: #8b5cf6; transition: all 0.3s ease; width: 20px; height: 20px;",
+      "selectors": [
+        ".cart-icon",
+        ".cart-icon"
+      ],
+      "count": 2
+    },
+    {
+      "content": "position: absolute; top: -8px; right: -8px; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; font-size: 0.65rem; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 3px; border: 2px solid #1a1a1a; animation: cartbadgepulse 2s ease-in-out infinite; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4); line-height: 1; z-index: 10;",
+      "selectors": [
+        ".cart-badge",
+        ".cart-badge-mobile"
+      ],
+      "count": 2
+    },
+    {
+      "content": "0% { transform: scale(0); } 50% { transform: scale(1.2); } 100% { transform: scale(1); }",
+      "selectors": [
+        "@keyframes favoritesBadgePulse",
+        "@keyframes badge-bounce"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid rgba(139, 92, 246, 0.2); position: relative; z-index: 2;",
+      "selectors": [
+        "/* Заголовок корзины */\n.cart-header",
+        "#mini-cart-panel-mobile .cart-header,\n#user-panel-mobile .user-header"
+      ],
+      "count": 2
+    },
+    {
+      "content": "0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); }",
+      "selectors": [
+        "@keyframes spin",
+        "@keyframes darkBgRotate1"
+      ],
+      "count": 2
+    },
+    {
+      "content": "border-color: rgba(16, 185, 129, 0.3);",
+      "selectors": [
+        ".checkout-item",
+        "#mini-cart-panel-mobile .checkout-item"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.5); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);",
+      "selectors": [
+        ".checkout-item:hover",
+        "#mini-cart-panel-mobile .checkout-item:hover"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: rgba(16, 185, 129, 0.1); color: #10b981;",
+      "selectors": [
+        ".checkout-item .cart-menu-icon",
+        "#mini-cart-panel-mobile .checkout-item .cart-menu-icon"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: rgba(16, 185, 129, 0.2);",
+      "selectors": [
+        ".checkout-item:hover .cart-menu-icon",
+        "#mini-cart-panel-mobile .checkout-item:hover .cart-menu-icon"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; align-items: flex-start; gap: 0.75rem; padding: 1rem; background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.1); border-radius: 12px; position: relative; z-index: 2;",
+      "selectors": [
+        "/* Информационная панель корзины */\n.cart-info",
+        "#mini-cart-panel-mobile .cart-info,\n#user-panel-mobile .logout-section"
+      ],
+      "count": 2
+    },
+    {
+      "content": "margin-bottom: 3rem;",
+      "selectors": [
+        "/* Заголовок страницы */\n.profile-header",
+        ".hero-text",
+        "*/\n\n/* Admin Panel Stats Categories */\n.stats-category"
+      ],
+      "count": 3
+    },
+    {
+      "content": "0% { box-shadow: 0 8px 32px rgba(139, 92, 246, 0.3); } 100% { box-shadow: 0 12px 48px rgba(139, 92, 246, 0.5); }",
+      "selectors": [
+        "@keyframes profileGlow",
+        "@keyframes featuredGlow"
+      ],
+      "count": 2
+    },
+    {
+      "content": "text-align: center;",
+      "selectors": [
+        "/* Секция аватара */\n.profile-avatar-section",
+        ".upload-instructions",
+        ".current-image",
+        ".proposal-stat",
+        ".feature-content"
+      ],
+      "count": 5
+    },
+    {
+      "content": "border-color: rgba(139, 92, 246, 0.6); transform: scale(1.05);",
+      "selectors": [
+        ".avatar-preview:hover",
+        ".document-preview:hover"
+      ],
+      "count": 2
+    },
+    {
+      "content": "position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease; color: white;",
+      "selectors": [
+        ".avatar-overlay",
+        ".document-overlay"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;",
+      "selectors": [
+        ".section-header",
+        ".category-header"
+      ],
+      "count": 2
+    },
+    {
+      "content": "margin-bottom: 1rem;",
+      "selectors": [
+        "/* Группы полей */\n.form-group",
+        "/* ===== Мобильный мини‑профиль: компактная карточка баллов ===== */\n#user-panel-mobile .points-card-link",
+        ".promocode-type",
+        "/* Описание */\n.print-proposal-description"
+      ],
+      "count": 4
+    },
+    {
+      "content": "0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); }",
+      "selectors": [
+        "@keyframes pointsIconPulse",
+        "@keyframes discountPulse"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;",
+      "selectors": [
+        "/* Информационная панель */\n.info-panel",
+        ".form-grid"
+      ],
+      "count": 2
+    },
+    {
+      "content": "opacity:1",
+      "selectors": [
+        ".navbar .nav-link:hover,.navbar .nav-link.active",
+        ".bottom-nav .btn.active,.bottom-nav .btn:hover"
+      ],
+      "count": 2
+    },
+    {
+      "content": "opacity:1;transform:none",
+      "selectors": [
+        ".reveal.visible",
+        ".reveal-fast.visible",
+        "#mini-cart-panel.show",
+        "#user-panel.show"
+      ],
+      "count": 4
+    },
+    {
+      "content": "background: var(--c1, #000);",
+      "selectors": [
+        "/* Комбинированные цвета для color-dot */\n.color-dot[style*=\"--c2\"]:not([style*=\"--c2: ;\"]):not([style*=\"--c2: transparent\"]):not([style*=\"--c2: none\"]):not([style*=\"--c2: ''\"]):not([style*=\"--c2: undefined\"])",
+        "/* Комбинированные цвета для featured-color-dot */\n.featured-color-dot[style*=\"--c2\"]:not([style*=\"--c2: ;\"]):not([style*=\"--c2: transparent\"]):not([style*=\"--c2: none\"]):not([style*=\"--c2: ''\"]):not([style*=\"--c2: undefined\"])"
+      ],
+      "count": 2
+    },
+    {
+      "content": "content: ''; position: absolute; top: 0; left: 0; width: 50%; height: 100%; background: var(--c1, #000);",
+      "selectors": [
+        ".color-dot[style*=\"--c2\"]:not([style*=\"--c2: ;\"]):not([style*=\"--c2: transparent\"]):not([style*=\"--c2: none\"]):not([style*=\"--c2: ''\"]):not([style*=\"--c2: undefined\"])::after",
+        ".featured-color-dot[style*=\"--c2\"]:not([style*=\"--c2: ;\"]):not([style*=\"--c2: transparent\"]):not([style*=\"--c2: none\"]):not([style*=\"--c2: ''\"]):not([style*=\"--c2: undefined\"])::after"
+      ],
+      "count": 2
+    },
+    {
+      "content": "content: ''; position: absolute; top: 0; right: 0; width: 50%; height: 100%; background: var(--c2, transparent);",
+      "selectors": [
+        ".color-dot[style*=\"--c2\"]:not([style*=\"--c2: ;\"]):not([style*=\"--c2: transparent\"]):not([style*=\"--c2: none\"]):not([style*=\"--c2: ''\"]):not([style*=\"--c2: undefined\"])::before",
+        ".featured-color-dot[style*=\"--c2\"]:not([style*=\"--c2: ;\"]):not([style*=\"--c2: transparent\"]):not([style*=\"--c2: none\"]):not([style*=\"--c2: ''\"]):not([style*=\"--c2: undefined\"])::before"
+      ],
+      "count": 2
+    },
+    {
+      "content": "opacity: 1; transform: translatey(0);",
+      "selectors": [
+        "/* Показываем цветовые точки при hover на карточку */\n.product-card-wrap:hover .product-card-dots",
+        ".product-card-dots.visible"
+      ],
+      "count": 2
+    },
+    {
+      "content": "margin-top: 0.5rem;",
+      "selectors": [
+        "/* Стили для информации о баллах в заказах */\n.points-info",
+        "/* Стили для переключателя \"Рекомендованный\" */\n.featured-toggle",
+        ".form-errors"
+      ],
+      "count": 3
+    },
+    {
+      "content": "color: rgba(255, 255, 255, 0.5);",
+      "selectors": [
+        ".points-edit-form .form-control::placeholder",
+        ".usage-separator",
+        ".form-control::placeholder"
+      ],
+      "count": 3
+    },
+    {
+      "content": "position: relative; overflow: hidden;",
+      "selectors": [
+        ".featured-image-container",
+        ".combined-preview",
+        "/* Стили для комбинированных цветов в корзине и заказах */\n.swatch[data-secondary]:not([data-secondary=\"\"])",
+        "/* ===== КОМПАКТНЫЙ ТЕМНЫЙ БЛОК КАТЕГОРИЙ В СТИЛЕ HERO ===== */\n\n/* Основная секция категорий */\n.categories-section"
+      ],
+      "count": 4
+    },
+    {
+      "content": "display: flex; align-items: center; gap: 12px;",
+      "selectors": [
+        ".featured-colors",
+        ".featured-price-info"
+      ],
+      "count": 2
+    },
+    {
+      "content": "padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;",
+      "selectors": [
+        ".featured-content",
+        ".order-main-info"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; flex-direction: column; gap: 4px;",
+      "selectors": [
+        ".featured-price",
+        ".order-number-section"
+      ],
+      "count": 2
+    },
+    {
+      "content": "transform: rotate(180deg);",
+      "selectors": [
+        ".featured-header-btn.collapsed .toggle-hint-icon",
+        ".details-toggle[aria-expanded=\"true\"] .toggle-icon",
+        "/* Состояние свернуто */\n.categories-toggle-btn.collapsed .toggle-arrow",
+        ".points-info-overlay-btn:hover svg"
+      ],
+      "count": 4
+    },
+    {
+      "content": "position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none;",
+      "selectors": [
+        ".featured-floating-logos",
+        ".hero-background",
+        ".hero-sparkles",
+        ".card-sparkles",
+        ".designers-sparkles, .models-sparkles, .bloggers-sparkles"
+      ],
+      "count": 5
+    },
+    {
+      "content": "display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem;",
+      "selectors": [
+        ".featured-title-compact",
+        ".title-with-star-icon"
+      ],
+      "count": 2
+    },
+    {
+      "content": "transition: transform 0.3s ease;",
+      "selectors": [
+        ".toggle-icon",
+        ".toggle-icon",
+        "/* Enhanced empty states */\n.text-center.py-5 .position-relative",
+        "/* Enhanced card headers */\n.card-header .position-relative",
+        ".btn-gradient-suggest svg",
+        ".cta-button svg"
+      ],
+      "count": 6
+    },
+    {
+      "content": "text-align: center; margin-bottom: 2rem;",
+      "selectors": [
+        ".success-message",
+        ".category-form-header"
+      ],
+      "count": 2
+    },
+    {
+      "content": "color: #e5e7eb; font-weight: 700; margin-bottom: 1rem;",
+      "selectors": [
+        ".success-message h3",
+        ".order-details h4",
+        ".auth-suggestion-content h4"
+      ],
+      "count": 3
+    },
+    {
+      "content": "border-color: #dc3545; box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);",
+      "selectors": [
+        "/* Стили для валидации форм */\n.form-control.is-invalid,\n.form-select.is-invalid",
+        ".form-control.is-invalid:focus,\n.form-select.is-invalid:focus"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; align-items: center; gap: 8px;",
+      "selectors": [
+        ".order-status-section",
+        ".status-form"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; align-items: center; gap: 6px; color: #9ca3af; font-size: 0.9rem;",
+      "selectors": [
+        ".contact-item",
+        ".delivery-item"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.3);",
+      "selectors": [
+        ".full-payment",
+        ".status-badge.approved"
+      ],
+      "count": 2
+    },
+    {
+      "content": "0%, 100% { opacity: 0.3; transform: translate(-50%, -50%) scale(1); } 50% { opacity: 0.6; transform: translate(-50%, -50%) scale(1.1); }",
+      "selectors": [
+        "@keyframes glowPulse",
+        "@keyframes toggleBtnGlowPulse"
+      ],
+      "count": 2
+    },
+    {
+      "content": "position: absolute; width: 100%; height: 100%;",
+      "selectors": [
+        ".hero-particles",
+        ".dark-particles"
+      ],
+      "count": 2
+    },
+    {
+      "content": "border-color: rgba(139,92,246,.45); box-shadow: 0 0 0 2px rgba(139,92,246,.25);",
+      "selectors": [
+        "/* Удалено - дублирующийся стиль */\n.color-swatch.active",
+        ".toggle-chip.active"
+      ],
+      "count": 2
+    },
+    {
+      "content": "transform: scale(.98);",
+      "selectors": [
+        ".color-swatch:active",
+        ".toggle-chip:active",
+        ".product-tab-button:active"
+      ],
+      "count": 3
+    },
+    {
+      "content": "opacity:0;transform:translatey(-6px) scale(.98);transition:opacity .22s ease,transform .22s ease",
+      "selectors": [
+        "/* Анимации мини‑кошика */\n#mini-cart-panel",
+        "/* Панель користувача — така ж анімація */\n#user-panel"
+      ],
+      "count": 2
+    },
+    {
+      "content": "max-width: 1200px; margin: 0 auto; padding: 1rem;",
+      "selectors": [
+        "/* ===== ПРОМОКОДЫ ===== */\n\n/* Секция промокодов */\n.promocodes-admin-section",
+        "/* ===== ЗАПРОПОНОВАНІ ПРИНТИ ===== */\n\n/* Секция запропонованих принтов */\n.print-proposals-admin-section"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; padding: 1.5rem; background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(99, 102, 241, 0.1)); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 16px; backdrop-filter: blur(10px);",
+      "selectors": [
+        "/* Заголовок секции */\n.promocodes-header",
+        ".promocode-form-header",
+        "/* Заголовок секции */\n.print-proposals-header"
+      ],
+      "count": 3
+    },
+    {
+      "content": "display: flex; align-items: center; font-size: 1.75rem; font-weight: 700; color: #fff; margin: 0 0 0.5rem 0;",
+      "selectors": [
+        ".promocodes-title",
+        ".form-title",
+        ".print-proposals-title"
+      ],
+      "count": 3
+    },
+    {
+      "content": "display: flex; gap: 1.5rem; margin-top: 0.5rem;",
+      "selectors": [
+        ".promocodes-stats",
+        ".print-proposals-stats"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: rgba(34, 197, 94, 0.1); border-color: rgba(34, 197, 94, 0.3); color: #4ade80;",
+      "selectors": [
+        ".stat-item.active",
+        ".action-btn.toggle.activate"
+      ],
+      "count": 2
+    },
+    {
+      "content": "color: rgba(255, 255, 255, 0.7);",
+      "selectors": [
+        ".stat-label",
+        ".usage-label"
+      ],
+      "count": 2
+    },
+    {
+      "content": "transform: translatey(-2px); box-shadow: 0 8px 24px rgba(139, 92, 246, 0.4); color: #fff;",
+      "selectors": [
+        ".promocode-create-btn:hover",
+        ".create-first-btn:hover"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;",
+      "selectors": [
+        ".promocode-header",
+        "/* Заголовок карточки */\n.print-proposal-header"
+      ],
+      "count": 2
+    },
+    {
+      "content": "font-size: 1.25rem; font-weight: 700; color: #10b981;",
+      "selectors": [
+        ".discount-value",
+        ".price-new"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; gap: 0.75rem; flex-wrap: wrap;",
+      "selectors": [
+        "/* Действия с промокодом */\n.promocode-actions",
+        ".promocode-actions",
+        ".offline-store-actions",
+        "/* Действия */\n.print-proposal-actions"
+      ],
+      "count": 4
+    },
+    {
+      "content": "background: rgba(255, 255, 255, 0.1); color: #fff;",
+      "selectors": [
+        ".back-btn:hover",
+        ".cancel-btn:hover"
+      ],
+      "count": 2
+    },
+    {
+      "content": "color: #f39c12;",
+      "selectors": [
+        ".points-icon",
+        ".points-icon-small"
+      ],
+      "count": 2
+    },
+    {
+      "content": "color: #e9ecef; font-weight: 600;",
+      "selectors": [
+        ".card-header h6",
+        ".form-label.fw-semibold"
+      ],
+      "count": 2
+    },
+    {
+      "content": "margin-right: 0.5rem !important; width: 16px !important; text-align: center !important; flex-shrink: 0 !important;",
+      "selectors": [
+        ".nav-pills .nav-link i",
+        ".nav-pills .nav-link i"
+      ],
+      "count": 2
+    },
+    {
+      "content": "flex: 1 !important; text-align: left !important;",
+      "selectors": [
+        ".nav-pills .nav-link span:not(.badge)",
+        ".nav-pills .nav-link span:not(.badge)"
+      ],
+      "count": 2
+    },
+    {
+      "content": "transition: all 0.3s ease;",
+      "selectors": [
+        "/* Enhanced hover effects */\n.card.h-100 .card-body",
+        ".points-info-overlay-btn svg"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 8px; padding: 1rem;",
+      "selectors": [
+        "/* Стили для модала с палитрой цветов */\n.color-type-selector",
+        "/* Стили для загрузки множественных изображений */\n.image-upload-area",
+        "/* Предварительный просмотр */\n.color-preview",
+        "/* Image upload section */\n.image-upload-section"
+      ],
+      "count": 4
+    },
+    {
+      "content": "background: rgba(255, 255, 255, 0.04); border-color: rgba(139, 92, 246, 0.2);",
+      "selectors": [
+        ".color-type-option:hover",
+        ".promo-option:hover"
+      ],
+      "count": 2
+    },
+    {
+      "content": "content: ''; position: absolute; top: 0; left: 0; width: 50%; height: 100%; background: var(--primary-color); border-radius: 50% 0 0 50%;",
+      "selectors": [
+        ".color-swatch .swatch[data-secondary]:not([data-secondary=\"\"])::after",
+        ".swatch[data-secondary]:not([data-secondary=\"\"])::after"
+      ],
+      "count": 2
+    },
+    {
+      "content": "content: ''; position: absolute; top: 0; right: 0; width: 50%; height: 100%; background: var(--secondary-color); border-radius: 0 50% 50% 0;",
+      "selectors": [
+        ".color-swatch .swatch[data-secondary]:not([data-secondary=\"\"])::before",
+        ".swatch[data-secondary]:not([data-secondary=\"\"])::before"
+      ],
+      "count": 2
+    },
+    {
+      "content": "padding-top: 1.625rem !important; padding-bottom: 0.625rem !important; background: rgba(255, 255, 255, 0.08) !important; border-color: #8b5cf6 !important; box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1) !important; outline: none !important;",
+      "selectors": [
+        ".form-floating > .form-control:focus,\n.form-floating > input.form-control:focus,\n.form-floating > textarea.form-control:focus,\n.form-floating > select.form-control:focus",
+        ".form-floating > .form-control:focus,\n.form-floating > input.form-control:focus,\n.form-floating > textarea.form-control:focus,\n.form-floating > select.form-control:focus"
+      ],
+      "count": 2
+    },
+    {
+      "content": "padding-top: 1.625rem !important; padding-bottom: 0.625rem !important;",
+      "selectors": [
+        ".form-floating > .form-control:not(:placeholder-shown),\n.form-floating > input.form-control:not(:placeholder-shown),\n.form-floating > textarea.form-control:not(:placeholder-shown),\n.form-floating > select.form-control:not(:placeholder-shown)",
+        ".form-floating > textarea.form-control:focus",
+        ".form-floating > textarea.form-control:not(:placeholder-shown)"
+      ],
+      "count": 3
+    },
+    {
+      "content": "opacity: 0.65 !important; transform: scale(0.85) translatey(-0.5rem) translatex(0.15rem) !important;",
+      "selectors": [
+        ".form-floating > .form-control:not(:placeholder-shown) ~ label,\n.form-floating > input.form-control:not(:placeholder-shown) ~ label,\n.form-floating > textarea.form-control:not(:placeholder-shown) ~ label,\n.form-floating > select.form-control:not(:placeholder-shown) ~ label",
+        ".form-floating > .form-control:focus ~ label,\n.form-floating > input.form-control:focus ~ label,\n.form-floating > textarea.form-control:focus ~ label,\n.form-floating > select.form-control:focus ~ label",
+        ".form-floating > textarea.form-control ~ label",
+        ".form-floating > input[type=\"file\"].form-control ~ label"
+      ],
+      "count": 4
+    },
+    {
+      "content": "0%, 100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.1); }",
+      "selectors": [
+        "/* Анимации для иконок */\n@keyframes pulse-glow",
+        "@keyframes favoriteGlow"
+      ],
+      "count": 2
+    },
+    {
+      "content": "position: relative; display: flex; flex-direction: column; align-items: center;",
+      "selectors": [
+        "/* Мобильные стили для корзины и профиля в нижнем меню */\n.cart-container-mobile",
+        "/* Мобильные стили для профиля */\n.user-profile-container-mobile"
+      ],
+      "count": 2
+    },
+    {
+      "content": "content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent); transition: left 0.5s ease;",
+      "selectors": [
+        "#user-panel-mobile .auth-btn::before",
+        ".feature-card::before",
+        ".contact-method::before",
+        ".location-card::before",
+        ".stat-card::before"
+      ],
+      "count": 5
+    },
+    {
+      "content": "background: none; border: none; padding: 0; cursor: pointer; position: relative; transition: all 0.3s ease; display: flex; flex-direction: column; align-items: center;",
+      "selectors": [
+        ".cart-btn-mobile",
+        ".user-avatar-btn-mobile"
+      ],
+      "count": 2
+    },
+    {
+      "content": "opacity: 1; transform: scale(1.1);",
+      "selectors": [
+        ".cart-icon-wrapper-mobile:hover .cart-glow-mobile",
+        ".bottom-nav-item.active .cart-glow-mobile,\n.bottom-nav-item.active .avatar-glow-mobile"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: inline;",
+      "selectors": [
+        "/* Текст кнопки каталога */\n.catalog-text",
+        "/* Иконка кнопки каталога */\n.catalog-icon"
+      ],
+      "count": 2
+    },
+    {
+      "content": "width: 150px; height: 150px; opacity: 0;",
+      "selectors": [
+        ".categories-toggle-btn:active .toggle-btn-ripple",
+        ".category-card-compact:active .card-ripple-dark"
+      ],
+      "count": 2
+    },
+    {
+      "content": "animation-delay: 0.1s;",
+      "selectors": [
+        ".category-card-compact:nth-child(1)",
+        ".category-btn:nth-child(1)"
+      ],
+      "count": 2
+    },
+    {
+      "content": "animation-delay: 0.2s;",
+      "selectors": [
+        ".category-card-compact:nth-child(3)",
+        ".category-btn:nth-child(2)",
+        ".title-line:first-child"
+      ],
+      "count": 3
+    },
+    {
+      "content": "animation-delay: 0.3s;",
+      "selectors": [
+        ".category-card-compact:nth-child(5)",
+        ".category-btn:nth-child(3)"
+      ],
+      "count": 2
+    },
+    {
+      "content": "animation-delay: 0.4s;",
+      "selectors": [
+        ".category-card-compact:nth-child(7)",
+        ".category-btn:nth-child(4)",
+        ".title-line:last-child"
+      ],
+      "count": 3
+    },
+    {
+      "content": "animation-delay: 0.8s;",
+      "selectors": [
+        ".category-btn:nth-child(8)",
+        ".feature-card:nth-child(1)"
+      ],
+      "count": 2
+    },
+    {
+      "content": "width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(147, 197, 253, 0.1)); border-radius: 50%; color: #3b82f6; transition: all 0.3s ease;",
+      "selectors": [
+        "/* ===== АВАТАР ДЛЯ ГОСТЕЙ ===== */\n.guest-avatar",
+        ".guest-avatar-mobile"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(147, 197, 253, 0.2)); transform: scale(1.05);",
+      "selectors": [
+        ".guest-avatar:hover",
+        ".guest-avatar-mobile:hover"
+      ],
+      "count": 2
+    },
+    {
+      "content": "width: 16px; height: 16px;",
+      "selectors": [
+        ".add-btn svg",
+        ".period-btn svg"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 20px; padding: 1.5rem; position: relative; overflow: hidden; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);",
+      "selectors": [
+        ".category-card",
+        ".product-card"
+      ],
+      "count": 2
+    },
+    {
+      "content": "transform: translatey(-5px); border-color: rgba(139, 92, 246, 0.3); box-shadow: 0 8px 25px rgba(139, 92, 246, 0.15);",
+      "selectors": [
+        ".category-card:hover",
+        ".product-card:hover"
+      ],
+      "count": 2
+    },
+    {
+      "content": "position: absolute; width: 2px; height: 2px; background: #8b5cf6; border-radius: 50%; animation: sparkle 2s infinite;",
+      "selectors": [
+        ".category-spark",
+        ".product-spark"
+      ],
+      "count": 2
+    },
+    {
+      "content": "top: 60%; right: 15%; animation-delay: 0.5s;",
+      "selectors": [
+        ".category-spark-2",
+        ".product-spark-2"
+      ],
+      "count": 2
+    },
+    {
+      "content": "bottom: 30%; left: 50%; animation-delay: 1s;",
+      "selectors": [
+        ".category-spark-3",
+        ".product-spark-3"
+      ],
+      "count": 2
+    },
+    {
+      "content": "0%, 100% { opacity: 0; transform: scale(0); } 50% { opacity: 1; transform: scale(1); }",
+      "selectors": [
+        "@keyframes sparkle",
+        "@keyframes sparkle"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 1.5rem;",
+      "selectors": [
+        "/* Products Grid */\n.products-grid",
+        ".print-proposals-grid"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: linear-gradient(135deg, #f59e0b, #d97706); color: white;",
+      "selectors": [
+        ".feature-badge.featured",
+        ".type-badge.percentage"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white;",
+      "selectors": [
+        ".feature-badge.points",
+        ".type-badge.fixed"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem;",
+      "selectors": [
+        ".product-stats",
+        ".promocode-stats",
+        ".offline-store-stats"
+      ],
+      "count": 3
+    },
+    {
+      "content": "background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%); border-radius: 16px; padding: 1.5rem; border: 1px solid rgba(255, 255, 255, 0.1); position: relative; overflow: hidden; transition: all 0.3s ease; backdrop-filter: blur(10px);",
+      "selectors": [
+        ".promocode-card",
+        ".offline-store-card"
+      ],
+      "count": 2
+    },
+    {
+      "content": "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;",
+      "selectors": [
+        ".promocode-header",
+        ".offline-store-header"
+      ],
+      "count": 2
+    },
+    {
+      "content": "padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;",
+      "selectors": [
+        ".promocode-status",
+        ".offline-store-status"
+      ],
+      "count": 2
+    },
+    {
+      "content": "background: linear-gradient(135deg, #6b7280, #4b5563); color: white;",
+      "selectors": [
+        ".promocode-status.inactive",
+        ".offline-store-status.inactive"
+      ],
+      "count": 2
+    },
+    {
+      "content": "text-align: center; background: rgba(255, 255, 255, 0.05); padding: 1rem; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1);",
+      "selectors": [
+        ".promocode-stat",
+        ".offline-store-stat"
+      ],
+      "count": 2
+    },
+    {
+      "content": "font-size: 0.75rem; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;",
+      "selectors": [
+        ".stat-label",
+        ".offline-store-stat .stat-label"
+      ],
+      "count": 2
+    },
+    {
+      "content": "outline: none; border-color: rgba(139, 92, 246, 0.5); background: rgba(255, 255, 255, 0.08); box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);",
+      "selectors": [
+        ".print-proposals-search-input:focus",
+        ".form-input:focus, .form-textarea:focus"
+      ],
+      "count": 2
+    },
+    {
+      "content": "flex-shrink: 0;",
+      "selectors": [
+        ".print-proposal-status",
+        ".telegram-confirm-btn svg,\n.telegram-status-btn svg",
+        ".telegram-notification-btn svg"
+      ],
+      "count": 3
+    },
+    {
+      "content": "font-size: 0.8rem; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;",
+      "selectors": [
+        ".link-label",
+        ".description-label"
+      ],
+      "count": 2
+    },
+    {
+      "content": "position: absolute; width: 4px; height: 4px; background: #8b5cf6; border-radius: 50%; animation: sparklefloat 3s ease-in-out infinite;",
+      "selectors": [
+        ".hero-sparkles .sparkle",
+        ".designers-sparkles .sparkle, .models-sparkles .sparkle, .bloggers-sparkles .sparkle"
+      ],
+      "count": 2
+    },
+    {
+      "content": "0% { opacity: 0; transform: translatey(20px); } 100% { opacity: 1; transform: translatey(0); }",
+      "selectors": [
+        "@keyframes subtitleFadeIn",
+        "@keyframes ctaFadeIn"
+      ],
+      "count": 2
+    },
+    {
+      "content": "text-align: center; margin-bottom: 3rem;",
+      "selectors": [
+        ".section-header",
+        ".locations-header",
+        ".form-header"
+      ],
+      "count": 3
+    },
+    {
+      "content": "font-size: 2.5rem; font-weight: 700; margin-bottom: 1rem; color: #ffffff;",
+      "selectors": [
+        ".section-title",
+        ".contact-title"
+      ],
+      "count": 2
+    },
+    {
+      "content": "top: 30%; right: 15%; animation-delay: 0.5s;",
+      "selectors": [
+        ".designers-sparkles .sparkle:nth-child(2)",
+        ".sparkle-2",
+        ".contacts-hero .sparkle-2"
+      ],
+      "count": 3
+    },
+    {
+      "content": "position: absolute; inset: 0; z-index: -1;",
+      "selectors": [
+        ".hero-background",
+        ".contacts-hero .hero-background"
+      ],
+      "count": 2
+    },
+    {
+      "content": "position: absolute; inset: 0; background: radial-gradient(circle at 30% 20%, rgba(139, 92, 246, 0.3) 0%, transparent 50%), radial-gradient(circle at 70% 80%, rgba(99, 102, 241, 0.2) 0%, transparent 50%);",
+      "selectors": [
+        ".hero-gradient",
+        ".contacts-hero .hero-gradient"
+      ],
+      "count": 2
+    },
+    {
+      "content": "position: absolute; inset: 0; background: url('../img/noise.png') repeat; opacity: 0.1;",
+      "selectors": [
+        ".hero-pattern",
+        ".contacts-hero .hero-pattern"
+      ],
+      "count": 2
+    },
+    {
+      "content": "position: absolute; inset: 0; pointer-events: none;",
+      "selectors": [
+        ".hero-sparkles",
+        ".story-sparkles, .mission-sparkles, .support-sparkles, .points-sparkles, .future-sparkles",
+        ".contacts-hero .hero-sparkles"
+      ],
+      "count": 3
+    },
+    {
+      "content": "position: absolute; width: 4px; height: 4px; background: linear-gradient(45deg, #8b5cf6, #6366f1); border-radius: 50%; animation: sparklefloat 3s ease-in-out infinite;",
+      "selectors": [
+        ".hero-sparkles .sparkle",
+        ".contacts-hero .hero-sparkles .sparkle"
+      ],
+      "count": 2
+    },
+    {
+      "content": "top: 60%; left: 20%; animation-delay: 1s;",
+      "selectors": [
+        ".sparkle-3",
+        ".contacts-hero .sparkle-3"
+      ],
+      "count": 2
+    },
+    {
+      "content": "top: 70%; right: 25%; animation-delay: 1.5s;",
+      "selectors": [
+        ".sparkle-4",
+        ".contacts-hero .sparkle-4"
+      ],
+      "count": 2
+    },
+    {
+      "content": "top: 40%; left: 5%; animation-delay: 2s;",
+      "selectors": [
+        ".sparkle-5",
+        ".contacts-hero .sparkle-5"
+      ],
+      "count": 2
+    },
+    {
+      "content": "top: 80%; right: 10%; animation-delay: 2.5s;",
+      "selectors": [
+        ".sparkle-6",
+        ".contacts-hero .sparkle-6"
+      ],
+      "count": 2
+    },
+    {
+      "content": "to { opacity: 1; transform: translatey(0); }",
+      "selectors": [
+        "@keyframes titleSlideIn",
+        "@keyframes cardSlideIn"
+      ],
+      "count": 2
+    },
+    {
+      "content": "transform: translatey(-5px); border-color: rgba(139, 92, 246, 0.3); box-shadow: 0 10px 30px rgba(139, 92, 246, 0.2);",
+      "selectors": [
+        ".feature-card:hover",
+        ".contact-method:hover",
+        ".location-card:hover"
+      ],
+      "count": 3
+    },
+    {
+      "content": "font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--tc-text);",
+      "selectors": [
+        ".feature-title",
+        ".method-title"
+      ],
+      "count": 2
+    },
+    {
+      "content": "color: rgba(232, 233, 236, 0.7); font-size: 0.9rem;",
+      "selectors": [
+        ".feature-desc",
+        ".value-desc, .feature-desc"
+      ],
+      "count": 2
+    },
+    {
+      "content": "width: 80px; height: 80px; margin: 0 auto 2rem; background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.1)); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #8b5cf6;",
+      "selectors": [
+        ".story-icon, .mission-icon, .support-icon, .points-icon, .future-icon",
+        ".contacts-hero .hero-icon"
+      ],
+      "count": 2
+    },
+    {
+      "content": "font-size: 2.5rem; font-weight: 700; margin-bottom: 1rem; background: linear-gradient(135deg, #8b5cf6, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;",
+      "selectors": [
+        ".cta-title",
+        ".locations-title",
+        ".form-title"
+      ],
+      "count": 3
+    },
+    {
+      "content": "transform: translatey(-2px); box-shadow: 0 10px 30px rgba(139, 92, 246, 0.3);",
+      "selectors": [
+        ".cta-button:hover",
+        ".submit-btn:hover"
+      ],
+      "count": 2
+    },
+    {
+      "content": "font-size: 1.1rem; color: rgba(232, 233, 236, 0.8);",
+      "selectors": [
+        ".locations-subtitle",
+        ".form-subtitle"
+      ],
+      "count": 2
+    },
+    {
+      "content": "outline: none; border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1); background: rgba(255, 255, 255, 0.08);",
+      "selectors": [
+        ".form-group input:focus,\n.form-group select:focus",
+        ".form-group textarea:focus"
+      ],
+      "count": 2
+    },
+    {
+      "content": "transform: translatey(-2px); box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4); background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white; text-decoration: none;",
+      "selectors": [
+        ".btn-create-category-new:hover",
+        ".btn-create-category-empty:hover"
+      ],
+      "count": 2
+    },
+    {
+      "content": "width: 20px; height: 20px;",
+      "selectors": [
+        ".btn-create-category-new svg",
+        ".btn-create-category-empty svg"
+      ],
+      "count": 2
+    }
+  ],
+  "specificity_issues": [
+    {
+      "selector": "/* PERF: soften global glassmorphism where expensive */\n.perf-lite .modal,.perf-lite .offcanvas,.perf-lite .bottom-nav,.perf-lite .navbar.bg-body,\n.perf-lite .hero.bg-hero,.perf-lite .card.glassy,.perf-lite .profile-card,.perf-lite .points-card,\n.perf-lite .cart-checkout-card,.perf-lite .cart-sidebar-card",
+      "specificity": 278,
+      "ids": 0,
+      "classes": 23,
+      "elements": 48
+    },
+    {
+      "selector": ".form-floating > .form-control:focus ~ label,\n.form-floating > .form-control:not(:placeholder-shown) ~ label,\n.form-floating > input.form-control:focus ~ label,\n.form-floating > input.form-control:not(:placeholder-shown) ~ label,\n.form-floating > textarea.form-control:focus ~ label,\n.form-floating > textarea.form-control:not(:placeholder-shown) ~ label,\n.form-floating > select.form-control:focus ~ label,\n.form-floating > select.form-control:not(:placeholder-shown) ~ label",
+      "specificity": 222,
+      "ids": 0,
+      "classes": 16,
+      "elements": 62
+    },
+    {
+      "selector": ".form-floating > .form-control:focus ~ label,\n.form-floating > .form-control:not(:placeholder-shown) ~ label,\n.form-floating > input.form-control:focus ~ label,\n.form-floating > input.form-control:not(:placeholder-shown) ~ label,\n.form-floating > textarea.form-control:focus ~ label,\n.form-floating > textarea.form-control:not(:placeholder-shown) ~ label,\n.form-floating > select.form-control:focus ~ label,\n.form-floating > select.form-control:not(:placeholder-shown) ~ label",
+      "specificity": 222,
+      "ids": 0,
+      "classes": 16,
+      "elements": 62
+    },
+    {
+      "selector": "/* Стили для мобильных панелей в base.html */\n#mini-cart-panel-mobile,\n#user-panel-mobile",
+      "specificity": 219,
+      "ids": 2,
+      "classes": 1,
+      "elements": 9
+    },
+    {
+      "selector": "#mini-cart-panel-mobile.show,\n#user-panel-mobile.show",
+      "specificity": 229,
+      "ids": 2,
+      "classes": 2,
+      "elements": 9
+    },
+    {
+      "selector": "#mini-cart-panel-mobile .cart-header,\n#user-panel-mobile .user-header",
+      "specificity": 231,
+      "ids": 2,
+      "classes": 2,
+      "elements": 11
+    },
+    {
+      "selector": "#mini-cart-panel-mobile .cart-content,\n#user-panel-mobile .user-menu",
+      "specificity": 231,
+      "ids": 2,
+      "classes": 2,
+      "elements": 11
+    },
+    {
+      "selector": "#mini-cart-panel-mobile,\n  #user-panel-mobile",
+      "specificity": 207,
+      "ids": 2,
+      "classes": 0,
+      "elements": 7
+    },
+    {
+      "selector": "#mini-cart-panel-mobile .cart-content,\n  #user-panel-mobile .user-menu",
+      "specificity": 231,
+      "ids": 2,
+      "classes": 2,
+      "elements": 11
+    },
+    {
+      "selector": "#mini-cart-panel-mobile,\n  #user-panel-mobile",
+      "specificity": 207,
+      "ids": 2,
+      "classes": 0,
+      "elements": 7
+    },
+    {
+      "selector": "#mini-cart-panel-mobile .cart-content,\n  #user-panel-mobile .user-menu",
+      "specificity": 231,
+      "ids": 2,
+      "classes": 2,
+      "elements": 11
+    },
+    {
+      "selector": "#mini-cart-panel-mobile .close-btn,\n#user-panel-mobile .close-btn",
+      "specificity": 231,
+      "ids": 2,
+      "classes": 2,
+      "elements": 11
+    },
+    {
+      "selector": "#mini-cart-panel-mobile .close-btn:hover,\n#user-panel-mobile .close-btn:hover",
+      "specificity": 233,
+      "ids": 2,
+      "classes": 2,
+      "elements": 13
+    },
+    {
+      "selector": "/* Специальные стили для мобильных панелей */\n#mini-cart-panel-mobile .cart-sparks-container,\n#user-panel-mobile .sparks-container",
+      "specificity": 232,
+      "ids": 2,
+      "classes": 2,
+      "elements": 12
+    },
+    {
+      "selector": "/* Мобильные панели используют общие стили десктопных панелей */\n#mini-cart-panel-mobile .cart-menu,\n#user-panel-mobile .user-menu",
+      "specificity": 231,
+      "ids": 2,
+      "classes": 2,
+      "elements": 11
+    },
+    {
+      "selector": "#mini-cart-panel-mobile .cart-menu-item,\n#user-panel-mobile .menu-item",
+      "specificity": 232,
+      "ids": 2,
+      "classes": 2,
+      "elements": 12
+    },
+    {
+      "selector": "#mini-cart-panel-mobile .cart-info,\n#user-panel-mobile .logout-section",
+      "specificity": 231,
+      "ids": 2,
+      "classes": 2,
+      "elements": 11
+    }
+  ]
+}

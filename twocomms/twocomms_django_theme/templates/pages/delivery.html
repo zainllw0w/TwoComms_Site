@@ -4,9 +4,22 @@
 {% block title %}Доставка і оплата - TwoComms{% endblock %}
 
 {% block content %}
+<!-- Анимация искр для всей страницы -->
+<div class="delivery-page-sparks">
+  <div class="delivery-page-spark delivery-page-spark-1"></div>
+  <div class="delivery-page-spark delivery-page-spark-2"></div>
+  <div class="delivery-page-spark delivery-page-spark-3"></div>
+  <div class="delivery-page-spark delivery-page-spark-4"></div>
+  <div class="delivery-page-spark delivery-page-spark-5"></div>
+  <div class="delivery-page-spark delivery-page-spark-6"></div>
+</div>
+
 <div class="delivery-page">
   <!-- Hero Section -->
   <section class="delivery-hero">
+    <div class="delivery-hero-background">
+      <div class="delivery-hero-pattern"></div>
+    </div>
     <div class="container">
       <div class="row align-items-center min-vh-50">
         <div class="col-lg-6">
@@ -18,16 +31,37 @@
             <p class="hero-subtitle">Швидка та надійна доставка по всій Україні та за кордон</p>
             <div class="hero-stats">
               <div class="stat-item">
-                <div class="stat-number">1-5</div>
-                <div class="stat-label">робочих днів</div>
+                <div class="stat-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-number">1-5</div>
+                  <div class="stat-label">робочих днів</div>
+                </div>
               </div>
               <div class="stat-item">
-                <div class="stat-number">24/7</div>
-                <div class="stat-label">відстеження</div>
+                <div class="stat-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  </svg>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-number">24/7</div>
+                  <div class="stat-label">відстеження</div>
+                </div>
               </div>
               <div class="stat-item">
-                <div class="stat-number">100%</div>
-                <div class="stat-label">безпека</div>
+                <div class="stat-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+                  </svg>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-number">100%</div>
+                  <div class="stat-label">безпека</div>
+                </div>
               </div>
             </div>
           </div>
@@ -37,11 +71,11 @@
             <div class="delivery-animation">
               <div class="truck-container">
                 <svg class="truck-icon" viewBox="0 0 100 60" fill="none">
-                  <rect x="10" y="25" width="50" height="20" rx="3" fill="#3b82f6"/>
-                  <rect x="60" y="30" width="25" height="15" rx="2" fill="#3b82f6"/>
-                  <circle cx="25" cy="50" r="8" fill="#1e40af"/>
-                  <circle cx="70" cy="50" r="8" fill="#1e40af"/>
-                  <rect x="15" y="20" width="40" height="8" rx="2" fill="#60a5fa"/>
+                  <rect x="10" y="25" width="50" height="20" rx="3" fill="var(--tc-primary)"/>
+                  <rect x="60" y="30" width="25" height="15" rx="2" fill="var(--tc-primary)"/>
+                  <circle cx="25" cy="50" r="8" fill="rgba(139, 92, 246, 0.8)"/>
+                  <circle cx="70" cy="50" r="8" fill="rgba(139, 92, 246, 0.8)"/>
+                  <rect x="15" y="20" width="40" height="8" rx="2" fill="rgba(139, 92, 246, 0.6)"/>
                 </svg>
               </div>
               <div class="package-container">
@@ -68,6 +102,10 @@
         <!-- Ukraine Delivery -->
         <div class="col-lg-6">
           <div class="delivery-card ukraine-delivery">
+            <div class="delivery-card-sparks">
+              <div class="delivery-card-spark delivery-card-spark-1"></div>
+              <div class="delivery-card-spark delivery-card-spark-2"></div>
+            </div>
             <div class="card-header">
               <div class="delivery-icon">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
@@ -111,6 +149,10 @@
         <!-- International Delivery -->
         <div class="col-lg-6">
           <div class="delivery-card international-delivery">
+            <div class="delivery-card-sparks">
+              <div class="delivery-card-spark delivery-card-spark-1"></div>
+              <div class="delivery-card-spark delivery-card-spark-2"></div>
+            </div>
             <div class="card-header">
               <div class="delivery-icon">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
@@ -154,48 +196,60 @@
       <div class="row g-4">
         <div class="col-md-6 col-lg-3">
           <div class="payment-card">
+            <div class="payment-card-sparks">
+              <div class="payment-card-spark payment-card-spark-1"></div>
+            </div>
             <div class="payment-icon">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
               </svg>
             </div>
-            <h4 class="payment-title">Оплата через сайт</h3>
+            <h4 class="payment-title">Оплата через сайт</h4>
             <p class="payment-desc">Безпечна оплата карткою онлайн</p>
           </div>
         </div>
         
         <div class="col-md-6 col-lg-3">
           <div class="payment-card">
+            <div class="payment-card-sparks">
+              <div class="payment-card-spark payment-card-spark-1"></div>
+            </div>
             <div class="payment-icon">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
               </svg>
             </div>
-            <h4 class="payment-title">Дзвінок менеджера</h3>
+            <h4 class="payment-title">Дзвінок менеджера</h4>
             <p class="payment-desc">Очікуйте дзвінка для підтвердження</p>
           </div>
         </div>
         
         <div class="col-md-6 col-lg-3">
           <div class="payment-card">
+            <div class="payment-card-sparks">
+              <div class="payment-card-spark payment-card-spark-1"></div>
+            </div>
             <div class="payment-icon">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
               </svg>
             </div>
-            <h4 class="payment-title">Накладений платіж</h3>
+            <h4 class="payment-title">Накладений платіж</h4>
             <p class="payment-desc">Оплата при отриманні товару</p>
           </div>
         </div>
         
         <div class="col-md-6 col-lg-3">
           <div class="payment-card">
+            <div class="payment-card-sparks">
+              <div class="payment-card-spark payment-card-spark-1"></div>
+            </div>
             <div class="payment-icon">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
               </svg>
             </div>
-            <h4 class="payment-title">Бали та промокоди</h3>
+            <h4 class="payment-title">Бали та промокоди</h4>
             <p class="payment-desc">Використовуйте накопичені бали</p>
           </div>
         </div>
@@ -306,6 +360,9 @@
       <div class="row g-4">
         <div class="col-lg-4">
           <div class="info-card">
+            <div class="info-card-sparks">
+              <div class="info-card-spark info-card-spark-1"></div>
+            </div>
             <div class="info-icon">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
@@ -319,6 +376,9 @@
         
         <div class="col-lg-4">
           <div class="info-card">
+            <div class="info-card-sparks">
+              <div class="info-card-spark info-card-spark-1"></div>
+            </div>
             <div class="info-icon">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
@@ -332,6 +392,9 @@
         
         <div class="col-lg-4">
           <div class="info-card">
+            <div class="info-card-sparks">
+              <div class="info-card-spark info-card-spark-1"></div>
+            </div>
             <div class="info-icon">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
@@ -348,15 +411,82 @@
 </div>
 
 <style>
-/* Delivery Page Styles */
+/* Delivery Page Styles - Integrated with site design */
 .delivery-page {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--tc-bg);
+  color: var(--tc-text);
   min-height: 100vh;
+  position: relative;
 }
 
+/* Page sparks animation */
+.delivery-page-sparks {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.delivery-page-spark {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: var(--tc-primary);
+  border-radius: 50%;
+  opacity: 0.6;
+  animation: sparkle 3s ease-in-out infinite;
+}
+
+.delivery-page-spark-1 { top: 20%; left: 10%; animation-delay: 0s; }
+.delivery-page-spark-2 { top: 60%; left: 80%; animation-delay: 0.5s; }
+.delivery-page-spark-3 { top: 30%; left: 70%; animation-delay: 1s; }
+.delivery-page-spark-4 { top: 80%; left: 20%; animation-delay: 1.5s; }
+.delivery-page-spark-5 { top: 40%; left: 50%; animation-delay: 2s; }
+.delivery-page-spark-6 { top: 70%; left: 90%; animation-delay: 2.5s; }
+
+@keyframes sparkle {
+  0%, 100% { opacity: 0; transform: scale(0); }
+  50% { opacity: 0.8; transform: scale(1); }
+}
+
+/* Hero Section */
 .delivery-hero {
   padding: 4rem 0;
-  color: white;
+  position: relative;
+  z-index: 2;
+}
+
+.delivery-hero-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: 
+    radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
+    linear-gradient(135deg, 
+      rgba(139, 92, 246, 0.1) 0%,
+      rgba(99, 102, 241, 0.08) 50%,
+      rgba(59, 130, 246, 0.06) 100%
+    );
+  border-radius: 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(8px) saturate(120%);
+}
+
+.delivery-hero-pattern {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: url('../img/vignette.png') center/cover no-repeat;
+  opacity: 0.3;
+  border-radius: 1.25rem;
 }
 
 .hero-title {
@@ -368,12 +498,12 @@
 
 .title-main {
   display: block;
-  color: white;
+  color: var(--tc-text);
 }
 
 .title-accent {
   display: block;
-  background: linear-gradient(45deg, #ffd700, #ffed4e);
+  background: linear-gradient(45deg, var(--tc-primary), rgba(139, 92, 246, 0.8));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -382,7 +512,8 @@
 .hero-subtitle {
   font-size: 1.25rem;
   margin-bottom: 2rem;
-  opacity: 0.9;
+  opacity: 0.8;
+  color: var(--tc-text);
 }
 
 .hero-stats {
@@ -392,18 +523,42 @@
 }
 
 .stat-item {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  backdrop-filter: blur(10px);
+}
+
+.stat-icon {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, var(--tc-primary), rgba(139, 92, 246, 0.8));
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.stat-content {
+  text-align: left;
 }
 
 .stat-number {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
-  color: #ffd700;
+  color: var(--tc-primary);
+  line-height: 1;
 }
 
 .stat-label {
   font-size: 0.875rem;
   opacity: 0.8;
+  color: var(--tc-text);
 }
 
 .hero-visual {
@@ -442,7 +597,7 @@
 .package {
   width: 30px;
   height: 30px;
-  background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
+  background: linear-gradient(45deg, var(--tc-primary), rgba(139, 92, 246, 0.8));
   border-radius: 4px;
   margin-bottom: 10px;
   animation: packageFloat 2s ease-in-out infinite;
@@ -450,12 +605,12 @@
 
 .package-2 {
   animation-delay: 0.5s;
-  background: linear-gradient(45deg, #4ecdc4, #6ee7e0);
+  background: linear-gradient(45deg, rgba(99, 102, 241, 0.8), rgba(99, 102, 241, 0.6));
 }
 
 .package-3 {
   animation-delay: 1s;
-  background: linear-gradient(45deg, #45b7d1, #6bc5d8);
+  background: linear-gradient(45deg, rgba(59, 130, 246, 0.8), rgba(59, 130, 246, 0.6));
 }
 
 @keyframes truckMove {
@@ -468,9 +623,12 @@
   50% { transform: translateY(-10px); }
 }
 
+/* Sections */
 .delivery-options, .payment-methods, .tracking-section, .additional-info {
   padding: 4rem 0;
-  background: white;
+  background: transparent;
+  position: relative;
+  z-index: 2;
 }
 
 .section-header {
@@ -482,29 +640,68 @@
   font-size: 2.5rem;
   font-weight: 700;
   margin-bottom: 1rem;
-  color: #1e293b;
+  color: var(--tc-text);
 }
 
 .section-subtitle {
   font-size: 1.125rem;
-  color: #64748b;
+  color: var(--tc-text);
+  opacity: 0.8;
   max-width: 600px;
   margin: 0 auto;
 }
 
-.delivery-card {
-  background: white;
-  border-radius: 1rem;
+/* Cards with glassmorphism */
+.delivery-card, .payment-card, .info-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.25rem;
   padding: 2rem;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-  border: 1px solid #e2e8f0;
+  backdrop-filter: blur(8px) saturate(120%);
   transition: all 0.3s ease;
   height: 100%;
+  position: relative;
+  overflow: hidden;
 }
 
-.delivery-card:hover {
+.delivery-card:hover, .payment-card:hover, .info-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+  border-color: rgba(139, 92, 246, 0.3);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+/* Card sparks */
+.delivery-card-sparks, .payment-card-sparks, .info-card-sparks {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.delivery-card-spark, .payment-card-spark, .info-card-spark {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: var(--tc-primary);
+  border-radius: 50%;
+  opacity: 0.6;
+  animation: cardSparkle 2s ease-in-out infinite;
+}
+
+.delivery-card-spark-1, .payment-card-spark-1, .info-card-spark-1 { 
+  top: 20%; left: 20%; animation-delay: 0s; 
+}
+
+.delivery-card-spark-2, .payment-card-spark-2, .info-card-spark-2 { 
+  top: 60%; left: 80%; animation-delay: 1s; 
+}
+
+@keyframes cardSparkle {
+  0%, 100% { opacity: 0; transform: scale(0); }
+  50% { opacity: 0.8; transform: scale(1); }
 }
 
 .card-header {
@@ -514,10 +711,10 @@
   margin-bottom: 1.5rem;
 }
 
-.delivery-icon {
+.delivery-icon, .payment-icon, .info-icon {
   width: 60px;
   height: 60px;
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  background: linear-gradient(135deg, var(--tc-primary), rgba(139, 92, 246, 0.8));
   border-radius: 1rem;
   display: flex;
   align-items: center;
@@ -525,10 +722,10 @@
   color: white;
 }
 
-.card-title {
+.card-title, .payment-title, .info-title {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--tc-text);
   margin: 0;
 }
 
@@ -537,26 +734,29 @@
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  background: #f8fafc;
-  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
   margin-bottom: 1.5rem;
 }
 
 .time-label {
   font-weight: 500;
-  color: #64748b;
+  color: var(--tc-text);
+  opacity: 0.8;
 }
 
 .time-value {
   font-weight: 600;
-  color: #3b82f6;
+  color: var(--tc-primary);
 }
 
 .method-item {
   margin-bottom: 1rem;
   padding: 1rem;
-  background: #f8fafc;
-  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
 }
 
 .method-header {
@@ -568,14 +768,14 @@
 
 .method-name {
   font-weight: 600;
-  color: #1e293b;
+  color: var(--tc-text);
 }
 
 .info-btn {
   width: 20px;
   height: 20px;
   border: none;
-  background: #3b82f6;
+  background: var(--tc-primary);
   color: white;
   border-radius: 50%;
   display: flex;
@@ -586,12 +786,13 @@
 }
 
 .info-btn:hover {
-  background: #1d4ed8;
+  background: rgba(139, 92, 246, 0.8);
   transform: scale(1.1);
 }
 
 .method-desc {
-  color: #64748b;
+  color: var(--tc-text);
+  opacity: 0.8;
   margin: 0;
   font-size: 0.875rem;
 }
@@ -599,53 +800,36 @@
 .delivery-note {
   margin-top: 1rem;
   padding: 1rem;
-  background: #fef3c7;
-  border-radius: 0.5rem;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 0.75rem;
   border-left: 4px solid #f59e0b;
 }
 
 .delivery-note p {
   margin: 0;
-  color: #92400e;
+  color: #fbbf24;
   font-size: 0.875rem;
 }
 
 .payment-card {
   text-align: center;
-  padding: 2rem;
-  background: white;
-  border-radius: 1rem;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-  transition: all 0.3s ease;
-  height: 100%;
-}
-
-.payment-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
 }
 
 .payment-icon {
   width: 80px;
   height: 80px;
-  background: linear-gradient(135deg, #10b981, #059669);
-  border-radius: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
   margin: 0 auto 1rem;
 }
 
 .payment-title {
   font-size: 1.25rem;
-  font-weight: 600;
-  color: #1e293b;
   margin-bottom: 0.5rem;
 }
 
 .payment-desc {
-  color: #64748b;
+  color: var(--tc-text);
+  opacity: 0.8;
   font-size: 0.875rem;
 }
 
@@ -667,7 +851,7 @@
 .feature-icon {
   width: 50px;
   height: 50px;
-  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  background: linear-gradient(135deg, var(--tc-primary), rgba(139, 92, 246, 0.8));
   border-radius: 0.75rem;
   display: flex;
   align-items: center;
@@ -679,12 +863,13 @@
 .feature-content h4 {
   font-size: 1.125rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--tc-text);
   margin-bottom: 0.25rem;
 }
 
 .feature-content p {
-  color: #64748b;
+  color: var(--tc-text);
+  opacity: 0.8;
   margin: 0;
   font-size: 0.875rem;
 }
@@ -698,18 +883,22 @@
 .phone-mockup {
   width: 280px;
   height: 500px;
-  background: #1e293b;
+  background: var(--tc-elevate);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 2rem;
   padding: 1rem;
   box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+  backdrop-filter: blur(10px);
 }
 
 .phone-screen {
   width: 100%;
   height: 100%;
-  background: white;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 1.5rem;
   overflow: hidden;
+  backdrop-filter: blur(8px);
 }
 
 .tracking-interface {
@@ -721,19 +910,20 @@
   text-align: center;
   margin-bottom: 2rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .tracking-header h3 {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--tc-text);
   margin-bottom: 0.5rem;
 }
 
 .tracking-number {
   font-size: 0.875rem;
-  color: #64748b;
+  color: var(--tc-text);
+  opacity: 0.8;
   font-family: monospace;
 }
 
@@ -748,18 +938,20 @@
   align-items: center;
   gap: 1rem;
   padding: 1rem;
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
   transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .step.completed {
-  background: #f0fdf4;
-  border-left: 4px solid #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.3);
 }
 
 .step.active {
-  background: #eff6ff;
-  border-left: 4px solid #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .step-icon {
@@ -784,8 +976,9 @@
 }
 
 .step:not(.completed):not(.active) .step-icon {
-  background: #e2e8f0;
-  color: #64748b;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--tc-text);
+  opacity: 0.6;
 }
 
 .step-content {
@@ -794,64 +987,47 @@
 
 .step-title {
   font-weight: 600;
-  color: #1e293b;
+  color: var(--tc-text);
   margin-bottom: 0.25rem;
 }
 
 .step-time {
   font-size: 0.875rem;
-  color: #64748b;
+  color: var(--tc-text);
+  opacity: 0.8;
 }
 
 .info-card {
   text-align: center;
-  padding: 2rem;
-  background: white;
-  border-radius: 1rem;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-  transition: all 0.3s ease;
-  height: 100%;
-}
-
-.info-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
 }
 
 .info-icon {
   width: 80px;
   height: 80px;
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  border-radius: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
   margin: 0 auto 1.5rem;
 }
 
 .info-title {
   font-size: 1.25rem;
-  font-weight: 600;
-  color: #1e293b;
   margin-bottom: 1rem;
 }
 
 .info-desc {
-  color: #64748b;
+  color: var(--tc-text);
+  opacity: 0.8;
   margin-bottom: 1.5rem;
   line-height: 1.6;
 }
 
 .info-link {
-  color: #3b82f6;
+  color: var(--tc-primary);
   text-decoration: none;
   font-weight: 500;
   transition: color 0.3s ease;
 }
 
 .info-link:hover {
-  color: #1d4ed8;
+  color: rgba(139, 92, 246, 0.8);
 }
 
 /* Responsive */
