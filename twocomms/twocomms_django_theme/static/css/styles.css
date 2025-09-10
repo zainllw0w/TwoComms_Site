@@ -8410,6 +8410,121 @@ body::after {
   50% { transform: scale(1.1); }
 }
 
+/* Стили для иконки избранного */
+.favorites-container {
+  margin-left: 0.5rem;
+}
+
+.favorites-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  position: relative;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.3s ease;
+}
+
+.favorites-btn:hover {
+  transform: scale(1.05);
+  text-decoration: none;
+  color: inherit;
+}
+
+.favorites-icon-wrapper {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: visible;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(15, 17, 22, 0.95), rgba(5, 7, 12, 0.9));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.favorites-icon-wrapper:hover {
+  border-color: rgba(239, 68, 68, 0.6);
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.2));
+}
+
+.favorites-icon {
+  width: 20px;
+  height: 20px;
+  color: #ef4444;
+  transition: all 0.3s ease;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.favorites-icon-wrapper:hover .favorites-icon {
+  color: #fca5a5;
+  transform: scale(1.1);
+}
+
+.favorites-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.3) 0%, transparent 70%);
+  opacity: 0;
+  transition: all 0.3s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.favorites-icon-wrapper:hover .favorites-glow {
+  opacity: 1;
+  animation: favoritesPulse 2s ease-in-out infinite;
+}
+
+@keyframes favoritesPulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.3; }
+  50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.6; }
+}
+
+.favorites-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  border: 2px solid #1a1a1a;
+  animation: favoritesBadgePulse 0.6s ease-out;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+  line-height: 1;
+  z-index: 10;
+  transition: all 0.3s ease;
+}
+
+@keyframes favoritesBadgePulse {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.favorites-icon-wrapper:hover .favorites-badge {
+  transform: scale(1.1);
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.6);
+}
+
 /* Панель корзины */
 .cart-panel {
   position: absolute;
