@@ -276,15 +276,8 @@ class SEOMetaGenerator:
         """Генерирует все мета-теги для товара"""
         keywords = SEOKeywordGenerator.generate_product_keywords(product)
         description = SEOKeywordGenerator.generate_meta_description(product)
-        # Пробуем заменить описание AI-генерируемым текстом, если опция включена
-        try:
-            from django.conf import settings
-            if getattr(settings, 'USE_AI_DESCRIPTIONS', False):
-                ai_desc = SEOContentOptimizer.generate_ai_product_description(product)
-                if ai_desc:
-                    description = ai_desc[:160]
-        except Exception:
-            pass
+        # AI-описание уже должно быть сохранено в базе данных
+        # Эта функция вызывается при каждом запросе, поэтому не генерируем AI контент здесь
         
         return {
             'title': SEOKeywordGenerator.generate_meta_title(product),
