@@ -220,17 +220,12 @@ def home(request):
         # Для списку новинок — підготуємо мапу
         prod_ids = [p.id for p in products]
         if prod_ids:
-            vlist = ProductColorVariant.objects.select_related('color').prefetch_related('images').filter(product_id__in=prod_ids).order_by('product_id','order','id')
+            vlist = ProductColorVariant.objects.select_related('color').filter(product_id__in=prod_ids).order_by('product_id','order','id')
             colors_map = {}
             for v in vlist:
-                # Получаем первое изображение для каждого цветового варианта
-                first_image = v.images.first()
                 colors_map.setdefault(v.product_id, []).append({
-                    'id': v.id,
                     'primary_hex': v.color.primary_hex,
                     'secondary_hex': v.color.secondary_hex or '',
-                    'is_default': v.is_default,
-                    'image_url': first_image.image.url if first_image else None,
                 })
             for p in products:
                 setattr(p, 'colors_preview', colors_map.get(p.id, []))
@@ -276,17 +271,12 @@ def load_more_products(request):
             from productcolors.models import ProductColorVariant
             prod_ids = [p.id for p in products]
             if prod_ids:
-                vlist = ProductColorVariant.objects.select_related('color').prefetch_related('images').filter(product_id__in=prod_ids).order_by('product_id','order','id')
+                vlist = ProductColorVariant.objects.select_related('color').filter(product_id__in=prod_ids).order_by('product_id','order','id')
                 colors_map = {}
                 for v in vlist:
-                    # Получаем первое изображение для каждого цветового варианта
-                    first_image = v.images.first()
                     colors_map.setdefault(v.product_id, []).append({
-                        'id': v.id,
                         'primary_hex': v.color.primary_hex,
                         'secondary_hex': v.color.secondary_hex or '',
-                        'is_default': v.is_default,
-                        'image_url': first_image.image.url if first_image else None,
                     })
                 for p in products:
                     setattr(p, 'colors_preview', colors_map.get(p.id, []))
@@ -3714,3 +3704,66 @@ def admin_order_delete(request, pk: int):
 def delivery_view(request):
     """Страница доставки и оплаты"""
     return render(request, 'pages/delivery.html')
+
+
+@require_POST
+def get_product_color_image(request, product_id):
+    """API для получения изображения товара по выбранному цвету"""
+    try:
+        import json
+        data = json.loads(request.body)
+        primary_color = data.get('primary_color')
+        secondary_color = data.get('secondary_color', '')
+        
+        # Импортируем модели цветов
+        try:
+            from productcolors.models import Color, ProductColorVariant, ProductColorImage
+        except ImportError:
+            return JsonResponse({'success': False, 'error': 'Color module not available'})
+        
+        # Находим продукт
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Product not found'})
+        
+        # Находим нужный цвет
+        try:
+            if secondary_color:
+                color = Color.objects.get(
+                    primary_hex=primary_color,
+                    secondary_hex=secondary_color
+                )
+            else:
+                color = Color.objects.get(
+                    primary_hex=primary_color,
+                    secondary_hex__isnull=True
+                )
+        except Color.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Color not found'})
+        
+        # Находим вариант цвета для этого товара
+        try:
+            variant = ProductColorVariant.objects.get(
+                product=product,
+                color=color
+            )
+        except ProductColorVariant.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Color variant not found'})
+        
+        # Находим первое изображение для этого варианта
+        image = ProductColorImage.objects.filter(variant=variant).first()
+        
+        if image and image.image:
+            return JsonResponse({
+                'success': True,
+                'image_url': image.image.url,
+                'color_name': color.name or f"{primary_color}+{secondary_color}" if secondary_color else primary_color
+            })
+        else:
+            return JsonResponse({'success': False, 'error': 'No image found for this color'})
+            
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})

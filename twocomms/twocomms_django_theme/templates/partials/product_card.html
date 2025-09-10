@@ -8,8 +8,35 @@
       <img src="{% if p.display_image %}{{ p.display_image.url }}{% else %}{{ ph_url }}{% endif %}"
            alt="{{ p.title }}"
            width="600" height="600"
-           class="w-100 h-100 object-fit-cover"
+           class="w-100 h-100 object-fit-cover product-main-image"
+           data-product-id="{{ p.id }}"
            loading="{% if forloop.first %}eager{% else %}lazy{% endif %}">
+      
+      <!-- Переключатель цветов -->
+      {% if p.colors_preview|length > 1 %}
+      <div class="color-switcher">
+        <div class="color-switcher-inner">
+          {% for color in p.colors_preview %}
+          <button type="button" 
+                  class="color-switch-btn {% if forloop.first %}active{% endif %}" 
+                  data-product-id="{{ p.id }}"
+                  data-primary-color="{{ color.primary_hex }}"
+                  data-secondary-color="{{ color.secondary_hex }}"
+                  onclick="event.stopPropagation(); switchProductColor(this);"
+                  aria-label="Переключити на колір {{ color.primary_hex }}">
+            <div class="swatch" 
+                 style="background-color: {{ color.primary_hex }};"
+                 data-secondary="{{ color.secondary_hex }}">
+              {% if color.secondary_hex %}
+              <div class="swatch-secondary" style="background-color: {{ color.secondary_hex }};"></div>
+              {% endif %}
+            </div>
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      
       <!-- Кнопка избранного -->
       <button type="button" class="favorite-btn" data-product-id="{{ p.id }}" onclick="event.stopPropagation(); toggleFavorite(this.getAttribute('data-product-id'), this);" aria-label="Додати до обраних">
         <div class="favorite-btn-icon">
@@ -39,28 +66,6 @@
           <span class="badge text-bg-danger discount-badge placeholder-element">-0%</span>
         {% endif %}
       </div>
-      
-      <!-- Цветовые варианты -->
-      {% if p.colors_preview %}
-      <div class="color-switcher mt-2">
-        <div class="d-flex gap-1 justify-content-center">
-          {% for color in p.colors_preview %}
-            <button type="button" 
-                    class="color-switch-btn{% if forloop.first %} active{% endif %}"
-                    data-primary="{{ color.primary_hex }}"
-                    data-secondary="{{ color.secondary_hex }}"
-                    data-product-id="{{ p.id }}"
-                    onclick="event.stopPropagation(); switchProductColor(this, '{{ p.id }}');"
-                    aria-label="Переключить на цвет {{ color.primary_hex }}"
-                    style="--primary-color: {{ color.primary_hex }}; --secondary-color: {{ color.secondary_hex|default:color.primary_hex }};">
-              <span class="swatch" 
-                    data-primary="{{ color.primary_hex }}" 
-                    data-secondary="{{ color.secondary_hex }}"></span>
-            </button>
-          {% endfor %}
-        </div>
-      </div>
-      {% endif %}
       
       <!-- Баллы за покупку с кнопкой информации -->
       <div class="points-reward-card mt-auto position-relative">
