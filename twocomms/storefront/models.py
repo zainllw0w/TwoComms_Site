@@ -59,6 +59,7 @@ class Product(models.Model):
     featured=models.BooleanField(default=False)
     description=models.TextField(blank=True)
     main_image=models.ImageField(upload_to='products/', blank=True, null=True)
+    main_image_alt=models.CharField(max_length=200, blank=True, null=True, verbose_name='Alt-текст головного зображення')
     points_reward=models.PositiveIntegerField(default=0, verbose_name='Бали за покупку')
     # AI-generated content fields
     ai_keywords=models.TextField(blank=True, null=True, verbose_name='AI-ключові слова')
@@ -95,6 +96,7 @@ class Product(models.Model):
 class ProductImage(models.Model):
     product=models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
     image=models.ImageField(upload_to='products/extra/')
+    alt_text=models.CharField(max_length=200, blank=True, null=True, verbose_name='Alt-текст зображення')
     def __str__(self): return f'Image for {self.product_id}'
 
 class PromoCode(models.Model):
