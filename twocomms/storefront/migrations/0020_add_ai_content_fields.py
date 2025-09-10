@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('storefront', '0014_auto_20241218_1445'),  # Update this to the latest migration
+        ('storefront', '0019_sitesession_pageview'),  # Latest migration
     ]
 
     operations = [
