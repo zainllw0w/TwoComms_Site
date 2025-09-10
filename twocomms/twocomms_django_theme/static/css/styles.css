@@ -15015,14 +15015,22 @@ input[type="file"].form-control:hover {
 /* Анимация при наведении на иконки */
 .bottom-nav-icon svg {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  padding: 0;
 }
 
 .bottom-nav-item:hover .bottom-nav-icon svg {
   filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.6));
+  transform: translate(-50%, -50%) scale(1.1);
 }
 
 .bottom-nav-item.active .bottom-nav-icon svg {
   filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.8));
+  transform: translate(-50%, -50%) scale(1.1);
 }
 
 /* Эффект нажатия */
@@ -15599,6 +15607,7 @@ input[type="file"].form-control:hover {
 a[href*="favorites"] .bottom-nav-icon.has-items svg {
   animation: heartBeat 2s ease-in-out infinite;
   filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  transform: translate(-50%, -50%) scale(1);
 }
 
 a[href*="favorites"] .bottom-nav-icon.has-items::before {
