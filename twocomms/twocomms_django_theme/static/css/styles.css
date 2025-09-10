@@ -15565,7 +15565,7 @@ input[type="file"].form-control:hover {
   min-width: 16px;
   height: 16px;
   border-radius: 8px;
-  display: flex; /* Всегда виден */
+  display: none; /* Скрыт по умолчанию */
   align-items: center;
   justify-content: center;
   padding: 0 3px;
@@ -15574,6 +15574,27 @@ input[type="file"].form-control:hover {
   line-height: 1;
   z-index: 10;
   transition: all 0.3s ease;
+}
+
+/* Анимация и свечение для мобильного сердечка */
+.bottom-nav-icon.has-items svg {
+  animation: heartBeat 2s ease-in-out infinite;
+  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.bottom-nav-icon.has-items::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.4) 0%, transparent 70%);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: favoritesConstantGlow 3s ease-in-out infinite;
+  pointer-events: none;
+  z-index: -1;
 }
 
 .user-avatar-btn-mobile {
