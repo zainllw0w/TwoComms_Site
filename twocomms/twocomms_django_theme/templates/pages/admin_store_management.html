@@ -1,0 +1,1151 @@
+{% extends "base.html" %}
+{% load static %}
+{% load math_filters %}
+
+{% block title %}Управление магазином: {{ store.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.store-management-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+}
+
+.store-header {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 30px;
+    margin-bottom: 30px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+.store-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #2d3748;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.store-subtitle {
+    color: #718096;
+    font-size: 1.1rem;
+    margin-bottom: 20px;
+}
+
+.store-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 15px;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+.management-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 30px;
+    margin-bottom: 30px;
+}
+
+.management-column {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 25px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    min-height: 600px;
+}
+
+.column-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.column-title {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #2d3748;
+}
+
+.column-icon {
+    width: 24px;
+    height: 24px;
+    color: #667eea;
+}
+
+.category-filter {
+    margin-bottom: 20px;
+}
+
+.filter-select {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    background: white;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.product-card {
+    background: white;
+    border-radius: 15px;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+    cursor: grab;
+    border: 2px solid transparent;
+}
+
+.product-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    border-color: #667eea;
+}
+
+.product-card.dragging {
+    opacity: 0.5;
+    transform: rotate(5deg);
+}
+
+.product-image {
+    width: 60px;
+    height: 60px;
+    border-radius: 10px;
+    object-fit: cover;
+    margin-bottom: 10px;
+}
+
+.product-title {
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 5px;
+    font-size: 0.9rem;
+}
+
+.product-category {
+    color: #718096;
+    font-size: 0.8rem;
+    margin-bottom: 8px;
+}
+
+.product-price {
+    color: #667eea;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.order-form {
+    background: #f7fafc;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 15px;
+    border: 2px dashed #cbd5e0;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-label {
+    display: block;
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 5px;
+    font-size: 0.9rem;
+}
+
+.form-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    background: white;
+    transition: all 0.3s ease;
+}
+
+.form-select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.add-to-order-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.add-to-order-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+}
+
+.add-to-order-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.order-item {
+    background: white;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 10px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+    border-left: 4px solid #667eea;
+}
+
+.order-item-header {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.order-item-title {
+    font-weight: 600;
+    color: #2d3748;
+    flex: 1;
+}
+
+.remove-item-btn {
+    background: #e53e3e;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.3s ease;
+}
+
+.remove-item-btn:hover {
+    background: #c53030;
+}
+
+.order-item-details {
+    font-size: 0.9rem;
+    color: #718096;
+    margin-bottom: 5px;
+}
+
+.order-item-price {
+    font-weight: 600;
+    color: #667eea;
+}
+
+.order-actions {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+}
+
+.action-btn {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.add-to-store-btn {
+    background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+    color: white;
+}
+
+.add-to-store-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(72, 187, 120, 0.3);
+}
+
+.generate-invoice-btn {
+    background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+    color: white;
+}
+
+.generate-invoice-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(237, 137, 54, 0.3);
+}
+
+.store-product {
+    background: white;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 10px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+    border-left: 4px solid #48bb78;
+}
+
+.store-product-header {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.store-product-title {
+    font-weight: 600;
+    color: #2d3748;
+    flex: 1;
+}
+
+.edit-product-btn {
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    margin-right: 5px;
+    transition: all 0.3s ease;
+}
+
+.edit-product-btn:hover {
+    background: #5a67d8;
+}
+
+.remove-product-btn {
+    background: #e53e3e;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.3s ease;
+}
+
+.remove-product-btn:hover {
+    background: #c53030;
+}
+
+.store-product-details {
+    font-size: 0.9rem;
+    color: #718096;
+    margin-bottom: 5px;
+}
+
+.store-product-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 8px;
+    background: #f7fafc;
+    border-radius: 5px;
+}
+
+.stat-item-value {
+    font-weight: 600;
+    color: #2d3748;
+    font-size: 0.9rem;
+}
+
+.stat-item-label {
+    font-size: 0.7rem;
+    color: #718096;
+}
+
+.category-stats {
+    background: #f7fafc;
+    border-radius: 10px;
+    padding: 15px;
+    margin-top: 20px;
+}
+
+.category-stats-title {
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 10px;
+}
+
+.category-stat-item {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.category-stat-item:last-child {
+    border-bottom: none;
+}
+
+.category-stat-name {
+    font-weight: 500;
+    color: #2d3748;
+}
+
+.category-stat-value {
+    font-weight: 600;
+    color: #667eea;
+}
+
+.drop-zone {
+    min-height: 200px;
+    border: 2px dashed #cbd5e0;
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    color: #718096;
+    transition: all 0.3s ease;
+}
+
+.drop-zone.drag-over {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.05);
+    color: #667eea;
+}
+
+.drop-zone-text {
+    font-size: 1.1rem;
+    margin-bottom: 10px;
+}
+
+.drop-zone-subtext {
+    font-size: 0.9rem;
+    opacity: 0.7;
+}
+
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 15px 20px;
+    border-radius: 10px;
+    color: white;
+    font-weight: 600;
+    z-index: 1000;
+    transform: translateX(400px);
+    transition: transform 0.3s ease;
+}
+
+.notification.show {
+    transform: translateX(0);
+}
+
+.notification.success {
+    background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+}
+
+.notification.error {
+    background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+}
+
+@media (max-width: 1200px) {
+    .management-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .management-column {
+        min-height: auto;
+    }
+}
+
+@media (max-width: 768px) {
+    .store-management-container {
+        padding: 10px;
+    }
+    
+    .store-header {
+        padding: 20px;
+    }
+    
+    .store-title {
+        font-size: 2rem;
+    }
+    
+    .management-column {
+        padding: 15px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="store-management-container">
+    <!-- Заголовок магазина -->
+    <div class="store-header">
+        <div class="store-title">
+            <svg class="column-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            {{ store.name }}
+        </div>
+        <div class="store-subtitle">{{ store.address }}</div>
+        
+        <!-- Статистика магазина -->
+        <div class="store-stats">
+            <div class="stat-card">
+                <div class="stat-value">{{ store_stats.total_products }}</div>
+                <div class="stat-label">Товарів в магазині</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ store_stats.total_cost|floatformat:0 }} грн</div>
+                <div class="stat-label">Собівартість</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ store_stats.total_selling_price|floatformat:0 }} грн</div>
+                <div class="stat-label">Ціна продажу</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ store_stats.total_margin|floatformat:0 }} грн</div>
+                <div class="stat-label">Маржа</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Основная сетка управления -->
+    <div class="management-grid">
+        <!-- Колонка 1: Все товары -->
+        <div class="management-column">
+            <div class="column-header">
+                <svg class="column-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                <h3 class="column-title">Всі товари</h3>
+            </div>
+            
+            <!-- Фильтр по категориям -->
+            <div class="category-filter">
+                <select class="filter-select" id="categoryFilter">
+                    <option value="">Всі категорії</option>
+                    {% for category in categories %}
+                        <option value="{{ category.id }}">{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Список товаров -->
+            <div id="productsList">
+                {% for product in products %}
+                    <div class="product-card" 
+                         data-product-id="{{ product.id }}" 
+                         data-category-id="{{ product.category.id }}"
+                         draggable="true">
+                        {% if product.display_image %}
+                            <img src="{{ product.display_image.url }}" alt="{{ product.title }}" class="product-image">
+                        {% else %}
+                            <div class="product-image" style="background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #718096;">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                                </svg>
+                            </div>
+                        {% endif %}
+                        <div class="product-title">{{ product.title }}</div>
+                        <div class="product-category">{{ product.category.name }}</div>
+                        <div class="product-price">{{ product.final_price }} грн</div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Колонка 2: Формирование заказа -->
+        <div class="management-column">
+            <div class="column-header">
+                <svg class="column-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+                <h3 class="column-title">Формування замовлення</h3>
+            </div>
+            
+            <!-- Форма добавления товара -->
+            <div class="order-form" id="orderForm" style="display: none;">
+                <div class="form-group">
+                    <label class="form-label">Розмір</label>
+                    <select class="form-select" id="productSize">
+                        <option value="">Без розміру</option>
+                        <option value="XS">XS</option>
+                        <option value="S">S</option>
+                        <option value="M">M</option>
+                        <option value="L">L</option>
+                        <option value="XL">XL</option>
+                        <option value="XXL">XXL</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Колір</label>
+                    <select class="form-select" id="productColor">
+                        <option value="">Без кольору</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Собівартість (грн)</label>
+                    <input type="number" class="form-input" id="costPrice" min="0" step="1">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Ціна продажу (грн)</label>
+                    <input type="number" class="form-input" id="sellingPrice" min="0" step="1">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Кількість</label>
+                    <input type="number" class="form-input" id="quantity" min="1" value="1">
+                </div>
+                
+                <button class="add-to-order-btn" id="addToOrderBtn">Додати в замовлення</button>
+            </div>
+            
+            <!-- Зона для перетаскивания -->
+            <div class="drop-zone" id="orderDropZone">
+                <div class="drop-zone-text">Перетягніть товар сюди</div>
+                <div class="drop-zone-subtext">або виберіть товар зі списку</div>
+            </div>
+            
+            <!-- Список товаров в заказе -->
+            <div id="orderItems">
+                {% for order in active_orders %}
+                    {% for item in order.order_items.all %}
+                        <div class="order-item" data-item-id="{{ item.id }}">
+                            <div class="order-item-header">
+                                <div class="order-item-title">{{ item.product.title }}</div>
+                                <button class="remove-item-btn" onclick="removeOrderItem({{ item.id }})">×</button>
+                            </div>
+                            <div class="order-item-details">
+                                {% if item.size %}({{ item.size }}){% endif %}
+                                {% if item.color %}[{{ item.color }}]{% endif %}
+                                - {{ item.quantity }} шт.
+                            </div>
+                            <div class="order-item-price">{{ item.selling_price }} грн</div>
+                        </div>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+            
+            <!-- Кнопки действий -->
+            <div class="order-actions">
+                <button class="action-btn add-to-store-btn" id="addToStoreBtn" onclick="addToStore()">
+                    Додати в магазин
+                </button>
+                <button class="action-btn generate-invoice-btn" id="generateInvoiceBtn" onclick="generateInvoice()">
+                    Сформувати накладну
+                </button>
+            </div>
+        </div>
+
+        <!-- Колонка 3: Товары в магазине -->
+        <div class="management-column">
+            <div class="column-header">
+                <svg class="column-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                <h3 class="column-title">Товари в магазині</h3>
+            </div>
+            
+            <!-- Список товаров в магазине -->
+            <div id="storeProducts">
+                {% for store_product in store_products %}
+                    <div class="store-product" data-product-id="{{ store_product.id }}">
+                        <div class="store-product-header">
+                            <div class="store-product-title">{{ store_product.product.title }}</div>
+                            <button class="edit-product-btn" onclick="editStoreProduct({{ store_product.id }})">✏️</button>
+                            <button class="remove-product-btn" onclick="removeStoreProduct({{ store_product.id }})">×</button>
+                        </div>
+                        <div class="store-product-details">
+                            {% if store_product.size %}({{ store_product.size }}){% endif %}
+                            {% if store_product.color %}[{{ store_product.color }}]{% endif %}
+                            - {{ store_product.quantity }} шт.
+                        </div>
+                        <div class="store-product-stats">
+                            <div class="stat-item">
+                                <div class="stat-item-value">{{ store_product.cost_price }} грн</div>
+                                <div class="stat-item-label">Собівартість</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-item-value">{{ store_product.selling_price }} грн</div>
+                                <div class="stat-item-label">Ціна продажу</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-item-value">{{ store_product.margin }} грн</div>
+                                <div class="stat-item-label">Маржа</div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Статистика по категориям -->
+            {% if category_stats %}
+                <div class="category-stats">
+                    <div class="category-stats-title">Статистика по категоріях</div>
+                    {% for category, stats in category_stats.items %}
+                        <div class="category-stat-item">
+                            <span class="category-stat-name">{{ category }}</span>
+                            <span class="category-stat-value">{{ stats.count }} шт. - {{ stats.total_selling_price|floatformat:0 }} грн</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Уведомления -->
+<div id="notification" class="notification"></div>
+
+<!-- Модальное окно для редактирования товара -->
+<div id="editProductModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 15px; min-width: 400px;">
+        <h3 style="margin-bottom: 20px;">Редагувати товар</h3>
+        <div class="form-group">
+            <label class="form-label">Собівартість (грн)</label>
+            <input type="number" class="form-input" id="editCostPrice" min="0" step="1">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Ціна продажу (грн)</label>
+            <input type="number" class="form-input" id="editSellingPrice" min="0" step="1">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Кількість</label>
+            <input type="number" class="form-input" id="editQuantity" min="1">
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button class="action-btn add-to-store-btn" onclick="saveStoreProduct()">Зберегти</button>
+            <button class="action-btn" style="background: #718096;" onclick="closeEditModal()">Скасувати</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentProduct = null;
+let currentOrderId = null;
+let currentEditProductId = null;
+
+// Инициализация
+document.addEventListener('DOMContentLoaded', function() {
+    initializeDragAndDrop();
+    initializeCategoryFilter();
+    loadOrderItems();
+});
+
+// Drag and Drop функциональность
+function initializeDragAndDrop() {
+    const productCards = document.querySelectorAll('.product-card');
+    const dropZone = document.getElementById('orderDropZone');
+    
+    productCards.forEach(card => {
+        card.addEventListener('dragstart', handleDragStart);
+        card.addEventListener('dragend', handleDragEnd);
+    });
+    
+    dropZone.addEventListener('dragover', handleDragOver);
+    dropZone.addEventListener('drop', handleDrop);
+    dropZone.addEventListener('dragleave', handleDragLeave);
+}
+
+function handleDragStart(e) {
+    e.target.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', e.target.dataset.productId);
+}
+
+function handleDragEnd(e) {
+    e.target.classList.remove('dragging');
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.target.classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+    e.target.classList.remove('drag-over');
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    e.target.classList.remove('drag-over');
+    
+    const productId = e.dataTransfer.getData('text/plain');
+    const productCard = document.querySelector(`[data-product-id="${productId}"]`);
+    
+    if (productCard) {
+        selectProduct(parseInt(productId));
+    }
+}
+
+// Фильтрация по категориям
+function initializeCategoryFilter() {
+    const filter = document.getElementById('categoryFilter');
+    filter.addEventListener('change', function() {
+        const categoryId = this.value;
+        const productCards = document.querySelectorAll('.product-card');
+        
+        productCards.forEach(card => {
+            if (!categoryId || card.dataset.categoryId === categoryId) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    });
+}
+
+// Выбор товара
+function selectProduct(productId) {
+    currentProduct = productId;
+    
+    // Показываем форму
+    document.getElementById('orderForm').style.display = 'block';
+    document.getElementById('orderDropZone').style.display = 'none';
+    
+    // Загружаем цвета товара
+    loadProductColors(productId);
+    
+    // Устанавливаем базовые цены
+    const productCard = document.querySelector(`[data-product-id="${productId}"]`);
+    const priceElement = productCard.querySelector('.product-price');
+    const basePrice = parseInt(priceElement.textContent.replace(/\D/g, ''));
+    
+    document.getElementById('costPrice').value = Math.round(basePrice * 0.6); // 60% от цены как себестоимость
+    document.getElementById('sellingPrice').value = basePrice;
+}
+
+// Загрузка цветов товара
+function loadProductColors(productId) {
+    // Здесь можно добавить AJAX запрос для загрузки цветов
+    // Пока используем заглушку
+    const colorSelect = document.getElementById('productColor');
+    colorSelect.innerHTML = '<option value="">Без кольору</option>';
+}
+
+// Добавление товара в заказ
+function addToOrder() {
+    if (!currentProduct) return;
+    
+    const formData = new FormData();
+    formData.append('product_id', currentProduct);
+    formData.append('size', document.getElementById('productSize').value);
+    formData.append('color_id', document.getElementById('productColor').value);
+    formData.append('cost_price', document.getElementById('costPrice').value);
+    formData.append('selling_price', document.getElementById('sellingPrice').value);
+    formData.append('quantity', document.getElementById('quantity').value);
+    
+    fetch(`/admin-panel/offline-store/{{ store.id }}/add-to-order/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            currentOrderId = data.order_id;
+            loadOrderItems();
+            resetOrderForm();
+            showNotification('Товар додано в замовлення', 'success');
+        } else {
+            showNotification(data.error || 'Помилка додавання товару', 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Помилка сервера', 'error');
+    });
+}
+
+// Сброс формы заказа
+function resetOrderForm() {
+    document.getElementById('orderForm').style.display = 'none';
+    document.getElementById('orderDropZone').style.display = 'block';
+    currentProduct = null;
+}
+
+// Загрузка товаров в заказе
+function loadOrderItems() {
+    // Здесь можно добавить AJAX запрос для загрузки актуальных товаров в заказе
+    // Пока используем существующие данные
+}
+
+// Удаление товара из заказа
+function removeOrderItem(itemId) {
+    if (!confirm('Видалити товар з замовлення?')) return;
+    
+    fetch(`/admin-panel/offline-store/{{ store.id }}/order/${currentOrderId}/remove-item/${itemId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadOrderItems();
+            showNotification('Товар видалено з замовлення', 'success');
+        } else {
+            showNotification(data.error || 'Помилка видалення', 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Помилка сервера', 'error');
+    });
+}
+
+// Добавление товаров в магазин
+function addToStore() {
+    if (!currentOrderId) {
+        showNotification('Немає товарів в замовленні', 'error');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('order_id', currentOrderId);
+    
+    fetch(`/admin-panel/offline-store/{{ store.id }}/add-to-store/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            location.reload(); // Перезагружаем страницу для обновления статистики
+        } else {
+            showNotification(data.error || 'Помилка додавання в магазин', 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Помилка сервера', 'error');
+    });
+}
+
+// Генерация накладной
+function generateInvoice() {
+    if (!currentOrderId) {
+        showNotification('Немає товарів в замовленні', 'error');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('order_id', currentOrderId);
+    
+    fetch(`/admin-panel/offline-store/{{ store.id }}/generate-invoice/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.blob();
+        } else {
+            throw new Error('Помилка генерації накладної');
+        }
+    })
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `invoice_{{ store.name }}_${new Date().toISOString().slice(0,10)}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        showNotification('Накладна згенерована', 'success');
+        location.reload();
+    })
+    .catch(error => {
+        showNotification(error.message, 'error');
+    });
+}
+
+// Редактирование товара в магазине
+function editStoreProduct(productId) {
+    currentEditProductId = productId;
+    const productElement = document.querySelector(`[data-product-id="${productId}"]`);
+    
+    // Заполняем форму текущими значениями
+    const costPrice = productElement.querySelector('.stat-item-value').textContent.replace(/\D/g, '');
+    const sellingPrice = productElement.querySelectorAll('.stat-item-value')[1].textContent.replace(/\D/g, '');
+    const quantity = productElement.querySelector('.store-product-details').textContent.match(/(\d+)\s*шт/)[1];
+    
+    document.getElementById('editCostPrice').value = costPrice;
+    document.getElementById('editSellingPrice').value = sellingPrice;
+    document.getElementById('editQuantity').value = quantity;
+    
+    document.getElementById('editProductModal').style.display = 'block';
+}
+
+// Сохранение изменений товара
+function saveStoreProduct() {
+    if (!currentEditProductId) return;
+    
+    const formData = new FormData();
+    formData.append('cost_price', document.getElementById('editCostPrice').value);
+    formData.append('selling_price', document.getElementById('editSellingPrice').value);
+    formData.append('quantity', document.getElementById('editQuantity').value);
+    
+    fetch(`/admin-panel/offline-store/{{ store.id }}/product/${currentEditProductId}/update/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Товар оновлено', 'success');
+            closeEditModal();
+            location.reload();
+        } else {
+            showNotification(data.error || 'Помилка оновлення', 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Помилка сервера', 'error');
+    });
+}
+
+// Закрытие модального окна
+function closeEditModal() {
+    document.getElementById('editProductModal').style.display = 'none';
+    currentEditProductId = null;
+}
+
+// Удаление товара из магазина
+function removeStoreProduct(productId) {
+    if (!confirm('Видалити товар з магазину?')) return;
+    
+    fetch(`/admin-panel/offline-store/{{ store.id }}/product/${productId}/remove/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Товар видалено з магазину', 'success');
+            location.reload();
+        } else {
+            showNotification(data.error || 'Помилка видалення', 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Помилка сервера', 'error');
+    });
+}
+
+// Показ уведомлений
+function showNotification(message, type = 'success') {
+    const notification = document.getElementById('notification');
+    notification.textContent = message;
+    notification.className = `notification ${type}`;
+    notification.classList.add('show');
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+    }, 3000);
+}
+
+// Получение CSRF токена
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Обработчики событий
+document.getElementById('addToOrderBtn').addEventListener('click', addToOrder);
+
+// Закрытие модального окна по клику вне его
+document.getElementById('editProductModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeEditModal();
+    }
+});
+</script>
+{% endblock %}
