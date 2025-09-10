@@ -132,6 +132,15 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
 SOCIAL_AUTH_REDIRECT_IS_HTTPS = os.environ.get('SOCIAL_AUTH_REDIRECT_IS_HTTPS', 'True').lower() in ('1','true','yes')
 SOCIAL_AUTH_URL_NAMESPACE = 'social'
 
+# OpenAI API key from environment
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY') or os.environ.get('OPEN_API_KEY', '')
+# Default OpenAI model for AI-assisted SEO keyword generation
+OPENAI_MODEL = os.environ.get('OPENAI_MODEL', 'gpt-5')
+# Whether to use AI-generated keywords in addition to rule-based keywords
+USE_AI_KEYWORDS = os.environ.get('USE_AI_KEYWORDS', 'False').lower() in ('1','true','yes')
+# Whether to use AI-generated product descriptions in SEO meta (experimental)
+USE_AI_DESCRIPTIONS = os.environ.get('USE_AI_DESCRIPTIONS', 'False').lower() in ('1','true','yes')
+
 # Redirects for social-auth
 SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/profile/setup/'
 
