@@ -8414,7 +8414,7 @@ body::after {
 .cart-favorites-container {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.25rem; /* Уменьшено с 0.5rem до 0.25rem */
 }
 
 /* Стили для иконки избранного */
@@ -8554,7 +8554,7 @@ body::after {
   min-width: 16px;
   height: 16px;
   border-radius: 8px;
-  display: none; /* Скрыт по умолчанию */
+  display: flex; /* Всегда виден */
   align-items: center;
   justify-content: center;
   padding: 0 3px;
