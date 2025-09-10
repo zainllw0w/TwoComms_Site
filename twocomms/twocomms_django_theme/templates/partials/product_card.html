@@ -8,8 +8,29 @@
       <img src="{% if p.display_image %}{{ p.display_image.url }}{% else %}{{ ph_url }}{% endif %}"
            alt="{{ p.title }}"
            width="600" height="600"
-           class="w-100 h-100 object-fit-cover"
+           class="w-100 h-100 object-fit-cover product-main-image"
+           data-product-id="{{ p.id }}"
            loading="{% if forloop.first %}eager{% else %}lazy{% endif %}">
+      
+      <!-- Переключатель цветов -->
+      {% if p.colors_preview|length > 1 %}
+      <div class="color-switcher position-absolute bottom-0 start-0 end-0 p-2">
+        <div class="d-flex justify-content-center gap-1">
+          {% for color in p.colors_preview %}
+          <button type="button" 
+                  class="color-switch-btn {% if color.is_default %}active{% endif %}"
+                  data-product-id="{{ p.id }}"
+                  data-variant-id="{{ color.id }}"
+                  data-image-url="{% if color.image_url %}{{ color.image_url }}{% else %}{{ ph_url }}{% endif %}"
+                  style="background: {% if color.secondary_hex %}linear-gradient(45deg, {{ color.primary_hex }} 50%, {{ color.secondary_hex }} 50%){% else %}{{ color.primary_hex }}{% endif %}"
+                  onclick="event.stopPropagation(); switchProductColor(this);"
+                  aria-label="Переключити на {{ color.primary_hex }}">
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      
       <!-- Кнопка избранного -->
       <button type="button" class="favorite-btn" data-product-id="{{ p.id }}" onclick="event.stopPropagation(); toggleFavorite(this.getAttribute('data-product-id'), this);" aria-label="Додати до обраних">
         <div class="favorite-btn-icon">

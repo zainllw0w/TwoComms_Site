@@ -17654,6 +17654,57 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   }
 }
 
+/* Переключатель цветов на карточках товаров */
+.color-switcher {
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.7) 100%);
+  backdrop-filter: blur(4px);
+  border-radius: 0 0 12px 12px;
+}
+
+.color-switch-btn {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.color-switch-btn:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.color-switch-btn.active {
+  border-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4);
+  transform: scale(1.15);
+}
+
+.color-switch-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 50%;
+  background: inherit;
+  z-index: -1;
+}
+
+/* Анимация переключения изображений */
+.product-main-image {
+  transition: opacity 0.3s ease;
+}
+
+.product-main-image.switching {
+  opacity: 0.7;
+}
+
 /* Адаптивные стили для мобильных устройств */
 @media (max-width: 768px) {
   .favorite-btn {
@@ -17670,6 +17721,16 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   
   .favorite-btn:active {
     transform: scale(0.96);
+  }
+  
+  .color-switch-btn {
+    width: 20px;
+    height: 20px;
+    border-width: 1.5px;
+  }
+  
+  .color-switcher {
+    padding: 0.5rem !important;
   }
 }
 

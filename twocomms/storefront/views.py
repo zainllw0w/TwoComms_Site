@@ -220,12 +220,17 @@ def home(request):
         # Для списку новинок — підготуємо мапу
         prod_ids = [p.id for p in products]
         if prod_ids:
-            vlist = ProductColorVariant.objects.select_related('color').filter(product_id__in=prod_ids).order_by('product_id','order','id')
+            vlist = ProductColorVariant.objects.select_related('color').prefetch_related('images').filter(product_id__in=prod_ids).order_by('product_id','order','id')
             colors_map = {}
             for v in vlist:
+                # Получаем первое изображение для каждого цветового варианта
+                first_image = v.images.first()
                 colors_map.setdefault(v.product_id, []).append({
+                    'id': v.id,
                     'primary_hex': v.color.primary_hex,
                     'secondary_hex': v.color.secondary_hex or '',
+                    'is_default': v.is_default,
+                    'image_url': first_image.image.url if first_image else None,
                 })
             for p in products:
                 setattr(p, 'colors_preview', colors_map.get(p.id, []))
@@ -271,12 +276,17 @@ def load_more_products(request):
             from productcolors.models import ProductColorVariant
             prod_ids = [p.id for p in products]
             if prod_ids:
-                vlist = ProductColorVariant.objects.select_related('color').filter(product_id__in=prod_ids).order_by('product_id','order','id')
+                vlist = ProductColorVariant.objects.select_related('color').prefetch_related('images').filter(product_id__in=prod_ids).order_by('product_id','order','id')
                 colors_map = {}
                 for v in vlist:
+                    # Получаем первое изображение для каждого цветового варианта
+                    first_image = v.images.first()
                     colors_map.setdefault(v.product_id, []).append({
+                        'id': v.id,
                         'primary_hex': v.color.primary_hex,
                         'secondary_hex': v.color.secondary_hex or '',
+                        'is_default': v.is_default,
+                        'image_url': first_image.image.url if first_image else None,
                     })
                 for p in products:
                     setattr(p, 'colors_preview', colors_map.get(p.id, []))
