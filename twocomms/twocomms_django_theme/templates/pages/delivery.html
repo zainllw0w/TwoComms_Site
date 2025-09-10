@@ -193,8 +193,8 @@
         <p class="section-subtitle">Зручні та безпечні варіанти оплати вашого замовлення</p>
       </div>
       
-      <div class="row g-4">
-        <div class="col-md-6 col-lg-3">
+      <div class="row g-4 justify-content-center">
+        <div class="col-md-6 col-lg-4">
           <div class="payment-card">
             <div class="payment-card-sparks">
               <div class="payment-card-spark payment-card-spark-1"></div>
@@ -204,27 +204,12 @@
                 <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
               </svg>
             </div>
-            <h4 class="payment-title">Оплата через сайт</h4>
-            <p class="payment-desc">Безпечна оплата карткою онлайн</p>
+            <h4 class="payment-title">Оплата на картку</h4>
+            <p class="payment-desc">Переказ на банківську картку</p>
           </div>
         </div>
         
-        <div class="col-md-6 col-lg-3">
-          <div class="payment-card">
-            <div class="payment-card-sparks">
-              <div class="payment-card-spark payment-card-spark-1"></div>
-            </div>
-            <div class="payment-icon">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
-              </svg>
-            </div>
-            <h4 class="payment-title">Дзвінок менеджера</h4>
-            <p class="payment-desc">Очікуйте дзвінка для підтвердження</p>
-          </div>
-        </div>
-        
-        <div class="col-md-6 col-lg-3">
+        <div class="col-md-6 col-lg-4">
           <div class="payment-card">
             <div class="payment-card-sparks">
               <div class="payment-card-spark payment-card-spark-1"></div>
@@ -239,7 +224,7 @@
           </div>
         </div>
         
-        <div class="col-md-6 col-lg-3">
+        <div class="col-md-6 col-lg-4">
           <div class="payment-card">
             <div class="payment-card-sparks">
               <div class="payment-card-spark payment-card-spark-1"></div>
@@ -249,8 +234,8 @@
                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
               </svg>
             </div>
-            <h4 class="payment-title">Бали та промокоди</h4>
-            <p class="payment-desc">Використовуйте накопичені бали</p>
+            <h4 class="payment-title">Бали за купони</h4>
+            <p class="payment-desc">Обміняйте бали на купони знижки</p>
           </div>
         </div>
       </div>
@@ -288,6 +273,21 @@
                 <div class="feature-content">
                   <h4>Telegram сповіщення</h4>
                   <p>Автоматичні сповіщення про всі етапи доставки</p>
+                  {% if user.is_authenticated %}
+                    <button class="telegram-tracking-btn" onclick="enableTelegramTracking()">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                      </svg>
+                      Отримувати трекінг в Telegram
+                    </button>
+                  {% else %}
+                    <button class="telegram-tracking-btn" onclick="requestAuthForTracking()">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                      </svg>
+                      Увійти для трекінгу
+                    </button>
+                  {% endif %}
                 </div>
               </div>
               
@@ -323,6 +323,11 @@
                         <div class="step-time">10:30</div>
                       </div>
                     </div>
+                    <div class="tracking-connector">
+                      <div class="tracking-dot tracking-dot-1"></div>
+                      <div class="tracking-dot tracking-dot-2"></div>
+                      <div class="tracking-dot tracking-dot-3"></div>
+                    </div>
                     <div class="step completed">
                       <div class="step-icon">✓</div>
                       <div class="step-content">
@@ -330,12 +335,22 @@
                         <div class="step-time">14:20</div>
                       </div>
                     </div>
+                    <div class="tracking-connector">
+                      <div class="tracking-dot tracking-dot-1"></div>
+                      <div class="tracking-dot tracking-dot-2"></div>
+                      <div class="tracking-dot tracking-dot-3"></div>
+                    </div>
                     <div class="step active">
-                      <div class="step-icon">🚚</div>
+                      <div class="step-icon blinking-truck">🚚</div>
                       <div class="step-content">
                         <div class="step-title">В дорозі</div>
                         <div class="step-time">16:45</div>
                       </div>
+                    </div>
+                    <div class="tracking-connector">
+                      <div class="tracking-dot tracking-dot-1"></div>
+                      <div class="tracking-dot tracking-dot-2"></div>
+                      <div class="tracking-dot tracking-dot-3"></div>
                     </div>
                     <div class="step">
                       <div class="step-icon">📦</div>
@@ -1030,6 +1045,139 @@
   color: rgba(139, 92, 246, 0.8);
 }
 
+/* Telegram tracking button */
+.telegram-tracking-btn {
+  margin-top: 0.75rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, var(--tc-primary), rgba(139, 92, 246, 0.8));
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 0.75rem;
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(8px);
+}
+
+.telegram-tracking-btn:hover {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.9), var(--tc-primary));
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3);
+}
+
+/* Tracking animations */
+.tracking-connector {
+  position: relative;
+  height: 20px;
+  margin: 0.5rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tracking-dot {
+  width: 4px;
+  height: 4px;
+  background: var(--tc-primary);
+  border-radius: 50%;
+  position: absolute;
+  opacity: 0;
+  animation: trackingFlow 2s ease-in-out infinite;
+}
+
+.tracking-dot-1 {
+  left: 20%;
+  animation-delay: 0s;
+}
+
+.tracking-dot-2 {
+  left: 50%;
+  animation-delay: 0.3s;
+}
+
+.tracking-dot-3 {
+  left: 80%;
+  animation-delay: 0.6s;
+}
+
+@keyframes trackingFlow {
+  0% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0);
+  }
+}
+
+/* Blinking truck animation */
+.blinking-truck {
+  animation: truckBlink 1.5s ease-in-out infinite;
+}
+
+@keyframes truckBlink {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+/* Improved alignment and spacing */
+.hero-stats {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 2rem;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  backdrop-filter: blur(10px);
+  min-width: 200px;
+  flex: 1;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 3rem;
+  padding: 0 1rem;
+}
+
+.delivery-options, .payment-methods, .tracking-section, .additional-info {
+  padding: 4rem 0;
+  background: transparent;
+  position: relative;
+  z-index: 2;
+}
+
+.row.g-4 {
+  margin: 0 -0.75rem;
+}
+
+.row.g-4 > * {
+  padding: 0 0.75rem;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .hero-title {
@@ -1039,6 +1187,11 @@
   .hero-stats {
     flex-direction: column;
     gap: 1rem;
+  }
+  
+  .stat-item {
+    min-width: auto;
+    width: 100%;
   }
   
   .delivery-animation {
@@ -1059,6 +1212,14 @@
     width: 250px;
     height: 450px;
   }
+  
+  .row.g-4 {
+    margin: 0 -0.5rem;
+  }
+  
+  .row.g-4 > * {
+    padding: 0 0.5rem;
+  }
 }
 </style>
 
@@ -1070,5 +1231,151 @@ document.addEventListener('DOMContentLoaded', function() {
     return new bootstrap.Tooltip(tooltipTriggerEl);
   });
 });
+
+// Telegram tracking functions
+function enableTelegramTracking() {
+  // Check if user has Telegram ID
+  fetch('/api/check-telegram-id/', {
+    method: 'GET',
+    headers: {
+      'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+      'Content-Type': 'application/json',
+    },
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.has_telegram_id) {
+      // Enable tracking
+      fetch('/api/enable-telegram-tracking/', {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+          'Content-Type': 'application/json',
+        },
+      })
+      .then(response => response.json())
+      .then(result => {
+        if (result.success) {
+          showNotification('Telegram трекінг увімкнено! Ви будете отримувати сповіщення про статус замовлень.', 'success');
+          updateTelegramButton(true);
+        } else {
+          showNotification('Помилка при увімкненні трекінгу. Спробуйте пізніше.', 'error');
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        showNotification('Помилка при увімкненні трекінгу.', 'error');
+      });
+    } else {
+      // Show modal to connect Telegram
+      showTelegramConnectModal();
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    showNotification('Помилка при перевірці Telegram ID.', 'error');
+  });
+}
+
+function requestAuthForTracking() {
+  showNotification('Для отримання трекінгу в Telegram потрібно увійти в акаунт.', 'info');
+  // Redirect to login with return URL
+  setTimeout(() => {
+    window.location.href = '/accounts/login/?next=' + encodeURIComponent(window.location.pathname);
+  }, 2000);
+}
+
+function showTelegramConnectModal() {
+  // Create modal for Telegram connection
+  const modalHtml = `
+    <div class="modal fade" id="telegramConnectModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content" style="background: var(--tc-elevate); border: 1px solid rgba(255,255,255,0.1);">
+          <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+            <h5 class="modal-title" style="color: var(--tc-text);">Підключення Telegram</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body" style="color: var(--tc-text);">
+            <p>Для отримання сповіщень про замовлення в Telegram:</p>
+            <ol>
+              <li>Знайдіть бота <strong>@TwoCommsBot</strong> в Telegram</li>
+              <li>Надішліть команду <code>/start</code></li>
+              <li>Натисніть кнопку "Підключити акаунт"</li>
+            </ol>
+            <div class="text-center mt-3">
+              <a href="https://t.me/TwoCommsBot" target="_blank" class="btn btn-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 8px;">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                Відкрити Telegram
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Remove existing modal if any
+  const existingModal = document.getElementById('telegramConnectModal');
+  if (existingModal) {
+    existingModal.remove();
+  }
+  
+  // Add modal to body
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  
+  // Show modal
+  const modal = new bootstrap.Modal(document.getElementById('telegramConnectModal'));
+  modal.show();
+}
+
+function updateTelegramButton(enabled) {
+  const button = document.querySelector('.telegram-tracking-btn');
+  if (button) {
+    if (enabled) {
+      button.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+        </svg>
+        Трекінг увімкнено
+      `;
+      button.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+      button.onclick = null;
+    }
+  }
+}
+
+function showNotification(message, type = 'info') {
+  // Create notification element
+  const notification = document.createElement('div');
+  notification.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show`;
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    min-width: 300px;
+    background: var(--tc-elevate);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--tc-text);
+    backdrop-filter: blur(10px);
+  `;
+  
+  notification.innerHTML = `
+    ${message}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  `;
+  
+  // Add to body
+  document.body.appendChild(notification);
+  
+  // Auto remove after 5 seconds
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.remove();
+    }
+  }, 5000);
+}
 </script>
 {% endblock %}
