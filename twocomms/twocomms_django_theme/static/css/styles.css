@@ -17479,27 +17479,42 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 
 /* Анимация пульсации для активного состояния */
 .favorite-btn.is-favorite {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(220, 38, 38, 0.2));
-  border-color: rgba(239, 68, 68, 0.6);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.4), rgba(220, 38, 38, 0.35));
+  border-color: rgba(239, 68, 68, 0.8);
   box-shadow: 
-    0 0 0 2px rgba(239, 68, 68, 0.3),
-    0 4px 20px rgba(239, 68, 68, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  animation: favoriteButtonPulse 2s ease-in-out infinite;
+    0 0 0 3px rgba(239, 68, 68, 0.5),
+    0 6px 25px rgba(239, 68, 68, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  animation: favoriteButtonPulse 1.5s ease-in-out infinite;
+  transform: scale(1.05);
 }
 
 .favorite-btn.is-favorite:hover {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.35), rgba(220, 38, 38, 0.3));
-  border-color: rgba(239, 68, 68, 0.8);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.5), rgba(220, 38, 38, 0.45));
+  border-color: rgba(239, 68, 68, 1);
   box-shadow: 
-    0 0 0 3px rgba(239, 68, 68, 0.4),
-    0 6px 30px rgba(239, 68, 68, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  transform: scale(1.05);
+    0 0 0 4px rgba(239, 68, 68, 0.6),
+    0 8px 35px rgba(239, 68, 68, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
 }
 
 /* Эффект искр для избранного товара */
 .favorite-btn.is-favorite::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  right: -6px;
+  bottom: -6px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent, rgba(239, 68, 68, 0.6), transparent, rgba(239, 68, 68, 0.6), transparent);
+  animation: favoriteSparkle 2s linear infinite;
+  z-index: -2;
+  opacity: 1;
+}
+
+.favorite-btn.is-favorite::after {
   content: '';
   position: absolute;
   top: -4px;
@@ -17507,22 +17522,8 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   right: -4px;
   bottom: -4px;
   border-radius: 50%;
-  background: conic-gradient(from 0deg, transparent, rgba(239, 68, 68, 0.3), transparent, rgba(239, 68, 68, 0.3), transparent);
-  animation: favoriteSparkle 3s linear infinite;
-  z-index: -2;
-  opacity: 0.7;
-}
-
-.favorite-btn.is-favorite::after {
-  content: '';
-  position: absolute;
-  top: -2px;
-  left: -2px;
-  right: -2px;
-  bottom: -2px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(239, 68, 68, 0.2) 0%, transparent 70%);
-  animation: favoriteSparkleGlow 2s ease-in-out infinite;
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.4) 0%, transparent 70%);
+  animation: favoriteSparkleGlow 1.5s ease-in-out infinite;
   z-index: -1;
 }
 
@@ -17584,24 +17585,24 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 @keyframes favoriteButtonPulse {
   0%, 100% { 
     box-shadow: 
-      0 0 0 2px rgba(239, 68, 68, 0.3),
-      0 4px 20px rgba(239, 68, 68, 0.4),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  }
-  50% { 
-    box-shadow: 
       0 0 0 3px rgba(239, 68, 68, 0.5),
       0 6px 25px rgba(239, 68, 68, 0.6),
       inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+  50% { 
+    box-shadow: 
+      0 0 0 5px rgba(239, 68, 68, 0.7),
+      0 8px 35px rgba(239, 68, 68, 0.8),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
   }
 }
 
 @keyframes favoriteHeartGlow {
   0%, 100% { 
-    filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.8)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+    filter: drop-shadow(0 0 12px rgba(239, 68, 68, 1)) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4));
   }
   50% { 
-    filter: drop-shadow(0 0 15px rgba(239, 68, 68, 1)) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4));
+    filter: drop-shadow(0 0 20px rgba(239, 68, 68, 1.2)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
   }
 }
 
@@ -17619,25 +17620,25 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 @keyframes favoriteSparkle {
   0% { 
     transform: rotate(0deg);
-    opacity: 0.7;
+    opacity: 1;
   }
   50% { 
-    opacity: 1;
+    opacity: 1.2;
   }
   100% { 
     transform: rotate(360deg);
-    opacity: 0.7;
+    opacity: 1;
   }
 }
 
 @keyframes favoriteSparkleGlow {
   0%, 100% { 
-    opacity: 0.3;
+    opacity: 0.6;
     transform: scale(1);
   }
   50% { 
-    opacity: 0.6;
-    transform: scale(1.1);
+    opacity: 1;
+    transform: scale(1.2);
   }
 }
 
