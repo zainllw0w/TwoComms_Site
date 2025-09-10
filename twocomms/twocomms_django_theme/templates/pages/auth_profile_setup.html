@@ -20,7 +20,7 @@
       </div>
 
       <!-- Информация о баллах -->
-      {% if user.points %}
+      {% if user.points or user.is_authenticated %}
       <a href="{% url 'buy_with_points' %}" class="points-info-card-link">
         <div class="points-info-card mb-4">
           <div class="points-header">
@@ -31,8 +31,8 @@
             </div>
             <div class="points-content">
               <h3 class="points-title">Ваші бали</h3>
-              <div class="points-amount">{{ user.points.points|default:0 }} балів</div>
-              <p class="points-description">Зароблено: {{ user.points.total_earned|default:0 }} | Витрачено: {{ user.points.total_spent|default:0 }}</p>
+              <div class="points-amount">{% if user.points %}{{ user.points.points|default:0 }}{% else %}0{% endif %} балів</div>
+              <p class="points-description">Зароблено: {% if user.points %}{{ user.points.total_earned|default:0 }}{% else %}0{% endif %} | Витрачено: {% if user.points %}{{ user.points.total_spent|default:0 }}{% else %}0{% endif %}</p>
             </div>
             <div class="points-action">
               <span class="points-action-text">Витратити бали</span>

@@ -197,7 +197,7 @@
               </div>
 
               <!-- Блок с баллами -->
-              {% if request.user.points %}
+              {% if request.user.points or request.user.is_authenticated %}
               <a href="{% url 'buy_with_points' %}" class="points-card-link">
                 <div class="points-card">
                   <!-- Анимация искр -->
@@ -218,7 +218,7 @@
                   </div>
                   <div class="points-info">
                     <div class="points-label">Ваші бали</div>
-                    <div class="points-amount">{{ request.user.points.points|default:0 }}</div>
+                    <div class="points-amount">{% if request.user.points %}{{ request.user.points.points|default:0 }}{% else %}0{% endif %}</div>
                     <div class="points-hint">Знижки • Промокоди • Підтримка ЗСУ</div>
                   </div>
                 </div>
