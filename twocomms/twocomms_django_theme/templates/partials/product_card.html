@@ -9,34 +9,7 @@
            alt="{{ p.title }}"
            width="600" height="600"
            class="w-100 h-100 object-fit-cover product-main-image"
-           data-product-id="{{ p.id }}"
            loading="{% if forloop.first %}eager{% else %}lazy{% endif %}">
-      
-      <!-- Переключатель цветов -->
-      {% if p.colors_preview|length > 1 %}
-      <div class="color-switcher">
-        <div class="color-switcher-inner">
-          {% for color in p.colors_preview %}
-          <button type="button" 
-                  class="color-switch-btn {% if forloop.first %}active{% endif %}" 
-                  data-product-id="{{ p.id }}"
-                  data-primary-color="{{ color.primary_hex }}"
-                  data-secondary-color="{{ color.secondary_hex }}"
-                  onclick="event.stopPropagation(); switchProductColor(this);"
-                  aria-label="Переключити на колір {{ color.primary_hex }}">
-            <div class="swatch" 
-                 style="background-color: {{ color.primary_hex }};"
-                 data-secondary="{{ color.secondary_hex }}">
-              {% if color.secondary_hex %}
-              <div class="swatch-secondary" style="background-color: {{ color.secondary_hex }};"></div>
-              {% endif %}
-            </div>
-          </button>
-          {% endfor %}
-        </div>
-      </div>
-      {% endif %}
-      
       <!-- Кнопка избранного -->
       <button type="button" class="favorite-btn" data-product-id="{{ p.id }}" onclick="event.stopPropagation(); toggleFavorite(this.getAttribute('data-product-id'), this);" aria-label="Додати до обраних">
         <div class="favorite-btn-icon">

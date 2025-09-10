@@ -1097,79 +1097,6 @@ function toggleFavorite(productId, button) {
   });
 }
 
-// ===== ФУНКЦИИ ДЛЯ ПЕРЕКЛЮЧЕНИЯ ЦВЕТОВ =====
-
-// Функция для переключения цветов товара
-function switchProductColor(button) {
-  if (!button) return;
-  
-  const productId = button.getAttribute('data-product-id');
-  const primaryColor = button.getAttribute('data-primary-color');
-  const secondaryColor = button.getAttribute('data-secondary-color') || '';
-  
-  // Находим изображение товара
-  const productCard = button.closest('.card.product');
-  const productImage = productCard.querySelector('.product-main-image');
-  
-  if (!productImage) return;
-  
-  // Показываем анимацию переключения
-  productImage.classList.add('switching');
-  productCard.style.animation = 'colorSwitchPulse 0.6s ease-out';
-  
-  // Убираем активный класс у всех кнопок цветов в этой карточке
-  const allColorButtons = productCard.querySelectorAll('.color-switch-btn');
-  allColorButtons.forEach(btn => btn.classList.remove('active'));
-  
-  // Добавляем активный класс к текущей кнопке
-  button.classList.add('active');
-  
-  // Делаем запрос на получение изображения для выбранного цвета
-  fetch(`/api/product-color-image/${productId}/`, {
-    method: 'POST',
-    headers: {
-      'X-CSRFToken': getCookie('csrftoken'),
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      primary_color: primaryColor,
-      secondary_color: secondaryColor
-    })
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success && data.image_url) {
-      // Создаем новое изображение для предзагрузки
-      const newImage = new Image();
-      newImage.onload = function() {
-        // Когда изображение загружено, меняем источник
-        productImage.src = data.image_url;
-        
-        // Убираем анимацию переключения
-        setTimeout(() => {
-          productImage.classList.remove('switching');
-          productCard.style.animation = '';
-        }, 300);
-      };
-      newImage.src = data.image_url;
-    } else {
-      // Если изображение не найдено, просто убираем анимацию
-      setTimeout(() => {
-        productImage.classList.remove('switching');
-        productCard.style.animation = '';
-      }, 300);
-    }
-  })
-  .catch(error => {
-    console.error('Error switching color:', error);
-    // Убираем анимацию в случае ошибки
-    setTimeout(() => {
-      productImage.classList.remove('switching');
-      productCard.style.animation = '';
-    }, 300);
-  });
-}
-
 // Функция для проверки статуса избранного
 function checkFavoriteStatus(productId, button) {
   if (!button) return;
@@ -1342,4 +1269,115 @@ document.addEventListener('click', function(e){
       window.trackEvent('ViewContent', {content_ids:[String(pid)], content_type:'product', content_name: title});
     }
   }catch(_){ }
+});
+
+// ===== ПЕРЕКЛЮЧЕНИЕ ЦВЕТОВ НА КАРТОЧКАХ ТОВАРОВ =====
+
+// Функция для предзагрузки изображения
+function preloadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+// Функция для получения URL изображения цвета
+function getColorImageUrl(colorDot, productCard) {
+  // Пытаемся получить URL из data-атрибутов
+  const imageUrl = colorDot.getAttribute('data-image-url');
+  if (imageUrl) {
+    return imageUrl;
+  }
+  
+  // Если нет data-атрибута, пытаемся получить из title или других атрибутов
+  const title = colorDot.getAttribute('title');
+  if (title) {
+    // Здесь можно добавить логику для получения URL по цвету
+    // Пока что возвращаем null, чтобы не ломать существующую функциональность
+    return null;
+  }
+  
+  return null;
+}
+
+// Функция для анимации смены изображения
+function animateImageChange(img, newSrc) {
+  return new Promise((resolve) => {
+    // Добавляем класс для анимации
+    img.classList.add('switching');
+    
+    // Предзагружаем новое изображение
+    preloadImage(newSrc).then(() => {
+      // Меняем src
+      img.src = newSrc;
+      
+      // Убираем класс анимации через небольшую задержку
+      setTimeout(() => {
+        img.classList.remove('switching');
+        resolve();
+      }, 150);
+    }).catch(() => {
+      // Если не удалось загрузить, убираем класс анимации
+      img.classList.remove('switching');
+      resolve();
+    });
+  });
+}
+
+// Обработчик клика по цветовым точкам
+document.addEventListener('click', function(e) {
+  // Проверяем, что клик был по цветовой точке
+  if (!e.target.classList.contains('color-dot')) {
+    return;
+  }
+  
+  // Предотвращаем всплытие события
+  e.stopPropagation();
+  
+  const colorDot = e.target;
+  const productCard = colorDot.closest('.card.product');
+  
+  if (!productCard) {
+    return;
+  }
+  
+  // Находим основное изображение карточки
+  const mainImage = productCard.querySelector('.ratio img');
+  
+  if (!mainImage) {
+    return;
+  }
+  
+  // Получаем URL изображения для выбранного цвета
+  const newImageUrl = getColorImageUrl(colorDot, productCard);
+  
+  if (!newImageUrl) {
+    // Если нет URL для изображения, просто меняем активное состояние
+    const allDots = productCard.querySelectorAll('.color-dot');
+    allDots.forEach(dot => dot.classList.remove('active'));
+    colorDot.classList.add('active');
+    return;
+  }
+  
+  // Анимируем смену изображения
+  animateImageChange(mainImage, newImageUrl).then(() => {
+    // Меняем активное состояние после успешной смены изображения
+    const allDots = productCard.querySelectorAll('.color-dot');
+    allDots.forEach(dot => dot.classList.remove('active'));
+    colorDot.classList.add('active');
+  });
+});
+
+// Инициализация цветовых точек при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+  // Делаем цветовые точки видимыми
+  const colorDots = document.querySelectorAll('.color-dot');
+  colorDots.forEach((dot, index) => {
+    // Добавляем небольшую задержку для анимации появления
+    setTimeout(() => {
+      dot.classList.add('visible');
+    }, index * 100);
+  });
 });
