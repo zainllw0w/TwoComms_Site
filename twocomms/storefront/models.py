@@ -10,6 +10,10 @@ class Category(models.Model):
     description=models.TextField(blank=True, null=True)
     is_active=models.BooleanField(default=True)
     is_featured=models.BooleanField(default=False)
+    # AI-generated content fields
+    ai_keywords=models.TextField(blank=True, null=True, verbose_name='AI-ключові слова')
+    ai_description=models.TextField(blank=True, null=True, verbose_name='AI-опис')
+    ai_content_generated=models.BooleanField(default=False, verbose_name='AI-контент згенеровано')
     class Meta: ordering=['order','name']
     def __str__(self): return self.name
 
@@ -56,6 +60,10 @@ class Product(models.Model):
     description=models.TextField(blank=True)
     main_image=models.ImageField(upload_to='products/', blank=True, null=True)
     points_reward=models.PositiveIntegerField(default=0, verbose_name='Бали за покупку')
+    # AI-generated content fields
+    ai_keywords=models.TextField(blank=True, null=True, verbose_name='AI-ключові слова')
+    ai_description=models.TextField(blank=True, null=True, verbose_name='AI-опис')
+    ai_content_generated=models.BooleanField(default=False, verbose_name='AI-контент згенеровано')
     @property
     def has_discount(self):
         """Автоматически определяет, есть ли скидка"""
