@@ -1055,8 +1055,7 @@ function toggleFavorite(productId, button) {
   if (!button) return;
   
   // Показываем индикатор загрузки
-  button.style.pointerEvents = 'none';
-  button.style.opacity = '0.7';
+  button.classList.add('loading');
   
   fetch(`/favorites/toggle/${productId}/`, {
     method: 'POST',
@@ -1094,8 +1093,7 @@ function toggleFavorite(productId, button) {
   })
   .finally(() => {
     // Восстанавливаем кнопку
-    button.style.pointerEvents = 'auto';
-    button.style.opacity = '1';
+    button.classList.remove('loading');
   });
 }
 
