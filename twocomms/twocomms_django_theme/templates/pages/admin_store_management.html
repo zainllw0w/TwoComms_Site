@@ -227,20 +227,46 @@
     background: rgba(20, 22, 27, 0.8);
 }
 
+.products-scroll-container {
+    max-height: 500px;
+    overflow-y: auto;
+    padding-right: 8px;
+    margin-right: -8px;
+}
+
+.products-scroll-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.products-scroll-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.products-scroll-container::-webkit-scrollbar-thumb {
+    background: rgba(139, 92, 246, 0.6);
+    border-radius: 3px;
+}
+
+.products-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 92, 246, 0.8);
+}
+
 .product-card {
     background: rgba(20, 22, 27, 0.7);
     backdrop-filter: blur(15px);
     border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 16px;
-    padding: 12px;
-    margin-bottom: 10px;
+    border-radius: 12px;
+    padding: 8px;
+    margin-bottom: 8px;
     box-shadow: 
-        0 4px 12px rgba(0, 0, 0, 0.25),
+        0 2px 8px rgba(0, 0, 0, 0.2),
         0 0 0 1px rgba(139, 92, 246, 0.05);
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     cursor: grab;
     position: relative;
     overflow: hidden;
+    height: 80px;
 }
 
 .product-card::before {
@@ -280,12 +306,24 @@
         0 0 0 2px rgba(139, 92, 246, 0.6);
 }
 
+.product-card-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 100%;
+}
+
+.product-image-container {
+    flex-shrink: 0;
+    width: 60px;
+    height: 60px;
+}
+
 .product-image {
     width: 100%;
-    height: 80px;
-    border-radius: 12px;
+    height: 100%;
+    border-radius: 8px;
     object-fit: cover;
-    margin-bottom: 8px;
     transition: all 0.3s ease;
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
@@ -295,30 +333,61 @@
     border-color: rgba(139, 92, 246, 0.3);
 }
 
+.product-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+    min-width: 0;
+}
+
+.product-category {
+    color: rgba(139, 92, 246, 0.8);
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
 .product-title {
     font-weight: 600;
     color: var(--tc-text);
-    margin-bottom: 4px;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     line-height: 1.2;
+    margin-bottom: 4px;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
 
-.product-category {
+.product-colors {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+.color-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    display: inline-block;
+}
+
+.color-more {
+    font-size: 0.7rem;
     color: rgba(232, 233, 236, 0.6);
-    font-size: 0.75rem;
-    margin-bottom: 6px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    margin-left: 2px;
 }
 
 .product-price {
     color: #8b5cf6;
     font-weight: 700;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     text-shadow: 0 0 10px rgba(139, 92, 246, 0.3);
 }
 
@@ -811,24 +880,38 @@
             </div>
             
             <!-- Список товаров -->
-            <div id="productsList">
+            <div id="productsList" class="products-scroll-container">
                 {% for product in products %}
                     <div class="product-card" 
                          data-product-id="{{ product.id }}" 
                          data-category-id="{{ product.category.id }}"
                          draggable="true">
-                        {% if product.display_image %}
-                            <img src="{{ product.display_image.url }}" alt="{{ product.title }}" class="product-image">
-                        {% else %}
-                            <div class="product-image" style="background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #718096;">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
-                                </svg>
+                        <div class="product-card-content">
+                            <div class="product-image-container">
+                                {% if product.display_image %}
+                                    <img src="{{ product.display_image.url }}" alt="{{ product.title }}" class="product-image">
+                                {% else %}
+                                    <div class="product-image" style="background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #718096;">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                                        </svg>
+                                    </div>
+                                {% endif %}
                             </div>
-                        {% endif %}
-                        <div class="product-title">{{ product.title }}</div>
-                        <div class="product-category">{{ product.category.name }}</div>
-                        <div class="product-price">{{ product.final_price }} грн</div>
+                            <div class="product-info">
+                                <div class="product-category">{{ product.category.name }}</div>
+                                <div class="product-title">{{ product.title }}</div>
+                                <div class="product-colors">
+                                    {% for color_variant in product.color_variants.all|slice:":3" %}
+                                        <span class="color-dot" style="background-color: {{ color_variant.color.hex_code }};" title="{{ color_variant.color.name }}"></span>
+                                    {% endfor %}
+                                    {% if product.color_variants.count > 3 %}
+                                        <span class="color-more">+{{ product.color_variants.count|add:"-3" }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="product-price">{{ product.final_price }} грн</div>
+                            </div>
+                        </div>
                     </div>
                 {% endfor %}
             </div>
@@ -893,17 +976,26 @@
             <div id="orderItems">
                 {% for order in active_orders %}
                     {% for item in order.order_items.all %}
-                        <div class="order-item" data-item-id="{{ item.id }}">
+                        <div class="order-item" data-item-id="{{ item.id }}" data-order-id="{{ order.id }}">
                             <div class="order-item-header">
                                 <div class="order-item-title">{{ item.product.title }}</div>
-                                <button class="remove-item-btn" onclick="removeOrderItem({{ item.id }})">×</button>
+                                <button class="remove-item-btn" onclick="removeOrderItem({{ item.id }})">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                                    </svg>
+                                </button>
                             </div>
                             <div class="order-item-details">
-                                {% if item.size %}({{ item.size }}){% endif %}
-                                {% if item.color %}[{{ item.color }}]{% endif %}
-                                - {{ item.quantity }} шт.
+                                <div class="order-item-info">
+                                    <span class="order-item-size">Розмір: {{ item.size }}</span>
+                                    {% if item.color %}<span class="order-item-color">Колір: {{ item.color.name }}</span>{% endif %}
+                                    <span class="order-item-quantity">Кількість: {{ item.quantity }}</span>
+                                </div>
+                                <div class="order-item-prices">
+                                    <span class="order-item-cost">Собівартість: {{ item.cost_price }} грн</span>
+                                    <span class="order-item-selling">Ціна продажу: {{ item.selling_price }} грн</span>
+                                </div>
                             </div>
-                            <div class="order-item-price">{{ item.selling_price }} грн</div>
                         </div>
                     {% endfor %}
                 {% endfor %}
@@ -1014,6 +1106,13 @@ let currentEditProductId = null;
 document.addEventListener('DOMContentLoaded', function() {
     initializeDragAndDrop();
     initializeCategoryFilter();
+    
+    // Инициализируем currentOrderId если есть активные заказы
+    const firstOrderItem = document.querySelector('.order-item');
+    if (firstOrderItem) {
+        currentOrderId = firstOrderItem.dataset.orderId;
+    }
+    
     loadOrderItems();
 });
 
@@ -1183,7 +1282,7 @@ function updateOrderItemsDisplay(items) {
     let html = '';
     items.forEach(item => {
         html += `
-            <div class="order-item" data-item-id="${item.id}">
+            <div class="order-item" data-item-id="${item.id}" data-order-id="${currentOrderId}">
                 <div class="order-item-header">
                     <div class="order-item-title">${item.product_name}</div>
                     <button class="remove-item-btn" onclick="removeOrderItem(${item.id})">
@@ -1214,7 +1313,21 @@ function updateOrderItemsDisplay(items) {
 function removeOrderItem(itemId) {
     if (!confirm('Видалити товар з замовлення?')) return;
     
-    fetch(`/admin-panel/offline-store/{{ store.id }}/order/${currentOrderId}/remove-item/${itemId}/`, {
+    // Находим заказ по товару
+    const orderItem = document.querySelector(`[data-item-id="${itemId}"]`);
+    if (!orderItem) {
+        showNotification('Товар не знайдено', 'error');
+        return;
+    }
+    
+    // Получаем order_id из data-атрибута или используем currentOrderId
+    const orderId = orderItem.closest('.order-item')?.dataset.orderId || currentOrderId;
+    if (!orderId) {
+        showNotification('Заказ не знайдено', 'error');
+        return;
+    }
+    
+    fetch(`/admin-panel/offline-store/{{ store.id }}/order/${orderId}/remove-item/${itemId}/`, {
         method: 'POST',
         headers: {
             'X-CSRFToken': getCookie('csrftoken')
@@ -1223,8 +1336,15 @@ function removeOrderItem(itemId) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            loadOrderItems();
+            // Удаляем элемент из DOM
+            orderItem.remove();
             showNotification('Товар видалено з замовлення', 'success');
+            
+            // Проверяем, есть ли еще товары в заказе
+            const remainingItems = document.querySelectorAll('.order-item');
+            if (remainingItems.length === 0) {
+                document.getElementById('orderItems').innerHTML = '<div class="empty-order">Немає товарів в замовленні</div>';
+            }
         } else {
             showNotification(data.error || 'Помилка видалення', 'error');
         }
@@ -1242,10 +1362,17 @@ function addToStore() {
         return;
     }
     
-    const formData = new FormData();
-    if (currentOrderId) {
-        formData.append('order_id', currentOrderId);
+    // Получаем order_id из первого элемента заказа
+    const firstItem = orderItems[0];
+    const orderId = firstItem.dataset.orderId || currentOrderId;
+    
+    if (!orderId) {
+        showNotification('Заказ не знайдено', 'error');
+        return;
     }
+    
+    const formData = new FormData();
+    formData.append('order_id', orderId);
     
     fetch(`/admin-panel/offline-store/{{ store.id }}/add-to-store/`, {
         method: 'POST',
@@ -1276,8 +1403,17 @@ function generateInvoice() {
         return;
     }
     
+    // Получаем order_id из первого элемента заказа
+    const firstItem = orderItems[0];
+    const orderId = firstItem.dataset.orderId || currentOrderId;
+    
+    if (!orderId) {
+        showNotification('Заказ не знайдено', 'error');
+        return;
+    }
+    
     const formData = new FormData();
-    formData.append('order_id', currentOrderId);
+    formData.append('order_id', orderId);
     
     fetch(`/admin-panel/offline-store/{{ store.id }}/generate-invoice/`, {
         method: 'POST',
