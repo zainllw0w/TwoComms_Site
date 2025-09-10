@@ -1,0 +1,9 @@
+{% comment %}
+FAQ Schema для структурированных данных
+{% endcomment %}
+
+{% if faq_schema %}
+<script type="application/ld+json">
+{{ faq_schema|safe }}
+</script>
+{% endif %}

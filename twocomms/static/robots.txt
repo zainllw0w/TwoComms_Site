@@ -17,6 +17,10 @@ Disallow: /login/
 Disallow: /logout/
 Disallow: /register/
 Disallow: /profile/
+Disallow: /api/
+Disallow: /dev/
+Disallow: /static/admin/
+Disallow: /media/admin/
 
 # Позволяем публичные страницы
 Allow: /catalog/
@@ -24,13 +28,42 @@ Allow: /product/
 Allow: /about/
 Allow: /contacts/
 Allow: /cooperation/
+Allow: /delivery/
 Allow: /favorites/
 
-# Не индексировать страницы поиска (часто считается нежелательным контентом)
+# Не индексировать страницы поиска и фильтров
 Disallow: /search/
+Disallow: /*?*
+Disallow: /*&*
 
-# Crawl-delay (опционально, у Google игнорируется, но учтут другие боты)
+# Специальные правила для разных ботов
+User-agent: Googlebot
+Allow: /
 Crawl-delay: 1
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 2
+
+User-agent: YandexBot
+Allow: /
+Crawl-delay: 2
+
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+# Блокируем агрессивных ботов
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
 
 # Sitemap
 Sitemap: https://twocomms.shop/sitemap.xml

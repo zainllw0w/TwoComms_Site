@@ -384,11 +384,29 @@ def product_detail(request, slug):
     except Exception:
         color_variants = []
     
+    # Генерируем breadcrumbs для SEO
+    breadcrumbs = [
+        {'name': 'Головна', 'url': reverse('home')},
+        {'name': 'Каталог', 'url': reverse('catalog')},
+    ]
+    
+    if product.category:
+        breadcrumbs.append({
+            'name': product.category.name, 
+            'url': reverse('catalog_by_cat', kwargs={'cat_slug': product.category.slug})
+        })
+    
+    breadcrumbs.append({
+        'name': product.title, 
+        'url': reverse('product', kwargs={'slug': product.slug})
+    })
+    
     return render(request,'pages/product_detail.html',{
         'product': product,
         'images': images,
         'color_variants': color_variants,
-        'auto_select_first_color': auto_select_first_color
+        'auto_select_first_color': auto_select_first_color,
+        'breadcrumbs': breadcrumbs
     })
 
 @transaction.atomic
@@ -3715,4 +3733,30 @@ def admin_order_delete(request, pk: int):
 
 def delivery_view(request):
     """Страница доставки и оплаты"""
-    return render(request, 'pages/delivery.html')
+    # FAQ данные для структурированных данных
+    faq_items = [
+        {
+            "question": "Як довго триває доставка по Україні?",
+            "answer": "Доставка по Україні зазвичай триває 1-5 робочих днів залежно від регіону. У великих містах доставка може бути швидшою."
+        },
+        {
+            "question": "Чи можна оплатити товар при отриманні?",
+            "answer": "Так, ми пропонуємо накладений платіж для доставки по Україні. Варто врахувати, що при цьому способі оплати додається комісія перевізника."
+        },
+        {
+            "question": "Як відстежити замовлення?",
+            "answer": "Після відправки замовлення ви отримаєте номер ТТН на email або в Telegram. Ви можете відстежити посилку на сайті перевізника або через наш Telegram бот."
+        },
+        {
+            "question": "Чи можлива доставка за кордон?",
+            "answer": "Так, ми здійснюємо міжнародну доставку через Укрпошту та Нову пошту. Термін доставки 7-21 робочий день залежно від країни."
+        },
+        {
+            "question": "Які способи оплати доступні?",
+            "answer": "Ми приймаємо оплату на банківську картку, накладений платіж при отриманні, а також бали за купони для зареєстрованих користувачів."
+        }
+    ]
+    
+    return render(request, 'pages/delivery.html', {
+        'faq_items': faq_items
+    })
