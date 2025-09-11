@@ -33,7 +33,7 @@
           src="{{ ph_url }}"
           loading="eager" decoding="async" fetchpriority="high"
           class="w-100 h-100 object-fit-cover"
-          alt="{{ product.title }}"
+          alt="{{ product.title }} - головне фото TwoComms"
         >
       {% endif %}
     </div>
@@ -137,7 +137,7 @@
               {% responsive_image product.display_image.url product.title "d-block w-100 h-100 object-fit-contain" "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px" %}
             {% else %}
               {% static 'img/placeholder.jpg' as ph_url %}
-              <img src="{{ ph_url }}" class="d-block w-100 h-100 object-fit-contain" alt="{{ product.title }}">
+              <img src="{{ ph_url }}" class="d-block w-100 h-100 object-fit-contain" alt="{{ product.title }} - головне фото TwoComms">
             {% endif %}
           </div>
         </div>

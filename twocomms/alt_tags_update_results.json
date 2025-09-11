@@ -1,0 +1,213 @@
+{
+  "updated_files": [
+    {
+      "file": "twocomms_django_theme/templates/base.html",
+      "changes": 3,
+      "replacements": [
+        {
+          "pattern": "alt=[\"\\']Аватар користувача[\"\\']",
+          "replacement": "alt=\"Аватар користувача - TwoComms\"",
+          "count": 2
+        },
+        {
+          "pattern": "alt=[\"\\']Плейсхолдер аватара[\"\\']",
+          "replacement": "alt=\"Аватар користувача - TwoComms\"",
+          "count": 1
+        },
+        {
+          "pattern": "alt=[\"\\']Google[\"\\']",
+          "replacement": "alt=\"Вхід через Google - TwoComms\"",
+          "count": 1
+        }
+      ],
+      "backup_created": true
+    },
+    {
+      "file": "twocomms_django_theme/templates/pages/index.html",
+      "changes": 2,
+      "replacements": [
+        {
+          "pattern": "alt=[\"\\']TwoComms логотип[\"\\']",
+          "replacement": "alt=\"TwoComms логотип - стріт & мілітарі одяг\"",
+          "count": 3
+        },
+        {
+          "pattern": "alt=[\"\\']Logo[\"\\']",
+          "replacement": "alt=\"TwoComms логотип\"",
+          "count": 5
+        }
+      ],
+      "backup_created": true
+    },
+    {
+      "file": "twocomms_django_theme/templates/pages/auth_register.html",
+      "changes": 1,
+      "replacements": [
+        {
+          "pattern": "alt=[\"\\']Google[\"\\']",
+          "replacement": "alt=\"Вхід через Google - TwoComms\"",
+          "count": 1
+        }
+      ],
+      "backup_created": true
+    },
+    {
+      "file": "twocomms_django_theme/templates/pages/auth_login.html",
+      "changes": 1,
+      "replacements": [
+        {
+          "pattern": "alt=[\"\\']Google[\"\\']",
+          "replacement": "alt=\"Вхід через Google - TwoComms\"",
+          "count": 1
+        }
+      ],
+      "backup_created": true
+    },
+    {
+      "file": "twocomms_django_theme/templates/pages/auth_profile_setup.html",
+      "changes": 1,
+      "replacements": [
+        {
+          "pattern": "alt=[\"\\']Аватар[\"\\']",
+          "replacement": "alt=\"Аватар користувача - TwoComms\"",
+          "count": 2
+        }
+      ],
+      "backup_created": true
+    },
+    {
+      "file": "twocomms_django_theme/templates/partials/header.html",
+      "changes": 4,
+      "replacements": [
+        {
+          "pattern": "alt=[\"\\']TwoComms логотип[\"\\']",
+          "replacement": "alt=\"TwoComms логотип - стріт & мілітарі одяг\"",
+          "count": 1
+        },
+        {
+          "pattern": "alt=[\"\\']Аватар користувача[\"\\']",
+          "replacement": "alt=\"Аватар користувача - TwoComms\"",
+          "count": 6
+        },
+        {
+          "pattern": "alt=[\"\\']Аватар[\"\\']",
+          "replacement": "alt=\"Аватар користувача - TwoComms\"",
+          "count": 3
+        },
+        {
+          "pattern": "alt=[\"\\']Google[\"\\']",
+          "replacement": "alt=\"Вхід через Google - TwoComms\"",
+          "count": 1
+        }
+      ],
+      "backup_created": true
+    }
+  ],
+  "total_changes": 12,
+  "errors": [],
+  "summary": {
+    "files_updated": 6,
+    "total_changes": 12,
+    "errors_count": 0,
+    "most_changed_files": [
+      {
+        "file": "twocomms_django_theme/templates/partials/header.html",
+        "changes": 4,
+        "replacements": [
+          {
+            "pattern": "alt=[\"\\']TwoComms логотип[\"\\']",
+            "replacement": "alt=\"TwoComms логотип - стріт & мілітарі одяг\"",
+            "count": 1
+          },
+          {
+            "pattern": "alt=[\"\\']Аватар користувача[\"\\']",
+            "replacement": "alt=\"Аватар користувача - TwoComms\"",
+            "count": 6
+          },
+          {
+            "pattern": "alt=[\"\\']Аватар[\"\\']",
+            "replacement": "alt=\"Аватар користувача - TwoComms\"",
+            "count": 3
+          },
+          {
+            "pattern": "alt=[\"\\']Google[\"\\']",
+            "replacement": "alt=\"Вхід через Google - TwoComms\"",
+            "count": 1
+          }
+        ],
+        "backup_created": true
+      },
+      {
+        "file": "twocomms_django_theme/templates/base.html",
+        "changes": 3,
+        "replacements": [
+          {
+            "pattern": "alt=[\"\\']Аватар користувача[\"\\']",
+            "replacement": "alt=\"Аватар користувача - TwoComms\"",
+            "count": 2
+          },
+          {
+            "pattern": "alt=[\"\\']Плейсхолдер аватара[\"\\']",
+            "replacement": "alt=\"Аватар користувача - TwoComms\"",
+            "count": 1
+          },
+          {
+            "pattern": "alt=[\"\\']Google[\"\\']",
+            "replacement": "alt=\"Вхід через Google - TwoComms\"",
+            "count": 1
+          }
+        ],
+        "backup_created": true
+      },
+      {
+        "file": "twocomms_django_theme/templates/pages/index.html",
+        "changes": 2,
+        "replacements": [
+          {
+            "pattern": "alt=[\"\\']TwoComms логотип[\"\\']",
+            "replacement": "alt=\"TwoComms логотип - стріт & мілітарі одяг\"",
+            "count": 3
+          },
+          {
+            "pattern": "alt=[\"\\']Logo[\"\\']",
+            "replacement": "alt=\"TwoComms логотип\"",
+            "count": 5
+          }
+        ],
+        "backup_created": true
+      },
+      {
+        "file": "twocomms_django_theme/templates/pages/auth_register.html",
+        "changes": 1,
+        "replacements": [
+          {
+            "pattern": "alt=[\"\\']Google[\"\\']",
+            "replacement": "alt=\"Вхід через Google - TwoComms\"",
+            "count": 1
+          }
+        ],
+        "backup_created": true
+      },
+      {
+        "file": "twocomms_django_theme/templates/pages/auth_login.html",
+        "changes": 1,
+        "replacements": [
+          {
+            "pattern": "alt=[\"\\']Google[\"\\']",
+            "replacement": "alt=\"Вхід через Google - TwoComms\"",
+            "count": 1
+          }
+        ],
+        "backup_created": true
+      }
+    ],
+    "common_replacements": {
+      "alt=[\"\\']Аватар користувача[\"\\']": 8,
+      "alt=[\"\\']Logo[\"\\']": 5,
+      "alt=[\"\\']Аватар[\"\\']": 5,
+      "alt=[\"\\']Google[\"\\']": 4,
+      "alt=[\"\\']TwoComms логотип[\"\\']": 4,
+      "alt=[\"\\']Плейсхолдер аватара[\"\\']": 1
+    }
+  }
+}

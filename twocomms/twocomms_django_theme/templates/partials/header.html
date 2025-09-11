@@ -3,7 +3,7 @@
 <nav class='navbar navbar-expand-lg border-bottom sticky-top bg-body backdrop-blur'>
   <div class='container-xxl'>
     <a class='navbar-brand fw-bold d-flex align-items-center gap-2' href='{% url 'home' %}'>
-      <img src='{% static 'img/logo.svg' %}' width='28' height='28' alt='TwoComms логотип'> TwoComms
+      <img src='{% static 'img/logo.svg' %}' width='28' height='28' alt="TwoComms логотип - стріт & мілітарі одяг"> TwoComms
     </a>
     <button class='navbar-toggler position-relative' type='button' data-bs-toggle='collapse' data-bs-target='#navMain' aria-controls='navMain' aria-label='Перемикач навігації'>
       <span class='navbar-toggler-icon'></span>
@@ -144,11 +144,11 @@
           <button id="user-toggle" type="button" class="user-avatar-btn" aria-label="Відкрити панель користувача">
             <div class="avatar-wrapper">
               {% if request.user.is_authenticated and request.user.userprofile and request.user.userprofile.avatar %}
-                <img src="{{ request.user.userprofile.avatar.url }}" alt="Аватар користувача" class="avatar-image">
+                <img src="{{ request.user.userprofile.avatar.url }}" alt="Аватар користувача - TwoComms" class="avatar-image">
               {% elif request.user.is_authenticated and request.session.profile_avatar %}
-                <img src="{{ MEDIA_URL }}{{ request.session.profile_avatar }}" alt="Аватар користувача" class="avatar-image">
+                <img src="{{ MEDIA_URL }}{{ request.session.profile_avatar }}" alt="Аватар користувача - TwoComms" class="avatar-image">
               {% elif request.user.is_authenticated %}
-                <img src="{% static 'img/placeholder.jpg' %}" alt="Аватар" class="avatar-image">
+                <img src="{% static 'img/placeholder.jpg' %}" alt="Аватар користувача - TwoComms" class="avatar-image">
               {% else %}
                 <div class="guest-avatar">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -171,11 +171,11 @@
               <div class="user-header">
                 <div class="user-avatar-large">
                   {% if request.user.userprofile and request.user.userprofile.avatar %}
-                    <img src="{{ request.user.userprofile.avatar.url }}" class="avatar-image" alt="Аватар користувача">
+                    <img src="{{ request.user.userprofile.avatar.url }}" class="avatar-image" alt="Аватар користувача - TwoComms">
                   {% elif request.session.profile_avatar %}
-                    <img src="{{ MEDIA_URL }}{{ request.session.profile_avatar }}" class="avatar-image" alt="Аватар користувача">
+                    <img src="{{ MEDIA_URL }}{{ request.session.profile_avatar }}" class="avatar-image" alt="Аватар користувача - TwoComms">
                   {% else %}
-                    <img src="{% static 'img/placeholder.jpg' %}" class="avatar-image" alt="Аватар">
+                    <img src="{% static 'img/placeholder.jpg' %}" class="avatar-image" alt="Аватар користувача - TwoComms">
                   {% endif %}
                   <div class="avatar-glow-large"></div>
                 </div>
@@ -348,7 +348,7 @@
                 </a>
 
                 <a href="{% url 'social:begin' 'google-oauth2' %}" class="auth-btn secondary">
-                  <img src="{% static 'img/google.svg' %}" width="16" height="16" alt="Google" loading="lazy">
+                  <img src="{% static 'img/google.svg' %}" width="16" height="16" alt="Вхід через Google - TwoComms" loading="lazy">
                   <span>Увійти через Google</span>
                 </a>
               </div>
@@ -426,11 +426,11 @@
       <button id="user-toggle-mobile" type="button" class="user-avatar-btn-mobile" aria-label="Відкрити панель користувача">
         <div class="avatar-wrapper-mobile">
           {% if request.user.userprofile and request.user.userprofile.avatar %}
-            <img src="{{ request.user.userprofile.avatar.url }}" alt="Аватар користувача" class="avatar-image-mobile">
+            <img src="{{ request.user.userprofile.avatar.url }}" alt="Аватар користувача - TwoComms" class="avatar-image-mobile">
           {% elif request.session.profile_avatar %}
-            <img src="{{ MEDIA_URL }}{{ request.session.profile_avatar }}" alt="Аватар користувача" class="avatar-image-mobile">
+            <img src="{{ MEDIA_URL }}{{ request.session.profile_avatar }}" alt="Аватар користувача - TwoComms" class="avatar-image-mobile">
           {% else %}
-            <img src="{% static 'img/placeholder.jpg' %}" alt="Аватар" class="avatar-image-mobile">
+            <img src="{% static 'img/placeholder.jpg' %}" alt="Аватар користувача - TwoComms" class="avatar-image-mobile">
           {% endif %}
           <div class="avatar-glow-mobile"></div>
           {% if request.user.is_staff and orders_processing_count > 0 %}

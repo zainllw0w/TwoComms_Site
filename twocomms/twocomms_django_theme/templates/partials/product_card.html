@@ -11,7 +11,7 @@
         {% static 'img/placeholder.jpg' as ph_url %}
         {% if forloop.first %}<link rel="preload" as="image" href="{{ ph_url }}" fetchpriority="high">{% endif %}
         <img src="{{ ph_url }}"
-             alt="{{ p.title }}"
+             alt="{{ p.title }} - {{ p.category.name }} TwoComms"
              width="600" height="600"
              class="w-100 h-100 object-fit-cover product-main-image"
              loading="{% if forloop.first %}eager{% else %}lazy{% endif %}"

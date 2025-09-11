@@ -1,0 +1,13 @@
+{% comment %}
+SEO оптимизированное изображение с автоматически генерированным alt-текстом
+{% endcomment %}
+
+<img 
+    src="{{ attributes.src }}" 
+    alt="{{ attributes.alt }}"
+    {% if attributes.loading %}loading="{{ attributes.loading }}"{% endif %}
+    {% if attributes.decoding %}decoding="{{ attributes.decoding }}"{% endif %}
+    {% if attributes.width %}width="{{ attributes.width }}"{% endif %}
+    {% if attributes.height %}height="{{ attributes.height }}"{% endif %}
+    {% if attributes.class %}class="{{ attributes.class }}"{% endif %}
+>

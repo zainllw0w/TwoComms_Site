@@ -71,7 +71,7 @@
             <div class="avatar-upload-container">
               <div class="avatar-preview">
                 {% if profile.avatar %}
-                  <img src="{{ profile.avatar.url }}" alt="Аватар" class="avatar-image" id="avatar-preview">
+                  <img src="{{ profile.avatar.url }}" alt="Аватар користувача - TwoComms" class="avatar-image" id="avatar-preview">
                 {% else %}
                   <div class="avatar-placeholder" id="avatar-preview">
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
@@ -446,7 +446,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (avatarPreview.tagName === 'IMG') {
           avatarPreview.src = e.target.result;
         } else {
-          avatarPreview.innerHTML = `<img src="${e.target.result}" alt="Аватар" class="avatar-image">`;
+          avatarPreview.innerHTML = `<img src="${e.target.result}" alt="Аватар користувача - TwoComms" class="avatar-image">`;
         }
       };
       reader.readAsDataURL(file);

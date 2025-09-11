@@ -31,6 +31,32 @@ img {
   contain: layout;
 }
 
+/* Оптимизация для скрытия элементов на мобильных устройствах */
+.mobile-hidden {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Оптимизация для показа/скрытия счетчиков */
+.cart-count, .favorites-count {
+  display: none;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.cart-count.visible, .favorites-count.visible {
+  display: inline-block;
+  visibility: visible;
+  opacity: 1;
+}
+
+.favorites-count.visible {
+  display: flex;
+}
+
 /* Оптимизация для мобильных устройств */
 @media (max-width: 768px) {
   .hero-logo-image {
