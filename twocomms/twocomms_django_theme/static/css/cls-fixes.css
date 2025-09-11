@@ -2,10 +2,15 @@
 
 /* Фиксированные размеры для изображений */
 .product-main-image,
-.featured-img,
-.hero-logo-image {
+.featured-img {
   aspect-ratio: 1 / 1;
   object-fit: cover;
+  contain: layout;
+}
+
+.hero-logo-image {
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
   contain: layout;
 }
 
@@ -19,8 +24,8 @@ img {
 /* Оптимизация для мобильных устройств */
 @media (max-width: 768px) {
   .hero-logo-image {
-    width: 200px;
-    height: 200px;
+    width: 150px;
+    height: 150px;
   }
   
   .featured-img {
