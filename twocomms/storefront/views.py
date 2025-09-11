@@ -4034,7 +4034,7 @@ def admin_store_generate_invoice(request, store_id):
         ws.title = "Накладна"
         
         # Заголовки
-        ws['A1'] = f"Накладна для магазину: {store.name} (под реализация)"
+        ws['A1'] = f"Накладна для магазину: {store.name} (під реалізацію)"
         ws['A1'].font = Font(bold=True, size=14)
         ws['A2'] = f"Дата: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
         ws['A2'].font = Font(size=12)
