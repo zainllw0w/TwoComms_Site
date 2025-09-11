@@ -1176,7 +1176,7 @@
                                 <div class="order-item-specs-row">
                                     <div class="order-item-color-section">
                                         <span class="order-item-color-text">{% if item.color %}{{ item.color.name }}{% else %}Чорний{% endif %}</span>
-                                        <span class="order-item-color-dot" style="background-color: {% if item.color %}{{ item.color.hex_code }}{% else %}#000000{% endif %};"></span>
+                                        <span class="order-item-color-dot" style="background-color: {% if item.color %}{{ item.color.primary_hex }}{% else %}#000000{% endif %};"></span>
                                     </div>
                                     
                                     {% if item.size %}
