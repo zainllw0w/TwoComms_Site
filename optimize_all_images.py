@@ -116,6 +116,8 @@ def optimize_all_images():
                     processed_files += 1
                     
                     logger.info(f"✅ {filename}: экономия {savings / 1024:.1f} KiB")
+    else:
+        logger.info("⚠️ Директория static/img не найдена, пропускаем статические изображения")
     
     # 4. Специальная оптимизация для noise.png
     noise_path = os.path.join(static_dir, 'img', 'noise.png')
@@ -135,6 +137,8 @@ def optimize_all_images():
             processed_files += 1
             
             logger.info(f"✅ noise.png: экономия {savings / 1024:.1f} KiB")
+    else:
+        logger.info("⚠️ Файл noise.png не найден, пропускаем специальную оптимизацию")
     
     # Итоговая статистика
     logger.info("=" * 50)
