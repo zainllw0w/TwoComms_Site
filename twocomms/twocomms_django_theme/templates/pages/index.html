@@ -54,19 +54,19 @@
 {% comment %} Макрос для floating logos {% endmacro %}
 {% macro floating_logos %}
 <div class="floating-logo logo-1">
-  <img src="{{ logo_url }}" alt="TwoComms логотип" width="16" height="16">
+  <img src="{{ logo_url }}" alt="TwoComms логотип" width="16" height="16" fetchpriority="high" loading="eager">
 </div>
 <div class="floating-logo logo-2">
-  <img src="{{ logo_url }}" alt="TwoComms логотип - декоративний" width="14" height="14">
+  <img src="{{ logo_url }}" alt="TwoComms логотип - декоративний" width="14" height="14" fetchpriority="high" loading="eager">
 </div>
 <div class="floating-logo logo-3">
-  <img src="{{ logo_url }}" alt="TwoComms логотип" width="18" height="18">
+  <img src="{{ logo_url }}" alt="TwoComms логотип" width="18" height="18" fetchpriority="high" loading="eager">
 </div>
 <div class="floating-logo logo-4">
-  <img src="{{ logo_url }}" alt="TwoComms логотип" width="12" height="12">
+  <img src="{{ logo_url }}" alt="TwoComms логотип" width="12" height="12" fetchpriority="high" loading="eager">
 </div>
 <div class="floating-logo logo-5">
-  <img src="{{ logo_url }}" alt="TwoComms логотип" width="15" height="15">
+  <img src="{{ logo_url }}" alt="TwoComms логотип" width="15" height="15" fetchpriority="high" loading="eager">
 </div>
 {% endmacro %}
 
@@ -158,13 +158,13 @@
       <div class="featured-gradient-2"></div>
       <div class="featured-floating-logos">
         <div class="floating-logo logo-1">
-          <img src="{{ logo_url }}" alt="TwoComms логотип - стріт & мілітарі одяг" width="14" height="14">
+          <img src="{{ logo_url }}" alt="TwoComms логотип - стріт & мілітарі одяг" width="14" height="14" fetchpriority="high" loading="eager">
         </div>
         <div class="floating-logo logo-2">
-          <img src="{{ logo_url }}" alt="TwoComms логотип - стріт & мілітарі одяг" width="12" height="12">
+          <img src="{{ logo_url }}" alt="TwoComms логотип - стріт & мілітарі одяг" width="12" height="12" fetchpriority="high" loading="eager">
         </div>
         <div class="floating-logo logo-3">
-          <img src="{{ logo_url }}" alt="TwoComms логотип - стріт & мілітарі одяг" width="16" height="16">
+          <img src="{{ logo_url }}" alt="TwoComms логотип - стріт & мілітарі одяг" width="16" height="16" fetchpriority="high" loading="eager">
         </div>
       </div>
     </div>
@@ -202,15 +202,18 @@
       <div class="featured-card-compact">
         <div class="featured-image-compact">
           {% if featured.display_image %}
+            <link rel="preload" as="image" href="{{ featured.display_image.url }}" fetchpriority="high">
             {% optimized_image featured.display_image.url featured.title|add:" - "|add:featured.category.name|add:" TwoComms" "featured-img" 400 400 %}
           {% else %}
             {% static 'img/placeholder.jpg' as ph_url %}
+            <link rel="preload" as="image" href="{{ ph_url }}" fetchpriority="high">
             <img
               src="{{ ph_url }}"
               class="featured-img"
               alt="{{ featured.title }} - рекомендуємий товар TwoComms"
-              loading="lazy"
-              decoding="async"
+              loading="eager"
+              fetchpriority="high"
+              decoding="sync"
               width="400"
               height="400"
             >
