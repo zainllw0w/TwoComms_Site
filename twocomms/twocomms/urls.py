@@ -17,11 +17,11 @@ sitemaps = {
 }
 
 urlpatterns = [
-    # Social auth
-    path('', include('social_django.urls', namespace='social')),
-    path('oauth/', include('social_django.urls')),  # fallback для старых ссылок
-    # Core
+    # Core - главная страница должна быть первой!
     path("", include("storefront.urls")),
+    # Social auth - только для OAuth путей
+    path('oauth/', include('social_django.urls', namespace='social')),
+    path('social/', include('social_django.urls')),  # fallback для старых ссылок
     path("admin/", admin.site.urls),
     
     # Accounts
