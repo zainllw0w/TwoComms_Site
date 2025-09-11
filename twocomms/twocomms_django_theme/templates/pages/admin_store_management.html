@@ -1045,6 +1045,16 @@
     min-height: 80px;
 }
 
+.compact-info-strip {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.compact-info-strip .compact-info-item {
+    white-space: nowrap;
+    color: rgba(255, 255, 255, 0.9);
+}
+
 .store-product-card:hover {
     transform: translateY(-5px);
     box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
@@ -1692,6 +1702,18 @@
     0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.3; }
     50% { transform: translateY(-15px) rotate(180deg); opacity: 0.6; }
 }
+
+.compact-info-strip {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.compact-info-item {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.7);
+}
 </style>
 {% endblock %}
 
@@ -1966,28 +1988,10 @@
                          
                          <!-- Статистика -->
                          <div class="product-stats-section">
-                             <div class="stat-card cost">
-                                 <div class="stat-icon">💰</div>
-                                 <div class="stat-content">
-                                     <div class="stat-value">{{ store_product.cost_price }} грн</div>
-                                     <div class="stat-label">Собівартість</div>
-                                 </div>
-                             </div>
-                             
-                             <div class="stat-card selling">
-                                 <div class="stat-icon">💵</div>
-                                 <div class="stat-content">
-                                     <div class="stat-value">{{ store_product.selling_price }} грн</div>
-                                     <div class="stat-label">Ціна продажу</div>
-                                 </div>
-                             </div>
-                             
-                             <div class="stat-card margin">
-                                 <div class="stat-icon">📈</div>
-                                 <div class="stat-content">
-                                     <div class="stat-value">{{ store_product.margin }} грн</div>
-                                     <div class="stat-label">Маржа</div>
-                                 </div>
+                             <div class="compact-info-strip">
+                                 <span class="compact-info-item">{{ store_product.quantity|default:'1' }} шт.</span>
+                                 <span class="compact-info-item">Себестоимость: {{ store_product.cost_price|default:'0' }} грн</span>
+                                 <span class="compact-info-item">Маржа: {{ store_product.margin|default:'0' }} грн</span>
                              </div>
                          </div>
                          
