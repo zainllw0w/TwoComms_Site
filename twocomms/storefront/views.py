@@ -4108,9 +4108,8 @@ def admin_store_generate_invoice(request, store_id):
             file_path=filepath
         )
         
-        # Обновляем статус заказа
-        order.status = 'completed'
-        order.save()
+        # Заказ остается активным для продолжения работы
+        # order.status = 'completed'  # Убрано - заказ остается draft
         
         # Возвращаем файл для скачивания
         with open(filepath, 'rb') as f:
