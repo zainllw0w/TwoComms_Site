@@ -1193,7 +1193,7 @@
                             
                             <!-- Правая часть - корзина и цены -->
                             <div class="order-item-actions">
-                                <button class="remove-item-btn" onclick="removeOrderItem({{ item.id }})">
+                                <button class="remove-item-btn" data-item-id="{{ item.id }}">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                                         <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                                     </svg>
@@ -1213,10 +1213,10 @@
             
             <!-- Кнопки действий -->
             <div class="order-actions">
-                <button class="action-btn add-to-store-btn" id="addToStoreBtn" onclick="addToStore()">
+                <button class="action-btn add-to-store-btn" id="addToStoreBtn">
                     В магазин
                 </button>
-                <button class="action-btn generate-invoice-btn" id="generateInvoiceBtn" onclick="generateInvoice()">
+                <button class="action-btn generate-invoice-btn" id="generateInvoiceBtn">
                     Накладна
                 </button>
             </div>
@@ -1237,8 +1237,8 @@
                     <div class="store-product" data-product-id="{{ store_product.id }}">
                         <div class="store-product-header">
                             <div class="store-product-title">{{ store_product.product.title }}</div>
-                            <button class="edit-product-btn" onclick="editStoreProduct({{ store_product.id }})">✏️</button>
-                            <button class="remove-product-btn" onclick="removeStoreProduct({{ store_product.id }})">×</button>
+                            <button class="edit-product-btn" data-product-id="{{ store_product.id }}">✏️</button>
+                            <button class="remove-product-btn" data-product-id="{{ store_product.id }}">×</button>
                         </div>
                         <div class="store-product-details">
                             {% if store_product.size %}({{ store_product.size }}){% endif %}
@@ -1299,8 +1299,8 @@
             <input type="number" class="form-input" id="editQuantity" min="1">
         </div>
         <div style="display: flex; gap: 10px; margin-top: 20px;">
-            <button class="action-btn add-to-store-btn" onclick="saveStoreProduct()">Зберегти</button>
-            <button class="action-btn" style="background: #718096;" onclick="closeEditModal()">Скасувати</button>
+            <button class="action-btn add-to-store-btn" id="saveStoreProductBtn">Зберегти</button>
+            <button class="action-btn" style="background: #718096;" id="closeEditModalBtn">Скасувати</button>
         </div>
     </div>
 </div>
@@ -1335,6 +1335,42 @@ document.addEventListener('DOMContentLoaded', function() {
     if (firstOrderItem) {
         currentOrderId = firstOrderItem.dataset.orderId;
     }
+    
+    // Инициализируем обработчики для кнопок удаления товаров из заказа
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.remove-item-btn')) {
+            const itemId = e.target.closest('.remove-item-btn').dataset.itemId;
+            if (itemId) {
+                removeOrderItem(itemId);
+            }
+        }
+    });
+    
+    // Инициализируем обработчики для кнопок редактирования товаров в магазине
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.edit-product-btn')) {
+            const productId = e.target.closest('.edit-product-btn').dataset.productId;
+            if (productId) {
+                editStoreProduct(productId);
+            }
+        }
+    });
+    
+    // Инициализируем обработчики для кнопок удаления товаров из магазина
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.remove-product-btn')) {
+            const productId = e.target.closest('.remove-product-btn').dataset.productId;
+            if (productId) {
+                removeStoreProduct(productId);
+            }
+        }
+    });
+    
+    // Инициализируем обработчики для основных кнопок действий
+    document.getElementById('addToStoreBtn').addEventListener('click', addToStore);
+    document.getElementById('generateInvoiceBtn').addEventListener('click', generateInvoice);
+    document.getElementById('saveStoreProductBtn').addEventListener('click', saveStoreProduct);
+    document.getElementById('closeEditModalBtn').addEventListener('click', closeEditModal);
     
     loadOrderItems();
 });
@@ -1588,7 +1624,7 @@ function addOrderItemToDOM(item) {
                 
                 <!-- Правая часть - корзина и цены -->
                 <div class="order-item-actions">
-                    <button class="remove-item-btn" onclick="removeOrderItem(${item.id})">
+                    <button class="remove-item-btn" data-item-id="${item.id}">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                         </svg>
@@ -1644,7 +1680,7 @@ function updateOrderItemsDisplay(items) {
             <div class="order-item" data-item-id="${item.id}" data-order-id="${currentOrderId}">
                 <div class="order-item-header">
                     <div class="order-item-title">${item.product_name}</div>
-                    <button class="remove-item-btn" onclick="removeOrderItem(${item.id})">
+                    <button class="remove-item-btn" data-item-id="${item.id}">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                         </svg>
