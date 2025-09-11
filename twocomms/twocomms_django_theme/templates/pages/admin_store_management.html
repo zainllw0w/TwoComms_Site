@@ -973,39 +973,40 @@
     }
     
     .store-product-card {
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
+        grid-template-columns: 80px 1fr;
+        grid-template-rows: auto auto auto;
+        gap: 10px;
         min-height: auto;
     }
     
     .product-image-section {
-        width: 100px;
-        height: 100px;
-        margin-bottom: 15px;
+        width: 80px;
+        height: 80px;
+        grid-column: 1;
+        grid-row: 1 / 3;
     }
     
     .product-info-section {
-        height: auto;
-        width: 100%;
+        grid-column: 2;
+        grid-row: 1;
     }
     
     .product-stats-section {
-        justify-content: center;
-    }
-    
-    .stat-card {
-        min-width: 70px;
-        max-width: 90px;
+        grid-column: 2;
+        grid-row: 2;
+        justify-content: flex-start;
     }
     
     .product-actions {
-        flex-direction: column;
+        grid-column: 1 / 3;
+        grid-row: 3;
+        flex-direction: row;
         gap: 8px;
+        min-width: auto;
     }
     
     .action-btn {
-        width: 100%;
+        flex: 1;
         min-height: 40px;
     }
     
@@ -1033,10 +1034,11 @@
     transition: all 0.3s ease;
     overflow: visible;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-    display: flex;
+    display: grid;
+    grid-template-columns: 100px 1fr auto;
     gap: 15px;
-    align-items: flex-start;
-    min-height: 100px;
+    align-items: start;
+    min-height: 120px;
 }
 
 .store-product-card:hover {
@@ -1064,13 +1066,14 @@
 
 .product-image-section {
     position: relative;
-    width: 90px;
-    height: 90px;
+    width: 100px;
+    height: 100px;
     border-radius: 12px;
     overflow: hidden;
-    flex-shrink: 0;
     background: rgba(20, 22, 27, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.1);
+    grid-column: 1;
+    grid-row: 1 / 3;
 }
 
 .product-main-image {
@@ -1126,12 +1129,12 @@
 }
 
 .product-info-section {
-    flex: 1;
-    min-width: 0;
+    grid-column: 2;
+    grid-row: 1;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    height: 90px;
+    gap: 8px;
+    min-width: 0;
 }
 
 .product-header {
@@ -1142,11 +1145,15 @@
     font-size: 1rem;
     font-weight: 600;
     color: rgba(255, 255, 255, 0.9);
-    margin: 0 0 6px 0;
-    line-height: 1.2;
+    margin: 0;
+    line-height: 1.3;
     word-wrap: break-word;
     overflow-wrap: break-word;
     hyphens: auto;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 .product-specs {
@@ -1203,10 +1210,12 @@
 }
 
 .product-stats-section {
+    grid-column: 2;
+    grid-row: 2;
     display: flex;
     gap: 8px;
-    margin-bottom: 12px;
     flex-wrap: wrap;
+    align-items: center;
 }
 
 .stat-card {
@@ -1256,27 +1265,32 @@
 }
 
 .product-actions {
+    grid-column: 3;
+    grid-row: 1 / 3;
     display: flex;
-    gap: 6px;
-    justify-content: space-between;
+    flex-direction: column;
+    gap: 8px;
+    justify-content: center;
+    align-items: stretch;
+    min-width: 120px;
 }
 
 .action-btn {
-    flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    padding: 8px 10px;
+    gap: 6px;
+    padding: 10px 12px;
     border: none;
     border-radius: 8px;
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.3s ease;
     text-transform: uppercase;
     letter-spacing: 0.3px;
-    min-height: 32px;
+    min-height: 36px;
+    white-space: nowrap;
 }
 
 .sold-btn {
