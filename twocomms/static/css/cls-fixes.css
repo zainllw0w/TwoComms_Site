@@ -9,9 +9,9 @@ main.container-xxl {
 
 /* 2. Фиксируем размеры для hero-section */
 .hero-section {
-  min-height: 100vh;
-  height: 100vh; /* Фиксированная высота */
-  max-height: 100vh; /* Предотвращаем переполнение */
+  min-height: 60vh; /* Уменьшаем высоту hero-панели */
+  height: 60vh; /* Фиксированная высота */
+  max-height: 60vh; /* Предотвращаем переполнение */
   position: relative;
   contain: layout size; /* Изолируем layout и размеры */
   overflow: hidden;
@@ -136,8 +136,8 @@ footer {
 /* 13. Оптимизация для мобильных устройств */
 @media (max-width: 768px) {
   .hero-section {
-    min-height: 80vh; /* Меньшая высота на мобильных */
-    height: 80vh;
+    min-height: 50vh; /* Еще меньшая высота на мобильных */
+    height: 50vh;
   }
   
   main.container-xxl {
