@@ -4052,11 +4052,11 @@ def admin_store_generate_invoice(request, store_id):
         
         for item in order.order_items.all():
             # Формируем название товара
-            product_name = item.product.title
+            product_name = f"TwoComms {item.product.title}"
             if item.size:
                 product_name += f" ({item.size})"
             if item.color:
-                product_name += f" [{item.color}]"
+                product_name += f" [{item.color.name}]"
             
             ws.cell(row=row, column=1, value=product_name)
             ws.cell(row=row, column=2, value=item.selling_price)
