@@ -37,6 +37,58 @@ const DOMCache = {
   }
 };
 
+// ===== ОПТИМИЗАЦИЯ ИЗОБРАЖЕНИЙ =====
+const ImageOptimizer = {
+  // Обработка lazy loading изображений
+  initLazyImages() {
+    const lazyImages = document.querySelectorAll('img[loading="lazy"]');
+    
+    if ('IntersectionObserver' in window) {
+      const imageObserver = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const img = entry.target;
+            img.classList.add('loaded');
+            observer.unobserve(img);
+          }
+        });
+      }, {
+        rootMargin: '50px 0px',
+        threshold: 0.01
+      });
+      
+      lazyImages.forEach(img => imageObserver.observe(img));
+    } else {
+      // Fallback для старых браузеров
+      lazyImages.forEach(img => img.classList.add('loaded'));
+    }
+  },
+  
+  // Оптимизация адаптивных изображений
+  optimizeResponsiveImages() {
+    const pictures = document.querySelectorAll('picture');
+    
+    pictures.forEach(picture => {
+      const img = picture.querySelector('img');
+      if (img) {
+        // Добавляем обработчик загрузки
+        img.addEventListener('load', () => {
+          img.classList.add('loaded');
+        });
+        
+        // Предотвращаем смещения
+        img.style.contain = 'layout';
+      }
+    });
+  },
+  
+  // Инициализация
+  init() {
+    this.initLazyImages();
+    this.optimizeResponsiveImages();
+  }
+};
+
 // Анимации появления
 const prefersReducedMotion = (function(){
   try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
@@ -59,6 +111,9 @@ const io = new IntersectionObserver(e => {
   });
 }, observerOptions);
 document.addEventListener('DOMContentLoaded',()=>{
+  // Инициализация оптимизации изображений
+  ImageOptimizer.init();
+  
   // Обычные лёгкие появления
   document.querySelectorAll('.reveal, .reveal-fast').forEach(el=>io.observe(el));
   
@@ -236,11 +291,18 @@ function applySwatchColors(root){
     list.forEach(function(el){
       const primary = el.getAttribute('data-primary') || '';
       const secondary = el.getAttribute('data-secondary') || '';
+      
+      // Устанавливаем CSS-переменные для комбинированных цветов
       if(primary) el.style.setProperty('--primary-color', primary);
       if(secondary && secondary !== 'None'){
         el.style.setProperty('--secondary-color', secondary);
       } else {
         el.style.removeProperty('--secondary-color');
+      }
+      
+      // Устанавливаем прямой background-color для .swatch элементов
+      if(el.classList.contains('swatch') && primary) {
+        el.style.backgroundColor = primary;
       }
     });
   }catch(_){ }
