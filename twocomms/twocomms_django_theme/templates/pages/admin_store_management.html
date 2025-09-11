@@ -798,71 +798,7 @@
     box-shadow: 0 10px 25px rgba(237, 137, 54, 0.3);
 }
 
-.store-product {
-    background: white;
-    border-radius: 10px;
-    padding: 15px;
-    margin-bottom: 10px;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
-    border-left: 4px solid #48bb78;
-}
-
-.store-product-header {
-    display: flex;
-    justify-content: between;
-    align-items: center;
-    margin-bottom: 10px;
-}
-
-.store-product-title {
-    font-weight: 600;
-    color: #2d3748;
-    flex: 1;
-}
-
-.edit-product-btn {
-    background: #667eea;
-    color: white;
-    border: none;
-    padding: 5px 10px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    margin-right: 5px;
-    transition: all 0.3s ease;
-}
-
-.edit-product-btn:hover {
-    background: #5a67d8;
-}
-
-.remove-product-btn {
-    background: #e53e3e;
-    color: white;
-    border: none;
-    padding: 5px 10px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    transition: all 0.3s ease;
-}
-
-.remove-product-btn:hover {
-    background: #c53030;
-}
-
-.store-product-details {
-    font-size: 0.9rem;
-    color: #718096;
-    margin-bottom: 5px;
-}
-
-.store-product-stats {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    margin-top: 10px;
-}
+/* Старые стили удалены - используются новые .store-product-card */
 
 .stat-item {
     text-align: center;
@@ -897,7 +833,7 @@
 
 .category-stat-item {
     display: flex;
-    justify-content: between;
+    justify-content: space-between;
     align-items: center;
     padding: 8px 0;
     border-bottom: 1px solid #e2e8f0;
@@ -1151,6 +1087,8 @@
     border-radius: 50%;
     background: var(--color, #000);
 }
+
+/* Цвет устанавливается через JavaScript */
 
 .product-quantity {
     display: flex;
@@ -2096,6 +2034,16 @@ function initializeColorDots() {
             dot.style.backgroundColor = color;
         }
     });
+    
+    // Устанавливаем цвета для бейджей цветов
+    const colorBadges = document.querySelectorAll('.spec-badge.color[data-color]');
+    colorBadges.forEach(badge => {
+        const color = badge.getAttribute('data-color');
+        if (color) {
+            const beforeElement = badge;
+            beforeElement.style.setProperty('--color', color);
+        }
+    });
 }
 
 // Drag and Drop функциональность
@@ -2581,9 +2529,9 @@ function editStoreProduct(productId) {
     const productElement = document.querySelector(`[data-product-id="${productId}"]`);
     
     // Заполняем форму текущими значениями
-    const costPrice = productElement.querySelector('.stat-item-value').textContent.replace(/\D/g, '');
-    const sellingPrice = productElement.querySelectorAll('.stat-item-value')[1].textContent.replace(/\D/g, '');
-    const quantity = productElement.querySelector('.store-product-details').textContent.match(/(\d+)\s*шт/)[1];
+    const costPrice = productElement.querySelector('.stat-card.cost .stat-value').textContent.replace(/\D/g, '');
+    const sellingPrice = productElement.querySelector('.stat-card.selling .stat-value').textContent.replace(/\D/g, '');
+    const quantity = productElement.querySelector('.quantity-text').textContent.replace(/\D/g, '');
     
     document.getElementById('editCostPrice').value = costPrice;
     document.getElementById('editSellingPrice').value = sellingPrice;
