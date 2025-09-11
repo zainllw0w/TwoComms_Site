@@ -1377,8 +1377,40 @@ function animateImageChange(img, newSrc) {
     
     // Предзагружаем новое изображение
     preloadImage(newSrc).then(() => {
-      // Меняем src
-      img.src = newSrc;
+      // Проверяем, является ли элемент <picture>
+      const picture = img.closest('picture');
+      if (picture) {
+        // Для <picture> элементов нужно обновить все источники
+        const sources = picture.querySelectorAll('source');
+        sources.forEach(source => {
+          const srcset = source.getAttribute('srcset');
+          if (srcset) {
+            // Генерируем новые URL для оптимизированных версий
+            const baseUrl = newSrc.replace(/\/[^\/]+\.(jpg|jpeg|png)$/, '');
+            const fileName = newSrc.match(/\/([^\/]+)\.(jpg|jpeg|png)$/);
+            if (fileName) {
+              const baseName = fileName[1];
+              const type = source.getAttribute('type');
+              let newSrcset;
+              
+              if (type === 'image/avif') {
+                newSrcset = `${baseUrl}/optimized/${baseName}.avif`;
+              } else if (type === 'image/webp') {
+                newSrcset = `${baseUrl}/optimized/${baseName}.webp`;
+              } else {
+                newSrcset = newSrc;
+              }
+              
+              source.setAttribute('srcset', newSrcset);
+            }
+          }
+        });
+        // Обновляем основной img
+        img.src = newSrc;
+      } else {
+        // Для обычных img элементов
+        img.src = newSrc;
+      }
       
       // Используем requestAnimationFrame для плавной анимации
       requestAnimationFrame(() => {
@@ -1412,8 +1444,8 @@ document.addEventListener('click', function(e) {
     return;
   }
   
-  // Находим основное изображение карточки
-  const mainImage = productCard.querySelector('.ratio img');
+  // Находим основное изображение карточки (поддерживаем как <img>, так и <picture>)
+  const mainImage = productCard.querySelector('.ratio img') || productCard.querySelector('.ratio picture img');
   
   if (!mainImage) {
     return;

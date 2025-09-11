@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% load static %}{% load cache %}
+{% extends "base.html" %}{% load static %}{% load cache %}{% load responsive_images %}
 
 {% block title %}TwoComms — Стріт & Мілітарі Одяг | Головна{% endblock %}
 
@@ -140,11 +140,16 @@
     <div class="featured-content-unified" id="featured-content">
       <div class="featured-card-compact">
         <div class="featured-image-compact">
-                  <img
-                    src="{% if featured.display_image %}{{ featured.display_image.url }}{% else %}{% static 'img/placeholder.jpg' %}{% endif %}"
-                    class="featured-img"
-                    alt="{{ featured.title }} - {{ featured.category.name }} TwoComms"
-                  >
+          {% if featured.display_image %}
+            {% optimized_image featured.display_image.url featured.title|add:" - "|add:featured.category.name|add:" TwoComms" "featured-img" 400 400 %}
+          {% else %}
+            {% static 'img/placeholder.jpg' as ph_url %}
+            <img
+              src="{{ ph_url }}"
+              class="featured-img"
+              alt="{{ featured.title }} - {{ featured.category.name }} TwoComms"
+            >
+          {% endif %}
           {% if featured.has_discount and featured.discount_percent %}
             <div class="featured-discount-compact">-{{ featured.discount_percent }}%</div>
           {% endif %}
