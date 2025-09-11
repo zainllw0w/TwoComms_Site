@@ -4034,13 +4034,13 @@ def admin_store_generate_invoice(request, store_id):
         ws.title = "Накладна"
         
         # Заголовки
-        ws['A1'] = f"Накладна для магазину: {store.name}"
+        ws['A1'] = f"Накладна для магазину: {store.name} (под реализация)"
         ws['A1'].font = Font(bold=True, size=14)
         ws['A2'] = f"Дата: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
         ws['A2'].font = Font(size=12)
         
         # Заголовки таблицы
-        headers = ['Товар', 'Кількість', 'Ціна під реалізацію за од. в грн']
+        headers = ['Товар', 'Кількість', 'Ціна (грн)']
         for col, header in enumerate(headers, 1):
             cell = ws.cell(row=4, column=col, value=header)
             cell.font = Font(bold=True)
@@ -4092,7 +4092,7 @@ def admin_store_generate_invoice(request, store_id):
         ws.column_dimensions['B'].width = 20
         
         # Сохраняем файл
-        filename = f"invoice_{store.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        filename = f"TwoComms_накладна_{store.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         filepath = os.path.join(settings.MEDIA_ROOT, 'invoices', filename)
         
         # Создаем директорию если не существует
