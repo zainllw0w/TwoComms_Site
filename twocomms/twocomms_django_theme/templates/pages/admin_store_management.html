@@ -2764,6 +2764,18 @@ function closeEditModal() {
 function removeStoreProduct(productId) {
     if (!confirm('Видалити товар з магазину?')) return;
     
+    // Находим карточку товара
+    const productCard = document.querySelector(`[data-product-id="${productId}"]`);
+    if (!productCard) {
+        showNotification('Товар не знайдено', 'error');
+        return;
+    }
+    
+    // Анимация удаления
+    productCard.style.transition = 'all 0.3s ease';
+    productCard.style.transform = 'scale(0.8)';
+    productCard.style.opacity = '0';
+    
     fetch(`/admin-panel/offline-store/{{ store.id }}/product/${productId}/remove/`, {
         method: 'POST',
         headers: {
@@ -2773,13 +2785,24 @@ function removeStoreProduct(productId) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            showNotification('Товар видалено з магазину', 'success');
-            location.reload();
+            // Удаляем карточку из DOM после анимации
+            setTimeout(() => {
+                productCard.remove();
+                showNotification('Товар видалено з магазину', 'success');
+                // Обновляем статистику магазина
+                updateStoreStatistics();
+            }, 300);
         } else {
+            // Возвращаем карточку в исходное состояние при ошибке
+            productCard.style.transform = 'scale(1)';
+            productCard.style.opacity = '1';
             showNotification(data.error || 'Помилка видалення', 'error');
         }
     })
     .catch(error => {
+        // Возвращаем карточку в исходное состояние при ошибке
+        productCard.style.transform = 'scale(1)';
+        productCard.style.opacity = '1';
         showNotification('Помилка сервера', 'error');
     });
 }
@@ -2948,22 +2971,41 @@ function updateSoldStats() {
     document.getElementById('totalSoldProfit').textContent = `${totalProfit.toFixed(0)} грн`;
 }
 
-// Функция удаления товара из магазина
-function removeStoreProduct(productId) {
-    if (confirm('Ви впевнені, що хочете видалити цей товар з магазину?')) {
-        // Здесь будет AJAX запрос для удаления товара
-        const productCard = document.querySelector(`[data-product-id="${productId}"]`);
-        if (productCard) {
-            productCard.style.transition = 'all 0.3s ease';
-            productCard.style.transform = 'scale(0.8)';
-            productCard.style.opacity = '0';
+// Функция обновления статистики магазина
+function updateStoreStatistics() {
+    // Пересчитываем статистику на основе оставшихся товаров
+    const productCards = document.querySelectorAll('.store-product-card');
+    let totalCost = 0;
+    let totalSelling = 0;
+    let totalMargin = 0;
+    let categoryStats = {};
+    
+    productCards.forEach(card => {
+        const costElement = card.querySelector('.price-info-item.cost');
+        const marginElement = card.querySelector('.price-info-item.margin');
+        
+        if (costElement && marginElement) {
+            const costText = costElement.textContent.replace(/[^\d]/g, '');
+            const marginText = marginElement.textContent.replace(/[^\d]/g, '');
             
-            setTimeout(() => {
-                productCard.remove();
-                showNotification('Товар видалено з магазину', 'success');
-            }, 300);
+            const cost = parseFloat(costText) || 0;
+            const margin = parseFloat(marginText) || 0;
+            const selling = cost + margin;
+            
+            totalCost += cost;
+            totalSelling += selling;
+            totalMargin += margin;
         }
-    }
+    });
+    
+    // Обновляем отображение статистики
+    const costElement = document.querySelector('.stat-card.cost .stat-value');
+    const sellingElement = document.querySelector('.stat-card.selling .stat-value');
+    const marginElement = document.querySelector('.stat-card.profit .stat-value');
+    
+    if (costElement) costElement.textContent = `${totalCost.toFixed(0)} грн`;
+    if (sellingElement) sellingElement.textContent = `${totalSelling.toFixed(0)} грн`;
+    if (marginElement) marginElement.textContent = `${totalMargin.toFixed(0)} грн`;
 }
 </script>
 {% endblock %}
