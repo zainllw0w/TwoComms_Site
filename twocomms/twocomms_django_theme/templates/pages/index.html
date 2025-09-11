@@ -29,13 +29,11 @@
 {% cache 1800 hero_block %}
 <section class="hero-section mb-4 mb-md-5 reveal">
   <div class="hero-container row align-items-center g-4">
-    <!-- Центрированный логотип -->
-    <div class="col-12 col-md-6 hero-logo-container">
-      <div class="hero-logo-wrapper">
-        <link rel="preload" as="image" href="{% static 'img/logo.svg' %}" fetchpriority="high">
-        {% static 'img/logo.svg' as hero_logo_url %}
-        <img src="{{ hero_logo_url }}" alt="TwoComms - Стріт & Мілітарі Одяг" class="hero-logo-image" loading="eager" fetchpriority="high" decoding="sync">
-      </div>
+    <!-- Фоновый логотип -->
+    <div class="col-12 col-md-6 hero-logo-bg">
+      <link rel="preload" as="image" href="{% static 'img/logo.svg' %}" fetchpriority="high">
+      {% static 'img/logo.svg' as hero_logo_url %}
+      <img src="{{ hero_logo_url }}" alt="TwoComms - Стріт & Мілітарі Одяг" width="200" height="200" class="hero-logo-image" loading="eager" fetchpriority="high" decoding="sync">
     </div>
     
     <!-- Основной контент -->
