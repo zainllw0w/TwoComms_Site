@@ -992,6 +992,13 @@
     
     .product-stats-section {
         justify-content: center;
+        gap: 6px;
+    }
+    
+    .stat-card {
+        min-width: 50px;
+        max-width: 65px;
+        padding: 4px 6px;
     }
     
     .product-actions {
@@ -1194,6 +1201,32 @@
 
 /* Цвет устанавливается через JavaScript */
 
+/* Дополнительные стили для улучшения отображения */
+.product-info-section .product-title {
+    margin-bottom: 4px;
+}
+
+.product-specs .spec-badge {
+    margin-bottom: 2px;
+}
+
+.product-quantity {
+    margin-bottom: 4px;
+}
+
+/* Стили для лучшей читаемости статистики */
+.stat-card.cost {
+    border-left: 3px solid rgba(72, 187, 120, 0.6);
+}
+
+.stat-card.selling {
+    border-left: 3px solid rgba(66, 153, 225, 0.6);
+}
+
+.stat-card.profit {
+    border-left: 3px solid rgba(245, 101, 101, 0.6);
+}
+
 .product-quantity {
     display: flex;
     align-items: center;
@@ -1210,34 +1243,34 @@
 
 .product-stats-section {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     align-items: center;
-    margin-top: 4px;
+    margin-top: 6px;
     flex-wrap: wrap;
 }
 
 .stat-card {
-    background: rgba(139, 92, 246, 0.1);
+    background: rgba(20, 22, 27, 0.6);
     backdrop-filter: blur(10px);
-    border-radius: 6px;
-    padding: 4px 8px;
+    border-radius: 8px;
+    padding: 6px 10px;
     text-align: center;
-    border: 1px solid rgba(139, 92, 246, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     transition: all 0.3s ease;
-    min-width: 50px;
-    max-width: 70px;
+    min-width: 60px;
+    max-width: 80px;
 }
 
 .stat-card:hover {
-    background: rgba(139, 92, 246, 0.2);
+    background: rgba(20, 22, 27, 0.8);
     transform: translateY(-1px);
-    border-color: rgba(139, 92, 246, 0.5);
+    border-color: rgba(139, 92, 246, 0.3);
 }
 
 .stat-icon {
-    font-size: 0.9rem;
-    margin-bottom: 2px;
-    color: rgba(139, 92, 246, 1);
+    font-size: 1rem;
+    margin-bottom: 3px;
+    color: rgba(255, 255, 255, 0.8);
 }
 
 .stat-content {
@@ -1245,19 +1278,19 @@
 }
 
 .stat-value {
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     font-weight: 600;
     color: rgba(255, 255, 255, 0.95);
-    margin-bottom: 1px;
+    margin-bottom: 2px;
     word-wrap: break-word;
     overflow-wrap: break-word;
 }
 
 .stat-label {
-    font-size: 0.6rem;
-    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.65rem;
+    color: rgba(255, 255, 255, 0.6);
     text-transform: uppercase;
-    letter-spacing: 0.2px;
+    letter-spacing: 0.3px;
     word-wrap: break-word;
     overflow-wrap: break-word;
 }
