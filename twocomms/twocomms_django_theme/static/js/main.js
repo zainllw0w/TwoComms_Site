@@ -1,6 +1,7 @@
 // ===== DOM КЭШ ДЛЯ ОПТИМИЗАЦИИ =====
 const DOMCache = {
   elements: {},
+  computedStyles: new Map(), // Кэш для computed styles
   
   get(id) {
     if (!this.elements[id]) {
@@ -23,8 +24,21 @@ const DOMCache = {
     return this.elements[selector];
   },
   
+  // Оптимизированное получение computed styles с кэшированием
+  getComputedStyle(element, forceRefresh = false) {
+    const key = element;
+    if (!forceRefresh && this.computedStyles.has(key)) {
+      return this.computedStyles.get(key);
+    }
+    
+    const styles = window.getComputedStyle(element);
+    this.computedStyles.set(key, styles);
+    return styles;
+  },
+  
   clear() {
     this.elements = {};
+    this.computedStyles.clear();
   },
   
   // Очистка кэша при изменении DOM
@@ -34,6 +48,129 @@ const DOMCache = {
     } else {
       this.elements = {};
     }
+    this.computedStyles.clear();
+  }
+};
+
+// ===== ОПТИМИЗАЦИЯ ПРОИЗВОДИТЕЛЬНОСТИ =====
+const PerformanceOptimizer = {
+  // Debounced scroll handler для предотвращения принудительной компоновки
+  scrollHandler: null,
+  scrollTimeout: null,
+  
+  initScrollOptimization() {
+    let ticking = false;
+    let lastScrollY = 0;
+    
+    const updateScroll = () => {
+      // Используем requestAnimationFrame для оптимизации
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
+          this.handleScroll(currentScrollY, lastScrollY);
+          lastScrollY = currentScrollY;
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    
+    // Throttled scroll listener
+    window.addEventListener('scroll', updateScroll, { passive: true });
+  },
+  
+  handleScroll(currentY, lastY) {
+    // Оптимизированная обработка скролла
+    const scrollDelta = Math.abs(currentY - lastY);
+    if (scrollDelta > 5) { // Минимальный порог для обработки
+      this.onScrollChange(currentY, lastY);
+    }
+  },
+  
+  onScrollChange(currentY, lastY) {
+    // Переопределяется в конкретных модулях
+  },
+  
+  // Оптимизированное получение scroll position
+  getScrollY() {
+    return window.pageYOffset || document.documentElement.scrollTop;
+  },
+  
+  // Batch DOM operations для предотвращения множественных reflow
+  batchDOMOperations(operations) {
+    requestAnimationFrame(() => {
+      operations.forEach(op => {
+        try {
+          op();
+        } catch (e) {
+          console.warn('DOM operation failed:', e);
+        }
+      });
+    });
+  }
+};
+
+// ===== МОБИЛЬНАЯ ОПТИМИЗАЦИЯ =====
+const MobileOptimizer = {
+  // Определение мобильного устройства
+  isMobile() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+           window.innerWidth <= 768;
+  },
+  
+  // Определение слабого устройства
+  isLowEndDevice() {
+    return navigator.hardwareConcurrency <= 2 || 
+           navigator.deviceMemory <= 2 ||
+           navigator.connection?.effectiveType === 'slow-2g' ||
+           navigator.connection?.effectiveType === '2g';
+  },
+  
+  // Адаптивная оптимизация для мобильных устройств
+  initMobileOptimizations() {
+    if (!this.isMobile()) return;
+    
+    // Уменьшаем частоту обновлений на слабых устройствах
+    if (this.isLowEndDevice()) {
+      // Увеличиваем threshold для scroll events
+      PerformanceOptimizer.scrollThreshold = 20;
+      
+      // Отключаем тяжелые анимации
+      document.documentElement.classList.add('perf-lite');
+      
+      // Уменьшаем количество частиц
+      const particles = document.querySelectorAll('.particle');
+      particles.forEach((particle, index) => {
+        if (index > 2) particle.style.display = 'none';
+      });
+    }
+    
+    // Оптимизация для touch устройств
+    this.optimizeTouchEvents();
+  },
+  
+  // Оптимизация touch событий
+  optimizeTouchEvents() {
+    let touchStartTime = 0;
+    let touchMoved = false;
+    
+    document.addEventListener('touchstart', (e) => {
+      touchStartTime = Date.now();
+      touchMoved = false;
+    }, { passive: true });
+    
+    document.addEventListener('touchmove', (e) => {
+      touchMoved = true;
+    }, { passive: true });
+    
+    document.addEventListener('touchend', (e) => {
+      const touchDuration = Date.now() - touchStartTime;
+      
+      // Предотвращаем случайные клики при быстрых свайпах
+      if (touchMoved && touchDuration < 200) {
+        e.preventDefault();
+      }
+    }, { passive: false });
   }
 };
 
@@ -713,7 +850,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const bottomNav = document.querySelector('.bottom-nav');
     if(!bottomNav) return;
 
-    let lastScrollY = window.scrollY || 0;
+    let lastScrollY = PerformanceOptimizer.getScrollY();
     let hidden = false;
     let hintShown = sessionStorage.getItem('bottom-nav-hint') === '1';
     let touchStartY = null;
@@ -723,7 +860,10 @@ document.addEventListener('DOMContentLoaded',()=>{
     const setHidden = (v)=>{
       if(hidden === v) return;
       hidden = v;
-      bottomNav.classList.toggle('bottom-nav--hidden', hidden);
+      // Используем batch operations для предотвращения reflow
+      PerformanceOptimizer.batchDOMOperations([
+        () => bottomNav.classList.toggle('bottom-nav--hidden', hidden)
+      ]);
     };
 
     const maybeShowHint = ()=>{
@@ -735,21 +875,16 @@ document.addEventListener('DOMContentLoaded',()=>{
       hintShown = true;
     };
 
-    // Скролл: вниз — скрыть, вверх — показать (с небольшим трешхолдом)
-    let scrollTicking = false;
-    window.addEventListener('scroll', ()=>{
-      if(scrollTicking) return;
-      scrollTicking = true;
-      requestAnimationFrame(()=>{
-        const y = window.scrollY || 0;
-        const dy = y - lastScrollY;
-        const threshold = 6;
-        if(dy > threshold) setHidden(true);
-        else if(dy < -threshold) setHidden(false);
-        lastScrollY = y;
-        scrollTicking = false;
-      });
-    }, {passive:true});
+    // Оптимизированная обработка скролла с использованием PerformanceOptimizer
+    PerformanceOptimizer.onScrollChange = (currentY, lastY) => {
+      const dy = currentY - lastY;
+      const threshold = 6;
+      if(dy > threshold) setHidden(true);
+      else if(dy < -threshold) setHidden(false);
+    };
+    
+    // Инициализируем оптимизированный скролл
+    PerformanceOptimizer.initScrollOptimization();
 
     // Фокус в полях ввода — скрыть; блюр — показать
     document.addEventListener('focusin', (e)=>{
@@ -821,10 +956,10 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   });
 
-  // Отбираем реальные «тяжёлые» по computed styles
+  // Отбираем реальные «тяжёлые» по computed styles с кэшированием
   const heavyNodes = candidates.filter(el=>{
     try{
-      const cs = getComputedStyle(el);
+      const cs = DOMCache.getComputedStyle(el);
       const hasBackdrop = (cs.backdropFilter && cs.backdropFilter!=='none');
       const hasBlur = (cs.filter||'').includes('blur');
       const hasBigShadow = (cs.boxShadow||'').includes('px');
@@ -868,18 +1003,22 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   window.addEventListener('scroll', onScroll, {passive:true});
 
-  // Пауза бесконечных анимаций, когда элемент вне вьюпорта
+  // Пауза бесконечных анимаций, когда элемент вне вьюпорта (оптимизированно)
   if('IntersectionObserver' in window){
     const io = new IntersectionObserver(entries=>{
-      entries.forEach(entry=>{
-        const el = entry.target; const visible = entry.isIntersecting;
-        try{
-          const cs = getComputedStyle(el);
-          if((cs.animationIterationCount||'').includes('infinite')){
-            el.style.setProperty('animation-play-state', visible ? 'running' : 'paused','important');
-          }
-        }catch(_){ }
-      });
+      // Batch operations для предотвращения множественных reflow
+      PerformanceOptimizer.batchDOMOperations(
+        entries.map(entry => () => {
+          const el = entry.target; 
+          const visible = entry.isIntersecting;
+          try{
+            const cs = DOMCache.getComputedStyle(el);
+            if((cs.animationIterationCount||'').includes('infinite')){
+              el.style.setProperty('animation-play-state', visible ? 'running' : 'paused','important');
+            }
+          }catch(_){ }
+        })
+      );
     },{threshold:0.05});
     heavyNodes.forEach(el=>{ try{ io.observe(el); }catch(_){ } });
   }
@@ -1579,6 +1718,9 @@ document.addEventListener('click', function(e) {
 
 // Оптимизированная инициализация цветовых точек при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
+  // Инициализация мобильных оптимизаций
+  MobileOptimizer.initMobileOptimizations();
+  
   // Делаем цветовые точки видимыми с использованием requestAnimationFrame
   const colorDots = document.querySelectorAll('.color-dot');
   
