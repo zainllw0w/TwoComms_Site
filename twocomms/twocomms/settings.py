@@ -83,6 +83,7 @@ MIDDLEWARE = [
     "twocomms.middleware.WWWRedirectMiddleware",  # Редирект с www
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "twocomms.image_middleware.ImageOptimizationMiddleware",  # Оптимизация изображений
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",

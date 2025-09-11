@@ -1,0 +1,41 @@
+{% comment %}
+Шаблон для адаптивного изображения с поддержкой WebP/AVIF
+{% endcomment %}
+
+{% if image_path %}
+<picture>
+  {% if responsive_sources %}
+    {% comment %} Адаптивные AVIF источники {% endcomment %}
+    {% for source in responsive_sources %}
+      {% if source.format == 'avif' %}
+        <source srcset="{{ source.url }}" sizes="{{ sizes }}" type="image/avif">
+      {% endif %}
+    {% endfor %}
+    
+    {% comment %} Адаптивные WebP источники {% endcomment %}
+    {% for source in responsive_sources %}
+      {% if source.format == 'webp' %}
+        <source srcset="{{ source.url }}" sizes="{{ sizes }}" type="image/webp">
+      {% endif %}
+    {% endfor %}
+  {% else %}
+    {% comment %} Статические оптимизированные версии {% endcomment %}
+    {% if has_avif and avif_path %}
+      <source srcset="{{ avif_path }}" type="image/avif">
+    {% endif %}
+    {% if has_webp and webp_path %}
+      <source srcset="{{ webp_path }}" type="image/webp">
+    {% endif %}
+  {% endif %}
+  
+  {% comment %} Fallback изображение {% endcomment %}
+  <img 
+    src="{{ image_path }}" 
+    alt="{{ alt_text }}"
+    {% if class_name %}class="{{ class_name }}"{% endif %}
+    {% if responsive_sources %}sizes="{{ sizes }}"{% endif %}
+    loading="lazy"
+    decoding="async"
+  >
+</picture>
+{% endif %}
