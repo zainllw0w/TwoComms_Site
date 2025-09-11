@@ -1084,9 +1084,9 @@
                                 </div>
                                 <div class="product-colors">
                                     {% for color_variant in product.color_variants.all|slice:":3" %}
-                                        <span class="color-dot" style="background-color: {{ color_variant.color.primary_hex }};" title="{{ color_variant.color.name|default:color_variant.color.primary_hex }}"></span>
+                                        <span class="color-dot" data-color="{{ color_variant.color.primary_hex }}" title="{{ color_variant.color.name|default:color_variant.color.primary_hex }}"></span>
                                     {% empty %}
-                                        <span class="color-dot" style="background-color: #000000;" title="Чорний (дефолт)"></span>
+                                        <span class="color-dot" data-color="#000000" title="Чорний (дефолт)"></span>
                                     {% endfor %}
                                     {% if product.color_variants.count > 3 %}
                                         <span class="color-more">+{{ product.color_variants.count|add:"-3" }}</span>
@@ -1180,7 +1180,7 @@
                                 <div class="order-item-specs-row">
                                     <div class="order-item-color-section">
                                         <span class="order-item-color-text">{% if item.color %}{{ item.color.name }}{% else %}Чорний{% endif %}</span>
-                                        <span class="order-item-color-dot" style="background-color: {% if item.color %}{{ item.color.primary_hex }}{% else %}#000000{% endif %};"></span>
+                                        <span class="order-item-color-dot" data-color="{% if item.color %}{{ item.color.primary_hex }}{% else %}#000000{% endif %}"></span>
                                     </div>
                                     
                                     {% if item.size %}
@@ -1373,7 +1373,21 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('closeEditModalBtn').addEventListener('click', closeEditModal);
     
     loadOrderItems();
+    
+    // Устанавливаем цвета для color-dot элементов
+    initializeColorDots();
 });
+
+// Функция для инициализации цветов точек
+function initializeColorDots() {
+    const colorDots = document.querySelectorAll('.color-dot[data-color]');
+    colorDots.forEach(dot => {
+        const color = dot.getAttribute('data-color');
+        if (color) {
+            dot.style.backgroundColor = color;
+        }
+    });
+}
 
 // Drag and Drop функциональность
 function initializeDragAndDrop() {
@@ -1613,7 +1627,7 @@ function addOrderItemToDOM(item) {
                     <div class="order-item-specs-row">
                         <div class="order-item-color-section">
                             <span class="order-item-color-text">${colorName}</span>
-                            <span class="order-item-color-dot" style="background-color: ${colorHex};"></span>
+                            <span class="order-item-color-dot" data-color="${colorHex}"></span>
                         </div>
                         
                         ${item.size ? `<div class="order-item-size">${item.size}</div>` : ''}
@@ -1641,6 +1655,9 @@ function addOrderItemToDOM(item) {
     
     // Добавляем товар в контейнер
     orderItemsContainer.insertAdjacentHTML('beforeend', itemHTML);
+    
+    // Инициализируем цвета для нового элемента
+    initializeColorDots();
 }
 
 // Загрузка товаров в заказе
