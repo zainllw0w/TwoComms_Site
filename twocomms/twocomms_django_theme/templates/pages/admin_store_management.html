@@ -167,6 +167,8 @@
     min-height: 900px;
     position: relative;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .order-column {
@@ -240,11 +242,12 @@
 }
 
 .products-scroll-container {
-    max-height: 600px;
+    flex: 1;
     overflow-y: auto;
     padding-right: 8px;
     margin-right: -8px;
     padding: 0 8px 0 0;
+    min-height: 0;
 }
 
 .products-scroll-container::-webkit-scrollbar {
