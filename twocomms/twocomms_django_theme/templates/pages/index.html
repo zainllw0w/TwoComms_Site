@@ -108,7 +108,8 @@
            class="hero-logo-image" 
            loading="eager" 
            fetchpriority="high" 
-           decoding="sync">
+           decoding="sync"
+           sizes="(max-width: 768px) 150px, 200px">
     </div>
     
     <!-- Основной контент -->
@@ -315,15 +316,17 @@
                      width="24" height="24" 
                      alt="{{ c.name }} категорія - TwoComms" 
                      loading="lazy" 
-                     decoding="async"
-                     fetchpriority="low">
+                     decoding="async" 
+                     fetchpriority="low"
+                     sizes="(max-width: 768px) 24px, 24px">
               {% else %}
                 <img src="{{ default_icon_url }}" 
                      width="24" height="24" 
                      alt="{{ c.name }} категорія - TwoComms" 
-                     loading="lazy" 
+                     loading="lazy"
                      decoding="async"
-                     fetchpriority="low">
+                     fetchpriority="low"
+                     sizes="(max-width: 768px) 24px, 24px">
               {% endif %}
             </div>
             <div class="card-text-compact">
