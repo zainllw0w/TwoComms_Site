@@ -181,8 +181,24 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
   
+  // Инициализация - убеждаемся, что элементы видны на десктопе
+  function initDesktopVisibility() {
+    const isDesktop = window.innerWidth > 991.98;
+    if (isDesktop) {
+      if (cartContainer) {
+        cartContainer.classList.remove('mobile-hidden');
+      }
+      if (profileContainer) {
+        profileContainer.classList.remove('mobile-hidden');
+      }
+    }
+  }
+  
   // Инициализация с задержкой для избежания блокировки рендеринга
-  setTimeout(updateMobileVisibility, 0);
+  setTimeout(() => {
+    initDesktopVisibility();
+    updateMobileVisibility();
+  }, 0);
   
   // Используем более эффективный обработчик resize
   let resizeTimeout;
