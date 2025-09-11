@@ -79,6 +79,8 @@ INSTALLED_APPS = [
 
 # Явно переопределим список middleware, чтобы исключить любые лишние строки
 MIDDLEWARE = [
+    "twocomms.middleware.ForceHTTPSMiddleware",  # Принудительный HTTPS
+    "twocomms.middleware.WWWRedirectMiddleware",  # Редирект с www
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -389,10 +391,12 @@ if not DEBUG:
     SECURE_HSTS_PRELOAD = True
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
+    SECURE_REDIRECT_EXEMPT = []  # Принудительный редирект для всех URL
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
 # Настройки сессий (адаптивные для локальной разработки и продакшена)
 SESSION_COOKIE_SECURE = not DEBUG   # HTTPS только в продакшене

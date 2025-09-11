@@ -1,0 +1,139 @@
+{
+  "timestamp": "2025-09-11T06:04:00.202915",
+  "base_url": "https://twocomms.shop",
+  "technical_seo": {
+    "robots_txt": {
+      "status": "ok",
+      "accessible": true,
+      "has_sitemap": true,
+      "has_disallow": true,
+      "has_allow": true,
+      "content_length": 321,
+      "headers": {
+        "Connection": "Keep-Alive",
+        "Keep-Alive": "timeout=5, max=100",
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        "Pragma": "no-cache",
+        "Expires": "0",
+        "Content-Disposition": "inline; filename=\"robots.txt\"",
+        "X-Frame-Options": "DENY",
+        "Vary": "Cookie",
+        "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "set-cookie": "sessionid=sc72i4yfqpooknhy7mmafelthr6978wd; expires=Thu, 25 Sep 2025 03:04:00 GMT; HttpOnly; Max-Age=1209600; Path=/; SameSite=Lax; Secure",
+        "Content-Length": "321",
+        "Date": "Thu, 11 Sep 2025 03:04:00 GMT",
+        "Server": "LiteSpeed",
+        "alt-svc": "h3=\":443\"; ma=2592000, h3-29=\":443\"; ma=2592000, h3-Q050=\":443\"; ma=2592000, h3-Q046=\":443\"; ma=2592000, h3-Q043=\":443\"; ma=2592000, quic=\":443\"; ma=2592000; v=\"43,46\""
+      }
+    },
+    "sitemap": {
+      "status": "ok",
+      "accessible": true,
+      "url_count": 60,
+      "correct_domain": true,
+      "content_type": "",
+      "content_length": 7686
+    },
+    "ssl_certificate": {
+      "status": "error",
+      "error": "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1035)"
+    },
+    "redirects": {
+      "http_to_https": {
+        "status": 200,
+        "redirects_to_https": false
+      },
+      "www_redirect": {
+        "status": 200,
+        "accessible": true
+      }
+    },
+    "page_speed": {
+      "/": {
+        "load_time": 0.48,
+        "status_code": 200,
+        "content_length": 94521,
+        "fast_load": true
+      },
+      "/catalog/": {
+        "load_time": 0.11,
+        "status_code": 200,
+        "content_length": 52922,
+        "fast_load": true
+      },
+      "/about/": {
+        "load_time": 0.95,
+        "status_code": 200,
+        "content_length": 67144,
+        "fast_load": true
+      }
+    },
+    "mobile_friendly": {
+      "has_viewport_meta": true,
+      "viewport_content": "width=device-width, initial-scale=1",
+      "responsive_design": true
+    },
+    "structured_data": {
+      "json_ld_count": 2,
+      "open_graph_count": 9,
+      "twitter_cards_count": 0,
+      "microdata_count": 0,
+      "has_structured_data": true,
+      "has_social_meta": true
+    }
+  },
+  "content_seo": {
+    "meta_tags": {
+      "has_title": true,
+      "title_text": "TwoComms — Стріт & Мілітарі Одяг | Головна",
+      "title_length": 42,
+      "title_optimal": true,
+      "has_description": true,
+      "description_text": "TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю. Швидка доставка по Україні.",
+      "description_length": 168,
+      "description_optimal": false,
+      "has_keywords": true,
+      "keywords_text": "стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, одяг з характером, стріт стиль, мілітарі стиль",
+      "has_canonical": true,
+      "canonical_url": "https://twocomms.shop/",
+      "has_robots_meta": true,
+      "robots_content": "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1",
+      "allows_indexing": true
+    },
+    "headings": {
+      "h1_count": 1,
+      "h1_texts": [
+        "<span class=\"hero-title-main\">Стріт & мілітарі</span>\n          <span class=\"hero-title-accent\">одяг</span>"
+      ],
+      "h2_count": 2,
+      "h3_count": 1,
+      "has_proper_h1": true,
+      "heading_structure_ok": true
+    },
+    "images": {
+      "total_images": 25,
+      "images_with_alt": 24,
+      "images_without_alt": 1,
+      "alt_coverage": 96.0,
+      "all_images_have_alt": false
+    },
+    "content_quality": {
+      "word_count": 1535,
+      "paragraph_count": 80,
+      "has_substantial_content": true,
+      "content_density_ok": true
+    }
+  },
+  "performance": {},
+  "security": {},
+  "issues": [],
+  "recommendations": [
+    "📏 Оптимизируйте длину description (120-160 символов)",
+    "🖼️ Добавьте alt-атрибуты ко всем изображениям"
+  ],
+  "score": 79.0,
+  "level": "Удовлетворительно"
+}
