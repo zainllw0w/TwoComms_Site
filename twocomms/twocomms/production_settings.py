@@ -35,6 +35,10 @@ if os.environ.get('DISABLE_ANALYTICS', 'false').lower() in ('1', 'true', 'yes'):
         MIDDLEWARE.insert(0, "twocomms.middleware.ForceHTTPSMiddleware")
     if "twocomms.middleware.WWWRedirectMiddleware" not in MIDDLEWARE:
         MIDDLEWARE.insert(1, "twocomms.middleware.WWWRedirectMiddleware")
+
+# Добавляем middleware для кеширования медиа файлов
+if "twocomms.media_cache_middleware.MediaCacheMiddleware" not in MIDDLEWARE:
+    MIDDLEWARE.append("twocomms.media_cache_middleware.MediaCacheMiddleware")
 import pymysql
 
 # Настройка PyMySQL для работы с MySQL
@@ -232,61 +236,20 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # ===== ОПТИМИЗАЦИИ ДЛЯ ПРОДАКШЕНА =====
 
-# ===== ЭФФЕКТИВНАЯ СИСТЕМА КЕШИРОВАНИЯ =====
-
-# Многоуровневое кеширование для максимальной эффективности
+# Кэширование: всегда локальный кэш (LocMem), без Redis и без переменных окружения
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'twocomms-default',
-        'TIMEOUT': 300,  # 5 минут для общих данных
-        'OPTIONS': {
-            'MAX_ENTRIES': 5000,
-            'CULL_FREQUENCY': 4,
-        }
-    },
-    'staticfiles': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'twocomms-staticfiles',
-        'TIMEOUT': 86400,  # 24 часа для статических файлов
-        'OPTIONS': {
-            'MAX_ENTRIES': 10000,
-            'CULL_FREQUENCY': 2,
-        }
-    },
-    'templates': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'twocomms-templates',
-        'TIMEOUT': 3600,  # 1 час для шаблонов
+        'LOCATION': 'twocomms-local',
+        'TIMEOUT': 300,
         'OPTIONS': {
             'MAX_ENTRIES': 2000,
             'CULL_FREQUENCY': 3,
         }
-    },
-    'database': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'twocomms-database',
-        'TIMEOUT': 1800,  # 30 минут для запросов к БД
-        'OPTIONS': {
-            'MAX_ENTRIES': 3000,
-            'CULL_FREQUENCY': 3,
-        }
-    },
-    'api': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'twocomms-api',
-        'TIMEOUT': 600,  # 10 минут для API запросов
-        'OPTIONS': {
-            'MAX_ENTRIES': 1000,
-            'CULL_FREQUENCY': 4,
-        }
     }
 }
-
-# Сессии через кешированную БД
 SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
 SESSION_CACHE_ALIAS = 'default'
-SESSION_COOKIE_AGE = 86400 * 7  # 7 дней
 
 # Кэширование шаблонов (включено для продакшена)
 TEMPLATES[0]['OPTIONS']['loaders'] = [
@@ -297,7 +260,25 @@ TEMPLATES[0]['OPTIONS']['loaders'] = [
 ]
 TEMPLATES[0]['APP_DIRS'] = False  # Отключаем APP_DIRS при использовании loaders
 
-# Настройки кеширования уже определены выше
+# Восстанавливаем кэширование с оптимизацией для статических файлов
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+        'TIMEOUT': 300,
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,
+        }
+    },
+    'staticfiles': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'staticfiles-cache',
+        'TIMEOUT': 86400,  # 24 часа для статических файлов
+        'OPTIONS': {
+            'MAX_ENTRIES': 5000,
+        }
+    }
+}
 
 # Настройки сжатия статических файлов
 STATICFILES_FINDERS = [
@@ -308,11 +289,17 @@ STATICFILES_FINDERS = [
 
 # WhiteNoise: включаем сжатие и манифест с агрессивным кешированием
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-WHITENOISE_MAX_AGE = int(os.environ.get('WHITENOISE_MAX_AGE', str(60*60*24*180)))  # 180 дней
+WHITENOISE_MAX_AGE = int(os.environ.get('WHITENOISE_MAX_AGE', str(60*60*24*365)))  # 1 год для статических файлов
 WHITENOISE_IMMUTABLE_FILE_TEST = lambda path, url: True
 
 # Дополнительные настройки WhiteNoise для лучшего кеширования
 WHITENOISE_USE_FINDERS = True
+
+# Эффективные настройки кеширования для разных типов ресурсов
+WHITENOISE_ADD_HEADERS_FUNCTION = 'twocomms.cache_headers.add_cache_headers'
+
+# Настройки кеширования для медиа файлов
+MEDIA_CACHE_MAX_AGE = 60 * 60 * 24 * 30  # 30 дней для медиа файлов
 WHITENOISE_AUTOREFRESH = False  # Отключаем автообновление в продакшене
 WHITENOISE_SKIP_COMPRESS_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'ico', 'woff', 'woff2', 'ttf', 'eot']
 

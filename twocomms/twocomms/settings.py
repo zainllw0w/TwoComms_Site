@@ -83,8 +83,6 @@ MIDDLEWARE = [
     "twocomms.middleware.WWWRedirectMiddleware",  # Редирект с www
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
-    "twocomms.cache_middleware.EfficientCacheMiddleware",  # Эффективное кеширование
-    "twocomms.cache_middleware.StaticFilesCacheMiddleware",  # Кеширование статики
     "twocomms.image_middleware.ImageOptimizationMiddleware",  # Оптимизация изображений
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -320,54 +318,15 @@ MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ===== КЭШИРОВАНИЕ =====
-# Версия кеша для инвалидации
-CACHE_VERSION = '2025.09.11.001'
-
-# Многоуровневое кеширование
+# Всегда используем локальный кэш, без переменных окружения и Redis
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'twocomms-default',
+        'LOCATION': 'twocomms-local',
         'TIMEOUT': 300,
-        'OPTIONS': {
-            'MAX_ENTRIES': 5000,
-            'CULL_FREQUENCY': 4,
-        }
-    },
-    'staticfiles': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'twocomms-staticfiles',
-        'TIMEOUT': 86400,  # 24 часа
-        'OPTIONS': {
-            'MAX_ENTRIES': 10000,
-            'CULL_FREQUENCY': 2,
-        }
-    },
-    'templates': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'twocomms-templates',
-        'TIMEOUT': 3600,  # 1 час
         'OPTIONS': {
             'MAX_ENTRIES': 2000,
             'CULL_FREQUENCY': 3,
-        }
-    },
-    'database': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'twocomms-database',
-        'TIMEOUT': 1800,  # 30 минут
-        'OPTIONS': {
-            'MAX_ENTRIES': 3000,
-            'CULL_FREQUENCY': 3,
-        }
-    },
-    'api': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'twocomms-api',
-        'TIMEOUT': 600,  # 10 минут
-        'OPTIONS': {
-            'MAX_ENTRIES': 1000,
-            'CULL_FREQUENCY': 4,
         }
     }
 }
