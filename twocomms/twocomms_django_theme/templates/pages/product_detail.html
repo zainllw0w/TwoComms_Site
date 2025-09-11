@@ -314,7 +314,7 @@
         inner.innerHTML = '';
         indicators.innerHTML = '';
         thumbs.innerHTML = '';
-        var list = images && images.length ? images : ['{% if product.main_image %}{{ product.main_image.url|replace:"products/","products/optimized/"|replace:".jpg",".webp" }}{% else %}{% static "img/placeholder.jpg" %}{% endif %}'];
+        var list = images && images.length ? images : ['{% if product.main_image %}{{ product.main_image.url }}{% else %}{% static "img/placeholder.jpg" %}{% endif %}'];
 
         list.forEach(function(url, idx){
           var item = document.createElement('div');
@@ -322,8 +322,9 @@
           
           // Проверяем, является ли это изображение цветового варианта
           var isColorImage = url.includes('/product_colors/');
+          var isMainImage = url.includes('/products/');
           
-          if (isColorImage) {
+          if (isColorImage || isMainImage) {
             // Создаем оптимизированное изображение с поддержкой WebP/AVIF
             var picture = document.createElement('picture');
             var avifSource = document.createElement('source');
@@ -331,12 +332,19 @@
             var img = document.createElement('img');
             
             // Генерируем URL для оптимизированных версий
-            var baseUrl = url.replace(/\/[^\/]+\.(jpg|jpeg|png)$/, '');
             var fileName = url.match(/\/([^\/]+)\.(jpg|jpeg|png)$/);
             if (fileName) {
               var baseName = fileName[1];
-              // Для изображений цветовых вариантов используем правильный путь
-              var optimizedPath = baseUrl + '/optimized/';
+              var optimizedPath;
+              
+              if (isColorImage) {
+                // Для изображений цветовых вариантов
+                optimizedPath = url.replace(/\/[^\/]+\.(jpg|jpeg|png)$/, '/optimized/');
+              } else {
+                // Для основных изображений товаров
+                optimizedPath = url.replace(/\/[^\/]+\.(jpg|jpeg|png)$/, '/optimized/');
+              }
+              
               avifSource.setAttribute('srcset', optimizedPath + baseName + '.avif');
               avifSource.setAttribute('type', 'image/avif');
               webpSource.setAttribute('srcset', optimizedPath + baseName + '.webp');
@@ -352,7 +360,7 @@
             picture.appendChild(img);
             item.appendChild(picture);
           } else {
-            // Для обычных изображений товаров используем простой img
+            // Для placeholder изображений используем простой img
             item.innerHTML = '<img src="'+url+'" class="d-block w-100 h-100 object-fit-contain" alt="{{ product.title }} - TwoComms">';
           }
           
