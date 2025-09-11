@@ -2181,9 +2181,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Инициализируем обработчики для кнопок удаления товаров из магазина
     document.addEventListener('click', function(e) {
         if (e.target.closest('.delete-btn')) {
-            const productId = e.target.closest('.delete-btn').getAttribute('data-product-id');
+            console.log('Delete button clicked');
+            const deleteBtn = e.target.closest('.delete-btn');
+            const productId = deleteBtn.dataset.productId;
+            console.log('Product ID from button:', productId);
             if (productId) {
                 removeStoreProduct(productId);
+            } else {
+                console.log('No product ID found on delete button');
             }
         }
     });
@@ -2762,14 +2767,19 @@ function closeEditModal() {
 
 // Удаление товара из магазина
 function removeStoreProduct(productId) {
+    console.log('removeStoreProduct called with productId:', productId);
+    
     if (!confirm('Видалити товар з магазину?')) return;
     
     // Находим карточку товара
     const productCard = document.querySelector(`[data-product-id="${productId}"]`);
     if (!productCard) {
+        console.log('Product card not found for productId:', productId);
         showNotification('Товар не знайдено', 'error');
         return;
     }
+    
+    console.log('Product card found, starting deletion...');
     
     // Анимация удаления
     productCard.style.transition = 'all 0.3s ease';
@@ -2973,8 +2983,12 @@ function updateSoldStats() {
 
 // Функция обновления статистики магазина
 function updateStoreStatistics() {
+    console.log('Updating store statistics...');
+    
     // Пересчитываем статистику на основе оставшихся товаров
     const productCards = document.querySelectorAll('.store-product-card');
+    console.log('Found product cards:', productCards.length);
+    
     let totalCost = 0;
     let totalSelling = 0;
     let totalMargin = 0;
@@ -2998,10 +3012,14 @@ function updateStoreStatistics() {
         }
     });
     
+    console.log('Calculated totals - Cost:', totalCost, 'Selling:', totalSelling, 'Margin:', totalMargin);
+    
     // Обновляем отображение статистики
     const costElement = document.querySelector('.stat-card.cost .stat-value');
     const sellingElement = document.querySelector('.stat-card.selling .stat-value');
     const marginElement = document.querySelector('.stat-card.profit .stat-value');
+    
+    console.log('Found stat elements:', { costElement, sellingElement, marginElement });
     
     if (costElement) costElement.textContent = `${totalCost.toFixed(0)} грн`;
     if (sellingElement) sellingElement.textContent = `${totalSelling.toFixed(0)} грн`;
