@@ -1,0 +1,67 @@
+{
+  "timestamp": "2025-09-11T21:49:08.658853",
+  "base_url": "https://twocomms.shop",
+  "tests": {
+    "critical_path": {
+      "load_time": 84.48,
+      "status_code": 200,
+      "content_length": 115780,
+      "optimizations": {
+        "preconnect": true,
+        "async_css": true,
+        "defer_js": true,
+        "lazy_images": true,
+        "critical_css": true,
+        "idle_analytics": true
+      },
+      "score": 100
+    },
+    "resource_loading": {
+      "/static/css/styles.min.css": {
+        "load_time": 90.72,
+        "status_code": 200,
+        "content_length": 345221,
+        "content_type": "text/css",
+        "cache_control": "public, max-age=604800"
+      },
+      "/static/css/cls-fixes.css": {
+        "load_time": 61.24,
+        "status_code": 200,
+        "content_length": 5233,
+        "content_type": "text/css",
+        "cache_control": "public, max-age=604800"
+      },
+      "/static/js/main.js": {
+        "load_time": 83.0,
+        "status_code": 200,
+        "content_length": 73225,
+        "content_type": "application/javascript",
+        "cache_control": "public, max-age=604800"
+      },
+      "/static/img/logo.svg": {
+        "load_time": 62.88,
+        "status_code": 200,
+        "content_length": 20203,
+        "content_type": "image/svg+xml",
+        "cache_control": "public, max-age=604800"
+      }
+    },
+    "core_web_vitals": {
+      "fcp": 45.31,
+      "lcp": 60.42,
+      "cls": 0.05,
+      "fid": 50,
+      "ttfb": 22.66
+    },
+    "mobile_performance": {
+      "load_time": 75.2,
+      "optimizations": {
+        "viewport_meta": true,
+        "mobile_css": true,
+        "touch_icons": true,
+        "mobile_js": true
+      },
+      "score": 100
+    }
+  }
+}
