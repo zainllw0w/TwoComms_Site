@@ -242,3 +242,99 @@ class PageView(models.Model):
 
     def __str__(self) -> str:
         return f"{self.path} @ {self.when}"
+
+
+# ===== Модели для управления оффлайн магазинами =====
+
+class StoreProduct(models.Model):
+    """Товар в оффлайн магазине"""
+    store = models.ForeignKey(OfflineStore, on_delete=models.CASCADE, related_name='store_products', verbose_name='Магазин')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name='Товар')
+    color = models.ForeignKey('productcolors.Color', on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Колір')
+    size = models.CharField(max_length=10, blank=True, null=True, verbose_name='Розмір')
+    quantity = models.PositiveIntegerField(default=1, verbose_name='Кількість')
+    cost_price = models.PositiveIntegerField(verbose_name='Собівартість (грн)')
+    selling_price = models.PositiveIntegerField(verbose_name='Ціна продажу (грн)')
+    is_active = models.BooleanField(default=True, verbose_name='Активний')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Створено')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Оновлено')
+    
+    class Meta:
+        verbose_name = 'Товар в магазині'
+        verbose_name_plural = 'Товари в магазинах'
+        ordering = ['-created_at']
+        unique_together = [['store', 'product', 'size', 'color']]
+    
+    def __str__(self):
+        return f"{self.product.title} - {self.store.name}"
+    
+    @property
+    def margin(self):
+        """Маржа товара"""
+        return self.selling_price - self.cost_price
+
+
+class StoreOrder(models.Model):
+    """Заказ в оффлайн магазине"""
+    STATUS_CHOICES = [
+        ('draft', 'Чернетка'),
+        ('pending', 'В обробці'),
+        ('confirmed', 'Підтверджено'),
+        ('completed', 'Виконано'),
+        ('cancelled', 'Скасовано'),
+    ]
+    
+    store = models.ForeignKey(OfflineStore, on_delete=models.CASCADE, related_name='store_orders', verbose_name='Магазин')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name='Статус')
+    notes = models.TextField(blank=True, null=True, verbose_name='Примітки')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Створено')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Оновлено')
+    
+    class Meta:
+        verbose_name = 'Заказ магазина'
+        verbose_name_plural = 'Заказы магазинов'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Замовлення #{self.id} - {self.store.name}"
+
+
+class StoreOrderItem(models.Model):
+    """Элемент заказа в оффлайн магазине"""
+    order = models.ForeignKey(StoreOrder, on_delete=models.CASCADE, related_name='order_items', verbose_name='Заказ')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name='Товар')
+    color = models.ForeignKey('productcolors.Color', on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Колір')
+    size = models.CharField(max_length=10, blank=True, null=True, verbose_name='Розмір')
+    quantity = models.PositiveIntegerField(default=1, verbose_name='Кількість')
+    cost_price = models.PositiveIntegerField(verbose_name='Собівартість (грн)')
+    selling_price = models.PositiveIntegerField(verbose_name='Ціна продажу (грн)')
+    
+    class Meta:
+        verbose_name = 'Товар в заказі'
+        verbose_name_plural = 'Товари в заказах'
+        ordering = ['id']
+    
+    def __str__(self):
+        return f"{self.product.title} - {self.order}"
+    
+    @property
+    def total_price(self):
+        """Общая цена элемента заказа"""
+        return self.selling_price * self.quantity
+
+
+class StoreInvoice(models.Model):
+    """Накладна магазина"""
+    store = models.ForeignKey(OfflineStore, on_delete=models.CASCADE, related_name='invoices', verbose_name='Магазин')
+    order = models.ForeignKey(StoreOrder, on_delete=models.CASCADE, related_name='invoices', blank=True, null=True, verbose_name='Заказ')
+    file_name = models.CharField(max_length=255, default='', verbose_name='Назва файлу')
+    file_path = models.CharField(max_length=500, default='', verbose_name='Шлях до файлу')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Створено')
+    
+    class Meta:
+        verbose_name = 'Накладна'
+        verbose_name_plural = 'Накладні'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Накладна #{self.id} - {self.store.name}"
