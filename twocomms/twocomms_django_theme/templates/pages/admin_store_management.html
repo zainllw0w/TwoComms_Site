@@ -973,15 +973,15 @@
     }
     
     .store-product-card {
-        grid-template-columns: 80px 1fr;
+        grid-template-columns: 70px 1fr;
         grid-template-rows: auto auto auto;
-        gap: 10px;
+        gap: 8px;
         min-height: auto;
     }
     
     .product-image-section {
-        width: 80px;
-        height: 80px;
+        width: 70px;
+        height: 70px;
         grid-column: 1;
         grid-row: 1 / 3;
     }
@@ -1001,13 +1001,15 @@
         grid-column: 1 / 3;
         grid-row: 3;
         flex-direction: row;
-        gap: 8px;
+        gap: 6px;
         min-width: auto;
     }
     
     .action-btn {
         flex: 1;
-        min-height: 40px;
+        min-height: 36px;
+        font-size: 0.7rem;
+        padding: 6px 8px;
     }
     
     .category-stat-item {
@@ -1028,17 +1030,17 @@
     background: rgba(20, 22, 27, 0.8);
     backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 15px;
-    padding: 15px;
-    margin-bottom: 15px;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 12px;
     transition: all 0.3s ease;
     overflow: visible;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
     display: grid;
-    grid-template-columns: 100px 1fr auto;
-    gap: 15px;
+    grid-template-columns: 80px 1fr auto;
+    gap: 12px;
     align-items: start;
-    min-height: 120px;
+    min-height: 100px;
 }
 
 .store-product-card:hover {
@@ -1066,9 +1068,9 @@
 
 .product-image-section {
     position: relative;
-    width: 100px;
-    height: 100px;
-    border-radius: 12px;
+    width: 80px;
+    height: 80px;
+    border-radius: 10px;
     overflow: hidden;
     background: rgba(20, 22, 27, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -1099,17 +1101,17 @@
 
 .status-indicator {
     position: absolute;
-    top: 5px;
-    right: 5px;
+    top: 4px;
+    right: 4px;
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: 2px;
     background: rgba(20, 22, 27, 0.9);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 3px 6px;
-    border-radius: 12px;
-    font-size: 0.7rem;
+    padding: 2px 5px;
+    border-radius: 8px;
+    font-size: 0.65rem;
     font-weight: 500;
     color: rgba(255, 255, 255, 0.9);
 }
@@ -1133,20 +1135,20 @@
     grid-row: 1;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     min-width: 0;
 }
 
 .product-header {
-    margin-bottom: 8px;
+    margin-bottom: 4px;
 }
 
 .product-title {
-    font-size: 1rem;
+    font-size: 0.9rem;
     font-weight: 600;
     color: rgba(255, 255, 255, 0.9);
     margin: 0;
-    line-height: 1.3;
+    line-height: 1.2;
     word-wrap: break-word;
     overflow-wrap: break-word;
     hyphens: auto;
@@ -1158,18 +1160,18 @@
 
 .product-specs {
     display: flex;
-    gap: 6px;
+    gap: 4px;
     flex-wrap: wrap;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
 }
 
 .spec-badge {
-    padding: 3px 6px;
-    border-radius: 8px;
-    font-size: 0.7rem;
+    padding: 2px 5px;
+    border-radius: 6px;
+    font-size: 0.65rem;
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.2px;
 }
 
 .spec-badge.size {
@@ -1200,9 +1202,9 @@
 .product-quantity {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     color: rgba(255, 255, 255, 0.7);
-    font-size: 0.8rem;
+    font-size: 0.75rem;
 }
 
 .quantity-icon {
@@ -1213,7 +1215,7 @@
     grid-column: 2;
     grid-row: 2;
     display: flex;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
     align-items: center;
 }
@@ -1221,14 +1223,14 @@
 .stat-card {
     background: rgba(20, 22, 27, 0.6);
     backdrop-filter: blur(10px);
-    border-radius: 8px;
-    padding: 8px;
+    border-radius: 6px;
+    padding: 6px;
     text-align: center;
     border: 1px solid rgba(255, 255, 255, 0.1);
     transition: all 0.3s ease;
     flex: 1;
-    min-width: 60px;
-    max-width: 80px;
+    min-width: 50px;
+    max-width: 70px;
 }
 
 .stat-card:hover {
@@ -1238,8 +1240,8 @@
 }
 
 .stat-icon {
-    font-size: 1rem;
-    margin-bottom: 3px;
+    font-size: 0.9rem;
+    margin-bottom: 2px;
 }
 
 .stat-content {
@@ -1247,7 +1249,7 @@
 }
 
 .stat-value {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: rgba(255, 255, 255, 0.9);
     margin-bottom: 1px;
@@ -1256,10 +1258,10 @@
 }
 
 .stat-label {
-    font-size: 0.65rem;
+    font-size: 0.6rem;
     color: rgba(255, 255, 255, 0.6);
     text-transform: uppercase;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.2px;
     word-wrap: break-word;
     overflow-wrap: break-word;
 }
@@ -1269,27 +1271,27 @@
     grid-row: 1 / 3;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     justify-content: center;
     align-items: stretch;
-    min-width: 120px;
+    min-width: 100px;
 }
 
 .action-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 10px 12px;
+    gap: 4px;
+    padding: 8px 10px;
     border: none;
-    border-radius: 8px;
-    font-size: 0.8rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.3s ease;
     text-transform: uppercase;
-    letter-spacing: 0.3px;
-    min-height: 36px;
+    letter-spacing: 0.2px;
+    min-height: 32px;
     white-space: nowrap;
 }
 
