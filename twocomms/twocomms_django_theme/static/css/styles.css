@@ -282,30 +282,47 @@ body::before {
   100% { transform: rotate(360deg) scale(1); }
 }
 
-/* Адаптивность фона для мобильных устройств */
+/* Оптимизированная адаптивность фона для мобильных устройств */
 @media (max-width: 768px) {
   body::before {
     background-image: 
-      radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
-      radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
-      radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.04) 0%, transparent 50%),
+      radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.04) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.03) 0%, transparent 50%),
       linear-gradient(135deg, 
         #0a0b0f 0%,
-        #0e0f12 25%,
-        #121318 50%,
-        #0e0f12 75%,
+        #0e0f12 50%,
         #0a0b0f 100%
       );
     animation: 
-      backgroundShift 80s ease-in-out infinite,
-      backgroundPulse 60s ease-in-out infinite;
+      backgroundShift 120s ease-in-out infinite;
+  }
+  
+  /* Отключаем тяжелые анимации на слабых устройствах */
+  .perf-lite body::before {
+    animation: none !important;
+    background-image: linear-gradient(135deg, #0a0b0f 0%, #0e0f12 50%, #0a0b0f 100%) !important;
   }
   
   body::after {
-    opacity: 0.04;
+    opacity: 0.02;
     animation: 
-      noiseMove 40s linear infinite,
-      backgroundFloat 30s ease-in-out infinite;
+      noiseMove 60s linear infinite;
+  }
+  
+  /* Оптимизация частиц для мобильных */
+  .particle {
+    opacity: 0.3;
+    animation-duration: 8s;
+  }
+  
+  /* Отключаем тяжелые эффекты на слабых устройствах */
+  .perf-lite .particle {
+    display: none !important;
+  }
+  
+  .perf-lite body::after {
+    animation: none !important;
+    opacity: 0.01 !important;
   }
 }
 

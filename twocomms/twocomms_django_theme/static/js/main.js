@@ -141,12 +141,21 @@ const MobileOptimizer = {
       // Уменьшаем количество частиц
       const particles = document.querySelectorAll('.particle');
       particles.forEach((particle, index) => {
-        if (index > 2) particle.style.display = 'none';
+        if (index > 1) particle.style.display = 'none';
       });
+      
+      // Отключаем backdrop-filter на мобильных
+      this.disableBackdropFilters();
+      
+      // Уменьшаем частоту анимаций
+      this.reduceAnimationFrequency();
     }
     
     // Оптимизация для touch устройств
     this.optimizeTouchEvents();
+    
+    // Оптимизация изображений для мобильных
+    this.optimizeMobileImages();
   },
   
   // Оптимизация touch событий
@@ -171,6 +180,61 @@ const MobileOptimizer = {
         e.preventDefault();
       }
     }, { passive: false });
+  },
+  
+  // Отключение backdrop-filter для слабых устройств
+  disableBackdropFilters() {
+    const style = document.createElement('style');
+    style.textContent = `
+      .perf-lite * {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+      }
+    `;
+    document.head.appendChild(style);
+  },
+  
+  // Уменьшение частоты анимаций
+  reduceAnimationFrequency() {
+    const style = document.createElement('style');
+    style.textContent = `
+      .perf-lite * {
+        animation-duration: 0.3s !important;
+        transition-duration: 0.2s !important;
+      }
+      .perf-lite .particle,
+      .perf-lite .floating-logo {
+        animation: none !important;
+      }
+    `;
+    document.head.appendChild(style);
+  },
+  
+  // Оптимизация изображений для мобильных
+  optimizeMobileImages() {
+    // Устанавливаем более агрессивный lazy loading для мобильных
+    const images = document.querySelectorAll('img[loading="lazy"]');
+    images.forEach(img => {
+      // Увеличиваем rootMargin для более ранней загрузки
+      if ('IntersectionObserver' in window) {
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              const img = entry.target;
+              if (img.dataset.src) {
+                img.src = img.dataset.src;
+                img.removeAttribute('data-src');
+              }
+              observer.unobserve(img);
+            }
+          });
+        }, {
+          rootMargin: '50px 0px',
+          threshold: 0.1
+        });
+        observer.observe(img);
+      }
+    });
   }
 };
 
