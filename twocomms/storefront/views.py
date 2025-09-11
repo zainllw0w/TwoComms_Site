@@ -3720,9 +3720,9 @@ def admin_store_management(request, store_id):
     # Статистика магазина
     store_stats = {
         'total_products': store_products.count(),
-        'total_cost': sum(sp.total_cost for sp in store_products),
-        'total_selling_price': sum(sp.total_selling_price for sp in store_products),
-        'total_margin': sum(sp.total_margin for sp in store_products),
+        'total_cost': sum(sp.cost_price for sp in store_products),
+        'total_selling_price': sum(sp.selling_price for sp in store_products),
+        'total_margin': sum(sp.margin for sp in store_products),
         'categories_count': store_products.values('product__category__name').distinct().count(),
     }
     
