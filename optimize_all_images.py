@@ -36,9 +36,9 @@ def optimize_all_images():
     total_savings = 0
     processed_files = 0
     
-    # Пути к директориям
-    media_dir = '/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/media'
-    static_dir = '/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/static'
+    # Пути к директориям (используем относительные пути)
+    media_dir = 'media'
+    static_dir = 'static'
     
     logger.info("🚀 Начинаем оптимизацию изображений...")
     
