@@ -54,7 +54,7 @@ body::after {
   position: fixed;
   inset: 0;
   z-index: -2;
-  background: url('../img/noise.png') repeat;
+  background: url('../img/noise_optimized.png') repeat;
   opacity: 0.06;
   animation: noiseMove 150s linear infinite;
   /* Убираем backdrop-filter, оставляем лёгкий фильтр */
@@ -19271,7 +19271,7 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 .hero-pattern {
   position: absolute;
   inset: 0;
-  background: url('../img/noise.png') repeat;
+  background: url('../img/noise_optimized.png') repeat;
   opacity: 0.1;
 }
 
@@ -19751,7 +19751,7 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 .contacts-hero .hero-pattern {
   position: absolute;
   inset: 0;
-  background: url('../img/noise.png') repeat;
+  background: url('../img/noise_optimized.png') repeat;
   opacity: 0.1;
 }
 
