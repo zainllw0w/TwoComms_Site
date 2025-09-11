@@ -1,24 +1,20 @@
 {
   "analysis": {
-    "total_images": 83,
-    "images_with_alt": 75,
+    "total_images": 84,
+    "images_with_alt": 76,
     "images_without_alt": 8,
-    "problematic_alts": 66,
-    "good_alts": 9,
+    "problematic_alts": 38,
+    "good_alts": 38,
     "templates_analyzed": [
       {
         "template": "twocomms_django_theme/templates/base.html",
         "total_images": 5,
         "images_with_alt": 4,
         "images_without_alt": 1,
-        "problematic_alts": 4,
-        "good_alts": 0,
+        "problematic_alts": 0,
+        "good_alts": 4,
         "issues": [
-          "Відсутній alt-текст в base.html",
-          "Проблемний alt-текст: 'Аватар користувача' в base.html",
-          "Проблемний alt-текст: 'Аватар користувача' в base.html",
-          "Проблемний alt-текст: 'Плейсхолдер аватара' в base.html",
-          "Проблемний alt-текст: 'Google' в base.html"
+          "Відсутній alt-текст в base.html"
         ],
         "images": [
           {
@@ -38,59 +34,50 @@
             }
           },
           {
-            "tag": "<img src=\"{{ request.user.userprofile.avatar.url }}\" class=\"avatar-image\" loading=\"lazy\" decoding=\"async\" fetchpriority=\"low\" alt=\"Аватар користувача\">",
-            "alt_text": "Аватар користувача",
+            "tag": "<img src=\"{{ request.user.userprofile.avatar.url }}\" class=\"avatar-image\" loading=\"lazy\" decoding=\"async\" fetchpriority=\"low\" alt=\"Аватар користувача - TwoComms\">",
+            "alt_text": "Аватар користувача - TwoComms",
             "analysis": {
-              "text": "Аватар користувача",
-              "length": 18,
-              "is_good": false,
-              "issues": [
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 5,
+              "text": "Аватар користувача - TwoComms",
+              "length": 29,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
               "suggestions": []
             }
           },
           {
-            "tag": "<img src=\"{{ MEDIA_URL }}{{ request.session.profile_avatar }}\" class=\"avatar-image\" loading=\"lazy\" decoding=\"async\" fetchpriority=\"low\" alt=\"Аватар користувача\">",
-            "alt_text": "Аватар користувача",
+            "tag": "<img src=\"{{ MEDIA_URL }}{{ request.session.profile_avatar }}\" class=\"avatar-image\" loading=\"lazy\" decoding=\"async\" fetchpriority=\"low\" alt=\"Аватар користувача - TwoComms\">",
+            "alt_text": "Аватар користувача - TwoComms",
             "analysis": {
-              "text": "Аватар користувача",
-              "length": 18,
-              "is_good": false,
-              "issues": [
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 5,
+              "text": "Аватар користувача - TwoComms",
+              "length": 29,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
               "suggestions": []
             }
           },
           {
-            "tag": "<img src=\"{% static 'img/placeholder.jpg' %}\" class=\"avatar-image\" loading=\"lazy\" decoding=\"async\" fetchpriority=\"low\" alt=\"Плейсхолдер аватара\">",
-            "alt_text": "Плейсхолдер аватара",
+            "tag": "<img src=\"{% static 'img/placeholder.jpg' %}\" class=\"avatar-image\" loading=\"lazy\" decoding=\"async\" fetchpriority=\"low\" alt=\"Аватар користувача - TwoComms\">",
+            "alt_text": "Аватар користувача - TwoComms",
             "analysis": {
-              "text": "Плейсхолдер аватара",
-              "length": 19,
-              "is_good": false,
-              "issues": [
-                "Генеричний або проблемний alt-текст",
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 2,
+              "text": "Аватар користувача - TwoComms",
+              "length": 29,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
               "suggestions": []
             }
           },
           {
-            "tag": "<img src=\"{% static 'img/google.svg' %}\" width=\"16\" height=\"16\" alt=\"Google\" loading=\"lazy\">",
-            "alt_text": "Google",
+            "tag": "<img src=\"{% static 'img/google.svg' %}\" width=\"16\" height=\"16\" alt=\"Вхід через Google - TwoComms\" loading=\"lazy\">",
+            "alt_text": "Вхід через Google - TwoComms",
             "analysis": {
-              "text": "Google",
-              "length": 6,
-              "is_good": false,
-              "issues": [
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 5,
+              "text": "Вхід через Google - TwoComms",
+              "length": 28,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
               "suggestions": []
             }
           }
@@ -155,38 +142,31 @@
         "total_images": 2,
         "images_with_alt": 2,
         "images_without_alt": 0,
-        "problematic_alts": 2,
-        "good_alts": 0,
-        "issues": [
-          "Проблемний alt-текст: '{{ product.title }}' в product_detail.html",
-          "Проблемний alt-текст: '{{ product.title }}' в product_detail.html"
-        ],
+        "problematic_alts": 0,
+        "good_alts": 2,
+        "issues": [],
         "images": [
           {
-            "tag": "<img\n          id=\"mainImage\"\n          src=\"{{ ph_url }}\"\n          loading=\"eager\" decoding=\"async\" fetchpriority=\"high\"\n          class=\"w-100 h-100 object-fit-cover\"\n          alt=\"{{ product.title }}\"\n        >",
-            "alt_text": "{{ product.title }}",
+            "tag": "<img\n          id=\"mainImage\"\n          src=\"{{ ph_url }}\"\n          loading=\"eager\" decoding=\"async\" fetchpriority=\"high\"\n          class=\"w-100 h-100 object-fit-cover\"\n          alt=\"{{ product.title }} - головне фото TwoComms\"\n        >",
+            "alt_text": "{{ product.title }} - головне фото TwoComms",
             "analysis": {
-              "text": "{{ product.title }}",
-              "length": 19,
-              "is_good": false,
-              "issues": [
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 5,
+              "text": "{{ product.title }} - головне фото TwoComms",
+              "length": 43,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
               "suggestions": []
             }
           },
           {
-            "tag": "<img src=\"{{ ph_url }}\" class=\"d-block w-100 h-100 object-fit-contain\" alt=\"{{ product.title }}\">",
-            "alt_text": "{{ product.title }}",
+            "tag": "<img src=\"{{ ph_url }}\" class=\"d-block w-100 h-100 object-fit-contain\" alt=\"{{ product.title }} - головне фото TwoComms\">",
+            "alt_text": "{{ product.title }} - головне фото TwoComms",
             "analysis": {
-              "text": "{{ product.title }}",
-              "length": 19,
-              "is_good": false,
-              "issues": [
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 5,
+              "text": "{{ product.title }} - головне фото TwoComms",
+              "length": 43,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
               "suggestions": []
             }
           }
@@ -285,24 +265,16 @@
         "total_images": 12,
         "images_with_alt": 12,
         "images_without_alt": 0,
-        "problematic_alts": 7,
-        "good_alts": 5,
-        "issues": [
-          "Проблемний alt-текст: 'Logo' в index.html",
-          "Проблемний alt-текст: 'Logo' в index.html",
-          "Проблемний alt-текст: 'Logo' в index.html",
-          "Проблемний alt-текст: 'Logo' в index.html",
-          "Проблемний alt-текст: 'Logo' в index.html",
-          "Проблемний alt-текст: '{{ c.name }}' в index.html",
-          "Проблемний alt-текст: '{{ c.name }}' в index.html"
-        ],
+        "problematic_alts": 0,
+        "good_alts": 12,
+        "issues": [],
         "images": [
           {
-            "tag": "<img src=\"{{ hero_logo_url }}\" alt=\"TwoComms - Стріт & Мілітарі Одяг\" width=\"200\" height=\"200\" class=\"hero-logo-image\" loading=\"eager\" fetchpriority=\"high\" decoding=\"sync\">",
-            "alt_text": "TwoComms - Стріт & Мілітарі Одяг",
+            "tag": "<img src=\"{{ hero_logo_url }}\" alt=\"TwoComms логотип - стріт & мілітарі одяг\" width=\"200\" height=\"200\" class=\"hero-logo-image\" loading=\"eager\" fetchpriority=\"high\" decoding=\"sync\">",
+            "alt_text": "TwoComms логотип - стріт & мілітарі одяг",
             "analysis": {
-              "text": "TwoComms - Стріт & Мілітарі Одяг",
-              "length": 32,
+              "text": "TwoComms логотип - стріт & мілітарі одяг",
+              "length": 40,
               "is_good": true,
               "issues": [],
               "seo_score": 6,
@@ -310,7 +282,79 @@
             }
           },
           {
-            "tag": "<img src=\"{% static 'img/logo.svg' %}\" alt=\"TwoComms логотип\" width=\"14\" height=\"14\">",
+            "tag": "<img src=\"{% static 'img/logo.svg' %}\" alt=\"TwoComms логотип - стріт & мілітарі одяг\" width=\"14\" height=\"14\">",
+            "alt_text": "TwoComms логотип - стріт & мілітарі одяг",
+            "analysis": {
+              "text": "TwoComms логотип - стріт & мілітарі одяг",
+              "length": 40,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
+              "suggestions": []
+            }
+          },
+          {
+            "tag": "<img src=\"{% static 'img/logo.svg' %}\" alt=\"TwoComms логотип - стріт & мілітарі одяг\" width=\"12\" height=\"12\">",
+            "alt_text": "TwoComms логотип - стріт & мілітарі одяг",
+            "analysis": {
+              "text": "TwoComms логотип - стріт & мілітарі одяг",
+              "length": 40,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
+              "suggestions": []
+            }
+          },
+          {
+            "tag": "<img src=\"{% static 'img/logo.svg' %}\" alt=\"TwoComms логотип - стріт & мілітарі одяг\" width=\"16\" height=\"16\">",
+            "alt_text": "TwoComms логотип - стріт & мілітарі одяг",
+            "analysis": {
+              "text": "TwoComms логотип - стріт & мілітарі одяг",
+              "length": 40,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
+              "suggestions": []
+            }
+          },
+          {
+            "tag": "<img\n              src=\"{{ ph_url }}\"\n              class=\"featured-img\"\n              alt=\"{{ featured.title }} - рекомендуємий товар TwoComms\"\n              loading=\"lazy\"\n              decoding=\"async\"\n              width=\"400\"\n              height=\"400\"\n            >",
+            "alt_text": "{{ featured.title }} - рекомендуємий товар TwoComms",
+            "analysis": {
+              "text": "{{ featured.title }} - рекомендуємий товар TwoComms",
+              "length": 51,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
+              "suggestions": []
+            }
+          },
+          {
+            "tag": "<img src=\"{% static 'img/logo.svg' %}\" alt=\"TwoComms логотип\" width=\"16\" height=\"16\">",
+            "alt_text": "TwoComms логотип",
+            "analysis": {
+              "text": "TwoComms логотип",
+              "length": 16,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
+              "suggestions": []
+            }
+          },
+          {
+            "tag": "<img src=\"{% static 'img/logo.svg' %}\" alt=\"TwoComms логотип - декоративний\" width=\"14\" height=\"14\">",
+            "alt_text": "TwoComms логотип - декоративний",
+            "analysis": {
+              "text": "TwoComms логотип - декоративний",
+              "length": 31,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
+              "suggestions": []
+            }
+          },
+          {
+            "tag": "<img src=\"{% static 'img/logo.svg' %}\" alt=\"TwoComms логотип\" width=\"18\" height=\"18\">",
             "alt_text": "TwoComms логотип",
             "analysis": {
               "text": "TwoComms логотип",
@@ -334,7 +378,7 @@
             }
           },
           {
-            "tag": "<img src=\"{% static 'img/logo.svg' %}\" alt=\"TwoComms логотип\" width=\"16\" height=\"16\">",
+            "tag": "<img src=\"{% static 'img/logo.svg' %}\" alt=\"TwoComms логотип\" width=\"15\" height=\"15\">",
             "alt_text": "TwoComms логотип",
             "analysis": {
               "text": "TwoComms логотип",
@@ -346,11 +390,11 @@
             }
           },
           {
-            "tag": "<img\n              src=\"{{ ph_url }}\"\n              class=\"featured-img\"\n              alt=\"{{ featured.title }} - {{ featured.category.name }} TwoComms\"\n              loading=\"lazy\"\n              decoding=\"async\"\n              width=\"400\"\n              height=\"400\"\n            >",
-            "alt_text": "{{ featured.title }} - {{ featured.category.name }} TwoComms",
+            "tag": "<img src=\"{{ c.icon.url }}\" width=\"24\" height=\"24\" alt=\"{{ c.name }} категорія - TwoComms\" loading=\"lazy\" decoding=\"async\">",
+            "alt_text": "{{ c.name }} категорія - TwoComms",
             "analysis": {
-              "text": "{{ featured.title }} - {{ featured.category.name }} TwoComms",
-              "length": 60,
+              "text": "{{ c.name }} категорія - TwoComms",
+              "length": 33,
               "is_good": true,
               "issues": [],
               "seo_score": 6,
@@ -358,110 +402,14 @@
             }
           },
           {
-            "tag": "<img src=\"{% static 'img/logo.svg' %}\" alt=\"Logo\" width=\"16\" height=\"16\">",
-            "alt_text": "Logo",
+            "tag": "<img src=\"{% static 'img/icons/default.svg' %}\" width=\"24\" height=\"24\" alt=\"{{ c.name }} категорія - TwoComms\" loading=\"lazy\" decoding=\"async\">",
+            "alt_text": "{{ c.name }} категорія - TwoComms",
             "analysis": {
-              "text": "Logo",
-              "length": 4,
-              "is_good": false,
-              "issues": [
-                "Занадто короткий alt-текст",
-                "Генеричний або проблемний alt-текст",
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 0,
-              "suggestions": []
-            }
-          },
-          {
-            "tag": "<img src=\"{% static 'img/logo.svg' %}\" alt=\"Logo\" width=\"14\" height=\"14\">",
-            "alt_text": "Logo",
-            "analysis": {
-              "text": "Logo",
-              "length": 4,
-              "is_good": false,
-              "issues": [
-                "Занадто короткий alt-текст",
-                "Генеричний або проблемний alt-текст",
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 0,
-              "suggestions": []
-            }
-          },
-          {
-            "tag": "<img src=\"{% static 'img/logo.svg' %}\" alt=\"Logo\" width=\"18\" height=\"18\">",
-            "alt_text": "Logo",
-            "analysis": {
-              "text": "Logo",
-              "length": 4,
-              "is_good": false,
-              "issues": [
-                "Занадто короткий alt-текст",
-                "Генеричний або проблемний alt-текст",
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 0,
-              "suggestions": []
-            }
-          },
-          {
-            "tag": "<img src=\"{% static 'img/logo.svg' %}\" alt=\"Logo\" width=\"12\" height=\"12\">",
-            "alt_text": "Logo",
-            "analysis": {
-              "text": "Logo",
-              "length": 4,
-              "is_good": false,
-              "issues": [
-                "Занадто короткий alt-текст",
-                "Генеричний або проблемний alt-текст",
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 0,
-              "suggestions": []
-            }
-          },
-          {
-            "tag": "<img src=\"{% static 'img/logo.svg' %}\" alt=\"Logo\" width=\"15\" height=\"15\">",
-            "alt_text": "Logo",
-            "analysis": {
-              "text": "Logo",
-              "length": 4,
-              "is_good": false,
-              "issues": [
-                "Занадто короткий alt-текст",
-                "Генеричний або проблемний alt-текст",
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 0,
-              "suggestions": []
-            }
-          },
-          {
-            "tag": "<img src=\"{{ c.icon.url }}\" width=\"24\" height=\"24\" alt=\"{{ c.name }}\" loading=\"lazy\" decoding=\"async\">",
-            "alt_text": "{{ c.name }}",
-            "analysis": {
-              "text": "{{ c.name }}",
-              "length": 12,
-              "is_good": false,
-              "issues": [
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 5,
-              "suggestions": []
-            }
-          },
-          {
-            "tag": "<img src=\"{% static 'img/icons/default.svg' %}\" width=\"24\" height=\"24\" alt=\"{{ c.name }}\" loading=\"lazy\" decoding=\"async\">",
-            "alt_text": "{{ c.name }}",
-            "analysis": {
-              "text": "{{ c.name }}",
-              "length": 12,
-              "is_good": false,
-              "issues": [
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 5,
+              "text": "{{ c.name }} категорія - TwoComms",
+              "length": 33,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
               "suggestions": []
             }
           }
@@ -723,23 +671,19 @@
         "total_images": 1,
         "images_with_alt": 1,
         "images_without_alt": 0,
-        "problematic_alts": 1,
-        "good_alts": 0,
-        "issues": [
-          "Проблемний alt-текст: 'Google' в auth_register.html"
-        ],
+        "problematic_alts": 0,
+        "good_alts": 1,
+        "issues": [],
         "images": [
           {
-            "tag": "<img src=\"{% static 'img/google.svg' %}\" alt=\"Google\" width=\"18\" height=\"18\" loading=\"lazy\">",
-            "alt_text": "Google",
+            "tag": "<img src=\"{% static 'img/google.svg' %}\" alt=\"Вхід через Google - TwoComms\" width=\"18\" height=\"18\" loading=\"lazy\">",
+            "alt_text": "Вхід через Google - TwoComms",
             "analysis": {
-              "text": "Google",
-              "length": 6,
-              "is_good": false,
-              "issues": [
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 5,
+              "text": "Вхід через Google - TwoComms",
+              "length": 28,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
               "suggestions": []
             }
           }
@@ -865,23 +809,19 @@
         "total_images": 1,
         "images_with_alt": 1,
         "images_without_alt": 0,
-        "problematic_alts": 1,
-        "good_alts": 0,
-        "issues": [
-          "Проблемний alt-текст: 'Google' в auth_login.html"
-        ],
+        "problematic_alts": 0,
+        "good_alts": 1,
+        "issues": [],
         "images": [
           {
-            "tag": "<img src=\"{% static 'img/google.svg' %}\" alt=\"Google\" width=\"18\" height=\"18\" loading=\"lazy\">",
-            "alt_text": "Google",
+            "tag": "<img src=\"{% static 'img/google.svg' %}\" alt=\"Вхід через Google - TwoComms\" width=\"18\" height=\"18\" loading=\"lazy\">",
+            "alt_text": "Вхід через Google - TwoComms",
             "analysis": {
-              "text": "Google",
-              "length": 6,
-              "is_good": false,
-              "issues": [
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 5,
+              "text": "Вхід через Google - TwoComms",
+              "length": 28,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
               "suggestions": []
             }
           }
@@ -1167,23 +1107,19 @@
         "total_images": 1,
         "images_with_alt": 1,
         "images_without_alt": 0,
-        "problematic_alts": 1,
-        "good_alts": 0,
-        "issues": [
-          "Проблемний alt-текст: '{{ it.product.title }}' в cart.html"
-        ],
+        "problematic_alts": 0,
+        "good_alts": 1,
+        "issues": [],
         "images": [
           {
-            "tag": "<img src=\"{{ ph_url }}\" alt=\"{{ it.product.title }}\" class=\"cart-item-img\">",
-            "alt_text": "{{ it.product.title }}",
+            "tag": "<img src=\"{{ ph_url }}\" alt=\"{{ it.product.title }} - товар у кошику TwoComms\" class=\"cart-item-img\">",
+            "alt_text": "{{ it.product.title }} - товар у кошику TwoComms",
             "analysis": {
-              "text": "{{ it.product.title }}",
-              "length": 22,
-              "is_good": false,
-              "issues": [
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 5,
+              "text": "{{ it.product.title }} - товар у кошику TwoComms",
+              "length": 48,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
               "suggestions": []
             }
           }
@@ -1223,27 +1159,22 @@
         "total_images": 4,
         "images_with_alt": 4,
         "images_without_alt": 0,
-        "problematic_alts": 4,
-        "good_alts": 0,
+        "problematic_alts": 2,
+        "good_alts": 2,
         "issues": [
-          "Проблемний alt-текст: 'Аватар' в auth_profile_setup.html",
           "Проблемний alt-текст: 'Документ УБД' в auth_profile_setup.html",
-          "Проблемний alt-текст: 'Аватар' в auth_profile_setup.html",
           "Проблемний alt-текст: 'Документ УБД' в auth_profile_setup.html"
         ],
         "images": [
           {
-            "tag": "<img src=\"{{ profile.avatar.url }}\" alt=\"Аватар\" class=\"avatar-image\" id=\"avatar-preview\">",
-            "alt_text": "Аватар",
+            "tag": "<img src=\"{{ profile.avatar.url }}\" alt=\"Аватар користувача - TwoComms\" class=\"avatar-image\" id=\"avatar-preview\">",
+            "alt_text": "Аватар користувача - TwoComms",
             "analysis": {
-              "text": "Аватар",
-              "length": 6,
-              "is_good": false,
-              "issues": [
-                "Генеричний або проблемний alt-текст",
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 2,
+              "text": "Аватар користувача - TwoComms",
+              "length": 29,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
               "suggestions": []
             }
           },
@@ -1262,17 +1193,14 @@
             }
           },
           {
-            "tag": "<img src=\"${e.target.result}\" alt=\"Аватар\" class=\"avatar-image\">",
-            "alt_text": "Аватар",
+            "tag": "<img src=\"${e.target.result}\" alt=\"Аватар користувача - TwoComms\" class=\"avatar-image\">",
+            "alt_text": "Аватар користувача - TwoComms",
             "analysis": {
-              "text": "Аватар",
-              "length": 6,
-              "is_good": false,
-              "issues": [
-                "Генеричний або проблемний alt-текст",
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 2,
+              "text": "Аватар користувача - TwoComms",
+              "length": 29,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
               "suggestions": []
             }
           },
@@ -1282,6 +1210,33 @@
             "analysis": {
               "text": "Документ УБД",
               "length": 12,
+              "is_good": false,
+              "issues": [
+                "Відсутні SEO ключові слова"
+              ],
+              "seo_score": 5,
+              "suggestions": []
+            }
+          }
+        ]
+      },
+      {
+        "template": "twocomms_django_theme/templates/partials/seo_optimized_image.html",
+        "total_images": 1,
+        "images_with_alt": 1,
+        "images_without_alt": 0,
+        "problematic_alts": 1,
+        "good_alts": 0,
+        "issues": [
+          "Проблемний alt-текст: '{{ attributes.alt }}' в seo_optimized_image.html"
+        ],
+        "images": [
+          {
+            "tag": "<img \n    src=\"{{ attributes.src }}\" \n    alt=\"{{ attributes.alt }}\"\n    {% if attributes.loading %}loading=\"{{ attributes.loading }}\"{% endif %}\n    {% if attributes.decoding %}decoding=\"{{ attributes.decoding }}\"{% endif %}\n    {% if attributes.width %}width=\"{{ attributes.width }}\"{% endif %}\n    {% if attributes.height %}height=\"{{ attributes.height }}\"{% endif %}\n    {% if attributes.class %}class=\"{{ attributes.class }}\"{% endif %}\n>",
+            "alt_text": "{{ attributes.alt }}",
+            "analysis": {
+              "text": "{{ attributes.alt }}",
+              "length": 20,
               "is_good": false,
               "issues": [
                 "Відсутні SEO ключові слова"
@@ -1324,23 +1279,19 @@
         "total_images": 1,
         "images_with_alt": 1,
         "images_without_alt": 0,
-        "problematic_alts": 1,
-        "good_alts": 0,
-        "issues": [
-          "Проблемний alt-текст: '{{ p.title }}' в product_card.html"
-        ],
+        "problematic_alts": 0,
+        "good_alts": 1,
+        "issues": [],
         "images": [
           {
-            "tag": "<img src=\"{{ ph_url }}\"\n             alt=\"{{ p.title }}\"\n             width=\"600\" height=\"600\"\n             class=\"w-100 h-100 object-fit-cover product-main-image\"\n             loading=\"{% if forloop.first %}eager{% else %}lazy{% endif %}\"\n             decoding=\"{% if forloop.first %}sync{% else %}async{% endif %}\"\n             fetchpriority=\"{% if forloop.first %}high{% else %}low{% endif %}\">",
-            "alt_text": "{{ p.title }}",
+            "tag": "<img src=\"{{ ph_url }}\"\n             alt=\"{{ p.title }} - {{ p.category.name }} TwoComms\"\n             width=\"600\" height=\"600\"\n             class=\"w-100 h-100 object-fit-cover product-main-image\"\n             loading=\"{% if forloop.first %}eager{% else %}lazy{% endif %}\"\n             decoding=\"{% if forloop.first %}sync{% else %}async{% endif %}\"\n             fetchpriority=\"{% if forloop.first %}high{% else %}low{% endif %}\">",
+            "alt_text": "{{ p.title }} - {{ p.category.name }} TwoComms",
             "analysis": {
-              "text": "{{ p.title }}",
-              "length": 13,
-              "is_good": false,
-              "issues": [
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 5,
+              "text": "{{ p.title }} - {{ p.category.name }} TwoComms",
+              "length": 46,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
               "suggestions": []
             }
           }
@@ -1397,27 +1348,16 @@
         "total_images": 11,
         "images_with_alt": 11,
         "images_without_alt": 0,
-        "problematic_alts": 10,
-        "good_alts": 1,
-        "issues": [
-          "Проблемний alt-текст: 'Аватар користувача' в header.html",
-          "Проблемний alt-текст: 'Аватар користувача' в header.html",
-          "Проблемний alt-текст: 'Аватар' в header.html",
-          "Проблемний alt-текст: 'Аватар користувача' в header.html",
-          "Проблемний alt-текст: 'Аватар користувача' в header.html",
-          "Проблемний alt-текст: 'Аватар' в header.html",
-          "Проблемний alt-текст: 'Google' в header.html",
-          "Проблемний alt-текст: 'Аватар користувача' в header.html",
-          "Проблемний alt-текст: 'Аватар користувача' в header.html",
-          "Проблемний alt-текст: 'Аватар' в header.html"
-        ],
+        "problematic_alts": 0,
+        "good_alts": 11,
+        "issues": [],
         "images": [
           {
-            "tag": "<img src='{% static 'img/logo.svg' %}' width='28' height='28' alt='TwoComms логотип'>",
-            "alt_text": "TwoComms логотип",
+            "tag": "<img src='{% static 'img/logo.svg' %}' width='28' height='28' alt=\"TwoComms логотип - стріт & мілітарі одяг\">",
+            "alt_text": "TwoComms логотип - стріт & мілітарі одяг",
             "analysis": {
-              "text": "TwoComms логотип",
-              "length": 16,
+              "text": "TwoComms логотип - стріт & мілітарі одяг",
+              "length": 40,
               "is_good": true,
               "issues": [],
               "seo_score": 6,
@@ -1425,145 +1365,122 @@
             }
           },
           {
-            "tag": "<img src=\"{{ request.user.userprofile.avatar.url }}\" alt=\"Аватар користувача\" class=\"avatar-image\">",
-            "alt_text": "Аватар користувача",
+            "tag": "<img src=\"{{ request.user.userprofile.avatar.url }}\" alt=\"Аватар користувача - TwoComms\" class=\"avatar-image\">",
+            "alt_text": "Аватар користувача - TwoComms",
             "analysis": {
-              "text": "Аватар користувача",
-              "length": 18,
-              "is_good": false,
-              "issues": [
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 5,
+              "text": "Аватар користувача - TwoComms",
+              "length": 29,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
               "suggestions": []
             }
           },
           {
-            "tag": "<img src=\"{{ MEDIA_URL }}{{ request.session.profile_avatar }}\" alt=\"Аватар користувача\" class=\"avatar-image\">",
-            "alt_text": "Аватар користувача",
+            "tag": "<img src=\"{{ MEDIA_URL }}{{ request.session.profile_avatar }}\" alt=\"Аватар користувача - TwoComms\" class=\"avatar-image\">",
+            "alt_text": "Аватар користувача - TwoComms",
             "analysis": {
-              "text": "Аватар користувача",
-              "length": 18,
-              "is_good": false,
-              "issues": [
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 5,
+              "text": "Аватар користувача - TwoComms",
+              "length": 29,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
               "suggestions": []
             }
           },
           {
-            "tag": "<img src=\"{% static 'img/placeholder.jpg' %}\" alt=\"Аватар\" class=\"avatar-image\">",
-            "alt_text": "Аватар",
+            "tag": "<img src=\"{% static 'img/placeholder.jpg' %}\" alt=\"Аватар користувача - TwoComms\" class=\"avatar-image\">",
+            "alt_text": "Аватар користувача - TwoComms",
             "analysis": {
-              "text": "Аватар",
-              "length": 6,
-              "is_good": false,
-              "issues": [
-                "Генеричний або проблемний alt-текст",
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 2,
+              "text": "Аватар користувача - TwoComms",
+              "length": 29,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
               "suggestions": []
             }
           },
           {
-            "tag": "<img src=\"{{ request.user.userprofile.avatar.url }}\" class=\"avatar-image\" alt=\"Аватар користувача\">",
-            "alt_text": "Аватар користувача",
+            "tag": "<img src=\"{{ request.user.userprofile.avatar.url }}\" class=\"avatar-image\" alt=\"Аватар користувача - TwoComms\">",
+            "alt_text": "Аватар користувача - TwoComms",
             "analysis": {
-              "text": "Аватар користувача",
-              "length": 18,
-              "is_good": false,
-              "issues": [
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 5,
+              "text": "Аватар користувача - TwoComms",
+              "length": 29,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
               "suggestions": []
             }
           },
           {
-            "tag": "<img src=\"{{ MEDIA_URL }}{{ request.session.profile_avatar }}\" class=\"avatar-image\" alt=\"Аватар користувача\">",
-            "alt_text": "Аватар користувача",
+            "tag": "<img src=\"{{ MEDIA_URL }}{{ request.session.profile_avatar }}\" class=\"avatar-image\" alt=\"Аватар користувача - TwoComms\">",
+            "alt_text": "Аватар користувача - TwoComms",
             "analysis": {
-              "text": "Аватар користувача",
-              "length": 18,
-              "is_good": false,
-              "issues": [
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 5,
+              "text": "Аватар користувача - TwoComms",
+              "length": 29,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
               "suggestions": []
             }
           },
           {
-            "tag": "<img src=\"{% static 'img/placeholder.jpg' %}\" class=\"avatar-image\" alt=\"Аватар\">",
-            "alt_text": "Аватар",
+            "tag": "<img src=\"{% static 'img/placeholder.jpg' %}\" class=\"avatar-image\" alt=\"Аватар користувача - TwoComms\">",
+            "alt_text": "Аватар користувача - TwoComms",
             "analysis": {
-              "text": "Аватар",
-              "length": 6,
-              "is_good": false,
-              "issues": [
-                "Генеричний або проблемний alt-текст",
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 2,
+              "text": "Аватар користувача - TwoComms",
+              "length": 29,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
               "suggestions": []
             }
           },
           {
-            "tag": "<img src=\"{% static 'img/google.svg' %}\" width=\"16\" height=\"16\" alt=\"Google\" loading=\"lazy\">",
-            "alt_text": "Google",
+            "tag": "<img src=\"{% static 'img/google.svg' %}\" width=\"16\" height=\"16\" alt=\"Вхід через Google - TwoComms\" loading=\"lazy\">",
+            "alt_text": "Вхід через Google - TwoComms",
             "analysis": {
-              "text": "Google",
-              "length": 6,
-              "is_good": false,
-              "issues": [
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 5,
+              "text": "Вхід через Google - TwoComms",
+              "length": 28,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
               "suggestions": []
             }
           },
           {
-            "tag": "<img src=\"{{ request.user.userprofile.avatar.url }}\" alt=\"Аватар користувача\" class=\"avatar-image-mobile\">",
-            "alt_text": "Аватар користувача",
+            "tag": "<img src=\"{{ request.user.userprofile.avatar.url }}\" alt=\"Аватар користувача - TwoComms\" class=\"avatar-image-mobile\">",
+            "alt_text": "Аватар користувача - TwoComms",
             "analysis": {
-              "text": "Аватар користувача",
-              "length": 18,
-              "is_good": false,
-              "issues": [
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 5,
+              "text": "Аватар користувача - TwoComms",
+              "length": 29,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
               "suggestions": []
             }
           },
           {
-            "tag": "<img src=\"{{ MEDIA_URL }}{{ request.session.profile_avatar }}\" alt=\"Аватар користувача\" class=\"avatar-image-mobile\">",
-            "alt_text": "Аватар користувача",
+            "tag": "<img src=\"{{ MEDIA_URL }}{{ request.session.profile_avatar }}\" alt=\"Аватар користувача - TwoComms\" class=\"avatar-image-mobile\">",
+            "alt_text": "Аватар користувача - TwoComms",
             "analysis": {
-              "text": "Аватар користувача",
-              "length": 18,
-              "is_good": false,
-              "issues": [
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 5,
+              "text": "Аватар користувача - TwoComms",
+              "length": 29,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
               "suggestions": []
             }
           },
           {
-            "tag": "<img src=\"{% static 'img/placeholder.jpg' %}\" alt=\"Аватар\" class=\"avatar-image-mobile\">",
-            "alt_text": "Аватар",
+            "tag": "<img src=\"{% static 'img/placeholder.jpg' %}\" alt=\"Аватар користувача - TwoComms\" class=\"avatar-image-mobile\">",
+            "alt_text": "Аватар користувача - TwoComms",
             "analysis": {
-              "text": "Аватар",
-              "length": 6,
-              "is_good": false,
-              "issues": [
-                "Генеричний або проблемний alt-текст",
-                "Відсутні SEO ключові слова"
-              ],
-              "seo_score": 2,
+              "text": "Аватар користувача - TwoComms",
+              "length": 29,
+              "is_good": true,
+              "issues": [],
+              "seo_score": 6,
               "suggestions": []
             }
           }
@@ -1572,26 +1489,13 @@
     ],
     "issues": [
       "Відсутній alt-текст в base.html",
-      "Проблемний alt-текст: 'Аватар користувача' в base.html",
-      "Проблемний alt-текст: 'Аватар користувача' в base.html",
-      "Проблемний alt-текст: 'Плейсхолдер аватара' в base.html",
-      "Проблемний alt-текст: 'Google' в base.html",
       "Проблемний alt-текст: '{{ alt_text }}' в optimized_image.html",
       "Проблемний alt-текст: '{{ alt_text }}' в responsive_image.html",
-      "Проблемний alt-текст: '{{ product.title }}' в product_detail.html",
-      "Проблемний alt-текст: '{{ product.title }}' в product_detail.html",
       "Проблемний alt-текст: 'Поточне зображення' в admin_product_edit_unified.html",
       "Проблемний alt-текст: '{{ color_variant.color.name }}' в admin_product_edit_unified.html",
       "Проблемний alt-текст: 'Додаткове зображення' в admin_product_edit_unified.html",
       "Проблемний alt-текст: '{{ obj.title }}' в admin_product_edit_unified.html",
       "Проблемний alt-текст: 'Preview ${index + 1}' в admin_product_edit_unified.html",
-      "Проблемний alt-текст: 'Logo' в index.html",
-      "Проблемний alt-текст: 'Logo' в index.html",
-      "Проблемний alt-текст: 'Logo' в index.html",
-      "Проблемний alt-текст: 'Logo' в index.html",
-      "Проблемний alt-текст: 'Logo' в index.html",
-      "Проблемний alt-текст: '{{ c.name }}' в index.html",
-      "Проблемний alt-текст: '{{ c.name }}' в index.html",
       "Проблемний alt-текст: 'Скріншот оплати' в admin_panel.html",
       "Проблемний alt-текст: '{{ item.product.title }}' в admin_panel.html",
       "Проблемний alt-текст: '{{ item.product.title }}' в admin_panel.html",
@@ -1604,14 +1508,12 @@
       "Проблемний alt-текст: '{{ c.name }}' в catalog.html",
       "Проблемний alt-текст: 'Категорія' в catalog.html",
       "Проблемний alt-текст: '{{ c.name }}' в catalog.html",
-      "Проблемний alt-текст: 'Google' в auth_register.html",
       "Проблемний alt-текст: '{{ product.title }}' в admin_store_management.html",
       "Проблемний alt-текст: '{{ item.product.title }}' в admin_store_management.html",
       "Проблемний alt-текст: '{{ store_product.product.title }}' в admin_store_management.html",
       "Проблемний alt-текст: '${item.product_name}' в admin_store_management.html",
       "Проблемний alt-текст: '${productData.title}' в admin_store_management.html",
       "Проблемний alt-текст: 'Поточне зображення' в admin_product_edit_simple.html",
-      "Проблемний alt-текст: 'Google' в auth_login.html",
       "Проблемний alt-текст: '{{ it.title }}' в my_orders.html",
       "Проблемний alt-текст: '{{ it.title }}' в my_orders.html",
       "Проблемний alt-текст: 'Preview' в my_orders.html",
@@ -1625,30 +1527,17 @@
       "Проблемний alt-текст: 'Preview ${index + 1}' в add_product_new.html",
       "Проблемний alt-текст: '${colorData.name}' в add_product_new.html",
       "Проблемний alt-текст: 'Додаткове зображення' в add_product_new.html",
-      "Проблемний alt-текст: '{{ it.product.title }}' в cart.html",
       "Відсутній alt-текст в admin_product_colors.html",
-      "Проблемний alt-текст: 'Аватар' в auth_profile_setup.html",
       "Проблемний alt-текст: 'Документ УБД' в auth_profile_setup.html",
-      "Проблемний alt-текст: 'Аватар' в auth_profile_setup.html",
       "Проблемний alt-текст: 'Документ УБД' в auth_profile_setup.html",
+      "Проблемний alt-текст: '{{ attributes.alt }}' в seo_optimized_image.html",
       "Проблемний alt-текст: '{{ it.product.title }}' в mini_cart.html",
-      "Проблемний alt-текст: '{{ p.title }}' в product_card.html",
       "Відсутній alt-текст в analytics.html",
-      "Відсутній alt-текст в analytics.html",
-      "Проблемний alt-текст: 'Аватар користувача' в header.html",
-      "Проблемний alt-текст: 'Аватар користувача' в header.html",
-      "Проблемний alt-текст: 'Аватар' в header.html",
-      "Проблемний alt-текст: 'Аватар користувача' в header.html",
-      "Проблемний alt-текст: 'Аватар користувача' в header.html",
-      "Проблемний alt-текст: 'Аватар' в header.html",
-      "Проблемний alt-текст: 'Google' в header.html",
-      "Проблемний alt-текст: 'Аватар користувача' в header.html",
-      "Проблемний alt-текст: 'Аватар користувача' в header.html",
-      "Проблемний alt-текст: 'Аватар' в header.html"
+      "Відсутній alt-текст в analytics.html"
     ],
     "recommendations": [
       "Додати alt-тексти до 8 зображень",
-      "Покращити 66 проблемних alt-текстів",
+      "Покращити 38 проблемних alt-текстів",
       "Використовувати описові alt-тексти з ключовими словами",
       "Включати тип товару, колір та бренд у alt-текст",
       "Уникати генеричних текстів типу 'Logo' або 'Зображення'",

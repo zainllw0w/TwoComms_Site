@@ -39,15 +39,32 @@ img {
   pointer-events: none !important;
 }
 
+/* Убеждаемся, что минипрофиль виден на десктопе */
+@media (min-width: 992px) {
+  .user-profile-container.mobile-hidden {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+  
+  .cart-container.mobile-hidden {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+}
+
 /* Оптимизация для показа/скрытия счетчиков */
-.cart-count, .favorites-count {
+.cart-count, .favorites-count, .favorites-badge-mobile {
   display: none;
   visibility: hidden;
   opacity: 0;
   transition: opacity 0.2s ease;
 }
 
-.cart-count.visible, .favorites-count.visible {
+.cart-count.visible, .favorites-count.visible, .favorites-badge-mobile.visible {
   display: inline-block;
   visibility: visible;
   opacity: 1;
@@ -55,6 +72,24 @@ img {
 
 .favorites-count.visible {
   display: flex;
+}
+
+/* Специальные стили для мобильного счетчика избранного */
+.favorites-badge-mobile.visible {
+  display: block;
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: var(--accent-color, #8b5cf6);
+  color: white;
+  border-radius: 50%;
+  min-width: 18px;
+  height: 18px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 18px;
+  z-index: 10;
 }
 
 /* Оптимизация для мобильных устройств */
