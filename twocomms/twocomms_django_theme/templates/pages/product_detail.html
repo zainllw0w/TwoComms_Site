@@ -232,64 +232,15 @@
          data-has_discount="{{ product.has_discount|yesno:'1,0' }}">
     </div>
 
-    <style>
-    .color-swatch {
-      width: 40px;
-      height: 40px;
-      border: 2px solid #ddd;
-      border-radius: 50%;
-      padding: 0;
-      background: transparent;
-      transition: all 0.2s ease;
-    }
-    
-    .color-swatch:hover {
-      border-color: #007bff;
-      transform: scale(1.1);
-    }
-    
-    .color-swatch.active {
-      border-color: #007bff;
-      border-width: 3px;
-    }
-    
-    .swatch {
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-      display: block;
-      background: var(--primary-color, #ccc);
-      position: relative;
-      overflow: hidden;
-    }
-    
-    .swatch .divider {
-      position: absolute;
-      top: 0;
-      left: 50%;
-      width: 2px;
-      height: 100%;
-      background: var(--secondary-color, transparent);
-      transform: translateX(-50%);
-    }
-    
-    .swatch[data-secondary]:not([data-secondary=""]):not([data-secondary="null"]) {
-      background: linear-gradient(90deg, var(--primary-color) 50%, var(--secondary-color) 50%);
-    }
-    </style>
-    
     <script>
     (function(){
-      // Применяем CSS переменные для всех цветовых кружочков
-      document.querySelectorAll('.color-swatch .swatch').forEach(function(swatch) {
+      // Применяем CSS переменные для комбинированных цветов
+      document.querySelectorAll('.color-swatch .swatch[data-secondary]').forEach(function(swatch) {
         var primary = swatch.getAttribute('data-primary');
         var secondary = swatch.getAttribute('data-secondary');
         
-        if (primary) {
+        if (secondary && secondary !== '') {
           swatch.style.setProperty('--primary-color', primary);
-        }
-        
-        if (secondary && secondary !== '' && secondary !== 'null') {
           swatch.style.setProperty('--secondary-color', secondary);
           
           // Добавляем разделительную линию
@@ -319,51 +270,33 @@
         list.forEach(function(url, idx){
           var item = document.createElement('div');
           item.className = 'carousel-item' + (idx===0?' active':'');
-          
-          // Проверяем, является ли это изображение цветового варианта
-          var isColorImage = url.includes('/product_colors/');
-          var isMainImage = url.includes('/products/');
-          
-          if (isColorImage || isMainImage) {
-            // Создаем оптимизированное изображение с поддержкой WebP/AVIF
-            var picture = document.createElement('picture');
-            var avifSource = document.createElement('source');
-            var webpSource = document.createElement('source');
-            var img = document.createElement('img');
-            
-            // Генерируем URL для оптимизированных версий
-            var fileName = url.match(/\/([^\/]+)\.(jpg|jpeg|png)$/);
-            if (fileName) {
-              var baseName = fileName[1];
-              var optimizedPath;
-              
-              if (isColorImage) {
-                // Для изображений цветовых вариантов
-                optimizedPath = url.replace(/\/[^\/]+\.(jpg|jpeg|png)$/, '/optimized/');
-              } else {
-                // Для основных изображений товаров
-                optimizedPath = url.replace(/\/[^\/]+\.(jpg|jpeg|png)$/, '/optimized/');
-              }
-              
-              avifSource.setAttribute('srcset', optimizedPath + baseName + '.avif');
-              avifSource.setAttribute('type', 'image/avif');
-              webpSource.setAttribute('srcset', optimizedPath + baseName + '.webp');
-              webpSource.setAttribute('type', 'image/webp');
-            }
-            
-            img.src = url;
-            img.className = 'd-block w-100 h-100 object-fit-contain';
-            img.alt = '{{ product.title }} - TwoComms';
-            
-            picture.appendChild(avifSource);
-            picture.appendChild(webpSource);
-            picture.appendChild(img);
-            item.appendChild(picture);
-          } else {
-            // Для placeholder изображений используем простой img
-            item.innerHTML = '<img src="'+url+'" class="d-block w-100 h-100 object-fit-contain" alt="{{ product.title }} - TwoComms">';
+
+          // Всегда используем <picture> с AVIF/WEBP для оптимизации
+          var picture = document.createElement('picture');
+          var avifSource = document.createElement('source');
+          var webpSource = document.createElement('source');
+          var img = document.createElement('img');
+
+          var baseUrl = url.replace(/\/[^\/]+\.(jpg|jpeg|png)$/, '');
+          var fileName = url.match(/\/([^\/]+)\.(jpg|jpeg|png)$/);
+          if (fileName) {
+            var baseName = fileName[1];
+            var optimizedPath = baseUrl + '/optimized/';
+            avifSource.setAttribute('srcset', optimizedPath + baseName + '.avif');
+            avifSource.setAttribute('type', 'image/avif');
+            webpSource.setAttribute('srcset', optimizedPath + baseName + '.webp');
+            webpSource.setAttribute('type', 'image/webp');
           }
-          
+
+          img.src = url;
+          img.className = 'd-block w-100 h-100 object-fit-contain';
+          img.alt = '{{ product.title }} - TwoComms';
+
+          picture.appendChild(avifSource);
+          picture.appendChild(webpSource);
+          picture.appendChild(img);
+          item.appendChild(picture);
+
           inner.appendChild(item);
 
           var ind = document.createElement('button');
@@ -376,37 +309,32 @@
 
           var th = document.createElement('button');
           th.type='button'; th.className='btn p-0 thumb'; th.setAttribute('data-bs-target','#productCarousel'); th.setAttribute('data-bs-slide-to', String(idx));
-          
-          if (isColorImage && fileName) {
-            // Создаем оптимизированную миниатюру для цветовых вариантов
-            var thumbPicture = document.createElement('picture');
-            var thumbAvifSource = document.createElement('source');
-            var thumbWebpSource = document.createElement('source');
-            var thumbImg = document.createElement('img');
-            
-            var baseName = fileName[1];
-            // Для изображений цветовых вариантов используем правильный путь
-            var optimizedPath = baseUrl + '/optimized/';
-            thumbAvifSource.setAttribute('srcset', optimizedPath + baseName + '.avif');
+
+          var thumbPicture = document.createElement('picture');
+          var thumbAvifSource = document.createElement('source');
+          var thumbWebpSource = document.createElement('source');
+          var thumbImg = document.createElement('img');
+
+          if (fileName) {
+            var baseNameThumb = fileName[1];
+            var optimizedPathThumb = baseUrl + '/optimized/';
+            thumbAvifSource.setAttribute('srcset', optimizedPathThumb + baseNameThumb + '.avif');
             thumbAvifSource.setAttribute('type', 'image/avif');
-            thumbWebpSource.setAttribute('srcset', optimizedPath + baseName + '.webp');
+            thumbWebpSource.setAttribute('srcset', optimizedPathThumb + baseNameThumb + '.webp');
             thumbWebpSource.setAttribute('type', 'image/webp');
-            
-            thumbImg.src = url;
-            thumbImg.className = 'rounded-3 object-fit-cover';
-            thumbImg.style.width = '72px';
-            thumbImg.style.height = '72px';
-            thumbImg.alt = '{{ product.title }} - TwoComms';
-            
-            thumbPicture.appendChild(thumbAvifSource);
-            thumbPicture.appendChild(thumbWebpSource);
-            thumbPicture.appendChild(thumbImg);
-            th.appendChild(thumbPicture);
-          } else {
-            // Для обычных изображений используем простой img
-            th.innerHTML = '<img src="'+url+'" class="rounded-3 object-fit-cover" style="width:72px;height:72px;" alt="{{ product.title }} - TwoComms">';
           }
-          
+
+          thumbImg.src = url;
+          thumbImg.className = 'rounded-3 object-fit-cover';
+          thumbImg.style.width = '72px';
+          thumbImg.style.height = '72px';
+          thumbImg.alt = '{{ product.title }} - TwoComms';
+
+          thumbPicture.appendChild(thumbAvifSource);
+          thumbPicture.appendChild(thumbWebpSource);
+          thumbPicture.appendChild(thumbImg);
+          th.appendChild(thumbPicture);
+
           thumbs.appendChild(th);
         });
       }
@@ -713,6 +641,46 @@ document.addEventListener('DOMContentLoaded', function() {
   background: var(--accent-color);
   color: white;
   box-shadow: 0 4px 16px rgba(124, 58, 237, 0.3);
+}
+
+/* Цветовые свотчи на детальной странице */
+.color-swatch {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 2px solid rgba(255,255,255,0.35);
+  border-radius: 50%;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.color-swatch.active {
+  border-color: var(--accent-color, #7c3aed);
+}
+.color-swatch .swatch {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--primary-color, #ddd);
+  position: relative;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+}
+/* Комбинированный цвет: если есть --secondary-color, рисуем разделение */
+.color-swatch .swatch[style*="--secondary-color"] {
+  background: linear-gradient(90deg, var(--primary-color, #ddd) 50%, var(--secondary-color, #ddd) 50%);
+}
+.color-swatch .swatch .divider {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(0,0,0,0.2);
+  transform: translateX(-0.5px);
+  pointer-events: none;
+  border-radius: 1px;
 }
 
 @media (max-width: 768px) {
