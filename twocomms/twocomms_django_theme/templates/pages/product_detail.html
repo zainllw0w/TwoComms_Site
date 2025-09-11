@@ -232,15 +232,64 @@
          data-has_discount="{{ product.has_discount|yesno:'1,0' }}">
     </div>
 
+    <style>
+    .color-swatch {
+      width: 40px;
+      height: 40px;
+      border: 2px solid #ddd;
+      border-radius: 50%;
+      padding: 0;
+      background: transparent;
+      transition: all 0.2s ease;
+    }
+    
+    .color-swatch:hover {
+      border-color: #007bff;
+      transform: scale(1.1);
+    }
+    
+    .color-swatch.active {
+      border-color: #007bff;
+      border-width: 3px;
+    }
+    
+    .swatch {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      display: block;
+      background: var(--primary-color, #ccc);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .swatch .divider {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 2px;
+      height: 100%;
+      background: var(--secondary-color, transparent);
+      transform: translateX(-50%);
+    }
+    
+    .swatch[data-secondary]:not([data-secondary=""]):not([data-secondary="null"]) {
+      background: linear-gradient(90deg, var(--primary-color) 50%, var(--secondary-color) 50%);
+    }
+    </style>
+    
     <script>
     (function(){
-      // Применяем CSS переменные для комбинированных цветов
-      document.querySelectorAll('.color-swatch .swatch[data-secondary]').forEach(function(swatch) {
+      // Применяем CSS переменные для всех цветовых кружочков
+      document.querySelectorAll('.color-swatch .swatch').forEach(function(swatch) {
         var primary = swatch.getAttribute('data-primary');
         var secondary = swatch.getAttribute('data-secondary');
         
-        if (secondary && secondary !== '') {
+        if (primary) {
           swatch.style.setProperty('--primary-color', primary);
+        }
+        
+        if (secondary && secondary !== '' && secondary !== 'null') {
           swatch.style.setProperty('--secondary-color', secondary);
           
           // Добавляем разделительную линию
@@ -265,7 +314,7 @@
         inner.innerHTML = '';
         indicators.innerHTML = '';
         thumbs.innerHTML = '';
-        var list = images && images.length ? images : ['{% if product.main_image %}{{ product.main_image.url }}{% else %}{% static "img/placeholder.jpg" %}{% endif %}'];
+        var list = images && images.length ? images : ['{% if product.main_image %}{{ product.main_image.url|replace:"products/","products/optimized/"|replace:".jpg",".webp" }}{% else %}{% static "img/placeholder.jpg" %}{% endif %}'];
 
         list.forEach(function(url, idx){
           var item = document.createElement('div');
