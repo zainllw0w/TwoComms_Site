@@ -1,0 +1,24 @@
+{% comment %}
+Шаблон для оптимизированного изображения
+{% endcomment %}
+
+{% if image_path %}
+<picture>
+  {% if has_avif and avif_path %}
+    <source srcset="{{ avif_path }}" type="image/avif">
+  {% endif %}
+  {% if has_webp and webp_path %}
+    <source srcset="{{ webp_path }}" type="image/webp">
+  {% endif %}
+  
+  <img 
+    src="{{ image_path }}" 
+    alt="{{ alt_text }}"
+    {% if class_name %}class="{{ class_name }}"{% endif %}
+    {% if width %}width="{{ width }}"{% endif %}
+    {% if height %}height="{{ height }}"{% endif %}
+    loading="lazy"
+    decoding="async"
+  >
+</picture>
+{% endif %}
