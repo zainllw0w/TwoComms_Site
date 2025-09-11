@@ -39,10 +39,6 @@ if os.environ.get('DISABLE_ANALYTICS', 'false').lower() in ('1', 'true', 'yes'):
 # Добавляем middleware для кеширования медиа файлов
 if "twocomms.media_cache_middleware.MediaCacheMiddleware" not in MIDDLEWARE:
     MIDDLEWARE.append("twocomms.media_cache_middleware.MediaCacheMiddleware")
-
-# Добавляем middleware для кеширования API ответов
-if "twocomms.api_cache_middleware.APICacheMiddleware" not in MIDDLEWARE:
-    MIDDLEWARE.append("twocomms.api_cache_middleware.APICacheMiddleware")
 import pymysql
 
 # Настройка PyMySQL для работы с MySQL
@@ -264,42 +260,22 @@ TEMPLATES[0]['OPTIONS']['loaders'] = [
 ]
 TEMPLATES[0]['APP_DIRS'] = False  # Отключаем APP_DIRS при использовании loaders
 
-# Современная система кеширования с оптимизацией
+# Восстанавливаем кэширование с оптимизацией для статических файлов
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'twocomms-main',
+        'LOCATION': 'unique-snowflake',
         'TIMEOUT': 300,
         'OPTIONS': {
-            'MAX_ENTRIES': 2000,
-            'CULL_FREQUENCY': 3,
-        }
-    },
-    'api_cache': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'twocomms-api',
-        'TIMEOUT': 600,  # 10 минут для API
-        'OPTIONS': {
-            'MAX_ENTRIES': 500,
-            'CULL_FREQUENCY': 2,
+            'MAX_ENTRIES': 1000,
         }
     },
     'staticfiles': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'twocomms-static',
+        'LOCATION': 'staticfiles-cache',
         'TIMEOUT': 86400,  # 24 часа для статических файлов
         'OPTIONS': {
             'MAX_ENTRIES': 5000,
-            'CULL_FREQUENCY': 4,
-        }
-    },
-    'media_cache': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'twocomms-media',
-        'TIMEOUT': 1800,  # 30 минут для медиа
-        'OPTIONS': {
-            'MAX_ENTRIES': 800,
-            'CULL_FREQUENCY': 3,
         }
     }
 }
