@@ -142,7 +142,25 @@ def optimize_all_images():
     logger.info("=" * 50)
     logger.info(f"Обработано файлов: {processed_files}")
     logger.info(f"Общая экономия: {total_savings / 1024:.1f} KiB ({total_savings / (1024*1024):.2f} MB)")
-    logger.info(f"Процент экономии: {(total_savings / (total_savings + sum(os.path.getsize(f) for f in [os.path.join(media_dir, 'products', 'optimized'), os.path.join(media_dir, 'category_icons', 'optimized'), os.path.join(static_dir, 'img', 'optimized')] if os.path.exists(f)) * 100)):.1f}%")
+    
+    # Вычисляем процент экономии безопасно
+    if processed_files > 0:
+        # Подсчитываем общий размер оптимизированных файлов
+        total_optimized_size = 0
+        for optimized_dir in result['optimized_directories']:
+            if os.path.exists(optimized_dir):
+                for root, dirs, files in os.walk(optimized_dir):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        total_optimized_size += os.path.getsize(file_path)
+        
+        if total_optimized_size > 0:
+            percentage = (total_savings / (total_savings + total_optimized_size)) * 100
+            logger.info(f"Процент экономии: {percentage:.1f}%")
+        else:
+            logger.info("Процент экономии: 0.0%")
+    else:
+        logger.info("Процент экономии: 0.0%")
     
     return {
         'processed_files': processed_files,
