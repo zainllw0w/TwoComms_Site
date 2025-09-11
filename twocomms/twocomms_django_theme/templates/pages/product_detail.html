@@ -22,10 +22,10 @@
 
 {% block content %}
 <div class="row g-4">
-  <div class="col-12 col-lg-6">
-    <div class="ratio ratio-1x1 rounded-4 overflow-hidden bg-elevate glass position-relative">
+  <div class="col-12 col-lg-6 d-flex align-items-stretch">
+    <div class="ratio ratio-1x1 rounded-4 overflow-hidden bg-elevate glass position-relative w-100">
       {% if product.main_image %}
-        {% responsive_image product.main_image.url product.title|add:" - TwoComms" "w-100 h-100 object-fit-cover" "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px" %}
+        {% responsive_image product.main_image.url product.title "w-100 h-100 object-fit-cover" "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px" %}
       {% else %}
         {% static 'img/placeholder.jpg' as ph_url %}
         <img
@@ -33,7 +33,7 @@
           src="{{ ph_url }}"
           loading="eager" decoding="async" fetchpriority="high"
           class="w-100 h-100 object-fit-cover"
-          alt="{{ product.title }} - TwoComms"
+          alt="{{ product.title }}"
         >
       {% endif %}
     </div>
@@ -113,9 +113,9 @@
           <button type="button"
                   class="btn color-swatch{% if v.is_default %} active{% endif %}"
                   data-variant="{{ v.id }}"
-                  data-primary="{{ v.color.primary_hex }}"
-                  data-secondary="{{ v.color.secondary_hex|default:'' }}">
-            <span class="swatch" data-primary="{{ v.color.primary_hex }}" data-secondary="{{ v.color.secondary_hex|default:'' }}"></span>
+                  data-primary="{{ v.primary_hex }}"
+                  data-secondary="{{ v.secondary_hex }}">
+            <span class="swatch" data-primary="{{ v.primary_hex }}" data-secondary="{{ v.secondary_hex }}"></span>
           </button>
         {% endfor %}
       </div>
@@ -134,14 +134,10 @@
           <!-- Заповниться динамічно (варіант кольору або головне фото) -->
           <div class="carousel-item active">
             {% if product.display_image %}
-              {% responsive_image product.display_image.url product.title|add:" - TwoComms" "d-block w-100 h-100 object-fit-contain" "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px" %}
+              {% responsive_image product.display_image.url product.title "d-block w-100 h-100 object-fit-contain" "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px" %}
             {% else %}
               {% static 'img/placeholder.jpg' as ph_url %}
-              <img
-                src="{{ ph_url }}"
-                class="d-block w-100 h-100 object-fit-contain"
-                alt="{{ product.title }} - TwoComms"
-              >
+              <img src="{{ ph_url }}" class="d-block w-100 h-100 object-fit-contain" alt="{{ product.title }}">
             {% endif %}
           </div>
         </div>
@@ -235,18 +231,17 @@
     <script>
     (function(){
       // Применяем CSS переменные для комбинированных цветов
-      document.querySelectorAll('.color-swatch .swatch[data-secondary]').forEach(function(swatch) {
-        var primary = swatch.getAttribute('data-primary');
-        var secondary = swatch.getAttribute('data-secondary');
-        
-        if (secondary && secondary !== '') {
-          swatch.style.setProperty('--primary-color', primary);
+      document.querySelectorAll('.color-swatch .swatch').forEach(function(swatch) {
+        var primary = swatch.getAttribute('data-primary') || '';
+        var secondary = swatch.getAttribute('data-secondary') || '';
+        if (primary) { swatch.style.setProperty('--primary-color', primary); }
+        if (secondary) {
           swatch.style.setProperty('--secondary-color', secondary);
-          
-          // Добавляем разделительную линию
           var divider = document.createElement('div');
           divider.className = 'divider';
           swatch.appendChild(divider);
+        } else {
+          swatch.style.removeProperty('--secondary-color');
         }
       });
       
@@ -270,33 +265,63 @@
         list.forEach(function(url, idx){
           var item = document.createElement('div');
           item.className = 'carousel-item' + (idx===0?' active':'');
-
-          // Всегда используем <picture> с AVIF/WEBP для оптимизации
-          var picture = document.createElement('picture');
-          var avifSource = document.createElement('source');
-          var webpSource = document.createElement('source');
-          var img = document.createElement('img');
-
-          var baseUrl = url.replace(/\/[^\/]+\.(jpg|jpeg|png)$/, '');
-          var fileName = url.match(/\/([^\/]+)\.(jpg|jpeg|png)$/);
-          if (fileName) {
-            var baseName = fileName[1];
-            var optimizedPath = baseUrl + '/optimized/';
-            avifSource.setAttribute('srcset', optimizedPath + baseName + '.avif');
-            avifSource.setAttribute('type', 'image/avif');
-            webpSource.setAttribute('srcset', optimizedPath + baseName + '.webp');
-            webpSource.setAttribute('type', 'image/webp');
+          
+          // Проверяем, является ли это изображение цветового варианта
+          var isColorImage = url.includes('/product_colors/');
+          
+          if (isColorImage) {
+            // Создаем оптимизированное изображение с поддержкой WebP/AVIF
+            var picture = document.createElement('picture');
+            var avifSource = document.createElement('source');
+            var webpSource = document.createElement('source');
+            var img = document.createElement('img');
+            
+            // Генерируем URL для оптимизированных версий
+            var baseUrl = url.replace(/\/[^\/]+\.(jpg|jpeg|png)$/, '');
+            var fileName = url.match(/\/([^\/]+)\.(jpg|jpeg|png)$/);
+            if (fileName) {
+              var baseName = fileName[1];
+              avifSource.setAttribute('srcset', baseUrl + '/optimized/' + baseName + '.avif');
+              avifSource.setAttribute('type', 'image/avif');
+              webpSource.setAttribute('srcset', baseUrl + '/optimized/' + baseName + '.webp');
+              webpSource.setAttribute('type', 'image/webp');
+            }
+            
+            img.src = url;
+            img.className = 'd-block w-100 h-100 object-fit-contain';
+            img.alt = '{{ product.title|escapejs }} — фото';
+            img.src = url;
+            img.className = 'd-block w-100 h-100 object-fit-contain';
+            img.alt = '{{ product.title|escapejs }} — фото';
+            
+            picture.appendChild(avifSource);
+            picture.appendChild(webpSource);
+            picture.appendChild(img);
+            item.appendChild(picture);
+          } else {
+            // Оптимизируем обычные изображения товаров (папка products)
+            var picture2 = document.createElement('picture');
+            var avif2 = document.createElement('source');
+            var webp2 = document.createElement('source');
+            var img2 = document.createElement('img');
+            var baseUrl2 = url.replace(/\/[^\/]+\.(jpg|jpeg|png)$/, '');
+            var fileName2 = url.match(/\/([^\/]+)\.(jpg|jpeg|png)$/);
+            if (fileName2) {
+              var baseName2 = fileName2[1];
+              avif2.setAttribute('srcset', baseUrl2 + '/optimized/' + baseName2 + '.avif');
+              avif2.setAttribute('type', 'image/avif');
+              webp2.setAttribute('srcset', baseUrl2 + '/optimized/' + baseName2 + '.webp');
+              webp2.setAttribute('type', 'image/webp');
+            }
+            img2.src = url;
+            img2.className = 'd-block w-100 h-100 object-fit-contain';
+            img2.alt = '';
+            picture2.appendChild(avif2);
+            picture2.appendChild(webp2);
+            picture2.appendChild(img2);
+            item.appendChild(picture2);
           }
-
-          img.src = url;
-          img.className = 'd-block w-100 h-100 object-fit-contain';
-          img.alt = '{{ product.title }} - TwoComms';
-
-          picture.appendChild(avifSource);
-          picture.appendChild(webpSource);
-          picture.appendChild(img);
-          item.appendChild(picture);
-
+          
           inner.appendChild(item);
 
           var ind = document.createElement('button');
@@ -309,32 +334,50 @@
 
           var th = document.createElement('button');
           th.type='button'; th.className='btn p-0 thumb'; th.setAttribute('data-bs-target','#productCarousel'); th.setAttribute('data-bs-slide-to', String(idx));
-
-          var thumbPicture = document.createElement('picture');
-          var thumbAvifSource = document.createElement('source');
-          var thumbWebpSource = document.createElement('source');
-          var thumbImg = document.createElement('img');
-
-          if (fileName) {
-            var baseNameThumb = fileName[1];
-            var optimizedPathThumb = baseUrl + '/optimized/';
-            thumbAvifSource.setAttribute('srcset', optimizedPathThumb + baseNameThumb + '.avif');
+          
+          if (isColorImage && fileName) {
+            // Создаем оптимизированную миниатюру для цветовых вариантов
+            var thumbPicture = document.createElement('picture');
+            var thumbAvifSource = document.createElement('source');
+            var thumbWebpSource = document.createElement('source');
+            var thumbImg = document.createElement('img');
+            
+            var baseName = fileName[1];
+            thumbAvifSource.setAttribute('srcset', baseUrl + '/optimized/' + baseName + '.avif');
             thumbAvifSource.setAttribute('type', 'image/avif');
-            thumbWebpSource.setAttribute('srcset', optimizedPathThumb + baseNameThumb + '.webp');
+            thumbWebpSource.setAttribute('srcset', baseUrl + '/optimized/' + baseName + '.webp');
             thumbWebpSource.setAttribute('type', 'image/webp');
+            
+            thumbImg.src = url;
+            thumbImg.className = 'rounded-3 object-fit-cover';
+            thumbImg.style.width = '72px';
+            thumbImg.style.height = '72px';
+            thumbImg.alt = '{{ product.title|escapejs }} — миниатюра';
+            
+            thumbPicture.appendChild(thumbAvifSource);
+            thumbPicture.appendChild(thumbWebpSource);
+            thumbPicture.appendChild(thumbImg);
+            th.appendChild(thumbPicture);
+          } else {
+            // Оптимизированная миниатюра для обычных изображений
+            var tp = document.createElement('picture');
+            var ta = document.createElement('source');
+            var tw = document.createElement('source');
+            var ti = document.createElement('img');
+            var baseUrlT = url.replace(/\/[^\/]+\.(jpg|jpeg|png)$/, '');
+            var fileNameT = url.match(/\/([^\/]+)\.(jpg|jpeg|png)$/);
+            if (fileNameT) {
+              var baseNameT = fileNameT[1];
+              ta.setAttribute('srcset', baseUrlT + '/optimized/' + baseNameT + '.avif');
+              ta.setAttribute('type', 'image/avif');
+              tw.setAttribute('srcset', baseUrlT + '/optimized/' + baseNameT + '.webp');
+              tw.setAttribute('type', 'image/webp');
+            }
+            ti.src = url; ti.className='rounded-3 object-fit-cover'; ti.style.width='72px'; ti.style.height='72px'; ti.alt='';
+            tp.appendChild(ta); tp.appendChild(tw); tp.appendChild(ti);
+            th.appendChild(tp);
           }
-
-          thumbImg.src = url;
-          thumbImg.className = 'rounded-3 object-fit-cover';
-          thumbImg.style.width = '72px';
-          thumbImg.style.height = '72px';
-          thumbImg.alt = '{{ product.title }} - TwoComms';
-
-          thumbPicture.appendChild(thumbAvifSource);
-          thumbPicture.appendChild(thumbWebpSource);
-          thumbPicture.appendChild(thumbImg);
-          th.appendChild(thumbPicture);
-
+          
           thumbs.appendChild(th);
         });
       }
@@ -483,6 +526,17 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <style>
+/* Color swatch styles */
+.swatch {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  position: relative;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+  background: #666666;
+}
+
 .points-info-modal .modal-content {
   background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
   backdrop-filter: blur(20px);
@@ -643,46 +697,6 @@ document.addEventListener('DOMContentLoaded', function() {
   box-shadow: 0 4px 16px rgba(124, 58, 237, 0.3);
 }
 
-/* Цветовые свотчи на детальной странице */
-.color-swatch {
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: 2px solid rgba(255,255,255,0.35);
-  border-radius: 50%;
-  background: transparent;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.color-swatch.active {
-  border-color: var(--accent-color, #7c3aed);
-}
-.color-swatch .swatch {
-  display: inline-block;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--primary-color, #ddd);
-  position: relative;
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
-}
-/* Комбинированный цвет: если есть --secondary-color, рисуем разделение */
-.color-swatch .swatch[style*="--secondary-color"] {
-  background: linear-gradient(90deg, var(--primary-color, #ddd) 50%, var(--secondary-color, #ddd) 50%);
-}
-.color-swatch .swatch .divider {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: rgba(0,0,0,0.2);
-  transform: translateX(-0.5px);
-  pointer-events: none;
-  border-radius: 1px;
-}
-
 @media (max-width: 768px) {
   .points-info-modal .modal-dialog {
     margin: 1rem;
@@ -700,6 +714,14 @@ document.addEventListener('DOMContentLoaded', function() {
     gap: 0.75rem;
   }
 }
+</style>
+
+<style>
+/* Минимальные стили для свотчей цветов (восстановлено) */
+.color-swatch{width:36px;height:36px;padding:0;border:2px solid rgba(255,255,255,.35);border-radius:50%;background:transparent;display:inline-flex;align-items:center;justify-content:center}
+.color-swatch.active{border-color:var(--accent-color,#7c3aed)}
+.color-swatch .swatch{display:inline-block;width:28px;height:28px;border-radius:50%;background:var(--primary-color,#ddd);position:relative;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+.color-swatch .swatch .divider{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(0,0,0,.2);transform:translateX(-.5px);pointer-events:none;border-radius:1px}
 </style>
 
 {% endblock %}

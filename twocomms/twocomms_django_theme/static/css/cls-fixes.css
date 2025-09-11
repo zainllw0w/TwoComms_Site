@@ -1,0 +1,80 @@
+/* CLS Fixes - предотвращение смещений макета при загрузке */
+
+/* Фиксированные размеры для изображений */
+.product-main-image,
+.featured-img,
+.hero-logo-image {
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  contain: layout;
+}
+
+/* Предотвращение смещений при загрузке изображений */
+img {
+  height: auto;
+  max-width: 100%;
+  contain: layout;
+}
+
+/* Оптимизация для мобильных устройств */
+@media (max-width: 768px) {
+  .hero-logo-image {
+    width: 200px;
+    height: 200px;
+  }
+  
+  .featured-img {
+    width: 100%;
+    height: 300px;
+  }
+  
+  .product-main-image {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+/* Предотвращение смещений при загрузке контента */
+.hero-section {
+  min-height: 60vh;
+  contain: layout size;
+}
+
+.categories-unified-block,
+.featured-unified-block {
+  contain: layout;
+}
+
+/* Оптимизация для слабых устройств */
+.perf-lite img {
+  image-rendering: optimizeSpeed;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: optimize-contrast;
+}
+
+/* Предотвращение смещений при загрузке шрифтов */
+@font-face {
+  font-display: swap;
+}
+
+/* Оптимизация для изображений с lazy loading */
+img[loading="lazy"] {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+img[loading="lazy"].loaded {
+  opacity: 1;
+}
+
+/* Предотвращение смещений при загрузке адаптивных изображений */
+picture {
+  display: block;
+  contain: layout;
+}
+
+picture img {
+  width: 100%;
+  height: auto;
+}

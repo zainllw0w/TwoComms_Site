@@ -28,16 +28,16 @@
 {% block content %}
 {% cache 1800 hero_block %}
 <section class="hero-section mb-4 mb-md-5 reveal">
-  <div class="hero-container">
+  <div class="hero-container row align-items-center g-4">
     <!-- Фоновый логотип -->
-    <div class="hero-logo-bg">
-      <link rel="preload" as="image" href="{% static 'img/logo.svg' %}">
+    <div class="col-12 col-md-6 hero-logo-bg">
+      <link rel="preload" as="image" href="{% static 'img/logo.svg' %}" fetchpriority="high">
       {% static 'img/logo.svg' as hero_logo_url %}
-      <img src="{{ hero_logo_url }}" alt="TwoComms - Стріт & Мілітарі Одяг" width="256" height="256" class="hero-logo-image" loading="eager">
+      <img src="{{ hero_logo_url }}" alt="TwoComms - Стріт & Мілітарі Одяг" width="256" height="256" class="hero-logo-image" loading="eager" fetchpriority="high" decoding="sync">
     </div>
     
     <!-- Основной контент -->
-    <div class="hero-content">
+    <div class="col-12 col-md-6 hero-content">
       <div class="hero-text-section">
         <h1 class="hero-title">
           <span class="hero-title-main">Стріт & мілітарі</span>
@@ -148,6 +148,10 @@
               src="{{ ph_url }}"
               class="featured-img"
               alt="{{ featured.title }} - {{ featured.category.name }} TwoComms"
+              loading="lazy"
+              decoding="async"
+              width="400"
+              height="400"
             >
           {% endif %}
           {% if featured.has_discount and featured.discount_percent %}
@@ -262,9 +266,9 @@
           <div class="card-content-compact">
             <div class="card-icon-compact">
               {% if c.icon %}
-                <img src="{{ c.icon.url }}" width="24" height="24" alt="{{ c.name }}">
+                <img src="{{ c.icon.url }}" width="24" height="24" alt="{{ c.name }}" loading="lazy" decoding="async">
               {% else %}
-                <img src="{% static 'img/icons/default.svg' %}" width="24" height="24" alt="{{ c.name }}">
+                <img src="{% static 'img/icons/default.svg' %}" width="24" height="24" alt="{{ c.name }}" loading="lazy" decoding="async">
               {% endif %}
             </div>
             <div class="card-text-compact">
