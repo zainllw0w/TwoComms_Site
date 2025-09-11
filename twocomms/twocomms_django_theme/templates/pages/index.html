@@ -1,5 +1,75 @@
 {% extends "base.html" %}{% load static %}{% load cache %}{% load responsive_images %}
 
+{% comment %}
+Оптимизированная версия index.html с устранением дублирования:
+- Логотипы вынесены в переменные
+- SVG иконки унифицированы
+- Структуры частиц оптимизированы
+- Floating logos унифицированы
+{% endcomment %}
+
+{% comment %} Переменные для оптимизации {% endcomment %}
+{% static 'img/logo.svg' as logo_url %}
+{% static 'img/icons/default.svg' as default_icon_url %}
+
+{% comment %} Макросы для SVG иконок {% endcomment %}
+{% macro arrow_right %}
+<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+  <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+</svg>
+{% endmacro %}
+
+{% macro star_icon %}
+<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+</svg>
+{% endmacro %}
+
+{% macro chevron_down %}
+<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+  <path d="M7 10l5 5 5-5z"/>
+</svg>
+{% endmacro %}
+
+{% macro chart_icon %}
+<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+</svg>
+{% endmacro %}
+
+{% macro arrow_down %}
+<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+  <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+</svg>
+{% endmacro %}
+
+{% comment %} Макрос для частиц {% endmacro %}
+{% macro particles %}
+<div class="particle"></div>
+<div class="particle"></div>
+<div class="particle"></div>
+<div class="particle"></div>
+{% endmacro %}
+
+{% comment %} Макрос для floating logos {% endmacro %}
+{% macro floating_logos %}
+<div class="floating-logo logo-1">
+  <img src="{{ logo_url }}" alt="TwoComms логотип" width="16" height="16">
+</div>
+<div class="floating-logo logo-2">
+  <img src="{{ logo_url }}" alt="TwoComms логотип - декоративний" width="14" height="14">
+</div>
+<div class="floating-logo logo-3">
+  <img src="{{ logo_url }}" alt="TwoComms логотип" width="18" height="18">
+</div>
+<div class="floating-logo logo-4">
+  <img src="{{ logo_url }}" alt="TwoComms логотип" width="12" height="12">
+</div>
+<div class="floating-logo logo-5">
+  <img src="{{ logo_url }}" alt="TwoComms логотип" width="15" height="15">
+</div>
+{% endmacro %}
+
 {% block title %}TwoComms — Стріт & Мілітарі Одяг | Головна{% endblock %}
 
 {% block description %}TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю. Швидка доставка по Україні.{% endblock %}
@@ -29,11 +99,16 @@
 {% cache 1800 hero_block %}
 <section class="hero-section mb-4 mb-md-5 reveal">
   <div class="hero-container row align-items-center g-4">
-    <!-- Фоновый логотип -->
+    <!-- Фоновый логотип - оптимизированная загрузка -->
     <div class="col-12 col-md-6 hero-logo-bg">
-      <link rel="preload" as="image" href="{% static 'img/logo.svg' %}" fetchpriority="high">
-      {% static 'img/logo.svg' as hero_logo_url %}
-      <img src="{{ hero_logo_url }}" alt="TwoComms логотип - стріт & мілітарі одяг" width="200" height="200" class="hero-logo-image" loading="eager" fetchpriority="high" decoding="sync">
+      <link rel="preload" as="image" href="{{ logo_url }}" fetchpriority="high">
+      <img src="{{ logo_url }}" 
+           alt="TwoComms логотип - стріт & мілітарі одяг" 
+           width="200" height="200" 
+           class="hero-logo-image" 
+           loading="eager" 
+           fetchpriority="high" 
+           decoding="sync">
     </div>
     
     <!-- Основной контент -->
@@ -47,14 +122,10 @@
         <div class="hero-actions">
           <a class="hero-btn-primary" href="{% url 'catalog' %}">
             <span>Перейти в каталог</span>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
-            </svg>
+            {{ arrow_right() }}
           </a>
           <div class="hero-badge">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-            </svg>
+            {{ star_icon() }}
             <span>Ексклюзивний дизайн</span>
           </div>
         </div>
@@ -65,10 +136,7 @@
     <div class="hero-decoration">
       <div class="hero-glow"></div>
       <div class="hero-particles">
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
+        {{ particles() }}
         <div class="particle"></div>
       </div>
     </div>
@@ -83,24 +151,21 @@
     <!-- Фоновые эффекты -->
     <div class="featured-bg-unified">
       <div class="featured-particles">
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
+        {{ particles() }}
       </div>
       <div class="featured-glow"></div>
       <div class="featured-gradient-1"></div>
       <div class="featured-gradient-2"></div>
       <div class="featured-floating-logos">
-              <div class="floating-logo logo-1">
-                <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип - стріт & мілітарі одяг" width="14" height="14">
-              </div>
-              <div class="floating-logo logo-2">
-                <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип - стріт & мілітарі одяг" width="12" height="12">
-              </div>
-              <div class="floating-logo logo-3">
-                <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип - стріт & мілітарі одяг" width="16" height="16">
-              </div>
+        <div class="floating-logo logo-1">
+          <img src="{{ logo_url }}" alt="TwoComms логотип - стріт & мілітарі одяг" width="14" height="14">
+        </div>
+        <div class="floating-logo logo-2">
+          <img src="{{ logo_url }}" alt="TwoComms логотип - стріт & мілітарі одяг" width="12" height="12">
+        </div>
+        <div class="floating-logo logo-3">
+          <img src="{{ logo_url }}" alt="TwoComms логотип - стріт & мілітарі одяг" width="16" height="16">
+        </div>
       </div>
     </div>
     
@@ -110,9 +175,7 @@
         <div class="featured-title-compact">
           <div class="title-with-star-icon">
             <div class="featured-badge-compact">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-              </svg>
+              {{ star_icon() }}
               <span>Рекомендовано</span>
             </div>
             <div class="featured-subtitle-compact">Найкращий вибір тижня</div>
@@ -125,9 +188,7 @@
           <div class="toggle-btn-content">
             <span class="toggle-text">Сховати</span>
             <div class="toggle-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M7 10l5 5 5-5z"/>
-              </svg>
+              {{ chevron_down() }}
             </div>
           </div>
         </button>
@@ -188,30 +249,13 @@
     <!-- Фоновые эффекты для всего блока -->
     <div class="categories-bg-unified">
       <div class="dark-particles">
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
+        {{ particles() }}
       </div>
       <div class="dark-glow"></div>
       <div class="dark-gradient-1"></div>
       <div class="dark-gradient-2"></div>
       <div class="floating-logos">
-        <div class="floating-logo logo-1">
-          <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="16" height="16">
-        </div>
-        <div class="floating-logo logo-2">
-                <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип - декоративний" width="14" height="14">
-        </div>
-        <div class="floating-logo logo-3">
-          <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="18" height="18">
-        </div>
-        <div class="floating-logo logo-4">
-          <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="12" height="12">
-        </div>
-        <div class="floating-logo logo-5">
-          <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="15" height="15">
-        </div>
+        {{ floating_logos() }}
       </div>
     </div>
     
@@ -222,9 +266,7 @@
           <div class="title-with-catalog-icon">
             <h2 class="categories-title-text">Категорії</h2>
             <a href="{% url 'catalog' %}" class="catalog-icon-mobile" aria-label="Перейти в каталог">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
-              </svg>
+              {{ chart_icon() }}
             </a>
           </div>
           <div class="title-accent-line"></div>
@@ -266,9 +308,19 @@
           <div class="card-content-compact">
             <div class="card-icon-compact">
               {% if c.icon %}
-                <img src="{{ c.icon.url }}" width="24" height="24" alt="{{ c.name }} категорія - TwoComms" loading="lazy" decoding="async">
+                <img src="{{ c.icon.url }}" 
+                     width="24" height="24" 
+                     alt="{{ c.name }} категорія - TwoComms" 
+                     loading="lazy" 
+                     decoding="async"
+                     fetchpriority="low">
               {% else %}
-                <img src="{% static 'img/icons/default.svg' %}" width="24" height="24" alt="{{ c.name }} категорія - TwoComms" loading="lazy" decoding="async">
+                <img src="{{ default_icon_url }}" 
+                     width="24" height="24" 
+                     alt="{{ c.name }} категорія - TwoComms" 
+                     loading="lazy" 
+                     decoding="async"
+                     fetchpriority="low">
               {% endif %}
             </div>
             <div class="card-text-compact">
