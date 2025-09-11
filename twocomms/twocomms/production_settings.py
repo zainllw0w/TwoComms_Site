@@ -30,6 +30,11 @@ from .settings import *
 # Возможность отключить аналитическую мидлварь через переменную окружения
 if os.environ.get('DISABLE_ANALYTICS', 'false').lower() in ('1', 'true', 'yes'):
     MIDDLEWARE = [m for m in MIDDLEWARE if m != "storefront.tracking.SimpleAnalyticsMiddleware"]
+    # Добавляем HTTPS middleware в продакшене
+    if "twocomms.middleware.ForceHTTPSMiddleware" not in MIDDLEWARE:
+        MIDDLEWARE.insert(0, "twocomms.middleware.ForceHTTPSMiddleware")
+    if "twocomms.middleware.WWWRedirectMiddleware" not in MIDDLEWARE:
+        MIDDLEWARE.insert(1, "twocomms.middleware.WWWRedirectMiddleware")
 import pymysql
 
 # Настройка PyMySQL для работы с MySQL
@@ -336,6 +341,7 @@ SECURE_CROSS_ORIGIN_EMBEDDER_POLICY = None
 # Принудительный HTTPS и доверие заголовку прокси
 # Разрешим переключать редирект через переменную окружения, чтобы избежать возможных циклов редиректа
 SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'True').lower() in ('1', 'true', 'yes')
+SECURE_REDIRECT_EXEMPT = []  # Принудительный редирект для всех URL
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # HSTS
