@@ -364,11 +364,11 @@
               <div class="user-header">
                 <div class="user-avatar-large">
                   {% if request.user.userprofile and request.user.userprofile.avatar %}
-                    <img src="{{ request.user.userprofile.avatar.url }}" class="avatar-image" loading="lazy" decoding="async" fetchpriority="low" alt="Аватар користувача">
+                    <img src="{{ request.user.userprofile.avatar.url }}" class="avatar-image" loading="lazy" decoding="async" fetchpriority="low" alt="Аватар користувача - TwoComms">
                   {% elif request.session.profile_avatar %}
-                    <img src="{{ MEDIA_URL }}{{ request.session.profile_avatar }}" class="avatar-image" loading="lazy" decoding="async" fetchpriority="low" alt="Аватар користувача">
+                    <img src="{{ MEDIA_URL }}{{ request.session.profile_avatar }}" class="avatar-image" loading="lazy" decoding="async" fetchpriority="low" alt="Аватар користувача - TwoComms">
                   {% else %}
-                    <img src="{% static 'img/placeholder.jpg' %}" class="avatar-image" loading="lazy" decoding="async" fetchpriority="low" alt="Плейсхолдер аватара">
+                    <img src="{% static 'img/placeholder.jpg' %}" class="avatar-image" loading="lazy" decoding="async" fetchpriority="low" alt="Аватар користувача - TwoComms">
                   {% endif %}
                   <div class="avatar-glow-large"></div>
                 </div>
@@ -534,7 +534,7 @@
                 </a>
                 
                 <a href="{% url 'social:begin' 'google-oauth2' %}" class="auth-btn secondary">
-                  <img src="{% static 'img/google.svg' %}" width="16" height="16" alt="Google" loading="lazy">
+                  <img src="{% static 'img/google.svg' %}" width="16" height="16" alt="Вхід через Google - TwoComms" loading="lazy">
                   <span>Увійти через Google</span>
                 </a>
               </div>

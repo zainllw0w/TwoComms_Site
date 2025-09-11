@@ -93,7 +93,7 @@
                   {% optimized_image it.product.main_image.url it.product.title "cart-item-img" %}
                 {% else %}
                   {% static 'img/placeholder.jpg' as ph_url %}
-                  <img src="{{ ph_url }}" alt="{{ it.product.title }}" class="cart-item-img">
+                  <img src="{{ ph_url }}" alt="{{ it.product.title }} - товар у кошику TwoComms" class="cart-item-img">
                 {% endif %}
                 <div class="cart-item-image-glow"></div>
               </div>

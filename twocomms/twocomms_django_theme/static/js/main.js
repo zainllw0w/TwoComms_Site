@@ -158,21 +158,38 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.querySelectorAll('[data-stagger-grid]').forEach(grid=>gridObserver.observe(grid));
 });
 
-// ===== Force hide cart/profile on mobile (header widgets) =====
+// ===== Force hide cart/profile on mobile (header widgets) - оптимизированная версия =====
 document.addEventListener('DOMContentLoaded', function() {
-  function hideOnMobile() {
-    const cartContainer = document.querySelector('.cart-container[data-mobile-hide="true"]');
-    const profileContainer = document.querySelector('.user-profile-container[data-mobile-hide="true"]');
-    if (window.innerWidth <= 991.98) {
-      if (cartContainer) { cartContainer.style.display = 'none'; cartContainer.style.visibility = 'hidden'; cartContainer.style.opacity = '0'; }
-      if (profileContainer) { profileContainer.style.display = 'none'; profileContainer.style.visibility = 'hidden'; profileContainer.style.opacity = '0'; }
-    } else {
-      if (cartContainer) { cartContainer.style.display = ''; cartContainer.style.visibility = ''; cartContainer.style.opacity = ''; }
-      if (profileContainer) { profileContainer.style.display = ''; profileContainer.style.visibility = ''; profileContainer.style.opacity = ''; }
-    }
+  // Кэшируем элементы и используем CSS классы вместо прямого изменения стилей
+  const cartContainer = document.querySelector('.cart-container[data-mobile-hide="true"]');
+  const profileContainer = document.querySelector('.user-profile-container[data-mobile-hide="true"]');
+  
+  if (!cartContainer && !profileContainer) return;
+  
+  // Используем CSS медиа-запросы вместо JavaScript для скрытия элементов
+  function updateMobileVisibility() {
+    // Используем requestAnimationFrame для избежания принудительной компоновки
+    requestAnimationFrame(() => {
+      const isMobile = window.innerWidth <= 991.98;
+      
+      if (cartContainer) {
+        cartContainer.classList.toggle('mobile-hidden', isMobile);
+      }
+      if (profileContainer) {
+        profileContainer.classList.toggle('mobile-hidden', isMobile);
+      }
+    });
   }
-  hideOnMobile();
-  window.addEventListener('resize', debounce(hideOnMobile, 120));
+  
+  // Инициализация с задержкой для избежания блокировки рендеринга
+  setTimeout(updateMobileVisibility, 0);
+  
+  // Используем более эффективный обработчик resize
+  let resizeTimeout;
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(updateMobileVisibility, 100);
+  });
 });
 
 // ===== Корзина (AJAX) =====
@@ -213,8 +230,18 @@ function updateCartBadge(count){
   const n = String(count||0);
   const desktop = DOMCache.get('cart-count');
   const mobile = DOMCache.get('cart-count-mobile');
-  if(desktop){ desktop.textContent=n; desktop.style.display='inline-block'; }
-  if(mobile){ mobile.textContent=n; mobile.style.display='inline-block'; }
+  
+  // Используем requestAnimationFrame для избежания принудительной компоновки
+  requestAnimationFrame(() => {
+    if(desktop){ 
+      desktop.textContent=n; 
+      desktop.classList.add('visible');
+    }
+    if(mobile){ 
+      mobile.textContent=n; 
+      mobile.classList.add('visible');
+    }
+  });
 }
 
 // Функция для обновления счетчика избранного
@@ -226,61 +253,54 @@ function updateFavoritesBadge(count){
   const favoritesWrapper = DOMCache.query('.favorites-icon-wrapper');
   const mobileIcon = DOMCache.query('a[href*="favorites"] .bottom-nav-icon');
   
-  // Обновляем десктопный счетчик
-  if(desktop){ 
-    desktop.textContent=n; 
-    // Всегда показываем счетчик
-    desktop.style.display='flex';
-    desktop.style.visibility='visible';
-    
-    if(count > 0) {
-      // Добавляем класс для анимации когда есть товары
-      if(favoritesWrapper) {
-        favoritesWrapper.classList.add('has-items');
-      }
-    } else {
-      // Убираем класс когда нет товаров
-      if(favoritesWrapper) {
-        favoritesWrapper.classList.remove('has-items');
-      }
-    }
-  }
-  
-  // Обновляем мобильный счетчик
-  if(mobile){ 
-    mobile.textContent=n; 
-    
-    if(count > 0) {
-      // Показываем счетчик и добавляем анимацию
-      mobile.style.display='flex';
-      mobile.style.visibility='visible';
-      if(mobileIcon) {
-        mobileIcon.classList.add('has-items');
-      }
-    } else {
-      // Скрываем счетчик и убираем анимацию
-      mobile.style.display='none';
-      mobile.style.visibility='hidden';
-      if(mobileIcon) {
-        mobileIcon.classList.remove('has-items');
+  // Используем requestAnimationFrame для избежания принудительной компоновки
+  requestAnimationFrame(() => {
+    // Обновляем десктопный счетчик
+    if(desktop){ 
+      desktop.textContent=n; 
+      desktop.classList.add('visible');
+      
+      if(count > 0) {
+        // Добавляем класс для анимации когда есть товары
+        if(favoritesWrapper) {
+          favoritesWrapper.classList.add('has-items');
+        }
+      } else {
+        // Убираем класс когда нет товаров
+        if(favoritesWrapper) {
+          favoritesWrapper.classList.remove('has-items');
+        }
       }
     }
-  }
-  
-  // Обновляем счетчик в минипрофиле
-  if(mini){ 
-    mini.textContent=n; 
     
-    if(count > 0) {
-      // Показываем счетчик
-      mini.style.display='flex';
-      mini.style.visibility='visible';
-    } else {
-      // Скрываем счетчик
-      mini.style.display='none';
-      mini.style.visibility='hidden';
+    // Обновляем мобильный счетчик
+    if(mobile){ 
+      mobile.textContent=n; 
+      
+      if(count > 0) {
+        mobile.classList.add('visible');
+        if(mobileIcon) {
+          mobileIcon.classList.add('has-items');
+        }
+      } else {
+        mobile.classList.remove('visible');
+        if(mobileIcon) {
+          mobileIcon.classList.remove('has-items');
+        }
+      }
     }
-  }
+    
+    // Обновляем счетчик в минипрофиле
+    if(mini){ 
+      mini.textContent=n; 
+      
+      if(count > 0) {
+        mini.classList.add('visible');
+      } else {
+        mini.classList.remove('visible');
+      }
+    }
+  });
 }
 
 // Применение цветов свотчей (включая комбинированные) по data-* атрибутам
@@ -292,18 +312,21 @@ function applySwatchColors(root){
       const primary = el.getAttribute('data-primary') || '';
       const secondary = el.getAttribute('data-secondary') || '';
       
-      // Устанавливаем CSS-переменные для комбинированных цветов
-      if(primary) el.style.setProperty('--primary-color', primary);
-      if(secondary && secondary !== 'None'){
-        el.style.setProperty('--secondary-color', secondary);
-      } else {
-        el.style.removeProperty('--secondary-color');
-      }
-      
-      // Устанавливаем прямой background-color для .swatch элементов
-      if(el.classList.contains('swatch') && primary) {
-        el.style.backgroundColor = primary;
-      }
+      // Используем requestAnimationFrame для избежания принудительной компоновки
+      requestAnimationFrame(() => {
+        // Устанавливаем CSS-переменные для комбинированных цветов
+        if(primary) el.style.setProperty('--primary-color', primary);
+        if(secondary && secondary !== 'None'){
+          el.style.setProperty('--secondary-color', secondary);
+        } else {
+          el.style.removeProperty('--secondary-color');
+        }
+        
+        // Устанавливаем прямой background-color для .swatch элементов
+        if(el.classList.contains('swatch') && primary) {
+          el.style.backgroundColor = primary;
+        }
+      });
     });
   }catch(_){ }
 }
