@@ -114,7 +114,7 @@ body::before {
 /* Дополнительные декоративные элементы фона */
 body::after {
   background-image: 
-    url('../img/noise.png'),
+    url('../img/noise.webp'),
     radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.03) 0%, transparent 30%),
     radial-gradient(circle at 90% 80%, rgba(99, 102, 241, 0.02) 0%, transparent 30%);
   background-size: 
@@ -223,7 +223,7 @@ body::after {
   inset: 0;
   z-index: -2;
   background-image: 
-    url('../img/noise.png'),
+    url('../img/noise.webp'),
     radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.03) 0%, transparent 30%),
     radial-gradient(circle at 90% 80%, rgba(99, 102, 241, 0.02) 0%, transparent 30%),
     radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.01) 0%, transparent 60%);
@@ -377,7 +377,7 @@ body::after {
   inset: 0;
   z-index: -2;
   background-image: 
-    url('../img/noise.png'),
+    url('../img/noise.webp'),
     radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.03) 0%, transparent 30%),
     radial-gradient(circle at 90% 80%, rgba(99, 102, 241, 0.02) 0%, transparent 30%),
     radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.01) 0%, transparent 60%),
