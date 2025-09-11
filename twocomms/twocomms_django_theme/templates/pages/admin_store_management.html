@@ -164,7 +164,7 @@
         0 25px 50px rgba(0, 0, 0, 0.4),
         0 0 0 1px rgba(139, 92, 246, 0.08),
         inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    min-height: 900px;
+    height: 800px;
     position: relative;
     overflow: hidden;
     display: flex;
@@ -172,8 +172,7 @@
 }
 
 .order-column {
-    display: flex;
-    flex-direction: column;
+    min-height: 0;
 }
 
 .order-content {
@@ -277,10 +276,11 @@
 }
 
 .store-products-scroll-container {
-    max-height: 525px;
+    flex: 1;
     overflow-y: auto;
     padding-right: 8px;
     margin-right: -8px;
+    min-height: 0;
 }
 
 .order-items-scroll-container::-webkit-scrollbar,
