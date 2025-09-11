@@ -198,6 +198,54 @@
     contain: layout;
   }
   
+  /* Фиксированные размеры для hero-секции */
+  .hero-section {
+    min-height: 400px;
+    contain: layout size;
+    position: relative;
+  }
+  
+  .hero-container {
+    position: relative;
+    width: 100%;
+    min-height: 400px;
+    contain: layout;
+  }
+  
+  .hero-content {
+    position: relative;
+    z-index: 3;
+    min-height: 200px;
+    contain: layout;
+  }
+  
+  .hero-text-section {
+    min-height: 150px;
+    contain: layout;
+  }
+  
+  /* Фиксированные размеры для main контейнера */
+  main.container-xxl {
+    contain: layout;
+    min-height: 100vh;
+  }
+  
+  /* Предотвращение смещений при загрузке контента */
+  .hero-title-main,
+  .hero-title-accent {
+    contain: layout;
+  }
+  
+  .hero-subtitle {
+    contain: layout;
+    min-height: 1.5em;
+  }
+  
+  .hero-actions {
+    contain: layout;
+    min-height: 60px;
+  }
+  
   /* Оптимизация для скрытия элементов на мобильных устройствах */
   .mobile-hidden {
     display: none !important;
@@ -252,6 +300,66 @@
       z-index: 1000 !important;
       transform: none !important;
       animation: none !important;
+    }
+  }
+  
+  /* Мобильные стили для предотвращения смещений */
+  @media (max-width: 768px) {
+    .hero-section {
+      min-height: 300px;
+      contain: layout size;
+    }
+    
+    .hero-container {
+      min-height: 300px;
+      contain: layout;
+    }
+    
+    .hero-content {
+      min-height: 180px;
+      contain: layout;
+    }
+    
+    .hero-text-section {
+      min-height: 120px;
+      contain: layout;
+    }
+    
+    .hero-actions {
+      min-height: 50px;
+      contain: layout;
+    }
+    
+    main.container-xxl {
+      min-height: 100vh;
+      contain: layout;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .hero-section {
+      min-height: 250px;
+      contain: layout size;
+    }
+    
+    .hero-container {
+      min-height: 250px;
+      contain: layout;
+    }
+    
+    .hero-content {
+      min-height: 150px;
+      contain: layout;
+    }
+    
+    .hero-text-section {
+      min-height: 100px;
+      contain: layout;
+    }
+    
+    .hero-actions {
+      min-height: 45px;
+      contain: layout;
     }
   }
   </style>
