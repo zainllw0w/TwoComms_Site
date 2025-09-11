@@ -232,20 +232,61 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # ===== ОПТИМИЗАЦИИ ДЛЯ ПРОДАКШЕНА =====
 
-# Кэширование: всегда локальный кэш (LocMem), без Redis и без переменных окружения
+# ===== ЭФФЕКТИВНАЯ СИСТЕМА КЕШИРОВАНИЯ =====
+
+# Многоуровневое кеширование для максимальной эффективности
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'twocomms-local',
-        'TIMEOUT': 300,
+        'LOCATION': 'twocomms-default',
+        'TIMEOUT': 300,  # 5 минут для общих данных
+        'OPTIONS': {
+            'MAX_ENTRIES': 5000,
+            'CULL_FREQUENCY': 4,
+        }
+    },
+    'staticfiles': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'twocomms-staticfiles',
+        'TIMEOUT': 86400,  # 24 часа для статических файлов
+        'OPTIONS': {
+            'MAX_ENTRIES': 10000,
+            'CULL_FREQUENCY': 2,
+        }
+    },
+    'templates': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'twocomms-templates',
+        'TIMEOUT': 3600,  # 1 час для шаблонов
         'OPTIONS': {
             'MAX_ENTRIES': 2000,
             'CULL_FREQUENCY': 3,
         }
+    },
+    'database': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'twocomms-database',
+        'TIMEOUT': 1800,  # 30 минут для запросов к БД
+        'OPTIONS': {
+            'MAX_ENTRIES': 3000,
+            'CULL_FREQUENCY': 3,
+        }
+    },
+    'api': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'twocomms-api',
+        'TIMEOUT': 600,  # 10 минут для API запросов
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,
+            'CULL_FREQUENCY': 4,
+        }
     }
 }
+
+# Сессии через кешированную БД
 SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
 SESSION_CACHE_ALIAS = 'default'
+SESSION_COOKIE_AGE = 86400 * 7  # 7 дней
 
 # Кэширование шаблонов (включено для продакшена)
 TEMPLATES[0]['OPTIONS']['loaders'] = [
@@ -256,25 +297,7 @@ TEMPLATES[0]['OPTIONS']['loaders'] = [
 ]
 TEMPLATES[0]['APP_DIRS'] = False  # Отключаем APP_DIRS при использовании loaders
 
-# Восстанавливаем кэширование с оптимизацией для статических файлов
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-snowflake',
-        'TIMEOUT': 300,
-        'OPTIONS': {
-            'MAX_ENTRIES': 1000,
-        }
-    },
-    'staticfiles': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'staticfiles-cache',
-        'TIMEOUT': 86400,  # 24 часа для статических файлов
-        'OPTIONS': {
-            'MAX_ENTRIES': 5000,
-        }
-    }
-}
+# Настройки кеширования уже определены выше
 
 # Настройки сжатия статических файлов
 STATICFILES_FINDERS = [
