@@ -2038,7 +2038,7 @@
                                  <span>Редагувати</span>
                              </button>
                              
-                             <button class="action-btn delete-btn" data-product-id="{{ store_product.id }}" title="Видалити" onclick="removeStoreProduct('{{ store_product.id }}')">
+                             <button class="action-btn delete-btn" data-product-id="{{ store_product.id }}" title="Видалити">
                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                                      <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                                  </svg>
@@ -2184,22 +2184,15 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Инициализируем обработчики для кнопок удаления товаров из магазина
     document.addEventListener('click', function(e) {
-        console.log('Click event detected on:', e.target);
-        
         // Проверяем, кликнули ли по кнопке удаления или по её содержимому
         const deleteBtn = e.target.closest('.delete-btn');
         if (deleteBtn) {
-            console.log('Delete button clicked');
             e.preventDefault();
             e.stopPropagation();
             
             const productId = deleteBtn.dataset.productId;
-            console.log('Product ID from button:', productId);
-            
             if (productId) {
                 removeStoreProduct(productId);
-            } else {
-                console.log('No product ID found on delete button');
             }
         }
     });
@@ -2778,19 +2771,14 @@ function closeEditModal() {
 
 // Удаление товара из магазина
 function removeStoreProduct(productId) {
-    console.log('removeStoreProduct called with productId:', productId);
-    
     if (!confirm('Видалити товар з магазину?')) return;
     
     // Находим карточку товара
     const productCard = document.querySelector(`[data-product-id="${productId}"]`);
     if (!productCard) {
-        console.log('Product card not found for productId:', productId);
         showNotification('Товар не знайдено', 'error');
         return;
     }
-    
-    console.log('Product card found, starting deletion...');
     
     // Показываем уведомление о начале удаления
     showNotification('Видаляємо товар...', 'info');
@@ -2800,20 +2788,14 @@ function removeStoreProduct(productId) {
     productCard.style.transform = 'scale(0.8)';
     productCard.style.opacity = '0';
     
-    console.log('Sending DELETE request to:', `/admin-panel/offline-store/{{ store.id }}/product/${productId}/remove/`);
-    
     fetch(`/admin-panel/offline-store/{{ store.id }}/product/${productId}/remove/`, {
         method: 'POST',
         headers: {
             'X-CSRFToken': getCookie('csrftoken')
         }
     })
-    .then(response => {
-        console.log('Response status:', response.status);
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
-        console.log('Response data:', data);
         if (data.success) {
             // Удаляем карточку из DOM после анимации
             setTimeout(() => {
@@ -2830,7 +2812,6 @@ function removeStoreProduct(productId) {
         }
     })
     .catch(error => {
-        console.log('Error:', error);
         // Возвращаем карточку в исходное состояние при ошибке
         productCard.style.transform = 'scale(1)';
         productCard.style.opacity = '1';
