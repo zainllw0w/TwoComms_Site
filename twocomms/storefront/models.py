@@ -45,9 +45,9 @@ class PrintProposal(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        base = f"{self.user.username} — {self.get_status_display()}"
+        base = "{} — {}".format(self.user.username, self.get_status_display())
         if self.awarded_points:
-            base += f" (+{self.awarded_points} б.)"
+            base += " (+{} б.)".format(self.awarded_points)
         return base
 
 class Product(models.Model):
@@ -226,7 +226,7 @@ class SiteSession(models.Model):
         ordering = ['-last_seen']
 
     def __str__(self):
-        return f"{self.session_key} ({'bot' if self.is_bot else 'user'})"
+        return "{} ({})".format(self.session_key, 'bot' if self.is_bot else 'user')
 
 
 class PageView(models.Model):
@@ -242,7 +242,7 @@ class PageView(models.Model):
         ordering = ['-when']
 
     def __str__(self):
-        return f"{self.path} @ {self.when}"
+        return "{} @ {}".format(self.path, self.when)
 
 
 # ===== Модели для управления оффлайн магазинами =====
@@ -267,7 +267,7 @@ class StoreProduct(models.Model):
         unique_together = [['store', 'product', 'size', 'color']]
     
     def __str__(self):
-        return f"{self.product.title} - {self.store.name}"
+        return "{} - {}".format(self.product.title, self.store.name)
     
     @property
     def margin(self):
@@ -297,7 +297,7 @@ class StoreOrder(models.Model):
         ordering = ['-created_at']
     
     def __str__(self):
-        return f"Замовлення #{self.id} - {self.store.name}"
+        return "Замовлення #{} - {}".format(self.id, self.store.name)
 
 
 class StoreOrderItem(models.Model):
@@ -316,7 +316,7 @@ class StoreOrderItem(models.Model):
         ordering = ['id']
     
     def __str__(self):
-        return f"{self.product.title} - {self.order}"
+        return "{} - {}".format(self.product.title, self.order)
     
     @property
     def total_price(self):
@@ -338,4 +338,4 @@ class StoreInvoice(models.Model):
         ordering = ['-created_at']
     
     def __str__(self):
-        return f"Накладна #{self.id} - {self.store.name}"
+        return "Накладна #{} - {}".format(self.id, self.store.name)
