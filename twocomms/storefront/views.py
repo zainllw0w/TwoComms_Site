@@ -3738,9 +3738,9 @@ def admin_store_management(request, store_id):
                 'total_margin': 0
             }
         category_stats[cat_name]['count'] += sp.quantity
-        category_stats[cat_name]['total_cost'] += sp.total_cost
-        category_stats[cat_name]['total_selling_price'] += sp.total_selling_price
-        category_stats[cat_name]['total_margin'] += sp.total_margin
+        category_stats[cat_name]['total_cost'] += sp.cost_price
+        category_stats[cat_name]['total_selling_price'] += sp.selling_price
+        category_stats[cat_name]['total_margin'] += sp.margin
     
     return render(request, 'pages/admin_store_management.html', {
         'store': store,
@@ -4152,9 +4152,9 @@ def admin_store_update_product(request, store_id, product_id):
             'success': True,
             'message': 'Товар обновлен',
             'data': {
-                'total_cost': store_product.total_cost,
-                'total_selling_price': store_product.total_selling_price,
-                'total_margin': store_product.total_margin
+                'total_cost': store_product.cost_price,
+                'total_selling_price': store_product.selling_price,
+                'total_margin': store_product.margin
             }
         })
         
