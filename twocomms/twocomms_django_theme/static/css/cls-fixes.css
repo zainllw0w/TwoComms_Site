@@ -54,6 +54,38 @@ img {
     opacity: 1 !important;
     pointer-events: auto !important;
   }
+  
+  /* Исправляем позиционирование user-panel на десктопе */
+  .user-profile-container .user-panel {
+    position: absolute !important;
+    top: calc(100% + 8px) !important;
+    right: 0 !important;
+    left: auto !important;
+    bottom: auto !important;
+    width: 360px !important;
+    max-width: calc(100vw - 40px) !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+    z-index: 1000 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+  
+  /* Исправляем позиционирование cart-panel на десктопе */
+  .cart-container .cart-panel {
+    position: absolute !important;
+    top: calc(100% + 8px) !important;
+    right: 0 !important;
+    left: auto !important;
+    bottom: auto !important;
+    width: 380px !important;
+    max-width: calc(100vw - 40px) !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+    z-index: 1000 !important;
+    transform: none !important;
+    animation: none !important;
+  }
 }
 
 /* Оптимизация для показа/скрытия счетчиков */
@@ -74,21 +106,23 @@ img {
   display: flex;
 }
 
-/* Специальные стили для мобильного счетчика избранного */
+/* Специальные стили для мобильного счетчика избранного - как у корзины */
 .favorites-badge-mobile.visible {
-  display: block;
+  display: flex;
   position: absolute;
   top: -8px;
   right: -8px;
-  background: var(--accent-color, #8b5cf6);
+  background: linear-gradient(135deg, #ef4444, #dc2626);
   color: white;
-  border-radius: 50%;
-  min-width: 18px;
-  height: 18px;
-  font-size: 11px;
-  font-weight: 600;
-  text-align: center;
-  line-height: 18px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  border: 2px solid #1a1a1a;
   z-index: 10;
 }
 
