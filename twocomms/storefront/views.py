@@ -4040,7 +4040,7 @@ def admin_store_generate_invoice(request, store_id):
         ws['A2'].font = Font(size=12)
         
         # Заголовки таблицы
-        headers = ['Товар', 'Ціна продажу (грн)']
+        headers = ['Товар', 'Кількість', 'Ціна під реалізацію за од. в грн']
         for col, header in enumerate(headers, 1):
             cell = ws.cell(row=4, column=col, value=header)
             cell.font = Font(bold=True)
@@ -4059,7 +4059,8 @@ def admin_store_generate_invoice(request, store_id):
                 product_name += f" [{item.color.name}]"
             
             ws.cell(row=row, column=1, value=product_name)
-            ws.cell(row=row, column=2, value=item.selling_price)
+            ws.cell(row=row, column=2, value=item.quantity)
+            ws.cell(row=row, column=3, value=item.selling_price)
             
             # Подсчитываем по категориям
             category = item.product.category.name
