@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load math_filters %}
+{% load responsive_images %}
 
 {% block title %}Кошик — TwoComms{% endblock %}
 
@@ -86,8 +87,14 @@
               </div>
               
               <div class="cart-item-image">
-                <img src="{% if it.color_variant and it.color_variant.images.exists %}{{ it.color_variant.images.first.image.url }}{% elif it.product.main_image %}{{ it.product.main_image.url }}{% else %}{% static 'img/placeholder.jpg' %}{% endif %}" 
-                     alt="{{ it.product.title }}" class="cart-item-img">
+                {% if it.color_variant and it.color_variant.images.exists %}
+                  {% optimized_image it.color_variant.images.first.image.url it.product.title "cart-item-img" %}
+                {% elif it.product.main_image %}
+                  {% optimized_image it.product.main_image.url it.product.title "cart-item-img" %}
+                {% else %}
+                  {% static 'img/placeholder.jpg' as ph_url %}
+                  <img src="{{ ph_url }}" alt="{{ it.product.title }}" class="cart-item-img">
+                {% endif %}
                 <div class="cart-item-image-glow"></div>
               </div>
               

@@ -790,23 +790,63 @@ class SEOContentOptimizer:
 # Глобальные функции для использования в шаблонах
 def get_product_seo_meta(product: Product) -> Dict[str, str]:
     """Возвращает SEO мета-теги для товара"""
-    return SEOMetaGenerator.generate_product_meta(product)
+    try:
+        return SEOMetaGenerator.generate_product_meta(product)
+    except Exception as e:
+        # Возвращаем базовые мета-теги в случае ошибки
+        return {
+            'title': f"{product.title} - TwoComms",
+            'description': f"Купити {product.title} в TwoComms. Якісний одяг з ексклюзивним дизайном.",
+            'keywords': 'стріт одяг, мілітарі одяг, TwoComms',
+            'og_title': f"{product.title} - TwoComms",
+            'og_description': f"Купити {product.title} в TwoComms. Якісний одяг з ексклюзивним дизайном.",
+            'og_image': product.main_image.url if product.main_image else '',
+            'twitter_title': f"{product.title} - TwoComms",
+            'twitter_description': f"Купити {product.title} в TwoComms. Якісний одяг з ексклюзивним дизайном.",
+            'twitter_image': product.main_image.url if product.main_image else '',
+        }
 
 def get_category_seo_meta(category: Category) -> Dict[str, str]:
     """Возвращает SEO мета-теги для категории"""
-    return SEOMetaGenerator.generate_category_meta(category)
+    try:
+        return SEOMetaGenerator.generate_category_meta(category)
+    except Exception as e:
+        # Возвращаем базовые мета-теги в случае ошибки
+        return {
+            'title': f"{category.name} - TwoComms",
+            'description': f"Купити {category.name.lower()} в TwoComms. Якісний одяг з ексклюзивним дизайном.",
+            'keywords': 'стріт одяг, мілітарі одяг, TwoComms',
+            'og_title': f"{category.name} - TwoComms",
+            'og_description': f"Купити {category.name.lower()} в TwoComms. Якісний одяг з ексклюзивним дизайном.",
+            'og_image': category.cover.url if category.cover else '',
+            'twitter_title': f"{category.name} - TwoComms",
+            'twitter_description': f"Купити {category.name.lower()} в TwoComms. Якісний одяг з ексклюзивним дизайном.",
+            'twitter_image': category.cover.url if category.cover else '',
+        }
 
 def get_product_schema(product: Product) -> str:
     """Возвращает JSON-LD schema для товара"""
-    schema = StructuredDataGenerator.generate_product_schema(product)
-    return json.dumps(schema, ensure_ascii=False, indent=2)
+    try:
+        schema = StructuredDataGenerator.generate_product_schema(product)
+        return json.dumps(schema, ensure_ascii=False, indent=2)
+    except Exception as e:
+        # Возвращаем пустую строку в случае ошибки
+        return ""
 
 def get_breadcrumb_schema(breadcrumbs: List[Dict]) -> str:
     """Возвращает JSON-LD schema для хлебных крошек"""
-    schema = StructuredDataGenerator.generate_breadcrumb_schema(breadcrumbs)
-    return json.dumps(schema, ensure_ascii=False, indent=2)
+    try:
+        schema = StructuredDataGenerator.generate_breadcrumb_schema(breadcrumbs)
+        return json.dumps(schema, ensure_ascii=False, indent=2)
+    except Exception as e:
+        # Возвращаем пустую строку в случае ошибки
+        return ""
 
 def get_google_merchant_schema(product: Product) -> str:
     """Возвращает JSON-LD schema для Google Merchant Center"""
-    schema = StructuredDataGenerator.generate_google_merchant_schema(product)
-    return json.dumps(schema, ensure_ascii=False, indent=2)
+    try:
+        schema = StructuredDataGenerator.generate_google_merchant_schema(product)
+        return json.dumps(schema, ensure_ascii=False, indent=2)
+    except Exception as e:
+        # Возвращаем пустую строку в случае ошибки
+        return ""

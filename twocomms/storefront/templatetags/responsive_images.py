@@ -6,6 +6,7 @@ from django import template
 from django.conf import settings
 import os
 from pathlib import Path
+from urllib.parse import urljoin
 
 register = template.Library()
 
@@ -15,7 +16,7 @@ def responsive_image(image_path, alt_text="", class_name="", sizes="(max-width: 
     Создает адаптивное изображение с поддержкой WebP/AVIF
     
     Args:
-        image_path: Путь к изображению
+        image_path: Путь к изображению (URL)
         alt_text: Альтернативный текст
         class_name: CSS класс
         sizes: Атрибут sizes для srcset
@@ -31,36 +32,62 @@ def responsive_image(image_path, alt_text="", class_name="", sizes="(max-width: 
             'responsive_sources': []
         }
     
+    # Преобразуем URL в файловый путь для проверки существования
+    if image_path.startswith('/media/'):
+        relative_path = image_path[7:]  # убираем '/media/'
+        file_path = os.path.join(settings.MEDIA_ROOT, relative_path)
+        base_url = os.path.dirname(image_path)
+    else:
+        file_path = image_path
+        base_url = os.path.dirname(image_path)
+    
     # Определяем базовое имя файла
-    base_path = Path(image_path)
+    base_path = Path(file_path)
     base_name = base_path.stem
     base_dir = base_path.parent
     
-    # Проверяем наличие оптимизированных версий
-    webp_path = base_dir / f"{base_name}.webp"
-    avif_path = base_dir / f"{base_name}.avif"
+    # Проверяем наличие оптимизированных версий в папке optimized
+    optimized_dir = base_dir / "optimized"
+    webp_file_path = optimized_dir / f"{base_name}.webp"
+    avif_file_path = optimized_dir / f"{base_name}.avif"
+    
+    # Формируем URL для оптимизированных изображений
+    if image_path.startswith('/media/'):
+        webp_url = f"{base_url}/optimized/{base_name}.webp"
+        avif_url = f"{base_url}/optimized/{base_name}.avif"
+    else:
+        webp_url = str(webp_file_path)
+        avif_url = str(avif_file_path)
     
     # Проверяем наличие адаптивных версий
     responsive_sources = []
     
-    # Размеры для адаптивных изображений
-    responsive_sizes = [320, 640, 768, 1024, 1920]
+    # Размеры для адаптивных изображений (увеличиваем минимальные размеры)
+    responsive_sizes = [480, 640, 768, 1024, 1200, 1920]
     
     for size in responsive_sizes:
         # WebP версии
-        webp_responsive_path = base_dir / f"{base_name}_{size}w.webp"
-        if webp_responsive_path.exists():
+        webp_responsive_file = optimized_dir / f"{base_name}_{size}w.webp"
+        if webp_responsive_file.exists():
+            if image_path.startswith('/media/'):
+                webp_responsive_url = f"{base_url}/optimized/{base_name}_{size}w.webp"
+            else:
+                webp_responsive_url = str(webp_responsive_file)
             responsive_sources.append({
-                'url': str(webp_responsive_path),
+                'url': webp_responsive_url,
                 'size': f"{size}w",
                 'format': 'webp'
             })
         
         # AVIF версии
-        avif_responsive_path = base_dir / f"{base_name}_{size}w.avif"
-        if avif_responsive_path.exists():
+        avif_responsive_file = optimized_dir / f"{base_name}_{size}w.avif"
+        if avif_responsive_file.exists():
+            if image_path.startswith('/media/'):
+                avif_responsive_url = f"{base_url}/optimized/{base_name}_{size}w.avif"
+            else:
+                avif_responsive_url = str(avif_responsive_file)
             responsive_sources.append({
-                'url': str(avif_responsive_path),
+                'url': avif_responsive_url,
                 'size': f"{size}w",
                 'format': 'avif'
             })
@@ -70,10 +97,10 @@ def responsive_image(image_path, alt_text="", class_name="", sizes="(max-width: 
         'alt_text': alt_text,
         'class_name': class_name,
         'sizes': sizes,
-        'has_webp': webp_path.exists(),
-        'has_avif': avif_path.exists(),
-        'webp_path': str(webp_path) if webp_path.exists() else None,
-        'avif_path': str(avif_path) if avif_path.exists() else None,
+        'has_webp': webp_file_path.exists(),
+        'has_avif': avif_file_path.exists(),
+        'webp_path': webp_url if webp_file_path.exists() else None,
+        'avif_path': avif_url if avif_file_path.exists() else None,
         'responsive_sources': responsive_sources
     }
 
@@ -83,7 +110,7 @@ def optimized_image(image_path, alt_text="", class_name="", width=None, height=N
     Создает оптимизированное изображение с автоматическим выбором формата
     
     Args:
-        image_path: Путь к изображению
+        image_path: Путь к изображению (URL)
         alt_text: Альтернативный текст
         class_name: CSS класс
         width: Ширина изображения
@@ -100,14 +127,32 @@ def optimized_image(image_path, alt_text="", class_name="", width=None, height=N
             'has_avif': False
         }
     
+    # Преобразуем URL в файловый путь для проверки существования
+    if image_path.startswith('/media/'):
+        relative_path = image_path[7:]  # убираем '/media/'
+        file_path = os.path.join(settings.MEDIA_ROOT, relative_path)
+        base_url = os.path.dirname(image_path)
+    else:
+        file_path = image_path
+        base_url = os.path.dirname(image_path)
+    
     # Определяем базовое имя файла
-    base_path = Path(image_path)
+    base_path = Path(file_path)
     base_name = base_path.stem
     base_dir = base_path.parent
     
-    # Проверяем наличие оптимизированных версий
-    webp_path = base_dir / f"{base_name}.webp"
-    avif_path = base_dir / f"{base_name}.avif"
+    # Проверяем наличие оптимизированных версий в папке optimized
+    optimized_dir = base_dir / "optimized"
+    webp_file_path = optimized_dir / f"{base_name}.webp"
+    avif_file_path = optimized_dir / f"{base_name}.avif"
+    
+    # Формируем URL для оптимизированных изображений
+    if image_path.startswith('/media/'):
+        webp_url = f"{base_url}/optimized/{base_name}.webp"
+        avif_url = f"{base_url}/optimized/{base_name}.avif"
+    else:
+        webp_url = str(webp_file_path)
+        avif_url = str(avif_file_path)
     
     return {
         'image_path': image_path,
@@ -115,10 +160,10 @@ def optimized_image(image_path, alt_text="", class_name="", width=None, height=N
         'class_name': class_name,
         'width': width,
         'height': height,
-        'has_webp': webp_path.exists(),
-        'has_avif': avif_path.exists(),
-        'webp_path': str(webp_path) if webp_path.exists() else None,
-        'avif_path': str(avif_path) if avif_path.exists() else None
+        'has_webp': webp_file_path.exists(),
+        'has_avif': avif_file_path.exists(),
+        'webp_path': webp_url if webp_file_path.exists() else None,
+        'avif_path': avif_url if avif_file_path.exists() else None
     }
 
 @register.simple_tag
@@ -140,8 +185,9 @@ def image_srcset(image_path, sizes=None):
     srcset_items = []
     
     for size in sizes:
-        # Проверяем наличие WebP версии
-        webp_path = base_dir / f"{base_name}_{size}w.webp"
+        # Проверяем наличие WebP версии в папке optimized
+        optimized_dir = base_dir / "optimized"
+        webp_path = optimized_dir / f"{base_name}_{size}w.webp"
         if webp_path.exists():
             srcset_items.append(f"{webp_path} {size}w")
     
