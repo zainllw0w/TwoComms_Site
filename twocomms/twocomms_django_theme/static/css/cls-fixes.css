@@ -34,8 +34,8 @@ img {
 /* Оптимизация для мобильных устройств */
 @media (max-width: 768px) {
   .hero-logo-image {
-    width: 220px;
-    height: 220px;
+    width: 280px;
+    height: 280px;
     max-width: 100%;
     object-fit: contain;
   }
@@ -45,19 +45,19 @@ img {
     justify-content: center;
     align-items: center;
     padding: 1rem;
-    min-height: 220px;
+    min-height: 280px;
   }
 }
 
 /* Дополнительная оптимизация для очень маленьких экранов */
 @media (max-width: 480px) {
   .hero-logo-image {
-    width: 180px;
-    height: 180px;
+    width: 240px;
+    height: 240px;
   }
   
   .hero-logo-bg {
-    min-height: 180px;
+    min-height: 240px;
     padding: 0.5rem;
   }
   
