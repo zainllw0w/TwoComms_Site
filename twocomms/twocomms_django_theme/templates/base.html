@@ -364,6 +364,10 @@
   }
   </style>
   
+  <!-- Эффективные заголовки кеширования -->
+  <meta http-equiv="Cache-Control" content="public, max-age=3600">
+  <meta http-equiv="ETag" content="{% now 'U' %}">
+  
   <!-- Non-critical CLS styles - загружаем асинхронно -->
   <link href="{% static 'css/cls-fixes.css' %}?v=2025.09.11.001" rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="{% static 'css/cls-fixes.css' %}?v=2025.09.11.001" rel="stylesheet"></noscript>
