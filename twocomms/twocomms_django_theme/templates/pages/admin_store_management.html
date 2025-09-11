@@ -1805,7 +1805,6 @@ function generateInvoice() {
         document.body.removeChild(a);
         
         showNotification('Накладна згенерована', 'success');
-        location.reload();
     })
     .catch(error => {
         console.error('Invoice generation error:', error);
