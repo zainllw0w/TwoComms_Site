@@ -33,7 +33,7 @@
     <div class="col-12 col-md-6 hero-logo-bg">
       <link rel="preload" as="image" href="{% static 'img/logo.svg' %}" fetchpriority="high">
       {% static 'img/logo.svg' as hero_logo_url %}
-      <img src="{{ hero_logo_url }}" alt="TwoComms - Стріт & Мілітарі Одяг" width="200" height="200" class="hero-logo-image" loading="eager" fetchpriority="high" decoding="sync">
+      <img src="{{ hero_logo_url }}" alt="TwoComms логотип - стріт & мілітарі одяг" width="200" height="200" class="hero-logo-image" loading="eager" fetchpriority="high" decoding="sync">
     </div>
     
     <!-- Основной контент -->
@@ -93,13 +93,13 @@
       <div class="featured-gradient-2"></div>
       <div class="featured-floating-logos">
               <div class="floating-logo logo-1">
-                <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="14" height="14">
+                <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип - стріт & мілітарі одяг" width="14" height="14">
               </div>
               <div class="floating-logo logo-2">
-                <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="12" height="12">
+                <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип - стріт & мілітарі одяг" width="12" height="12">
               </div>
               <div class="floating-logo logo-3">
-                <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="16" height="16">
+                <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип - стріт & мілітарі одяг" width="16" height="16">
               </div>
       </div>
     </div>
@@ -147,7 +147,7 @@
             <img
               src="{{ ph_url }}"
               class="featured-img"
-              alt="{{ featured.title }} - {{ featured.category.name }} TwoComms"
+              alt="{{ featured.title }} - рекомендуємий товар TwoComms"
               loading="lazy"
               decoding="async"
               width="400"
@@ -198,19 +198,19 @@
       <div class="dark-gradient-2"></div>
       <div class="floating-logos">
         <div class="floating-logo logo-1">
-          <img src="{% static 'img/logo.svg' %}" alt="Logo" width="16" height="16">
+          <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="16" height="16">
         </div>
         <div class="floating-logo logo-2">
-          <img src="{% static 'img/logo.svg' %}" alt="Logo" width="14" height="14">
+                <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип - декоративний" width="14" height="14">
         </div>
         <div class="floating-logo logo-3">
-          <img src="{% static 'img/logo.svg' %}" alt="Logo" width="18" height="18">
+          <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="18" height="18">
         </div>
         <div class="floating-logo logo-4">
-          <img src="{% static 'img/logo.svg' %}" alt="Logo" width="12" height="12">
+          <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="12" height="12">
         </div>
         <div class="floating-logo logo-5">
-          <img src="{% static 'img/logo.svg' %}" alt="Logo" width="15" height="15">
+          <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="15" height="15">
         </div>
       </div>
     </div>
@@ -266,9 +266,9 @@
           <div class="card-content-compact">
             <div class="card-icon-compact">
               {% if c.icon %}
-                <img src="{{ c.icon.url }}" width="24" height="24" alt="{{ c.name }}" loading="lazy" decoding="async">
+                <img src="{{ c.icon.url }}" width="24" height="24" alt="{{ c.name }} категорія - TwoComms" loading="lazy" decoding="async">
               {% else %}
-                <img src="{% static 'img/icons/default.svg' %}" width="24" height="24" alt="{{ c.name }}" loading="lazy" decoding="async">
+                <img src="{% static 'img/icons/default.svg' %}" width="24" height="24" alt="{{ c.name }} категорія - TwoComms" loading="lazy" decoding="async">
               {% endif %}
             </div>
             <div class="card-text-compact">
