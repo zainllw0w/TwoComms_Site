@@ -1,274 +1,28 @@
 {% load static %}
 {% load cache %}
 {% load seo_tags %}
-{% load responsive_images %}
+{% load image_optimization %}
 <!DOCTYPE html>
 <html lang='uk' data-bs-theme='dark'>
 <head>
-  <!-- Critical CSS inline для предотвращения CLS -->
-  <style>
-    /* Critical CSS для предотвращения CLS */
-    * {
-        box-sizing: border-box;
-    }
-    
-    html {
-        scroll-behavior: smooth;
-    }
-    
-    body {
-        margin: 0;
-        padding: 0;
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        background: #0a0a0a;
-        color: #ffffff;
-        line-height: 1.6;
-        overflow-x: hidden;
-    }
-    
-    /* Предотвращение смещения навбара */
-    .navbar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        z-index: 1030;
-        background: rgba(0,0,0,0.8);
-        backdrop-filter: blur(10px);
-        border-bottom: 1px solid rgba(255,255,255,0.1);
-        height: 60px;
-        display: flex;
-        align-items: center;
-    }
-    
-    /* Предотвращение смещения main контейнера */
-    main.container-xxl {
-        margin-top: 60px;
-        min-height: calc(100vh - 60px);
-        padding: 1rem 0;
-        width: 100%;
-        max-width: 100%;
-    }
-    
-    /* Hero section - фиксированные размеры */
-    .hero-section {
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .hero-container {
-        position: relative;
-        z-index: 2;
-        width: 100%;
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 0 1rem;
-    }
-    
-    /* Hero particles - фиксированные размеры */
-    .hero-particles {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: 1;
-        pointer-events: none;
-    }
-    
-    /* Предотвращение смещения изображений */
-    img {
-        max-width: 100%;
-        height: auto;
-        display: block;
-    }
-    
-    /* Карточки товаров - фиксированные размеры */
-    .product-card {
-        aspect-ratio: 1;
-        overflow: hidden;
-        border-radius: 8px;
-        background: #1a1a1a;
-        transition: transform 0.3s ease;
-    }
-    
-    .product-card img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-    
-    /* Категории - фиксированные размеры */
-    .category-item {
-        aspect-ratio: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 1rem;
-        border-radius: 8px;
-        background: #1a1a1a;
-        text-decoration: none;
-        color: inherit;
-        transition: transform 0.3s ease;
-    }
-    
-    .category-icon {
-        width: 48px;
-        height: 48px;
-        margin-bottom: 0.5rem;
-    }
-    
-    /* Footer - фиксированная высота */
-    .footer {
-        background: #111111;
-        padding: 2rem 0;
-        margin-top: auto;
-    }
-    
-    /* Мобильная навигация - фиксированная высота */
-    .bottom-nav {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 60px;
-        background: rgba(0,0,0,0.9);
-        backdrop-filter: blur(10px);
-        border-top: 1px solid rgba(255,255,255,0.1);
-        z-index: 1030;
-        display: flex;
-        align-items: center;
-        justify-content: space-around;
-    }
-    
-    /* Отступ для контента от мобильной навигации */
-    @media (max-width: 768px) {
-        main.container-xxl {
-            padding-bottom: 60px;
-        }
-    }
-    
-    /* Font display optimization */
-    @font-face {
-        font-family: 'Inter';
-        font-style: normal;
-        font-weight: 400;
-        font-display: swap;
-        src: url('https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiJ-Ek-_EeA.woff2') format('woff2');
-    }
-    
-    @font-face {
-        font-family: 'Inter';
-        font-style: normal;
-        font-weight: 500;
-        font-display: swap;
-        src: url('https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuI6fAZ9hiJ-Ek-_EeA.woff2') format('woff2');
-    }
-    
-    @font-face {
-        font-family: 'Inter';
-        font-style: normal;
-        font-weight: 600;
-        font-display: swap;
-        src: url('https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGKYAZ9hiJ-Ek-_EeA.woff2') format('woff2');
-    }
-    
-    @font-face {
-        font-family: 'Inter';
-        font-style: normal;
-        font-weight: 700;
-        font-display: swap;
-        src: url('https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuFuYAZ9hiJ-Ek-_EeA.woff2') format('woff2');
-    }
-    
-    /* Фиксированные размеры для изображений товаров */
-    .product-image {
-        width: 100%;
-        aspect-ratio: 1;
-        object-fit: cover;
-    }
-    
-    .product-image-large {
-        width: 100%;
-        aspect-ratio: 4/3;
-        object-fit: cover;
-    }
-    
-    /* Фиксированные размеры для иконок категорий */
-    .category-icon {
-        width: 48px;
-        height: 48px;
-        object-fit: contain;
-    }
-    
-    .category-icon-small {
-        width: 24px;
-        height: 24px;
-        object-fit: contain;
-    }
-    
-    /* Фиксированные размеры для логотипа */
-    .logo {
-        height: 40px;
-        width: auto;
-    }
-    
-    /* Фиксированные размеры для аватаров */
-    .avatar {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        object-fit: cover;
-    }
-    
-    .avatar-large {
-        width: 80px;
-        height: 80px;
-        border-radius: 50%;
-        object-fit: cover;
-    }
-    
-    /* Skeleton loading для изображений */
-    .image-skeleton {
-        background: linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%);
-        background-size: 200% 100%;
-        animation: loading 1.5s infinite;
-    }
-    
-    @keyframes loading {
-        0% { background-position: 200% 0; }
-        100% { background-position: -200% 0; }
-    }
-    
-    /* Предотвращение смещения при загрузке контента */
-    .content-loading {
-        opacity: 0;
-        transition: opacity 0.3s ease;
-    }
-    
-    .content-loaded {
-        opacity: 1;
-    }
-  </style>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-109EFTWM05"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-109EFTWM05');
+  </script>
   
-  <!-- Preload critical resources -->
-  <link rel="preload" href="https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiJ-Ek-_EeA.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuI6fAZ9hiJ-Ek-_EeA.woff2" as="font" type="font/woff2" crossorigin>
-  
-  <!-- DNS prefetch for external resources -->
-  <link rel="dns-prefetch" href="//fonts.googleapis.com">
-  <link rel="dns-prefetch" href="//fonts.gstatic.com">
-  <link rel="dns-prefetch" href="//cdn.jsdelivr.net">
-  
-  <!-- Preconnect to critical origins -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <!-- Microsoft Clarity -->
+  <script type="text/javascript">
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "t7u94cvpqc");
+  </script>
   
   <meta charset='utf-8'>
   <meta name='viewport' content='width=device-width, initial-scale=1'>
@@ -305,6 +59,16 @@
   <meta http-equiv="Cache-Control" content="public, max-age=3600">
   <meta http-equiv="Expires" content="{% now 'D, d M Y H:i:s' %} GMT">
   
+  <!-- External Resources -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Асинхронная загрузка Bootstrap CSS -->
+  <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' rel='preload' as='style' onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' rel='stylesheet'></noscript>
+  <link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap' rel='preload' as='style' onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap' rel='stylesheet'></noscript>
+  
   <!-- PWA Support -->
   <link rel="manifest" href="{% static 'site.webmanifest' %}">
   <meta name="mobile-web-app-capable" content="yes">
@@ -325,15 +89,81 @@
   <!-- Early performance hint: enable lite mode for save-data/low-memory/low-CPU -->
   <script>(function(){try{var c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;var save=c&&c.saveData;var lowRam=Number(navigator.deviceMemory||0)&&navigator.deviceMemory<=1;var lowCPU=Number(navigator.hardwareConcurrency||0)&&navigator.hardwareConcurrency<=1;if(save||lowRam||lowCPU){document.documentElement.classList.add('perf-lite');}}catch(e){}})();</script>
   
-  <!-- Асинхронная загрузка Bootstrap CSS -->
-  <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' rel='preload' as='style' onload="this.onload=null;this.rel='stylesheet'">
-  <noscript><link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' rel='stylesheet'></noscript>
+  <!-- Critical CSS inline для быстрой отрисовки с CLS исправлениями -->
+  <style>
+    /* Critical CSS - минимальные стили для первой отрисовки */
+    body { 
+      margin: 0; 
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0a;
+      color: #ffffff;
+      font-display: swap; /* Предотвращаем смещения при загрузке шрифтов */
+    }
+    .navbar { 
+      background: rgba(0,0,0,0.8); 
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      height: 70px; /* Фиксированная высота */
+      contain: layout; /* Изолируем layout */
+    }
+    .hero-section { 
+      min-height: 100vh; 
+      height: 100vh; /* Фиксированная высота */
+      max-height: 100vh; /* Предотвращаем переполнение */
+      display: flex; 
+      align-items: center;
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+      position: relative;
+      contain: layout size; /* Изолируем layout и размеры */
+      overflow: hidden;
+    }
+    main.container-xxl {
+      min-height: 100vh; /* Предотвращаем смещения при загрузке контента */
+      position: relative;
+      contain: layout; /* Изолируем layout от внешних влияний */
+    }
+    .hero-particles {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      contain: layout; /* Изолируем layout */
+      z-index: 1;
+    }
+    .hero-particles .particle {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      contain: layout; /* Изолируем layout */
+    }
+    .loading { opacity: 0.7; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 15px; }
+    /* Предотвращаем смещения при загрузке изображений */
+    img {
+      height: auto;
+      max-width: 100%;
+      contain: layout; /* Изолируем layout */
+    }
+    /* Предотвращаем смещения при загрузке скриптов */
+    .script-loading {
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .script-loaded {
+      opacity: 1;
+    }
+  </style>
   
-  <!-- Асинхронная загрузка основного CSS -->
+  <!-- Асинхронная загрузка основного CSS (минифицированная версия) -->
   <link href="{% static 'css/styles.min.css' %}?v=2025.09.11.001" rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="{% static 'css/styles.min.css' %}?v=2025.09.11.001" rel="stylesheet"></noscript>
   
-  <!-- Lite mode CSS -->
+  <!-- CLS Fixes CSS - загружаем синхронно для предотвращения смещений -->
+  <link href="{% static 'css/cls-fixes.css' %}?v=2025.09.11.001" rel="stylesheet">
   <style>
   /* Lite mode on constrained devices: reduce expensive visual effects */
   .perf-lite .hero.bg-hero,
@@ -353,7 +183,6 @@
     .perf-lite .bottom-nav { box-shadow: none !important; }
   }
   </style>
-  
   {% block extra_css %}{% endblock %}
   
   <!-- Structured Data (JSON-LD) -->
@@ -382,50 +211,15 @@
     ]
   }
   </script>
-  
-  <!-- Google Analytics (deferred) -->
-  <script>
-  (function(){
-    function loadGA(){
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-109EFTWM05');
-      
-      var script = document.createElement('script');
-      script.async = true;
-      script.src = 'https://www.googletagmanager.com/gtag/js?id=G-109EFTWM05';
-      document.head.appendChild(script);
-    }
-    
-    if('requestIdleCallback' in window){ 
-      requestIdleCallback(loadGA, {timeout: 2000}); 
-    } else { 
-      window.addEventListener('load', loadGA, {once:true}); 
-    }
-  })();
-  </script>
-  
-  <!-- Microsoft Clarity (deferred) -->
-  <script>
-  (function(){
-    function loadClarity(){
-      (function(c,l,a,r,i,t,y){
-          c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-          t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-          y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-      })(window, document, "clarity", "script", "t7u94cvpqc");
-    }
-    
-    if('requestIdleCallback' in window){ 
-      requestIdleCallback(loadClarity, {timeout: 2000}); 
-    } else { 
-      window.addEventListener('load', loadClarity, {once:true}); 
-    }
-  })();
-  </script>
-  
   <!-- Meta Pixel Code (deferred) -->
+  <div id="am"
+       {% if request.user.is_authenticated %}
+         data-external-id="{{ request.user.id }}"
+         {% if request.user.email %}data-em="{{ request.user.email|lower|escapejs }}"{% elif request.user.userprofile and request.user.userprofile.email %}data-em="{{ request.user.userprofile.email|lower|escapejs }}"{% endif %}
+         {% if request.user.userprofile and request.user.userprofile.phone %}data-ph="{{ request.user.userprofile.phone|escapejs }}"{% endif %}
+         {% if request.user.userprofile and request.user.userprofile.full_name %}data-fn="{{ request.user.userprofile.full_name|escapejs|cut:'\n'|cut:'\r'|cut:'  ' }}"{% else %}data-fn="{{ request.user.first_name|escapejs }} {{ request.user.last_name|escapejs }}"{% endif %}
+         {% if request.user.userprofile and request.user.userprofile.city %}data-ct="{{ request.user.userprofile.city|escapejs }}"{% endif %}
+       {% endif %} style="display:none"></div>
   <script>
   (function(){
     function loadPixel(){
@@ -433,27 +227,47 @@
         if(f.fbq)return; n=f.fbq=function(){ n.callMethod ? n.callMethod.apply(n,arguments) : n.queue.push(arguments) };
         if(!f._fbq) f._fbq=n; n.push=n; n.loaded=!0; n.version='2.0'; n.queue=[]; t=b.createElement(e); t.async=!0; t.src=v; s=b.getElementsByTagName(e)[0]; s.parentNode.insertBefore(t,s);
       }(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');
-      
-      fbq('init', '823958313630148');
-      fbq('track', 'PageView');
+      try{
+        var amEl=document.getElementById('am');
+        var am={};
+        if(amEl){
+          var fn=(amEl.dataset.fn||'').trim();
+          var parts=fn.split(/\s+/);
+          if(fn && parts.length>1){ am.fn=parts[0]; am.ln=parts.slice(1).join(' ');} else if(fn){ am.fn=fn; }
+          if(amEl.dataset.externalId) am.external_id=amEl.dataset.externalId;
+          if(amEl.dataset.em) am.em=amEl.dataset.em;
+          if(amEl.dataset.ph) am.ph=amEl.dataset.ph;
+          if(amEl.dataset.ct) am.ct=amEl.dataset.ct;
+        }
+        fbq('init','823958313630148', am);
+      }catch(_){ try{ fbq('init','823958313630148'); }catch(__){} }
+      try{ fbq('track','PageView'); }catch(__){}
     }
-    
-    if('requestIdleCallback' in window){ 
-      requestIdleCallback(loadPixel, {timeout: 2000}); 
-    } else { 
-      window.addEventListener('load', loadPixel, {once:true}); 
-    }
+    if('requestIdleCallback' in window){ requestIdleCallback(loadPixel, {timeout: 1200}); }
+    else { window.addEventListener('load', loadPixel, {once:true}); }
   })();
   </script>
-  
   <noscript><img height="1" width="1" style="display:none"
   src="https://www.facebook.com/tr?id=823958313630148&ev=PageView&noscript=1"
   /></noscript>
-  
-  {% block structured_data %}{% endblock %}
-  
-  <!-- Event tracking helper -->
+  <!-- End Meta Pixel Code -->
+  <!-- Clarity tracking code (deferred) for https://twocomms.shop/ -->
   <script>
+  (function(){
+    function loadClarity(){
+      (function(c,l,a,r,i,t,y){
+          c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+          t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i+"?ref=bwt";
+          y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+      })(window, document, "clarity", "script", "t7shrtow0k");
+    }
+    if('requestIdleCallback' in window){ requestIdleCallback(loadClarity, {timeout: 1500}); }
+    else { window.addEventListener('load', loadClarity, {once:true}); }
+  })();
+  </script>
+  {% block structured_data %}{% endblock %}
+  <script>
+  // Лёгкий аналитический хелпер: шлёт события во все доступные источники
   (function(){
     window.trackEvent = function(eventName, payload){
       try{ if(window.fbq) fbq('track', eventName, payload||{}); }catch(_){ }
@@ -462,197 +276,847 @@
     };
   })();
   </script>
-</head>
+</head><body class='bg-body text-body' style='font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;'>{% include 'partials/header.html' %}<main class='container-xxl py-4 py-md-5'>{% block breadcrumbs %}{% endblock %}{% block content %}{% endblock %}</main>{% cache 86400 footer_block %}{% include 'partials/footer.html' %}{% endcache %}
 
-<body class='bg-body text-body content-loading' style='font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;'>
-  {% include 'partials/header.html' %}
+<!-- Мобильные мини-панели (только для мобильной версии) -->
+<div id="mini-cart-panel-mobile" class="cart-panel d-none d-md-none">
+  <!-- Анимация искр для корзины -->
+  <div class="cart-sparks-container">
+    <div class="cart-spark cart-spark-1"></div>
+    <div class="cart-spark cart-spark-2"></div>
+    <div class="cart-spark cart-spark-3"></div>
+    <div class="cart-spark cart-spark-4"></div>
+    <div class="cart-spark cart-spark-5"></div>
+    <div class="cart-spark cart-spark-6"></div>
+  </div>
   
-  <main class='container-xxl py-4 py-md-5'>
-    {% block breadcrumbs %}{% endblock %}
-    {% block content %}{% endblock %}
-  </main>
+  <!-- Заголовок корзины -->
+  <div class="cart-header">
+    <div class="cart-header-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+      </svg>
+    </div>
+    <div class="cart-title">Кошик</div>
+    <button type="button" class="close-btn" data-cart-close-mobile aria-label="Закрити">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+      </svg>
+    </button>
+  </div>
   
-  {% cache 86400 footer_block %}{% include 'partials/footer.html' %}{% endcache %}
-
-  <!-- Мобильные мини-панели (только для мобильной версии) -->
-  <div id="mini-cart-panel-mobile" class="cart-panel d-none d-md-none">
-    <!-- Анимация искр для корзины -->
-    <div class="cart-sparks-container">
-      <div class="cart-spark cart-spark-1"></div>
-      <div class="cart-spark cart-spark-2"></div>
-      <div class="cart-spark cart-spark-3"></div>
-      <div class="cart-spark cart-spark-4"></div>
-      <div class="cart-spark cart-spark-5"></div>
-      <div class="cart-spark cart-spark-6"></div>
-    </div>
-    
-    <!-- Заголовок корзины -->
-    <div class="cart-header">
-      <div class="cart-header-icon">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
-        </svg>
-      </div>
-      <div class="cart-title">Кошик</div>
-      <button type="button" class="close-btn" data-cart-close-mobile aria-label="Закрити">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-        </svg>
-      </button>
-    </div>
-    
-    <!-- Содержимое корзины -->
-    <div id="mini-cart-content-mobile" class="cart-content">
-      <div class="cart-loading">
-        <div class="loading-spinner"></div>
-        <div class="loading-text">Завантаження…</div>
-      </div>
-    </div>
-    
-    <!-- Меню действий корзины -->
-    <div class="cart-menu">
-      <a href="{% url 'cart' %}" class="cart-menu-item">
-        <div class="cart-menu-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
-          </svg>
-        </div>
-        <span>Переглянути кошик</span>
-        <div class="cart-menu-arrow">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
-          </svg>
-        </div>
-      </a>
-      
-      <a href="{% url 'checkout' %}" class="cart-menu-item checkout-item">
-        <div class="cart-menu-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-          </svg>
-        </div>
-        <span>Оформити замовлення</span>
-        <div class="cart-menu-arrow">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
-          </svg>
-        </div>
-      </a>
-    </div>
-    
-    <!-- Информационная панель -->
-    <div class="cart-info">
-      <div class="cart-info-item">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-        </svg>
-        <span>Безкоштовна доставка від 1000 грн</span>
-      </div>
-      <div class="cart-info-item">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-        </svg>
-        <span>Гарантія якості</span>
-      </div>
+  <!-- Содержимое корзины -->
+  <div id="mini-cart-content-mobile" class="cart-content">
+    <div class="cart-loading">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Завантаження…</div>
     </div>
   </div>
-
-  <!-- Мобильная навигация -->
-  <nav class="bottom-nav d-md-none">
-    <a href="{% url 'home' %}" class="bottom-nav-item active" data-nav="home">
-      <div class="bottom-nav-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+  
+  <!-- Меню действий корзины -->
+  <div class="cart-menu">
+    <a href="{% url 'cart' %}" class="cart-menu-item">
+      <div class="cart-menu-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
         </svg>
       </div>
-      <span class="bottom-nav-label">Головна</span>
+      <span>Переглянути кошик</span>
+      <div class="cart-menu-arrow">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+        </svg>
+      </div>
     </a>
     
-    <a href="{% url 'catalog' %}" class="bottom-nav-item" data-nav="categories">
-      <div class="bottom-nav-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+    <a href="{% url 'checkout' %}" class="cart-menu-item checkout-item">
+      <div class="cart-menu-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
         </svg>
       </div>
-      <span class="bottom-nav-label">Категорії</span>
-    </a>
-    
-    <button type="button" class="bottom-nav-item" data-cart-toggle-mobile>
-      <div class="bottom-nav-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
-        </svg>
-        <span class="cart-badge" id="cart-badge-mobile">0</span>
-      </div>
-      <span class="bottom-nav-label">Кошик</span>
-    </button>
-    
-    <a href="{% url 'profile' %}" class="bottom-nav-item" data-nav="profile">
-      <div class="bottom-nav-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+      <span>Оформити замовлення</span>
+      <div class="cart-menu-arrow">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
         </svg>
       </div>
-      <span class="bottom-nav-label">Профіль</span>
     </a>
-  </nav>
+  </div>
+  
+  <!-- Информационная панель -->
+  <div class="cart-info">
+    <div class="cart-info-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+      </svg>
+    </div>
+    <div class="cart-info-text">
+      Швидке оформлення замовлення з автоматичним розрахунком
+    </div>
+  </div>
+</div>
 
-  <!-- JavaScript -->
-  <script defer src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js'></script>
-  <script defer src='{% static 'js/main.js' %}?v=29'></script>
-  
-  <!-- CLS Prevention Script -->
-  <script>
-  // Предотвращение CLS при загрузке
-  (function() {
-    // Показываем контент только после загрузки критических ресурсов
-    function showContent() {
-      document.body.classList.add('content-loaded');
-      document.body.classList.remove('content-loading');
-    }
-    
-    // Проверяем загрузку шрифтов
-    if ('fonts' in document) {
-      document.fonts.ready.then(showContent);
+<div id="user-panel-mobile" class="user-panel d-none d-md-none">
+            {% if request.user.is_authenticated %}
+              <!-- Заголовок профиля -->
+              <div class="user-header">
+                <div class="user-avatar-large">
+                  {% if request.user.userprofile and request.user.userprofile.avatar %}
+                    <img src="{{ request.user.userprofile.avatar.url }}" class="avatar-image" loading="lazy" decoding="async" fetchpriority="low" alt="Аватар користувача">
+                  {% elif request.session.profile_avatar %}
+                    <img src="{{ MEDIA_URL }}{{ request.session.profile_avatar }}" class="avatar-image" loading="lazy" decoding="async" fetchpriority="low" alt="Аватар користувача">
+                  {% else %}
+                    <img src="{% static 'img/placeholder.jpg' %}" class="avatar-image" loading="lazy" decoding="async" fetchpriority="low" alt="Плейсхолдер аватара">
+                  {% endif %}
+                  <div class="avatar-glow-large"></div>
+                </div>
+                <div class="user-info">
+                  <div class="username">{{ request.user.username }}</div>
+                  <div class="user-phone">
+                    {% if request.user.userprofile and request.user.userprofile.phone %}
+                      {{ request.user.userprofile.phone }}
+                    {% else %}
+                      {{ request.session.profile_phone|default:"Телефон не вказано" }}
+                    {% endif %}
+                  </div>
+                </div>
+                <button type="button" class="close-btn" data-user-close-mobile aria-label="Закрити">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Блок с баллами -->
+              {% if request.user.points %}
+              <a href="{% url 'buy_with_points' %}" class="points-card-link">
+                <div class="points-card">
+                  <!-- Анимация искр -->
+                  <div class="sparks-container">
+                    <div class="spark spark-1"></div>
+                    <div class="spark spark-2"></div>
+                    <div class="spark spark-3"></div>
+                    <div class="spark spark-4"></div>
+                    <div class="spark spark-5"></div>
+                    <div class="spark spark-6"></div>
+                  </div>
+                  
+                  <div class="points-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                      <path d="M12 15.4l-3.76 2.27 1-4.28-3.32-2.88 4.38-.38L12 6.1l1.71 4.04 4.38.38-3.32 2.88 1 4.28z" fill="rgba(255,255,255,0.3)"/>
+                    </svg>
+                  </div>
+                  <div class="points-info">
+                    <div class="points-label">Ваші бали</div>
+                    <div class="points-amount">{{ request.user.points.points|default:0 }}</div>
+                    <div class="points-hint">Знижки • Промокоди • Підтримка ЗСУ</div>
+                  </div>
+                </div>
+              </a>
+              {% endif %}
+
+              <!-- Меню действий -->
+              <div class="user-menu">
+                <a href="{% url 'profile_setup' %}" class="menu-item">
+                  <div class="menu-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                    </svg>
+                  </div>
+                  <span>Налаштування профілю</span>
+                  <div class="menu-arrow">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                    </svg>
+                  </div>
+                </a>
+                
+                <a href="{% url 'my_orders' %}" class="menu-item">
+                  <div class="menu-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                    </svg>
+                  </div>
+                  <span>Мої замовлення</span>
+                  <div class="menu-arrow">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                    </svg>
+                  </div>
+                </a>
+                
+                <a href="{% url 'favorites' %}" class="menu-item">
+                  <div class="menu-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                    </svg>
+                  </div>
+                  <span>Обрані товари</span>
+                  <div class="menu-arrow">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                    </svg>
+                  </div>
+                </a>
+                
+                <a href="{% url 'my_promocodes' %}" class="menu-item">
+                  <div class="menu-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
+                    </svg>
+                  </div>
+                  <span>Мої промокоди</span>
+                  <div class="menu-arrow">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                    </svg>
+                  </div>
+                </a>
+                
+                {% if request.user.is_staff or request.user.is_superuser %}
+                <a href="{% url 'admin_panel' %}" class="menu-item admin-item">
+                  <div class="menu-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+                    </svg>
+                  </div>
+                  <span>Панель адміністратора</span>
+                  <div class="menu-arrow">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                    </svg>
+                  </div>
+                </a>
+                {% endif %}
+              </div>
+
+              <!-- Кнопка выхода -->
+              <div class="logout-section">
+                <a href="{% url 'logout' %}" class="logout-btn">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+                  </svg>
+                  <span>Вийти</span>
+                </a>
+              </div>
+            {% else %}
+              <!-- Для неавторизованных пользователей -->
+              <div class="auth-header">
+                <div class="auth-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                  </svg>
+                </div>
+                <div class="auth-title">Вхід в акаунт</div>
+                <button type="button" class="close-btn" data-user-close-mobile aria-label="Закрити">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                  </svg>
+                </button>
+              </div>
+              
+              <div class="auth-menu">
+                <a href="{% url 'login' %}" class="auth-btn primary">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z"/>
+                  </svg>
+                  <span>Увійти</span>
+                </a>
+                
+                <a href="{% url 'register' %}" class="auth-btn secondary">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                  </svg>
+                  <span>Зареєструватись</span>
+                </a>
+                
+                <a href="{% url 'social:begin' 'google-oauth2' %}" class="auth-btn secondary">
+                  <img src="{% static 'img/google.svg' %}" width="16" height="16" alt="Google" loading="lazy">
+                  <span>Увійти через Google</span>
+                </a>
+              </div>
+              
+              <div class="auth-info">
+                <div class="info-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                  </svg>
+                </div>
+                <div class="info-text">
+                  Авторизуйтесь, щоб не вводити дані кожного разу та накопичувати бали
+                </div>
+              </div>
+            {% endif %}
+          </div>
+
+<!-- Performance optimization: CSS loading enhancement -->
+<script>
+// Улучшение загрузки CSS для лучшей производительности
+(function() {
+  // Функция для загрузки CSS асинхронно
+  function loadCSS(href, before, media) {
+    var doc = window.document;
+    var ss = doc.createElement("link");
+    var ref;
+    if (before) {
+      ref = before;
     } else {
-      // Fallback для старых браузеров
-      window.addEventListener('load', showContent);
+      var refs = (doc.body || doc.getElementsByTagName("head")[0]).childNodes;
+      ref = refs[refs.length - 1];
     }
     
-    // Предотвращение смещения при загрузке изображений
-    const images = document.querySelectorAll('img');
-    images.forEach(img => {
-      if (img.complete) {
-        img.classList.add('loaded');
-      } else {
-        img.addEventListener('load', function() {
-          this.classList.add('loaded');
-        });
-      }
+    var sheets = doc.styleSheets;
+    ss.rel = "stylesheet";
+    ss.href = href;
+    ss.media = "only x";
+    
+    function ready(cb) {
+      if (doc.body) cb();
+      else if (doc.addEventListener) doc.addEventListener("DOMContentLoaded", cb);
+    }
+    
+    ready(function() {
+      ref.parentNode.insertBefore(ss, (before ? ref : ref.nextSibling));
     });
     
-    // Предотвращение смещения при загрузке CSS
-    const stylesheets = document.querySelectorAll('link[rel="stylesheet"]');
-    let loadedStylesheets = 0;
-    
-    stylesheets.forEach(link => {
-      if (link.sheet) {
-        loadedStylesheets++;
-      } else {
-        link.addEventListener('load', function() {
-          loadedStylesheets++;
-          if (loadedStylesheets === stylesheets.length) {
-            showContent();
-          }
-        });
+    var onloadcssdefined = function(cb) {
+      var resolvedHref = ss.href;
+      var i = sheets.length;
+      while (i--) {
+        if (sheets[i].href === resolvedHref) {
+          return cb();
+        }
       }
-    });
+      setTimeout(function() {
+        onloadcssdefined(cb);
+      });
+    };
     
-    // Fallback timeout
-    setTimeout(showContent, 3000);
-  })();
-  </script>
+    function loadCB() {
+      if (ss.addEventListener) {
+        ss.removeEventListener("load", loadCB);
+      }
+      ss.media = media || "all";
+    }
+    
+    if (ss.addEventListener) {
+      ss.addEventListener("load", loadCB);
+    }
+    ss.onloadcssdefined = onloadcssdefined;
+    onloadcssdefined(loadCB);
+    return ss;
+  }
   
-  {% block extra_js %}{% endblock %}
-</body>
-</html>
+  // Применяем улучшения для всех preload CSS
+  var preloadLinks = document.querySelectorAll('link[rel="preload"][as="style"]');
+  preloadLinks.forEach(function(link) {
+    link.addEventListener('load', function() {
+      this.rel = 'stylesheet';
+    });
+  });
+  
+  // Убираем класс loading после загрузки CSS
+  document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+      document.body.classList.remove('loading');
+    }, 100);
+  });
+})();
+</script>
+
+<!-- Оптимизированная загрузка скриптов для предотвращения CLS -->
+<script defer src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js' onload="this.classList.add('script-loaded')" onerror="this.classList.add('script-error')"></script>
+<script defer src='{% static 'js/main.js' %}?v=29' onload="this.classList.add('script-loaded')" onerror="this.classList.add('script-error')"></script>
+<script>
+/* Fallback: глобальные функции, если основной JS не заинициализирован */
+(function(){
+  var UI_DEBUG = false; try{ UI_DEBUG = localStorage.getItem('ui-debug')==='1'; }catch(_){ UI_DEBUG = false; }
+  var dlog = UI_DEBUG ? function(){ try{ console.log.apply(console, arguments);}catch(_){} } : function(){};
+  function getCookie(name){
+    var m=document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)'); 
+    var result = m?decodeURIComponent(m.pop()):'';
+    return result;
+  }
+  if(typeof window.QtyInc!=='function'){
+    window.QtyInc=function(selector){
+      var input=typeof selector==='string'?document.querySelector(selector):selector;
+      if(!input){ return; }
+      var v=parseInt(input.value||'1',10)||1; input.value=Math.max(1,v+1);
+      try{ if(window.trackEvent){ var pid=(document.querySelector('[data-add-to-cart]')||{}).getAttribute&&document.querySelector('[data-add-to-cart]').getAttribute('data-add-to-cart'); if(pid){ window.trackEvent('CustomizeProduct',{content_ids:[String(pid)], content_type:'product', action:'inc_qty'}); } } }catch(_){ }
+    };
+  }
+  if(typeof window.QtyDec!=='function'){
+    window.QtyDec=function(selector){
+      var input=typeof selector==='string'?document.querySelector(selector):selector;
+      if(!input){ return; }
+      var v=parseInt(input.value||'1',10)||1; input.value=Math.max(1,v-1);
+      try{ if(window.trackEvent){ var pid=(document.querySelector('[data-add-to-cart]')||{}).getAttribute&&document.querySelector('[data-add-to-cart]').getAttribute('data-add-to-cart'); if(pid){ window.trackEvent('CustomizeProduct',{content_ids:[String(pid)], content_type:'product', action:'dec_qty'}); } } }catch(_){ }
+    };
+  }
+  if(typeof window.CartRemoveKey!=='function'){
+    window.CartRemoveKey=function(key, el){
+      dlog('CartRemoveKey called with key:', key);
+      
+      // Получаем CSRF токен из мета-тега или cookie
+      var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
+                     document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || 
+                     getCookie('csrftoken');
+      
+      var body=new URLSearchParams({key:key});
+      dlog('Request body:', body.toString());
+      
+      fetch('/cart/remove/',{
+        method:'POST',
+        headers:{
+          'X-CSRFToken': csrfToken,
+          'X-Requested-With':'XMLHttpRequest',
+          'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'
+        },
+        body: body
+      }).then(function(r){
+        dlog('Response status:', r.status);
+        if(!r.ok) {
+          throw new Error('Network response was not ok: ' + r.status);
+        }
+        return r.json();
+      }).then(function(d){
+        dlog('Response data:', d);
+        if(d&&d.ok){
+          try{ if(window.updateCartBadge) window.updateCartBadge(d.count); }catch(_){ }
+          if(el){
+            var row=el.closest('[data-cart-row]')||el.closest('.d-flex');
+            if(row&&row.parentElement) row.parentElement.removeChild(row);
+          }
+          try{ if(window.refreshMiniCart) window.refreshMiniCart(); }catch(_){ }
+          if(document.getElementById('cart-list')) location.reload();
+          try{ if(window.trackEvent){ window.trackEvent('RemoveFromCart', {content_ids:[String(key.split(':')[0])], content_type:'product'}); } }catch(_){ }
+        } else {
+          console.error('Cart remove failed:', d);
+          alert('Помилка при видаленні товару: ' + (d.error || 'Невідома помилка'));
+        }
+      }).catch(function(error){
+        console.error('Cart remove error:', error);
+        alert('Помилка при видаленні товару: ' + error.message);
+      });
+    };
+  }
+  if(typeof window.CartRemove!=='function'){
+    window.CartRemove=function(pid,size,el){ return window.CartRemoveKey(String(pid)+':'+(size||''),el); };
+  }
+  
+  if(typeof window.cleanCart!=='function'){
+    window.cleanCart=function(){
+      if(confirm('Ви впевнені, що хочете очистити кошик?')){
+        var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
+                       document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || 
+                       getCookie('csrftoken');
+        
+        fetch('/cart/clear/',{
+          method:'POST',
+          headers:{
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With':'XMLHttpRequest',
+            'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'
+          }
+        }).then(function(r){
+          if(!r.ok) {
+            throw new Error('Network response was not ok');
+          }
+          return r.json();
+        }).then(function(d){
+          if(d&&d.ok){
+            location.reload();
+          } else {
+            console.error('Clear cart failed:', d);
+          }
+        }).catch(function(error){
+          console.error('Clear cart error:', error);
+          alert('Помилка при очищенні кошика. Спробуйте ще раз.');
+        });
+      }
+    };
+  }
+  if(typeof window.AddToCart!=='function'){
+    window.AddToCart=function(btn){
+      var productId = btn.getAttribute('data-add-to-cart');
+      var sizeInput = document.querySelector('input[name="size"]:checked');
+      var size = (sizeInput ? sizeInput.value : 'S') || 'S';
+      var wrap=btn.closest('[data-qty]') || document;
+      var qtyInput = wrap.querySelector('input[type="number"]#qty') || wrap.querySelector('[data-qty] input[type="number"]') || document.querySelector('#qty') || (btn.parentElement?btn.parentElement.querySelector('input[type="number"]'):null);
+      var qty = Math.max(1, parseInt(qtyInput && qtyInput.value ? qtyInput.value : '1', 10));
+      
+      // Получаем выбранный цвет
+      var colorVariantId = null;
+      var activeColorSwatch = document.querySelector('#color-picker .color-swatch.active');
+      if(activeColorSwatch) {
+        colorVariantId = activeColorSwatch.getAttribute('data-variant');
+      }
+      
+      // Получаем CSRF токен
+      var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
+                     document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || 
+                     getCookie('csrftoken');
+      
+      var body = new URLSearchParams({product_id:String(productId), size:String(size).toUpperCase(), qty:String(qty)});
+      if(colorVariantId) {
+        body.append('color_variant_id', colorVariantId);
+      }
+      
+      fetch('/cart/add/',{
+        method:'POST',
+        headers:{
+          'X-CSRFToken': csrfToken,
+          'X-Requested-With':'XMLHttpRequest',
+          'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'
+        },
+        body: body
+      }).then(function(r){
+        if(!r.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return r.json();
+      }).then(function(d){
+        if(d&&d.ok){
+          try{
+            if(window.updateCartBadge) window.updateCartBadge(d.count);
+            if(window.refreshMiniCart) window.refreshMiniCart();
+            if(window.openMiniCart) window.openMiniCart();
+          }catch(_){}
+          try{ if(window.fbq){ fbq('track','AddToCart',{content_ids:[String(productId)], content_type:'product'}); } }catch(_){}
+        } else {
+          console.error('Add to cart failed:', d);
+        }
+      }).catch(function(error){
+        console.error('Add to cart error:', error);
+        alert('Помилка при додаванні товару до кошика. Спробуйте ще раз.');
+      });
+      return false;
+    };
+  }
+})();
+
+// Применяем CSS переменные для комбинированных цветов в корзине и заказах
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.swatch[data-secondary]:not([data-secondary=""])').forEach(function(swatch) {
+    var primary = swatch.getAttribute('data-primary');
+    var secondary = swatch.getAttribute('data-secondary');
+    
+    if (secondary && secondary !== '') {
+      swatch.style.setProperty('--primary-color', primary);
+      swatch.style.setProperty('--secondary-color', secondary);
+    }
+  });
+});
+</script>
+
+<!-- Модальное окно с информацией о баллах -->
+<div class="modal fade" id="pointsInfoModal" tabindex="-1" aria-labelledby="pointsInfoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content points-info-modal">
+      <div class="modal-header">
+        <div class="modal-title-section">
+          <div class="modal-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          </div>
+          <div class="modal-title-content">
+            <h5 class="modal-title" id="pointsInfoModalLabel">Система балів</h5>
+            <p class="modal-subtitle">Як працюють бали за покупки</p>
+          </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="points-info-content">
+          <div class="product-points-info">
+            <div class="product-points-badge">
+              <span class="points-amount" id="modalPointsAmount">0</span>
+              <span class="points-label">балів за цей товар</span>
+            </div>
+            <div class="product-title" id="modalProductTitle">Назва товару</div>
+          </div>
+          
+          <div class="points-explanation">
+            <div class="explanation-item">
+              <div class="explanation-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+              <div class="explanation-text">
+                <strong>Нарахування балів:</strong> Бали нараховуються автоматично після підтвердження замовлення
+              </div>
+            </div>
+            
+            <div class="explanation-item">
+              <div class="explanation-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
+                </svg>
+              </div>
+              <div class="explanation-text">
+                <strong>Використання балів:</strong> Зареєстровані користувачі можуть витратити бали у кабінеті
+              </div>
+            </div>
+            
+            <div class="explanation-item">
+              <div class="explanation-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+              </div>
+              <div class="explanation-text">
+                <strong>Можливості:</strong> Обмін на промокоди або пожертвування на ЗСУ
+              </div>
+            </div>
+          </div>
+          
+          <div class="points-actions">
+            {% if user.is_authenticated %}
+              <a href="{% url 'buy_with_points' %}" class="btn btn-primary points-action-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                Перейти до балів
+              </a>
+            {% else %}
+              <a href="{% url 'login' %}" class="btn btn-outline-primary points-action-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z"/>
+                </svg>
+                Увійти для накопичення балів
+              </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Обработчик для модального окна с информацией о баллах
+  const pointsInfoModal = document.getElementById('pointsInfoModal');
+  if (pointsInfoModal) {
+    pointsInfoModal.addEventListener('show.bs.modal', function(event) {
+      const button = event.relatedTarget;
+      const productTitle = button.getAttribute('data-product-title');
+      const pointsAmount = button.getAttribute('data-points-amount');
+      
+      // Обновляем содержимое модального окна
+      document.getElementById('modalProductTitle').textContent = productTitle;
+      document.getElementById('modalPointsAmount').textContent = pointsAmount;
+    });
+  }
+});
+</script>
+
+<style>
+.points-info-modal .modal-content {
+  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 16px;
+}
+
+.points-info-modal .modal-header {
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  padding: 1.5rem;
+}
+
+.modal-title-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, var(--accent-color), #7c3aed);
+  border-radius: 12px;
+  color: white;
+}
+
+.modal-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.modal-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.points-info-modal .modal-body {
+  padding: 1.5rem;
+}
+
+.product-points-info {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.1), rgba(124, 58, 237, 0.05));
+  border-radius: 12px;
+  border: 1px solid rgba(124, 58, 237, 0.2);
+}
+
+.product-points-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.points-amount {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent-color);
+}
+
+.points-label {
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+.product-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.points-explanation {
+  margin-bottom: 2rem;
+}
+
+.explanation-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.explanation-item:last-child {
+  margin-bottom: 0;
+}
+
+.explanation-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05));
+  border-radius: 8px;
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+.explanation-text {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.explanation-text strong {
+  color: var(--text-primary);
+}
+
+.points-actions {
+  text-align: center;
+}
+
+.points-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.points-action-btn:hover {
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+
+.btn-primary.points-action-btn {
+  background: linear-gradient(135deg, var(--accent-color), #7c3aed);
+  border: none;
+  color: white;
+}
+
+.btn-primary.points-action-btn:hover {
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.3);
+  color: white;
+}
+
+.btn-outline-primary.points-action-btn {
+  border: 1px solid var(--accent-color);
+  color: var(--accent-color);
+  background: transparent;
+}
+
+.btn-outline-primary.points-action-btn:hover {
+  background: var(--accent-color);
+  color: white;
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.3);
+}
+
+@media (max-width: 768px) {
+  .points-info-modal .modal-dialog {
+    margin: 1rem;
+  }
+  
+  .modal-title-section {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.75rem;
+  }
+  
+  .explanation-item {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.75rem;
+  }
+}
+</style>
+
+{% block extra_js %}{% endblock %}
+
+{% comment %}
+<!-- Analytics and Performance Monitoring - ОТКЛЮЧЕНО -->
+{% include 'partials/analytics.html' %}
+{% endcomment %}
+
+{% comment %}
+<!-- Service Worker for PWA - ОТКЛЮЧЕН -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js')
+      .then(function(registration) {
+        console.log('SW registered: ', registration);
+      })
+      .catch(function(registrationError) {
+        console.log('SW registration failed: ', registrationError);
+      });
+  });
+}
+</script>
+{% endcomment %}
+
+</body></html>

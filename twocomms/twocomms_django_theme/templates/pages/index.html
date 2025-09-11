@@ -33,7 +33,7 @@
     <div class="hero-logo-bg">
       <link rel="preload" as="image" href="{% static 'img/logo.svg' %}">
       {% static 'img/logo.svg' as hero_logo_url %}
-      <img src="{{ hero_logo_url }}" width="300" height="300" loading="lazy" decoding="async" alt="TwoComms - Стріт & Мілітарі Одяг" width="256" height="256" class="hero-logo-image" loading="eager">
+      <img src="{{ hero_logo_url }}" alt="TwoComms - Стріт & Мілітарі Одяг" width="256" height="256" class="hero-logo-image" loading="eager">
     </div>
     
     <!-- Основной контент -->
@@ -64,7 +64,7 @@
     <!-- Декоративные элементы -->
     <div class="hero-decoration">
       <div class="hero-glow"></div>
-      <div class="hero-particles" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none;">
+      <div class="hero-particles">
         <div class="particle"></div>
         <div class="particle"></div>
         <div class="particle"></div>
@@ -93,13 +93,13 @@
       <div class="featured-gradient-2"></div>
       <div class="featured-floating-logos">
               <div class="floating-logo logo-1">
-                <img src="{% static 'img/logo.svg' %}" width="300" height="300" loading="lazy" decoding="async" alt="TwoComms логотип" width="14" height="14">
+                <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="14" height="14">
               </div>
               <div class="floating-logo logo-2">
-                <img src="{% static 'img/logo.svg' %}" width="300" height="300" loading="lazy" decoding="async" alt="TwoComms логотип" width="12" height="12">
+                <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="12" height="12">
               </div>
               <div class="floating-logo logo-3">
-                <img src="{% static 'img/logo.svg' %}" width="300" height="300" loading="lazy" decoding="async" alt="TwoComms логотип" width="16" height="16">
+                <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="16" height="16">
               </div>
       </div>
     </div>
@@ -141,7 +141,7 @@
       <div class="featured-card-compact">
         <div class="featured-image-compact">
                   <img
-                    src="{% if featured.display_image %}{{ featured.display_image.url }}{% else %}{% static 'img/placeholder.jpg' %}{% endif %}" width="300" height="300" loading="lazy" decoding="async"
+                    src="{% if featured.display_image %}{{ featured.display_image.url }}{% else %}{% static 'img/placeholder.jpg' %}{% endif %}"
                     class="featured-img"
                     alt="{{ featured.title }} - {{ featured.category.name }} TwoComms"
                   >
@@ -189,19 +189,19 @@
       <div class="dark-gradient-2"></div>
       <div class="floating-logos">
         <div class="floating-logo logo-1">
-          <img src="{% static 'img/logo.svg' %}" width="300" height="300" loading="lazy" decoding="async" alt="Logo" width="16" height="16">
+          <img src="{% static 'img/logo.svg' %}" alt="Logo" width="16" height="16">
         </div>
         <div class="floating-logo logo-2">
-          <img src="{% static 'img/logo.svg' %}" width="300" height="300" loading="lazy" decoding="async" alt="Logo" width="14" height="14">
+          <img src="{% static 'img/logo.svg' %}" alt="Logo" width="14" height="14">
         </div>
         <div class="floating-logo logo-3">
-          <img src="{% static 'img/logo.svg' %}" width="300" height="300" loading="lazy" decoding="async" alt="Logo" width="18" height="18">
+          <img src="{% static 'img/logo.svg' %}" alt="Logo" width="18" height="18">
         </div>
         <div class="floating-logo logo-4">
-          <img src="{% static 'img/logo.svg' %}" width="300" height="300" loading="lazy" decoding="async" alt="Logo" width="12" height="12">
+          <img src="{% static 'img/logo.svg' %}" alt="Logo" width="12" height="12">
         </div>
         <div class="floating-logo logo-5">
-          <img src="{% static 'img/logo.svg' %}" width="300" height="300" loading="lazy" decoding="async" alt="Logo" width="15" height="15">
+          <img src="{% static 'img/logo.svg' %}" alt="Logo" width="15" height="15">
         </div>
       </div>
     </div>
@@ -257,9 +257,9 @@
           <div class="card-content-compact">
             <div class="card-icon-compact">
               {% if c.icon %}
-                <img src="{{ c.icon.url }}" width="300" height="300" loading="lazy" decoding="async" width="24" height="24" alt="{{ c.name }}">
+                <img src="{{ c.icon.url }}" width="24" height="24" alt="{{ c.name }}">
               {% else %}
-                <img src="{% static 'img/icons/default.svg' %}" width="300" height="300" loading="lazy" decoding="async" width="24" height="24" alt="{{ c.name }}">
+                <img src="{% static 'img/icons/default.svg' %}" width="24" height="24" alt="{{ c.name }}">
               {% endif %}
             </div>
             <div class="card-text-compact">
