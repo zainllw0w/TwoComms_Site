@@ -819,38 +819,73 @@
 }
 
 .category-stats {
-    background: #f7fafc;
-    border-radius: 10px;
-    padding: 15px;
+    background: rgba(20, 22, 27, 0.8);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 20px;
+    padding: 20px;
     margin-top: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
 .category-stats-title {
     font-weight: 600;
-    color: #2d3748;
-    margin-bottom: 10px;
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 20px;
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.category-stats-title::before {
+    content: "📊";
+    font-size: 1.2rem;
 }
 
 .category-stat-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 0;
-    border-bottom: 1px solid #e2e8f0;
+    padding: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+
+.category-stat-item:hover {
+    background: rgba(139, 92, 246, 0.1);
+    border-color: rgba(139, 92, 246, 0.3);
 }
 
 .category-stat-item:last-child {
     border-bottom: none;
+    margin-bottom: 0;
 }
 
 .category-stat-name {
     font-weight: 500;
-    color: #2d3748;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.category-stat-name::before {
+    content: "🏷️";
+    font-size: 0.9rem;
 }
 
 .category-stat-value {
     font-weight: 600;
-    color: #667eea;
+    color: rgba(139, 92, 246, 1);
+    font-size: 1rem;
+    background: rgba(139, 92, 246, 0.1);
+    padding: 6px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(139, 92, 246, 0.3);
 }
 
 .drop-zone {
@@ -936,6 +971,54 @@
     .management-column {
         padding: 15px;
     }
+    
+    .store-product-card {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        min-height: auto;
+    }
+    
+    .product-image-section {
+        width: 100px;
+        height: 100px;
+        margin-bottom: 15px;
+    }
+    
+    .product-info-section {
+        height: auto;
+        width: 100%;
+    }
+    
+    .product-stats-section {
+        justify-content: center;
+    }
+    
+    .stat-card {
+        min-width: 70px;
+        max-width: 90px;
+    }
+    
+    .product-actions {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .action-btn {
+        width: 100%;
+        min-height: 40px;
+    }
+    
+    .category-stat-item {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+    }
+    
+    .category-stat-value {
+        width: 100%;
+        text-align: center;
+    }
 }
 
 /* Стили для карточек товаров в магазине */
@@ -948,11 +1031,12 @@
     padding: 15px;
     margin-bottom: 15px;
     transition: all 0.3s ease;
-    overflow: hidden;
+    overflow: visible;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
     display: flex;
     gap: 15px;
     align-items: flex-start;
+    min-height: 100px;
 }
 
 .store-product-card:hover {
@@ -980,8 +1064,8 @@
 
 .product-image-section {
     position: relative;
-    width: 80px;
-    height: 80px;
+    width: 90px;
+    height: 90px;
     border-radius: 12px;
     overflow: hidden;
     flex-shrink: 0;
@@ -1044,6 +1128,10 @@
 .product-info-section {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 90px;
 }
 
 .product-header {
@@ -1056,9 +1144,9 @@
     color: rgba(255, 255, 255, 0.9);
     margin: 0 0 6px 0;
     line-height: 1.2;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
 }
 
 .product-specs {
@@ -1118,6 +1206,7 @@
     display: flex;
     gap: 8px;
     margin-bottom: 12px;
+    flex-wrap: wrap;
 }
 
 .stat-card {
@@ -1129,7 +1218,8 @@
     border: 1px solid rgba(255, 255, 255, 0.1);
     transition: all 0.3s ease;
     flex: 1;
-    min-width: 0;
+    min-width: 60px;
+    max-width: 80px;
 }
 
 .stat-card:hover {
@@ -1152,9 +1242,8 @@
     font-weight: 600;
     color: rgba(255, 255, 255, 0.9);
     margin-bottom: 1px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .stat-label {
@@ -1162,9 +1251,8 @@
     color: rgba(255, 255, 255, 0.6);
     text-transform: uppercase;
     letter-spacing: 0.3px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .product-actions {
