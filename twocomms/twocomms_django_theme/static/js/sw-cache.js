@@ -3,15 +3,10 @@
  * Реализует Cache-First, Network-First и Stale-While-Revalidate стратегии
  */
 
-const CACHE_NAME = 'twocomms-v2.0.0';
-const STATIC_CACHE = 'twocomms-static-v2.0.0';
-const DYNAMIC_CACHE = 'twocomms-dynamic-v2.0.0';
-const IMAGE_CACHE = 'twocomms-images-v2.0.0';
-
-// Управление логированием SW
-const DEBUG_SW = false;
-const swlog = DEBUG_SW ? ((...args)=>{ try{ console.log('[SW]', ...args);}catch(_){} }) : (()=>{});
-const swwarn = DEBUG_SW ? ((...args)=>{ try{ console.warn('[SW]', ...args);}catch(_){} }) : (()=>{});
+const CACHE_NAME = 'twocomms-v1.0.0';
+const STATIC_CACHE = 'twocomms-static-v1.0.0';
+const DYNAMIC_CACHE = 'twocomms-dynamic-v1.0.0';
+const IMAGE_CACHE = 'twocomms-images-v1.0.0';
 
 // Ресурсы для предварительного кеширования
 const PRECACHE_URLS = [
@@ -21,8 +16,7 @@ const PRECACHE_URLS = [
     '/static/js/main.js',
     '/static/img/logo.svg',
     '/static/img/noise.webp',
-    '/static/img/google.svg',
-    '/static/site.webmanifest'
+    '/static/img/google.svg'
 ];
 
 // Стратегии кеширования для разных типов ресурсов
@@ -75,16 +69,16 @@ const CACHE_STRATEGIES = {
 
 // Установка Service Worker
 self.addEventListener('install', event => {
-    swlog('Installing...');
+    console.log('Service Worker: Installing...');
     
     event.waitUntil(
         caches.open(STATIC_CACHE)
             .then(cache => {
-                swlog('Caching static files');
+                console.log('Service Worker: Precaching static resources');
                 return cache.addAll(PRECACHE_URLS);
             })
             .then(() => {
-                swlog('Installation complete');
+                console.log('Service Worker: Installation complete');
                 return self.skipWaiting();
             })
             .catch(error => {
@@ -95,7 +89,7 @@ self.addEventListener('install', event => {
 
 // Активация Service Worker
 self.addEventListener('activate', event => {
-    swlog('Activating...');
+    console.log('Service Worker: Activating...');
     
     event.waitUntil(
         caches.keys()
@@ -105,14 +99,14 @@ self.addEventListener('activate', event => {
                         if (cacheName !== STATIC_CACHE && 
                             cacheName !== DYNAMIC_CACHE && 
                             cacheName !== IMAGE_CACHE) {
-                            swlog('Deleting old cache', cacheName);
+                            console.log('Service Worker: Deleting old cache', cacheName);
                             return caches.delete(cacheName);
                         }
                     })
                 );
             })
             .then(() => {
-                swlog('Activation complete');
+                console.log('Service Worker: Activation complete');
                 return self.clients.claim();
             })
     );
@@ -214,7 +208,7 @@ async function networkFirst(request, cache, strategy) {
         
         return networkResponse;
     } catch (error) {
-        swwarn('Network failed, trying cache:', error);
+        console.error('Network First failed:', error);
         const cachedResponse = await cache.match(request);
         return cachedResponse || new Response('Offline', { status: 503 });
     }
@@ -229,11 +223,11 @@ async function staleWhileRevalidate(request, cache, strategy) {
             const responseToCache = networkResponse.clone();
             responseToCache.headers.set('sw-cache-time', Date.now().toString());
             cache.put(request, responseToCache);
-            cleanupCache(cache, strategy.maxEntries);
+            await cleanupCache(cache, strategy.maxEntries);
         }
         return networkResponse;
     }).catch(error => {
-        swwarn('Stale While Revalidate network failed:', error);
+        console.error('Stale While Revalidate network failed:', error);
         return null;
     });
     
@@ -249,68 +243,43 @@ async function cleanupCache(cache, maxEntries) {
     }
 }
 
-// Обработка push уведомлений
-self.addEventListener('push', event => {
-    swlog('Push received');
+// Обработка сообщений от основного потока
+self.addEventListener('message', event => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
     
-    const options = {
-        body: event.data ? event.data.text() : 'Новое уведомление от TwoComms',
-        icon: '/static/img/favicon-192x192.png',
-        badge: '/static/img/favicon-32x32.png',
-        vibrate: [100, 50, 100],
-        data: {
-            dateOfArrival: Date.now(),
-            primaryKey: 1
-        },
-        actions: [
-            {
-                action: 'explore',
-                title: 'Перейти в магазин',
-                icon: '/static/img/icons/cart.png'
-            },
-            {
-                action: 'close',
-                title: 'Закрыть',
-                icon: '/static/img/icons/close.png'
+    if (event.data && event.data.type === 'CLEAR_CACHE') {
+        caches.keys().then(cacheNames => {
+            return Promise.all(
+                cacheNames.map(cacheName => caches.delete(cacheName))
+            );
+        }).then(() => {
+            event.ports[0].postMessage({ success: true });
+        });
+    }
+});
+
+// Периодическая очистка устаревших записей
+setInterval(async () => {
+    const cacheNames = await caches.keys();
+    
+    for (const cacheName of cacheNames) {
+        const cache = await caches.open(cacheName);
+        const keys = await cache.keys();
+        
+        for (const key of keys) {
+            const response = await cache.match(key);
+            const cacheTime = response.headers.get('sw-cache-time');
+            
+            if (cacheTime) {
+                const age = Date.now() - parseInt(cacheTime);
+                const maxAge = 31536000 * 1000; // 1 год в миллисекундах
+                
+                if (age > maxAge) {
+                    await cache.delete(key);
+                }
             }
-        ]
-    };
-    
-    event.waitUntil(
-        self.registration.showNotification('TwoComms', options)
-    );
-});
-
-// Обработка кликов по уведомлениям
-self.addEventListener('notificationclick', event => {
-    swlog('Notification click received');
-    
-    event.notification.close();
-    
-    if (event.action === 'explore') {
-        event.waitUntil(
-            clients.openWindow('/catalog/')
-        );
-    } else if (event.action === 'close') {
-        // Просто закрываем уведомление
-    } else {
-        // Клик по телу уведомления
-        event.waitUntil(
-            clients.openWindow('/')
-        );
+        }
     }
-});
-
-// Синхронизация в фоне
-self.addEventListener('sync', event => {
-    swlog('Background sync', event.tag);
-    
-    if (event.tag === 'background-sync') {
-        event.waitUntil(doBackgroundSync());
-    }
-});
-
-async function doBackgroundSync() {
-    // Здесь можно добавить логику для синхронизации данных
-    swlog('Performing background sync');
-}
+}, 24 * 60 * 60 * 1000); // Проверяем раз в день
