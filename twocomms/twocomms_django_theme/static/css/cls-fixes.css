@@ -8,10 +8,20 @@
   contain: layout;
 }
 
+/* Стили для логотипа в hero-секции */
 .hero-logo-image {
   aspect-ratio: 1 / 1;
   object-fit: contain;
   contain: layout;
+  max-width: 100%;
+  height: auto;
+}
+
+.hero-logo-bg {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
 }
 
 /* Предотвращение смещений при загрузке изображений */
@@ -24,8 +34,31 @@ img {
 /* Оптимизация для мобильных устройств */
 @media (max-width: 768px) {
   .hero-logo-image {
-    width: 150px;
-    height: 150px;
+    width: 160px;
+    height: 160px;
+    max-width: 100%;
+    object-fit: contain;
+  }
+  
+  .hero-logo-bg {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 1rem;
+    min-height: 160px;
+  }
+}
+
+/* Дополнительная оптимизация для очень маленьких экранов */
+@media (max-width: 480px) {
+  .hero-logo-image {
+    width: 140px;
+    height: 140px;
+  }
+  
+  .hero-logo-bg {
+    min-height: 140px;
+    padding: 0.5rem;
   }
   
   .featured-img {

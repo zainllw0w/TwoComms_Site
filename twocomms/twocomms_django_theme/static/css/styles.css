@@ -11369,41 +11369,29 @@ body::after {
   z-index: 2;
 }
 
-/* Центрированный логотип */
-.hero-logo-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  z-index: 2;
-}
-
-.hero-logo-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  min-height: 300px;
-}
-
-.hero-logo-image {
-  width: 200px;
-  height: 200px;
-  object-fit: contain;
-  filter: drop-shadow(0 0 20px rgba(139, 92, 246, 0.3));
-  transition: all 0.3s ease;
+/* Фоновый логотип */
+.hero-logo-bg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80%;
+  height: 80%;
+  opacity: 0.08;
+  z-index: 1;
   animation: logoFloat 8s ease-in-out infinite;
 }
 
-.hero-logo-image:hover {
-  transform: scale(1.05);
-  filter: drop-shadow(0 0 30px rgba(139, 92, 246, 0.5));
+.hero-logo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
 }
 
 @keyframes logoFloat {
-  0%, 100% { transform: scale(1) rotate(0deg); }
-  50% { transform: scale(1.05) rotate(1deg); }
+  0%, 100% { transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+  50% { transform: translate(-50%, -50%) scale(1.05) rotate(1deg); }
 }
 
 /* Основной контент */
@@ -11630,13 +11618,9 @@ body::after {
     font-size: 1rem;
   }
   
-  .hero-logo-wrapper {
-    min-height: 250px;
-  }
-  
-  .hero-logo-image {
-    width: 150px;
-    height: 150px;
+  .hero-logo-bg {
+    width: 90%;
+    height: 90%;
   }
 }
 
