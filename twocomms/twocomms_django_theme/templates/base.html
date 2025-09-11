@@ -198,30 +198,41 @@
     contain: layout;
   }
   
-  /* Фиксированные размеры для hero-секции */
+  /* Фиксированные размеры для hero-секции - КРИТИЧЕСКИЕ СТИЛИ */
   .hero-section {
-    min-height: 400px;
-    contain: layout size;
-    position: relative;
+    min-height: 400px !important;
+    contain: layout size !important;
+    position: relative !important;
+    height: auto !important;
   }
   
   .hero-container {
-    position: relative;
-    width: 100%;
-    min-height: 400px;
-    contain: layout;
+    position: relative !important;
+    width: 100% !important;
+    min-height: 400px !important;
+    contain: layout !important;
+    height: auto !important;
   }
   
   .hero-content {
-    position: relative;
-    z-index: 3;
-    min-height: 200px;
-    contain: layout;
+    position: relative !important;
+    z-index: 3 !important;
+    min-height: 200px !important;
+    contain: layout !important;
+    height: auto !important;
   }
   
   .hero-text-section {
-    min-height: 150px;
-    contain: layout;
+    min-height: 150px !important;
+    contain: layout !important;
+    height: auto !important;
+  }
+  
+  .hero-logo-bg {
+    position: relative !important;
+    min-height: 200px !important;
+    contain: layout !important;
+    height: auto !important;
   }
   
   /* Фиксированные размеры для main контейнера */
@@ -230,20 +241,42 @@
     min-height: 100vh;
   }
   
-  /* Предотвращение смещений при загрузке контента */
+  /* Предотвращение смещений при загрузке контента - КРИТИЧЕСКИЕ */
   .hero-title-main,
   .hero-title-accent {
-    contain: layout;
+    contain: layout !important;
+    min-height: 1.2em !important;
+    height: auto !important;
   }
   
   .hero-subtitle {
-    contain: layout;
-    min-height: 1.5em;
+    contain: layout !important;
+    min-height: 1.5em !important;
+    height: auto !important;
   }
   
   .hero-actions {
-    contain: layout;
-    min-height: 60px;
+    contain: layout !important;
+    min-height: 60px !important;
+    height: auto !important;
+  }
+  
+  .hero-title {
+    contain: layout !important;
+    min-height: 3em !important;
+    height: auto !important;
+  }
+  
+  .hero-btn-primary {
+    contain: layout !important;
+    min-height: 48px !important;
+    height: auto !important;
+  }
+  
+  .hero-badge {
+    contain: layout !important;
+    min-height: 32px !important;
+    height: auto !important;
   }
   
   /* Оптимизация для скрытия элементов на мобильных устройствах */
@@ -303,63 +336,85 @@
     }
   }
   
-  /* Мобильные стили для предотвращения смещений */
+  /* Мобильные стили для предотвращения смещений - КРИТИЧЕСКИЕ */
   @media (max-width: 768px) {
     .hero-section {
-      min-height: 300px;
-      contain: layout size;
+      min-height: 300px !important;
+      contain: layout size !important;
+      height: auto !important;
     }
     
     .hero-container {
-      min-height: 300px;
-      contain: layout;
+      min-height: 300px !important;
+      contain: layout !important;
+      height: auto !important;
     }
     
     .hero-content {
-      min-height: 180px;
-      contain: layout;
+      min-height: 180px !important;
+      contain: layout !important;
+      height: auto !important;
     }
     
     .hero-text-section {
-      min-height: 120px;
-      contain: layout;
+      min-height: 120px !important;
+      contain: layout !important;
+      height: auto !important;
     }
     
     .hero-actions {
-      min-height: 50px;
-      contain: layout;
+      min-height: 50px !important;
+      contain: layout !important;
+      height: auto !important;
+    }
+    
+    .hero-logo-bg {
+      min-height: 180px !important;
+      contain: layout !important;
+      height: auto !important;
     }
     
     main.container-xxl {
-      min-height: 100vh;
-      contain: layout;
+      min-height: 100vh !important;
+      contain: layout !important;
     }
   }
   
   @media (max-width: 480px) {
     .hero-section {
-      min-height: 250px;
-      contain: layout size;
+      min-height: 250px !important;
+      contain: layout size !important;
+      height: auto !important;
     }
     
     .hero-container {
-      min-height: 250px;
-      contain: layout;
+      min-height: 250px !important;
+      contain: layout !important;
+      height: auto !important;
     }
     
     .hero-content {
-      min-height: 150px;
-      contain: layout;
+      min-height: 150px !important;
+      contain: layout !important;
+      height: auto !important;
     }
     
     .hero-text-section {
-      min-height: 100px;
-      contain: layout;
+      min-height: 100px !important;
+      contain: layout !important;
+      height: auto !important;
     }
     
     .hero-actions {
-      min-height: 45px;
-      contain: layout;
+      min-height: 45px !important;
+      contain: layout !important;
+      height: auto !important;
+    }
+    
+    .hero-logo-bg {
+      min-height: 150px !important;
+      contain: layout !important;
+      height: auto !important;
     }
   }
   </style>
