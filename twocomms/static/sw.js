@@ -1,77 +1,26 @@
 /**
- * Современный Service Worker для эффективного кеширования TwoComms
- * Реализует Cache-First, Network-First и Stale-While-Revalidate стратегии
+ * Service Worker для PWA функциональности
  */
-
-const CACHE_NAME = 'twocomms-v2.0.0';
-const STATIC_CACHE = 'twocomms-static-v2.0.0';
-const DYNAMIC_CACHE = 'twocomms-dynamic-v2.0.0';
-const IMAGE_CACHE = 'twocomms-images-v2.0.0';
+const CACHE_NAME = 'twocomms-v1.0.0';
+const STATIC_CACHE = 'twocomms-static-v1.0.0';
+const DYNAMIC_CACHE = 'twocomms-dynamic-v1.0.0';
 
 // Управление логированием SW
 const DEBUG_SW = false;
 const swlog = DEBUG_SW ? ((...args)=>{ try{ console.log('[SW]', ...args);}catch(_){} }) : (()=>{});
 const swwarn = DEBUG_SW ? ((...args)=>{ try{ console.warn('[SW]', ...args);}catch(_){} }) : (()=>{});
 
-// Ресурсы для предварительного кеширования
-const PRECACHE_URLS = [
+// Файлы для кэширования
+const STATIC_FILES = [
     '/',
-    '/static/css/styles.min.css',
-    '/static/css/cls-fixes.css',
+    '/static/css/styles.css',
     '/static/js/main.js',
     '/static/img/logo.svg',
-    '/static/img/noise.webp',
-    '/static/img/google.svg',
-    '/static/site.webmanifest'
+    '/static/img/favicon.ico',
+    '/static/site.webmanifest',
+    'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css',
+    'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
 ];
-
-// Стратегии кеширования для разных типов ресурсов
-const CACHE_STRATEGIES = {
-    // Статические ресурсы - Cache First (1 год)
-    static: {
-        pattern: /\.(css|js|woff|woff2|ttf|eot|svg|ico)$/,
-        strategy: 'cache-first',
-        cacheName: STATIC_CACHE,
-        maxAge: 31536000, // 1 год
-        maxEntries: 100
-    },
-    
-    // Изображения - Cache First с ограничением (1 год)
-    images: {
-        pattern: /\.(jpg|jpeg|png|gif|webp|avif)$/,
-        strategy: 'cache-first',
-        cacheName: IMAGE_CACHE,
-        maxAge: 31536000, // 1 год
-        maxEntries: 200
-    },
-    
-    // HTML страницы - Stale While Revalidate (1 час)
-    html: {
-        pattern: /\.html$|\/$/,
-        strategy: 'stale-while-revalidate',
-        cacheName: DYNAMIC_CACHE,
-        maxAge: 3600, // 1 час
-        maxEntries: 50
-    },
-    
-    // API запросы - Network First (5 минут)
-    api: {
-        pattern: /\/api\//,
-        strategy: 'network-first',
-        cacheName: DYNAMIC_CACHE,
-        maxAge: 300, // 5 минут
-        maxEntries: 30
-    },
-    
-    // Медиа файлы - Cache First (30 дней)
-    media: {
-        pattern: /\/media\//,
-        strategy: 'cache-first',
-        cacheName: IMAGE_CACHE,
-        maxAge: 2592000, // 30 дней
-        maxEntries: 100
-    }
-};
 
 // Установка Service Worker
 self.addEventListener('install', event => {
@@ -81,7 +30,7 @@ self.addEventListener('install', event => {
         caches.open(STATIC_CACHE)
             .then(cache => {
                 swlog('Caching static files');
-                return cache.addAll(PRECACHE_URLS);
+                return cache.addAll(STATIC_FILES);
             })
             .then(() => {
                 swlog('Installation complete');
@@ -102,9 +51,7 @@ self.addEventListener('activate', event => {
             .then(cacheNames => {
                 return Promise.all(
                     cacheNames.map(cacheName => {
-                        if (cacheName !== STATIC_CACHE && 
-                            cacheName !== DYNAMIC_CACHE && 
-                            cacheName !== IMAGE_CACHE) {
+                        if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
                             swlog('Deleting old cache', cacheName);
                             return caches.delete(cacheName);
                         }
@@ -118,135 +65,89 @@ self.addEventListener('activate', event => {
     );
 });
 
-// Обработка запросов
+// Перехват запросов
 self.addEventListener('fetch', event => {
-    const request = event.request;
+    const { request } = event;
     const url = new URL(request.url);
     
-    // Пропускаем не-GET запросы
-    if (request.method !== 'GET') {
-        return;
-    }
-    
-    // Пропускаем запросы к внешним доменам (кроме наших CDN)
-    if (url.origin !== location.origin && 
-        !url.hostname.includes('twocomms.shop') &&
-        !url.hostname.includes('connect.facebook.net') &&
-        !url.hostname.includes('scripts.clarity.ms')) {
-        return;
-    }
-    
-    // Определяем стратегию кеширования
-    const strategy = getCacheStrategy(request.url);
-    
-    if (strategy) {
-        event.respondWith(handleRequest(request, strategy));
+    // Стратегия кэширования для разных типов запросов
+    if (request.method === 'GET') {
+        // Статические файлы - Cache First
+        if (url.pathname.startsWith('/static/') || 
+            url.hostname === 'cdn.jsdelivr.net' || 
+            url.hostname === 'fonts.googleapis.com') {
+            event.respondWith(cacheFirst(request));
+        }
+        // API запросы - Network First
+        else if (url.pathname.startsWith('/api/')) {
+            event.respondWith(networkFirst(request));
+        }
+        // HTML страницы - Stale While Revalidate
+        else if (request.headers.get('accept').includes('text/html')) {
+            event.respondWith(staleWhileRevalidate(request));
+        }
+        // Остальные запросы - Network First
+        else {
+            event.respondWith(networkFirst(request));
+        }
     }
 });
 
-// Определение стратегии кеширования
-function getCacheStrategy(url) {
-    for (const [name, config] of Object.entries(CACHE_STRATEGIES)) {
-        if (config.pattern.test(url)) {
-            return config;
-        }
-    }
-    return null;
-}
-
-// Обработка запроса с выбранной стратегией
-async function handleRequest(request, strategy) {
-    const cache = await caches.open(strategy.cacheName);
-    
-    switch (strategy.strategy) {
-        case 'cache-first':
-            return cacheFirst(request, cache, strategy);
-        case 'network-first':
-            return networkFirst(request, cache, strategy);
-        case 'stale-while-revalidate':
-            return staleWhileRevalidate(request, cache, strategy);
-        default:
-            return fetch(request);
-    }
-}
-
 // Cache First стратегия
-async function cacheFirst(request, cache, strategy) {
+async function cacheFirst(request) {
     try {
-        const cachedResponse = await cache.match(request);
-        
+        const cachedResponse = await caches.match(request);
         if (cachedResponse) {
-            // Проверяем возраст кеша
-            const cacheTime = cachedResponse.headers.get('sw-cache-time');
-            if (cacheTime && (Date.now() - parseInt(cacheTime)) < strategy.maxAge * 1000) {
-                return cachedResponse;
-            }
+            return cachedResponse;
         }
         
         const networkResponse = await fetch(request);
-        
         if (networkResponse.ok) {
-            const responseToCache = networkResponse.clone();
-            responseToCache.headers.set('sw-cache-time', Date.now().toString());
-            await cache.put(request, responseToCache);
-            await cleanupCache(cache, strategy.maxEntries);
+            const cache = await caches.open(STATIC_CACHE);
+            cache.put(request, networkResponse.clone());
         }
-        
         return networkResponse;
     } catch (error) {
         console.error('Cache First failed:', error);
-        const cachedResponse = await cache.match(request);
-        return cachedResponse || new Response('Offline', { status: 503 });
+        return new Response('Offline', { status: 503 });
     }
 }
 
 // Network First стратегия
-async function networkFirst(request, cache, strategy) {
+async function networkFirst(request) {
     try {
         const networkResponse = await fetch(request);
-        
         if (networkResponse.ok) {
-            const responseToCache = networkResponse.clone();
-            responseToCache.headers.set('sw-cache-time', Date.now().toString());
-            await cache.put(request, responseToCache);
-            await cleanupCache(cache, strategy.maxEntries);
+            const cache = await caches.open(DYNAMIC_CACHE);
+            cache.put(request, networkResponse.clone());
         }
-        
         return networkResponse;
     } catch (error) {
         swwarn('Network failed, trying cache:', error);
-        const cachedResponse = await cache.match(request);
-        return cachedResponse || new Response('Offline', { status: 503 });
+        const cachedResponse = await caches.match(request);
+        if (cachedResponse) {
+            return cachedResponse;
+        }
+        return new Response('Offline', { status: 503 });
     }
 }
 
 // Stale While Revalidate стратегия
-async function staleWhileRevalidate(request, cache, strategy) {
+async function staleWhileRevalidate(request) {
+    const cache = await caches.open(DYNAMIC_CACHE);
     const cachedResponse = await cache.match(request);
     
     const fetchPromise = fetch(request).then(networkResponse => {
         if (networkResponse.ok) {
-            const responseToCache = networkResponse.clone();
-            responseToCache.headers.set('sw-cache-time', Date.now().toString());
-            cache.put(request, responseToCache);
-            cleanupCache(cache, strategy.maxEntries);
+            cache.put(request, networkResponse.clone());
         }
         return networkResponse;
-    }).catch(error => {
-        swwarn('Stale While Revalidate network failed:', error);
-        return null;
+    }).catch(() => {
+        // Если сеть недоступна, возвращаем кэшированную версию
+        return cachedResponse || new Response('Offline', { status: 503 });
     });
     
-    return cachedResponse || await fetchPromise || new Response('Offline', { status: 503 });
-}
-
-// Очистка кеша при превышении лимита
-async function cleanupCache(cache, maxEntries) {
-    const keys = await cache.keys();
-    if (keys.length > maxEntries) {
-        const keysToDelete = keys.slice(0, keys.length - maxEntries);
-        await Promise.all(keysToDelete.map(key => cache.delete(key)));
-    }
+    return cachedResponse || fetchPromise;
 }
 
 // Обработка push уведомлений
