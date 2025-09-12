@@ -154,38 +154,40 @@ def optimized_image(image_path, alt_text="", class_name="", width=None, height=N
         webp_url = str(webp_file_path)
         avif_url = str(avif_file_path)
     
-    # Проверяем наличие адаптивных версий
+    # Проверяем наличие адаптивных версий (только если не указаны фиксированные размеры)
     responsive_sources = []
     
-    # Размеры для адаптивных изображений (увеличиваем минимальные размеры)
-    responsive_sizes = [320, 640, 768, 1024, 1920]
-    
-    for size in responsive_sizes:
-        # WebP версии
-        webp_responsive_file = optimized_dir / f"{base_name}_{size}w.webp"
-        if webp_responsive_file.exists():
-            if image_path.startswith('/media/'):
-                webp_responsive_url = f"{base_url}/optimized/{base_name}_{size}w.webp"
-            else:
-                webp_responsive_url = str(webp_responsive_file)
-            responsive_sources.append({
-                'url': webp_responsive_url,
-                'size': f"{size}w",
-                'format': 'webp'
-            })
+    # Если указаны фиксированные размеры, не используем адаптивные источники
+    if not width and not height:
+        # Размеры для адаптивных изображений (увеличиваем минимальные размеры)
+        responsive_sizes = [320, 640, 768, 1024, 1920]
         
-        # AVIF версии
-        avif_responsive_file = optimized_dir / f"{base_name}_{size}w.avif"
-        if avif_responsive_file.exists():
-            if image_path.startswith('/media/'):
-                avif_responsive_url = f"{base_url}/optimized/{base_name}_{size}w.avif"
-            else:
-                avif_responsive_url = str(avif_responsive_file)
-            responsive_sources.append({
-                'url': avif_responsive_url,
-                'size': f"{size}w",
-                'format': 'avif'
-            })
+        for size in responsive_sizes:
+            # WebP версии
+            webp_responsive_file = optimized_dir / f"{base_name}_{size}w.webp"
+            if webp_responsive_file.exists():
+                if image_path.startswith('/media/'):
+                    webp_responsive_url = f"{base_url}/optimized/{base_name}_{size}w.webp"
+                else:
+                    webp_responsive_url = str(webp_responsive_file)
+                responsive_sources.append({
+                    'url': webp_responsive_url,
+                    'size': f"{size}w",
+                    'format': 'webp'
+                })
+            
+            # AVIF версии
+            avif_responsive_file = optimized_dir / f"{base_name}_{size}w.avif"
+            if avif_responsive_file.exists():
+                if image_path.startswith('/media/'):
+                    avif_responsive_url = f"{base_url}/optimized/{base_name}_{size}w.avif"
+                else:
+                    avif_responsive_url = str(avif_responsive_file)
+                responsive_sources.append({
+                    'url': avif_responsive_url,
+                    'size': f"{size}w",
+                    'format': 'avif'
+                })
     
     return {
         'image_path': image_path,

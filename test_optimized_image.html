@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Тест оптимизированных изображений</title>
+</head>
+<body>
+    <h1>Тест оптимизированных изображений</h1>
+    
+    <h2>1. Обычное изображение (должно работать)</h2>
+    <img src="/media/products/0.jpg" alt="Тест 0" width="100" height="100">
+    
+    <h2>2. WebP изображение (может не работать в старых браузерах)</h2>
+    <img src="/media/products/optimized/0.webp" alt="Тест 0 WebP" width="100" height="100">
+    
+    <h2>3. AVIF изображение (может не работать в старых браузерах)</h2>
+    <img src="/media/products/optimized/0.avif" alt="Тест 0 AVIF" width="100" height="100">
+    
+    <h2>4. Picture с fallback (должно работать везде)</h2>
+    <picture>
+        <source srcset="/media/products/optimized/0.avif" type="image/avif">
+        <source srcset="/media/products/optimized/0.webp" type="image/webp">
+        <img src="/media/products/0.jpg" alt="Тест 0 Picture" width="100" height="100">
+    </picture>
+    
+    <h2>5. Адаптивное изображение</h2>
+    <picture>
+        <source srcset="/media/products/optimized/0_320w.webp" type="image/webp" media="(max-width: 320px)">
+        <source srcset="/media/products/optimized/0_640w.webp" type="image/webp" media="(max-width: 640px)">
+        <source srcset="/media/products/optimized/0_768w.webp" type="image/webp" media="(max-width: 768px)">
+        <source srcset="/media/products/optimized/0_1024w.webp" type="image/webp" media="(max-width: 1024px)">
+        <source srcset="/media/products/optimized/0_1920w.webp" type="image/webp">
+        <img src="/media/products/0.jpg" alt="Тест 0 Адаптивное" width="100" height="100">
+    </picture>
+    
+    <script>
+        // Проверяем поддержку форматов
+        function checkFormatSupport() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Проверяем WebP
+            const webpDataURL = 'data:image/webp;base64,UklGRjoAAABXRUJQVlA4IC4AAACyAgCdASoCAAIALmk0mk0iIiIiIgBoSygABc6WWgAA/veff/0PP8bA//LwYAAA';
+            const webpSupported = canvas.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+            
+            // Проверяем AVIF
+            const avifDataURL = 'data:image/avif;base64,AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUIAAADybWV0YQAAAAAAAAAoaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAGxpYmF2aWYAAAAADnBpdG0AAAAAAAEAAAAeaWxvYwAAAABEAAABAAEAAAABAAABGgAAABcAAAAoaWluZgAAAAAAAQAAABppbmZlAgAAAAABAABhdjAxQ29sb3IAAAAAamlwcnAAAABLaXBjbwAAABRpc3BlAAAAAAAAAAEAAAABAAAAEHBpeGkAAAAAAwgICAAAAAxhdjFDgQAMAAAAABNjb2xybmNseAACAAIABoAAAAAXaXBtYQAAAAAAAAABAAEEAQKDBAAAAB9tZGF0EgAKCBgABogQEAwgMgkfAAAAAAAABAAAAAA=';
+            const avifSupported = canvas.toDataURL('image/avif').indexOf('data:image/avif') === 0;
+            
+            console.log('WebP поддержка:', webpSupported);
+            console.log('AVIF поддержка:', avifSupported);
+            
+            // Добавляем информацию на страницу
+            const info = document.createElement('div');
+            info.innerHTML = `
+                <h3>Поддержка форматов браузером:</h3>
+                <p>WebP: ${webpSupported ? '✅ Поддерживается' : '❌ Не поддерживается'}</p>
+                <p>AVIF: ${avifSupported ? '✅ Поддерживается' : '❌ Не поддерживается'}</p>
+            `;
+            document.body.appendChild(info);
+        }
+        
+        // Запускаем проверку после загрузки
+        window.addEventListener('load', checkFormatSupport);
+    </script>
+</body>
+</html>

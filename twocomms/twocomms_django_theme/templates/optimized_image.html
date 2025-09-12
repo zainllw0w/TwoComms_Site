@@ -29,7 +29,7 @@
     {% if height %}height="{{ height }}"{% endif %}
     loading="lazy"
     decoding="async"
-    sizes="(max-width: 320px) 320px, (max-width: 640px) 640px, (max-width: 768px) 768px, (max-width: 1024px) 1024px, 1920px"
+    {% if not width and not height %}sizes="(max-width: 320px) 320px, (max-width: 640px) 640px, (max-width: 768px) 768px, (max-width: 1024px) 1024px, 1920px"{% endif %}
   >
 </picture>
 {% endif %}
