@@ -89,8 +89,6 @@
               <div class="cart-item-image">
                 {% if it.color_variant and it.color_variant.images.exists %}
                   {% optimized_image it.color_variant.images.first.image.url it.product.title "cart-item-img" %}
-                {% elif it.product.display_image %}
-                  {% optimized_image it.product.display_image.url it.product.title "cart-item-img" %}
                 {% elif it.product.main_image %}
                   {% optimized_image it.product.main_image.url it.product.title "cart-item-img" %}
                 {% else %}

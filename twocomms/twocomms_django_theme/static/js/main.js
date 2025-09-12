@@ -1405,7 +1405,7 @@ document.addEventListener('DOMContentLoaded', function(){
   const inner = carousel.querySelector('.carousel-inner');
   const indicators = carousel.querySelector('.carousel-indicators');
   const thumbs = document.getElementById('product-thumbs');
-  function rebuild(images){ if(!(inner&&indicators&&thumbs)) return; inner.innerHTML=''; indicators.innerHTML=''; thumbs.innerHTML=''; const list=(images&&images.length)?images:[(document.getElementById('mainImage')||{}).src||'']; list.forEach((url,idx)=>{ const item=document.createElement('div'); item.className='carousel-item'+(idx===0?' active':''); item.innerHTML='<img src="'+url+'" class="d-block w-100 h-100 object-fit-contain" alt="Фото товару">'; inner.appendChild(item); const ind=document.createElement('button'); ind.type='button'; ind.setAttribute('data-bs-target','#productCarousel'); ind.setAttribute('data-bs-slide-to', String(idx)); if(idx===0){ ind.className='active'; ind.setAttribute('aria-current','true'); } indicators.appendChild(ind); const th=document.createElement('button'); th.type='button'; th.className='btn p-0 thumb'; th.setAttribute('data-bs-target','#productCarousel'); th.setAttribute('data-bs-slide-to', String(idx)); th.innerHTML='<img src="'+url+'" class="rounded-3 object-fit-cover" style="width:72px;height:72px;" alt="Мініатюра">'; thumbs.appendChild(th); }); }
+  function rebuild(images){ if(!(inner&&indicators&&thumbs)) return; inner.innerHTML=''; indicators.innerHTML=''; thumbs.innerHTML=''; const mainImg = document.getElementById('mainImage'); const fallbackSrc = mainImg ? mainImg.src : ''; const list=(images&&images.length)?images:[fallbackSrc]; list.forEach((url,idx)=>{ const item=document.createElement('div'); item.className='carousel-item'+(idx===0?' active':''); item.innerHTML='<img src="'+url+'" class="d-block w-100 h-100 object-fit-contain" alt="Фото товару">'; inner.appendChild(item); const ind=document.createElement('button'); ind.type='button'; ind.setAttribute('data-bs-target','#productCarousel'); ind.setAttribute('data-bs-slide-to', String(idx)); if(idx===0){ ind.className='active'; ind.setAttribute('aria-current','true'); } indicators.appendChild(ind); const th=document.createElement('button'); th.type='button'; th.className='btn p-0 thumb'; th.setAttribute('data-bs-target','#productCarousel'); th.setAttribute('data-bs-slide-to', String(idx)); th.innerHTML='<img src="'+url+'" class="rounded-3 object-fit-cover" style="width:72px;height:72px;" alt="Мініатюра">'; thumbs.appendChild(th); }); }
   function onColorClick(btn){ const id=parseInt(btn.getAttribute('data-variant')||'-1',10); const v=variants.find(x=>x.id===id); if(!v) return; colorPicker.querySelectorAll('.color-swatch').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); rebuild(v.images||[]); }
   if(variants.length){ const def=variants.find(v=>v.is_default)||variants[0]; rebuild(def&&def.images?def.images:[]); }
   colorPicker.querySelectorAll('.color-swatch').forEach(b=> b.addEventListener('click', ()=> onColorClick(b)) );
@@ -1749,7 +1749,7 @@ document.addEventListener('click', function(e) {
   }
   
   // Находим основное изображение карточки (поддерживаем как <img>, так и <picture>)
-  const mainImage = productCard.querySelector('.ratio img') || productCard.querySelector('.ratio picture img');
+  const mainImage = productCard.querySelector('.ratio .product-main-image') || productCard.querySelector('.ratio img') || productCard.querySelector('.ratio picture img');
   
   if (!mainImage) {
     return;
@@ -1776,8 +1776,10 @@ document.addEventListener('click', function(e) {
     return;
   }
   
-  // Анимируем смену изображения
-  animateImageChange(mainImage, newImageUrl);
+  // Анимируем смену изображения только если URL действительно изменился
+  if (mainImage.src !== newImageUrl) {
+    animateImageChange(mainImage, newImageUrl);
+  }
 }, { passive: false });
 
 // Оптимизированная инициализация цветовых точек при загрузке страницы
