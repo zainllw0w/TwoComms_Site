@@ -8,6 +8,8 @@
           <div class="rounded-3 overflow-hidden bg-elevate" style="width:48px;height:48px;">
             {% if it.color_variant and it.color_variant.images.exists %}
               {% optimized_image it.color_variant.images.first.image.url it.product.title "w-100 h-100 object-fit-cover" 48 48 %}
+            {% elif it.product.display_image %}
+              {% optimized_image it.product.display_image.url it.product.title "w-100 h-100 object-fit-cover" 48 48 %}
             {% elif it.product.main_image %}
               {% optimized_image it.product.main_image.url it.product.title "w-100 h-100 object-fit-cover" 48 48 %}
             {% else %}
