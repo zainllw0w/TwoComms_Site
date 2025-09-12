@@ -88,12 +88,18 @@
               
               <div class="cart-item-image">
                 {% if it.color_variant and it.color_variant.images.exists %}
-                  {% optimized_image it.color_variant.images.first.image.url it.product.title "cart-item-img" %}
+                  <img src="{{ it.color_variant.images.first.image.url }}" 
+                       alt="{{ it.product.title }} - товар у кошику TwoComms" 
+                       class="cart-item-img">
                 {% elif it.product.main_image %}
-                  {% optimized_image it.product.main_image.url it.product.title "cart-item-img" %}
+                  <img src="{{ it.product.main_image.url }}" 
+                       alt="{{ it.product.title }} - товар у кошику TwoComms" 
+                       class="cart-item-img">
                 {% else %}
                   {% static 'img/placeholder.jpg' as ph_url %}
-                  <img src="{{ ph_url }}" alt="{{ it.product.title }} - товар у кошику TwoComms" class="cart-item-img">
+                  <img src="{{ ph_url }}" 
+                       alt="{{ it.product.title }} - товар у кошику TwoComms" 
+                       class="cart-item-img">
                 {% endif %}
                 <div class="cart-item-image-glow"></div>
               </div>
