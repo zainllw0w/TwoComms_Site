@@ -23,11 +23,8 @@
 {% block content %}
 <div class="row g-4">
   <div class="col-12 col-lg-6 d-flex align-items-stretch">
-    <!-- Основное изображение продукта -->
     <div class="ratio ratio-1x1 rounded-4 overflow-hidden bg-elevate glass position-relative w-100">
-      {% if product.display_image %}
-        {% responsive_image product.display_image.url product.title "w-100 h-100 object-fit-cover" "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px" %}
-      {% elif product.main_image %}
+      {% if product.main_image %}
         {% responsive_image product.main_image.url product.title "w-100 h-100 object-fit-cover" "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px" %}
       {% else %}
         {% static 'img/placeholder.jpg' as ph_url %}
@@ -40,8 +37,6 @@
         >
       {% endif %}
     </div>
-    
-    <!-- Миниатюры дополнительных изображений -->
     {% if images %}
     <div class="d-flex gap-2 mt-3 overflow-auto pb-1" style="scrollbar-width: thin;">
       {% for ph in images %}
@@ -132,16 +127,24 @@
       {% endif %}
     </div>
 
-    <!-- Галерея товару для цветовых вариантов -->
-    <div class="product-gallery-block" id="color-gallery" style="display: none;">
+    <!-- Галерея товару: обёртка для перемещения на место исходного фото -->
+    <div class="product-gallery-block">
       <div id="productCarousel" class="carousel slide mb-3" data-bs-ride="false">
         <div class="carousel-inner rounded-4 overflow-hidden bg-elevate ratio ratio-4x3">
-          <!-- Заполнится динамически при выборе цветового варианта -->
+          <!-- Заповниться динамічно (варіант кольору або головне фото) -->
+          <div class="carousel-item active">
+            {% if product.display_image %}
+              {% responsive_image product.display_image.url product.title "d-block w-100 h-100 object-fit-contain" "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px" %}
+            {% else %}
+              {% static 'img/placeholder.jpg' as ph_url %}
+              <img src="{{ ph_url }}" class="d-block w-100 h-100 object-fit-contain" alt="{{ product.title }} - головне фото TwoComms">
+            {% endif %}
+          </div>
         </div>
         <div class="carousel-indicators position-static mt-2"></div>
       </div>
 
-      <!-- Миниатюры: будет построено динамически -->
+      <!-- Мініатюри: буде побудовано динамічно -->
       <div class="d-flex gap-2 overflow-auto pb-2" id="product-thumbs"></div>
     </div>
 
@@ -254,36 +257,73 @@
 
       function rebuildCarousel(images){
         if(!(inner && indicators && thumbs)) return;
-        
-        // Показываем галерею только если есть цветовые варианты
-        var colorGallery = document.getElementById('color-gallery');
-        if (colorGallery) {
-          colorGallery.style.display = images && images.length > 0 ? 'block' : 'none';
-        }
-        
         inner.innerHTML = '';
         indicators.innerHTML = '';
         thumbs.innerHTML = '';
-        
-        // Если нет изображений цветовых вариантов, не создаем карусель
-        if (!images || !images.length) return;
-        
-        images.forEach(function(url, idx){
+        var list = images && images.length ? images : ['{% if product.main_image %}{{ product.main_image.url }}{% else %}{% static "img/placeholder.jpg" %}{% endif %}'];
+
+        list.forEach(function(url, idx){
           var item = document.createElement('div');
           item.className = 'carousel-item' + (idx===0?' active':'');
           
-          // Создаем оптимизированное изображение
-          var img = document.createElement('img');
-          img.src = url;
-          img.className = 'd-block w-100 h-100 object-fit-contain';
-          img.alt = '{{ product.title|escapejs }} — фото кольору';
-          img.loading = 'lazy';
-          img.decoding = 'async';
+          // Проверяем, является ли это изображение цветового варианта
+          var isColorImage = url.includes('/product_colors/');
           
-          item.appendChild(img);
+          if (isColorImage) {
+            // Создаем оптимизированное изображение с поддержкой WebP/AVIF
+            var picture = document.createElement('picture');
+            var avifSource = document.createElement('source');
+            var webpSource = document.createElement('source');
+            var img = document.createElement('img');
+            
+            // Генерируем URL для оптимизированных версий
+            var baseUrl = url.replace(/\/[^\/]+\.(jpg|jpeg|png)$/, '');
+            var fileName = url.match(/\/([^\/]+)\.(jpg|jpeg|png)$/);
+            if (fileName) {
+              var baseName = fileName[1];
+              avifSource.setAttribute('srcset', baseUrl + '/optimized/' + baseName + '.avif');
+              avifSource.setAttribute('type', 'image/avif');
+              webpSource.setAttribute('srcset', baseUrl + '/optimized/' + baseName + '.webp');
+              webpSource.setAttribute('type', 'image/webp');
+            }
+            
+            img.src = url;
+            img.className = 'd-block w-100 h-100 object-fit-contain';
+            img.alt = '{{ product.title|escapejs }} — фото';
+            img.src = url;
+            img.className = 'd-block w-100 h-100 object-fit-contain';
+            img.alt = '{{ product.title|escapejs }} — фото';
+            
+            picture.appendChild(avifSource);
+            picture.appendChild(webpSource);
+            picture.appendChild(img);
+            item.appendChild(picture);
+          } else {
+            // Оптимизируем обычные изображения товаров (папка products)
+            var picture2 = document.createElement('picture');
+            var avif2 = document.createElement('source');
+            var webp2 = document.createElement('source');
+            var img2 = document.createElement('img');
+            var baseUrl2 = url.replace(/\/[^\/]+\.(jpg|jpeg|png)$/, '');
+            var fileName2 = url.match(/\/([^\/]+)\.(jpg|jpeg|png)$/);
+            if (fileName2) {
+              var baseName2 = fileName2[1];
+              avif2.setAttribute('srcset', baseUrl2 + '/optimized/' + baseName2 + '.avif');
+              avif2.setAttribute('type', 'image/avif');
+              webp2.setAttribute('srcset', baseUrl2 + '/optimized/' + baseName2 + '.webp');
+              webp2.setAttribute('type', 'image/webp');
+            }
+            img2.src = url;
+            img2.className = 'd-block w-100 h-100 object-fit-contain';
+            img2.alt = '';
+            picture2.appendChild(avif2);
+            picture2.appendChild(webp2);
+            picture2.appendChild(img2);
+            item.appendChild(picture2);
+          }
+          
           inner.appendChild(item);
 
-          // Индикатор
           var ind = document.createElement('button');
           ind.type = 'button';
           ind.setAttribute('data-bs-target', '#productCarousel');
@@ -292,27 +332,52 @@
           ind.setAttribute('aria-label','Слайд '+(idx+1));
           indicators.appendChild(ind);
 
-          // Миниатюра
           var th = document.createElement('button');
-          th.type='button'; 
-          th.className='btn p-0 thumb'; 
-          th.setAttribute('data-bs-target','#productCarousel'); 
-          th.setAttribute('data-bs-slide-to', String(idx));
-          th.style.width = '72px';
-          th.style.height = '72px';
-          th.style.overflow = 'hidden';
-          th.style.flex = '0 0 auto';
+          th.type='button'; th.className='btn p-0 thumb'; th.setAttribute('data-bs-target','#productCarousel'); th.setAttribute('data-bs-slide-to', String(idx));
           
-          var thumbImg = document.createElement('img');
-          thumbImg.src = url;
-          thumbImg.className = 'rounded-3 object-fit-cover';
-          thumbImg.style.width = '100%';
-          thumbImg.style.height = '100%';
-          thumbImg.alt = '{{ product.title|escapejs }} — мініатюра';
-          thumbImg.loading = 'lazy';
-          thumbImg.decoding = 'async';
+          if (isColorImage && fileName) {
+            // Создаем оптимизированную миниатюру для цветовых вариантов
+            var thumbPicture = document.createElement('picture');
+            var thumbAvifSource = document.createElement('source');
+            var thumbWebpSource = document.createElement('source');
+            var thumbImg = document.createElement('img');
+            
+            var baseName = fileName[1];
+            thumbAvifSource.setAttribute('srcset', baseUrl + '/optimized/' + baseName + '.avif');
+            thumbAvifSource.setAttribute('type', 'image/avif');
+            thumbWebpSource.setAttribute('srcset', baseUrl + '/optimized/' + baseName + '.webp');
+            thumbWebpSource.setAttribute('type', 'image/webp');
+            
+            thumbImg.src = url;
+            thumbImg.className = 'rounded-3 object-fit-cover';
+            thumbImg.style.width = '72px';
+            thumbImg.style.height = '72px';
+            thumbImg.alt = '{{ product.title|escapejs }} — миниатюра';
+            
+            thumbPicture.appendChild(thumbAvifSource);
+            thumbPicture.appendChild(thumbWebpSource);
+            thumbPicture.appendChild(thumbImg);
+            th.appendChild(thumbPicture);
+          } else {
+            // Оптимизированная миниатюра для обычных изображений
+            var tp = document.createElement('picture');
+            var ta = document.createElement('source');
+            var tw = document.createElement('source');
+            var ti = document.createElement('img');
+            var baseUrlT = url.replace(/\/[^\/]+\.(jpg|jpeg|png)$/, '');
+            var fileNameT = url.match(/\/([^\/]+)\.(jpg|jpeg|png)$/);
+            if (fileNameT) {
+              var baseNameT = fileNameT[1];
+              ta.setAttribute('srcset', baseUrlT + '/optimized/' + baseNameT + '.avif');
+              ta.setAttribute('type', 'image/avif');
+              tw.setAttribute('srcset', baseUrlT + '/optimized/' + baseNameT + '.webp');
+              tw.setAttribute('type', 'image/webp');
+            }
+            ti.src = url; ti.className='rounded-3 object-fit-cover'; ti.style.width='72px'; ti.style.height='72px'; ti.alt='';
+            tp.appendChild(ta); tp.appendChild(tw); tp.appendChild(ti);
+            th.appendChild(tp);
+          }
           
-          th.appendChild(thumbImg);
           thumbs.appendChild(th);
         });
       }
@@ -336,9 +401,7 @@
       // Ініціалізація
       if(variants.length){
         var def = pickDefault();
-        if(def && def.images && def.images.length > 0) {
-          rebuildCarousel(def.images);
-        }
+        rebuildCarousel(def && def.images ? def.images : []);
         document.querySelectorAll('#color-picker .color-swatch').forEach(function(b){
           b.addEventListener('click', onColorClick);
         });
@@ -685,19 +748,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }catch(_){ }
 
-  // Логика переключения миниатюр дополнительных изображений
+  const main = document.getElementById('mainImage');
+  if(!main) return;
+  
+  // Выбор цвета по умолчанию и первичное изображение обрабатываются выше в логике галереи
+  
   try{
     document.querySelectorAll('.thumb[data-img]').forEach(function(btn){
       btn.addEventListener('click', function(){
         var url = btn.getAttribute('data-img');
-        if(url) {
-          // Находим основное изображение
-          var mainImg = document.querySelector('.ratio.ratio-1x1 img');
-          if (mainImg) {
-            mainImg.src = url;
-          }
-        }
-        // Убираем активный класс со всех миниатюр
+        if(url){ main.src = url; }
         document.querySelectorAll('.thumb').forEach(function(b){ b.classList.remove('active'); });
         btn.classList.add('active');
       });
