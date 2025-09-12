@@ -142,8 +142,6 @@
         <div class="featured-image-compact">
           {% if featured.display_image %}
             {% optimized_image featured.display_image.url featured.title|add:" - "|add:featured.category.name|add:" TwoComms" "featured-img" 400 400 %}
-          {% elif featured.main_image %}
-            {% optimized_image featured.main_image.url featured.title|add:" - "|add:featured.category.name|add:" TwoComms" "featured-img" 400 400 %}
           {% else %}
             {% static 'img/placeholder.jpg' as ph_url %}
             <img
