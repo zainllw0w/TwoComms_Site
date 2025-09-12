@@ -5,21 +5,19 @@
   <div class="card product h-100 hover-raise glass {% if stagger %}reveal-stagger stagger-item{% else %}reveal-fast{% endif %}" data-product-id="{{ p.id }}" data-product-title="{{ p.title|escapejs }}">
     <div class="ratio ratio-1x1 rounded-top-4 overflow-hidden bg-elevate position-relative">
       {% if p.display_image %}
-        {% if forloop.first %}<link rel="preload" as="image" href="{{ p.display_image.url }}" fetchpriority="high">{% endif %}
+        {% if forloop.first %}<link rel="preload" as="image" href="{{ p.display_image.url }}">{% endif %}
         {% optimized_image p.display_image.url p.title "w-100 h-100 object-fit-cover product-main-image" 600 600 %}
       {% elif p.main_image %}
-        {% if forloop.first %}<link rel="preload" as="image" href="{{ p.main_image.url }}" fetchpriority="high">{% endif %}
+        {% if forloop.first %}<link rel="preload" as="image" href="{{ p.main_image.url }}">{% endif %}
         {% optimized_image p.main_image.url p.title "w-100 h-100 object-fit-cover product-main-image" 600 600 %}
       {% else %}
         {% static 'img/placeholder.jpg' as ph_url %}
-        {% if forloop.first %}<link rel="preload" as="image" href="{{ ph_url }}" fetchpriority="high">{% endif %}
+        {% if forloop.first %}<link rel="preload" as="image" href="{{ ph_url }}">{% endif %}
         <img src="{{ ph_url }}"
-             alt="{{ p.title }} - {{ p.category.name }} TwoComms"
+             alt="{{ p.title }}"
              width="600" height="600"
              class="w-100 h-100 object-fit-cover product-main-image"
-             loading="{% if forloop.first %}eager{% else %}lazy{% endif %}"
-             decoding="{% if forloop.first %}sync{% else %}async{% endif %}"
-             fetchpriority="{% if forloop.first %}high{% else %}low{% endif %}">
+             loading="{% if forloop.first %}eager{% else %}lazy{% endif %}">
       {% endif %}
       <!-- Кнопка избранного -->
       <button type="button" class="favorite-btn" data-product-id="{{ p.id }}" onclick="event.stopPropagation(); toggleFavorite(this.getAttribute('data-product-id'), this);" aria-label="Додати до обраних">
