@@ -1749,7 +1749,7 @@ document.addEventListener('click', function(e) {
   }
   
   // Находим основное изображение карточки (поддерживаем как <img>, так и <picture>)
-  const mainImage = productCard.querySelector('.ratio .product-main-image') || productCard.querySelector('.ratio img') || productCard.querySelector('.ratio picture img');
+  const mainImage = productCard.querySelector('.ratio picture img') || productCard.querySelector('.ratio .product-main-image') || productCard.querySelector('.ratio img');
   
   if (!mainImage) {
     return;
