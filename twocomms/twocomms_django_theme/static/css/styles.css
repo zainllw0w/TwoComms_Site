@@ -1620,23 +1620,6 @@ body::after {
   flex-shrink: 0 !important;
 }
 
-/* Предотвращение переноса для favorites */
-body .user-panel .user-menu .menu-item[href*="favorites"] span:not(.mini-profile-counter) {
-  white-space: nowrap !important;
-  word-break: keep-all !important;
-  overflow-wrap: normal !important;
-  word-wrap: normal !important;
-}
-
-/* Дополнительные стили для предотвращения переноса */
-.menu-item[href*="favorites"] {
-  white-space: nowrap !important;
-}
-
-.menu-item[href*="favorites"] * {
-  white-space: nowrap !important;
-}
-
 /* Увеличение ширины панели для favorites */
 .user-panel:has(.menu-item[href*="favorites"]) {
   width: 400px !important;
