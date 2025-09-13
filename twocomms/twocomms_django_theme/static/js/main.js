@@ -1300,6 +1300,12 @@ document.addEventListener('DOMContentLoaded', function() {
           if (!data.has_more && loadMoreContainer) {
             loadMoreContainer.style.display = 'none';
           }
+          // Принудительно отображаем изображения после загрузки новых карточек
+          setTimeout(() => {
+            if (typeof forceShowAllImages === 'function') {
+              forceShowAllImages();
+            }
+          }, 100);
         }
       })
       .catch(()=>{})
@@ -1821,10 +1827,4 @@ function forceShowAllImages() {
 document.addEventListener('DOMContentLoaded', forceShowAllImages);
 document.addEventListener('load', forceShowAllImages);
 
-// Переопределяем функцию loadPage для вызова forceShowAllImages после AJAX
-const originalLoadPage = loadPage;
-loadPage = function(url, targetId, pushState = true, showLoading = true) {
-    return originalLoadPage(url, targetId, pushState, showLoading).then(() => {
-        setTimeout(forceShowAllImages, 100); // Небольшая задержка для загрузки DOM
-    });
-};
+// forceShowAllImages будет вызываться из существующей функции loadPage
