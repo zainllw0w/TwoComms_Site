@@ -201,11 +201,11 @@
   </style>
   
   <!-- Асинхронная загрузка основного CSS с приоритизацией -->
-  <link href="{% static 'css/styles.min.css' %}?v=2025.09.11.026" 
+  <link href="{% static 'css/styles.min.css' %}?v=2025.09.11.027" 
         rel="preload" as="style" 
         onload="this.onload=null;this.rel='stylesheet'"
         media="all">
-  <noscript><link href="{% static 'css/styles.min.css' %}?v=2025.09.11.026" rel="stylesheet"></noscript>
+  <noscript><link href="{% static 'css/styles.min.css' %}?v=2025.09.11.027" rel="stylesheet"></noscript>
   
   <!-- CLS Fixes CSS - загружаем синхронно для предотвращения смещений -->
   <link href="{% static 'css/cls-fixes.css' %}?v=2025.09.11.002" rel="stylesheet" media="all">
@@ -1199,12 +1199,18 @@ document.addEventListener('DOMContentLoaded', function() {
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   function toggleFavoritesVisibility() {
+    // Десктопный мини-профиль
     const favoritesItem = document.getElementById('favorites-menu-item');
-    if (favoritesItem) {
-      console.log('Current window width:', window.innerWidth);
-      if (window.innerWidth <= 991) {
-        // Скрываем на мобильных - агрессивно
-        console.log('Hiding favorites on mobile');
+    // Мобильная нижняя навигация
+    const favoritesMobileBottomNav = document.getElementById('favorites-mobile-bottom-nav');
+    
+    console.log('Current window width:', window.innerWidth);
+    
+    if (window.innerWidth <= 991) {
+      // Скрываем на мобильных - агрессивно
+      console.log('Hiding favorites on mobile');
+      
+      if (favoritesItem) {
         favoritesItem.style.setProperty('display', 'none', 'important');
         favoritesItem.style.setProperty('visibility', 'hidden', 'important');
         favoritesItem.style.setProperty('opacity', '0', 'important');
@@ -1212,9 +1218,22 @@ document.addEventListener('DOMContentLoaded', function() {
         favoritesItem.style.setProperty('overflow', 'hidden', 'important');
         favoritesItem.style.setProperty('position', 'absolute', 'important');
         favoritesItem.style.setProperty('left', '-9999px', 'important');
-      } else {
-        // Показываем на десктопе
-        console.log('Showing favorites on desktop');
+      }
+      
+      if (favoritesMobileBottomNav) {
+        favoritesMobileBottomNav.style.setProperty('display', 'none', 'important');
+        favoritesMobileBottomNav.style.setProperty('visibility', 'hidden', 'important');
+        favoritesMobileBottomNav.style.setProperty('opacity', '0', 'important');
+        favoritesMobileBottomNav.style.setProperty('height', '0', 'important');
+        favoritesMobileBottomNav.style.setProperty('overflow', 'hidden', 'important');
+        favoritesMobileBottomNav.style.setProperty('position', 'absolute', 'important');
+        favoritesMobileBottomNav.style.setProperty('left', '-9999px', 'important');
+      }
+    } else {
+      // Показываем на десктопе
+      console.log('Showing favorites on desktop');
+      
+      if (favoritesItem) {
         favoritesItem.style.setProperty('display', 'flex', 'important');
         favoritesItem.style.setProperty('visibility', 'visible', 'important');
         favoritesItem.style.setProperty('opacity', '1', 'important');
@@ -1222,6 +1241,10 @@ document.addEventListener('DOMContentLoaded', function() {
         favoritesItem.style.setProperty('overflow', 'visible', 'important');
         favoritesItem.style.setProperty('position', 'static', 'important');
         favoritesItem.style.setProperty('left', 'auto', 'important');
+      }
+      
+      if (favoritesMobileBottomNav) {
+        favoritesMobileBottomNav.style.setProperty('display', 'none', 'important');
       }
     }
   }
