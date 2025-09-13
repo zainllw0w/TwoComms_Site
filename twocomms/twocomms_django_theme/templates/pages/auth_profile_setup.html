@@ -576,7 +576,7 @@ function updateTelegramButton(isConfirmed) {
 // Переменные для управления проверкой статуса
 let telegramStatusInterval = null;
 let telegramStatusCheckCount = 0;
-const MAX_TELEGRAM_STATUS_CHECKS = 30; // Максимум 30 проверок (5 минут)
+const MAX_TELEGRAM_STATUS_CHECKS = 150; // Максимум 150 проверок (5 минут при интервале 2 сек)
 let telegramStatusTimeout = null; // Таймаут для принудительной остановки
 
 // Функция для запуска проверки статуса
@@ -594,7 +594,7 @@ function startTelegramStatusCheck() {
     hideTelegramLoadingIndicator();
   }, 5 * 60 * 1000); // 5 минут
   
-  // Запускаем проверку каждые 10 секунд
+  // Запускаем проверку каждые 2 секунды для быстрого отклика
   telegramStatusInterval = setInterval(() => {
     telegramStatusCheckCount++;
     
@@ -605,10 +605,15 @@ function startTelegramStatusCheck() {
     }
     
     checkTelegramStatus();
-  }, 10000); // 10 секунд
+  }, 2000); // 2 секунды
   
   // Первая проверка сразу
   checkTelegramStatus();
+  
+  // Дополнительная проверка через 1 секунду для быстрого отклика
+  setTimeout(() => {
+    checkTelegramStatus();
+  }, 1000);
 }
 
 // Функция для остановки проверки статуса

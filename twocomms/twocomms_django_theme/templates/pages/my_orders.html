@@ -913,7 +913,7 @@ function hideTelegramNotificationButton() {
 // Переменные для управления проверкой статуса из заказов
 let telegramStatusIntervalFromOrders = null;
 let telegramStatusCheckCountFromOrders = 0;
-const MAX_TELEGRAM_STATUS_CHECKS_FROM_ORDERS = 30; // Максимум 30 проверок (5 минут)
+const MAX_TELEGRAM_STATUS_CHECKS_FROM_ORDERS = 150; // Максимум 150 проверок (5 минут при интервале 2 сек)
 
 // Функция для запуска проверки статуса из заказов
 function startTelegramStatusCheckFromOrders() {
@@ -923,7 +923,7 @@ function startTelegramStatusCheckFromOrders() {
   // Сбрасываем счетчик
   telegramStatusCheckCountFromOrders = 0;
   
-  // Запускаем проверку каждые 10 секунд
+  // Запускаем проверку каждые 2 секунды для быстрого отклика
   telegramStatusIntervalFromOrders = setInterval(() => {
     telegramStatusCheckCountFromOrders++;
     
@@ -934,10 +934,15 @@ function startTelegramStatusCheckFromOrders() {
     }
     
     checkTelegramStatusFromOrders();
-  }, 10000); // 10 секунд
+  }, 2000); // 2 секунды
   
   // Первая проверка сразу
   checkTelegramStatusFromOrders();
+  
+  // Дополнительная проверка через 1 секунду для быстрого отклика
+  setTimeout(() => {
+    checkTelegramStatusFromOrders();
+  }, 1000);
 }
 
 // Функция для остановки проверки статуса из заказов
