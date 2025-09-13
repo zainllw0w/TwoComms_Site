@@ -951,7 +951,8 @@ body::after {
 }
 
 /* Уникальный счетчик для мини-профиля */
-.mini-profile-counter {
+.mini-profile-counter,
+#favorites-count-mini {
   display: inline-flex !important;
   width: 16px !important;
   height: 16px !important;
@@ -1498,7 +1499,7 @@ body::after {
 }
 
 .menu-item {
-  display: flex;
+  display: flex !important;
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
@@ -1509,8 +1510,10 @@ body::after {
   text-decoration: none;
   transition: all 0.3s ease;
   position: relative;
-  overflow: visible;
-  min-width: 0;
+  overflow: visible !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  width: auto !important;
 }
 
 .menu-item::before {
@@ -1563,16 +1566,34 @@ body::after {
   overflow: hidden;
   text-overflow: ellipsis;
   flex-shrink: 0;
+  display: inline-block !important;
+  max-width: none !important;
+  word-break: keep-all !important;
+}
+
+/* Дополнительные стили для предотвращения переноса */
+.menu-item * {
+  white-space: nowrap !important;
+}
+
+.menu-item .menu-text-container,
+.menu-item .menu-text-container * {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  word-wrap: normal !important;
 }
 
 .menu-text-container {
-  display: flex;
+  display: flex !important;
   align-items: center;
   flex: 1;
   white-space: nowrap !important;
   overflow: hidden;
-  min-width: 0;
-  max-width: none;
+  min-width: 0 !important;
+  max-width: none !important;
+  width: auto !important;
+  flex-shrink: 0 !important;
 }
 
 .menu-arrow {
