@@ -37,7 +37,6 @@ class TelegramBot:
             response = requests.post(url, json=data, timeout=10)
             return response.status_code == 200
         except Exception as e:
-            print(f"Ошибка отправки сообщения: {e}")
             return False
     
     def set_webhook(self, webhook_url):
@@ -52,7 +51,6 @@ class TelegramBot:
             response = requests.post(url, json=data, timeout=10)
             return response.status_code == 200
         except Exception as e:
-            print(f"Ошибка установки webhook: {e}")
             return False
     
     def get_webhook_info(self):
@@ -67,7 +65,6 @@ class TelegramBot:
             if response.status_code == 200:
                 return response.json()
         except Exception as e:
-            print(f"Ошибка получения webhook info: {e}")
         return None
     
     def process_start_command(self, user_id, username=None):
@@ -98,46 +95,35 @@ class TelegramBot:
                 return self.auto_confirm_user(user_id, username)
                 
         except Exception as e:
-            print(f"Ошибка обработки команды /start: {e}")
             return False
     
     def auto_confirm_user(self, user_id, username=None):
         """Автоматически подтверждает пользователя по введенному username"""
         try:
-            print(f"🔍 auto_confirm_user: user_id={user_id}, username={username}")
-            
             if not username:
-                print("❌ Username не предоставлен")
                 return False
             
             # Убираем @ если есть
             clean_username = username.lstrip('@')
-            print(f"🔍 clean_username: '{clean_username}'")
             
             # Ищем все профили с таким telegram username (без @) - только неподтвержденные
             profiles_without_at = UserProfile.objects.filter(telegram=clean_username, telegram_id__isnull=True)
-            print(f"🔍 Поиск без @ (неподтвержденные): найдено {profiles_without_at.count()} профилей")
             
             # Ищем все профили с таким telegram username (с @) - только неподтвержденные
             profiles_with_at = UserProfile.objects.filter(telegram=f"@{clean_username}", telegram_id__isnull=True)
-            print(f"🔍 Поиск с @ (неподтвержденные): найдено {profiles_with_at.count()} профилей")
             
             # Объединяем результаты
             all_matching_profiles = list(profiles_without_at) + list(profiles_with_at)
-            print(f"🔍 Всего найдено неподтвержденных профилей: {len(all_matching_profiles)}")
             
             if len(all_matching_profiles) == 0:
-                print(f"❌ Не найдено неподтвержденных профилей с username: {clean_username}")
                 return False
             
             # Привязываем только к ПЕРВОМУ найденному неподтвержденному профилю
             profile = all_matching_profiles[0]
-            print(f"🔍 Привязываем к профилю: user={profile.user.username}, telegram='{profile.telegram}'")
             
             # Привязываем telegram_id к профилю
             profile.telegram_id = user_id
             profile.save()
-            print(f"✅ Подтвержден профиль: {profile.user.username}")
             
             message = f"""🎉 <b>Відмінно! Ваш Telegram успішно підтверджено!</b>
 
@@ -158,7 +144,6 @@ class TelegramBot:
             return True
                 
         except Exception as e:
-            print(f"Ошибка автоматического подтверждения: {e}")
             return False
     
     def link_user_account(self, telegram_id, telegram_username):
@@ -201,13 +186,11 @@ class TelegramBot:
                 return False
                 
         except Exception as e:
-            print(f"Ошибка связывания аккаунта: {e}")
             return False
     
     def process_webhook_update(self, update_data):
         """Обрабатывает обновление от webhook"""
         try:
-            print(f"📱 process_webhook_update: {update_data}")
             
             if 'message' in update_data:
                 message = update_data['message']
@@ -215,30 +198,23 @@ class TelegramBot:
                 username = message['from'].get('username')
                 text = message.get('text', '')
                 
-                print(f"📱 Обработка сообщения: user_id={user_id}, username={username}, text='{text}'")
                 
                 if text == '/start':
                     result = self.process_start_command(user_id, username)
-                    print(f"📱 Результат /start: {result}")
                     return result
                 else:
                     # Обрабатываем любое другое сообщение
                     result = self.process_any_message(user_id, username, text)
-                    print(f"📱 Результат обычного сообщения: {result}")
                     return result
                     
         except Exception as e:
-            print(f"❌ Ошибка обработки webhook: {e}")
         return False
     
     def process_any_message(self, user_id, username=None, text=''):
         """Обрабатывает любое сообщение от пользователя"""
         try:
-            print(f"🔍 process_any_message: user_id={user_id}, username={username}, text='{text}'")
-            
             # Всегда пытаемся подтвердить пользователя по username
             # Это позволяет привязывать один Telegram к нескольким аккаунтам
-            print(f"🔍 Пытаемся автоматически подтвердить пользователя по username: {username}")
             result = self.auto_confirm_user(user_id, username)
             
             if result:
@@ -266,7 +242,6 @@ class TelegramBot:
                 return False
                 
         except Exception as e:
-            print(f"❌ Ошибка обработки сообщения: {e}")
             return False
 
 
