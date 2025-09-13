@@ -481,8 +481,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Функция для подтверждения Telegram
 function confirmTelegram() {
+  console.log('🚀 Запуск подтверждения Telegram...');
+  
   const telegramInput = document.querySelector('input[name="telegram"]');
   let telegramUsername = telegramInput.value.trim();
+  
+  console.log('📝 Введенный username:', telegramUsername);
   
   if (!telegramUsername) {
     alert('Пожалуйста, введите ваш Telegram username');
@@ -493,10 +497,12 @@ function confirmTelegram() {
   if (!telegramUsername.startsWith('@')) {
     telegramUsername = '@' + telegramUsername;
     telegramInput.value = telegramUsername;
+    console.log('📝 Обновленный username:', telegramUsername);
   }
   
   // Открываем Telegram бота
   const botUrl = 'https://t.me/twocommsbot?start=' + encodeURIComponent(telegramUsername);
+  console.log('🔗 URL бота:', botUrl);
   window.open(botUrl, '_blank');
   
   // Показываем инструкцию
@@ -508,38 +514,48 @@ function confirmTelegram() {
   // Запускаем проверку статуса только если пользователь авторизован
   // Проверяем наличие CSRF токена как индикатор авторизации
   const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+  console.log('🔐 CSRF токен найден:', !!csrfToken);
+  
   if (csrfToken) {
+    console.log('✅ Пользователь авторизован, запускаем проверку статуса');
     startTelegramStatusCheck();
   } else {
-    console.warn('Пользователь не авторизован, проверка статуса не запущена');
+    console.warn('❌ Пользователь не авторизован, проверка статуса не запущена');
     hideTelegramLoadingIndicator();
   }
 }
 
 // Функция для проверки статуса подтверждения Telegram
 function checkTelegramStatus() {
+  console.log('🔍 Проверка статуса Telegram...');
+  
   fetch('/accounts/telegram/status/')
     .then(response => {
+      console.log('📡 Ответ сервера:', response.status, response.statusText);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       return response.json();
     })
     .then(data => {
+      console.log('📊 Данные от API:', data);
       if (data.is_confirmed) {
+        console.log('✅ Telegram подтвержден!');
         // Обновляем кнопку на подтвержденную
         updateTelegramButton(true);
         // Останавливаем проверку
         stopTelegramStatusCheck();
       } else if (data.error) {
         // Если есть ошибка (например, пользователь не авторизован)
-        console.error('Ошибка API:', data.error);
+        console.error('❌ Ошибка API:', data.error);
         stopTelegramStatusCheck();
         hideTelegramLoadingIndicator();
+      } else {
+        console.log('⏳ Telegram еще не подтвержден, продолжаем проверку...');
       }
     })
     .catch(error => {
-      console.error('Ошибка проверки статуса Telegram:', error);
+      console.error('❌ Ошибка проверки статуса Telegram:', error);
       // Останавливаем проверку при любой ошибке
       stopTelegramStatusCheck();
       hideTelegramLoadingIndicator();
