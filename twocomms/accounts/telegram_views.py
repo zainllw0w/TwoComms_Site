@@ -22,20 +22,15 @@ def telegram_webhook(request):
             user_id = message['from']['id']
             username = message['from'].get('username', 'unknown')
             text = message.get('text', '')
-            print(f"📱 Telegram webhook: user_id={user_id}, username=@{username}, text='{text}'")
         
         # Обрабатываем обновление
         result = telegram_bot.process_webhook_update(update_data)
         
         if result:
-            print(f"✅ Telegram webhook: успешно обработано для user_id={user_id}")
-        else:
-            print(f"⚠️ Telegram webhook: не удалось обработать для user_id={user_id}")
         
         return JsonResponse({'ok': True, 'result': result})
         
     except Exception as e:
-        print(f"❌ Ошибка обработки webhook: {e}")
         return JsonResponse({'ok': False, 'error': str(e)})
 
 
@@ -65,7 +60,6 @@ def link_telegram_account(request):
 def check_telegram_status(request):
     """Проверяет статус подтверждения Telegram для текущего пользователя"""
     if not request.user.is_authenticated:
-        print(f"❌ Пользователь не авторизован")
         return JsonResponse({'error': 'Not authenticated'}, status=401)
     
     try:
@@ -73,7 +67,6 @@ def check_telegram_status(request):
         is_confirmed = bool(profile.telegram_id)
         
         # Логируем проверку статуса для отладки
-        print(f"🔍 API: user={request.user.username}, confirmed={is_confirmed}, telegram_id={profile.telegram_id}, telegram_username='{profile.telegram}'")
         
         return JsonResponse({
             'is_confirmed': is_confirmed,
@@ -82,27 +75,9 @@ def check_telegram_status(request):
         })
         
     except Exception as e:
-        print(f"❌ Ошибка проверки статуса Telegram: {e}")
         return JsonResponse({'error': str(e)}, status=500)
 
 
-@require_http_methods(["GET"])
-def debug_user_info(request):
-    """Отладочный endpoint для проверки пользователя"""
-    if not request.user.is_authenticated:
-        return JsonResponse({'error': 'Not authenticated'}, status=401)
-    
-    try:
-        profile = request.user.userprofile
-        return JsonResponse({
-            'username': request.user.username,
-            'email': request.user.email,
-            'telegram': profile.telegram or '',
-            'telegram_id': profile.telegram_id,
-            'is_confirmed': bool(profile.telegram_id)
-        })
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
 
 
 @csrf_exempt
@@ -121,7 +96,6 @@ def get_telegram_id(request):
             last_name = message['from'].get('last_name', '')
             text = message.get('text', '')
             
-            print(f"📱 Получен Telegram ID: user_id={user_id}, username=@{username}, name={first_name} {last_name}, text='{text}'")
             
             return JsonResponse({
                 'ok': True,
@@ -135,5 +109,4 @@ def get_telegram_id(request):
         return JsonResponse({'ok': False, 'error': 'No message in update'})
         
     except Exception as e:
-        print(f"❌ Ошибка получения Telegram ID: {e}")
         return JsonResponse({'ok': False, 'error': str(e)})

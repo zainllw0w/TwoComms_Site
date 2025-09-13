@@ -9,5 +9,4 @@ urlpatterns = [
     path('telegram/link/', telegram_views.link_telegram_account, name='link_telegram_account'),
     path('telegram/status/', telegram_views.check_telegram_status, name='check_telegram_status'),
     path('telegram/get-id/', telegram_views.get_telegram_id, name='get_telegram_id'),
-    path('telegram/debug/', telegram_views.debug_user_info, name='debug_user_info'),
 ]
