@@ -201,11 +201,11 @@
   </style>
   
   <!-- Асинхронная загрузка основного CSS с приоритизацией -->
-  <link href="{% static 'css/styles.min.css' %}?v=2025.09.11.028" 
+  <link href="{% static 'css/styles.min.css' %}?v=2025.09.11.029" 
         rel="preload" as="style" 
         onload="this.onload=null;this.rel='stylesheet'"
         media="all">
-  <noscript><link href="{% static 'css/styles.min.css' %}?v=2025.09.11.028" rel="stylesheet"></noscript>
+  <noscript><link href="{% static 'css/styles.min.css' %}?v=2025.09.11.029" rel="stylesheet"></noscript>
   
   <!-- CLS Fixes CSS - загружаем синхронно для предотвращения смещений -->
   <link href="{% static 'css/cls-fixes.css' %}?v=2025.09.11.002" rel="stylesheet" media="all">
@@ -372,10 +372,7 @@
 </head><body class='bg-body text-body' style='font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;'>{% include 'partials/header.html' %}<main class='container-xxl py-4 py-md-5'>{% block breadcrumbs %}{% endblock %}{% block content %}{% endblock %}</main>{% cache 86400 footer_block %}{% include 'partials/footer.html' %}{% endcache %}
 
 <!-- Мобильные мини-панели (только для мобильной версии) -->
-<div id="mini-cart-panel-mobile" class="cart-panel d-none d-md-none">
-  <!-- Анимация искр для корзины -->
-  <div class="cart-sparks-container">
-    <div class="cart-spark cart-spark-1"></div>
+
     <div class="cart-spark cart-spark-2"></div>
     <div class="cart-spark cart-spark-3"></div>
     <div class="cart-spark cart-spark-4"></div>
@@ -399,9 +396,7 @@
   </div>
   
   <!-- Содержимое корзины -->
-  <div id="mini-cart-content-mobile" class="cart-content">
-    <div class="cart-loading">
-      <div class="loading-spinner"></div>
+  
       <div class="loading-text">Завантаження…</div>
     </div>
   </div>
