@@ -1623,8 +1623,7 @@ body::after {
 }
 
 /* МАКСИМАЛЬНАЯ СПЕЦИФИЧНОСТЬ для предотвращения переноса */
-body .user-panel .user-menu .menu-item[href*="favorites"] .menu-text-container,
-body .user-panel .user-menu .menu-item[href*="favorites"] .menu-text-container span {
+body .user-panel .user-menu .menu-item[href*="favorites"] span:not(.mini-profile-counter) {
   white-space: nowrap !important;
   word-break: keep-all !important;
   overflow-wrap: normal !important;
@@ -1635,6 +1634,11 @@ body .user-panel .user-menu .menu-item[href*="favorites"] .menu-text-container s
   max-width: none !important;
   width: auto !important;
   flex-shrink: 0 !important;
+}
+
+/* Специальный отступ для счетчика в favorites */
+body .user-panel .user-menu .menu-item[href*="favorites"] .mini-profile-counter {
+  margin-left: 0.5rem !important;
 }
 
 .menu-text-container {
