@@ -1704,8 +1704,12 @@ function animateImageChange(img, newSrc) {
   });
 }
 
-// Оптимизированный обработчик клика по цветовым точкам с делегированием
+// Общий обработчик для отладки всех кликов
 document.addEventListener('click', function(e) {
+  console.log('Clicked element:', e.target);
+  console.log('Element classes:', e.target.classList);
+  console.log('Element tag:', e.target.tagName);
+  
   // Проверяем, что клик был по цветовой точке
   if (!e.target.classList.contains('color-dot')) {
     return;
@@ -1775,6 +1779,8 @@ document.addEventListener('click', function(e) {
 
 // Оптимизированная инициализация цветовых точек при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
+  console.log('DOM loaded, JavaScript is working');
+  
   // Инициализация мобильных оптимизаций
   MobileOptimizer.initMobileOptimizations();
   
