@@ -21224,6 +21224,33 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   z-index: 1 !important;
 }
 
+/* АГРЕССИВНЫЕ стили для принудительного отображения изображений */
+.ratio img {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  z-index: 1 !important;
+}
+
+/* Убираем все возможные скрытия */
+.ratio img[style*="display: none"] {
+  display: block !important;
+}
+
+.ratio img[style*="visibility: hidden"] {
+  visibility: visible !important;
+}
+
+.ratio img[style*="opacity: 0"] {
+  opacity: 1 !important;
+}
+
 /* Уменьшаем высоту изображения на десктопе */
 @media (min-width: 992px) {
   .ratio {

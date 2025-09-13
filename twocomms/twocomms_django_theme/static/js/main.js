@@ -1799,3 +1799,35 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 });
+
+// Функция для принудительного отображения всех изображений
+function forceShowAllImages() {
+    console.log('Forcing show all images...');
+    const images = document.querySelectorAll('.ratio img');
+    console.log('Found images:', images.length);
+    images.forEach((img, index) => {
+        console.log(`Image ${index}:`, img.src);
+        img.style.display = 'block';
+        img.style.visibility = 'visible';
+        img.style.opacity = '1';
+        img.style.position = 'absolute';
+        img.style.top = '0';
+        img.style.left = '0';
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'cover';
+        img.style.zIndex = '1';
+    });
+}
+
+// Вызываем функцию при загрузке страницы и после AJAX
+document.addEventListener('DOMContentLoaded', forceShowAllImages);
+document.addEventListener('load', forceShowAllImages);
+
+// Переопределяем функцию loadPage для вызова forceShowAllImages после AJAX
+const originalLoadPage = loadPage;
+loadPage = function(url, targetId, pushState = true, showLoading = true) {
+    return originalLoadPage(url, targetId, pushState, showLoading).then(() => {
+        setTimeout(forceShowAllImages, 100); // Небольшая задержка для загрузки DOM
+    });
+};
