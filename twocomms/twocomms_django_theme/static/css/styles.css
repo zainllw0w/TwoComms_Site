@@ -21207,3 +21207,10 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   width: 100% !important;
   height: 100% !important;
 }
+
+/* Уменьшаем высоту изображения на десктопе */
+@media (min-width: 992px) {
+  .ratio[style*="--bs-aspect-ratio: 125%"] {
+    --bs-aspect-ratio: 110% !important;
+  }
+}
