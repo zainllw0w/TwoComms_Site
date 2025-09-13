@@ -529,9 +529,17 @@ function confirmTelegram() {
 function checkTelegramStatus() {
   console.log('🔍 Проверка статуса Telegram...');
   
-  fetch('/accounts/telegram/status/')
+  fetch('/accounts/telegram/status/', {
+    method: 'GET',
+    credentials: 'same-origin',
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest',
+      'Content-Type': 'application/json',
+    }
+  })
     .then(response => {
       console.log('📡 Ответ сервера:', response.status, response.statusText);
+      console.log('📡 Headers:', response.headers);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
