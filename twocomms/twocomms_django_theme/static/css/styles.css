@@ -950,6 +950,13 @@ body::after {
   flex-shrink: 0;
 }
 
+/* Скрываем "Обрані товари" в мобильной версии */
+@media (max-width: 991px) {
+  .menu-item[href*="favorites"] {
+    display: none !important;
+  }
+}
+
 /* Красивый анимированный счетчик для мини-профиля */
 .mini-profile-counter,
 #favorites-count-mini {
