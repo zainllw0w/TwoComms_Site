@@ -15,7 +15,7 @@
              width="1080" height="1350"
              class="w-100 h-100 object-fit-cover product-main-image"
              loading="lazy"
-             onload="console.log('Display image loaded:', this.src)"
+             onload="console.log('Display image loaded:', this.src); this.style.display='block'; this.style.visibility='visible'; this.style.opacity='1';"
              onerror="console.log('Display image failed:', this.src)">
       {% elif p.main_image %}
         <img src="{{ p.main_image.url }}"
@@ -23,7 +23,7 @@
              width="1080" height="1350"
              class="w-100 h-100 object-fit-cover product-main-image"
              loading="lazy"
-             onload="console.log('Main image loaded:', this.src)"
+             onload="console.log('Main image loaded:', this.src); this.style.display='block'; this.style.visibility='visible'; this.style.opacity='1';"
              onerror="console.log('Main image failed:', this.src)">
       {% else %}
         {% static 'img/placeholder.jpg' as ph_url %}
@@ -32,7 +32,7 @@
              width="1080" height="1350"
              class="w-100 h-100 object-fit-cover product-main-image"
              loading="lazy"
-             onload="console.log('Placeholder loaded:', this.src)"
+             onload="console.log('Placeholder loaded:', this.src); this.style.display='block'; this.style.visibility='visible'; this.style.opacity='1';"
              onerror="console.log('Placeholder failed:', this.src)">
       {% endif %}
       <!-- Кнопка избранного -->
