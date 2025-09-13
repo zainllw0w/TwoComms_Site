@@ -1297,18 +1297,33 @@ document.addEventListener('DOMContentLoaded', function() {
           updatePageSelector(pageNumber);
           animateNewCards();
           
-          // Проверяем цветовые точки после загрузки новых товаров
+          // Проверяем изображения и цветовые точки после загрузки новых товаров
           setTimeout(() => {
             const allColorDots = document.querySelectorAll('.color-dot');
             console.log('Color dots after loading new products:', allColorDots.length);
             
-            // Проверяем цветовые точки в новых карточках
+            // Проверяем изображения в новых карточках
             const newProducts = productsContainer.querySelectorAll('.product-card-wrap:not(.animated)');
             console.log('New product cards loaded:', newProducts.length);
             
             newProducts.forEach((productWrap, index) => {
+              const productCard = productWrap.querySelector('.card.product');
+              const image = productCard ? productCard.querySelector('.product-main-image') : null;
               const colorDots = productWrap.querySelectorAll('.color-dot');
-              console.log(`Product ${index + 1} has ${colorDots.length} color dots`);
+              
+              console.log(`Product ${index + 1}:`);
+              console.log(`  - Image src: ${image ? image.src : 'no image found'}`);
+              console.log(`  - Image alt: ${image ? image.alt : 'no image found'}`);
+              console.log(`  - Color dots: ${colorDots.length}`);
+              
+              if (image) {
+                image.addEventListener('load', () => {
+                  console.log(`Product ${index + 1} image loaded successfully`);
+                });
+                image.addEventListener('error', () => {
+                  console.log(`Product ${index + 1} image failed to load`);
+                });
+              }
             });
           }, 100);
           
@@ -1797,9 +1812,15 @@ document.addEventListener('click', function(e) {
 document.addEventListener('DOMContentLoaded', function() {
   console.log('DOM loaded, JavaScript is working');
   
-  // Проверяем наличие цветовых точек на странице
+  // Проверяем наличие цветовых точек и изображений на странице
   const colorDots = document.querySelectorAll('.color-dot');
+  const productImages = document.querySelectorAll('.product-main-image');
   console.log('Found color dots on page load:', colorDots.length);
+  console.log('Found product images on page load:', productImages.length);
+  
+  productImages.forEach((image, index) => {
+    console.log(`Initial product image ${index + 1}:`, image.src, image.alt);
+  });
   
   // Инициализация мобильных оптимизаций
   MobileOptimizer.initMobileOptimizations();
