@@ -201,11 +201,11 @@
   </style>
   
   <!-- Асинхронная загрузка основного CSS с приоритизацией -->
-  <link href="{% static 'css/styles.min.css' %}?v=2025.09.11.027" 
+  <link href="{% static 'css/styles.min.css' %}?v=2025.09.11.028" 
         rel="preload" as="style" 
         onload="this.onload=null;this.rel='stylesheet'"
         media="all">
-  <noscript><link href="{% static 'css/styles.min.css' %}?v=2025.09.11.027" rel="stylesheet"></noscript>
+  <noscript><link href="{% static 'css/styles.min.css' %}?v=2025.09.11.028" rel="stylesheet"></noscript>
   
   <!-- CLS Fixes CSS - загружаем синхронно для предотвращения смещений -->
   <link href="{% static 'css/cls-fixes.css' %}?v=2025.09.11.002" rel="stylesheet" media="all">
@@ -540,7 +540,7 @@
                   </div>
                 </a>
                 
-                <a href="{% url 'favorites' %}" class="menu-item">
+                <a href="{% url 'favorites' %}" class="menu-item" style="display: none !important;" id="favorites-mobile-user-panel">
                   <div class="menu-icon">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
@@ -1203,6 +1203,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const favoritesItem = document.getElementById('favorites-menu-item');
     // Мобильная нижняя навигация
     const favoritesMobileBottomNav = document.getElementById('favorites-mobile-bottom-nav');
+    // Мобильная панель пользователя
+    const favoritesMobileUserPanel = document.getElementById('favorites-mobile-user-panel');
     
     console.log('Current window width:', window.innerWidth);
     
@@ -1229,6 +1231,16 @@ document.addEventListener('DOMContentLoaded', function() {
         favoritesMobileBottomNav.style.setProperty('position', 'absolute', 'important');
         favoritesMobileBottomNav.style.setProperty('left', '-9999px', 'important');
       }
+      
+      if (favoritesMobileUserPanel) {
+        favoritesMobileUserPanel.style.setProperty('display', 'none', 'important');
+        favoritesMobileUserPanel.style.setProperty('visibility', 'hidden', 'important');
+        favoritesMobileUserPanel.style.setProperty('opacity', '0', 'important');
+        favoritesMobileUserPanel.style.setProperty('height', '0', 'important');
+        favoritesMobileUserPanel.style.setProperty('overflow', 'hidden', 'important');
+        favoritesMobileUserPanel.style.setProperty('position', 'absolute', 'important');
+        favoritesMobileUserPanel.style.setProperty('left', '-9999px', 'important');
+      }
     } else {
       // Показываем на десктопе
       console.log('Showing favorites on desktop');
@@ -1245,6 +1257,10 @@ document.addEventListener('DOMContentLoaded', function() {
       
       if (favoritesMobileBottomNav) {
         favoritesMobileBottomNav.style.setProperty('display', 'none', 'important');
+      }
+      
+      if (favoritesMobileUserPanel) {
+        favoritesMobileUserPanel.style.setProperty('display', 'none', 'important');
       }
     }
   }
