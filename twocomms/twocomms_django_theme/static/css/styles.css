@@ -21208,6 +21208,22 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   height: 100% !important;
 }
 
+/* Дополнительные стили для карточек товаров */
+.product-card-wrap .ratio img {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+}
+
+/* Убираем возможные проблемы с z-index */
+.product-card-wrap .ratio {
+  position: relative !important;
+}
+
+.product-card-wrap .ratio img {
+  z-index: 1 !important;
+}
+
 /* Уменьшаем высоту изображения на десктопе */
 @media (min-width: 992px) {
   .ratio {
