@@ -1554,13 +1554,15 @@ body::after {
 .menu-item span {
   flex: 1;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .menu-text-container {
   display: flex;
   align-items: center;
-  gap: 8px;
   flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .menu-arrow {
