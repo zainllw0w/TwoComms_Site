@@ -926,7 +926,7 @@ body::after {
 
 /* Счетчик избранного в минипрофиле */
 .favorites-badge-mini {
-  display: inline-flex;
+  display: flex;
   width: 16px;
   height: 16px;
   min-width: 16px;
@@ -947,10 +947,7 @@ body::after {
   animation: favoritesPulse 2s ease-in-out infinite;
   z-index: 10;
   transition: all 0.3s ease;
-  margin-left: 6px;
-  vertical-align: baseline;
-  position: relative;
-  top: -1px;
+  flex-shrink: 0;
 }
 
 .favorites-badge-mini:hover {
@@ -1520,7 +1517,8 @@ body::after {
 
 .menu-text-container {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  gap: 8px;
   flex: 1;
 }
 
