@@ -201,11 +201,11 @@
   </style>
   
   <!-- Асинхронная загрузка основного CSS с приоритизацией -->
-  <link href="{% static 'css/styles.min.css' %}?v=2025.09.11.025" 
+  <link href="{% static 'css/styles.min.css' %}?v=2025.09.11.026" 
         rel="preload" as="style" 
         onload="this.onload=null;this.rel='stylesheet'"
         media="all">
-  <noscript><link href="{% static 'css/styles.min.css' %}?v=2025.09.11.025" rel="stylesheet"></noscript>
+  <noscript><link href="{% static 'css/styles.min.css' %}?v=2025.09.11.026" rel="stylesheet"></noscript>
   
   <!-- CLS Fixes CSS - загружаем синхронно для предотвращения смещений -->
   <link href="{% static 'css/cls-fixes.css' %}?v=2025.09.11.002" rel="stylesheet" media="all">
@@ -266,26 +266,6 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
   }
   
-  /* Показываем favorites только на десктопе */
-  @media (min-width: 992px) {
-    #favorites-menu-item {
-      display: flex !important;
-      visibility: visible !important;
-      opacity: 1 !important;
-      height: auto !important;
-    }
-  }
-  
-  /* Принудительно скрываем на мобильных */
-  @media (max-width: 991px) {
-    #favorites-menu-item {
-      display: none !important;
-      visibility: hidden !important;
-      opacity: 0 !important;
-      height: 0 !important;
-      overflow: hidden !important;
-    }
-  }
   
   
   /* Lite mode on constrained devices: reduce expensive visual effects */
@@ -1221,29 +1201,38 @@ document.addEventListener('DOMContentLoaded', function() {
   function toggleFavoritesVisibility() {
     const favoritesItem = document.getElementById('favorites-menu-item');
     if (favoritesItem) {
+      console.log('Current window width:', window.innerWidth);
       if (window.innerWidth <= 991) {
-        // Скрываем на мобильных
-        favoritesItem.style.display = 'none';
-        favoritesItem.style.visibility = 'hidden';
-        favoritesItem.style.opacity = '0';
-        favoritesItem.style.height = '0';
-        favoritesItem.style.overflow = 'hidden';
+        // Скрываем на мобильных - агрессивно
+        console.log('Hiding favorites on mobile');
+        favoritesItem.style.setProperty('display', 'none', 'important');
+        favoritesItem.style.setProperty('visibility', 'hidden', 'important');
+        favoritesItem.style.setProperty('opacity', '0', 'important');
+        favoritesItem.style.setProperty('height', '0', 'important');
+        favoritesItem.style.setProperty('overflow', 'hidden', 'important');
+        favoritesItem.style.setProperty('position', 'absolute', 'important');
+        favoritesItem.style.setProperty('left', '-9999px', 'important');
       } else {
         // Показываем на десктопе
-        favoritesItem.style.display = 'flex';
-        favoritesItem.style.visibility = 'visible';
-        favoritesItem.style.opacity = '1';
-        favoritesItem.style.height = 'auto';
-        favoritesItem.style.overflow = 'visible';
+        console.log('Showing favorites on desktop');
+        favoritesItem.style.setProperty('display', 'flex', 'important');
+        favoritesItem.style.setProperty('visibility', 'visible', 'important');
+        favoritesItem.style.setProperty('opacity', '1', 'important');
+        favoritesItem.style.setProperty('height', 'auto', 'important');
+        favoritesItem.style.setProperty('overflow', 'visible', 'important');
+        favoritesItem.style.setProperty('position', 'static', 'important');
+        favoritesItem.style.setProperty('left', 'auto', 'important');
       }
     }
   }
   
   // Применяем при загрузке
-  toggleFavoritesVisibility();
+  setTimeout(toggleFavoritesVisibility, 100);
   
   // Обновляем при изменении размера окна
-  window.addEventListener('resize', toggleFavoritesVisibility);
+  window.addEventListener('resize', function() {
+    setTimeout(toggleFavoritesVisibility, 50);
+  });
 });
 </script>
 
