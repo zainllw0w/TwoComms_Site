@@ -505,24 +505,44 @@ function confirmTelegram() {
   // Показываем индикатор загрузки
   showTelegramLoadingIndicator();
   
-  // Запускаем проверку статуса
-  startTelegramStatusCheck();
+  // Запускаем проверку статуса только если пользователь авторизован
+  // Проверяем наличие CSRF токена как индикатор авторизации
+  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+  if (csrfToken) {
+    startTelegramStatusCheck();
+  } else {
+    console.warn('Пользователь не авторизован, проверка статуса не запущена');
+    hideTelegramLoadingIndicator();
+  }
 }
 
 // Функция для проверки статуса подтверждения Telegram
 function checkTelegramStatus() {
   fetch('/accounts/telegram/status/')
-    .then(response => response.json())
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return response.json();
+    })
     .then(data => {
       if (data.is_confirmed) {
         // Обновляем кнопку на подтвержденную
         updateTelegramButton(true);
         // Останавливаем проверку
         stopTelegramStatusCheck();
+      } else if (data.error) {
+        // Если есть ошибка (например, пользователь не авторизован)
+        console.error('Ошибка API:', data.error);
+        stopTelegramStatusCheck();
+        hideTelegramLoadingIndicator();
       }
     })
     .catch(error => {
       console.error('Ошибка проверки статуса Telegram:', error);
+      // Останавливаем проверку при любой ошибке
+      stopTelegramStatusCheck();
+      hideTelegramLoadingIndicator();
     });
 }
 
@@ -557,6 +577,7 @@ function updateTelegramButton(isConfirmed) {
 let telegramStatusInterval = null;
 let telegramStatusCheckCount = 0;
 const MAX_TELEGRAM_STATUS_CHECKS = 30; // Максимум 30 проверок (5 минут)
+let telegramStatusTimeout = null; // Таймаут для принудительной остановки
 
 // Функция для запуска проверки статуса
 function startTelegramStatusCheck() {
@@ -565,6 +586,13 @@ function startTelegramStatusCheck() {
   
   // Сбрасываем счетчик
   telegramStatusCheckCount = 0;
+  
+  // Устанавливаем таймаут на 5 минут для принудительной остановки
+  telegramStatusTimeout = setTimeout(() => {
+    console.warn('Таймаут проверки статуса Telegram (5 минут)');
+    stopTelegramStatusCheck();
+    hideTelegramLoadingIndicator();
+  }, 5 * 60 * 1000); // 5 минут
   
   // Запускаем проверку каждые 10 секунд
   telegramStatusInterval = setInterval(() => {
@@ -588,6 +616,10 @@ function stopTelegramStatusCheck() {
   if (telegramStatusInterval) {
     clearInterval(telegramStatusInterval);
     telegramStatusInterval = null;
+  }
+  if (telegramStatusTimeout) {
+    clearTimeout(telegramStatusTimeout);
+    telegramStatusTimeout = null;
   }
 }
 
