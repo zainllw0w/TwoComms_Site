@@ -86,6 +86,25 @@ def check_telegram_status(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+@require_http_methods(["GET"])
+def debug_user_info(request):
+    """Отладочный endpoint для проверки пользователя"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    
+    try:
+        profile = request.user.userprofile
+        return JsonResponse({
+            'username': request.user.username,
+            'email': request.user.email,
+            'telegram': profile.telegram or '',
+            'telegram_id': profile.telegram_id,
+            'is_confirmed': bool(profile.telegram_id)
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def get_telegram_id(request):
