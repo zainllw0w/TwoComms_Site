@@ -1563,7 +1563,7 @@ body::after {
   flex: 1;
   font-weight: 500;
   white-space: nowrap !important;
-  font-size: 0.875rem !important;
+  font-size: 1rem !important;
 }
 
 .menu-text-container span {
@@ -1629,7 +1629,7 @@ body .user-panel .user-menu .menu-item[href*="favorites"] .menu-text-container s
   word-break: keep-all !important;
   overflow-wrap: normal !important;
   word-wrap: normal !important;
-  font-size: 0.875rem !important;
+  font-size: 1rem !important;
   line-height: 1 !important;
   display: inline-block !important;
   max-width: none !important;
