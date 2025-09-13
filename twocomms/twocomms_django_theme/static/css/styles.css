@@ -21225,7 +21225,7 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 }
 
 /* АГРЕССИВНЫЕ стили для принудительного отображения изображений */
-.ratio img {
+.ratio img, .ratio picture {
   opacity: 1 !important;
   visibility: visible !important;
   display: block !important;
@@ -21234,8 +21234,11 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   left: 0 !important;
   width: 100% !important;
   height: 100% !important;
-  object-fit: cover !important;
   z-index: 1 !important;
+}
+
+.ratio img {
+  object-fit: cover !important;
 }
 
 /* Убираем все возможные скрытия */
