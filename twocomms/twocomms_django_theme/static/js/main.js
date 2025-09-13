@@ -1296,6 +1296,22 @@ document.addEventListener('DOMContentLoaded', function() {
           productsContainer.insertAdjacentHTML('beforeend', data.html);
           updatePageSelector(pageNumber);
           animateNewCards();
+          
+          // Проверяем цветовые точки после загрузки новых товаров
+          setTimeout(() => {
+            const allColorDots = document.querySelectorAll('.color-dot');
+            console.log('Color dots after loading new products:', allColorDots.length);
+            
+            // Проверяем цветовые точки в новых карточках
+            const newProducts = productsContainer.querySelectorAll('.product-card-wrap:not(.animated)');
+            console.log('New product cards loaded:', newProducts.length);
+            
+            newProducts.forEach((productWrap, index) => {
+              const colorDots = productWrap.querySelectorAll('.color-dot');
+              console.log(`Product ${index + 1} has ${colorDots.length} color dots`);
+            });
+          }, 100);
+          
           setTimeout(()=>{ try{ window.equalizeCardHeights && window.equalizeCardHeights(); }catch(_){} }, 200);
           if (!data.has_more && loadMoreContainer) {
             loadMoreContainer.style.display = 'none';
@@ -1780,6 +1796,10 @@ document.addEventListener('click', function(e) {
 // Оптимизированная инициализация цветовых точек при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
   console.log('DOM loaded, JavaScript is working');
+  
+  // Проверяем наличие цветовых точек на странице
+  const colorDots = document.querySelectorAll('.color-dot');
+  console.log('Found color dots on page load:', colorDots.length);
   
   // Инициализация мобильных оптимизаций
   MobileOptimizer.initMobileOptimizations();
