@@ -21183,12 +21183,3 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 .ratio-product {
   --bs-aspect-ratio: calc(1350 / 1080 * 100%);
 }
-
-/* Обеспечиваем единообразное отображение изображений в карточках товаров */
-.product-main-image {
-  object-fit: cover !important;
-  object-position: center !important;
-  width: 100% !important;
-  height: 100% !important;
-  display: block;
-}
