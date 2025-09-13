@@ -25,7 +25,13 @@
   <div class="col-12 col-lg-6">
     <div class="ratio ratio-product-detail rounded-4 overflow-hidden bg-elevate glass position-relative">
       {% if product.main_image %}
-        {% responsive_image product.main_image.url product.title "w-100 h-100 object-fit-cover" "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px" %}
+        <img
+          id="mainImage"
+          src="{{ product.main_image.url }}"
+          loading="eager" decoding="async" fetchpriority="high"
+          class="w-100 h-100 object-fit-cover"
+          alt="{{ product.title }}"
+        >
       {% else %}
         {% static 'img/placeholder.jpg' as ph_url %}
         <img
@@ -134,7 +140,11 @@
           <!-- Заповниться динамічно (варіант кольору або головне фото) -->
           <div class="carousel-item active">
             {% if product.display_image %}
-              {% responsive_image product.display_image.url product.title "d-block w-100 h-100 object-fit-contain" "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px" %}
+              <img
+                src="{{ product.display_image.url }}"
+                class="d-block w-100 h-100 object-fit-contain"
+                alt="{{ product.title }}"
+              >
             {% else %}
               {% static 'img/placeholder.jpg' as ph_url %}
               <img
