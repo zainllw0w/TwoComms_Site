@@ -65,7 +65,7 @@ class TelegramBot:
             if response.status_code == 200:
                 return response.json()
         except Exception as e:
-        return None
+            return None
     
     def process_start_command(self, user_id, username=None):
         """Обрабатывает команду /start"""
