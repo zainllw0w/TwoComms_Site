@@ -201,11 +201,11 @@
   </style>
   
   <!-- Асинхронная загрузка основного CSS с приоритизацией -->
-  <link href="{% static 'css/styles.min.css' %}?v=2025.09.11.023" 
+  <link href="{% static 'css/styles.min.css' %}?v=2025.09.11.024" 
         rel="preload" as="style" 
         onload="this.onload=null;this.rel='stylesheet'"
         media="all">
-  <noscript><link href="{% static 'css/styles.min.css' %}?v=2025.09.11.023" rel="stylesheet"></noscript>
+  <noscript><link href="{% static 'css/styles.min.css' %}?v=2025.09.11.024" rel="stylesheet"></noscript>
   
   <!-- CLS Fixes CSS - загружаем синхронно для предотвращения смещений -->
   <link href="{% static 'css/cls-fixes.css' %}?v=2025.09.11.002" rel="stylesheet" media="all">
@@ -270,8 +270,49 @@
   @media (min-width: 992px) {
     #favorites-menu-item {
       display: flex !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      height: auto !important;
     }
   }
+  
+  /* Принудительно скрываем на мобильных */
+  @media (max-width: 991px) {
+    #favorites-menu-item {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      height: 0 !important;
+      overflow: hidden !important;
+    }
+  }
+  
+  /* JavaScript для принудительного скрытия на мобильных */
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
+    function hideFavoritesOnMobile() {
+      const favoritesItem = document.getElementById('favorites-menu-item');
+      if (favoritesItem) {
+        if (window.innerWidth <= 991) {
+          favoritesItem.style.display = 'none';
+          favoritesItem.style.visibility = 'hidden';
+          favoritesItem.style.opacity = '0';
+          favoritesItem.style.height = '0';
+          favoritesItem.style.overflow = 'hidden';
+        } else {
+          favoritesItem.style.display = 'flex';
+          favoritesItem.style.visibility = 'visible';
+          favoritesItem.style.opacity = '1';
+          favoritesItem.style.height = 'auto';
+          favoritesItem.style.overflow = 'visible';
+        }
+      }
+    }
+    
+    hideFavoritesOnMobile();
+    window.addEventListener('resize', hideFavoritesOnMobile);
+  });
+  </script>
   
   /* Lite mode on constrained devices: reduce expensive visual effects */
   .perf-lite .hero.bg-hero,
