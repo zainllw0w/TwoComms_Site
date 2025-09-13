@@ -1296,37 +1296,6 @@ document.addEventListener('DOMContentLoaded', function() {
           productsContainer.insertAdjacentHTML('beforeend', data.html);
           updatePageSelector(pageNumber);
           animateNewCards();
-          
-          // Проверяем изображения и цветовые точки после загрузки новых товаров
-          setTimeout(() => {
-            const allColorDots = document.querySelectorAll('.color-dot');
-            console.log('Color dots after loading new products:', allColorDots.length);
-            
-            // Проверяем изображения в новых карточках
-            const newProducts = productsContainer.querySelectorAll('.product-card-wrap:not(.animated)');
-            console.log('New product cards loaded:', newProducts.length);
-            
-            newProducts.forEach((productWrap, index) => {
-              const productCard = productWrap.querySelector('.card.product');
-              const image = productCard ? productCard.querySelector('.product-main-image') : null;
-              const colorDots = productWrap.querySelectorAll('.color-dot');
-              
-              console.log(`Product ${index + 1}:`);
-              console.log(`  - Image src: ${image ? image.src : 'no image found'}`);
-              console.log(`  - Image alt: ${image ? image.alt : 'no image found'}`);
-              console.log(`  - Color dots: ${colorDots.length}`);
-              
-              if (image) {
-                image.addEventListener('load', () => {
-                  console.log(`Product ${index + 1} image loaded successfully`);
-                });
-                image.addEventListener('error', () => {
-                  console.log(`Product ${index + 1} image failed to load`);
-                });
-              }
-            });
-          }, 100);
-          
           setTimeout(()=>{ try{ window.equalizeCardHeights && window.equalizeCardHeights(); }catch(_){} }, 200);
           if (!data.has_more && loadMoreContainer) {
             loadMoreContainer.style.display = 'none';
@@ -1687,27 +1656,20 @@ function preloadImage(src) {
 
 // Функция для получения URL изображения цвета
 function getColorImageUrl(colorDot, productCard) {
-  console.log('Getting color image URL for dot:', colorDot);
-  
   // Пытаемся получить URL из data-атрибутов
   const imageUrl = colorDot.getAttribute('data-image-url');
-  console.log('Data-image-url:', imageUrl);
-  
   if (imageUrl) {
     return imageUrl;
   }
   
   // Если нет data-атрибута, пытаемся получить из title или других атрибутов
   const title = colorDot.getAttribute('title');
-  console.log('Title:', title);
-  
   if (title) {
     // Здесь можно добавить логику для получения URL по цвету
     // Пока что возвращаем null, чтобы не ломать существующую функциональность
     return null;
   }
   
-  console.log('No image URL found');
   return null;
 }
 
@@ -1719,8 +1681,40 @@ function animateImageChange(img, newSrc) {
     
     // Предзагружаем новое изображение
     preloadImage(newSrc).then(() => {
-      // Для простых <img> элементов просто меняем src
-      img.src = newSrc;
+      // Проверяем, является ли элемент <picture>
+      const picture = img.closest('picture');
+      if (picture) {
+        // Для <picture> элементов нужно обновить все источники
+        const sources = picture.querySelectorAll('source');
+        sources.forEach(source => {
+          const srcset = source.getAttribute('srcset');
+          if (srcset) {
+            // Генерируем новые URL для оптимизированных версий
+            const baseUrl = newSrc.replace(/\/[^\/]+\.(jpg|jpeg|png)$/, '');
+            const fileName = newSrc.match(/\/([^\/]+)\.(jpg|jpeg|png)$/);
+            if (fileName) {
+              const baseName = fileName[1];
+              const type = source.getAttribute('type');
+              let newSrcset;
+              
+              if (type === 'image/avif') {
+                newSrcset = `${baseUrl}/optimized/${baseName}.avif`;
+              } else if (type === 'image/webp') {
+                newSrcset = `${baseUrl}/optimized/${baseName}.webp`;
+              } else {
+                newSrcset = newSrc;
+              }
+              
+              source.setAttribute('srcset', newSrcset);
+            }
+          }
+        });
+        // Обновляем основной img
+        img.src = newSrc;
+      } else {
+        // Для обычных img элементов
+        img.src = newSrc;
+      }
       
       // Используем requestAnimationFrame для плавной анимации
       requestAnimationFrame(() => {
@@ -1735,18 +1729,12 @@ function animateImageChange(img, newSrc) {
   });
 }
 
-// Общий обработчик для отладки всех кликов
+// Оптимизированный обработчик клика по цветовым точкам с делегированием
 document.addEventListener('click', function(e) {
-  console.log('Clicked element:', e.target);
-  console.log('Element classes:', e.target.classList);
-  console.log('Element tag:', e.target.tagName);
-  
   // Проверяем, что клик был по цветовой точке
   if (!e.target.classList.contains('color-dot')) {
     return;
   }
-  
-  console.log('Color dot clicked:', e.target);
   
   // Предотвращаем всплытие события
   e.stopPropagation();
@@ -1756,29 +1744,19 @@ document.addEventListener('click', function(e) {
   const productCardWrap = colorDot.closest('.product-card-wrap');
   const productCard = productCardWrap ? productCardWrap.querySelector('.card.product') : null;
   
-  console.log('Product card wrap:', productCardWrap);
-  console.log('Product card:', productCard);
-  
   if (!productCard) {
-    console.log('No product card found');
     return;
   }
   
   // Находим основное изображение карточки (поддерживаем как <img>, так и <picture>)
   const mainImage = productCard.querySelector('.ratio picture img') || productCard.querySelector('.ratio .product-main-image') || productCard.querySelector('.ratio img');
   
-  console.log('Main image:', mainImage);
-  console.log('Current image src:', mainImage ? mainImage.src : 'no image');
-  
   if (!mainImage) {
-    console.log('No main image found');
     return;
   }
   
   // Получаем URL изображения для выбранного цвета
   const newImageUrl = getColorImageUrl(colorDot, productCard);
-  
-  console.log('New image URL:', newImageUrl);
   
   // Анимируем переключение цветовых точек
   const allDots = productCardWrap.querySelectorAll('.color-dot');
@@ -1794,34 +1772,18 @@ document.addEventListener('click', function(e) {
   });
   
   if (!newImageUrl) {
-    console.log('No new image URL');
     // Если нет URL для изображения, просто меняем активное состояние
     return;
   }
   
   // Анимируем смену изображения только если URL действительно изменился
   if (mainImage.src !== newImageUrl) {
-    console.log('Changing image from', mainImage.src, 'to', newImageUrl);
     animateImageChange(mainImage, newImageUrl);
-  } else {
-    console.log('Image URL is the same, no change needed');
   }
 }, { passive: false });
 
 // Оптимизированная инициализация цветовых точек при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
-  console.log('DOM loaded, JavaScript is working');
-  
-  // Проверяем наличие цветовых точек и изображений на странице
-  const colorDots = document.querySelectorAll('.color-dot');
-  const productImages = document.querySelectorAll('.product-main-image');
-  console.log('Found color dots on page load:', colorDots.length);
-  console.log('Found product images on page load:', productImages.length);
-  
-  productImages.forEach((image, index) => {
-    console.log(`Initial product image ${index + 1}:`, image.src, image.alt);
-  });
-  
   // Инициализация мобильных оптимизаций
   MobileOptimizer.initMobileOptimizations();
   
