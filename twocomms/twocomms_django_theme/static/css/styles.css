@@ -926,6 +926,7 @@ body::after {
 
 /* Счетчик избранного в минипрофиле */
 .favorites-badge-mini {
+  display: inline-block;
   width: 16px;
   height: 16px;
   min-width: 16px;
@@ -937,9 +938,8 @@ body::after {
   font-size: 0.55rem;
   font-weight: 700;
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  text-align: center;
+  line-height: 16px;
   border: 1px solid rgba(255, 255, 255, 0.95);
   box-shadow: 
     0 1px 4px rgba(239, 68, 68, 0.4),
@@ -947,10 +947,8 @@ body::after {
   animation: favoritesPulse 2s ease-in-out infinite;
   z-index: 10;
   transition: all 0.3s ease;
-  flex-shrink: 0;
-  line-height: 1;
-  text-align: center;
-  margin: 0;
+  margin-left: 6px;
+  vertical-align: middle;
 }
 
 .favorites-badge-mini:hover {
@@ -1521,7 +1519,6 @@ body::after {
 .menu-text-container {
   display: flex;
   align-items: center;
-  gap: 6px;
   flex: 1;
 }
 
