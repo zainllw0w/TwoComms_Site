@@ -1802,11 +1802,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Функция для принудительного отображения всех изображений
 function forceShowAllImages() {
-    console.log('Forcing show all images...');
     const images = document.querySelectorAll('.ratio img');
-    console.log('Found images:', images.length);
-    images.forEach((img, index) => {
-        console.log(`Image ${index}:`, img.src);
+    images.forEach((img) => {
         img.style.display = 'block';
         img.style.visibility = 'visible';
         img.style.opacity = '1';
