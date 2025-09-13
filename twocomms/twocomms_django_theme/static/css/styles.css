@@ -1019,8 +1019,9 @@ body::after {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  width: 360px;
-  max-width: calc(100vw - 40px);
+  width: 380px !important;
+  max-width: calc(100vw - 20px) !important;
+  min-width: 320px !important;
   background: linear-gradient(135deg, rgba(20,22,27,0.98), rgba(10,12,17,0.95));
   border: 1px solid rgba(139, 92, 246, 0.2);
   border-radius: 20px;
@@ -1496,6 +1497,9 @@ body::after {
   flex-direction: column;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
+  width: 100% !important;
+  min-width: 0 !important;
+  overflow: visible !important;
 }
 
 .menu-item {
@@ -1594,6 +1598,28 @@ body::after {
   word-wrap: normal !important;
   font-size: 0.875rem !important;
   line-height: 1 !important;
+}
+
+/* Агрессивные стили для всех родительских контейнеров */
+.user-panel *,
+.user-menu *,
+.menu-item *,
+.menu-text-container * {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  word-wrap: normal !important;
+}
+
+/* Дополнительные стили для предотвращения ограничений ширины */
+.user-panel,
+.user-menu,
+.menu-item,
+.menu-text-container {
+  min-width: 0 !important;
+  max-width: none !important;
+  width: auto !important;
+  flex-shrink: 0 !important;
 }
 
 .menu-text-container {
