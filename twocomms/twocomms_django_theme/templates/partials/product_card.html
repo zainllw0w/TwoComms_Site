@@ -4,12 +4,18 @@
 <div class="col">
   <div class="card product h-100 hover-raise glass {% if stagger %}reveal-stagger stagger-item{% else %}reveal-fast{% endif %}" data-product-id="{{ p.id }}" data-product-title="{{ p.title|escapejs }}">
     <div class="ratio ratio-product rounded-top-4 overflow-hidden bg-elevate position-relative">
+      <!-- DEBUG INFO -->
+      <div style="position: absolute; top: 0; left: 0; background: red; color: white; font-size: 10px; z-index: 1000; padding: 2px;">
+        ID:{{ p.id }} D:{{ p.display_image|yesno:"Y,N" }} M:{{ p.main_image|yesno:"Y,N" }}
+      </div>
+      
       {% if p.display_image %}
         <img src="{{ p.display_image.url }}"
              alt="{{ p.title }}"
              width="1080" height="1350"
              class="w-100 h-100 object-fit-cover product-main-image"
              loading="lazy"
+             onload="console.log('Display image loaded:', this.src)"
              onerror="console.log('Display image failed:', this.src)">
       {% elif p.main_image %}
         <img src="{{ p.main_image.url }}"
@@ -17,6 +23,7 @@
              width="1080" height="1350"
              class="w-100 h-100 object-fit-cover product-main-image"
              loading="lazy"
+             onload="console.log('Main image loaded:', this.src)"
              onerror="console.log('Main image failed:', this.src)">
       {% else %}
         {% static 'img/placeholder.jpg' as ph_url %}
@@ -25,6 +32,7 @@
              width="1080" height="1350"
              class="w-100 h-100 object-fit-cover product-main-image"
              loading="lazy"
+             onload="console.log('Placeholder loaded:', this.src)"
              onerror="console.log('Placeholder failed:', this.src)">
       {% endif %}
       <!-- Кнопка избранного -->
