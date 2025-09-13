@@ -21186,5 +21186,5 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 
 /* Соотношение сторон для детальной страницы товара - более вытянутое по вертикали */
 .ratio-product-detail {
-  --bs-aspect-ratio: calc(1350 / 1080 * 100%);
+  --bs-aspect-ratio: 125%;
 }
