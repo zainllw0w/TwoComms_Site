@@ -27,8 +27,9 @@ def telegram_webhook(request):
         result = telegram_bot.process_webhook_update(update_data)
         
         if result:
-        
-        return JsonResponse({'ok': True, 'result': result})
+            return JsonResponse({'ok': True, 'result': result})
+        else:
+            return JsonResponse({'ok': False, 'error': 'Failed to process webhook'})
         
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)})
