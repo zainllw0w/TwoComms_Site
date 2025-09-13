@@ -1808,7 +1808,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Функция для принудительного отображения всех изображений
 function forceShowAllImages() {
-    const images = document.querySelectorAll('.ratio img');
+    // Обрабатываем как обычные img, так и img внутри picture элементов
+    const images = document.querySelectorAll('.ratio img, .ratio picture img');
     images.forEach((img) => {
         img.style.display = 'block';
         img.style.visibility = 'visible';
@@ -1820,6 +1821,14 @@ function forceShowAllImages() {
         img.style.height = '100%';
         img.style.objectFit = 'cover';
         img.style.zIndex = '1';
+    });
+    
+    // Также обрабатываем picture элементы
+    const pictures = document.querySelectorAll('.ratio picture');
+    pictures.forEach((picture) => {
+        picture.style.display = 'block';
+        picture.style.visibility = 'visible';
+        picture.style.opacity = '1';
     });
 }
 
