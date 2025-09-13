@@ -72,18 +72,15 @@
   recalc()
   recalc()
   
-  // Отладка формы
+  // Форма товара
   const form = document.getElementById('productForm');
   if (form) {
     form.addEventListener('submit', function(e) {
-      console.log('Отправка формы создания товара...');
       const formData = new FormData(this);
-      console.log('Данные формы:', Object.fromEntries(formData));
       
       // Проверяем поле points_reward
       const pointsField = document.getElementById('id_points_reward');
       if (pointsField) {
-        console.log('points_reward:', pointsField.value);
       }
     });
   }

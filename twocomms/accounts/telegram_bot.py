@@ -75,7 +75,7 @@ class TelegramBot:
             
             if profile:
                 # Пользователь уже подтвержден
-                message = f"""✅ <b>Ласкаво просимо, {profile.user.username}!</b>
+                message = f"""<b>Ласкаво просимо, {profile.user.username}!</b>
 
 Ви вже підтвердили свій Telegram для отримання сповіщень про статус замовлень.
 
@@ -173,7 +173,7 @@ class TelegramBot:
                 self.send_message(telegram_id, message)
                 return True
             else:
-                message = """❌ <b>Не вдалося пов'язати акаунт</b>
+                message = """<b>Не вдалося пов'язати акаунт</b>
 
 Переконайтеся, що:
 1. Ви ввели правильний Telegram username у профілі

@@ -662,8 +662,7 @@
 <script>
 /* Fallback: глобальные функции, если основной JS не заинициализирован */
 (function(){
-  var UI_DEBUG = false; try{ UI_DEBUG = localStorage.getItem('ui-debug')==='1'; }catch(_){ UI_DEBUG = false; }
-  var dlog = UI_DEBUG ? function(){ try{ console.log.apply(console, arguments);}catch(_){} } : function(){};
+  // UI debugging disabled for production
   function getCookie(name){
     var m=document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)'); 
     var result = m?decodeURIComponent(m.pop()):'';
@@ -1136,11 +1135,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Мобильная нижняя навигация
     const favoritesMobileBottomNav = document.getElementById('favorites-mobile-bottom-nav');
     
-    console.log('Current window width:', window.innerWidth);
     
     if (window.innerWidth <= 991) {
       // Скрываем на мобильных - агрессивно
-      console.log('Hiding favorites on mobile');
       
       if (favoritesItem) {
         favoritesItem.style.setProperty('display', 'none', 'important');
@@ -1163,7 +1160,6 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     } else {
       // Показываем на десктопе
-      console.log('Showing favorites on desktop');
       
       if (favoritesItem) {
         favoritesItem.style.setProperty('display', 'flex', 'important');
@@ -1203,10 +1199,8 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
     navigator.serviceWorker.register('/sw.js')
       .then(function(registration) {
-        console.log('SW registered: ', registration);
       })
       .catch(function(registrationError) {
-        console.log('SW registration failed: ', registrationError);
       });
   });
 }
