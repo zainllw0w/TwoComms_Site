@@ -210,6 +210,62 @@
   <!-- CLS Fixes CSS - загружаем синхронно для предотвращения смещений -->
   <link href="{% static 'css/cls-fixes.css' %}?v=2025.09.11.002" rel="stylesheet" media="all">
   <style>
+  /* Анимации для счетчика favorites - принудительное применение */
+  @keyframes counterPulseInline {
+    0%, 100% {
+      box-shadow: 
+        0 3px 8px rgba(255, 107, 107, 0.4),
+        0 1px 3px rgba(255, 107, 107, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      transform: scale(1);
+    }
+    50% {
+      box-shadow: 
+        0 4px 12px rgba(255, 107, 107, 0.6),
+        0 2px 6px rgba(255, 107, 107, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      transform: scale(1.02);
+    }
+  }
+  
+  @keyframes counterShineInline {
+    0% {
+      transform: translateX(-100%) translateY(-100%) rotate(45deg);
+    }
+    50% {
+      transform: translateX(100%) translateY(100%) rotate(45deg);
+    }
+    100% {
+      transform: translateX(-100%) translateY(-100%) rotate(45deg);
+    }
+  }
+  
+  #favorites-count-mini {
+    animation: counterPulseInline 3s ease-in-out infinite !important;
+  }
+  
+  #favorites-count-mini::before {
+    content: '' !important;
+    position: absolute !important;
+    top: -50% !important;
+    left: -50% !important;
+    width: 200% !important;
+    height: 200% !important;
+    background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.3) 50%, transparent 70%) !important;
+    animation: counterShineInline 4s ease-in-out infinite !important;
+    pointer-events: none !important;
+  }
+  
+  #favorites-count-mini:hover {
+    background: linear-gradient(135deg, #ff5252 0%, #e53e3e 50%, #ff3838 100%) !important;
+    transform: scale(1.15) translateY(-1px) !important;
+    box-shadow: 
+      0 6px 16px rgba(255, 107, 107, 0.6),
+      0 3px 8px rgba(255, 107, 107, 0.4),
+      0 0 0 3px rgba(255, 107, 107, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+  }
+  
   /* Lite mode on constrained devices: reduce expensive visual effects */
   .perf-lite .hero.bg-hero,
   .perf-lite .bottom-nav,
