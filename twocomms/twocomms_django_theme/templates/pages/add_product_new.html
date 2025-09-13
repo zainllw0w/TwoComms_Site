@@ -572,10 +572,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const formData = new FormData(productForm);
         
         // Отладочная информация
-        console.log('Form data being sent:');
-        for (let [key, value] of formData.entries()) {
-            console.log(key, value);
-        }
         
         return fetch(productForm.action || window.location.href, {
             method: 'POST',
@@ -594,7 +590,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         })
         .then(data => {
-            console.log('Product creation response:', data);
             if (data.success && data.product_id) {
                 currentProductId = data.product_id;
                 
@@ -838,15 +833,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const files = Array.from(e.target.files);
         selectedImages = files;
         
-        console.log('Selected files:', files);
-        console.log('Files count:', files.length);
         
         if (files.length > 0) {
             imagePreviewContainer.style.display = 'block';
             imagePreviewGrid.innerHTML = '';
             
             files.forEach((file, index) => {
-                console.log(`Processing file ${index + 1}:`, file.name, file.type, file.size);
                 
                 // Проверяем, что это изображение
                 if (!file.type.startsWith('image/')) {
@@ -856,7 +848,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    console.log(`File ${index + 1} loaded successfully`);
                     const previewItem = document.createElement('div');
                     previewItem.className = 'image-preview-item';
                     previewItem.innerHTML = `
@@ -940,10 +931,6 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.append('product_id', currentProductId);
             
             // Отладочная информация для формы цвета
-            console.log('Color form data being sent:');
-            for (let [key, value] of formData.entries()) {
-                console.log(key, value);
-            }
             
             return fetch(colorForm.action || window.location.href, {
                 method: 'POST',
@@ -955,7 +942,6 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
-            console.log('Color creation response:', data);
             if (data.success) {
                 submitBtn.innerHTML = '<i class="fas fa-check me-1"></i>Додано!';
                 submitBtn.classList.remove('btn-cta');

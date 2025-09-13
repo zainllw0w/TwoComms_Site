@@ -1000,8 +1000,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   })();
 });
 
-// ===== Runtime diagnostics (opt-in via localStorage 'perf-debug' = '1') =====
-// Diagnostics removed (was gated by localStorage 'perf-debug')
+// Runtime diagnostics removed for production
 
 // ===== Авто-оптимизация тяжёлых эффектов без изменения вида =====
 document.addEventListener('DOMContentLoaded', function(){

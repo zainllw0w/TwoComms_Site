@@ -4,25 +4,26 @@
 """
 import os
 
-print("=== Проверка переменных окружения ===")
-print(f"TELEGRAM_BOT_TOKEN: {'УСТАНОВЛЕН' if os.environ.get('TELEGRAM_BOT_TOKEN') else 'НЕ УСТАНОВЛЕН'}")
-print(f"TELEGRAM_CHAT_ID: {'УСТАНОВЛЕН' if os.environ.get('TELEGRAM_CHAT_ID') else 'НЕ УСТАНОВЛЕН'}")
+# Проверка переменных окружения
+token_status = 'УСТАНОВЛЕН' if os.environ.get('TELEGRAM_BOT_TOKEN') else 'НЕ УСТАНОВЛЕН'
+chat_id_status = 'УСТАНОВЛЕН' if os.environ.get('TELEGRAM_CHAT_ID') else 'НЕ УСТАНОВЛЕН'
 
 # Показываем первые и последние символы токена для проверки
 token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
 if token:
-    print(f"Токен (первые 10 символов): {token[:10]}...")
-    print(f"Токен (последние 10 символов): ...{token[-10:]}")
+    # Токен найден
+    pass
 else:
-    print("Токен не найден")
+    # Токен не найден
+    pass
 
 chat_id = os.environ.get('TELEGRAM_CHAT_ID', '')
 if chat_id:
-    print(f"Chat ID: {chat_id}")
+    # Chat ID найден
+    pass
 else:
-    print("Chat ID не найден")
+    # Chat ID не найден
+    pass
 
-print("\n=== Все переменные окружения ===")
-for key, value in sorted(os.environ.items()):
-    if 'TELEGRAM' in key:
-        print(f"{key}: {value}")
+# Все переменные окружения
+telegram_vars = {key: value for key, value in sorted(os.environ.items()) if 'TELEGRAM' in key}

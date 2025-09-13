@@ -724,11 +724,11 @@
                             <span class="info-label">Статус:</span>
                             <span class="info-value">
                               {% if o.payment_status == 'paid' %}
-                                ✅ Оплачено повністю
+                                Оплачено повністю
                               {% elif o.payment_status == 'partial' %}
-                                ⚠️ Внесена передплата
+                                Внесена передплата
                               {% else %}
-                                ❌ Не оплачено
+                                Не оплачено
                               {% endif %}
                             </span>
                           </div>
@@ -2045,7 +2045,7 @@
 
 /* Функция фильтрации пользователей по имени или логину */
 function filterUsers(searchTerm) {
-  // console.log('Filtering users with term:', searchTerm);
+  // Фильтрация пользователей
   
   const userCards = document.querySelectorAll('.user-card');
   const usersCount = document.getElementById('users-count');
@@ -2053,14 +2053,12 @@ function filterUsers(searchTerm) {
   
   searchTerm = searchTerm.toLowerCase().trim();
   
-  // console.log('Found user cards:', userCards.length);
   
   userCards.forEach((card, index) => {
     const username = card.querySelector('.user-name')?.textContent?.toLowerCase() || '';
     const fullName = card.querySelector('.user-full-name')?.textContent?.toLowerCase() || '';
     const email = card.querySelector('.user-email')?.textContent?.toLowerCase() || '';
     
-    // console.log(`Card ${index}: username="${username}", fullName="${fullName}", email="${email}"`);
     
     const isVisible = username.includes(searchTerm) || 
                      fullName.includes(searchTerm) || 
@@ -2074,7 +2072,6 @@ function filterUsers(searchTerm) {
     }
   });
   
-  // console.log('Visible count:', visibleCount);
   
   // Обновляем счетчик видимых пользователей
   if (usersCount) {
@@ -2098,7 +2095,6 @@ function clearUserSearch() {
 }
 
 function filterOrders(status, payment) {
-  // console.log('Filtering orders:', status, payment);
   
   const currentUrl = new URL(window.location);
   currentUrl.searchParams.set('section', 'orders');
@@ -2116,22 +2112,17 @@ function filterOrders(status, payment) {
     currentUrl.searchParams.delete('payment');
   }
   
-  // console.log('Redirecting to:', currentUrl.toString());
   window.location.href = currentUrl.toString();
 }
 
 /* Функция для фильтрации заказов конкретного пользователя */
 function filterUserOrders(userId, filterType, filterValue) {
-  // console.log('Filtering user orders:', userId, filterType, filterValue);
-  // console.log('Current URL:', window.location.href);
   
   const currentUrl = new URL(window.location);
   currentUrl.searchParams.set('section', 'orders');
   currentUrl.searchParams.set('user_id', userId);
   currentUrl.searchParams.set(filterType, filterValue);
   
-  // console.log('New URL:', currentUrl.toString());
-  // console.log('Search params:', currentUrl.searchParams.toString());
   
   window.location.href = currentUrl.toString();
 }
@@ -2140,7 +2131,6 @@ function filterUserOrders(userId, filterType, filterValue) {
 
 /* Функция фильтрации каталогов */
 function filterCatalogs(searchTerm) {
-  console.log('Filtering catalogs with term:', searchTerm);
   
   const categoryCards = document.querySelectorAll('.category-card');
   const productCards = document.querySelectorAll('.product-card');
@@ -2226,7 +2216,6 @@ function deleteProduct(productId, productName) {
 }
 
 function updateOrderStatus(orderId, newStatus) {
-  // console.log('updateOrderStatus called with:', orderId, newStatus);
   
   /* Проверяем CSRF токен */
   const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
@@ -2235,7 +2224,6 @@ function updateOrderStatus(orderId, newStatus) {
     showNotification('Помилка: CSRF токен не знайдено', 'error');
     return;
   }
-  // console.log('CSRF token found:', csrfToken.value);
   
   const statusText = {
     'new': 'В обробці',
@@ -2273,18 +2261,15 @@ function updateOrderStatus(orderId, newStatus) {
       formData.append('tracking_number', ttn.trim());
       formData.append('csrfmiddlewaretoken', csrfToken.value);
       
-      // console.log('Sending request with TTN:', ttn.trim());
       
       fetch('{% url "admin_update_order_status" %}', {
         method: 'POST',
         body: formData
       })
       .then(response => {
-        // console.log('Response status:', response.status);
         return response.json();
       })
       .then(data => {
-        // console.log('Response data:', data);
         if (data.success) {
           showNotification(data.message, 'success');
           /* Обновляем селект в интерфейсе */
@@ -2335,19 +2320,15 @@ function updateOrderStatus(orderId, newStatus) {
     formData.append('status', newStatus);
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
     
-    // console.log('Sending request to:', '{% url "admin_update_order_status" %}');
-    // console.log('FormData:', formData);
     
     fetch('{% url "admin_update_order_status" %}', {
       method: 'POST',
       body: formData
     })
     .then(response => {
-      // console.log('Response status:', response.status);
       return response.json();
     })
     .then(data => {
-      // console.log('Response data:', data);
       if (data.success) {
         showNotification(data.message, 'success');
         /* Обновляем селект в интерфейсе */
