@@ -5,27 +5,24 @@
   <div class="card product h-100 hover-raise glass {% if stagger %}reveal-stagger stagger-item{% else %}reveal-fast{% endif %}" data-product-id="{{ p.id }}" data-product-title="{{ p.title|escapejs }}">
     <div class="ratio ratio-product rounded-top-4 overflow-hidden bg-elevate position-relative">
       {% if p.display_image %}
-        {% if forloop.first %}<link rel="preload" as="image" href="{{ p.display_image.url }}">{% endif %}
         <img src="{{ p.display_image.url }}"
              alt="{{ p.title }}"
              width="1080" height="1350"
              class="w-100 h-100 object-fit-cover product-main-image"
-             loading="{% if forloop.first %}eager{% else %}lazy{% endif %}">
+             loading="lazy">
       {% elif p.main_image %}
-        {% if forloop.first %}<link rel="preload" as="image" href="{{ p.main_image.url }}">{% endif %}
         <img src="{{ p.main_image.url }}"
              alt="{{ p.title }}"
              width="1080" height="1350"
              class="w-100 h-100 object-fit-cover product-main-image"
-             loading="{% if forloop.first %}eager{% else %}lazy{% endif %}">
+             loading="lazy">
       {% else %}
         {% static 'img/placeholder.jpg' as ph_url %}
-        {% if forloop.first %}<link rel="preload" as="image" href="{{ ph_url }}">{% endif %}
         <img src="{{ ph_url }}"
              alt="{{ p.title }}"
              width="1080" height="1350"
              class="w-100 h-100 object-fit-cover product-main-image"
-             loading="{% if forloop.first %}eager{% else %}lazy{% endif %}">
+             loading="lazy">
       {% endif %}
       <!-- Кнопка избранного -->
       <button type="button" class="favorite-btn" data-product-id="{{ p.id }}" onclick="event.stopPropagation(); toggleFavorite(this.getAttribute('data-product-id'), this);" aria-label="Додати до обраних">
