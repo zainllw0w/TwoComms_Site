@@ -1656,20 +1656,27 @@ function preloadImage(src) {
 
 // Функция для получения URL изображения цвета
 function getColorImageUrl(colorDot, productCard) {
+  console.log('Getting color image URL for dot:', colorDot);
+  
   // Пытаемся получить URL из data-атрибутов
   const imageUrl = colorDot.getAttribute('data-image-url');
+  console.log('Data-image-url:', imageUrl);
+  
   if (imageUrl) {
     return imageUrl;
   }
   
   // Если нет data-атрибута, пытаемся получить из title или других атрибутов
   const title = colorDot.getAttribute('title');
+  console.log('Title:', title);
+  
   if (title) {
     // Здесь можно добавить логику для получения URL по цвету
     // Пока что возвращаем null, чтобы не ломать существующую функциональность
     return null;
   }
   
+  console.log('No image URL found');
   return null;
 }
 
@@ -1704,6 +1711,8 @@ document.addEventListener('click', function(e) {
     return;
   }
   
+  console.log('Color dot clicked:', e.target);
+  
   // Предотвращаем всплытие события
   e.stopPropagation();
   
@@ -1712,19 +1721,29 @@ document.addEventListener('click', function(e) {
   const productCardWrap = colorDot.closest('.product-card-wrap');
   const productCard = productCardWrap ? productCardWrap.querySelector('.card.product') : null;
   
+  console.log('Product card wrap:', productCardWrap);
+  console.log('Product card:', productCard);
+  
   if (!productCard) {
+    console.log('No product card found');
     return;
   }
   
   // Находим основное изображение карточки (поддерживаем как <img>, так и <picture>)
   const mainImage = productCard.querySelector('.ratio picture img') || productCard.querySelector('.ratio .product-main-image') || productCard.querySelector('.ratio img');
   
+  console.log('Main image:', mainImage);
+  console.log('Current image src:', mainImage ? mainImage.src : 'no image');
+  
   if (!mainImage) {
+    console.log('No main image found');
     return;
   }
   
   // Получаем URL изображения для выбранного цвета
   const newImageUrl = getColorImageUrl(colorDot, productCard);
+  
+  console.log('New image URL:', newImageUrl);
   
   // Анимируем переключение цветовых точек
   const allDots = productCardWrap.querySelectorAll('.color-dot');
@@ -1740,13 +1759,17 @@ document.addEventListener('click', function(e) {
   });
   
   if (!newImageUrl) {
+    console.log('No new image URL');
     // Если нет URL для изображения, просто меняем активное состояние
     return;
   }
   
   // Анимируем смену изображения только если URL действительно изменился
   if (mainImage.src !== newImageUrl) {
+    console.log('Changing image from', mainImage.src, 'to', newImageUrl);
     animateImageChange(mainImage, newImageUrl);
+  } else {
+    console.log('Image URL is the same, no change needed');
   }
 }, { passive: false });
 
