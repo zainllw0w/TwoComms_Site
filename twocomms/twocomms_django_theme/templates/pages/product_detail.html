@@ -23,16 +23,16 @@
 {% block content %}
 <div class="row g-4">
   <div class="col-12 col-lg-6">
-    <div class="ratio ratio-1x1 rounded-4 overflow-hidden bg-elevate glass position-relative">
+    <div class="ratio ratio-product rounded-4 overflow-hidden bg-elevate glass position-relative">
       {% if product.main_image %}
-        {% responsive_image product.main_image.url product.title "w-100 h-100 object-fit-cover" "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px" %}
+        {% responsive_image product.main_image.url product.title "w-100 h-100 object-fit-contain" "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 1080px" %}
       {% else %}
         {% static 'img/placeholder.jpg' as ph_url %}
         <img
           id="mainImage"
           src="{{ ph_url }}"
           loading="eager" decoding="async" fetchpriority="high"
-          class="w-100 h-100 object-fit-cover"
+          class="w-100 h-100 object-fit-contain"
           alt="{{ product.title }}"
         >
       {% endif %}
@@ -130,11 +130,11 @@
     <!-- Галерея товару: обёртка для перемещения на место исходного фото -->
     <div class="product-gallery-block">
       <div id="productCarousel" class="carousel slide mb-3" data-bs-ride="false">
-        <div class="carousel-inner rounded-4 overflow-hidden bg-elevate ratio ratio-4x3">
+        <div class="carousel-inner rounded-4 overflow-hidden bg-elevate ratio ratio-product">
           <!-- Заповниться динамічно (варіант кольору або головне фото) -->
           <div class="carousel-item active">
             {% if product.display_image %}
-              {% responsive_image product.display_image.url product.title "d-block w-100 h-100 object-fit-contain" "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px" %}
+              {% responsive_image product.display_image.url product.title "d-block w-100 h-100 object-fit-contain" "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 1080px" %}
             {% else %}
               {% static 'img/placeholder.jpg' as ph_url %}
               <img

@@ -6,18 +6,10 @@
     <div class="ratio ratio-product rounded-top-4 overflow-hidden bg-elevate position-relative">
       {% if p.display_image %}
         {% if forloop.first %}<link rel="preload" as="image" href="{{ p.display_image.url }}">{% endif %}
-        <img src="{{ p.display_image.url }}"
-             alt="{{ p.title }}"
-             width="1080" height="1350"
-             class="w-100 h-100 object-fit-cover product-main-image"
-             loading="{% if forloop.first %}eager{% else %}lazy{% endif %}">
+        {% optimized_image p.display_image.url p.title "w-100 h-100 object-fit-cover product-main-image" 1080 1350 %}
       {% elif p.main_image %}
         {% if forloop.first %}<link rel="preload" as="image" href="{{ p.main_image.url }}">{% endif %}
-        <img src="{{ p.main_image.url }}"
-             alt="{{ p.title }}"
-             width="1080" height="1350"
-             class="w-100 h-100 object-fit-cover product-main-image"
-             loading="{% if forloop.first %}eager{% else %}lazy{% endif %}">
+        {% optimized_image p.main_image.url p.title "w-100 h-100 object-fit-cover product-main-image" 1080 1350 %}
       {% else %}
         {% static 'img/placeholder.jpg' as ph_url %}
         {% if forloop.first %}<link rel="preload" as="image" href="{{ ph_url }}">{% endif %}
