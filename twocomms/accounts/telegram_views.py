@@ -83,3 +83,37 @@ def check_telegram_status(request):
     except Exception as e:
         print(f"❌ Ошибка проверки статуса Telegram: {e}")
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def get_telegram_id(request):
+    """Получает Telegram ID из сообщения бота для отладки"""
+    try:
+        # Получаем данные от Telegram
+        update_data = json.loads(request.body.decode('utf-8'))
+        
+        if 'message' in update_data:
+            message = update_data['message']
+            user_id = message['from']['id']
+            username = message['from'].get('username', 'unknown')
+            first_name = message['from'].get('first_name', '')
+            last_name = message['from'].get('last_name', '')
+            text = message.get('text', '')
+            
+            print(f"📱 Получен Telegram ID: user_id={user_id}, username=@{username}, name={first_name} {last_name}, text='{text}'")
+            
+            return JsonResponse({
+                'ok': True,
+                'telegram_id': user_id,
+                'username': username,
+                'first_name': first_name,
+                'last_name': last_name,
+                'text': text
+            })
+        
+        return JsonResponse({'ok': False, 'error': 'No message in update'})
+        
+    except Exception as e:
+        print(f"❌ Ошибка получения Telegram ID: {e}")
+        return JsonResponse({'ok': False, 'error': str(e)})
