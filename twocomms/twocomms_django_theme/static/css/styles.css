@@ -1562,8 +1562,6 @@ body::after {
 .menu-item span {
   flex: 1;
   font-weight: 500;
-  white-space: nowrap !important;
-  font-size: 1rem !important;
 }
 
 .menu-text-container span {
@@ -1622,23 +1620,12 @@ body::after {
   flex-shrink: 0 !important;
 }
 
-/* МАКСИМАЛЬНАЯ СПЕЦИФИЧНОСТЬ для предотвращения переноса */
+/* Предотвращение переноса для favorites */
 body .user-panel .user-menu .menu-item[href*="favorites"] span:not(.mini-profile-counter) {
   white-space: nowrap !important;
   word-break: keep-all !important;
   overflow-wrap: normal !important;
   word-wrap: normal !important;
-  font-size: 1rem !important;
-  line-height: 1 !important;
-  display: inline-block !important;
-  max-width: none !important;
-  width: auto !important;
-  flex-shrink: 0 !important;
-}
-
-/* Специальный отступ для счетчика в favorites */
-body .user-panel .user-menu .menu-item[href*="favorites"] .mini-profile-counter {
-  margin-left: 0.5rem !important;
 }
 
 .menu-text-container {
