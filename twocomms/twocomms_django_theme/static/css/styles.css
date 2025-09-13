@@ -1628,6 +1628,21 @@ body .user-panel .user-menu .menu-item[href*="favorites"] span:not(.mini-profile
   word-wrap: normal !important;
 }
 
+/* Дополнительные стили для предотвращения переноса */
+.menu-item[href*="favorites"] {
+  white-space: nowrap !important;
+}
+
+.menu-item[href*="favorites"] * {
+  white-space: nowrap !important;
+}
+
+/* Увеличение ширины панели для favorites */
+.user-panel:has(.menu-item[href*="favorites"]) {
+  width: 400px !important;
+  min-width: 400px !important;
+}
+
 .menu-text-container {
   display: flex !important;
   align-items: center;
