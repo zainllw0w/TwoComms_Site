@@ -950,32 +950,107 @@ body::after {
   flex-shrink: 0;
 }
 
-/* Красивый счетчик для мини-профиля */
+/* Красивый анимированный счетчик для мини-профиля */
 .mini-profile-counter,
 #favorites-count-mini {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  min-width: 16px !important;
-  height: 16px !important;
-  padding: 0 4px !important;
-  background: #ff4757 !important;
+  min-width: 18px !important;
+  height: 18px !important;
+  padding: 0 6px !important;
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 50%, #ff4757 100%) !important;
   color: white !important;
-  font-size: 0.7rem !important;
-  font-weight: 600 !important;
-  border-radius: 8px !important;
-  box-shadow: 0 2px 4px rgba(255, 71, 87, 0.3) !important;
-  transition: all 0.3s ease !important;
+  font-size: 0.65rem !important;
+  font-weight: 700 !important;
+  border-radius: 9px !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 
+    0 3px 8px rgba(255, 107, 107, 0.4),
+    0 1px 3px rgba(255, 107, 107, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
   vertical-align: middle !important;
   line-height: 1 !important;
   flex-shrink: 0 !important;
+  position: relative !important;
+  overflow: hidden !important;
+  animation: counterPulse 3s ease-in-out infinite !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Создаем эффект блеска */
+.mini-profile-counter::before,
+#favorites-count-mini::before {
+  content: '' !important;
+  position: absolute !important;
+  top: -50% !important;
+  left: -50% !important;
+  width: 200% !important;
+  height: 200% !important;
+  background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.3) 50%, transparent 70%) !important;
+  animation: counterShine 4s ease-in-out infinite !important;
+  pointer-events: none !important;
 }
 
 .mini-profile-counter:hover,
 #favorites-count-mini:hover {
-  background: #ff3742 !important;
-  transform: scale(1.1) !important;
-  box-shadow: 0 3px 6px rgba(255, 71, 87, 0.4) !important;
+  background: linear-gradient(135deg, #ff5252 0%, #e53e3e 50%, #ff3838 100%) !important;
+  transform: scale(1.15) translateY(-1px) !important;
+  box-shadow: 
+    0 6px 16px rgba(255, 107, 107, 0.6),
+    0 3px 8px rgba(255, 107, 107, 0.4),
+    0 0 0 3px rgba(255, 107, 107, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+  animation: counterBounce 0.6s ease-in-out !important;
+}
+
+/* Анимации */
+@keyframes counterPulse {
+  0%, 100% {
+    box-shadow: 
+      0 3px 8px rgba(255, 107, 107, 0.4),
+      0 1px 3px rgba(255, 107, 107, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 
+      0 4px 12px rgba(255, 107, 107, 0.6),
+      0 2px 6px rgba(255, 107, 107, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    transform: scale(1.02);
+  }
+}
+
+@keyframes counterShine {
+  0% {
+    transform: translateX(-100%) translateY(-100%) rotate(45deg);
+  }
+  50% {
+    transform: translateX(100%) translateY(100%) rotate(45deg);
+  }
+  100% {
+    transform: translateX(-100%) translateY(-100%) rotate(45deg);
+  }
+}
+
+@keyframes counterBounce {
+  0% {
+    transform: scale(1.15) translateY(-1px);
+  }
+  25% {
+    transform: scale(1.25) translateY(-2px);
+  }
+  50% {
+    transform: scale(1.2) translateY(-1px);
+  }
+  75% {
+    transform: scale(1.25) translateY(-2px);
+  }
+  100% {
+    transform: scale(1.15) translateY(-1px);
+  }
 }
 
 .mini-profile-counter:hover {
