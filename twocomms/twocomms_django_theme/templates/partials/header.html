@@ -39,7 +39,7 @@
                   <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
                 </svg>
                 <div class="favorites-glow"></div>
-                
+                <span id="favorites-count" class="favorites-badge" aria-label="Кількість товарів у обраних">0</span>
               </div>
             </a>
           </div>
@@ -53,14 +53,17 @@
                   <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
                 </svg>
                 <div class="cart-glow"></div>
-                
+                <span id="cart-count" class="cart-badge" aria-label="Кількість товарів у кошику">0</span>
               </div>
             </button>
           </div>
         </div>
           
           <!-- Мини-корзина -->
-          
+          <div id="mini-cart-panel" class="cart-panel">
+            <!-- Анимация искр для корзины -->
+            <div class="cart-sparks-container">
+              <div class="cart-spark cart-spark-1"></div>
               <div class="cart-spark cart-spark-2"></div>
               <div class="cart-spark cart-spark-3"></div>
               <div class="cart-spark cart-spark-4"></div>
@@ -84,7 +87,9 @@
             </div>
             
             <!-- Содержимое корзины -->
-            
+            <div id="mini-cart-content" class="cart-content">
+              <div class="cart-loading">
+                <div class="loading-spinner"></div>
                 <div class="loading-text">Завантаження…</div>
               </div>
             </div>
@@ -261,7 +266,7 @@
                     </svg>
                   </div>
                   <span style="white-space: nowrap !important;">Обрані товари</span>
-                  
+                  <span id="favorites-count-mini" class="mini-profile-counter" style="margin-left: 0.25rem !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; min-width: 18px !important; height: 18px !important; padding: 0 6px !important; background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 50%, #ff4757 100%) !important; color: white !important; font-size: 0.65rem !important; font-weight: 700 !important; border-radius: 9px !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; box-shadow: 0 3px 8px rgba(255, 107, 107, 0.4), 0 1px 3px rgba(255, 107, 107, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important; vertical-align: middle !important; line-height: 1 !important; flex-shrink: 0 !important; position: relative !important; overflow: hidden !important; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;" aria-label="Кількість товарів у обраних">0</span>
                   <div class="menu-arrow">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
@@ -395,7 +400,7 @@
             <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
           </svg>
           <div class="cart-glow-mobile"></div>
-          
+          <span id="cart-count-mobile" class="cart-badge-mobile" aria-label="Кількість товарів у кошику">0</span>
         </div>
       </button>
       <span class="bottom-nav-label">Кошик</span>
@@ -408,7 +413,7 @@
           <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
         </svg>
         <!-- Счетчик избранного для мобильных -->
-        
+        <span id="favorites-count-mobile" class="favorites-badge-mobile" aria-label="Кількість товарів у обраних">0</span>
       </div>
       <span class="bottom-nav-label">Обране</span>
     </a>

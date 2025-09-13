@@ -957,71 +957,7 @@ body::after {
   }
 }
 
-/* Красивый анимированный счетчик для мини-профиля */
-.mini-profile-counter,
 
-
-/* Создаем эффект блеска */
-.mini-profile-counter::before,
-
-
-.mini-profile-counter:hover,
-
-
-/* Анимации */
-@keyframes counterPulse {
-  0%, 100% {
-    box-shadow: 
-      0 3px 8px rgba(255, 107, 107, 0.4),
-      0 1px 3px rgba(255, 107, 107, 0.2),
-      inset 0 1px 0 rgba(255, 255, 255, 0.15);
-    transform: scale(1);
-  }
-  50% {
-    box-shadow: 
-      0 4px 12px rgba(255, 107, 107, 0.6),
-      0 2px 6px rgba(255, 107, 107, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2);
-    transform: scale(1.02);
-  }
-}
-
-@keyframes counterShine {
-  0% {
-    transform: translateX(-100%) translateY(-100%) rotate(45deg);
-  }
-  50% {
-    transform: translateX(100%) translateY(100%) rotate(45deg);
-  }
-  100% {
-    transform: translateX(-100%) translateY(-100%) rotate(45deg);
-  }
-}
-
-@keyframes counterBounce {
-  0% {
-    transform: scale(1.15) translateY(-1px);
-  }
-  25% {
-    transform: scale(1.25) translateY(-2px);
-  }
-  50% {
-    transform: scale(1.2) translateY(-1px);
-  }
-  75% {
-    transform: scale(1.25) translateY(-2px);
-  }
-  100% {
-    transform: scale(1.15) translateY(-1px);
-  }
-}
-
-.mini-profile-counter:hover {
-  transform: scale(1.1) !important;
-  box-shadow: 
-    0 4px 12px rgba(239, 68, 68, 0.6),
-    0 0 0 3px rgba(239, 68, 68, 0.3) !important;
-}
 
 
 /* Панель пользователя */
@@ -8289,7 +8225,27 @@ body::after {
   50% { transform: scale(1.1); opacity: 0.6; }
 }
 
-
+.cart-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  border: 2px solid #1a1a1a;
+  animation: cartBadgePulse 2s ease-in-out infinite;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+  line-height: 1;
+  z-index: 10;
+}
 
 @keyframes cartBadgePulse {
   0%, 100% { transform: scale(1); }
@@ -8442,7 +8398,29 @@ body::after {
   }
 }
 
-
+.favorites-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  box-sizing: border-box;
+  display: flex; /* Всегда виден */
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  border: 2px solid transparent;
+  animation: favoritesBadgePulse 0.6s ease-out;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+  line-height: 1;
+  z-index: 10;
+  transition: all 0.3s ease;
+}
 
 @keyframes favoritesBadgePulse {
   0% { transform: scale(0); }
@@ -8450,7 +8428,10 @@ body::after {
   100% { transform: scale(1); }
 }
 
-.favorites-icon-wrapper:hover 
+.favorites-icon-wrapper:hover .favorites-badge {
+  transform: scale(1.1);
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.6);
+}
 
 /* Панель корзины */
 .cart-panel {

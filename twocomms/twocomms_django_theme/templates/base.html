@@ -210,61 +210,6 @@
   <!-- CLS Fixes CSS - загружаем синхронно для предотвращения смещений -->
   <link href="{% static 'css/cls-fixes.css' %}?v=2025.09.11.002" rel="stylesheet" media="all">
   <style>
-  /* Анимации для счетчика favorites - принудительное применение */
-  @keyframes counterPulseInline {
-    0%, 100% {
-      box-shadow: 
-        0 3px 8px rgba(255, 107, 107, 0.4),
-        0 1px 3px rgba(255, 107, 107, 0.2),
-        inset 0 1px 0 rgba(255, 255, 255, 0.15);
-      transform: scale(1);
-    }
-    50% {
-      box-shadow: 
-        0 4px 12px rgba(255, 107, 107, 0.6),
-        0 2px 6px rgba(255, 107, 107, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
-      transform: scale(1.02);
-    }
-  }
-  
-  @keyframes counterShineInline {
-    0% {
-      transform: translateX(-100%) translateY(-100%) rotate(45deg);
-    }
-    50% {
-      transform: translateX(100%) translateY(100%) rotate(45deg);
-    }
-    100% {
-      transform: translateX(-100%) translateY(-100%) rotate(45deg);
-    }
-  }
-  
-  #favorites-count-mini {
-    animation: counterPulseInline 3s ease-in-out infinite !important;
-  }
-  
-  #favorites-count-mini::before {
-    content: '' !important;
-    position: absolute !important;
-    top: -50% !important;
-    left: -50% !important;
-    width: 200% !important;
-    height: 200% !important;
-    background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.3) 50%, transparent 70%) !important;
-    animation: counterShineInline 4s ease-in-out infinite !important;
-    pointer-events: none !important;
-  }
-  
-  #favorites-count-mini:hover {
-    background: linear-gradient(135deg, #ff5252 0%, #e53e3e 50%, #ff3838 100%) !important;
-    transform: scale(1.15) translateY(-1px) !important;
-    box-shadow: 
-      0 6px 16px rgba(255, 107, 107, 0.6),
-      0 3px 8px rgba(255, 107, 107, 0.4),
-      0 0 0 3px rgba(255, 107, 107, 0.2),
-      inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
-  }
   
   
   
@@ -372,7 +317,10 @@
 </head><body class='bg-body text-body' style='font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;'>{% include 'partials/header.html' %}<main class='container-xxl py-4 py-md-5'>{% block breadcrumbs %}{% endblock %}{% block content %}{% endblock %}</main>{% cache 86400 footer_block %}{% include 'partials/footer.html' %}{% endcache %}
 
 <!-- Мобильные мини-панели (только для мобильной версии) -->
-
+<div id="mini-cart-panel-mobile" class="cart-panel d-none d-md-none">
+  <!-- Анимация искр для корзины -->
+  <div class="cart-sparks-container">
+    <div class="cart-spark cart-spark-1"></div>
     <div class="cart-spark cart-spark-2"></div>
     <div class="cart-spark cart-spark-3"></div>
     <div class="cart-spark cart-spark-4"></div>
@@ -396,7 +344,9 @@
   </div>
   
   <!-- Содержимое корзины -->
-  
+  <div id="mini-cart-content-mobile" class="cart-content">
+    <div class="cart-loading">
+      <div class="loading-spinner"></div>
       <div class="loading-text">Завантаження…</div>
     </div>
   </div>
@@ -535,19 +485,6 @@
                   </div>
                 </a>
                 
-                <a href="{% url 'favorites' %}" class="menu-item" style="display: none !important;" id="favorites-mobile-user-panel">
-                  <div class="menu-icon">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                    </svg>
-                  </div>
-                  <span>Обрані товари</span>
-                  <div class="menu-arrow">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
-                    </svg>
-                  </div>
-                </a>
                 
                 <a href="{% url 'my_promocodes' %}" class="menu-item">
                   <div class="menu-icon">
@@ -1198,8 +1135,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const favoritesItem = document.getElementById('favorites-menu-item');
     // Мобильная нижняя навигация
     const favoritesMobileBottomNav = document.getElementById('favorites-mobile-bottom-nav');
-    // Мобильная панель пользователя
-    const favoritesMobileUserPanel = document.getElementById('favorites-mobile-user-panel');
     
     console.log('Current window width:', window.innerWidth);
     
@@ -1226,16 +1161,6 @@ document.addEventListener('DOMContentLoaded', function() {
         favoritesMobileBottomNav.style.setProperty('position', 'absolute', 'important');
         favoritesMobileBottomNav.style.setProperty('left', '-9999px', 'important');
       }
-      
-      if (favoritesMobileUserPanel) {
-        favoritesMobileUserPanel.style.setProperty('display', 'none', 'important');
-        favoritesMobileUserPanel.style.setProperty('visibility', 'hidden', 'important');
-        favoritesMobileUserPanel.style.setProperty('opacity', '0', 'important');
-        favoritesMobileUserPanel.style.setProperty('height', '0', 'important');
-        favoritesMobileUserPanel.style.setProperty('overflow', 'hidden', 'important');
-        favoritesMobileUserPanel.style.setProperty('position', 'absolute', 'important');
-        favoritesMobileUserPanel.style.setProperty('left', '-9999px', 'important');
-      }
     } else {
       // Показываем на десктопе
       console.log('Showing favorites on desktop');
@@ -1252,10 +1177,6 @@ document.addEventListener('DOMContentLoaded', function() {
       
       if (favoritesMobileBottomNav) {
         favoritesMobileBottomNav.style.setProperty('display', 'none', 'important');
-      }
-      
-      if (favoritesMobileUserPanel) {
-        favoritesMobileUserPanel.style.setProperty('display', 'none', 'important');
       }
     }
   }
