@@ -65,6 +65,7 @@ def link_telegram_account(request):
 def check_telegram_status(request):
     """Проверяет статус подтверждения Telegram для текущего пользователя"""
     if not request.user.is_authenticated:
+        print(f"❌ Пользователь не авторизован")
         return JsonResponse({'error': 'Not authenticated'}, status=401)
     
     try:
@@ -72,7 +73,7 @@ def check_telegram_status(request):
         is_confirmed = bool(profile.telegram_id)
         
         # Логируем проверку статуса для отладки
-        print(f"🔍 Проверка статуса Telegram: user={request.user.username}, confirmed={is_confirmed}, telegram_id={profile.telegram_id}, telegram_username={profile.telegram}")
+        print(f"🔍 API: user={request.user.username}, confirmed={is_confirmed}, telegram_id={profile.telegram_id}, telegram_username='{profile.telegram}'")
         
         return JsonResponse({
             'is_confirmed': is_confirmed,
