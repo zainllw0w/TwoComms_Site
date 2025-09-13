@@ -383,7 +383,10 @@
 </div>
 
 <script>
+console.log('🚀 Telegram JavaScript загружен!');
+
 document.addEventListener('DOMContentLoaded', function() {
+  console.log('📄 DOM загружен, инициализация Telegram функций...');
   const ubdCheckbox = document.getElementById('{{ form.is_ubd.id_for_label }}');
   const ubdDocumentSection = document.getElementById('ubd-document-section');
   const ubdDocInput = document.getElementById('{{ form.ubd_doc.id_for_label }}');
@@ -482,6 +485,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Функция для подтверждения Telegram
 function confirmTelegram() {
   console.log('🚀 Запуск подтверждения Telegram...');
+  console.log('🔍 Функция confirmTelegram вызвана!');
   
   const telegramInput = document.querySelector('input[name="telegram"]');
   let telegramUsername = telegramInput.value.trim();
