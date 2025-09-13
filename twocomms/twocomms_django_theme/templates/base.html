@@ -201,14 +201,14 @@
   </style>
   
   <!-- Асинхронная загрузка основного CSS с приоритизацией -->
-  <link href="{% static 'css/styles.min.css' %}?v=2025.09.11.001" 
+  <link href="{% static 'css/styles.min.css' %}?v=2025.09.11.002" 
         rel="preload" as="style" 
         onload="this.onload=null;this.rel='stylesheet'"
         media="all">
-  <noscript><link href="{% static 'css/styles.min.css' %}?v=2025.09.11.001" rel="stylesheet"></noscript>
+  <noscript><link href="{% static 'css/styles.min.css' %}?v=2025.09.11.002" rel="stylesheet"></noscript>
   
   <!-- CLS Fixes CSS - загружаем синхронно для предотвращения смещений -->
-  <link href="{% static 'css/cls-fixes.css' %}?v=2025.09.11.001" rel="stylesheet" media="all">
+  <link href="{% static 'css/cls-fixes.css' %}?v=2025.09.11.002" rel="stylesheet" media="all">
   <style>
   /* Lite mode on constrained devices: reduce expensive visual effects */
   .perf-lite .hero.bg-hero,
