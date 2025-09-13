@@ -604,7 +604,7 @@ function updateTelegramButton(isConfirmed) {
 // Переменные для управления проверкой статуса
 let telegramStatusInterval = null;
 let telegramStatusCheckCount = 0;
-const MAX_TELEGRAM_STATUS_CHECKS = 150; // Максимум 150 проверок (5 минут при интервале 2 сек)
+const MAX_TELEGRAM_STATUS_CHECKS = 30; // Максимум 30 проверок (1 минута при интервале 2 сек)
 let telegramStatusTimeout = null; // Таймаут для принудительной остановки
 
 // Функция для запуска проверки статуса
@@ -627,8 +627,11 @@ function startTelegramStatusCheck() {
     telegramStatusCheckCount++;
     
     if (telegramStatusCheckCount >= MAX_TELEGRAM_STATUS_CHECKS) {
-      // Прекращаем проверку после 5 минут
+      // Прекращаем проверку после 1 минуты
+      console.log('⏰ Достигнуто максимальное количество проверок, останавливаем...');
       stopTelegramStatusCheck();
+      hideTelegramLoadingIndicator();
+      alert('⏰ Проверка Telegram остановлена. Если бот подтвердил аккаунт, обновите страницу.');
       return;
     }
     
