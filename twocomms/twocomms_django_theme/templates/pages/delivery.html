@@ -1947,17 +1947,28 @@ function showTelegramLoadingIndicator() {
 // Функция для проверки статуса подтверждения Telegram
 function checkTelegramStatus() {
   fetch('/accounts/telegram/status/')
-    .then(response => response.json())
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return response.json();
+    })
     .then(data => {
       if (data.is_confirmed) {
         // Обновляем кнопку на подтвержденную
         updateTelegramButton(true);
         // Останавливаем проверку
         stopTelegramStatusCheck();
+      } else if (data.error) {
+        // Если есть ошибка (например, пользователь не авторизован)
+        console.error('Ошибка API:', data.error);
+        stopTelegramStatusCheck();
       }
     })
     .catch(error => {
       console.error('Ошибка проверки статуса Telegram:', error);
+      // Останавливаем проверку при любой ошибке
+      stopTelegramStatusCheck();
     });
 }
 
