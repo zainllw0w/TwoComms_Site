@@ -2005,11 +2005,19 @@ function startTelegramStatusCheck() {
   // Останавливаем предыдущую проверку если есть
   stopTelegramStatusCheck();
   
-  // Запускаем новую проверку каждые 2 секунды
+  // Запускаем новую проверку каждые 2 секунды для быстрого отклика
   telegramStatusCheckInterval = setInterval(checkTelegramStatus, 2000);
   
-  // Останавливаем проверку через 60 секунд
-  setTimeout(stopTelegramStatusCheck, 60000);
+  // Первая проверка сразу
+  checkTelegramStatus();
+  
+  // Дополнительная проверка через 1 секунду для быстрого отклика
+  setTimeout(() => {
+    checkTelegramStatus();
+  }, 1000);
+  
+  // Останавливаем проверку через 5 минут
+  setTimeout(stopTelegramStatusCheck, 5 * 60 * 1000);
 }
 
 // Функция для остановки проверки статуса

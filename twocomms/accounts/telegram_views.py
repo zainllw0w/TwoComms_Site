@@ -16,13 +16,26 @@ def telegram_webhook(request):
         # Получаем данные от Telegram
         update_data = json.loads(request.body.decode('utf-8'))
         
+        # Логируем входящее сообщение для отладки
+        if 'message' in update_data:
+            message = update_data['message']
+            user_id = message['from']['id']
+            username = message['from'].get('username', 'unknown')
+            text = message.get('text', '')
+            print(f"📱 Telegram webhook: user_id={user_id}, username=@{username}, text='{text}'")
+        
         # Обрабатываем обновление
         result = telegram_bot.process_webhook_update(update_data)
+        
+        if result:
+            print(f"✅ Telegram webhook: успешно обработано для user_id={user_id}")
+        else:
+            print(f"⚠️ Telegram webhook: не удалось обработать для user_id={user_id}")
         
         return JsonResponse({'ok': True, 'result': result})
         
     except Exception as e:
-        print(f"Ошибка обработки webhook: {e}")
+        print(f"❌ Ошибка обработки webhook: {e}")
         return JsonResponse({'ok': False, 'error': str(e)})
 
 
@@ -58,6 +71,9 @@ def check_telegram_status(request):
         profile = request.user.userprofile
         is_confirmed = bool(profile.telegram_id)
         
+        # Логируем проверку статуса для отладки
+        print(f"🔍 Проверка статуса Telegram: user={request.user.username}, confirmed={is_confirmed}, telegram_id={profile.telegram_id}")
+        
         return JsonResponse({
             'is_confirmed': is_confirmed,
             'telegram_username': profile.telegram or '',
@@ -65,4 +81,5 @@ def check_telegram_status(request):
         })
         
     except Exception as e:
+        print(f"❌ Ошибка проверки статуса Telegram: {e}")
         return JsonResponse({'error': str(e)}, status=500)
