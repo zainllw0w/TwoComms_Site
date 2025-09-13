@@ -52,7 +52,6 @@ def link_telegram_account(request):
         return JsonResponse({'success': result})
         
     except Exception as e:
-        print(f"Ошибка связывания аккаунта: {e}")
         return JsonResponse({'success': False, 'error': str(e)})
 
 

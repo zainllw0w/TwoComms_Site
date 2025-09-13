@@ -6,9 +6,7 @@ const STATIC_CACHE = 'twocomms-static-v1.0.0';
 const DYNAMIC_CACHE = 'twocomms-dynamic-v1.0.0';
 
 // Управление логированием SW
-const DEBUG_SW = false;
-const swlog = DEBUG_SW ? ((...args)=>{ try{ console.log('[SW]', ...args);}catch(_){} }) : (()=>{});
-const swwarn = DEBUG_SW ? ((...args)=>{ try{ console.warn('[SW]', ...args);}catch(_){} }) : (()=>{});
+// Service Worker без отладочных логов
 
 // Файлы для кэширования
 const STATIC_FILES = [

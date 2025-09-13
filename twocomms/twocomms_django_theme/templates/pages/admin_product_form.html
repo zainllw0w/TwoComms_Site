@@ -209,9 +209,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (productForm && saveBtn) {
         productForm.addEventListener('submit', function(e) {
-            console.log('Отправка формы товара...');
             const formData = new FormData(this);
-            console.log('Данные формы:', Object.fromEntries(formData));
             
             // Показываем анимацию загрузки
             const originalText = saveBtn.innerHTML;
@@ -229,7 +227,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (colorForm && addColorBtn) {
         colorForm.addEventListener('submit', function(e) {
-            console.log('Отправка формы цветов...');
             const formData = new FormData(this);
             
             // Показываем анимацию загрузки
@@ -245,12 +242,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Проверяем, что поле points_reward присутствует
     const pointsField = document.getElementById('id_points_reward');
     if (pointsField) {
-        console.log('Поле points_reward найдено:', pointsField.value);
         pointsField.addEventListener('change', function() {
-            console.log('Значение points_reward изменено на:', this.value);
+            // Значение points_reward изменено
         });
     } else {
-        console.error('Поле points_reward не найдено!');
+        // Поле points_reward не найдено
     }
 });
 </script>
