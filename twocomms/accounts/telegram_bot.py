@@ -104,17 +104,30 @@ class TelegramBot:
     def auto_confirm_user(self, user_id, username=None):
         """Автоматически подтверждает пользователя"""
         try:
+            print(f"🔍 auto_confirm_user: user_id={user_id}, username={username}")
+            
             # Ищем пользователя по telegram username
             if username:
                 # Убираем @ если есть
                 clean_username = username.lstrip('@')
+                print(f"🔍 clean_username: '{clean_username}'")
                 
                 # Ищем точное совпадение
                 profile = UserProfile.objects.filter(telegram=clean_username).first()
+                print(f"🔍 Поиск без @: найдено={bool(profile)}")
                 
                 # Если не найдено, ищем с @
                 if not profile:
                     profile = UserProfile.objects.filter(telegram=f"@{clean_username}").first()
+                    print(f"🔍 Поиск с @: найдено={bool(profile)}")
+                
+                # Дополнительный поиск - все варианты
+                if not profile:
+                    # Ищем все профили с похожим username
+                    all_profiles = UserProfile.objects.filter(telegram__icontains=clean_username)
+                    print(f"🔍 Поиск по частичному совпадению: найдено {all_profiles.count()} профилей")
+                    for p in all_profiles:
+                        print(f"🔍 Найден профиль: user={p.user.username}, telegram='{p.telegram}', telegram_id={p.telegram_id}")
                 
                 if profile and not profile.telegram_id:
                     # Связываем аккаунт
@@ -203,30 +216,42 @@ class TelegramBot:
     def process_webhook_update(self, update_data):
         """Обрабатывает обновление от webhook"""
         try:
+            print(f"📱 process_webhook_update: {update_data}")
+            
             if 'message' in update_data:
                 message = update_data['message']
                 user_id = message['from']['id']
                 username = message['from'].get('username')
                 text = message.get('text', '')
                 
+                print(f"📱 Обработка сообщения: user_id={user_id}, username={username}, text='{text}'")
+                
                 if text == '/start':
-                    return self.process_start_command(user_id, username)
+                    result = self.process_start_command(user_id, username)
+                    print(f"📱 Результат /start: {result}")
+                    return result
                 else:
                     # Обрабатываем любое другое сообщение
-                    return self.process_any_message(user_id, username, text)
+                    result = self.process_any_message(user_id, username, text)
+                    print(f"📱 Результат обычного сообщения: {result}")
+                    return result
                     
         except Exception as e:
-            print(f"Ошибка обработки webhook: {e}")
+            print(f"❌ Ошибка обработки webhook: {e}")
         return False
     
     def process_any_message(self, user_id, username=None, text=''):
         """Обрабатывает любое сообщение от пользователя"""
         try:
+            print(f"🔍 process_any_message: user_id={user_id}, username={username}, text='{text}'")
+            
             # Проверяем, подтвержден ли уже пользователь
             profile = UserProfile.objects.filter(telegram_id=user_id).first()
+            print(f"🔍 Поиск по telegram_id: найдено={bool(profile)}")
             
             if profile:
                 # Пользователь уже подтвержден
+                print(f"✅ Пользователь уже подтвержден: {profile.user.username}")
                 message = f"""✅ <b>Привіт, {profile.user.username}!</b>
 
 Ваш Telegram вже підтверджено для отримання сповіщень.
@@ -244,10 +269,11 @@ class TelegramBot:
                 return True
             else:
                 # Пытаемся автоматически подтвердить пользователя
+                print(f"🔍 Пытаемся автоматически подтвердить пользователя")
                 return self.auto_confirm_user(user_id, username)
                 
         except Exception as e:
-            print(f"Ошибка обработки сообщения: {e}")
+            print(f"❌ Ошибка обработки сообщения: {e}")
             return False
 
 
