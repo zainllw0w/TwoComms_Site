@@ -954,12 +954,12 @@ body::after {
 .mini-profile-counter,
 #favorites-count-mini {
   display: inline-flex !important;
-  width: 16px !important;
-  height: 16px !important;
-  min-width: 16px !important;
-  min-height: 16px !important;
-  max-width: 16px !important;
-  max-height: 16px !important;
+  width: 14px !important;
+  height: 14px !important;
+  min-width: 14px !important;
+  min-height: 14px !important;
+  max-width: 14px !important;
+  max-height: 14px !important;
   background: linear-gradient(135deg, #ef4444, #dc2626) !important;
   color: white !important;
   font-size: 0.55rem !important;
@@ -1501,7 +1501,7 @@ body::after {
 .menu-item {
   display: flex !important;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.25rem !important;
   padding: 0.75rem 1rem;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.05);
@@ -1559,6 +1559,7 @@ body::after {
   flex: 1;
   font-weight: 500;
   white-space: nowrap !important;
+  font-size: 0.875rem !important;
 }
 
 .menu-text-container span {
@@ -1582,6 +1583,17 @@ body::after {
   word-break: keep-all !important;
   overflow-wrap: normal !important;
   word-wrap: normal !important;
+}
+
+/* Специфичные стили для "Обрані товари" */
+.menu-item:has([href*="favorites"]) .menu-text-container,
+.menu-item:has([href*="favorites"]) .menu-text-container span {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  word-wrap: normal !important;
+  font-size: 0.875rem !important;
+  line-height: 1 !important;
 }
 
 .menu-text-container {
