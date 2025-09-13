@@ -950,11 +950,52 @@ body::after {
   flex-shrink: 0;
 }
 
+/* Уникальный счетчик для мини-профиля */
+.mini-profile-counter {
+  display: inline-flex !important;
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  min-height: 18px !important;
+  max-width: 18px !important;
+  max-height: 18px !important;
+  background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+  color: white !important;
+  font-size: 0.6rem !important;
+  font-weight: 700 !important;
+  border-radius: 50% !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: 2px solid rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 
+    0 2px 6px rgba(239, 68, 68, 0.4),
+    0 0 0 1px rgba(239, 68, 68, 0.2) !important;
+  animation: favoritesPulse 2s ease-in-out infinite !important;
+  z-index: 10 !important;
+  transition: all 0.3s ease !important;
+  flex-shrink: 0 !important;
+  position: relative !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: auto !important;
+  bottom: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  vertical-align: middle !important;
+}
+
 .favorites-badge-mini:hover {
   transform: scale(1.1);
   box-shadow: 
     0 4px 12px rgba(239, 68, 68, 0.6),
     0 0 0 3px rgba(239, 68, 68, 0.3);
+}
+
+.mini-profile-counter:hover {
+  transform: scale(1.1) !important;
+  box-shadow: 
+    0 4px 12px rgba(239, 68, 68, 0.6),
+    0 0 0 3px rgba(239, 68, 68, 0.3) !important;
 }
 
 @keyframes favoritesPulse {
