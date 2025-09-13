@@ -953,22 +953,22 @@ body::after {
 /* Уникальный счетчик для мини-профиля */
 .mini-profile-counter {
   display: inline-flex !important;
-  width: 18px !important;
-  height: 18px !important;
-  min-width: 18px !important;
-  min-height: 18px !important;
-  max-width: 18px !important;
-  max-height: 18px !important;
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  min-height: 16px !important;
+  max-width: 16px !important;
+  max-height: 16px !important;
   background: linear-gradient(135deg, #ef4444, #dc2626) !important;
   color: white !important;
-  font-size: 0.6rem !important;
+  font-size: 0.55rem !important;
   font-weight: 700 !important;
   border-radius: 50% !important;
   align-items: center !important;
   justify-content: center !important;
-  border: 2px solid rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.95) !important;
   box-shadow: 
-    0 2px 6px rgba(239, 68, 68, 0.4),
+    0 1px 4px rgba(239, 68, 68, 0.4),
     0 0 0 1px rgba(239, 68, 68, 0.2) !important;
   animation: favoritesPulse 2s ease-in-out infinite !important;
   z-index: 10 !important;
@@ -1559,6 +1559,7 @@ body::after {
 .menu-text-container {
   display: flex;
   align-items: center;
+  gap: 8px;
   flex: 1;
 }
 
