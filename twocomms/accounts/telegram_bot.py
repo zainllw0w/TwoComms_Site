@@ -208,7 +208,7 @@ class TelegramBot:
                     return result
                     
         except Exception as e:
-        return False
+            return False
     
     def process_any_message(self, user_id, username=None, text=''):
         """Обрабатывает любое сообщение от пользователя"""
