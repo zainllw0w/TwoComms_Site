@@ -1622,6 +1622,21 @@ body::after {
   flex-shrink: 0 !important;
 }
 
+/* МАКСИМАЛЬНАЯ СПЕЦИФИЧНОСТЬ для предотвращения переноса */
+body .user-panel .user-menu .menu-item[href*="favorites"] .menu-text-container,
+body .user-panel .user-menu .menu-item[href*="favorites"] .menu-text-container span {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  word-wrap: normal !important;
+  font-size: 0.875rem !important;
+  line-height: 1 !important;
+  display: inline-block !important;
+  max-width: none !important;
+  width: auto !important;
+  flex-shrink: 0 !important;
+}
+
 .menu-text-container {
   display: flex !important;
   align-items: center;
