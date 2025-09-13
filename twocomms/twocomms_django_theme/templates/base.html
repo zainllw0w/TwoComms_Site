@@ -201,11 +201,11 @@
   </style>
   
   <!-- Асинхронная загрузка основного CSS с приоритизацией -->
-  <link href="{% static 'css/styles.min.css' %}?v=2025.09.11.022" 
+  <link href="{% static 'css/styles.min.css' %}?v=2025.09.11.023" 
         rel="preload" as="style" 
         onload="this.onload=null;this.rel='stylesheet'"
         media="all">
-  <noscript><link href="{% static 'css/styles.min.css' %}?v=2025.09.11.022" rel="stylesheet"></noscript>
+  <noscript><link href="{% static 'css/styles.min.css' %}?v=2025.09.11.023" rel="stylesheet"></noscript>
   
   <!-- CLS Fixes CSS - загружаем синхронно для предотвращения смещений -->
   <link href="{% static 'css/cls-fixes.css' %}?v=2025.09.11.002" rel="stylesheet" media="all">
@@ -264,6 +264,13 @@
       0 3px 8px rgba(255, 107, 107, 0.4),
       0 0 0 3px rgba(255, 107, 107, 0.2),
       inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+  }
+  
+  /* Показываем favorites только на десктопе */
+  @media (min-width: 992px) {
+    #favorites-menu-item {
+      display: flex !important;
+    }
   }
   
   /* Lite mode on constrained devices: reduce expensive visual effects */
