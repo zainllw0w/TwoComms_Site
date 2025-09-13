@@ -114,35 +114,34 @@ class TelegramBot:
             clean_username = username.lstrip('@')
             print(f"🔍 clean_username: '{clean_username}'")
             
-            # Ищем все профили с таким telegram username (без @)
-            profiles_without_at = UserProfile.objects.filter(telegram=clean_username)
-            print(f"🔍 Поиск без @: найдено {profiles_without_at.count()} профилей")
+            # Ищем все профили с таким telegram username (без @) - только неподтвержденные
+            profiles_without_at = UserProfile.objects.filter(telegram=clean_username, telegram_id__isnull=True)
+            print(f"🔍 Поиск без @ (неподтвержденные): найдено {profiles_without_at.count()} профилей")
             
-            # Ищем все профили с таким telegram username (с @)
-            profiles_with_at = UserProfile.objects.filter(telegram=f"@{clean_username}")
-            print(f"🔍 Поиск с @: найдено {profiles_with_at.count()} профилей")
+            # Ищем все профили с таким telegram username (с @) - только неподтвержденные
+            profiles_with_at = UserProfile.objects.filter(telegram=f"@{clean_username}", telegram_id__isnull=True)
+            print(f"🔍 Поиск с @ (неподтвержденные): найдено {profiles_with_at.count()} профилей")
             
             # Объединяем результаты
             all_matching_profiles = list(profiles_without_at) + list(profiles_with_at)
-            print(f"🔍 Всего найдено профилей: {len(all_matching_profiles)}")
+            print(f"🔍 Всего найдено неподтвержденных профилей: {len(all_matching_profiles)}")
             
-            confirmed_count = 0
-            for profile in all_matching_profiles:
-                print(f"🔍 Обработка профиля: user={profile.user.username}, telegram='{profile.telegram}', telegram_id={profile.telegram_id}")
-                
-                if not profile.telegram_id:
-                    # Связываем аккаунт
-                    profile.telegram_id = user_id
-                    profile.save()
-                    confirmed_count += 1
-                    print(f"✅ Подтвержден профиль: {profile.user.username}")
-                else:
-                    print(f"⚠️ Профиль уже подтвержден: {profile.user.username}")
+            if len(all_matching_profiles) == 0:
+                print(f"❌ Не найдено неподтвержденных профилей с username: {clean_username}")
+                return False
             
-            if confirmed_count > 0:
-                message = f"""🎉 <b>Відмінно! Ваш Telegram успішно підтверджено!</b>
+            # Привязываем только к ПЕРВОМУ найденному неподтвержденному профилю
+            profile = all_matching_profiles[0]
+            print(f"🔍 Привязываем к профилю: user={profile.user.username}, telegram='{profile.telegram}'")
+            
+            # Привязываем telegram_id к профилю
+            profile.telegram_id = user_id
+            profile.save()
+            print(f"✅ Подтвержден профиль: {profile.user.username}")
+            
+            message = f"""🎉 <b>Відмінно! Ваш Telegram успішно підтверджено!</b>
 
-Підтверджено {confirmed_count} аккаунт(ів) з username @{clean_username}
+Підтверджено аккаунт @{clean_username} ({profile.user.username})
 
 Тепер ви будете отримувати сповіщення про статус ваших замовлень.
 
@@ -154,28 +153,9 @@ class TelegramBot:
 📋 <b>Корисні посилання:</b>
 • <a href="https://twocomms.shop/my-orders/">Мої замовлення</a>
 • <a href="https://twocomms.shop/profile/">Профіль</a>"""
-                
-                self.send_message(user_id, message)
-                return True
-            else:
-                print(f"❌ Не найдено неподтвержденных профилей с username: {clean_username}")
-                return False
-            
-            # Если пользователь не найден, показываем инструкцию
-            message = f"""👋 <b>Ласкаво просимо до TwoComms!</b>
-
-Для отримання сповіщень про статус ваших замовлень потрібно пов'язати ваш Telegram з акаунтом на сайті.
-
-📋 <b>Як це зробити:</b>
-1. Зайдіть у свій профіль на сайті
-2. У поле "Telegram" введіть ваш username: @{username or 'ваш_username'}
-3. Натисніть кнопку "Отримувати статуси в Telegram"
-4. Поверніться сюди та напишіть будь-яке повідомлення
-
-🌐 <a href="https://twocomms.shop/profile/">Перейти до профілю</a>"""
             
             self.send_message(user_id, message)
-            return False
+            return True
                 
         except Exception as e:
             print(f"Ошибка автоматического подтверждения: {e}")
