@@ -1,6 +1,16 @@
 /* CLS Fixes - предотвращение смещений макета при загрузке */
 
 /* ВАЖНО: Глобальный фикс перекрытия кликов скрытыми мобильными панелями */
+#user-panel { /* десктоп панель пользователя по умолчанию скрыта */
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+#user-panel.show {
+  display: block !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
 #mini-cart-panel-mobile,
 #user-panel-mobile {
   pointer-events: none !important; /* скрытая панель не перехватывает клики */

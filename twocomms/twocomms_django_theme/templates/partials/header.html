@@ -165,7 +165,8 @@
             </div>
           </button>
           
-          <div id="user-panel" class="user-panel">
+          <!-- user-panel removed
+          <div id="user-panel" class="user-panel d-none" aria-hidden="true" inert>
             {% if request.user.is_authenticated %}
               <!-- Заголовок профиля -->
               <div class="user-header">
@@ -363,6 +364,7 @@
               </div>
             {% endif %}
           </div>
+          -->
         </div>
 
       </div>
