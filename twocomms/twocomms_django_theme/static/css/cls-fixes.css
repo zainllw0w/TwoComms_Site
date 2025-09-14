@@ -4,10 +4,28 @@
 #mini-cart-panel-mobile,
 #user-panel-mobile {
   pointer-events: none !important; /* скрытая панель не перехватывает клики */
+  visibility: hidden !important; /* исключаем из взаимодействия и drag */
 }
 #mini-cart-panel-mobile.show,
 #user-panel-mobile.show {
   pointer-events: auto !important; /* только показанная панель кликабельна */
+  visibility: visible !important;
+}
+
+/* Абсолютный запрет отображения, если панель не показана явно */
+#mini-cart-panel-mobile:not(.show),
+#user-panel-mobile:not(.show) {
+  display: none !important;
+}
+
+/* На десктопе мобильные панели всегда скрыты независимо от классов */
+@media (min-width: 768px) {
+  #mini-cart-panel-mobile,
+  #user-panel-mobile {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
 }
 
 /* Фиксированные размеры для изображений */
