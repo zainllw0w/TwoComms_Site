@@ -96,6 +96,8 @@ urlpatterns=[
     path('about/', views.about, name='about'),
     # Google Merchant Center
     path('google-merchant-feed.xml', views.google_merchant_feed, name='google_merchant_feed'),
+    # alternate no-cache path
+    path('google-merchant-feed-v2.xml', views.google_merchant_feed, name='google_merchant_feed_v2'),
     path('contacts/', views.contacts, name='contacts'),
     path('search/', views.search, name='search'),
     # favorites
