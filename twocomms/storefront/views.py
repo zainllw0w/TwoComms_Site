@@ -26,9 +26,10 @@ from .forms import ProductForm, CategoryForm, PrintProposalForm
 from accounts.models import UserProfile, FavoriteProduct
 from django import forms
 from django.conf import settings
-from django.http import HttpResponse
+from django.http import HttpResponse, FileResponse, Http404
 from django.utils.text import slugify
 from django.core.cache import cache
+import os
 
 def unique_slugify(model, base_slug):
     """
@@ -200,6 +201,17 @@ def register_view(request):
 def logout_view(request):
     logout(request)
     return redirect('home')
+
+
+def google_merchant_feed(request):
+    """Отдаёт XML-фид Google Merchant из файла, созданного командой генерации.
+    Путь: /google_merchant_feed.xml
+    """
+    from django.conf import settings
+    feed_path = os.path.join(settings.BASE_DIR, 'twocomms', 'static', 'google_merchant_feed.xml')
+    if not os.path.exists(feed_path):
+        raise Http404("Feed file not found")
+    return FileResponse(open(feed_path, 'rb'), content_type='application/xml')
 
 
 
