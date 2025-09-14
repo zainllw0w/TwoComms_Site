@@ -252,9 +252,24 @@ class Command(BaseCommand):
                     g_size = ET.SubElement(item, 'g:size')
                     g_size.text = size
 
-                    # Материал
+                    # Матеріал — залежить від типу товару (визначаємо за slug/категорією)
+                    def get_material(p):
+                        slug = (p.slug or '').lower()
+                        cat = (p.category.name if p.category else '' ).lower()
+                        # Hoodie
+                        if any(k in slug for k in ['hood', 'hudi', 'hoodie']) or any(k in cat for k in ['худі','худи','hood']):
+                            return '90% бавовна, 10% поліестер'
+                        # Longsleeve
+                        if any(k in slug for k in ['long', 'longsleeve', 'longsliv']) or any(k in cat for k in ['лонгслів','лонгслив','лонг']):
+                            return '95% бамбук, 5% еластан'
+                        # T-shirt / футболка
+                        if any(k in slug for k in ['tshirt','t-shirt','tee','tshort','futbol']) or any(k in cat for k in ['футболк']):
+                            return '95% бавовна, 5% еластан'
+                        # За замовчуванням — бавовна
+                        return '95% бавовна, 5% еластан'
+
                     g_material = ET.SubElement(item, 'g:material')
-                    g_material.text = '100% cotton'
+                    g_material.text = get_material(product)
 
                     # Цвет — ровно одно значение на вариант
                     g_color = ET.SubElement(item, 'g:color')
