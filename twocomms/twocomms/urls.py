@@ -40,6 +40,7 @@ urlpatterns = [
 
     # Google Merchant feed
     path('google_merchant_feed.xml', storefront_views.google_merchant_feed, name='google_merchant_feed'),
+    path('google-merchant-feed-v2.xml', storefront_views.google_merchant_feed, name='google_merchant_feed_v2_root'),
 ]
 
 # Добавляем обработку медиа-файлов для разработки и продакшена
