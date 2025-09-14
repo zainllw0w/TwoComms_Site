@@ -395,8 +395,7 @@
   </div>
 </div>
 
-<!-- user-panel-mobile removed
-<div id="user-panel-mobile" class="user-panel d-none d-md-none">
+<div id="user-panel-mobile" class="user-panel d-none d-md-none" aria-hidden="true" inert>
             {% if request.user.is_authenticated %}
               <!-- Заголовок профиля -->
               <div class="user-header">
@@ -577,7 +576,6 @@
             {% endif %}
           </div>
 
--->
 <!-- Performance optimization: CSS loading enhancement -->
 <script>
 // Улучшение загрузки CSS для лучшей производительности
