@@ -211,7 +211,12 @@ def google_merchant_feed(request):
     feed_path = os.path.join(settings.BASE_DIR, 'twocomms', 'static', 'google_merchant_feed.xml')
     if not os.path.exists(feed_path):
         raise Http404("Feed file not found")
-    return FileResponse(open(feed_path, 'rb'), content_type='application/xml')
+    resp = FileResponse(open(feed_path, 'rb'), content_type='application/xml')
+    # Отключаем кэширование, чтобы всегда видеть свежий фид
+    resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    resp['Pragma'] = 'no-cache'
+    resp['Expires'] = '0'
+    return resp
 
 
 
