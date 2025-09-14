@@ -204,13 +204,28 @@ def logout_view(request):
 
 
 def google_merchant_feed(request):
-    """Отдаёт XML-фид Google Merchant из файла, созданного командой генерации.
-    Путь: /google_merchant_feed.xml
+    """Отдаёт XML-фид Google Merchant.
+    Ищет файл в нескольких типичных местах и выбирает самый свежий.
+    Путь: /google-merchant-feed.xml (и альтернативы)
     """
     from django.conf import settings
-    feed_path = os.path.join(settings.BASE_DIR, 'twocomms', 'static', 'google_merchant_feed.xml')
-    if not os.path.exists(feed_path):
+    candidates = [
+        os.path.join(settings.BASE_DIR, 'twocomms', 'static', 'google_merchant_feed.xml'),
+        os.path.join(settings.BASE_DIR, 'static', 'google_merchant_feed.xml'),
+    ]
+    # Попробуем также STATIC_ROOT, если настроен
+    static_root = getattr(settings, 'STATIC_ROOT', None)
+    if static_root:
+        candidates.append(os.path.join(static_root, 'google_merchant_feed.xml'))
+
+    existing = [(p, os.path.getmtime(p)) for p in candidates if os.path.exists(p)]
+    if not existing:
         raise Http404("Feed file not found")
+
+    # Берём самый свежий файл
+    existing.sort(key=lambda x: x[1], reverse=True)
+    feed_path = existing[0][0]
+
     resp = FileResponse(open(feed_path, 'rb'), content_type='application/xml')
     # Отключаем кэширование, чтобы всегда видеть свежий фид
     resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
