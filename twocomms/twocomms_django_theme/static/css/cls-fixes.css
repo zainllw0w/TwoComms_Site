@@ -1,5 +1,15 @@
 /* CLS Fixes - предотвращение смещений макета при загрузке */
 
+/* ВАЖНО: Глобальный фикс перекрытия кликов скрытыми мобильными панелями */
+#mini-cart-panel-mobile,
+#user-panel-mobile {
+  pointer-events: none !important; /* скрытая панель не перехватывает клики */
+}
+#mini-cart-panel-mobile.show,
+#user-panel-mobile.show {
+  pointer-events: auto !important; /* только показанная панель кликабельна */
+}
+
 /* Фиксированные размеры для изображений */
 .product-main-image,
 .featured-img {
