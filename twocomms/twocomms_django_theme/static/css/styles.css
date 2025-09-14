@@ -14216,6 +14216,7 @@ input[type="file"].form-control:hover {
   transform: translateY(100%);
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex !important;
+  pointer-events: none; /* не перехватывать клики, пока панель скрыта */
   flex-direction: column;
   padding: 1.5rem !important;
   overflow: hidden;
@@ -14224,6 +14225,7 @@ input[type="file"].form-control:hover {
 #mini-cart-panel-mobile.show,
 #user-panel-mobile.show {
   transform: translateY(0);
+  pointer-events: auto; /* кликабельна только когда показана */
 }
 
 #mini-cart-panel-mobile .cart-header,
