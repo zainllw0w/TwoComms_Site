@@ -558,15 +558,27 @@ body::after {
 }
 
 .card.product .price-row {
-  flex-wrap: wrap;
-  row-gap: 0.25rem;
-  column-gap: 0.5rem !important;
+  flex-wrap: nowrap;
+  column-gap: 0.4rem !important;
   align-items: baseline !important;
 }
 
 @media (max-width: 576px) {
   .card.product .price-row {
     justify-content: flex-start !important;
+  }
+
+  .card.product .price-text {
+    font-size: 0.85rem !important;
+  }
+
+  .card.product .price-row .fw-semibold.price-text {
+    font-size: 0.95rem !important;
+  }
+
+  .card.product .discount-badge {
+    font-size: 0.7rem !important;
+    padding: 0.2rem 0.45rem !important;
   }
 }
 
