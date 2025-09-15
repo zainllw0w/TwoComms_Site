@@ -557,6 +557,19 @@ body::after {
   flex-shrink: 0 !important;
 }
 
+.card.product .price-row {
+  flex-wrap: wrap;
+  row-gap: 0.25rem;
+  column-gap: 0.5rem !important;
+  align-items: baseline !important;
+}
+
+@media (max-width: 576px) {
+  .card.product .price-row {
+    justify-content: flex-start !important;
+  }
+}
+
 /* Плейсхолдеры для выравнивания */
 .card.product .placeholder-element {
   opacity: 0 !important;
