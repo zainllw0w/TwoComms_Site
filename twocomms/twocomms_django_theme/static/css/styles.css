@@ -549,7 +549,7 @@ body::after {
   margin-top: 0 !important;
 }
 
-/* Компактное отображение цен */
+/* Стилизованная основная цена */
 .card.product .price-text {
   white-space: nowrap !important;
   overflow: visible !important;
@@ -561,6 +561,15 @@ body::after {
   font-size: 0.9rem !important;
   padding: 0 !important;
   margin: 0 !important;
+}
+
+/* Стилизация основной цены (жирная) */
+.card.product .fw-semibold.price-text {
+  font-size: 1rem !important;
+  font-weight: 700 !important;
+  color: #1f2937 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+  letter-spacing: 0.025em !important;
 }
 
 .card.product .price-row {
@@ -587,11 +596,16 @@ body::after {
 
 /* Стили для старой цены */
 .card.product .text-decoration-line-through {
-  font-size: 0.8rem !important;
-  color: #6b7280 !important;
+  font-size: 0.7rem !important;
+  color: #9ca3af !important;
   flex: 0 0 auto !important;
   padding: 0 !important;
   margin: 0 !important;
+  opacity: 0.8 !important;
+  font-weight: 400 !important;
+  text-decoration: line-through !important;
+  text-decoration-color: #d1d5db !important;
+  text-decoration-thickness: 1px !important;
 }
 
 /* Стили для бейджа скидки */
@@ -614,17 +628,20 @@ body::after {
   }
 
   .card.product .price-row .fw-semibold.price-text {
-    font-size: 0.75rem !important;
+    font-size: 0.85rem !important;
     max-width: none !important;
     overflow: visible !important;
     text-overflow: unset !important;
     flex: 0 0 auto !important;
     padding: 0 !important;
     margin: 0 !important;
+    font-weight: 700 !important;
+    color: #1f2937 !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
   }
 
   .card.product .price-text {
-    font-size: 0.65rem !important;
+    font-size: 0.6rem !important;
     max-width: none !important;
     overflow: visible !important;
     text-overflow: unset !important;
@@ -643,9 +660,11 @@ body::after {
   }
 
   .card.product .text-decoration-line-through {
-    font-size: 0.65rem !important;
+    font-size: 0.6rem !important;
     padding: 0 !important;
     margin: 0 !important;
+    color: #9ca3af !important;
+    opacity: 0.8 !important;
   }
 
   .card.product .badge {
@@ -667,15 +686,19 @@ body::after {
   }
 
   .card.product .price-row .fw-semibold.price-text {
-    font-size: 0.7rem !important;
+    font-size: 0.8rem !important;
+    font-weight: 700 !important;
+    color: #1f2937 !important;
   }
 
   .card.product .price-text {
-    font-size: 0.6rem !important;
+    font-size: 0.55rem !important;
   }
 
   .card.product .text-decoration-line-through {
-    font-size: 0.6rem !important;
+    font-size: 0.55rem !important;
+    color: #9ca3af !important;
+    opacity: 0.8 !important;
   }
 
   .card.product .badge {
