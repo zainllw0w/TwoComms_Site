@@ -549,11 +549,11 @@ body::after {
   margin-top: 0 !important;
 }
 
-/* Предотвращение переноса текста в ценах */
+/* Гибкое отображение цен */
 .card.product .price-text {
   white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
   flex: 0 1 auto !important;
   min-width: 0;
   max-width: 100% !important;
@@ -561,47 +561,53 @@ body::after {
 }
 
 .card.product .price-row {
-  flex-wrap: nowrap !important;
+  flex-wrap: wrap !important;
   column-gap: 0.4rem !important;
+  row-gap: 0.2rem !important;
   align-items: center !important;
   max-width: 100% !important;
-  overflow: hidden !important;
+  overflow: visible !important;
   box-sizing: border-box !important;
 }
 
 /* Дополнительная защита от переполнения */
 .card.product .d-flex.align-items-center.gap-2 {
   max-width: 100% !important;
-  overflow: hidden !important;
-  flex-wrap: nowrap !important;
+  overflow: visible !important;
+  flex-wrap: wrap !important;
 }
 
 @media (max-width: 576px) {
   .card.product .price-row {
-    column-gap: 0.28rem !important;
+    column-gap: 0.25rem !important;
     max-width: 100% !important;
-    overflow: hidden !important;
+    overflow: visible !important;
+    flex-wrap: wrap !important;
   }
 
   .card.product .price-row .fw-semibold.price-text {
-    font-size: 0.9rem !important;
-    max-width: 60% !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
+    font-size: 0.85rem !important;
+    max-width: none !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+    flex: 1 1 auto !important;
   }
 
   .card.product .price-text {
-    font-size: 0.78rem !important;
-    max-width: 30% !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
+    font-size: 0.75rem !important;
+    max-width: none !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+    flex: 0 1 auto !important;
   }
 
   .card.product .product-title {
-    font-size: 0.95rem !important;
-    height: 2.2em !important;
-    min-height: 2.2em !important;
-    max-height: 2.2em !important;
+    font-size: 0.9rem !important;
+    height: auto !important;
+    min-height: 2.0em !important;
+    max-height: none !important;
+    -webkit-line-clamp: 3 !important;
+    line-clamp: 3 !important;
   }
 
   .card.product .discount-badge {
@@ -681,15 +687,14 @@ body::after {
   min-height: 0 !important;
 }
 
-/* Фиксированная высота названия товара - минимум 2 строки */
+/* Гибкая высота названия товара */
 .card.product .product-title {
-  height: 2.4em !important;
   min-height: 2.4em !important;
-  max-height: 2.4em !important;
+  max-height: 4.8em !important;
   line-height: 1.2 !important;
   display: -webkit-box !important;
-  -webkit-line-clamp: 2 !important;
-  line-clamp: 2 !important;
+  -webkit-line-clamp: 4 !important;
+  line-clamp: 4 !important;
   -webkit-box-orient: vertical !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
@@ -698,7 +703,6 @@ body::after {
   hyphens: auto !important;
   max-width: 100% !important;
   box-sizing: border-box !important;
-  word-break: break-word !important;
 }
 
 /* Принудительное переопределение Bootstrap классов */
