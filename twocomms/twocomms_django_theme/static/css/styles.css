@@ -556,25 +556,52 @@ body::after {
   text-overflow: ellipsis !important;
   flex: 0 1 auto !important;
   min-width: 0;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 .card.product .price-row {
-  flex-wrap: nowrap;
+  flex-wrap: nowrap !important;
   column-gap: 0.4rem !important;
   align-items: center !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* Дополнительная защита от переполнения */
+.card.product .d-flex.align-items-center.gap-2 {
+  max-width: 100% !important;
+  overflow: hidden !important;
+  flex-wrap: nowrap !important;
 }
 
 @media (max-width: 576px) {
   .card.product .price-row {
     column-gap: 0.28rem !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
   }
 
   .card.product .price-row .fw-semibold.price-text {
     font-size: 0.9rem !important;
+    max-width: 60% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
 
   .card.product .price-text {
     font-size: 0.78rem !important;
+    max-width: 30% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .card.product .product-title {
+    font-size: 0.95rem !important;
+    height: 2.2em !important;
+    min-height: 2.2em !important;
+    max-height: 2.2em !important;
   }
 
   .card.product .discount-badge {
@@ -667,6 +694,10 @@ body::after {
   overflow: hidden !important;
   text-overflow: ellipsis !important;
   word-wrap: break-word !important;
+  word-break: break-word !important;
+  hyphens: auto !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
   word-break: break-word !important;
 }
 
