@@ -559,16 +559,20 @@ body::after {
   max-width: 100% !important;
   box-sizing: border-box !important;
   font-size: 0.9rem !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 .card.product .price-row {
   flex-wrap: nowrap !important;
-  column-gap: 0.3rem !important;
+  column-gap: 0.25rem !important;
   align-items: center !important;
   max-width: 100% !important;
   overflow: visible !important;
   box-sizing: border-box !important;
   justify-content: flex-start !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 /* Дополнительная защита от переполнения */
@@ -576,7 +580,9 @@ body::after {
   max-width: 100% !important;
   overflow: visible !important;
   flex-wrap: nowrap !important;
-  gap: 0.3rem !important;
+  gap: 0.25rem !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 /* Стили для старой цены */
@@ -584,61 +590,103 @@ body::after {
   font-size: 0.8rem !important;
   color: #6b7280 !important;
   flex: 0 0 auto !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 /* Стили для бейджа скидки */
 .card.product .badge {
   font-size: 0.7rem !important;
-  padding: 0.15rem 0.4rem !important;
+  padding: 0.12rem 0.35rem !important;
   flex: 0 0 auto !important;
   white-space: nowrap !important;
+  margin: 0 !important;
 }
 
 @media (max-width: 576px) {
   .card.product .price-row {
-    column-gap: 0.2rem !important;
+    column-gap: 0.15rem !important;
     max-width: 100% !important;
     overflow: visible !important;
     flex-wrap: nowrap !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
 
   .card.product .price-row .fw-semibold.price-text {
-    font-size: 0.8rem !important;
+    font-size: 0.75rem !important;
     max-width: none !important;
     overflow: visible !important;
     text-overflow: unset !important;
     flex: 0 0 auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
 
   .card.product .price-text {
-    font-size: 0.7rem !important;
+    font-size: 0.65rem !important;
     max-width: none !important;
     overflow: visible !important;
     text-overflow: unset !important;
     flex: 0 0 auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
 
   .card.product .product-title {
-    font-size: 0.85rem !important;
+    font-size: 0.8rem !important;
     height: auto !important;
     min-height: 2.0em !important;
     max-height: none !important;
     line-height: 1.2 !important;
+    margin-bottom: 0.3rem !important;
   }
 
   .card.product .text-decoration-line-through {
-    font-size: 0.7rem !important;
+    font-size: 0.65rem !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
 
   .card.product .badge {
-    font-size: 0.65rem !important;
-    padding: 0.1rem 0.3rem !important;
+    font-size: 0.6rem !important;
+    padding: 0.08rem 0.25rem !important;
+    margin: 0 !important;
   }
 
   .card.product .discount-badge {
-    font-size: 0.68rem !important;
-    padding: 0.2rem 0.45rem !important;
+    font-size: 0.6rem !important;
+    padding: 0.08rem 0.25rem !important;
   }
+}
+
+/* Дополнительные стили для очень маленьких экранов */
+@media (max-width: 480px) {
+  .card.product .price-row {
+    column-gap: 0.1rem !important;
+  }
+
+  .card.product .price-row .fw-semibold.price-text {
+    font-size: 0.7rem !important;
+  }
+
+  .card.product .price-text {
+    font-size: 0.6rem !important;
+  }
+
+  .card.product .text-decoration-line-through {
+    font-size: 0.6rem !important;
+  }
+
+  .card.product .badge {
+    font-size: 0.55rem !important;
+    padding: 0.05rem 0.2rem !important;
+  }
+
+  .card.product .product-title {
+    font-size: 0.75rem !important;
+  }
+}
 }
 
 /* Плейсхолдеры для выравнивания */
