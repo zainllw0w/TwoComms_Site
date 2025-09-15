@@ -624,7 +624,7 @@ body::after {
 
 @media (max-width: 576px) {
   .card.product .price-row {
-    column-gap: 0.15rem !important;
+    column-gap: 0.1rem !important;
     max-width: 100% !important;
     overflow: visible !important;
     flex-wrap: nowrap !important;
@@ -633,7 +633,7 @@ body::after {
   }
 
   .card.product .price-row .fw-semibold.price-text {
-    font-size: 0.85rem !important;
+    font-size: 0.8rem !important;
     max-width: none !important;
     overflow: visible !important;
     text-overflow: unset !important;
@@ -651,7 +651,7 @@ body::after {
   }
 
   .card.product .price-text {
-    font-size: 0.6rem !important;
+    font-size: 0.55rem !important;
     max-width: none !important;
     overflow: visible !important;
     text-overflow: unset !important;
@@ -670,7 +670,7 @@ body::after {
   }
 
   .card.product .text-decoration-line-through {
-    font-size: 0.55rem !important;
+    font-size: 0.5rem !important;
     padding: 0 !important;
     margin: 0 !important;
     color: #9ca3af !important;
@@ -678,8 +678,8 @@ body::after {
   }
 
   .card.product .badge {
-    font-size: 0.55rem !important;
-    padding: 0.06rem 0.2rem !important;
+    font-size: 0.5rem !important;
+    padding: 0.04rem 0.15rem !important;
     margin: 0 !important;
   }
 
@@ -692,11 +692,11 @@ body::after {
 /* Дополнительные стили для очень маленьких экранов */
 @media (max-width: 480px) {
   .card.product .price-row {
-    column-gap: 0.1rem !important;
+    column-gap: 0.08rem !important;
   }
 
   .card.product .price-row .fw-semibold.price-text {
-    font-size: 0.8rem !important;
+    font-size: 0.75rem !important;
     font-weight: 800 !important;
     color: #ffffff !important;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
@@ -708,18 +708,18 @@ body::after {
   }
 
   .card.product .price-text {
-    font-size: 0.5rem !important;
+    font-size: 0.45rem !important;
   }
 
   .card.product .text-decoration-line-through {
-    font-size: 0.5rem !important;
+    font-size: 0.45rem !important;
     color: #9ca3af !important;
     opacity: 0.7 !important;
   }
 
   .card.product .badge {
-    font-size: 0.5rem !important;
-    padding: 0.04rem 0.15rem !important;
+    font-size: 0.45rem !important;
+    padding: 0.03rem 0.12rem !important;
   }
 
   .card.product .product-title {
