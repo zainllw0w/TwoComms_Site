@@ -601,7 +601,7 @@ body::after {
 
 /* Стили для старой цены */
 .card.product .text-decoration-line-through {
-  font-size: 0.65rem !important;
+  font-size: 0.8rem !important;
   color: #9ca3af !important;
   flex: 0 0 auto !important;
   padding: 0 !important;
@@ -615,8 +615,8 @@ body::after {
 
 /* Стили для бейджа скидки */
 .card.product .badge {
-  font-size: 0.65rem !important;
-  padding: 0.08rem 0.25rem !important;
+  font-size: 0.75rem !important;
+  padding: 0.12rem 0.35rem !important;
   flex: 0 0 auto !important;
   white-space: nowrap !important;
   margin: 0 !important;
