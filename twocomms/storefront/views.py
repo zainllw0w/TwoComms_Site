@@ -380,7 +380,13 @@ def catalog(request, cat_slug=None):
         except:
             product.colors_preview = []
     
-    return render(request,'pages/catalog.html',{'categories':categories,'category':category,'products':products,'show_category_cards':show_category_cards})
+    return render(request,'pages/catalog.html',{
+        'categories': categories,
+        'category': category,
+        'products': products,
+        'show_category_cards': show_category_cards,
+        'cat_slug': cat_slug or ''
+    })
 
 @cache_page_for_anon(600)  # Кэшируем карточку товара на 10 минут для анонимов
 def product_detail(request, slug):
