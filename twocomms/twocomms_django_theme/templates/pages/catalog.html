@@ -23,8 +23,73 @@
   ]
 }
 </script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": "{{ category.name }} — TwoComms",
+  "description": "Категорія {{ category.name|lower }} з авторськими принтами від TwoComms.",
+  "url": "{{ request.scheme }}://{{ request.get_host }}{{ request.path }}",
+  "mainEntity": {
+    "@type": "ItemList",
+    "itemListOrder": "https://schema.org/ItemListOrderDescending",
+    "itemListElement": [
+      {% for p in products|slice:":20" %}
+      {
+        "@type": "ListItem",
+        "position": {{ forloop.counter }},
+        "url": "{{ request.scheme }}://{{ request.get_host }}{% url 'product' p.slug %}",
+        "name": "{{ p.title|escapejs }}"
+      }{% if not forloop.last %},{% endif %}
+      {% endfor %}
+    ]
+  }
+}
+</script>
+{% endif %}
+{% if not category %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": "Каталог TwoComms",
+  "description": "Повний каталог стріт та мілітарі одягу TwoComms.",
+  "url": "{{ request.scheme }}://{{ request.get_host }}{{ request.path }}",
+  "mainEntity": {
+    "@type": "ItemList",
+    "itemListOrder": "https://schema.org/ItemListOrderDescending",
+    "itemListElement": [
+      {% for c in categories %}
+      {
+        "@type": "ListItem",
+        "position": {{ forloop.counter }},
+        "url": "{{ request.scheme }}://{{ request.get_host }}{% url 'catalog_by_cat' c.slug %}",
+        "name": "{{ c.name|escapejs }}"
+      }{% if not forloop.last %},{% endif %}
+      {% endfor %}
+    ]
+  }
+}
+</script>
 {% endif %}
 <div class="row g-3 g-md-4">
+  <div class="col-12">
+    <header class="mb-3 mb-md-4">
+      <h1 class="h2 h1-lg fw-bold">
+        {% if category %}
+          {{ category.name }} — стріт & мілітарі одяг TwoComms
+        {% else %}
+          Каталог одягу TwoComms — стріт & мілітарі колекція
+        {% endif %}
+      </h1>
+      {% if category and category.description %}
+        <p class="text-secondary mb-0">{{ category.description|striptags|truncatewords:40 }}</p>
+      {% elif not category %}
+        <p class="text-secondary mb-0">Обирайте футболки, худі та лонгсліви з авторськими принтами, українським виробництвом та швидкою доставкою по всій країні.</p>
+      {% endif %}
+    </header>
+  </div>
+
   <aside class="col-12">
     <div class="d-flex flex-wrap gap-2 mb-3">
       <a href="{% url 'catalog' %}" class="btn btn-outline-light {% if not category %}active{% endif %} d-inline-flex align-items-center gap-2">
