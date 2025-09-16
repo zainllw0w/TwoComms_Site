@@ -583,9 +583,9 @@ body::after {
   margin: 0 !important;
 }
 
-/* Стилизация основной цены (жирная) - Оптимальный градиентный стиль */
+/* Стилизация основной цены (жирная) - Увеличенный градиентный стиль */
 .card.product .fw-semibold.price-text {
-  font-size: 0.95rem !important;
+  font-size: 1.05rem !important;
   font-weight: 900 !important;
   background: linear-gradient(135deg, 
     #ff6b35 0%, 
@@ -601,7 +601,7 @@ body::after {
   background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
   text-shadow: none !important;
-  letter-spacing: 0.06em !important;
+  letter-spacing: 0.07em !important;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3)) !important;
   animation: priceGradientFlow 3s ease-in-out infinite !important;
   position: relative !important;
@@ -690,7 +690,7 @@ body::after {
   }
 
   .card.product .price-row .fw-semibold.price-text {
-    font-size: 0.8rem !important;
+    font-size: 0.85rem !important;
     max-width: none !important;
     overflow: visible !important;
     text-overflow: unset !important;
@@ -712,7 +712,7 @@ body::after {
     background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
     text-shadow: none !important;
-    letter-spacing: 0.05em !important;
+    letter-spacing: 0.06em !important;
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3)) !important;
     animation: priceGradientFlow 3s ease-in-out infinite !important;
     position: relative !important;
@@ -780,7 +780,7 @@ body::after {
   }
 
   .card.product .price-row .fw-semibold.price-text {
-    font-size: 0.7rem !important;
+    font-size: 0.75rem !important;
     font-weight: 900 !important;
     background: linear-gradient(135deg, 
       #ff6b35 0%, 
@@ -796,7 +796,7 @@ body::after {
     background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
     text-shadow: none !important;
-    letter-spacing: 0.04em !important;
+    letter-spacing: 0.05em !important;
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3)) !important;
     animation: priceGradientFlow 3s ease-in-out infinite !important;
     position: relative !important;
