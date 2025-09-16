@@ -68,6 +68,7 @@
     <meta name="description" content="{% block description %}TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю.{% endblock %}">
     <meta name="keywords" content="{% block keywords %}стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, одяг з характером, стріт стиль, мілітарі стиль{% endblock %}">
     <link rel="canonical" href="{% block canonical %}{{ request.scheme }}://{{ request.get_host }}{{ request.path }}{% endblock %}">
+    {% block pagination_links %}{% endblock %}
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="{% block og_type %}website{% endblock %}">
@@ -96,6 +97,16 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+  <link rel="dns-prefetch" href="https://fonts.gstatic.com">
+
+  <link rel="preload" href="{% static 'js/main.js' %}?v=31" as="script">
+  <link rel="modulepreload" href="{% static 'js/modules/shared.js' %}">
+  <link rel="modulepreload" href="{% static 'js/modules/optimizers.js' %}">
+  <link rel="modulepreload" href="{% static 'js/modules/product-media.js' %}">
+  <link rel="modulepreload" href="{% static 'js/modules/homepage.js' %}">
+  <link rel="modulepreload" href="{% static 'js/modules/cart.js' %}">
   
   <!-- Асинхронная загрузка Bootstrap CSS с приоритизацией -->
   <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' 
@@ -656,9 +667,11 @@
         onload="this.classList.add('script-loaded')" 
         onerror="this.classList.add('script-error')"
         crossorigin="anonymous"></script>
-<script defer src='{% static 'js/main.js' %}?v=30' 
-        onload="this.classList.add('script-loaded')" 
-        onerror="this.classList.add('script-error')"></script>
+<script type="module"
+        src="{% static 'js/main.js' %}?v=31"
+        onload="this.classList.add('script-loaded')"
+        onerror="this.classList.add('script-error')"
+        crossorigin="anonymous"></script>
 
 <!-- Google Pay API -->
 <script async src="https://pay.google.com/gp/p/js/pay.js"></script>

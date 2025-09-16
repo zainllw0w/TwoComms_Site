@@ -8,6 +8,23 @@
 
 {% block og_type %}website{% endblock %}
 
+{% block canonical %}
+  {% if page_obj and page_obj.number > 1 %}
+    {{ request.scheme }}://{{ request.get_host }}{{ request.path }}?page={{ page_obj.number }}
+  {% else %}
+    {{ request.scheme }}://{{ request.get_host }}{{ request.path }}
+  {% endif %}
+{% endblock %}
+
+{% block pagination_links %}
+  {% if page_obj and page_obj.has_previous %}
+    <link rel="prev" href="{{ request.path }}?page={{ page_obj.previous_page_number }}">
+  {% endif %}
+  {% if page_obj and page_obj.has_next %}
+    <link rel="next" href="{{ request.path }}?page={{ page_obj.next_page_number }}">
+  {% endif %}
+{% endblock %}
+
 {% block structured_data %}
 <script type="application/ld+json">
 {
@@ -290,8 +307,12 @@
   <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4" data-stagger-grid id="products-container">
     {% for p in products %}
     <div class="product-card-wrap stagger-item reveal-stagger">
-      {% cache 900 product_card p.id p.final_price p.discount_percent p.display_image.name p.category_id %}
-        {% include "partials/product_card.html" with p=p stagger=True %}
+      {% cache 900 product_card p.id p.final_price p.discount_percent p.display_image.name p.category_id forloop.counter0 %}
+        {% if forloop.counter0 < 2 %}
+          {% include "partials/product_card.html" with p=p stagger=True eager=True %}
+        {% else %}
+          {% include "partials/product_card.html" with p=p stagger=True eager=False %}
+        {% endif %}
       {% endcache %}
       {% if p.colors_preview %}
       <div class="product-card-dots">
@@ -313,31 +334,53 @@
   </div>
   
   {% if has_more_products %}
-  <div class="text-center mt-4" id="load-more-container">
-    <button class="btn btn-outline-primary" id="load-more-btn" data-page="2">
+  <div class="text-center mt-4" id="load-more-container"
+       data-total-pages="{{ paginator.num_pages }}"
+       data-current-page="{{ page_obj.number }}">
+    <button class="btn btn-outline-primary" id="load-more-btn" data-page="{{ page_obj.next_page_number }}">
       <span class="btn-text">Показати ще</span>
       <span class="btn-spinner d-none">
         <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
         Завантаження...
       </span>
     </button>
+    <noscript>
+      <div class="mt-3">
+        <a class="btn btn-outline-primary" href="?page={{ page_obj.next_page_number }}">Наступна сторінка</a>
+      </div>
+    </noscript>
   </div>
   {% endif %}
   
-  <!-- Селектор страниц -->
+  {% if paginator.num_pages > 1 %}
   <div class="text-center mt-3" id="page-selector-container">
     <div class="d-flex justify-content-center align-items-center gap-3">
       <span class="text-muted small">Сторінка:</span>
       <select class="form-select form-select-sm" id="page-selector" style="width: auto;">
-        <option value="1" selected>1</option>
-        <option value="2">2</option>
-        <option value="3">3</option>
-        <option value="4">4</option>
-        <option value="5">5</option>
+        {% for num in paginator.page_range %}
+          <option value="{{ num }}" {% if page_obj.number == num %}selected{% endif %}>{{ num }}</option>
+        {% endfor %}
       </select>
-      <span class="text-muted small">з <span id="total-pages">5</span></span>
+      <span class="text-muted small">з <span id="total-pages">{{ paginator.num_pages }}</span></span>
     </div>
   </div>
+
+  <nav aria-label="Навігація по новинках" class="mt-3" data-total-pages="{{ paginator.num_pages }}">
+    <ul class="pagination pagination-sm justify-content-center mb-0">
+      <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+        <a class="page-link" href="{% if page_obj.has_previous %}?page={{ page_obj.previous_page_number }}{% else %}#{% endif %}" rel="prev">Попередня</a>
+      </li>
+      {% for num in paginator.page_range %}
+        <li class="page-item {% if num == page_obj.number %}active{% endif %}">
+          <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+        </li>
+      {% endfor %}
+      <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+        <a class="page-link" href="{% if page_obj.has_next %}?page={{ page_obj.next_page_number }}{% else %}#{% endif %}" rel="next">Наступна</a>
+      </li>
+    </ul>
+  </nav>
+  {% endif %}
 </section>
 
 <script>

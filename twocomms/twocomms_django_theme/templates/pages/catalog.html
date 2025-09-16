@@ -134,8 +134,12 @@
         <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4" data-stagger-grid>
           {% for p in products %}
             <div class="product-card-wrap">
-              {% cache 900 product_card p.id p.final_price p.discount_percent p.display_image.name p.category_id %}
-                {% include "partials/product_card.html" with p=p stagger=True %}
+              {% cache 900 product_card p.id p.final_price p.discount_percent p.display_image.name p.category_id forloop.counter0 %}
+                {% if forloop.counter0 < 2 %}
+                  {% include "partials/product_card.html" with p=p stagger=True eager=True %}
+                {% else %}
+                  {% include "partials/product_card.html" with p=p stagger=True eager=False %}
+                {% endif %}
               {% endcache %}
               {% if p.colors_preview %}
               <div class="product-card-dots">
