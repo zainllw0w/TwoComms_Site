@@ -588,6 +588,8 @@ body::after {
   letter-spacing: 0.05em !important;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7)) !important;
   animation: priceGlow 1.5s ease-in-out infinite alternate !important;
+  -webkit-text-stroke: 1px rgba(0, 0, 0, 0.8) !important; /* Черная обводка */
+  text-stroke: 1px rgba(0, 0, 0, 0.8) !important; /* Черная обводка */
 }
 
 .card.product .price-row {
@@ -659,6 +661,8 @@ body::after {
     letter-spacing: 0.05em !important;
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7)) !important;
     animation: priceGlow 1.5s ease-in-out infinite alternate !important;
+    -webkit-text-stroke: 0.8px rgba(0, 0, 0, 0.8) !important; /* Черная обводка */
+    text-stroke: 0.8px rgba(0, 0, 0, 0.8) !important; /* Черная обводка */
   }
 
   .card.product .price-text {
@@ -728,6 +732,8 @@ body::after {
     letter-spacing: 0.05em !important;
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7)) !important;
     animation: priceGlow 1.5s ease-in-out infinite alternate !important;
+    -webkit-text-stroke: 0.6px rgba(0, 0, 0, 0.8) !important; /* Черная обводка */
+    text-stroke: 0.6px rgba(0, 0, 0, 0.8) !important; /* Черная обводка */
   }
 
   .card.product .price-text {
@@ -15667,7 +15673,7 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 /* Контент категорий в едином блоке */
 .categories-content-unified {
   position: relative;
-  padding: 0 1.5rem 1.5rem 1.5rem;
+  padding: 1rem 1.5rem 1.5rem 1.5rem; /* Добавлен отступ сверху */
   z-index: 2;
 }
 
@@ -16146,7 +16152,7 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   }
   
   .categories-content-unified {
-    padding: 0 1.25rem 1.25rem 1.25rem;
+    padding: 0.75rem 1.25rem 1.25rem 1.25rem; /* Добавлен отступ сверху */
   }
   
   .categories-title-text {
@@ -16219,7 +16225,7 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   }
   
   .categories-content-unified {
-    padding: 0 1rem 1rem 1rem;
+    padding: 0.5rem 1rem 1rem 1rem; /* Добавлен отступ сверху */
   }
   
   .categories-title-text {
@@ -16336,7 +16342,7 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   }
   
   .categories-content-unified {
-    padding: 0 0.75rem 0.75rem 0.75rem;
+    padding: 0.5rem 0.75rem 0.75rem 0.75rem; /* Добавлен отступ сверху */
   }
   
   .categories-title-text {
