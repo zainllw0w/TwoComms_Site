@@ -1,12 +1,12 @@
-/* Анимация свечения цены */
+/* Анимация свечения цены - обновленная для градиентного стиля */
 @keyframes priceGlow {
   0% {
-    text-shadow: 0 0 10px rgba(255, 215, 0, 0.8), 0 0 20px rgba(255, 215, 0, 0.6), 0 0 30px rgba(255, 215, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.5);
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7));
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 8px rgba(255, 215, 0, 0.3));
+    transform: scale(1);
   }
   100% {
-    text-shadow: 0 0 15px rgba(255, 215, 0, 1), 0 0 30px rgba(255, 215, 0, 0.8), 0 0 45px rgba(255, 215, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.5);
-    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.8));
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 15px rgba(255, 215, 0, 0.6));
+    transform: scale(1.02);
   }
 }
 
@@ -579,17 +579,60 @@ body::after {
   margin: 0 !important;
 }
 
-/* Стилизация основной цены (жирная) */
+/* Стилизация основной цены (жирная) - Красивый десктопный стиль */
 .card.product .fw-semibold.price-text {
   font-size: 1rem !important;
   font-weight: 900 !important;
-  color: #ffffff !important;
-  text-shadow: 0 0 10px rgba(255, 215, 0, 0.8), 0 0 20px rgba(255, 215, 0, 0.6), 0 0 30px rgba(255, 215, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.5) !important;
+  background: linear-gradient(135deg, 
+    #ffd700 0%, 
+    #ffed4e 25%, 
+    #ffffff 50%, 
+    #ffed4e 75%, 
+    #ffd700 100%
+  ) !important;
+  background-size: 200% 200% !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: none !important;
   letter-spacing: 0.05em !important;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7)) !important;
-  animation: priceGlow 1.5s ease-in-out infinite alternate !important;
-  -webkit-text-stroke: 1px rgba(0, 0, 0, 0.8) !important; /* Черная обводка */
-  text-stroke: 1px rgba(0, 0, 0, 0.8) !important; /* Черная обводка */
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4)) !important;
+  animation: priceGradientFlow 3s ease-in-out infinite, priceGlow 2s ease-in-out infinite alternate !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+/* Анимация градиента для цены */
+@keyframes priceGradientFlow {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/* Дополнительный эффект свечения для цены */
+.card.product .fw-semibold.price-text::before {
+  content: attr(data-price);
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, 
+    rgba(255, 215, 0, 0.3) 0%, 
+    rgba(255, 237, 78, 0.2) 25%, 
+    rgba(255, 255, 255, 0.1) 50%, 
+    rgba(255, 237, 78, 0.2) 75%, 
+    rgba(255, 215, 0, 0.3) 100%
+  ) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  filter: blur(1px) !important;
+  z-index: -1 !important;
+  animation: priceGradientFlow 3s ease-in-out infinite reverse !important;
 }
 
 .card.product .price-row {
