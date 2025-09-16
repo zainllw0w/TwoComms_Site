@@ -359,7 +359,7 @@ class StructuredDataGenerator:
             "description": product.description or f"Якісний {product.category.name.lower() if product.category else 'одяг'} з ексклюзивним дизайном від TwoComms",
             "sku": f"TC-{product.id}",
             "mpn": f"TC-{product.id}",  # Manufacturer Part Number
-            "gtin": f"TC{product.id:08d}",  # Global Trade Item Number
+            "gtin": f"200000000000{product.id:02d}",  # Global Trade Item Number (14 digits)
             "url": f"https://twocomms.shop/product/{product.slug}/",
             "image": images[0] if images else "https://twocomms.shop/static/img/placeholder.jpg",
             "additionalProperty": [
@@ -397,6 +397,13 @@ class StructuredDataGenerator:
                 "itemCondition": "https://schema.org/NewCondition",
                 "url": f"https://twocomms.shop/product/{product.slug}/",
                 "priceValidUntil": "2025-12-31",
+                "hasMerchantReturnPolicy": {
+                    "@type": "MerchantReturnPolicy",
+                    "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+                    "merchantReturnDays": 14,
+                    "returnMethod": "https://schema.org/ReturnByMail",
+                    "returnFees": "https://schema.org/FreeReturn"
+                },
                 "seller": {
                     "@type": "Organization",
                     "name": "TwoComms",
@@ -413,6 +420,10 @@ class StructuredDataGenerator:
                         "@type": "MonetaryAmount",
                         "value": "0",
                         "currency": "UAH"
+                    },
+                    "shippingDestination": {
+                        "@type": "DefinedRegion",
+                        "addressCountry": "UA"
                     },
                     "deliveryTime": {
                         "@type": "ShippingDeliveryTime",
@@ -533,7 +544,7 @@ class StructuredDataGenerator:
             "description": product.description or f"Якісний {product.category.name.lower() if product.category else 'одяг'} з ексклюзивним дизайном від TwoComms. Стріт & мілітарі стиль.",
             "sku": f"TC-{product.id}",
             "mpn": f"TC-{product.id}",
-            "gtin": f"TC{product.id:08d}",
+            "gtin": f"200000000000{product.id:02d}",
             "url": f"https://twocomms.shop/product/{product.slug}/",
             "image": images,
             "brand": {
@@ -552,6 +563,45 @@ class StructuredDataGenerator:
                 "itemCondition": "https://schema.org/NewCondition",
                 "url": f"https://twocomms.shop/product/{product.slug}/",
                 "priceValidUntil": "2025-12-31",
+                "hasMerchantReturnPolicy": {
+                    "@type": "MerchantReturnPolicy",
+                    "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+                    "merchantReturnDays": 14,
+                    "returnMethod": "https://schema.org/ReturnByMail",
+                    "returnFees": "https://schema.org/FreeReturn"
+                },
+                "shippingDetails": {
+                    "@type": "OfferShippingDetails",
+                    "shippingRate": {
+                        "@type": "MonetaryAmount",
+                        "value": "0",
+                        "currency": "UAH"
+                    },
+                    "shippingDestination": {
+                        "@type": "DefinedRegion",
+                        "addressCountry": "UA"
+                    },
+                    "deliveryTime": {
+                        "@type": "ShippingDeliveryTime",
+                        "businessDays": {
+                            "@type": "OpeningHoursSpecification",
+                            "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+                        },
+                        "cutoffTime": "14:00",
+                        "handlingTime": {
+                            "@type": "QuantitativeValue",
+                            "minValue": 1,
+                            "maxValue": 2,
+                            "unitCode": "DAY"
+                        },
+                        "transitTime": {
+                            "@type": "QuantitativeValue", 
+                            "minValue": 1,
+                            "maxValue": 5,
+                            "unitCode": "DAY"
+                        }
+                    }
+                },
                 "seller": {
                     "@type": "Organization",
                     "name": "TwoComms",
