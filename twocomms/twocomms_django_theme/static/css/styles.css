@@ -3512,18 +3512,18 @@ body::after {
   background: linear-gradient(45deg, rgba(139, 92, 246, 0.1), rgba(99, 102, 241, 0.1));
 }
 
-/* Google Pay кнопка - современный дизайн */
+/* Google Pay кнопка - темный современный дизайн */
 .cart-google-pay-btn {
   position: relative;
   width: 100%;
   padding: 1.25rem 2rem;
   background: linear-gradient(135deg, 
-    rgba(255, 255, 255, 0.95) 0%,
-    rgba(248, 250, 252, 0.98) 50%,
-    rgba(241, 245, 249, 0.95) 100%);
-  border: 2px solid rgba(255, 255, 255, 0.8);
+    rgba(31, 41, 55, 0.95) 0%,
+    rgba(17, 24, 39, 0.98) 50%,
+    rgba(15, 23, 42, 0.95) 100%);
+  border: 2px solid rgba(55, 65, 81, 0.8);
   border-radius: 15px;
-  color: #1f2937;
+  color: #ffffff;
   font-size: 1.1rem;
   font-weight: 700;
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -3531,25 +3531,25 @@ body::after {
   overflow: hidden;
   margin-bottom: 1rem;
   box-shadow: 
-    0 4px 20px rgba(0, 0, 0, 0.08),
-    0 1px 3px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    0 4px 20px rgba(0, 0, 0, 0.3),
+    0 1px 3px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
 
 .cart-google-pay-btn:hover {
   background: linear-gradient(135deg, 
-    rgba(255, 255, 255, 1) 0%,
-    rgba(249, 250, 251, 1) 50%,
-    rgba(243, 244, 246, 1) 100%);
-  border-color: rgba(255, 255, 255, 1);
+    rgba(55, 65, 81, 1) 0%,
+    rgba(31, 41, 55, 1) 50%,
+    rgba(17, 24, 39, 1) 100%);
+  border-color: rgba(75, 85, 99, 1);
   transform: translateY(-4px) scale(1.02);
   box-shadow: 
-    0 20px 40px rgba(66, 133, 244, 0.15),
-    0 8px 25px rgba(52, 168, 83, 0.1),
-    0 2px 8px rgba(0, 0, 0, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    0 20px 40px rgba(66, 133, 244, 0.25),
+    0 8px 25px rgba(52, 168, 83, 0.2),
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 .cart-google-pay-btn:active {
@@ -3573,25 +3573,25 @@ body::after {
   width: 28px;
   height: 28px;
   background: linear-gradient(135deg, 
-    rgba(255, 255, 255, 0.9) 0%,
-    rgba(248, 250, 252, 0.8) 100%);
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.1) 100%);
   border-radius: 8px;
   padding: 4px;
   box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.1),
-    inset 0 1px 2px rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    inset 0 1px 2px rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .cart-google-pay-icon-wrapper svg {
   width: 20px;
   height: 20px;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
 }
 
 .cart-google-pay-text {
   font-weight: 700;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
   letter-spacing: 0.025em;
 }
 
@@ -3623,7 +3623,7 @@ body::after {
   height: 100%;
   background: linear-gradient(90deg, 
     transparent 0%,
-    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0.2) 50%,
     transparent 100%);
   transition: left 0.6s ease;
   pointer-events: none;
