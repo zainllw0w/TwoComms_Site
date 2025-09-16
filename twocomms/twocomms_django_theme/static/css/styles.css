@@ -1231,6 +1231,76 @@ body::after {
   }
 }
 
+/* Стили для планшетов (768px - 991px) - исправляем отображение логотипа */
+@media (min-width: 768px) and (max-width: 991px) {
+  .navbar-brand {
+    font-size: 1.25rem !important;
+    padding: 0.25rem 0 !important;
+    margin: 0 !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    justify-content: flex-start !important;
+    text-align: left !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    transform: none !important;
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  .navbar > .container-xxl > .navbar-brand {
+    margin: 0 !important;
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  .navbar-brand img {
+    width: 28px !important;
+    height: 28px !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  /* Убеждаемся, что контейнер navbar правильно отображает логотип */
+  .navbar .container-xxl {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+}
+
+/* Дополнительные стили для больших планшетов (992px - 1199px) */
+@media (min-width: 992px) and (max-width: 1199px) {
+  .navbar-brand {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    font-size: 1.25rem !important;
+    padding: 0.25rem 0 !important;
+    margin: 0 !important;
+    flex-shrink: 0 !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+  }
+  
+  .navbar-brand img {
+    width: 28px !important;
+    height: 28px !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+}
+
 
 
 
@@ -3440,6 +3510,55 @@ body::after {
 
 .cart-checkout-btn-guest .cart-checkout-btn-glow {
   background: linear-gradient(45deg, rgba(139, 92, 246, 0.1), rgba(99, 102, 241, 0.1));
+}
+
+/* Google Pay кнопка */
+.cart-google-pay-btn {
+  position: relative;
+  width: 100%;
+  padding: 1.25rem 2rem;
+  background: linear-gradient(135deg, rgba(66, 133, 244, 0.2), rgba(52, 168, 83, 0.2));
+  border: 1px solid rgba(66, 133, 244, 0.4);
+  border-radius: 15px;
+  color: #4285f4;
+  font-size: 1.1rem;
+  font-weight: 700;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.cart-google-pay-btn:hover {
+  background: linear-gradient(135deg, rgba(66, 133, 244, 0.3), rgba(52, 168, 83, 0.3));
+  border-color: rgba(66, 133, 244, 0.6);
+  transform: translateY(-3px);
+  box-shadow: 0 15px 35px rgba(66, 133, 244, 0.4);
+}
+
+.cart-google-pay-btn-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  position: relative;
+  z-index: 2;
+}
+
+.cart-google-pay-btn-glow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, rgba(66, 133, 244, 0.1), rgba(52, 168, 83, 0.1));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.cart-google-pay-btn:hover .cart-google-pay-btn-glow {
+  opacity: 1;
 }
 
 /* Итого (старые стили для совместимости) */
