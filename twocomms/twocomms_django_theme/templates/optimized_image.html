@@ -27,8 +27,9 @@
     {% if class_name %}class="{{ class_name }}"{% endif %}
     {% if width %}width="{{ width }}"{% endif %}
     {% if height %}height="{{ height }}"{% endif %}
-    loading="lazy"
+    loading="{{ loading|default:'lazy' }}"
     decoding="async"
+    {% if fetchpriority %}fetchpriority="{{ fetchpriority }}"{% endif %}
     {% if not width and not height %}sizes="(max-width: 320px) 320px, (max-width: 640px) 640px, (max-width: 768px) 768px, (max-width: 1024px) 1024px, 1920px"{% endif %}
   >
 </picture>

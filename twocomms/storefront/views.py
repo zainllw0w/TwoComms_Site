@@ -7,6 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.cache import cache_page
 from django.urls import reverse
 from functools import wraps
+from django.core.paginator import Paginator, EmptyPage
 
 def cache_page_for_anon(timeout):
     """Кэширует только для анонимных пользователей (избегаем проблем с персональными данными)."""
@@ -30,6 +31,9 @@ from django.http import HttpResponse, FileResponse, Http404
 from django.utils.text import slugify
 from django.core.cache import cache
 import os
+import json
+
+HOME_PRODUCTS_PER_PAGE = 8
 
 def unique_slugify(model, base_slug):
     """
@@ -240,8 +244,16 @@ def home(request):
     # Оптимизированные запросы с select_related и prefetch_related
     featured = Product.objects.select_related('category').filter(featured=True).order_by('-id').first()
     categories = Category.objects.filter(is_active=True).order_by('order','name')
-    # Показываем только первые 8 товаров с оптимизацией
-    products = list(Product.objects.select_related('category').order_by('-id')[:8])
+    page_number = request.GET.get('page', '1')
+    product_qs = Product.objects.select_related('category').order_by('-id')
+    paginator = Paginator(product_qs, HOME_PRODUCTS_PER_PAGE)
+
+    try:
+        page_obj = paginator.get_page(page_number)
+    except EmptyPage:
+        page_obj = paginator.get_page(paginator.num_pages)
+
+    products = list(page_obj.object_list)
     # Варіанти кольорів для featured (якщо є додаток і дані)
     featured_variants = []
     # Варіанти кольорів для «Новинок»
@@ -277,10 +289,10 @@ def home(request):
             setattr(p, 'colors_preview', [])
         featured_variants = featured_variants or []
     # Проверяем есть ли еще товары для пагинации
-    total_products = Product.objects.count()
-    has_more = total_products > 8
-    
-    
+    total_products = paginator.count
+    has_more = page_obj.has_next()
+
+
     return render(
         request,
         'pages/index.html',
@@ -290,7 +302,9 @@ def home(request):
             'products': products, 
             'featured_variants': featured_variants,
             'has_more_products': has_more,
-            'current_page': 1,
+            'current_page': page_obj.number,
+            'paginator': paginator,
+            'page_obj': page_obj,
             'total_products': total_products
         }
     )
@@ -299,15 +313,18 @@ def load_more_products(request):
     """AJAX view для загрузки дополнительных товаров"""
     if request.method == 'GET':
         page = int(request.GET.get('page', 1))
-        per_page = 8
-        
-        # Вычисляем offset
-        offset = (page - 1) * per_page
-        
-        # Получаем товары для текущей страницы с оптимизацией
-        products = list(Product.objects.select_related('category').order_by('-id')[offset:offset + per_page])
-        
-        
+        per_page = HOME_PRODUCTS_PER_PAGE
+
+        product_qs = Product.objects.select_related('category').order_by('-id')
+        paginator = Paginator(product_qs, per_page)
+
+        try:
+            page_obj = paginator.page(page)
+        except EmptyPage:
+            page_obj = paginator.page(paginator.num_pages)
+
+        products = list(page_obj.object_list)
+
         # Подготавливаем цвета для товаров
         try:
             from productcolors.models import ProductColorVariant
@@ -329,22 +346,23 @@ def load_more_products(request):
                 setattr(p, 'colors_preview', [])
         
         # Проверяем есть ли еще товары
-        total_products = Product.objects.count()
-        has_more = (offset + per_page) < total_products
-        
-        
+        total_products = paginator.count
+        has_more = page_obj.has_next()
+
         # Рендерим HTML для товаров
         from django.template.loader import render_to_string
         products_html = render_to_string('partials/products_list.html', {
             'products': products,
             'page': page
         })
-        
-        
+
+
         return JsonResponse({
             'html': products_html,
             'has_more': has_more,
-            'next_page': page + 1 if has_more else None
+            'next_page': page_obj.next_page_number() if has_more else None,
+            'total_pages': paginator.num_pages,
+            'current_page': page_obj.number
         })
     
     return JsonResponse({'error': 'Invalid request'}, status=400)
@@ -4291,8 +4309,103 @@ def delivery_view(request):
         }
     ]
     
+    return_steps = [
+        {
+            "title": "Зв'яжіться з нами протягом 14 днів",
+            "description": "Напишіть у Telegram або на електронну пошту з номером замовлення та причиною повернення, щоб узгодити деталі."
+        },
+        {
+            "title": "Підготуйте товар",
+            "description": "Збережіть бірки, пакування та переконайтеся, що річ не була у використанні. Це пришвидшить перевірку."
+        },
+        {
+            "title": "Надішліть посилку",
+            "description": "Відправте повернення Новою поштою або Укрпоштою за погодженими реквізитами й надішліть номер ТТН. Доставка сплачується клієнтом."
+        },
+        {
+            "title": "Отримайте кошти",
+            "description": "Після перевірки товару ми повернемо оплату протягом 3 робочих днів тим самим способом, яким було здійснено платіж."
+        }
+    ]
+
+    return_policy_howto = {
+        "@context": "https://schema.org",
+        "@type": "HowTo",
+        "name": "Як оформити повернення товару у TwoComms",
+        "description": "Покрокова інструкція для повернення або обміну товару протягом 14 днів",
+        "totalTime": "P14D",
+        "supply": [
+            {
+                "@type": "HowToSupply",
+                "name": "Товар з бірками та пакуванням"
+            },
+            {
+                "@type": "HowToSupply",
+                "name": "Номер замовлення та контактні дані"
+            }
+        ],
+        "tool": [
+            {
+                "@type": "HowToTool",
+                "name": "Telegram або email для зв'язку"
+            },
+            {
+                "@type": "HowToTool",
+                "name": "Сервіс доставки (Нова пошта чи Укрпошта)"
+            }
+        ],
+        "step": [
+            {
+                "@type": "HowToStep",
+                "position": 1,
+                "name": return_steps[0]["title"],
+                "itemListElement": [
+                    {
+                        "@type": "HowToDirection",
+                        "text": return_steps[0]["description"]
+                    }
+                ]
+            },
+            {
+                "@type": "HowToStep",
+                "position": 2,
+                "name": return_steps[1]["title"],
+                "itemListElement": [
+                    {
+                        "@type": "HowToDirection",
+                        "text": return_steps[1]["description"]
+                    }
+                ]
+            },
+            {
+                "@type": "HowToStep",
+                "position": 3,
+                "name": return_steps[2]["title"],
+                "itemListElement": [
+                    {
+                        "@type": "HowToDirection",
+                        "text": return_steps[2]["description"]
+                    }
+                ]
+            },
+            {
+                "@type": "HowToStep",
+                "position": 4,
+                "name": return_steps[3]["title"],
+                "itemListElement": [
+                    {
+                        "@type": "HowToDirection",
+                        "text": return_steps[3]["description"]
+                    }
+                ]
+            }
+        ]
+    }
+
     return render(request, 'pages/delivery.html', {
-        'faq_items': faq_items
+        'faq_items': faq_items,
+        'return_steps': return_steps,
+        'return_policy_howto': json.dumps(return_policy_howto, ensure_ascii=False, indent=2)
     })
 
 

@@ -8,6 +8,11 @@
 
 {% block structured_data %}
   {% faq_schema faq_items %}
+  {% if return_policy_howto %}
+  <script type="application/ld+json">
+  {{ return_policy_howto|safe }}
+  </script>
+  {% endif %}
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -511,6 +516,31 @@
             <p class="info-desc">Станьте нашим партнером та отримуйте вигідні умови</p>
             <a href="{% url 'cooperation' %}" class="info-link">Співпраця</a>
           </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="return-policy" id="return-policy">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Як оформити повернення</h2>
+        <p class="section-subtitle">Дотримуйтесь інструкції, щоб швидко обміняти або повернути товар протягом 14 днів</p>
+      </div>
+      <div class="row justify-content-center">
+        <div class="col-lg-8">
+          <ol class="return-policy-steps list-unstyled">
+            {% for step in return_steps %}
+            <li class="return-step d-flex gap-3 mb-4">
+              <div class="return-step-index">{{ forloop.counter }}</div>
+              <div>
+                <h3 class="h6 fw-semibold mb-1">{{ step.title }}</h3>
+                <p class="text-secondary mb-0">{{ step.description }}</p>
+              </div>
+            </li>
+            {% endfor %}
+          </ol>
+          <p class="text-muted small">Звертайтеся до нас у Telegram <a href="https://t.me/twocomms" class="link-light" rel="noopener" target="_blank">@twocomms</a> або на email <a href="mailto:support@twocomms.shop" class="link-light">support@twocomms.shop</a>, щоб погодити повернення та отримати адресу відправки.</p>
         </div>
       </div>
     </div>

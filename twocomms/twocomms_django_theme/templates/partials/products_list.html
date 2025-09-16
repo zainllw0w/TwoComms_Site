@@ -1,7 +1,7 @@
 {% load static %}
 {% for p in products %}
 <div class="product-card-wrap">
-  {% include "partials/product_card.html" with p=p stagger=False %}
+  {% include "partials/product_card.html" with p=p stagger=False eager=False %}
   {% if p.colors_preview %}
   <div class="product-card-dots">
     <span class="text-secondary small me-1">Кольори:</span>
