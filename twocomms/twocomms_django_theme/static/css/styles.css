@@ -1,19 +1,16 @@
-/* Анимация свечения цены - улучшенная */
+/* Анимация свечения цены - исправленная */
 @keyframes priceGlow {
   0% {
     filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 12px rgba(255, 215, 0, 0.4));
     transform: scale(1);
-    background-color: rgba(0, 0, 0, 0.1);
   }
   50% {
     filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 20px rgba(255, 215, 0, 0.6));
     transform: scale(1.03);
-    background-color: rgba(0, 0, 0, 0.15);
   }
   100% {
     filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 12px rgba(255, 215, 0, 0.4));
     transform: scale(1);
-    background-color: rgba(0, 0, 0, 0.1);
   }
 }
 
@@ -586,7 +583,7 @@ body::after {
   margin: 0 !important;
 }
 
-/* Стилизация основной цены (жирная) - Улучшенный красивый стиль */
+/* Стилизация основной цены (жирная) - Исправленный красивый стиль */
 .card.product .fw-semibold.price-text {
   font-size: 1.1rem !important;
   font-weight: 900 !important;
@@ -610,8 +607,8 @@ body::after {
   z-index: 1 !important;
   padding: 0.2rem 0.4rem !important;
   border-radius: 8px !important;
-  background-color: rgba(0, 0, 0, 0.1) !important;
   backdrop-filter: blur(2px) !important;
+  transition: all 0.3s ease !important;
 }
 
 /* Анимация градиента для цены - улучшенная */
@@ -633,7 +630,7 @@ body::after {
   }
 }
 
-/* Дополнительный эффект свечения для цены - улучшенный */
+/* Дополнительный эффект свечения для цены - исправленный */
 .card.product .fw-semibold.price-text::before {
   content: attr(data-price);
   position: absolute;
@@ -657,6 +654,7 @@ body::after {
   z-index: -1 !important;
   animation: priceGradientFlow 4s ease-in-out infinite reverse !important;
   border-radius: 8px !important;
+  pointer-events: none !important;
 }
 
 .card.product .price-row {
@@ -742,8 +740,8 @@ body::after {
     position: relative !important;
     z-index: 1 !important;
     border-radius: 6px !important;
-    background-color: rgba(0, 0, 0, 0.1) !important;
     backdrop-filter: blur(2px) !important;
+    transition: all 0.3s ease !important;
   }
 
   .card.product .price-text {
@@ -828,8 +826,8 @@ body::after {
     z-index: 1 !important;
     padding: 0.1rem 0.25rem !important;
     border-radius: 5px !important;
-    background-color: rgba(0, 0, 0, 0.1) !important;
     backdrop-filter: blur(2px) !important;
+    transition: all 0.3s ease !important;
   }
 
   .card.product .price-text {
