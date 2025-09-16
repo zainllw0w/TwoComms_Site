@@ -35,7 +35,7 @@
       <div class="small text-secondary">{{ p.category.name }}</div>
       <a href="{% url 'product' p.slug %}" class="stretched-link text-decoration-none fw-semibold text-body product-title">{{ p.title }}</a>
       <div class="d-flex align-items-center gap-2 price-row">
-        <div class="fw-semibold price-text">{{ p.final_price }} ₴</div>
+        <div class="fw-semibold price-text">{{ p.final_price }} грн</div>
         {% if p.has_discount %}
           <div class="text-secondary text-decoration-line-through small price-text">{{ p.price }} ₴</div>
         {% else %}
