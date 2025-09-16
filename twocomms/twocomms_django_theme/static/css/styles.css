@@ -1,3 +1,13 @@
+/* Анимация свечения цены */
+@keyframes priceGlow {
+  0% {
+    text-shadow: 0 0 8px rgba(255, 215, 0, 0.6), 0 0 16px rgba(255, 215, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  100% {
+    text-shadow: 0 0 12px rgba(255, 215, 0, 0.8), 0 0 24px rgba(255, 215, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+}
+
 /* PERF: soften global glassmorphism where expensive */
 .perf-lite .modal,.perf-lite .offcanvas,.perf-lite .bottom-nav,.perf-lite .navbar.bg-body,
 .perf-lite .hero.bg-hero,.perf-lite .card.glassy,.perf-lite .profile-card,.perf-lite .points-card,
@@ -633,7 +643,7 @@ body::after {
   }
 
   .card.product .price-row .fw-semibold.price-text {
-    font-size: 0.75rem !important;
+    font-size: 0.8rem !important;
     max-width: none !important;
     overflow: visible !important;
     text-overflow: unset !important;
@@ -642,12 +652,13 @@ body::after {
     margin: 0 !important;
     font-weight: 800 !important;
     color: #ffffff !important;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
-    background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important;
+    text-shadow: 0 0 8px rgba(255, 215, 0, 0.6), 0 0 16px rgba(255, 215, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+    background: linear-gradient(135deg, #ffffff, #ffd700, #ffed4e) !important;
     -webkit-background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
     background-clip: text !important;
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)) !important;
+    animation: priceGlow 2s ease-in-out infinite alternate !important;
   }
 
   .card.product .price-text {
@@ -670,7 +681,7 @@ body::after {
   }
 
   .card.product .text-decoration-line-through {
-    font-size: 0.35rem !important;
+    font-size: 0.2rem !important;
     padding: 0 !important;
     margin: 0 !important;
     color: #9ca3af !important;
@@ -678,7 +689,7 @@ body::after {
   }
 
   .card.product .badge {
-    font-size: 0.35rem !important;
+    font-size: 0.2rem !important;
     padding: 0.01rem 0.08rem !important;
     margin: 0 !important;
   }
@@ -686,6 +697,14 @@ body::after {
   .card.product .discount-badge {
     font-size: 0.6rem !important;
     padding: 0.08rem 0.25rem !important;
+  }
+
+  /* Делаем карточки товаров шире на мобильных */
+  .row[data-stagger-grid] > .product-card-wrap {
+    flex: 0 0 calc(55% - 0.2rem) !important;
+    max-width: calc(55% - 0.2rem) !important;
+    width: calc(55% - 0.2rem) !important;
+    min-width: calc(55% - 0.2rem) !important;
   }
 }
 
@@ -696,29 +715,30 @@ body::after {
   }
 
   .card.product .price-row .fw-semibold.price-text {
-    font-size: 0.65rem !important;
+    font-size: 0.75rem !important;
     font-weight: 800 !important;
     color: #ffffff !important;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
-    background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important;
+    text-shadow: 0 0 8px rgba(255, 215, 0, 0.6), 0 0 16px rgba(255, 215, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+    background: linear-gradient(135deg, #ffffff, #ffd700, #ffed4e) !important;
     -webkit-background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
     background-clip: text !important;
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)) !important;
+    animation: priceGlow 2s ease-in-out infinite alternate !important;
   }
 
   .card.product .price-text {
-    font-size: 0.3rem !important;
+    font-size: 0.2rem !important;
   }
 
   .card.product .text-decoration-line-through {
-    font-size: 0.3rem !important;
+    font-size: 0.2rem !important;
     color: #9ca3af !important;
     opacity: 0.7 !important;
   }
 
   .card.product .badge {
-    font-size: 0.3rem !important;
+    font-size: 0.2rem !important;
     padding: 0.005rem 0.06rem !important;
   }
 
