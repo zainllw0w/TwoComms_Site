@@ -11135,6 +11135,28 @@ body::after {
     padding: 0.5rem 1rem;
     font-size: 0.8rem;
   }
+
+  /* Исправление расположения кнопки на мобильных */
+  .featured-header-unified .d-flex {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 1rem !important;
+  }
+
+  .featured-title-compact {
+    width: 100% !important;
+    text-align: center !important;
+  }
+
+  .featured-toggle-btn {
+    align-self: center !important;
+    margin: 0 auto !important;
+    order: 2 !important;
+  }
+
+  .featured-spacer {
+    display: none !important;
+  }
 }
 
 @media (max-width: 480px) {
@@ -11156,6 +11178,26 @@ body::after {
   
   .featured-price-current-compact {
     font-size: 1.25rem;
+  }
+
+  /* Дополнительные стили для очень маленьких экранов */
+  .featured-header-unified .d-flex {
+    gap: 0.75rem !important;
+  }
+
+  .featured-toggle-btn {
+    padding: 0.4rem 0.8rem !important;
+    font-size: 0.75rem !important;
+    min-width: 120px !important;
+  }
+
+  .featured-badge-compact {
+    padding: 0.4rem 0.8rem !important;
+    font-size: 0.9rem !important;
+  }
+
+  .featured-subtitle-compact {
+    font-size: 0.8rem !important;
   }
   
   .featured-spacer {
