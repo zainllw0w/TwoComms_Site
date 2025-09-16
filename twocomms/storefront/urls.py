@@ -82,6 +82,8 @@ urlpatterns=[
     # promocodes in cart
     path('cart/apply-promo/', views.apply_promo_code, name='apply_promo_code'),
     path('cart/remove-promo/', views.remove_promo_code, name='remove_promo_code'),
+    # Google Pay
+    path('cart/google-pay-success/', views.google_pay_success, name='google_pay_success'),
     # API endpoints
     path('api/colors/', views.api_colors, name='api_colors'),
     path('debug/media/', views.debug_media, name='debug_media'),

@@ -4430,3 +4430,114 @@ def google_merchant_feed(request):
     response = HttpResponse(xml_string, content_type='application/xml; charset=utf-8')
     response['Content-Disposition'] = 'inline; filename="google_merchant_feed.xml"'
     return response
+
+# ===== GOOGLE PAY =====
+@require_POST
+def google_pay_success(request):
+    """Обработка успешного платежа через Google Pay"""
+    import json
+    from orders.models import Order
+    from django.utils import timezone
+    
+    try:
+        # Получаем данные из запроса
+        data = json.loads(request.body)
+        payment_data = data.get('paymentData')
+        total_amount = float(data.get('totalAmount', 0))
+        
+        if not payment_data or total_amount <= 0:
+            return JsonResponse({
+                'success': False,
+                'error': 'Неверные данные платежа'
+            })
+        
+        # Получаем корзину
+        cart_sess = request.session.get('cart', {})
+        if not cart_sess:
+            return JsonResponse({
+                'success': False,
+                'error': 'Корзина пуста'
+            })
+        
+        # Получаем информацию о товарах
+        ids = [i['product_id'] for i in cart_sess.values()]
+        prods = Product.objects.in_bulk(ids)
+        
+        # Создаем заказ
+        order = Order()
+        
+        if request.user.is_authenticated:
+            # Для авторизованного пользователя
+            try:
+                prof = request.user.userprofile
+                order.user = request.user
+                order.full_name = prof.full_name or ''
+                order.phone = prof.phone or ''
+                order.city = prof.city or ''
+                order.np_office = prof.np_office or ''
+                order.pay_type = prof.pay_type or 'full'
+            except:
+                order.full_name = request.user.get_full_name() or request.user.username
+                order.phone = ''
+                order.city = ''
+                order.np_office = ''
+                order.pay_type = 'full'
+        else:
+            # Для гостя - используем данные из Google Pay
+            billing_address = payment_data.get('paymentMethodData', {}).get('info', {}).get('billingAddress', {})
+            order.full_name = billing_address.get('name', 'Google Pay Customer')
+            order.phone = ''
+            order.city = billing_address.get('locality', '')
+            order.np_office = 'Google Pay'
+            order.pay_type = 'full'
+        
+        # Устанавливаем статус заказа
+        order.status = 'pending'
+        order.payment_status = 'paid'  # Google Pay сразу оплачивает
+        order.payment_method = 'google_pay'
+        order.payment_data = json.dumps(payment_data)  # Сохраняем данные платежа
+        order.created = timezone.now()
+        order.save()
+        
+        # Добавляем товары в заказ
+        total_order_amount = 0
+        for key, item in cart_sess.items():
+            product = prods.get(item['product_id'])
+            if not product:
+                continue
+            
+            from orders.models import OrderItem
+            order_item = OrderItem()
+            order_item.order = order
+            order_item.product = product
+            order_item.size = item['size']
+            order_item.qty = item['qty']
+            order_item.price = product.final_price
+            order_item.save()
+            
+            total_order_amount += product.final_price * item['qty']
+        
+        # Обновляем сумму заказа
+        order.total_amount = total_order_amount
+        order.save()
+        
+        # Очищаем корзину
+        request.session['cart'] = {}
+        request.session.modified = True
+        
+        # Удаляем примененный промокод
+        if 'applied_promo_code' in request.session:
+            del request.session['applied_promo_code']
+            request.session.modified = True
+        
+        return JsonResponse({
+            'success': True,
+            'order_id': order.id,
+            'message': 'Заказ успешно создан'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Ошибка создания заказа: {str(e)}'
+        })

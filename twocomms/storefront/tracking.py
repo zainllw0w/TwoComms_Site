@@ -27,7 +27,7 @@ class SimpleAnalyticsMiddleware(MiddlewareMixin):
             ua = request.META.get('HTTP_USER_AGENT', '')
             path = request.path or ''
             if is_bot(ua) or path.startswith('/admin') or path.startswith('/static') or path.startswith('/media'):
-                return
+                return None  # Пропускаем ботов дальше по цепочке middleware
 
             # Для анонимов не создаём новую серверную сессию на простых GET (избежим write I/O)
             if not request.user.is_authenticated:
