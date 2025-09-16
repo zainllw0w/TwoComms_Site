@@ -436,7 +436,7 @@ body::after {
   body::after {
     animation: none;
   }
-}.bg-elevate{background-color:var(--tc-elevate)!important}.hero.bg-hero{border:1px solid rgba(255,255,255,.06);border-radius:1.25rem;background:url('../img/vignette.png') center/cover no-repeat,linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02))/*,backdrop-filter:blur(8px) saturate(120%)*/}.card.product{border:1px solid rgba(255,255,255,.06);background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));border-radius:1.25rem;transition:transform .25s,box-shadow .25s,border-color .25s}
+}.bg-elevate{background-color:var(--tc-elevate)!important}.hero.bg-hero{border:1px solid rgba(255,255,255,.06);border-radius:1.25rem;background:url('../img/vignette.png') center/cover no-repeat,linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02))/*,backdrop-filter:blur(8px) saturate(120%)*/}.card.product{border:1px solid rgba(255,215,0,.2);background:linear-gradient(180deg,rgba(255,248,220,.15),rgba(255,248,220,.05));border-radius:1.25rem;transition:transform .25s,box-shadow .25s,border-color .25s;box-shadow:0 0 20px rgba(255,215,0,.1),0 4px 15px rgba(0,0,0,.1)}
 
 /* ВЫРАВНИВАНИЕ КАРТОЧЕК С ПОДДЕРЖКОЙ JAVASCRIPT */
 .row[data-stagger-grid] {
@@ -461,10 +461,11 @@ body::after {
   flex-direction: column !important;
   height: auto !important;
   margin: 0 !important;
-  border: 1px solid rgba(255,255,255,.06) !important;
-  background: linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0)) !important;
+  border: 1px solid rgba(255,215,0,.2) !important;
+  background: linear-gradient(180deg,rgba(255,248,220,.15),rgba(255,248,220,.05)) !important;
   border-radius: 1.25rem !important;
   transition: transform .25s,box-shadow .25s,border-color .25s !important;
+  box-shadow: 0 0 20px rgba(255,215,0,.1), 0 4px 15px rgba(0,0,0,.1) !important;
   min-height: 0 !important;
 }
 
@@ -492,17 +493,20 @@ body::after {
 .card.product h3,
 .card.product h4,
 .card.product h5 {
-  height: 1.2em !important;
+  height: auto !important;
   min-height: 1.2em !important;
-  max-height: 1.2em !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  max-height: none !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  white-space: normal !important;
   margin-bottom: 0 !important;
   flex-shrink: 0 !important;
   flex-grow: 0 !important;
   line-height: 1.2em !important;
   font-size: 0.9rem !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  hyphens: auto !important;
   font-weight: 600 !important;
 }
 
@@ -678,6 +682,12 @@ body::after {
     max-height: none !important;
     line-height: 1.2 !important;
     margin-bottom: 0.3rem !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    word-break: break-word !important;
+    hyphens: auto !important;
   }
 
   .card.product .text-decoration-line-through {
@@ -701,10 +711,10 @@ body::after {
 
   /* Делаем карточки товаров шире на мобильных */
   .row[data-stagger-grid] > .product-card-wrap {
-    flex: 0 0 calc(55% - 0.2rem) !important;
-    max-width: calc(55% - 0.2rem) !important;
-    width: calc(55% - 0.2rem) !important;
-    min-width: calc(55% - 0.2rem) !important;
+    flex: 0 0 calc(60% - 0.2rem) !important;
+    max-width: calc(60% - 0.2rem) !important;
+    width: calc(60% - 0.2rem) !important;
+    min-width: calc(60% - 0.2rem) !important;
   }
 }
 
@@ -744,6 +754,12 @@ body::after {
 
   .card.product .product-title {
     font-size: 0.75rem !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    word-break: break-word !important;
+    hyphens: auto !important;
   }
 }
 
