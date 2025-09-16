@@ -1,16 +1,41 @@
-/* Анимация свечения цены - исправленная */
+/* Анимация свечения цены - яркая и эффектная */
 @keyframes priceGlow {
   0% {
-    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 12px rgba(255, 215, 0, 0.4));
+    filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 20px rgba(255, 107, 53, 0.6)) drop-shadow(0 0 30px rgba(255, 215, 0, 0.4));
     transform: scale(1);
+    box-shadow: 
+      0 0 20px rgba(255, 107, 53, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
   }
   50% {
-    filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 20px rgba(255, 215, 0, 0.6));
-    transform: scale(1.03);
+    filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 30px rgba(255, 107, 53, 0.8)) drop-shadow(0 0 40px rgba(255, 215, 0, 0.6));
+    transform: scale(1.05);
+    box-shadow: 
+      0 0 30px rgba(255, 107, 53, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
   }
   100% {
-    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 12px rgba(255, 215, 0, 0.4));
+    filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 20px rgba(255, 107, 53, 0.6)) drop-shadow(0 0 30px rgba(255, 215, 0, 0.4));
     transform: scale(1);
+    box-shadow: 
+      0 0 20px rgba(255, 107, 53, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* Новая анимация пульсации */
+@keyframes pricePulse {
+  0%, 100% {
+    border-color: rgba(255, 107, 53, 0.3);
+  }
+  25% {
+    border-color: rgba(247, 147, 30, 0.5);
+  }
+  50% {
+    border-color: rgba(255, 215, 0, 0.6);
+  }
+  75% {
+    border-color: rgba(247, 147, 30, 0.5);
   }
 }
 
@@ -583,54 +608,62 @@ body::after {
   margin: 0 !important;
 }
 
-/* Стилизация основной цены (жирная) - Исправленный красивый стиль */
+/* Стилизация основной цены (жирная) - Яркий и эффектный стиль */
 .card.product .fw-semibold.price-text {
-  font-size: 1.1rem !important;
+  font-size: 1.2rem !important;
   font-weight: 900 !important;
   background: linear-gradient(135deg, 
-    #ffd700 0%, 
-    #ffed4e 20%, 
-    #ffffff 40%, 
-    #fff8dc 60%, 
-    #ffed4e 80%, 
-    #ffd700 100%
+    #ff6b35 0%, 
+    #f7931e 15%, 
+    #ffd700 30%, 
+    #ffffff 45%, 
+    #ffd700 60%, 
+    #f7931e 75%, 
+    #ff6b35 100%
   ) !important;
-  background-size: 300% 300% !important;
+  background-size: 400% 400% !important;
   -webkit-background-clip: text !important;
   background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
   text-shadow: none !important;
-  letter-spacing: 0.08em !important;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 12px rgba(255, 215, 0, 0.4)) !important;
-  animation: priceGradientFlow 4s ease-in-out infinite, priceGlow 2.5s ease-in-out infinite alternate !important;
+  letter-spacing: 0.1em !important;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 20px rgba(255, 107, 53, 0.6)) drop-shadow(0 0 30px rgba(255, 215, 0, 0.4)) !important;
+  animation: priceGradientFlow 3s ease-in-out infinite, priceGlow 2s ease-in-out infinite alternate, pricePulse 4s ease-in-out infinite !important;
   position: relative !important;
   z-index: 1 !important;
-  padding: 0.2rem 0.4rem !important;
-  border-radius: 8px !important;
-  backdrop-filter: blur(2px) !important;
+  padding: 0.3rem 0.6rem !important;
+  border-radius: 12px !important;
+  backdrop-filter: blur(3px) !important;
   transition: all 0.3s ease !important;
+  border: 2px solid rgba(255, 107, 53, 0.3) !important;
+  box-shadow: 
+    0 0 20px rgba(255, 107, 53, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
 }
 
-/* Анимация градиента для цены - улучшенная */
+/* Анимация градиента для цены - яркая и динамичная */
 @keyframes priceGradientFlow {
   0% {
     background-position: 0% 50%;
   }
-  25% {
-    background-position: 50% 0%;
+  20% {
+    background-position: 25% 0%;
   }
-  50% {
-    background-position: 100% 50%;
+  40% {
+    background-position: 50% 25%;
   }
-  75% {
-    background-position: 50% 100%;
+  60% {
+    background-position: 75% 50%;
+  }
+  80% {
+    background-position: 100% 75%;
   }
   100% {
     background-position: 0% 50%;
   }
 }
 
-/* Дополнительный эффект свечения для цены - исправленный */
+/* Дополнительный эффект свечения для цены - яркий и эффектный */
 .card.product .fw-semibold.price-text::before {
   content: attr(data-price);
   position: absolute;
@@ -639,21 +672,22 @@ body::after {
   right: 0;
   bottom: 0;
   background: linear-gradient(135deg, 
-    rgba(255, 215, 0, 0.4) 0%, 
-    rgba(255, 237, 78, 0.3) 20%, 
-    rgba(255, 255, 255, 0.2) 40%, 
-    rgba(255, 248, 220, 0.25) 60%, 
-    rgba(255, 237, 78, 0.3) 80%, 
-    rgba(255, 215, 0, 0.4) 100%
+    rgba(255, 107, 53, 0.6) 0%, 
+    rgba(247, 147, 30, 0.5) 15%, 
+    rgba(255, 215, 0, 0.4) 30%, 
+    rgba(255, 255, 255, 0.3) 45%, 
+    rgba(255, 215, 0, 0.4) 60%, 
+    rgba(247, 147, 30, 0.5) 75%, 
+    rgba(255, 107, 53, 0.6) 100%
   ) !important;
-  background-size: 300% 300% !important;
+  background-size: 400% 400% !important;
   -webkit-background-clip: text !important;
   background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
-  filter: blur(1.5px) !important;
+  filter: blur(2px) !important;
   z-index: -1 !important;
-  animation: priceGradientFlow 4s ease-in-out infinite reverse !important;
-  border-radius: 8px !important;
+  animation: priceGradientFlow 3s ease-in-out infinite reverse !important;
+  border-radius: 12px !important;
   pointer-events: none !important;
 }
 
@@ -713,35 +747,40 @@ body::after {
   }
 
   .card.product .price-row .fw-semibold.price-text {
-    font-size: 0.9rem !important;
+    font-size: 1rem !important;
     max-width: none !important;
     overflow: visible !important;
     text-overflow: unset !important;
     flex: 0 0 auto !important;
-    padding: 0.15rem 0.3rem !important;
+    padding: 0.2rem 0.4rem !important;
     margin: 0 !important;
     font-weight: 900 !important;
     background: linear-gradient(135deg, 
-      #ffd700 0%, 
-      #ffed4e 20%, 
-      #ffffff 40%, 
-      #fff8dc 60%, 
-      #ffed4e 80%, 
-      #ffd700 100%
+      #ff6b35 0%, 
+      #f7931e 15%, 
+      #ffd700 30%, 
+      #ffffff 45%, 
+      #ffd700 60%, 
+      #f7931e 75%, 
+      #ff6b35 100%
     ) !important;
-    background-size: 300% 300% !important;
+    background-size: 400% 400% !important;
     -webkit-background-clip: text !important;
     background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
     text-shadow: none !important;
-    letter-spacing: 0.06em !important;
-    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 10px rgba(255, 215, 0, 0.4)) !important;
-    animation: priceGradientFlow 4s ease-in-out infinite, priceGlow 2.5s ease-in-out infinite alternate !important;
+    letter-spacing: 0.08em !important;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 15px rgba(255, 107, 53, 0.6)) drop-shadow(0 0 25px rgba(255, 215, 0, 0.4)) !important;
+    animation: priceGradientFlow 3s ease-in-out infinite, priceGlow 2s ease-in-out infinite alternate, pricePulse 4s ease-in-out infinite !important;
     position: relative !important;
     z-index: 1 !important;
-    border-radius: 6px !important;
-    backdrop-filter: blur(2px) !important;
+    border-radius: 10px !important;
+    backdrop-filter: blur(3px) !important;
     transition: all 0.3s ease !important;
+    border: 1.5px solid rgba(255, 107, 53, 0.3) !important;
+    box-shadow: 
+      0 0 15px rgba(255, 107, 53, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
   }
 
   .card.product .price-text {
@@ -804,30 +843,35 @@ body::after {
   }
 
   .card.product .price-row .fw-semibold.price-text {
-    font-size: 0.8rem !important;
+    font-size: 0.9rem !important;
     font-weight: 900 !important;
     background: linear-gradient(135deg, 
-      #ffd700 0%, 
-      #ffed4e 20%, 
-      #ffffff 40%, 
-      #fff8dc 60%, 
-      #ffed4e 80%, 
-      #ffd700 100%
+      #ff6b35 0%, 
+      #f7931e 15%, 
+      #ffd700 30%, 
+      #ffffff 45%, 
+      #ffd700 60%, 
+      #f7931e 75%, 
+      #ff6b35 100%
     ) !important;
-    background-size: 300% 300% !important;
+    background-size: 400% 400% !important;
     -webkit-background-clip: text !important;
     background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
     text-shadow: none !important;
-    letter-spacing: 0.05em !important;
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 8px rgba(255, 215, 0, 0.4)) !important;
-    animation: priceGradientFlow 4s ease-in-out infinite, priceGlow 2.5s ease-in-out infinite alternate !important;
+    letter-spacing: 0.06em !important;
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 12px rgba(255, 107, 53, 0.6)) drop-shadow(0 0 20px rgba(255, 215, 0, 0.4)) !important;
+    animation: priceGradientFlow 3s ease-in-out infinite, priceGlow 2s ease-in-out infinite alternate, pricePulse 4s ease-in-out infinite !important;
     position: relative !important;
     z-index: 1 !important;
-    padding: 0.1rem 0.25rem !important;
-    border-radius: 5px !important;
-    backdrop-filter: blur(2px) !important;
+    padding: 0.15rem 0.3rem !important;
+    border-radius: 8px !important;
+    backdrop-filter: blur(3px) !important;
     transition: all 0.3s ease !important;
+    border: 1px solid rgba(255, 107, 53, 0.3) !important;
+    box-shadow: 
+      0 0 12px rgba(255, 107, 53, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
   }
 
   .card.product .price-text {
