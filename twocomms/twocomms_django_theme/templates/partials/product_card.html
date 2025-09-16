@@ -6,16 +6,25 @@
     <div class="ratio ratio-product rounded-top-4 overflow-hidden bg-elevate position-relative">
       
       {% if p.display_image %}
-        {% optimized_image p.display_image.url p.title "w-100 h-100 object-fit-cover product-main-image" 1080 1350 %}
+        {% if eager|default_if_none:False %}
+          {% optimized_image p.display_image.url p.title "w-100 h-100 object-fit-cover product-main-image" 1080 1350 loading='eager' fetchpriority='high' %}
+        {% else %}
+          {% optimized_image p.display_image.url p.title "w-100 h-100 object-fit-cover product-main-image" 1080 1350 %}
+        {% endif %}
       {% elif p.main_image %}
-        {% optimized_image p.main_image.url p.title "w-100 h-100 object-fit-cover product-main-image" 1080 1350 %}
+        {% if eager|default_if_none:False %}
+          {% optimized_image p.main_image.url p.title "w-100 h-100 object-fit-cover product-main-image" 1080 1350 loading='eager' fetchpriority='high' %}
+        {% else %}
+          {% optimized_image p.main_image.url p.title "w-100 h-100 object-fit-cover product-main-image" 1080 1350 %}
+        {% endif %}
       {% else %}
         {% static 'img/placeholder.jpg' as ph_url %}
         <img src="{{ ph_url }}"
              alt="{{ p.title }}"
              width="1080" height="1350"
              class="w-100 h-100 object-fit-cover product-main-image"
-             loading="lazy"
+             loading="{% if eager|default_if_none:False %}eager{% else %}lazy{% endif %}"
+             {% if eager|default_if_none:False %}fetchpriority="high"{% endif %}
              onload="this.style.display='block'; this.style.visibility='visible'; this.style.opacity='1';">
       {% endif %}
       <!-- Кнопка избранного -->

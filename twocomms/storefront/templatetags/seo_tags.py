@@ -243,7 +243,7 @@ def faq_schema(faq_items):
         })
     
     return {
-        'faq_schema': schema
+        'faq_schema': json.dumps(schema, ensure_ascii=False, indent=2)
     }
 
 

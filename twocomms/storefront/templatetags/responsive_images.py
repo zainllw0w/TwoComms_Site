@@ -105,7 +105,7 @@ def responsive_image(image_path, alt_text="", class_name="", sizes="(max-width: 
     }
 
 @register.inclusion_tag('optimized_image.html')
-def optimized_image(image_path, alt_text="", class_name="", width=None, height=None):
+def optimized_image(image_path, alt_text="", class_name="", width=None, height=None, loading="lazy", fetchpriority=None):
     """
     Создает оптимизированное изображение с автоматическим выбором формата
     
@@ -124,7 +124,9 @@ def optimized_image(image_path, alt_text="", class_name="", width=None, height=N
             'width': width,
             'height': height,
             'has_webp': False,
-            'has_avif': False
+            'has_avif': False,
+            'loading': loading,
+            'fetchpriority': fetchpriority
         }
     
     # Преобразуем URL в файловый путь для проверки существования
@@ -199,7 +201,9 @@ def optimized_image(image_path, alt_text="", class_name="", width=None, height=N
         'has_avif': avif_file_path.exists(),
         'webp_path': webp_url if webp_file_path.exists() else None,
         'avif_path': avif_url if avif_file_path.exists() else None,
-        'responsive_sources': responsive_sources
+        'responsive_sources': responsive_sources,
+        'loading': loading,
+        'fetchpriority': fetchpriority
     }
 
 @register.simple_tag
