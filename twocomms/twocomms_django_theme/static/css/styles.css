@@ -9717,9 +9717,8 @@ body::after {
   
   /* Фиксированная высота изображения */
   .card.product .ratio {
-    height: 250px !important;
-    min-height: 250px !important;
-    max-height: 250px !important;
+    height: 180px !important;
+    min-height: 180px !important;
   }
   
   .card.product .card-title,
@@ -9853,9 +9852,8 @@ body::after {
   
   /* Фиксированная высота изображения */
   .card.product .ratio {
-    height: 250px !important;
-    min-height: 250px !important;
-    max-height: 250px !important;
+    height: 200px !important;
+    min-height: 200px !important;
   }
   
   .card.product .card-title,
@@ -9985,9 +9983,8 @@ body::after {
   
   /* Фиксированная высота изображения */
   .card.product .ratio {
-    height: 250px !important;
-    min-height: 250px !important;
-    max-height: 250px !important;
+    height: 220px !important;
+    min-height: 220px !important;
   }
   
   .card.product .card-title,
