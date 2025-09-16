@@ -1,10 +1,10 @@
 /* Анимация свечения цены */
 @keyframes priceGlow {
   0% {
-    text-shadow: 0 0 8px rgba(255, 215, 0, 0.6), 0 0 16px rgba(255, 215, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
+    text-shadow: 0 0 8px rgba(255, 215, 0, 0.4), 0 0 16px rgba(255, 215, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.3);
   }
   100% {
-    text-shadow: 0 0 12px rgba(255, 215, 0, 0.8), 0 0 24px rgba(255, 215, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.3);
+    text-shadow: 0 0 12px rgba(255, 215, 0, 0.6), 0 0 24px rgba(255, 215, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
   }
 }
 
@@ -582,13 +582,14 @@ body::after {
   font-size: 1rem !important;
   font-weight: 800 !important;
   color: #ffffff !important;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.4), 0 0 16px rgba(255, 215, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.3) !important;
   letter-spacing: 0.025em !important;
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important;
+  background: linear-gradient(135deg, #ffffff, #fff8dc, #ffd700) !important;
   -webkit-background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
   background-clip: text !important;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)) !important;
+  animation: priceGlow 2s ease-in-out infinite alternate !important;
 }
 
 .card.product .price-row {
@@ -656,8 +657,8 @@ body::after {
     margin: 0 !important;
     font-weight: 800 !important;
     color: #ffffff !important;
-    text-shadow: 0 0 8px rgba(255, 215, 0, 0.6), 0 0 16px rgba(255, 215, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3) !important;
-    background: linear-gradient(135deg, #ffffff, #ffd700, #ffed4e) !important;
+    text-shadow: 0 0 8px rgba(255, 215, 0, 0.4), 0 0 16px rgba(255, 215, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+    background: linear-gradient(135deg, #ffffff, #fff8dc, #ffd700) !important;
     -webkit-background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
     background-clip: text !important;
@@ -728,8 +729,8 @@ body::after {
     font-size: 0.75rem !important;
     font-weight: 800 !important;
     color: #ffffff !important;
-    text-shadow: 0 0 8px rgba(255, 215, 0, 0.6), 0 0 16px rgba(255, 215, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3) !important;
-    background: linear-gradient(135deg, #ffffff, #ffd700, #ffed4e) !important;
+    text-shadow: 0 0 8px rgba(255, 215, 0, 0.4), 0 0 16px rgba(255, 215, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+    background: linear-gradient(135deg, #ffffff, #fff8dc, #ffd700) !important;
     -webkit-background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
     background-clip: text !important;
