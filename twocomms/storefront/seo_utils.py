@@ -325,7 +325,63 @@ class SEOMetaGenerator:
 
 class StructuredDataGenerator:
     """Генератор структурированных данных (Schema.org)"""
-    
+
+    @staticmethod
+    def _build_shipping_delivery_time() -> Dict:
+        return {
+            "@type": "ShippingDeliveryTime",
+            "businessDays": {
+                "@type": "OpeningHoursSpecification",
+                "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+            },
+            "cutoffTime": "14:00",
+            "handlingTime": {
+                "@type": "QuantitativeValue",
+                "minValue": 1,
+                "maxValue": 2,
+                "unitCode": "DAY"
+            },
+            "transitTime": {
+                "@type": "QuantitativeValue",
+                "minValue": 1,
+                "maxValue": 5,
+                "unitCode": "DAY"
+            }
+        }
+
+    @staticmethod
+    def _get_weight_based_shipping_details() -> List[Dict]:
+        shipping_options = [
+            {"rate": "85", "max_weight": 2.0},
+            {"rate": "180", "min_weight": 2.01, "max_weight": 5.0},
+            {"rate": "220", "min_weight": 5.01}
+        ]
+
+        shipping_details: List[Dict] = []
+        for option in shipping_options:
+            weight_spec: Dict[str, object] = {"@type": "QuantitativeValue", "unitCode": "KGM"}
+            if "min_weight" in option:
+                weight_spec["minValue"] = option["min_weight"]
+            if "max_weight" in option:
+                weight_spec["maxValue"] = option["max_weight"]
+
+            shipping_details.append({
+                "@type": "OfferShippingDetails",
+                "shippingRate": {
+                    "@type": "MonetaryAmount",
+                    "value": option["rate"],
+                    "currency": "UAH"
+                },
+                "shippingDestination": {
+                    "@type": "DefinedRegion",
+                    "addressCountry": "UA"
+                },
+                "deliveryTime": StructuredDataGenerator._build_shipping_delivery_time(),
+                "shippingWeight": weight_spec
+            })
+
+        return shipping_details
+
     @staticmethod
     def generate_product_schema(product: Product) -> Dict:
         """Генерирует Product schema для товара (совместимо с Google Merchant Center)"""
@@ -359,7 +415,6 @@ class StructuredDataGenerator:
             "description": product.description or f"Якісний {product.category.name.lower() if product.category else 'одяг'} з ексклюзивним дизайном від TwoComms",
             "sku": f"TC-{product.id}",
             "mpn": f"TC-{product.id}",  # Manufacturer Part Number
-            "gtin": f"200000000000{product.id:02d}",  # Global Trade Item Number (14 digits)
             "url": f"https://twocomms.shop/product/{product.slug}/",
             "image": images[0] if images else "https://twocomms.shop/static/img/placeholder.jpg",
             "additionalProperty": [
@@ -402,7 +457,8 @@ class StructuredDataGenerator:
                     "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
                     "merchantReturnDays": 14,
                     "returnMethod": "https://schema.org/ReturnByMail",
-                    "returnFees": "https://schema.org/FreeReturn"
+                    "returnFees": "https://schema.org/ReturnShippingFees",
+                    "applicableCountry": "UA"
                 },
                 "seller": {
                     "@type": "Organization",
@@ -414,38 +470,7 @@ class StructuredDataGenerator:
                         "addressLocality": "Україна"
                     }
                 },
-                "shippingDetails": {
-                    "@type": "OfferShippingDetails",
-                    "shippingRate": {
-                        "@type": "MonetaryAmount",
-                        "value": "0",
-                        "currency": "UAH"
-                    },
-                    "shippingDestination": {
-                        "@type": "DefinedRegion",
-                        "addressCountry": "UA"
-                    },
-                    "deliveryTime": {
-                        "@type": "ShippingDeliveryTime",
-                        "businessDays": {
-                            "@type": "OpeningHoursSpecification",
-                            "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-                        },
-                        "cutoffTime": "14:00",
-                        "handlingTime": {
-                            "@type": "QuantitativeValue",
-                            "minValue": 1,
-                            "maxValue": 2,
-                            "unitCode": "DAY"
-                        },
-                        "transitTime": {
-                            "@type": "QuantitativeValue", 
-                            "minValue": 1,
-                            "maxValue": 5,
-                            "unitCode": "DAY"
-                        }
-                    }
-                }
+                "shippingDetails": StructuredDataGenerator._get_weight_based_shipping_details()
             },
             "aggregateRating": {
                 "@type": "AggregateRating",
@@ -544,7 +569,6 @@ class StructuredDataGenerator:
             "description": product.description or f"Якісний {product.category.name.lower() if product.category else 'одяг'} з ексклюзивним дизайном від TwoComms. Стріт & мілітарі стиль.",
             "sku": f"TC-{product.id}",
             "mpn": f"TC-{product.id}",
-            "gtin": f"200000000000{product.id:02d}",
             "url": f"https://twocomms.shop/product/{product.slug}/",
             "image": images,
             "brand": {
@@ -568,40 +592,10 @@ class StructuredDataGenerator:
                     "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
                     "merchantReturnDays": 14,
                     "returnMethod": "https://schema.org/ReturnByMail",
-                    "returnFees": "https://schema.org/FreeReturn"
+                    "returnFees": "https://schema.org/ReturnShippingFees",
+                    "applicableCountry": "UA"
                 },
-                "shippingDetails": {
-                    "@type": "OfferShippingDetails",
-                    "shippingRate": {
-                        "@type": "MonetaryAmount",
-                        "value": "0",
-                        "currency": "UAH"
-                    },
-                    "shippingDestination": {
-                        "@type": "DefinedRegion",
-                        "addressCountry": "UA"
-                    },
-                    "deliveryTime": {
-                        "@type": "ShippingDeliveryTime",
-                        "businessDays": {
-                            "@type": "OpeningHoursSpecification",
-                            "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-                        },
-                        "cutoffTime": "14:00",
-                        "handlingTime": {
-                            "@type": "QuantitativeValue",
-                            "minValue": 1,
-                            "maxValue": 2,
-                            "unitCode": "DAY"
-                        },
-                        "transitTime": {
-                            "@type": "QuantitativeValue", 
-                            "minValue": 1,
-                            "maxValue": 5,
-                            "unitCode": "DAY"
-                        }
-                    }
-                },
+                "shippingDetails": StructuredDataGenerator._get_weight_based_shipping_details(),
                 "seller": {
                     "@type": "Organization",
                     "name": "TwoComms",
