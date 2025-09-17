@@ -27,6 +27,9 @@ class Command(BaseCommand):
         # Генерируем sitemap
         response = sitemap(request, sitemaps)
         
+        # Рендерим ответ
+        response.render()
+        
         # Получаем содержимое
         content = response.content.decode('utf-8')
         
