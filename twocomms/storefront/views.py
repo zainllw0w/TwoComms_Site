@@ -4269,9 +4269,9 @@ def robots_txt(request):
 
 
 def static_verification_file(request):
-    """Отдаёт verification-файл из статического каталога по прямой ссылке."""
+    """Отдаёт verification-файл из корня проекта по прямой ссылке."""
     filename = "494cb80b2da94b4395dbbed566ab540d.txt"
-    file_path = os.path.join(settings.BASE_DIR, "twocomms", "static", filename)
+    file_path = os.path.join(settings.BASE_DIR, "twocomms", filename)
     if not os.path.exists(file_path):
         raise Http404("Verification file not found")
 
