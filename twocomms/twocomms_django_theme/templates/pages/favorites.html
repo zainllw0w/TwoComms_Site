@@ -15,9 +15,9 @@
       {% for favorite in favorites %}
       <div class="product-card-wrap">
         {% if forloop.counter0 < 6 %}
-          {% include "partials/product_card.html" with p=favorite.product stagger=False eager=True %}
+          {% include "partials/product_card.html" with p=favorite.product stagger=False eager=True animate=False %}
         {% else %}
-          {% include "partials/product_card.html" with p=favorite.product stagger=False eager=False %}
+          {% include "partials/product_card.html" with p=favorite.product stagger=False eager=False animate=False %}
         {% endif %}
         {% if favorite.color_variants_data %}
         <div class="product-card-dots">
