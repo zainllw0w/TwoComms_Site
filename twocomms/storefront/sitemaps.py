@@ -19,9 +19,6 @@ class StaticViewSitemap(Sitemap):
         return [
             'home',
             'catalog',
-            'about',
-            'contacts',
-            'cooperation',
         ]
     
     def location(self, item):
@@ -40,18 +37,12 @@ class ProductSitemap(Sitemap):
     domain = 'twocomms.shop'
     
     def items(self):
-        # В проекте может не быть поля is_active у Product — подстрахуемся
-        try:
-            return Product.objects.filter(is_active=True)
-        except Exception:
-            return Product.objects.all()
+        # Возвращаем все товары, так как у Product нет поля is_active
+        return Product.objects.all()
     
     def lastmod(self, obj):
-        # Защита от отсутствующих полей времени
-        try:
-            return getattr(obj, 'updated_at', None) or getattr(obj, 'created_at', None)
-        except Exception:
-            return None
+        # У Product нет полей времени, возвращаем None
+        return None
     
     def location(self, obj):
         return reverse('product', kwargs={'slug': obj.slug})
