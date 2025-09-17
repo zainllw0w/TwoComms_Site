@@ -101,7 +101,7 @@
   <link rel="dns-prefetch" href="https://fonts.googleapis.com">
   <link rel="dns-prefetch" href="https://fonts.gstatic.com">
 
-  <link rel="preload" href="{% static 'js/main.js' %}?v=33" as="script">
+  <link rel="preload" href="{% static 'js/main.js' %}?v=34" as="script" crossorigin="anonymous">
   <link rel="modulepreload" href="{% static 'js/modules/shared.js' %}">
   <link rel="modulepreload" href="{% static 'js/modules/optimizers.js' %}">
   <link rel="modulepreload" href="{% static 'js/modules/product-media.js' %}">
@@ -219,7 +219,7 @@
   <noscript><link href="{% static 'css/styles.min.css' %}?v=2025.09.14.030" rel="stylesheet"></noscript>
   
   <!-- CLS Fixes CSS - загружаем синхронно для предотвращения смещений -->
-  <link href="{% static 'css/cls-fixes.css' %}?v=2025.09.14.006" rel="stylesheet" media="all">
+  <link href="{% static 'css/cls-fixes.css' %}?v=2025.09.14.007" rel="stylesheet" media="all">
   <style>
   
   
@@ -668,7 +668,7 @@
         onerror="this.classList.add('script-error')"
         crossorigin="anonymous"></script>
 <script type="module"
-        src="{% static 'js/main.js' %}?v=33"
+        src="{% static 'js/main.js' %}?v=34"
         onload="this.classList.add('script-loaded')"
         onerror="this.classList.add('script-error')"
         crossorigin="anonymous"></script>
