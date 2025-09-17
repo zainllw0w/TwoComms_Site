@@ -30,11 +30,19 @@ Allow: /contacts/
 Allow: /cooperation/
 Allow: /delivery/
 Allow: /favorites/
+Allow: /static/
+Allow: /media/
 
 # Не индексировать страницы поиска и фильтров
 Disallow: /search/
-Disallow: /*?*
-Disallow: /*&*
+
+# Разрешаем пагинацию и ключевые параметры
+Allow: /*?page=
+Allow: /*?utm_=
+Allow: /*?fbclid=
+
+# Чистим только трекинговые параметры
+Clean-param: utm_source&utm_medium&utm_campaign&utm_term&utm_content&utm_id&fbclid /
 
 # Специальные правила для разных ботов
 User-agent: Googlebot
@@ -68,3 +76,4 @@ Disallow: /
 # Sitemap
 Sitemap: https://twocomms.shop/sitemap.xml
 Sitemap: https://www.twocomms.shop/sitemap.xml
+Host: twocomms.shop
