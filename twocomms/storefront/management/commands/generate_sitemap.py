@@ -37,16 +37,22 @@ class Command(BaseCommand):
         # Получаем содержимое
         content = response.content.decode('utf-8')
         
-        # Путь для сохранения файла
-        sitemap_path = os.path.join(settings.BASE_DIR, 'twocomms', 'static', 'sitemap.xml')
+        # Путь для сохранения файла в static
+        sitemap_static_path = os.path.join(settings.BASE_DIR, 'twocomms', 'static', 'sitemap.xml')
+        # Путь для сохранения файла в корень проекта
+        sitemap_root_path = os.path.join(settings.BASE_DIR, 'twocomms', 'sitemap.xml')
         
         # Создаем директорию если не существует
-        os.makedirs(os.path.dirname(sitemap_path), exist_ok=True)
+        os.makedirs(os.path.dirname(sitemap_static_path), exist_ok=True)
         
-        # Сохраняем файл
-        with open(sitemap_path, 'w', encoding='utf-8') as f:
+        # Сохраняем файл в static
+        with open(sitemap_static_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        
+        # Копируем файл в корень проекта
+        with open(sitemap_root_path, 'w', encoding='utf-8') as f:
             f.write(content)
         
         self.stdout.write(
-            self.style.SUCCESS(f'Successfully generated sitemap.xml at {sitemap_path}')
+            self.style.SUCCESS(f'Successfully generated sitemap.xml at {sitemap_static_path} and {sitemap_root_path}')
         )
