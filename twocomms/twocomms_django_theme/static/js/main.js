@@ -893,6 +893,15 @@ document.addEventListener('DOMContentLoaded', function(){
     rows.forEach(row=>{
       const cards = row.querySelectorAll('.card.product');
       if(!cards.length) return;
+      const isGridLayout = window.getComputedStyle(row).display === 'grid';
+      if (isGridLayout) {
+        cards.forEach(card=>{
+          card.style.height='';
+          card.style.minHeight='';
+          card.style.maxHeight='';
+        });
+        return;
+      }
       cards.forEach(card=>{ card.style.height='auto'; card.style.minHeight='auto'; card.style.maxHeight='none'; });
       const applyHeights = ()=>{
         let maxHeight = 0;
