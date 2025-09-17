@@ -53,44 +53,45 @@
   contain-intrinsic-size: auto !important;
 }
 
-/* Для мобильных сразу показываем карточки без анимационных задержек */
-@media (max-width: 768px) {
-  .reveal,
-  .reveal-fast,
-  .reveal-stagger,
-  .stagger-item {
-    opacity: 1 !important;
-    transform: none !important;
-    animation: none !important;
-  }
+/* Фолбэк: пока JavaScript не готов, элементы с reveal остаются видимыми */
+html:not(.js-ready) .reveal,
+html:not(.js-ready) .reveal-fast,
+html:not(.js-ready) .reveal-stagger,
+html:not(.js-ready) .stagger-item {
+  opacity: 1 !important;
+  transform: none !important;
+  animation: none !important;
+}
 
-  [data-mobile-stagger="true"] .reveal {
+/* Мобильные задержки только после инициализации JS */
+@media (max-width: 768px) {
+  html.js-ready [data-mobile-stagger="true"] .reveal {
     opacity: 0 !important;
     transform: translateY(12px) !important;
     transition: 400ms ease !important;
   }
 
-  [data-mobile-stagger="true"] .reveal.visible {
+  html.js-ready [data-mobile-stagger="true"] .reveal.visible {
     opacity: 1 !important;
     transform: none !important;
   }
 
-  [data-mobile-stagger="true"] .reveal-fast {
+  html.js-ready [data-mobile-stagger="true"] .reveal-fast {
     opacity: 0 !important;
     transform: translateY(8px) scale(0.98) !important;
     transition: 260ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
   }
 
-  [data-mobile-stagger="true"] .reveal-fast.visible {
+  html.js-ready [data-mobile-stagger="true"] .reveal-fast.visible {
     opacity: 1 !important;
     transform: none !important;
   }
 
-  [data-mobile-stagger="true"] .reveal-stagger {
+  html.js-ready [data-mobile-stagger="true"] .reveal-stagger {
     opacity: 0 !important;
   }
 
-  [data-mobile-stagger="true"] .reveal-stagger.visible {
+  html.js-ready [data-mobile-stagger="true"] .reveal-stagger.visible {
     animation: cardLift 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both !important;
     animation-delay: var(--d, 0ms) !important;
   }
@@ -125,6 +126,44 @@ img {
   visibility: hidden !important;
   opacity: 0 !important;
   pointer-events: none !important;
+}
+
+/* Адаптивная сетка карточек: всегда одинаковое количество колонок для ряда */
+[data-stagger-grid] {
+  --product-card-min: 240px;
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(var(--product-card-min), 1fr));
+  gap: 1rem !important;
+}
+
+@media (max-width: 575.98px) {
+  [data-stagger-grid] {
+    --product-card-min: 180px;
+  }
+}
+
+@media (min-width: 768px) {
+  [data-stagger-grid] {
+    gap: 1.5rem !important;
+  }
+}
+
+[data-stagger-grid] > .product-card-wrap {
+  width: 100% !important;
+  max-width: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+[data-stagger-grid] > .product-card-wrap > .col {
+  width: 100% !important;
+  max-width: none !important;
+  padding: 0 !important;
+  flex: 1 1 auto !important;
+}
+
+[data-stagger-grid] .card.product {
+  height: 100% !important;
 }
 
 /* Убеждаемся, что минипрофиль виден на десктопе */

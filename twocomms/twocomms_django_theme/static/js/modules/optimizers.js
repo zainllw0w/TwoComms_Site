@@ -117,7 +117,12 @@ export const MobileOptimizer = {
         return;
       }
 
-      const interactiveElement = event.target.closest('a, button, input, label, textarea, select, [role="button"], [data-bs-toggle]');
+      const eventTarget = event.target;
+      if (!(eventTarget instanceof Element)) {
+        return;
+      }
+
+      const interactiveElement = eventTarget.closest('a, button, input, label, textarea, select, [role="button"], [data-bs-toggle]');
       if (interactiveElement) {
         return;
       }
