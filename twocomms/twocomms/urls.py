@@ -27,7 +27,7 @@ urlpatterns = [
     path("accounts/", include("accounts.urls")),
     
     # Sitemap
-    path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
+    path('sitemap.xml', storefront_views.custom_sitemap, name='django.contrib.sitemaps.views.sitemap'),
     
     # Явный маршрут для /favicon.ico → статический файл
     path("favicon.ico", RedirectView.as_view(

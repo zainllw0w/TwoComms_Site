@@ -4280,6 +4280,32 @@ def static_verification_file(request):
     response["Cache-Control"] = "public, max-age=86400"
     return response
 
+
+def custom_sitemap(request):
+    """Кастомный sitemap view без проблемных заголовков."""
+    from django.contrib.sitemaps.views import sitemap
+    from storefront.sitemaps import StaticViewSitemap, ProductSitemap, CategorySitemap
+    
+    sitemaps = {
+        'static': StaticViewSitemap,
+        'products': ProductSitemap,
+        'categories': CategorySitemap,
+    }
+    
+    response = sitemap(request, sitemaps)
+    
+    # Убираем проблемные заголовки для sitemap
+    if 'x-robots-tag' in response:
+        del response['x-robots-tag']
+    if 'x-frame-options' in response:
+        del response['x-frame-options']
+    
+    # Добавляем правильные заголовки для sitemap
+    response['Content-Type'] = 'application/xml; charset=utf-8'
+    response['Cache-Control'] = 'public, max-age=3600'  # Кешируем на 1 час
+    
+    return response
+
 @login_required
 def admin_order_delete(request, pk: int):
     if not request.user.is_staff:
