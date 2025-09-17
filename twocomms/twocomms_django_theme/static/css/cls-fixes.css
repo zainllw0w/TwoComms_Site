@@ -57,11 +57,16 @@
 html:not(.js-ready) .reveal,
 html:not(.js-ready) .reveal-fast,
 html:not(.js-ready) .reveal-stagger,
-html:not(.js-ready) .stagger-item,
-[data-mobile-stagger="true"] .reveal,
-[data-mobile-stagger="true"] .reveal-fast,
-[data-mobile-stagger="true"] .reveal-stagger,
-[data-mobile-stagger="true"] .stagger-item {
+html:not(.js-ready) .stagger-item {
+  opacity: 1 !important;
+  transform: none !important;
+  animation: none !important;
+}
+
+html:not(.mobile-stagger-enabled) [data-mobile-stagger="true"] .reveal,
+html:not(.mobile-stagger-enabled) [data-mobile-stagger="true"] .reveal-fast,
+html:not(.mobile-stagger-enabled) [data-mobile-stagger="true"] .reveal-stagger,
+html:not(.mobile-stagger-enabled) [data-mobile-stagger="true"] .stagger-item {
   opacity: 1 !important;
   transform: none !important;
   animation: none !important;
