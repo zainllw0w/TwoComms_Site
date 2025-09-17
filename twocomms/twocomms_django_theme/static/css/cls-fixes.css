@@ -72,37 +72,15 @@ html:not(.mobile-stagger-enabled) [data-mobile-stagger="true"] .stagger-item {
   animation: none !important;
 }
 
-/* Мобильные задержки только после инициализации JS */
+/* Мобильные задержки отключены — карточки всегда видимы */
 @media (max-width: 768px) {
-  html.mobile-stagger-enabled [data-mobile-stagger="true"] .reveal {
-    opacity: 0 !important;
-    transform: translateY(12px) !important;
-    transition: 400ms ease !important;
-  }
-
-  html.mobile-stagger-enabled [data-mobile-stagger="true"] .reveal.visible {
+  .reveal,
+  .reveal-fast,
+  .reveal-stagger,
+  .stagger-item {
     opacity: 1 !important;
     transform: none !important;
-  }
-
-  html.mobile-stagger-enabled [data-mobile-stagger="true"] .reveal-fast {
-    opacity: 0 !important;
-    transform: translateY(8px) scale(0.98) !important;
-    transition: 260ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
-  }
-
-  html.mobile-stagger-enabled [data-mobile-stagger="true"] .reveal-fast.visible {
-    opacity: 1 !important;
-    transform: none !important;
-  }
-
-  html.mobile-stagger-enabled [data-mobile-stagger="true"] .reveal-stagger {
-    opacity: 0 !important;
-  }
-
-  html.mobile-stagger-enabled [data-mobile-stagger="true"] .reveal-stagger.visible {
-    animation: cardLift 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both !important;
-    animation-delay: var(--d, 0ms) !important;
+    animation: none !important;
   }
 }
 
