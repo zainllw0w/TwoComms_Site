@@ -37,6 +37,9 @@ urlpatterns = [
     path("robots.txt", storefront_views.robots_txt, name="robots_txt"),
     # Fallback на случай, если где-то закешировался старый редирект на /static/robots.txt
     path("static/robots.txt", storefront_views.robots_txt),
+    # Verification файл в корне сайта
+    path("494cb80b2da94b4395dbbed566ab540d.txt", storefront_views.static_verification_file,
+         name="static_verification_file"),
 
     # Google Merchant feed
     path('google_merchant_feed.xml', storefront_views.google_merchant_feed, name='google_merchant_feed'),
