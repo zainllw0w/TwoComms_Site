@@ -84,22 +84,45 @@ export const MobileOptimizer = {
 
   optimizeTouchEvents() {
     let touchStartTime = 0;
+    let touchStartX = 0;
+    let touchStartY = 0;
     let touchMoved = false;
+    const movementThreshold = 8;
 
-    document.addEventListener('touchstart', () => {
+    document.addEventListener('touchstart', (event) => {
+      const touch = event.touches[0];
       touchStartTime = Date.now();
       touchMoved = false;
-    }, { passive: true });
-
-    document.addEventListener('touchmove', () => {
-      touchMoved = true;
-    }, { passive: true });
-
-    document.addEventListener('touchend', (e) => {
-      const touchDuration = Date.now() - touchStartTime;
-      if (touchMoved && touchDuration < 200) {
-        e.preventDefault();
+      if (touch) {
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
       }
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (event) => {
+      const touch = event.touches[0];
+      if (!touch) {
+        return;
+      }
+      const deltaX = Math.abs(touch.clientX - touchStartX);
+      const deltaY = Math.abs(touch.clientY - touchStartY);
+      if (deltaX > movementThreshold || deltaY > movementThreshold) {
+        touchMoved = true;
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchend', (event) => {
+      const touchDuration = Date.now() - touchStartTime;
+      if (!touchMoved || touchDuration >= 200) {
+        return;
+      }
+
+      const interactiveElement = event.target.closest('a, button, input, label, textarea, select, [role="button"], [data-bs-toggle]');
+      if (interactiveElement) {
+        return;
+      }
+
+      event.preventDefault();
     }, { passive: false });
   },
 
@@ -202,4 +225,3 @@ export function initOptimizers() {
     ImageOptimizer.init();
   });
 }
-
