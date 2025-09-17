@@ -4306,6 +4306,19 @@ def custom_sitemap(request):
     
     return response
 
+
+def static_sitemap(request):
+    """Отдает статический sitemap.xml файл."""
+    sitemap_path = os.path.join(settings.BASE_DIR, 'twocomms', 'static', 'sitemap.xml')
+    
+    if not os.path.exists(sitemap_path):
+        # Если файл не существует, генерируем динамический sitemap
+        return custom_sitemap(request)
+    
+    response = FileResponse(open(sitemap_path, 'rb'), content_type='application/xml; charset=utf-8')
+    response['Cache-Control'] = 'public, max-age=3600'  # Кешируем на 1 час
+    return response
+
 @login_required
 def admin_order_delete(request, pk: int):
     if not request.user.is_staff:
