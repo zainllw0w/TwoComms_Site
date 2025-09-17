@@ -17,6 +17,10 @@ class Command(BaseCommand):
         factory = RequestFactory()
         request = factory.get('/sitemap.xml')
         
+        # Добавляем атрибут user для совместимости с middleware
+        from django.contrib.auth.models import AnonymousUser
+        request.user = AnonymousUser()
+        
         # Настраиваем sitemaps
         sitemaps = {
             'static': StaticViewSitemap,
