@@ -75,5 +75,4 @@ Disallow: /
 
 # Sitemap
 Sitemap: https://twocomms.shop/sitemap.xml
-Sitemap: https://www.twocomms.shop/sitemap.xml
 Host: twocomms.shop
