@@ -4309,7 +4309,7 @@ def custom_sitemap(request):
 
 def static_sitemap(request):
     """Отдает статический sitemap.xml файл."""
-    sitemap_path = os.path.join(settings.BASE_DIR, 'twocomms', 'static', 'sitemap.xml')
+    sitemap_path = os.path.join(settings.BASE_DIR, 'twocomms', 'sitemap.xml')
     
     if not os.path.exists(sitemap_path):
         # Если файл не существует, генерируем динамический sitemap
