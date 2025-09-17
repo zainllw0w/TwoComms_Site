@@ -14,10 +14,10 @@
     <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4" data-stagger-grid>
       {% for favorite in favorites %}
       <div class="product-card-wrap">
-        {% if forloop.counter0 < 2 %}
-          {% include "partials/product_card.html" with p=favorite.product stagger=True eager=True %}
+        {% if forloop.counter0 < 6 %}
+          {% include "partials/product_card.html" with p=favorite.product stagger=False eager=True %}
         {% else %}
-          {% include "partials/product_card.html" with p=favorite.product stagger=True eager=False %}
+          {% include "partials/product_card.html" with p=favorite.product stagger=False eager=False %}
         {% endif %}
         {% if favorite.color_variants_data %}
         <div class="product-card-dots">
