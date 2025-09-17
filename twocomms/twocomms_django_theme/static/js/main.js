@@ -79,6 +79,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     });
   },{threshold:.2, rootMargin:'0px 0px -10% 0px'});
   document.querySelectorAll('[data-stagger-grid]').forEach(grid=>gridObserver.observe(grid));
+  document.documentElement.classList.add('mobile-stagger-enabled');
 });
 
 // ===== Force hide cart/profile on mobile (header widgets) - оптимизированная версия =====
