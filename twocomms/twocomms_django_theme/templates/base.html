@@ -101,7 +101,7 @@
   <link rel="dns-prefetch" href="https://fonts.googleapis.com">
   <link rel="dns-prefetch" href="https://fonts.gstatic.com">
 
-  <link rel="preload" href="{% static 'js/main.js' %}?v=36" as="script" crossorigin="anonymous">
+  <link rel="preload" href="{% static 'js/main.js' %}?v=37" as="script" crossorigin="anonymous">
   <link rel="modulepreload" href="{% static 'js/modules/shared.js' %}">
   <link rel="modulepreload" href="{% static 'js/modules/optimizers.js' %}">
   <link rel="modulepreload" href="{% static 'js/modules/product-media.js' %}">
@@ -203,6 +203,51 @@
       max-width: 100%;
       contain: layout; /* Изолируем layout */
     }
+    /* Фиксируем стартовые состояния панелей и ratio-блоков без ожидания внешнего CSS */
+    .user-panel,
+    #mini-cart-panel-mobile,
+    #user-panel-mobile {
+      display: none !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+    .user-panel.show,
+    #mini-cart-panel-mobile.show,
+    #user-panel-mobile.show {
+      display: block !important;
+      visibility: visible !important;
+      pointer-events: auto !important;
+    }
+    @media (min-width: 768px) {
+      #mini-cart-panel-mobile,
+      #user-panel-mobile {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
+    }
+    .ratio {
+      position: relative;
+      overflow: hidden;
+    }
+    .ratio picture,
+    .ratio img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .hero-logo-image {
+      aspect-ratio: 1 / 1;
+      max-width: 100%;
+      height: auto;
+      object-fit: contain;
+      contain: layout;
+    }
+    picture {
+      display: block;
+      contain: layout;
+    }
     /* Предотвращаем смещения при загрузке скриптов */
     .script-loading {
       opacity: 0;
@@ -214,14 +259,18 @@
   </style>
   
   <!-- Асинхронная загрузка основного CSS с приоритизацией -->
-  <link href="{% static 'css/styles.min.css' %}?v=2025.09.14.030" 
+  <link href="{% static 'css/styles.min.css' %}?v=2025.09.18.031" 
         rel="preload" as="style" 
         onload="this.onload=null;this.rel='stylesheet'"
         media="all">
-  <noscript><link href="{% static 'css/styles.min.css' %}?v=2025.09.14.030" rel="stylesheet"></noscript>
+  <noscript><link href="{% static 'css/styles.min.css' %}?v=2025.09.18.031" rel="stylesheet"></noscript>
   
-  <!-- CLS Fixes CSS - загружаем синхронно для предотвращения смещений -->
-  <link href="{% static 'css/cls-fixes.css' %}?v=2025.09.14.010" rel="stylesheet" media="all">
+  <!-- CLS Fixes CSS — лениво активируем после первой отрисовки через media swap -->
+  <link href="{% static 'css/cls-fixes.css' %}?v=2025.09.18.011"
+        rel="stylesheet"
+        media="print"
+        onload="this.media='all'">
+  <noscript><link href="{% static 'css/cls-fixes.css' %}?v=2025.09.18.011" rel="stylesheet"></noscript>
   <style>
   
   
@@ -670,7 +719,7 @@
         onerror="this.classList.add('script-error')"
         crossorigin="anonymous"></script>
 <script type="module"
-        src="{% static 'js/main.js' %}?v=36"
+        src="{% static 'js/main.js' %}?v=37"
         onload="this.classList.add('script-loaded')"
         onerror="this.classList.add('script-error')"
         crossorigin="anonymous"></script>

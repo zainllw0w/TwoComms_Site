@@ -97,27 +97,7 @@ function handleColorDotClick(e) {
   }
 }
 
-export function forceShowAllImages() {
-  const images = document.querySelectorAll('.ratio img, .ratio picture img');
-  images.forEach((img) => {
-    img.style.display = 'block';
-    img.style.visibility = 'visible';
-    img.style.opacity = '1';
-    img.style.position = 'absolute';
-    img.style.top = '0';
-    img.style.left = '0';
-    img.style.width = '100%';
-    img.style.height = '100%';
-    img.style.objectFit = 'cover';
-    img.style.zIndex = '1';
-  });
-  const pictures = document.querySelectorAll('.ratio picture');
-  pictures.forEach((picture) => {
-    picture.style.display = 'block';
-    picture.style.visibility = 'visible';
-    picture.style.opacity = '1';
-  });
-}
+export function forceShowAllImages() {}
 
 function revealColorDots() {
   const colorDots = document.querySelectorAll('.color-dot');
@@ -133,11 +113,20 @@ function revealColorDots() {
 export function initProductMedia() {
   document.addEventListener('click', handleColorDotClick, { passive: false });
 
-  document.addEventListener('DOMContentLoaded', () => {
+  const onReady = () => {
     MobileOptimizer.initMobileOptimizations();
     revealColorDots();
-  });
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', onReady);
+  } else {
+    onReady();
+  }
 
-  document.addEventListener('DOMContentLoaded', forceShowAllImages);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', forceShowAllImages);
+  } else {
+    forceShowAllImages();
+  }
   window.addEventListener('load', forceShowAllImages);
 }

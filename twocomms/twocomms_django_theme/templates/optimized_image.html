@@ -4,25 +4,24 @@
 
 {% if image_path %}
 <picture>
-  {% if responsive_sources %}
-    {% for source in responsive_sources %}
-      {% if source.format == 'avif' %}
-        <source srcset="{{ source.url }}" type="image/avif" media="(max-width: {{ source.size|slice:":-1" }}px)">
-      {% elif source.format == 'webp' %}
-        <source srcset="{{ source.url }}" type="image/webp" media="(max-width: {{ source.size|slice:":-1" }}px)">
-      {% endif %}
-    {% endfor %}
-  {% endif %}
-  
-  {% if has_avif and avif_path %}
-    <source srcset="{{ avif_path }}" type="image/avif">
-  {% endif %}
-  {% if has_webp and webp_path %}
-    <source srcset="{{ webp_path }}" type="image/webp">
-  {% endif %}
+  {% with responsive_srcsets.avif as avif_srcset %}
+    {% if avif_srcset %}
+      <source srcset="{{ avif_srcset }}" type="image/avif"{% if sizes %} sizes="{{ sizes }}"{% endif %}>
+    {% elif has_avif and avif_path %}
+      <source srcset="{{ avif_path }}" type="image/avif">
+    {% endif %}
+  {% endwith %}
+  {% with responsive_srcsets.webp as webp_srcset %}
+    {% if webp_srcset %}
+      <source srcset="{{ webp_srcset }}" type="image/webp"{% if sizes %} sizes="{{ sizes }}"{% endif %}>
+    {% elif has_webp and webp_path %}
+      <source srcset="{{ webp_path }}" type="image/webp">
+    {% endif %}
+  {% endwith %}
   
   <img 
     src="{{ image_path }}" 
+    {% if img_srcset %}srcset="{{ img_srcset }}"{% endif %}
     alt="{{ alt_text }}"
     {% if class_name %}class="{{ class_name }}"{% endif %}
     {% if width %}width="{{ width }}"{% endif %}
@@ -30,7 +29,7 @@
     loading="{{ loading|default:'lazy' }}"
     decoding="async"
     {% if fetchpriority %}fetchpriority="{{ fetchpriority }}"{% endif %}
-    {% if not width and not height %}sizes="(max-width: 320px) 320px, (max-width: 640px) 640px, (max-width: 768px) 768px, (max-width: 1024px) 1024px, 1920px"{% endif %}
+    {% if sizes %}sizes="{{ sizes }}"{% elif not width and not height %}sizes="(max-width: 320px) 320px, (max-width: 640px) 640px, (max-width: 768px) 768px, (max-width: 1024px) 1024px, 1920px"{% endif %}
   >
 </picture>
 {% endif %}
