@@ -46,6 +46,56 @@
   contain: layout;
 }
 
+/* Убираем content-visibility, который вызывал мерцания и запоздалый рендер карточек */
+.product-card-wrap,
+.product-card-wrap .card.product {
+  content-visibility: visible !important;
+  contain-intrinsic-size: auto !important;
+}
+
+/* Для мобильных сразу показываем карточки без анимационных задержек */
+@media (max-width: 768px) {
+  .reveal,
+  .reveal-fast,
+  .reveal-stagger,
+  .stagger-item {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+
+  [data-mobile-stagger="true"] .reveal {
+    opacity: 0 !important;
+    transform: translateY(12px) !important;
+    transition: 400ms ease !important;
+  }
+
+  [data-mobile-stagger="true"] .reveal.visible {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  [data-mobile-stagger="true"] .reveal-fast {
+    opacity: 0 !important;
+    transform: translateY(8px) scale(0.98) !important;
+    transition: 260ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+  }
+
+  [data-mobile-stagger="true"] .reveal-fast.visible {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  [data-mobile-stagger="true"] .reveal-stagger {
+    opacity: 0 !important;
+  }
+
+  [data-mobile-stagger="true"] .reveal-stagger.visible {
+    animation: cardLift 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both !important;
+    animation-delay: var(--d, 0ms) !important;
+  }
+}
+
 /* Стили для логотипа в hero-секции */
 .hero-logo-image {
   aspect-ratio: 1 / 1;
@@ -248,4 +298,52 @@ picture {
 picture img {
   width: 100%;
   height: auto;
+}
+
+/* Адаптивные размеры цен на компактных экранах без переносов строк */
+@media (max-width: 480px) {
+  .card.product .price-row {
+    flex-wrap: nowrap !important;
+    column-gap: 0.35rem !important;
+  }
+
+  .card.product .fw-semibold.price-text {
+    font-size: clamp(0.82rem, 4.1vw, 0.98rem) !important;
+    letter-spacing: 0.025em !important;
+  }
+
+  .card.product .price-text {
+    font-size: clamp(0.6rem, 3.2vw, 0.78rem) !important;
+  }
+
+  .card.product .text-decoration-line-through,
+  .card.product .discount-badge {
+    font-size: clamp(0.52rem, 2.7vw, 0.68rem) !important;
+  }
+}
+
+/* Кнопка Google Pay — растягиваем и выравниваем под кнопку оформлення */
+.cart-google-pay-container {
+  width: 100%;
+}
+
+.cart-google-pay-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: none;
+  border-radius: 15px;
+  padding: 1.1rem 2rem;
+  background: #111112;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cart-google-pay-btn:hover {
+  background: #1b1c1f;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.cart-google-pay-text {
+  font-size: 1.05rem;
 }
