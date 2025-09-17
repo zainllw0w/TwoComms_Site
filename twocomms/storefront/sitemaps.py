@@ -38,7 +38,7 @@ class ProductSitemap(Sitemap):
     
     def items(self):
         # Возвращаем все товары, так как у Product нет поля is_active
-        return Product.objects.all()
+        return Product.objects.all().order_by('id')
     
     def lastmod(self, obj):
         # У Product нет полей времени, возвращаем None
