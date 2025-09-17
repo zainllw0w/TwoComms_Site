@@ -63,25 +63,47 @@ html:not(.js-ready) .stagger-item {
   animation: none !important;
 }
 
-html:not(.mobile-stagger-enabled) [data-mobile-stagger="true"] .reveal,
-html:not(.mobile-stagger-enabled) [data-mobile-stagger="true"] .reveal-fast,
-html:not(.mobile-stagger-enabled) [data-mobile-stagger="true"] .reveal-stagger,
-html:not(.mobile-stagger-enabled) [data-mobile-stagger="true"] .stagger-item {
+html:not(.reveal-ready) .reveal,
+html:not(.reveal-ready) .reveal-fast,
+html:not(.reveal-ready) .reveal-stagger,
+html:not(.reveal-ready) .stagger-item {
   opacity: 1 !important;
   transform: none !important;
   animation: none !important;
 }
 
-/* Мобильные задержки отключены — карточки всегда видимы */
-@media (max-width: 768px) {
-  .reveal,
-  .reveal-fast,
-  .reveal-stagger,
-  .stagger-item {
-    opacity: 1 !important;
-    transform: none !important;
-    animation: none !important;
-  }
+html.reveal-ready .reveal {
+  opacity: 0 !important;
+  transform: translateY(12px) !important;
+  transition: 400ms ease !important;
+}
+
+html.reveal-ready .reveal.visible {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+html.reveal-ready .reveal-fast {
+  opacity: 0 !important;
+  transform: translateY(8px) scale(0.98) !important;
+  transition: 260ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+
+html.reveal-ready .reveal-fast.visible {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+html.reveal-ready .reveal-stagger,
+html.reveal-ready .stagger-item {
+  opacity: 0 !important;
+}
+
+html.reveal-ready .reveal-stagger.visible,
+html.reveal-ready .stagger-item.visible {
+  opacity: 1 !important;
+  animation: cardLift 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both !important;
+  animation-delay: var(--d, 0ms) !important;
 }
 
 /* Стили для логотипа в hero-секции */
