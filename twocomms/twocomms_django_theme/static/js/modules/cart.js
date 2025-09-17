@@ -118,7 +118,7 @@ function setupCartValidation(form) {
 }
 
 export function initCartInteractions() {
-  document.addEventListener('DOMContentLoaded', () => {
+  const boot = () => {
     const promoInput = document.getElementById('promo-code-input');
     const applyBtn = document.querySelector('.cart-promo-apply-btn');
     const removeBtn = document.querySelector('.cart-promo-remove-btn');
@@ -164,5 +164,11 @@ export function initCartInteractions() {
 
     setupCartValidation(document.getElementById('guest-form'));
     setupCartValidation(document.getElementById('deliveryForm'));
-  });
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
+  } else {
+    boot();
+  }
 }
