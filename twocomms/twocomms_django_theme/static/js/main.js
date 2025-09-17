@@ -25,23 +25,32 @@ const observerOptions = {
   passive: true
 };
 
-const io = new IntersectionObserver(e => {
+const supportsIO = 'IntersectionObserver' in window;
+const io = supportsIO ? new IntersectionObserver(e => {
   e.forEach(t => {
     if (t.isIntersecting) {
       t.target.classList.add('visible');
       io.unobserve(t.target);
     }
   });
-}, observerOptions);
+}, observerOptions) : null;
+
 document.addEventListener('DOMContentLoaded',()=>{
   // Инициализация оптимизации изображений
   ImageOptimizer.init();
   
-  // Обычные лёгкие появления
-  document.querySelectorAll('.reveal, .reveal-fast').forEach(el=>io.observe(el));
+  const registerRevealTargets = (scope=document)=>{
+    const basicTargets = scope.querySelectorAll('.reveal, .reveal-fast');
+    if(!supportsIO){
+      basicTargets.forEach(el=>el.classList.add('visible'));
+      return;
+    }
+    basicTargets.forEach(el=>io.observe(el));
+  };
+  registerRevealTargets();
   
   // Стаггер-анимация карточек в гриде — по порядку DOM, без измерений
-  const gridObserver = new IntersectionObserver(entries=>{
+  const gridObserver = supportsIO ? new IntersectionObserver(entries=>{
     entries.forEach(entry=>{
       if(!entry.isIntersecting) return;
       const grid = entry.target;
@@ -56,7 +65,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       try{ if(window.equalizeCardHeights) window.equalizeCardHeights(); }catch(_){ }
       ordered.forEach((el,i)=>{
         el.style.setProperty('--d', (i*step)+'ms'); // дублируем задержку в CSS (на всякий)
-        setTimeout(()=>{ 
+        const revealCard = ()=>{
           el.classList.add('visible'); 
           
           // Анимация цветов товаров - СТРОГО вместе с карточкой
@@ -72,37 +81,35 @@ document.addEventListener('DOMContentLoaded',()=>{
               }, prefersReducedMotion ? 0 : (dotIndex * 60)); // Быстрая анимация точек
             });
           }
-        }, i*step);
+        };
+        if(step === 0){
+          revealCard();
+        } else {
+          setTimeout(revealCard, i*step);
+        }
       });
 
       gridObserver.unobserve(grid);
     });
-  },{threshold:.2, rootMargin:'0px 0px -10% 0px'});
-  document.querySelectorAll('[data-stagger-grid]').forEach(grid=>gridObserver.observe(grid));
-
-  const ensureVisibleAboveFold = () => {
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-    const buffer = Math.max(120, viewportHeight * 0.1);
-    document.querySelectorAll('.reveal, .reveal-fast, .reveal-stagger, .stagger-item').forEach(target => {
-      if (target.classList.contains('visible')) return;
-      const rect = target.getBoundingClientRect();
-      if (rect.top <= viewportHeight + buffer) {
-        target.classList.add('visible');
-      }
+  },{threshold:.12, rootMargin:'0px 0px -10% 0px'}) : null;
+  const grids = document.querySelectorAll('[data-stagger-grid]');
+  if(!supportsIO){
+    grids.forEach(grid=>{
+      grid.querySelectorAll('.stagger-item').forEach(el=>el.classList.add('visible'));
     });
-  };
-
-  ensureVisibleAboveFold();
-  setTimeout(ensureVisibleAboveFold, 200);
-  window.addEventListener('load', () => setTimeout(ensureVisibleAboveFold, 150));
-  const ensureVisibleDebounced = debounce(ensureVisibleAboveFold, 150);
-  window.addEventListener('resize', ensureVisibleDebounced);
-  window.addEventListener('scroll', ensureVisibleDebounced);
+  } else {
+    grids.forEach(grid=>gridObserver.observe(grid));
+  }
 
   requestAnimationFrame(() => {
     document.documentElement.classList.add('reveal-ready');
-    ensureVisibleAboveFold();
+    if(!supportsIO || prefersReducedMotion){
+      document.querySelectorAll('.reveal, .reveal-fast, .reveal-stagger, .stagger-item').forEach(el=>el.classList.add('visible'));
+    }
   });
+ 
+  // Экспортируем функцию для динамически подгруженных карточек (load more)
+  window.registerRevealTargets = registerRevealTargets;
 });
 
 // ===== Force hide cart/profile on mobile (header widgets) - оптимизированная версия =====

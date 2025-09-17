@@ -106,6 +106,12 @@ html.reveal-ready .stagger-item.visible {
   animation-delay: var(--d, 0ms) !important;
 }
 
+.no-reveal {
+  opacity: 1 !important;
+  transform: none !important;
+  animation: none !important;
+}
+
 /* Стили для логотипа в hero-секции */
 .hero-logo-image {
   aspect-ratio: 1 / 1;

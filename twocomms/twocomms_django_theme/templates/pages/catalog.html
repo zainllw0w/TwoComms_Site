@@ -136,9 +136,9 @@
             <div class="product-card-wrap">
               {% cache 900 product_card p.id p.final_price p.discount_percent p.display_image.name p.category_id forloop.counter0 %}
                 {% if forloop.counter0 < 6 %}
-                  {% include "partials/product_card.html" with p=p stagger=False eager=True %}
+                  {% include "partials/product_card.html" with p=p stagger=False eager=True animate=False %}
                 {% else %}
-                  {% include "partials/product_card.html" with p=p stagger=False eager=False %}
+                  {% include "partials/product_card.html" with p=p stagger=False eager=False animate=False %}
                 {% endif %}
               {% endcache %}
               {% if p.colors_preview %}
