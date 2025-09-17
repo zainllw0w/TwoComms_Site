@@ -105,7 +105,16 @@ def responsive_image(image_path, alt_text="", class_name="", sizes="(max-width: 
     }
 
 @register.inclusion_tag('optimized_image.html')
-def optimized_image(image_path, alt_text="", class_name="", width=None, height=None, loading="lazy", fetchpriority=None):
+def optimized_image(
+    image_path,
+    alt_text="",
+    class_name="",
+    width=None,
+    height=None,
+    loading="lazy",
+    fetchpriority=None,
+    sizes=None,
+):
     """
     Создает оптимизированное изображение с автоматическим выбором формата
     
@@ -156,43 +165,62 @@ def optimized_image(image_path, alt_text="", class_name="", width=None, height=N
         webp_url = str(webp_file_path)
         avif_url = str(avif_file_path)
     
-    # Проверяем наличие адаптивных версий (только если не указаны фиксированные размеры)
     responsive_sources = []
-    
-    # Если указаны фиксированные размеры, не используем адаптивные источники
-    if not width and not height:
-        # Размеры для адаптивных изображений (увеличиваем минимальные размеры)
-        responsive_sizes = [320, 640, 768, 1024, 1920]
-        
-        for size in responsive_sizes:
-            # WebP версии
-            webp_responsive_file = optimized_dir / f"{base_name}_{size}w.webp"
-            if webp_responsive_file.exists():
-                if image_path.startswith('/media/'):
-                    webp_responsive_url = f"{base_url}/optimized/{base_name}_{size}w.webp"
-                else:
-                    webp_responsive_url = str(webp_responsive_file)
-                responsive_sources.append({
-                    'url': webp_responsive_url,
-                    'size': f"{size}w",
-                    'format': 'webp'
-                })
-            
-            # AVIF версии
-            avif_responsive_file = optimized_dir / f"{base_name}_{size}w.avif"
-            if avif_responsive_file.exists():
-                if image_path.startswith('/media/'):
-                    avif_responsive_url = f"{base_url}/optimized/{base_name}_{size}w.avif"
-                else:
-                    avif_responsive_url = str(avif_responsive_file)
-                responsive_sources.append({
-                    'url': avif_responsive_url,
-                    'size': f"{size}w",
-                    'format': 'avif'
-                })
-    
+    max_target_width = None
+    try:
+        max_target_width = int(width) if width else None
+    except (TypeError, ValueError):
+        max_target_width = None
+
+    responsive_sizes = [320, 480, 640, 768, 960, 1280, 1600, 1920]
+    if max_target_width:
+        responsive_sizes = [s for s in responsive_sizes if s <= max_target_width]
+
+    for size in responsive_sizes:
+        webp_responsive_file = optimized_dir / f"{base_name}_{size}w.webp"
+        if webp_responsive_file.exists():
+            if image_path.startswith('/media/'):
+                webp_responsive_url = f"{base_url}/optimized/{base_name}_{size}w.webp"
+            else:
+                webp_responsive_url = str(webp_responsive_file)
+            responsive_sources.append({
+                'url': webp_responsive_url,
+                'size': f"{size}w",
+                'format': 'webp'
+            })
+
+        avif_responsive_file = optimized_dir / f"{base_name}_{size}w.avif"
+        if avif_responsive_file.exists():
+            if image_path.startswith('/media/'):
+                avif_responsive_url = f"{base_url}/optimized/{base_name}_{size}w.avif"
+            else:
+                avif_responsive_url = str(avif_responsive_file)
+            responsive_sources.append({
+                'url': avif_responsive_url,
+                'size': f"{size}w",
+                'format': 'avif'
+            })
+
+    responsive_srcsets = {'webp': '', 'avif': ''}
+    if responsive_sources:
+        by_format = {'webp': [], 'avif': []}
+        for source in responsive_sources:
+            by_format[source['format']].append(f"{source['url']} {source['size']}")
+        for fmt, entries in by_format.items():
+            if entries:
+                responsive_srcsets[fmt] = ", ".join(sorted(entries, key=lambda item: int(item.split()[-1][:-1])))
+
+    fallback_format = base_path.suffix.lstrip('.').lower()
+    img_srcset = responsive_srcsets.get(fallback_format, '') if responsive_srcsets else ''
+    default_src = image_path
+    if img_srcset:
+        first_entry = img_srcset.split(',')[0].strip()
+        first_url = first_entry.split(' ')[0]
+        if first_url:
+            default_src = first_url
+
     return {
-        'image_path': image_path,
+        'image_path': default_src,
         'alt_text': alt_text,
         'class_name': class_name,
         'width': width,
@@ -203,7 +231,10 @@ def optimized_image(image_path, alt_text="", class_name="", width=None, height=N
         'avif_path': avif_url if avif_file_path.exists() else None,
         'responsive_sources': responsive_sources,
         'loading': loading,
-        'fetchpriority': fetchpriority
+        'fetchpriority': fetchpriority,
+        'sizes': sizes,
+        'responsive_srcsets': responsive_srcsets,
+        'img_srcset': img_srcset
     }
 
 @register.simple_tag

@@ -9,9 +9,6 @@ import {
   getCookie
 } from './modules/shared.js';
 import { PerformanceOptimizer, ImageOptimizer } from './modules/optimizers.js';
-import { initProductMedia, forceShowAllImages } from './modules/product-media.js';
-import { initCartInteractions } from './modules/cart.js';
-import { initHomepagePagination } from './modules/homepage.js';
 
 // Помечаем, что основной JS инициализирован и можно запускать анимации
 document.documentElement.classList.add('js-ready');
@@ -36,8 +33,8 @@ const io = supportsIO ? new IntersectionObserver(e => {
 }, observerOptions) : null;
 
 document.addEventListener('DOMContentLoaded',()=>{
-  // Инициализация оптимизации изображений
-  ImageOptimizer.init();
+  // Инициализация оптимизации изображений переносится в idle, чтобы не блокировать главный поток
+  scheduleIdle(()=> ImageOptimizer.init());
   
   const registerRevealTargets = (scope=document)=>{
     const basicTargets = scope.querySelectorAll('.reveal, .reveal-fast');
@@ -307,11 +304,16 @@ function openMiniCart(){
     panel.style.right = '0';
     panel.style.top = 'calc(100% + 8px)';
   }
-  // Ре-флоу для анимации
-  void panel.offsetHeight;
-  panel.classList.add('show');
-  uiGuardUntil = Date.now() + 220;
-  suppressGlobalCloseUntil = Date.now() + 180;
+  const markOpened = () => {
+    panel.classList.add('show');
+    uiGuardUntil = Date.now() + 220;
+    suppressGlobalCloseUntil = Date.now() + 180;
+  };
+  if('requestAnimationFrame' in window){
+    requestAnimationFrame(markOpened);
+  } else {
+    markOpened();
+  }
   refreshMiniCart();
 }
 function closeMiniCart(reason){
@@ -630,8 +632,13 @@ document.addEventListener('DOMContentLoaded',()=>{
         panel.style.right = '0';
         panel.style.top = 'calc(100% + 8px)';
       }
-      void panel.offsetHeight;
-      if(wasShown) panel.classList.add('show');
+      if(wasShown){
+        if('requestAnimationFrame' in window){
+          requestAnimationFrame(()=> panel.classList.add('show'));
+        } else {
+          panel.classList.add('show');
+        }
+      }
     }
   }, 150));
 
@@ -730,87 +737,88 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 // ===== Авто-оптимизация тяжёлых эффектов без изменения вида =====
 document.addEventListener('DOMContentLoaded', function(){
-  // always on; safe adjustments only during scroll and offscreen
-  // Собираем потенциально тяжёлые узлы (ограниченный список, чтобы не перебирать весь DOM)
-  const candidateSelectors = [
-    '.hero.bg-hero', '.bottom-nav', '#mini-cart-panel-mobile', '#user-panel-mobile',
-    '.featured-bg-unified', '.categories-bg-unified', '.card.product',
-    '[class*="particles" i]', '[class*="spark" i]', '[class*="glow" i]'
-  ];
-  const unique = new Set();
-  const candidates = [];
-  candidateSelectors.forEach(sel=>{
-    document.querySelectorAll(sel).forEach(el=>{
-      if(!el || unique.has(el)) return; unique.add(el); candidates.push(el);
+  if(!(PERF_LITE || prefersReducedMotion)) return;
+  scheduleIdle(()=>{
+    const candidateSelectors = [
+      '.hero.bg-hero', '.bottom-nav', '#mini-cart-panel-mobile', '#user-panel-mobile',
+      '.featured-bg-unified', '.categories-bg-unified', '.card.product',
+      '[class*="particles" i]', '[class*="spark" i]', '[class*="glow" i]'
+    ];
+    const unique = new Set();
+    const candidates = [];
+    candidateSelectors.forEach(sel=>{
+      document.querySelectorAll(sel).forEach(el=>{
+        if(!el || unique.has(el)) return; unique.add(el); candidates.push(el);
+      });
     });
-  });
 
-  // Отбираем реальные «тяжёлые» по computed styles с кэшированием
-  const heavyNodes = candidates.filter(el=>{
-    try{
-      const cs = DOMCache.getComputedStyle(el);
-      const hasBackdrop = (cs.backdropFilter && cs.backdropFilter!=='none');
-      const hasBlur = (cs.filter||'').includes('blur');
-      const hasBigShadow = (cs.boxShadow||'').includes('px');
-      const isAnimatedInf = (cs.animationIterationCount||'').includes('infinite');
-      return hasBackdrop || hasBlur || hasBigShadow || isAnimatedInf;
-    }catch(_){ return false; }
-  });
-
-  // Мягкое облегчение на время активной прокрутки: уменьшаем blur и приостанавливаем бесконечные анимации
-  let relaxTimer = null;
-  let relaxed = false;
-  function relaxHeavy(){
-    if(relaxed) return; relaxed = true;
-    heavyNodes.forEach(el=>{
+    const heavyMeta = [];
+    const metaMap = new Map();
+    candidates.forEach(el=>{
       try{
-        const cs = getComputedStyle(el);
-        if(cs.backdropFilter && cs.backdropFilter!=='none'){
-          el.style.setProperty('backdrop-filter','blur(6px) saturate(110%)','important');
-          el.style.setProperty('-webkit-backdrop-filter','blur(6px) saturate(110%)','important');
-        }
-        if((cs.animationIterationCount||'').includes('infinite')){
-          el.style.setProperty('animation-play-state','paused','important');
+        const cs = DOMCache.getComputedStyle(el);
+        const hasBackdrop = (cs.backdropFilter && cs.backdropFilter!=='none') || (cs.webkitBackdropFilter && cs.webkitBackdropFilter!=='none');
+        const hasBlur = (cs.filter||'').includes('blur');
+        const hasBigShadow = (cs.boxShadow||'').includes('px');
+        const isAnimatedInf = (cs.animationIterationCount||'').includes('infinite');
+        if(hasBackdrop || hasBlur || hasBigShadow || isAnimatedInf){
+          const meta = { el, hasBackdrop, hasInfiniteAnim: isAnimatedInf };
+          heavyMeta.push(meta);
+          metaMap.set(el, meta);
         }
       }catch(_){ }
     });
-  }
-  function restoreHeavy(){
-    if(!relaxed) return; relaxed = false;
-    heavyNodes.forEach(el=>{
-      try{
-        el.style.removeProperty('backdrop-filter');
-        el.style.removeProperty('-webkit-backdrop-filter');
-        el.style.removeProperty('animation-play-state');
-      }catch(_){ }
-    });
-  }
-  function onScroll(){
-    relaxHeavy();
-    if(relaxTimer) clearTimeout(relaxTimer);
-    relaxTimer = setTimeout(restoreHeavy, 350);
-  }
-  window.addEventListener('scroll', onScroll, {passive:true});
 
-  // Пауза бесконечных анимаций, когда элемент вне вьюпорта (оптимизированно)
-  if('IntersectionObserver' in window){
-    const io = new IntersectionObserver(entries=>{
-      // Batch operations для предотвращения множественных reflow
-      PerformanceOptimizer.batchDOMOperations(
-        entries.map(entry => () => {
-          const el = entry.target; 
-          const visible = entry.isIntersecting;
-          try{
-            const cs = DOMCache.getComputedStyle(el);
-            if((cs.animationIterationCount||'').includes('infinite')){
-              el.style.setProperty('animation-play-state', visible ? 'running' : 'paused','important');
-            }
-          }catch(_){ }
-        })
-      );
-    },{threshold:0.05});
-    heavyNodes.forEach(el=>{ try{ io.observe(el); }catch(_){ } });
-  }
+    if(!heavyMeta.length) return;
+
+    let relaxTimer = null;
+    let relaxed = false;
+    function relaxHeavy(){
+      if(relaxed) return; relaxed = true;
+      heavyMeta.forEach(({el, hasBackdrop, hasInfiniteAnim})=>{
+        try{
+          if(hasBackdrop){
+            el.style.setProperty('backdrop-filter','blur(6px) saturate(110%)','important');
+            el.style.setProperty('-webkit-backdrop-filter','blur(6px) saturate(110%)','important');
+          }
+          if(hasInfiniteAnim){
+            el.style.setProperty('animation-play-state','paused','important');
+          }
+        }catch(_){ }
+      });
+    }
+    function restoreHeavy(){
+      if(!relaxed) return; relaxed = false;
+      heavyMeta.forEach(({el})=>{
+        try{
+          el.style.removeProperty('backdrop-filter');
+          el.style.removeProperty('-webkit-backdrop-filter');
+          el.style.removeProperty('animation-play-state');
+        }catch(_){ }
+      });
+    }
+    function onScroll(){
+      relaxHeavy();
+      if(relaxTimer) clearTimeout(relaxTimer);
+      relaxTimer = setTimeout(restoreHeavy, 350);
+    }
+    window.addEventListener('scroll', onScroll, {passive:true});
+
+    if('IntersectionObserver' in window){
+      const io = new IntersectionObserver(entries=>{
+        PerformanceOptimizer.batchDOMOperations(
+          entries.map(entry => () => {
+            const meta = metaMap.get(entry.target);
+            if(!meta || !meta.hasInfiniteAnim) return;
+            try{
+              entry.target.style.setProperty('animation-play-state', entry.isIntersecting ? 'running' : 'paused','important');
+            }catch(_){ }
+          })
+        );
+      },{threshold:0.05});
+      heavyMeta.forEach(({el})=>{ try{ io.observe(el); }catch(_){ } });
+    }
+  });
 });
 
 
@@ -920,10 +928,19 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('DOMContentLoaded', function(){
   const rows = document.querySelectorAll('.row[data-stagger-grid]');
   if(!rows.length) return;
+  const equalizeMq = window.matchMedia('(min-width: 768px)');
   function equalizeCardHeights(){
     rows.forEach(row=>{
       const cards = row.querySelectorAll('.card.product');
       if(!cards.length) return;
+      if(!equalizeMq.matches){
+        cards.forEach(card=>{
+          card.style.height='';
+          card.style.minHeight='';
+          card.style.maxHeight='';
+        });
+        return;
+      }
       const isGridLayout = window.getComputedStyle(row).display === 'grid';
       if (isGridLayout) {
         cards.forEach(card=>{
@@ -955,6 +972,9 @@ document.addEventListener('DOMContentLoaded', function(){
     const mo = new MutationObserver(()=> debouncedEqualize());
     mo.observe(row, {childList:true, subtree:true});
   });
+  const mqHandler = ()=> debouncedEqualize();
+  if(equalizeMq.addEventListener){ equalizeMq.addEventListener('change', mqHandler); }
+  else if(equalizeMq.addListener){ equalizeMq.addListener(mqHandler); }
 });
 
 // ====== PRODUCT DETAIL: цвета и галерея ======
@@ -1204,7 +1224,23 @@ document.addEventListener('click', function(e){
   }catch(_){ }
 });
 
-// Цветовые точки и обновление медиа вынесены в modules/product-media.js
-initProductMedia();
-initCartInteractions();
-initHomepagePagination();
+// Цветовые точки, корзина и пагинация подгружаются по требованию, чтобы сократить работу в главном потоке
+document.addEventListener('DOMContentLoaded', () => {
+  scheduleIdle(() => {
+    if(document.querySelector('.product-card-wrap') || document.getElementById('productCarousel')){
+      import('./modules/product-media.js')
+        .then(({ initProductMedia }) => initProductMedia())
+        .catch(() => {});
+    }
+    if(document.querySelector('.cart-page-container') || document.getElementById('promo-code-input')){
+      import('./modules/cart.js')
+        .then(({ initCartInteractions }) => initCartInteractions())
+        .catch(() => {});
+    }
+    if(document.getElementById('load-more-btn') || document.getElementById('products-container')){
+      import('./modules/homepage.js')
+        .then(({ initHomepagePagination }) => initHomepagePagination())
+        .catch(() => {});
+    }
+  });
+});

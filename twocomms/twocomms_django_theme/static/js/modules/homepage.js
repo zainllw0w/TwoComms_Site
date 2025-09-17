@@ -72,7 +72,7 @@ function animateNewCards(container) {
 }
 
 export function initHomepagePagination() {
-  document.addEventListener('DOMContentLoaded', () => {
+  const boot = () => {
     const productsContainer = document.getElementById('products-container');
     const loadMoreBtn = document.getElementById('load-more-btn');
     const loadMoreContainer = document.getElementById('load-more-container');
@@ -190,5 +190,11 @@ export function initHomepagePagination() {
     }
 
     syncSelector();
-  });
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
+  } else {
+    boot();
+  }
 }
