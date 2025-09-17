@@ -13,6 +13,9 @@ import { initProductMedia, forceShowAllImages } from './modules/product-media.js
 import { initCartInteractions } from './modules/cart.js';
 import { initHomepagePagination } from './modules/homepage.js';
 
+// Помечаем, что основной JS инициализирован и можно запускать анимации
+document.documentElement.classList.add('js-ready');
+
 // ===== ОПТИМИЗАЦИЯ ПРОИЗВОДИТЕЛЬНОСТИ =====
 // Анимации появления
 // Оптимизированные настройки IntersectionObserver
