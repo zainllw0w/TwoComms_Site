@@ -80,6 +80,21 @@ document.addEventListener('DOMContentLoaded',()=>{
   },{threshold:.2, rootMargin:'0px 0px -10% 0px'});
   document.querySelectorAll('[data-stagger-grid]').forEach(grid=>gridObserver.observe(grid));
   document.documentElement.classList.add('mobile-stagger-enabled');
+
+  const ensureMobileCardsVisible = () => {
+    const container = document.querySelector('[data-mobile-stagger="true"]');
+    if (!container) return;
+    const targets = container.querySelectorAll('.reveal, .reveal-fast, .reveal-stagger');
+    targets.forEach(target => {
+      if (!target.classList.contains('visible')) {
+        target.classList.add('visible');
+      }
+    });
+  };
+
+  // Подстраховка: если по какой-то причине IntersectionObserver не сработал
+  setTimeout(ensureMobileCardsVisible, 800);
+  window.addEventListener('load', () => setTimeout(ensureMobileCardsVisible, 200));
 });
 
 // ===== Force hide cart/profile on mobile (header widgets) - оптимизированная версия =====
