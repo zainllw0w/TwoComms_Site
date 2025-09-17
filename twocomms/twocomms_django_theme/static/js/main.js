@@ -79,22 +79,30 @@ document.addEventListener('DOMContentLoaded',()=>{
     });
   },{threshold:.2, rootMargin:'0px 0px -10% 0px'});
   document.querySelectorAll('[data-stagger-grid]').forEach(grid=>gridObserver.observe(grid));
-  document.documentElement.classList.add('mobile-stagger-enabled');
 
-  const ensureMobileCardsVisible = () => {
-    const container = document.querySelector('[data-mobile-stagger="true"]');
-    if (!container) return;
-    const targets = container.querySelectorAll('.reveal, .reveal-fast, .reveal-stagger');
-    targets.forEach(target => {
-      if (!target.classList.contains('visible')) {
+  const ensureVisibleAboveFold = () => {
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const buffer = Math.max(120, viewportHeight * 0.1);
+    document.querySelectorAll('.reveal, .reveal-fast, .reveal-stagger, .stagger-item').forEach(target => {
+      if (target.classList.contains('visible')) return;
+      const rect = target.getBoundingClientRect();
+      if (rect.top <= viewportHeight + buffer) {
         target.classList.add('visible');
       }
     });
   };
 
-  // Подстраховка: если по какой-то причине IntersectionObserver не сработал
-  setTimeout(ensureMobileCardsVisible, 800);
-  window.addEventListener('load', () => setTimeout(ensureMobileCardsVisible, 200));
+  ensureVisibleAboveFold();
+  setTimeout(ensureVisibleAboveFold, 200);
+  window.addEventListener('load', () => setTimeout(ensureVisibleAboveFold, 150));
+  const ensureVisibleDebounced = debounce(ensureVisibleAboveFold, 150);
+  window.addEventListener('resize', ensureVisibleDebounced);
+  window.addEventListener('scroll', ensureVisibleDebounced);
+
+  requestAnimationFrame(() => {
+    document.documentElement.classList.add('reveal-ready');
+    ensureVisibleAboveFold();
+  });
 });
 
 // ===== Force hide cart/profile on mobile (header widgets) - оптимизированная версия =====
