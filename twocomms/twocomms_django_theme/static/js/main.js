@@ -193,6 +193,7 @@ function refreshCartSummary(){
     .then(d=>{ if(d && d.ok && typeof d.count === 'number'){ updateCartBadge(d.count); }})
     .catch(()=>{});
 }
+window.refreshCartSummary = refreshCartSummary;
 
 // Функция для обновления счетчика избранного
 function updateFavoritesBadge(count){
@@ -362,6 +363,7 @@ function refreshMiniCart(){
     .then(html=>{ content.innerHTML = html; try{ applySwatchColors(content); }catch(_){ } })
     .catch(()=>{ content.innerHTML="<div class='text-danger small'>Не вдалося завантажити кошик</div>"; });
 }
+window.refreshMiniCart = refreshMiniCart;
 
 // Обновляем сводку при загрузке
 document.addEventListener('DOMContentLoaded',()=>{
@@ -867,8 +869,8 @@ document.addEventListener('click', (e)=>{
     if(d && d.ok){
       if(typeof d.count === 'number'){ updateCartBadge(d.count); }
       const miniUpdate = refreshMiniCart();
-      openMiniCart({skipRefresh:true});
-      miniUpdate.finally(()=>{ refreshCartSummary(); });
+      const ensureOpen = ()=>{ try{ openMiniCart({skipRefresh:true}); }catch(_){ } };
+      miniUpdate.then(ensureOpen).catch(ensureOpen).finally(()=>{ refreshCartSummary(); });
       try{ if(window.fbq){ fbq('track','AddToCart',{content_ids:[String(productId)], content_type:'product'}); } }catch(_){ }
       // Небольшой визуальный отклик
       btn.classList.add('btn-success');
