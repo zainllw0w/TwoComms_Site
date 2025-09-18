@@ -184,6 +184,16 @@ function updateCartBadge(count){
   });
 }
 
+function refreshCartSummary(){
+  return fetch('/cart/summary/',{
+    headers:{'X-Requested-With':'XMLHttpRequest'},
+    cache:'no-store'
+  })
+    .then(r=>r.ok?r.json():null)
+    .then(d=>{ if(d && d.ok && typeof d.count === 'number'){ updateCartBadge(d.count); }})
+    .catch(()=>{});
+}
+
 // Функция для обновления счетчика избранного
 function updateFavoritesBadge(count){
   const n = String(count||0);
@@ -283,7 +293,8 @@ function miniCartPanel(){
 let uiGuardUntil = 0;
 let suppressGlobalCloseUntil = 0;
 let suppressNextDocPointerdownUntil = 0; // блокируем ближайший pointerdown от документа (клик по тогглеру)
-function openMiniCart(){
+function openMiniCart(opts={}){
+  const { skipRefresh=false } = opts;
   const id=nextEvt();
   const panel=miniCartPanel(); if(!panel) return;
   // Оп‑токен: любое новое действие отменяет старые таймауты/слушатели
@@ -314,7 +325,7 @@ function openMiniCart(){
   } else {
     markOpened();
   }
-  refreshMiniCart();
+  if(!skipRefresh) refreshMiniCart();
 }
 function closeMiniCart(reason){
   const id=nextEvt();
@@ -343,10 +354,10 @@ function toggleMiniCart(){
   if(panel.classList.contains('d-none') || !panel.classList.contains('show')) openMiniCart(); else closeMiniCart();
 }
 function refreshMiniCart(){
-  const panel=miniCartPanel(); if(!panel) return;
+  const panel=miniCartPanel(); if(!panel) return Promise.resolve();
   const content = panel.querySelector('#mini-cart-content') || panel.querySelector('#mini-cart-content-mobile') || panel;
   content.innerHTML = "<div class='text-secondary small'>Завантаження…</div>";
-  fetch('/cart/mini/',{headers:{'X-Requested-With':'XMLHttpRequest'}})
+  return fetch('/cart/mini/',{headers:{'X-Requested-With':'XMLHttpRequest'}, cache:'no-store'})
     .then(r=>r.text())
     .then(html=>{ content.innerHTML = html; try{ applySwatchColors(content); }catch(_){ } })
     .catch(()=>{ content.innerHTML="<div class='text-danger small'>Не вдалося завантажити кошик</div>"; });
@@ -356,11 +367,8 @@ function refreshMiniCart(){
 document.addEventListener('DOMContentLoaded',()=>{
   // Отложим, чтобы не мешать первому рендеру
   scheduleIdle(()=>{
-    fetch('/cart/summary/',{headers:{'X-Requested-With':'XMLHttpRequest'}})
-      .then(r=>r.ok?r.json():null)
-      .then(d=>{ if(d&&d.ok){ updateCartBadge(d.count); }})
-      .catch(()=>{});
-    
+    refreshCartSummary();
+
     // Загружаем счетчик избранного для незарегистрированных пользователей
     fetch('/favorites/count/',{headers:{'X-Requested-With':'XMLHttpRequest'}})
       .then(r=>r.ok?r.json():null)
@@ -857,9 +865,10 @@ document.addEventListener('click', (e)=>{
   .then(r=>r.json())
   .then(d=>{
     if(d && d.ok){
-      updateCartBadge(d.count);
-      refreshMiniCart(); // сразу обновим мини‑корзину
-      openMiniCart();    // и откроем её для подтверждения действия
+      if(typeof d.count === 'number'){ updateCartBadge(d.count); }
+      const miniUpdate = refreshMiniCart();
+      openMiniCart({skipRefresh:true});
+      miniUpdate.finally(()=>{ refreshCartSummary(); });
       try{ if(window.fbq){ fbq('track','AddToCart',{content_ids:[String(productId)], content_type:'product'}); } }catch(_){ }
       // Небольшой визуальный отклик
       btn.classList.add('btn-success');
@@ -929,49 +938,57 @@ document.addEventListener('DOMContentLoaded', function(){
   const rows = document.querySelectorAll('.row[data-stagger-grid]');
   if(!rows.length) return;
   const equalizeMq = window.matchMedia('(min-width: 768px)');
+  let eqScheduled = false;
   function equalizeCardHeights(){
-    rows.forEach(row=>{
-      const cards = row.querySelectorAll('.card.product');
-      if(!cards.length) return;
-      if(!equalizeMq.matches){
-        cards.forEach(card=>{
-          card.style.height='';
-          card.style.minHeight='';
-          card.style.maxHeight='';
-        });
-        return;
-      }
-      const isGridLayout = window.getComputedStyle(row).display === 'grid';
-      if (isGridLayout) {
-        cards.forEach(card=>{
-          card.style.height='';
-          card.style.minHeight='';
-          card.style.maxHeight='';
-        });
-        return;
-      }
-      cards.forEach(card=>{ card.style.height='auto'; card.style.minHeight='auto'; card.style.maxHeight='none'; });
-      const applyHeights = ()=>{
+    if(eqScheduled) return;
+    eqScheduled = true;
+    const run = ()=>{
+      rows.forEach(row=>{
+        const cards = row.querySelectorAll('.card.product');
+        if(!cards.length) return;
+        if(!equalizeMq.matches){
+          if(row.dataset.eqHeight){ delete row.dataset.eqHeight; }
+          cards.forEach(card=>{
+            card.style.height='';
+            card.style.minHeight='';
+            card.style.maxHeight='';
+          });
+          return;
+        }
+        const rowDisplay = window.getComputedStyle(row).display;
+        if(rowDisplay === 'grid'){
+          if(row.dataset.eqHeight){ delete row.dataset.eqHeight; }
+          cards.forEach(card=>{
+            card.style.height='';
+            card.style.minHeight='';
+            card.style.maxHeight='';
+          });
+          return;
+        }
         let maxHeight = 0;
-        cards.forEach(card=>{ const h = card.offsetHeight; if(h>maxHeight) maxHeight=h; });
-        cards.forEach(card=>{ card.style.height=maxHeight+'px'; card.style.minHeight=maxHeight+'px'; card.style.maxHeight=maxHeight+'px'; });
-      };
-      if('requestAnimationFrame' in window){ requestAnimationFrame(applyHeights); }
-      else { setTimeout(applyHeights, 0); }
-    });
+        cards.forEach(card=>{
+          const h = card.getBoundingClientRect().height;
+          if(h > maxHeight) maxHeight = h;
+        });
+        const target = String(Math.ceil(maxHeight));
+        if(row.dataset.eqHeight === target) return;
+        row.dataset.eqHeight = target;
+        const px = target + 'px';
+        cards.forEach(card=>{
+          card.style.minHeight = px;
+          card.style.maxHeight = px;
+          card.style.height = px;
+        });
+      });
+      eqScheduled = false;
+    };
+    if('requestAnimationFrame' in window){ requestAnimationFrame(run); }
+    else { setTimeout(run, 0); }
   }
   window.equalizeCardHeights = equalizeCardHeights;
-  const debouncedEqualize = debounce(equalizeCardHeights, 120);
-  if('requestAnimationFrame' in window){ requestAnimationFrame(equalizeCardHeights); } else { setTimeout(equalizeCardHeights, 0); }
+  equalizeCardHeights();
+  const debouncedEqualize = debounce(equalizeCardHeights, 160);
   window.addEventListener('resize', debouncedEqualize);
-  rows.forEach(row=>{
-    if('ResizeObserver' in window){
-      const ro = new ResizeObserver(()=> debouncedEqualize());
-      ro.observe(row);
-    }
-    const mo = new MutationObserver(()=> debouncedEqualize());
-    mo.observe(row, {childList:true, subtree:true});
-  });
   const mqHandler = ()=> debouncedEqualize();
   if(equalizeMq.addEventListener){ equalizeMq.addEventListener('change', mqHandler); }
   else if(equalizeMq.addListener){ equalizeMq.addListener(mqHandler); }
