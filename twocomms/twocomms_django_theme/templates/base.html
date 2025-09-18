@@ -152,7 +152,7 @@
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #0a0a0a;
       color: #ffffff;
-      font-display: swap; /* Предотвращаем смещения при загрузке шрифтов */
+      font-size-adjust: 0.52;
     }
     .navbar { 
       background: rgba(0,0,0,0.8); 
@@ -171,6 +171,49 @@
       position: relative;
       contain: layout size; /* Изолируем layout и размеры */
       overflow: hidden;
+    }
+    .hero-content {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+    }
+    .hero-container {
+      --hero-gutter-x: 1.5rem;
+      --hero-gutter-y: 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: calc(-1 * var(--hero-gutter-y));
+      margin-right: calc(-.5 * var(--hero-gutter-x));
+      margin-left: calc(-.5 * var(--hero-gutter-x));
+    }
+    .hero-container > [class*='col-'] {
+      flex: 0 0 auto;
+      padding-right: calc(var(--hero-gutter-x) * .5);
+      padding-left: calc(var(--hero-gutter-x) * .5);
+      padding-top: var(--hero-gutter-y);
+      padding-bottom: 0;
+      width: 100%;
+      max-width: 100%;
+    }
+    @media (min-width: 768px) {
+      .hero-container > .col-md-6 {
+        width: 50%;
+        max-width: 50%;
+      }
+    }
+    .hero-text-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+      min-height: clamp(320px, 28vw, 420px);
+    }
+    .hero-title-main,
+    .hero-title-accent,
+    .hero-subtitle {
+      font-size-adjust: 0.52;
     }
     main.container-xxl {
       min-height: 100vh; /* Предотвращаем смещения при загрузке контента */
@@ -224,6 +267,11 @@
         display: none !important;
         visibility: hidden !important;
         pointer-events: none !important;
+      }
+    }
+    @media (max-width: 768px) {
+      .hero-text-section {
+        min-height: 340px;
       }
     }
     .ratio {
