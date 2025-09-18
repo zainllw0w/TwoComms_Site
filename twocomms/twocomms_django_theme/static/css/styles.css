@@ -11906,7 +11906,7 @@ body::after {
   align-items: center;
   justify-content: center;
   --hero-gutter-x: 1.5rem;
-  --hero-gutter-y: 0;
+  --hero-gutter-y: 1.5rem;
   margin-top: calc(-1 * var(--hero-gutter-y));
   margin-right: calc(-.5 * var(--hero-gutter-x));
   margin-left: calc(-.5 * var(--hero-gutter-x));
