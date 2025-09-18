@@ -833,7 +833,15 @@
             var row=el.closest('[data-cart-row]')||el.closest('.d-flex');
             if(row&&row.parentElement) row.parentElement.removeChild(row);
           }
-          try{ if(window.refreshMiniCart) window.refreshMiniCart(); }catch(_){ }
+          var miniPromise = null;
+          try{ if(window.refreshMiniCart) miniPromise = window.refreshMiniCart(); }catch(_){ }
+          if(miniPromise && miniPromise.finally){
+            miniPromise.catch(function(){}).finally(function(){
+              try{ if(window.refreshCartSummary) window.refreshCartSummary(); }catch(_){ }
+            });
+          } else {
+            try{ if(window.refreshCartSummary) window.refreshCartSummary(); }catch(_){ }
+          }
           if(document.getElementById('cart-list')) location.reload();
           try{ if(window.trackEvent){ window.trackEvent('RemoveFromCart', {content_ids:[String(key.split(':')[0])], content_type:'product'}); } }catch(_){ }
         } else {
