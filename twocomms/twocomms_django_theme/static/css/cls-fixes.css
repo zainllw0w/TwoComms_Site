@@ -422,3 +422,9 @@ picture img {
 }
   font-size: 1.05rem;
 }
+
+#google-pay-button-container > button {
+  width: 100%;
+  min-height: 56px;
+  border-radius: 14px !important;
+}
