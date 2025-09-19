@@ -168,21 +168,21 @@ const panelState = ()=>({
 });
 function updateCartBadge(count){
   const n = String(count||0);
-  const desktop = DOMCache.get('cart-count');
-  const mobile = DOMCache.get('cart-count-mobile');
-  
-  // Используем requestAnimationFrame для избежания принудительной компоновки
+  const desktop = document.getElementById('cart-count');
+  const mobile = document.getElementById('cart-count-mobile');
+
   requestAnimationFrame(() => {
-    if(desktop){ 
-      desktop.textContent=n; 
+    if(desktop){
+      desktop.textContent = n;
       desktop.classList.add('visible');
     }
-    if(mobile){ 
-      mobile.textContent=n; 
+    if(mobile){
+      mobile.textContent = n;
       mobile.classList.add('visible');
     }
   });
 }
+window.updateCartBadge = updateCartBadge;
 
 function refreshCartSummary(){
   return fetch('/cart/summary/',{
