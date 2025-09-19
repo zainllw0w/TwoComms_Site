@@ -4695,10 +4695,16 @@ def google_pay_success(request):
             del request.session['applied_promo_code']
             request.session.modified = True
         
+        if request.user.is_authenticated:
+            redirect_url = reverse('my_orders')
+        else:
+            redirect_url = reverse('order_success', args=[order.id])
+
         return JsonResponse({
             'success': True,
             'order_id': order.id,
-            'message': 'Заказ успешно создан'
+            'message': 'Заказ успешно создан',
+            'redirect_url': redirect_url
         })
         
     except Exception as e:
