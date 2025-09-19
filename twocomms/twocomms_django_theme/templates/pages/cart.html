@@ -483,20 +483,10 @@
         <div class="cart-checkout-actions">
           <!-- Google Pay кнопка -->
           <div class="cart-google-pay-container">
-            <button type="button" class="cart-google-pay-btn" id="google-pay-button" onclick="initiateGooglePay()">
-              <span class="cart-google-pay-text">
-                Оплатити через 
-                <span class="cart-google-pay-logo">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                  </svg>
-                  Pay
-                </span>
-              </span>
-            </button>
+            <div id="google-pay-button-container" class="cart-google-pay-placeholder">
+              <span class="cart-google-pay-spinner"></span>
+              <span>Google Pay завантажується…</span>
+            </div>
           </div>
           
           {% if request.user.is_authenticated %}
@@ -718,141 +708,209 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- Google Pay функциональность -->
 <script>
 let paymentsClient = null;
+const gpayBaseRequest = { apiVersion: 2, apiVersionMinor: 0 };
+const gpayAllowedCardNetworks = ['MASTERCARD', 'VISA'];
+const gpayAllowedCardAuthMethods = ['PAN_ONLY', 'CRYPTOGRAM_3DS'];
+const gpayTokenizationSpecification = {
+  type: 'PAYMENT_GATEWAY',
+  parameters: {
+    gateway: 'stripe',             // TODO: заменить на ваш платёжный шлюз
+    gatewayMerchantId: 'your-merchant-id' // TODO: заменить на ваш merchant ID
+  }
+};
 
-// Инициализация Google Pay
-function initGooglePay() {
-    if (typeof google === 'undefined' || !google.payments) {
-        console.warn('Google Pay API не загружен');
-        return;
+function getGooglePaymentsClient() {
+  if (!paymentsClient) {
+    paymentsClient = new google.payments.api.PaymentsClient({ environment: 'TEST' });
+  }
+  return paymentsClient;
+}
+
+function getGoogleIsReadyToPayRequest() {
+  return {
+    ...gpayBaseRequest,
+    allowedPaymentMethods: [{
+      type: 'CARD',
+      parameters: {
+        allowedAuthMethods: gpayAllowedCardAuthMethods,
+        allowedCardNetworks: gpayAllowedCardNetworks
+      }
+    }]
+  };
+}
+
+function buildPaymentDataRequest(totalPrice) {
+  return {
+    ...gpayBaseRequest,
+    allowedPaymentMethods: [{
+      type: 'CARD',
+      parameters: {
+        allowedAuthMethods: gpayAllowedCardAuthMethods,
+        allowedCardNetworks: gpayAllowedCardNetworks,
+        billingAddressRequired: true,
+        billingAddressParameters: { format: 'FULL' }
+      },
+      tokenizationSpecification: gpayTokenizationSpecification
+    }],
+    transactionInfo: {
+      totalPriceStatus: 'FINAL',
+      totalPrice: totalPrice.toFixed(2),
+      currencyCode: 'UAH'
+    },
+    merchantInfo: {
+      merchantName: 'TwoComms',
+      merchantId: 'your-merchant-id'
     }
+  };
+}
 
-    paymentsClient = new google.payments.api.PaymentsClient({
-        environment: 'TEST' // Изменить на 'PRODUCTION' для продакшена
-    });
+function getCheckoutTotals() {
+  const payload = document.getElementById('checkout-payload');
+  if (!payload) {
+    return { amount: 0, currency: 'UAH', contents: '[]', ids: '[]', numItems: 0 };
+  }
+  const amount = parseFloat(payload.dataset.value || '0');
+  return {
+    amount,
+    currency: payload.dataset.currency || 'UAH',
+    contents: payload.dataset.contents || '[]',
+    ids: payload.dataset.ids || '[]',
+    numItems: parseInt(payload.dataset.numItems || '0', 10) || 0
+  };
+}
 
-    // Проверяем доступность Google Pay
-    paymentsClient.isReadyToPay({
-        apiVersion: 2,
-        apiVersionMinor: 0,
-        allowedPaymentMethods: [{
-            type: 'CARD',
-            parameters: {
-                allowedAuthMethods: ['PAN_ONLY', 'CRYPTOGRAM_3DS'],
-                allowedCardNetworks: ['MASTERCARD', 'VISA']
-            }
-        }]
-    }).then(function(response) {
-        if (response.result) {
-            console.log('Google Pay доступен');
+function setGooglePayState(state, message) {
+  const container = document.getElementById('google-pay-button-container');
+  if (!container) return;
+  if (state === 'button') {
+    container.classList.remove('cart-google-pay-placeholder', 'cart-google-pay-unavailable');
+    container.innerHTML = '';
+  } else if (state === 'unavailable') {
+    container.classList.remove('cart-google-pay-placeholder');
+    container.classList.add('cart-google-pay-unavailable');
+    container.innerHTML = `<span>${message}</span>`;
+  }
+}
+
+function addGooglePayButton() {
+  const container = document.getElementById('google-pay-button-container');
+  if (!container) return;
+  const client = getGooglePaymentsClient();
+  setGooglePayState('button');
+  const button = client.createButton({
+    onClick: onGooglePayButtonClicked,
+    buttonColor: 'white',
+    buttonType: 'buy'
+  });
+  container.appendChild(button);
+}
+
+function onGooglePayReady() {
+  try {
+    const client = getGooglePaymentsClient();
+    client.isReadyToPay(getGoogleIsReadyToPayRequest())
+      .then(res => {
+        if (res.result) {
+          addGooglePayButton();
         } else {
-            console.log('Google Pay недоступен');
-            document.getElementById('google-pay-button').style.display = 'none';
+          setGooglePayState('unavailable', 'Google Pay недоступний для цього пристрою');
         }
-    }).catch(function(err) {
-        console.error('Ошибка проверки Google Pay:', err);
-        document.getElementById('google-pay-button').style.display = 'none';
+      })
+      .catch(err => {
+        console.error('Google Pay readiness error', err);
+        setGooglePayState('unavailable', 'Google Pay тимчасово недоступний');
+      });
+  } catch (err) {
+    console.error('Google Pay init error', err);
+    setGooglePayState('unavailable', 'Google Pay недоступний');
+  }
+}
+
+function onGooglePayButtonClicked() {
+  const totals = getCheckoutTotals();
+  if (!(totals.amount > 0)) {
+    alert('Сума має бути більшою за 0');
+    return;
+  }
+  const request = buildPaymentDataRequest(totals.amount);
+  try {
+    if (window.trackEvent) {
+      window.trackEvent('InitiateCheckout', {
+        value: totals.amount,
+        currency: totals.currency,
+        num_items: totals.numItems,
+        payment_method: 'google_pay',
+        content_ids: JSON.parse(totals.ids || '[]')
+      });
+    }
+  } catch (_) {}
+
+  getGooglePaymentsClient().loadPaymentData(request)
+    .then(paymentData => handleGooglePaySuccess(paymentData, totals))
+    .catch(err => {
+      if (err && err.statusCode === 'CANCELED') {
+        console.log('Користувач скасував оплату Google Pay');
+      } else {
+        console.error('Помилка Google Pay', err);
+        alert('Не вдалося завершити оплату Google Pay. Спробуйте ще раз.');
+      }
     });
 }
 
-// Инициализация платежа Google Pay
-function initiateGooglePay() {
-    if (!paymentsClient) {
-        alert('Google Pay не инициализирован');
-        return;
-    }
+function handleGooglePaySuccess(paymentData, totals) {
+  const csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
+  const csrfToken = csrfEl ? csrfEl.value : '';
 
-    // Получаем сумму к оплате
-    const checkoutPayload = document.getElementById('checkout-payload');
-    const totalAmount = parseFloat(checkoutPayload.dataset.value) || 0;
-    
-    if (totalAmount <= 0) {
-        alert('Сумма к оплате должна быть больше 0');
-        return;
-    }
-
-    const paymentDataRequest = {
-        apiVersion: 2,
-        apiVersionMinor: 0,
-        allowedPaymentMethods: [{
-            type: 'CARD',
-            parameters: {
-                allowedAuthMethods: ['PAN_ONLY', 'CRYPTOGRAM_3DS'],
-                allowedCardNetworks: ['MASTERCARD', 'VISA']
-            },
-            tokenizationSpecification: {
-                type: 'PAYMENT_GATEWAY',
-                parameters: {
-                    gateway: 'stripe', // Замените на ваш платежный шлюз
-                    gatewayMerchantId: 'your-merchant-id' // Замените на ваш merchant ID
-                }
-            }
-        }],
-        transactionInfo: {
-            totalPriceStatus: 'FINAL',
-            totalPrice: totalAmount.toFixed(2),
-            currencyCode: 'UAH'
-        },
-        merchantInfo: {
-            merchantName: 'TwoComms',
-            merchantId: 'your-merchant-id' // Замените на ваш merchant ID
-        }
-    };
-
-    paymentsClient.loadPaymentData(paymentDataRequest).then(function(paymentData) {
-        // Обработка успешного платежа
-        console.log('Платеж успешен:', paymentData);
-        
-        // Здесь можно отправить данные платежа на сервер
-        processGooglePaySuccess(paymentData);
-        
-    }).catch(function(err) {
-        console.error('Ошибка платежа Google Pay:', err);
-        
-        if (err.statusCode === 'CANCELED') {
-            console.log('Пользователь отменил платеж');
-        } else {
-            alert('Произошла ошибка при обработке платежа: ' + err.message);
-        }
-    });
-}
-
-// Обработка успешного платежа
-function processGooglePaySuccess(paymentData) {
-    // Отправляем данные платежа на сервер
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-    
-    fetch('/cart/google-pay-success/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken,
-            'X-Requested-With': 'XMLHttpRequest'
-        },
-        body: JSON.stringify({
-            paymentData: paymentData,
-            totalAmount: document.getElementById('checkout-payload').dataset.value
-        })
+  fetch('/cart/google-pay-success/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken,
+      'X-Requested-With': 'XMLHttpRequest'
+    },
+    body: JSON.stringify({
+      paymentData,
+      totalAmount: totals.amount
     })
-    .then(response => response.json())
+  })
+    .then(r => r.json())
     .then(data => {
-        if (data.success) {
-            alert('Платеж успешно обработан! Номер заказа: ' + data.order_id);
-            // Перенаправляем на страницу успеха или очищаем корзину
-            window.location.href = '/orders/' + data.order_id + '/';
-        } else {
-            alert('Ошибка обработки платежа: ' + data.error);
-        }
+      if (data && data.success) {
+        try {
+          if (window.trackEvent) {
+            window.trackEvent('Purchase', {
+              value: totals.amount,
+              currency: totals.currency,
+              num_items: totals.numItems,
+              payment_method: 'google_pay',
+              content_ids: JSON.parse(totals.ids || '[]'),
+              contents: JSON.parse(totals.contents || '[]')
+            });
+          }
+        } catch (_) {}
+        const redirectUrl = data.redirect_url || (data.order_id ? `/orders/success/${data.order_id}/` : '/');
+        window.location.href = redirectUrl;
+      } else {
+        throw new Error(data && data.error ? data.error : 'Невідома помилка');
+      }
     })
-    .catch(error => {
-        console.error('Ошибка отправки данных платежа:', error);
-        alert('Произошла ошибка при отправке данных платежа');
+    .catch(err => {
+      console.error('Помилка оформлення Google Pay', err);
+      alert('Оплата пройшла, але не вдалося оформити замовлення. Зверніться до підтримки.');
     });
 }
 
-// Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
-    // Инициализируем Google Pay с небольшой задержкой, чтобы API успел загрузиться
-    setTimeout(initGooglePay, 1000);
+  const container = document.getElementById('google-pay-button-container');
+  if (!container) return;
+  const waitForGoogle = () => {
+    if (window.google && google.payments && google.payments.api) {
+      onGooglePayReady();
+    } else {
+      setTimeout(waitForGoogle, 300);
+    }
+  };
+  waitForGoogle();
 });
 
 // Трекинг для аналитики
@@ -878,11 +936,6 @@ document.addEventListener('DOMContentLoaded', function(){
       }, {passive:true});
     });
     
-    // Трекинг для кнопки Google Pay
-    document.getElementById('google-pay-button').addEventListener('click', function(){
-      try{ if(window.trackEvent){ window.trackEvent('InitiateCheckout', {...payload, payment_method: 'google_pay'}); } }catch(_){ }
-      try{ if(window.trackEvent){ window.trackEvent('Lead', {lead_type:'google_pay_checkout', value: payload && payload.value, currency: payload && payload.currency, num_items: payload && payload.num_items}); } }catch(_){ }
-    });
   }catch(_){ }
 });
 </script>

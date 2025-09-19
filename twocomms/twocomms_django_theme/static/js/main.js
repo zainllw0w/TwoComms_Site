@@ -364,6 +364,7 @@ function refreshMiniCart(){
     .catch(()=>{ content.innerHTML="<div class='text-danger small'>Не вдалося завантажити кошик</div>"; });
 }
 window.refreshMiniCart = refreshMiniCart;
+window.openMiniCart = openMiniCart;
 
 // Обновляем сводку при загрузке
 document.addEventListener('DOMContentLoaded',()=>{
@@ -855,6 +856,9 @@ document.addEventListener('click', (e)=>{
     body.append('color_variant_id', colorVariantId);
   }
   
+  // Открываем мини-корзину сразу, чтобы пользователь видел текущее состояние
+  try{ openMiniCart({skipRefresh:true}); }catch(_){ }
+
   fetch('/cart/add/',{
     method:'POST',
     headers:{
@@ -869,8 +873,10 @@ document.addEventListener('click', (e)=>{
     if(d && d.ok){
       if(typeof d.count === 'number'){ updateCartBadge(d.count); }
       const miniUpdate = refreshMiniCart();
-      const ensureOpen = ()=>{ try{ openMiniCart({skipRefresh:true}); }catch(_){ } };
-      miniUpdate.then(ensureOpen).catch(ensureOpen).finally(()=>{ refreshCartSummary(); });
+      miniUpdate
+        .then(()=>{ openMiniCart({skipRefresh:true}); })
+        .catch(()=>{ openMiniCart({skipRefresh:true}); })
+        .finally(()=>{ refreshCartSummary(); });
       try{ if(window.fbq){ fbq('track','AddToCart',{content_ids:[String(productId)], content_type:'product'}); } }catch(_){ }
       // Небольшой визуальный отклик
       btn.classList.add('btn-success');
