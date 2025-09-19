@@ -800,7 +800,9 @@ function addGooglePayButton() {
   const button = client.createButton({
     onClick: onGooglePayButtonClicked,
     buttonColor: 'white',
-    buttonType: 'buy'
+    buttonType: 'buy',
+    buttonLocale: 'uk',
+    buttonSizeMode: 'fill'
   });
   container.appendChild(button);
 }

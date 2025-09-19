@@ -21808,3 +21808,10 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
     --bs-aspect-ratio: 110% !important;
   }
 }
+
+#google-pay-button-container > button {
+  width: 100%;
+  min-height: 56px;
+  border-radius: 14px !important;
+  box-shadow: 0 6px 22px rgba(0,0,0,0.2);
+}
