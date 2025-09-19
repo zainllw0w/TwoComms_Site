@@ -777,6 +777,13 @@
 <script>
 /* Fallback: глобальные функции, если основной JS не заинициализирован */
 (function(){
+  var dlog = window.dlog || function(){
+    if(window.console && console.debug){
+      try{ console.debug.apply(console, arguments); }catch(_){ console.log.apply(console, arguments); }
+    }
+  };
+  window.dlog = dlog;
+
   // UI debugging disabled for production
   function getCookie(name){
     var m=document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)'); 
@@ -835,12 +842,14 @@
           }
           var miniPromise = null;
           try{ if(window.refreshMiniCart) miniPromise = window.refreshMiniCart(); }catch(_){ }
+          var reopen = function(){ try{ if(window.openMiniCart){ window.openMiniCart({skipRefresh:true}); } }catch(_){ } };
           if(miniPromise && miniPromise.finally){
-            miniPromise.catch(function(){}).finally(function(){
+            miniPromise.then(reopen).catch(reopen).finally(function(){
               try{ if(window.refreshCartSummary) window.refreshCartSummary(); }catch(_){ }
             });
           } else {
             try{ if(window.refreshCartSummary) window.refreshCartSummary(); }catch(_){ }
+            reopen();
           }
           if(document.getElementById('cart-list')) location.reload();
           try{ if(window.trackEvent){ window.trackEvent('RemoveFromCart', {content_ids:[String(key.split(':')[0])], content_type:'product'}); } }catch(_){ }

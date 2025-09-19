@@ -51,6 +51,10 @@
                   <span class="info-label">Сума замовлення:</span>
                   <span class="info-value">{{ order.total_sum }} грн</span>
                 </div>
+                <div class="info-row">
+                  <span class="info-label">Статус оплати:</span>
+                  <span class="info-value">{% if order.payment_status == 'paid' %}<span class="badge bg-success">Оплачено</span>{% else %}{{ order.get_payment_status_display|default:order.payment_status }}{% endif %}</span>
+                </div>
               </div>
             </div>
             
