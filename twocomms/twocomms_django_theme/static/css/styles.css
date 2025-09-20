@@ -21734,7 +21734,13 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 
 /* Соотношение сторон для детальной страницы товара - более вытянутое по вертикали */
 .ratio-product-detail {
-  --bs-aspect-ratio: 125%;
+  --bs-aspect-ratio: 125% !important;
+  background-color: var(--tc-elevate);
+}
+
+.ratio-product-detail img {
+  object-fit: contain !important;
+  background-color: var(--tc-elevate);
 }
 
 /* Дополнительные стили для стабильного отображения изображений товара */
@@ -21804,7 +21810,7 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 
 /* Уменьшаем высоту изображения на десктопе */
 @media (min-width: 992px) {
-  .ratio {
+  .ratio:not(.ratio-product-detail) {
     --bs-aspect-ratio: 110% !important;
   }
 }
