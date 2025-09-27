@@ -146,6 +146,12 @@ USE_AI_KEYWORDS = os.environ.get('USE_AI_KEYWORDS', 'False').lower() in ('1','tr
 # Whether to use AI-generated product descriptions in SEO meta (experimental)
 USE_AI_DESCRIPTIONS = os.environ.get('USE_AI_DESCRIPTIONS', 'False').lower() in ('1','true','yes')
 
+# Monobank acquiring
+MONOBANK_TOKEN = os.environ.get('MONOBANK_TOKEN', 'm8CXfZJ0M0mwabi5HZs0b6w')
+MONOBANK_API_BASE = os.environ.get('MONOBANK_API_BASE', 'https://api.monobank.ua')
+# Optional override for webhook URL; if empty we build from request context
+MONOBANK_WEBHOOK_URL = os.environ.get('MONOBANK_WEBHOOK_URL', '')
+
 # Redirects for social-auth
 SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/profile/setup/'
 

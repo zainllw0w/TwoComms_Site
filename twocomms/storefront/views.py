@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Sum, F, ExpressionWrapper, FloatField, IntegerField
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
@@ -32,6 +32,14 @@ from django.utils.text import slugify
 from django.core.cache import cache
 import os
 import json
+import logging
+import copy
+import re
+
+from urllib.parse import urljoin
+import requests
+from decimal import Decimal, ROUND_HALF_UP
+from django.utils import timezone
 
 HOME_PRODUCTS_PER_PAGE = 8
 
@@ -205,6 +213,209 @@ def register_view(request):
 def logout_view(request):
     logout(request)
     return redirect('home')
+
+
+FEED_SIZE_OPTIONS = ["S", "M", "L", "XL"]
+DEFAULT_FEED_COLOR = "Черный"
+DEFAULT_FEED_SEASON = "Демисезон"
+
+
+def _sanitize_feed_description(raw: str) -> str:
+    if not raw:
+        return ""
+
+    cleaned = re.sub(r"(?is)<[^>]*?(?:цена|price|грн|uah|₴)[^>]*?>.*?</[^>]+>", "", raw)
+    cleaned = re.sub(r"(?i)цена\s*[:\-]?[^\n<]*", "", cleaned)
+    cleaned = re.sub(r"\d+[\s.,]*(?:грн|uah|₴)", "", cleaned, flags=re.IGNORECASE)
+
+    lines = re.split(r"\r?\n", cleaned)
+    price_line = re.compile(r"(?i)(грн|uah|₴|цена|price)")
+    filtered = [line for line in lines if line and not price_line.search(line)]
+    collapsed = "\n".join(filtered)
+    collapsed = re.sub(r"\n{3,}", "\n\n", collapsed)
+    return collapsed.strip()
+
+
+def _material_for_product(product) -> str:
+    lookup_source = " ".join(filter(None, [
+        product.category.name if getattr(product, "category", None) else "",
+        product.title or "",
+    ])).lower()
+
+    if any(token in lookup_source for token in ("худі", "hood", "hudi")):
+        return "трехнитка с начесом"
+    if "лонг" in lookup_source or "long" in lookup_source:
+        return "бамбук"
+    return "кулирка"
+
+
+def _normalize_color_name(raw_color: str | None) -> str:
+    if not raw_color:
+        return DEFAULT_FEED_COLOR
+    trimmed = raw_color.strip()
+    if not trimmed:
+        return DEFAULT_FEED_COLOR
+    return trimmed[0].upper() + trimmed[1:]
+
+
+def _absolute_media_url(base_url: str, path: str | None) -> str | None:
+    if not path:
+        return None
+    if path.startswith("http://") or path.startswith("https://"):
+        return path
+    if not path.startswith("/"):
+        path = f"/{path}"
+    return urljoin(base_url, path)
+
+
+def uaprom_products_feed(request):
+    from django.utils import timezone
+    import xml.etree.ElementTree as ET
+
+    base_url = getattr(settings, "FEED_BASE_URL", "").strip() or request.build_absolute_uri("/").rstrip("/")
+
+    products_qs = (
+        Product.objects
+        .select_related("category")
+        .prefetch_related("images", "color_variants__images", "color_variants__color")
+        .order_by("id")
+    )
+    products = list(products_qs)
+
+    categories_ids = {p.category_id for p in products if p.category_id}
+    categories_map = {
+        cat.id: cat for cat in Category.objects.filter(id__in=categories_ids)
+    }
+
+    catalog = ET.Element("yml_catalog", {"date": timezone.now().strftime("%Y-%m-%d %H:%M")})
+    shop = ET.SubElement(catalog, "shop")
+    ET.SubElement(shop, "name").text = "TwoComms"
+    ET.SubElement(shop, "company").text = "TWOCOMMS"
+    ET.SubElement(shop, "url").text = base_url
+
+    currencies = ET.SubElement(shop, "currencies")
+    ET.SubElement(currencies, "currency", {"id": "UAH", "rate": "1"})
+
+    categories_el = ET.SubElement(shop, "categories")
+    for cat_id in sorted(categories_ids):
+        category = categories_map.get(cat_id)
+        if not category:
+            continue
+        category_el = ET.SubElement(categories_el, "category", {"id": str(category.id)})
+        category_el.text = category.name
+
+    offers_el = ET.SubElement(shop, "offers")
+
+    for product in products:
+        material_value = _material_for_product(product)
+
+        base_image_paths = []
+        if product.main_image:
+            base_image_paths.append(product.main_image.url)
+        base_image_paths.extend(img.image.url for img in product.images.all() if getattr(img, "image", None))
+        base_image_paths = list(dict.fromkeys(base_image_paths))
+
+        color_variants = list(product.color_variants.all())
+        if color_variants:
+            variant_payloads = []
+            for variant in color_variants:
+                color_label = _normalize_color_name(variant.color.name if variant.color else None)
+                variant_images = [img.image.url for img in variant.images.all() if getattr(img, "image", None)]
+                variant_payloads.append((color_label, variant_images))
+        else:
+            variant_payloads = [(DEFAULT_FEED_COLOR, base_image_paths)]
+
+        for color_name, variant_images in variant_payloads:
+            images_to_use = variant_images or base_image_paths
+            image_urls = [
+                url for url in (
+                    _absolute_media_url(base_url, path) for path in images_to_use
+                ) if url
+            ]
+            image_urls = list(dict.fromkeys(image_urls))
+            if not image_urls and base_image_paths:
+                # Fallback to ensure feed has at least one image per offer
+                fallback = _absolute_media_url(base_url, base_image_paths[0])
+                if fallback:
+                    image_urls = [fallback]
+
+            color_slug = slugify(color_name, allow_unicode=True).replace("-", "")
+            color_slug = color_slug.upper() or "COLOR"
+            group_id = f"TC-GROUP-{product.id}"
+
+            for size in FEED_SIZE_OPTIONS:
+                offer_id = f"TC-{product.id:04d}-{color_slug}-{size}"
+                offer_el = ET.SubElement(
+                    offers_el,
+                    "offer",
+                    {"id": offer_id, "available": "true", "group_id": group_id},
+                )
+
+                product_path = f"/product/{product.slug}/"
+                query = f"?size={size}&color={slugify(color_name, allow_unicode=True)}"
+                ET.SubElement(offer_el, "url").text = f"{urljoin(base_url, product_path)}{query}"
+
+                ET.SubElement(offer_el, "oldprice").text = str(product.price)
+                ET.SubElement(offer_el, "price").text = str(product.final_price)
+                ET.SubElement(offer_el, "currencyId").text = "UAH"
+
+                if product.category_id:
+                    ET.SubElement(offer_el, "categoryId").text = str(product.category_id)
+
+                for image_url in image_urls:
+                    ET.SubElement(offer_el, "picture").text = image_url
+
+                ET.SubElement(offer_el, "pickup").text = "true"
+                ET.SubElement(offer_el, "delivery").text = "true"
+
+                display_name = f"TwoComms {product.title} {color_name} {size}"
+                display_name_clean = display_name.strip()
+                ET.SubElement(offer_el, "name").text = display_name_clean
+                ET.SubElement(offer_el, "name_ua").text = display_name_clean
+                ET.SubElement(offer_el, "vendor").text = "TWOCOMMS"
+                ET.SubElement(offer_el, "vendorCode").text = offer_id
+                ET.SubElement(offer_el, "country_of_origin").text = "Украина"
+
+        raw_description = product.description or ""
+        sanitized_description = _sanitize_feed_description(raw_description)
+        if not sanitized_description:
+            sanitized_description = f"TwoComms {product.title} — демисезонная вещь собственного производства."
+
+        ua_source = getattr(product, "ai_description", None) or raw_description
+        sanitized_description_ua = _sanitize_feed_description(ua_source)
+        if not sanitized_description_ua:
+            sanitized_description_ua = sanitized_description
+
+        description_el = ET.SubElement(offer_el, "description")
+        if hasattr(ET, 'CDATA'):
+            description_el.text = ET.CDATA(sanitized_description)
+        else:
+            description_el.text = sanitized_description
+
+        description_ua_el = ET.SubElement(offer_el, "description_ua")
+        if hasattr(ET, 'CDATA'):
+            description_ua_el.text = ET.CDATA(sanitized_description_ua)
+        else:
+            description_ua_el.text = sanitized_description_ua
+
+                param_size = ET.SubElement(offer_el, "param", {"name": "Размер", "unit": ""})
+                param_size.text = size
+
+                param_color = ET.SubElement(offer_el, "param", {"name": "Цвет", "unit": ""})
+                param_color.text = color_name
+
+                param_material = ET.SubElement(offer_el, "param", {"name": "Материал", "unit": ""})
+                param_material.text = material_value
+
+                param_season = ET.SubElement(offer_el, "param", {"name": "Сезон", "unit": ""})
+                param_season.text = DEFAULT_FEED_SEASON
+
+    ET.indent(catalog, space="  ", level=0)
+    xml_payload = ET.tostring(catalog, encoding="utf-8", xml_declaration=True)
+
+    response = HttpResponse(xml_payload, content_type="application/xml; charset=utf-8")
+    response["Content-Disposition"] = 'inline; filename="products_feed.xml"'
+    return response
 
 
 def google_merchant_feed(request):
@@ -3743,6 +3954,185 @@ def admin_offline_store_delete(request, pk):
 
 # ===== Новые views для функционала оффлайн магазинов =====
 
+
+def _get_store_inventory_items(store):
+    return list(
+        store.store_products.filter(is_active=True)
+        .select_related('product__category', 'product', 'color')
+        .order_by('-created_at')
+    )
+
+
+def _get_store_sales(store):
+    return list(
+        store.store_sales.select_related('product__category', 'product', 'color')
+        .order_by('-sold_at')
+    )
+
+
+def _calculate_inventory_stats(inventory_items):
+    stats = {
+        'units': 0,
+        'cost': 0,
+        'revenue': 0,
+        'margin': 0,
+        'avg_price': 0,
+        'avg_margin_per_unit': 0,
+        'margin_percent': 0,
+        'active_skus': len(inventory_items),
+    }
+
+    for item in inventory_items:
+        qty = item.quantity or 0
+        cost = (item.cost_price or 0) * qty
+        revenue = (item.selling_price or 0) * qty
+        margin = revenue - cost
+
+        stats['units'] += qty
+        stats['cost'] += cost
+        stats['revenue'] += revenue
+        stats['margin'] += margin
+
+    if stats['units']:
+        stats['avg_price'] = stats['revenue'] / stats['units']
+        stats['avg_margin_per_unit'] = stats['margin'] / stats['units'] if stats['margin'] else 0
+
+    if stats['cost']:
+        stats['margin_percent'] = (stats['margin'] / stats['cost']) * 100
+
+    return stats
+
+
+def _calculate_sales_stats(sales_items):
+    stats = {
+        'units': 0,
+        'cost': 0,
+        'revenue': 0,
+        'margin': 0,
+        'avg_ticket': 0,
+        'margin_percent': 0,
+        'last_sale_at': None,
+    }
+
+    for sale in sales_items:
+        qty = sale.quantity or 0
+        cost = (sale.cost_price or 0) * qty
+        revenue = (sale.selling_price or 0) * qty
+        margin = revenue - cost
+
+        stats['units'] += qty
+        stats['cost'] += cost
+        stats['revenue'] += revenue
+        stats['margin'] += margin
+
+    if stats['units']:
+        stats['avg_ticket'] = stats['revenue'] / stats['units']
+
+    if stats['cost']:
+        stats['margin_percent'] = (stats['margin'] / stats['cost']) * 100
+
+    if sales_items:
+        stats['last_sale_at'] = sales_items[0].sold_at
+
+    return stats
+
+
+def _build_category_stats(inventory_items):
+    category_data = {}
+
+    for item in inventory_items:
+        category_name = (
+            item.product.category.name if getattr(item.product, 'category', None) else 'Без категорії'
+        )
+        entry = category_data.setdefault(
+            category_name,
+            {'name': category_name, 'units': 0, 'cost': 0, 'revenue': 0, 'margin': 0},
+        )
+
+        qty = item.quantity or 0
+        cost = (item.cost_price or 0) * qty
+        revenue = (item.selling_price or 0) * qty
+
+        entry['units'] += qty
+        entry['cost'] += cost
+        entry['revenue'] += revenue
+        entry['margin'] = entry['revenue'] - entry['cost']
+
+    for entry in category_data.values():
+        if entry['cost']:
+            entry['margin_percent'] = (entry['margin'] / entry['cost']) * 100
+        else:
+            entry['margin_percent'] = 0
+
+    return sorted(category_data.values(), key=lambda x: x['revenue'], reverse=True)
+
+
+def _serialize_sale(sale):
+    image = None
+    display_image = getattr(sale.product, 'display_image', None)
+    if display_image:
+        try:
+            image = display_image.url
+        except Exception:
+            image = None
+
+    return {
+        'id': sale.id,
+        'product_id': sale.product_id,
+        'title': sale.product.title,
+        'size': sale.size,
+        'color': sale.color.name if sale.color else None,
+        'color_hex': sale.color.primary_hex if sale.color else None,
+        'quantity': sale.quantity,
+        'cost_price': sale.cost_price,
+        'selling_price': sale.selling_price,
+        'total_revenue': sale.total_revenue,
+        'total_margin': sale.margin,
+        'sold_at': sale.sold_at.isoformat(),
+        'sold_at_human': sale.sold_at.strftime('%d.%m.%Y %H:%M'),
+        'image': image,
+    }
+
+
+def _compose_store_stats(inventory_items, sales_items):
+    inventory_stats = _calculate_inventory_stats(inventory_items)
+    sales_stats = _calculate_sales_stats(sales_items)
+
+    total_units = inventory_stats['units'] + sales_stats['units']
+    sell_through_rate = (sales_stats['units'] / total_units * 100) if total_units else 0
+
+    if sales_stats['last_sale_at']:
+        last_sale_iso = sales_stats['last_sale_at'].isoformat()
+        last_sale_human = sales_stats['last_sale_at'].strftime('%d.%m.%Y %H:%M')
+    else:
+        last_sale_iso = None
+        last_sale_human = None
+
+    return {
+        'inventory_units': inventory_stats['units'],
+        'inventory_cost': inventory_stats['cost'],
+        'inventory_revenue': inventory_stats['revenue'],
+        'inventory_margin': inventory_stats['margin'],
+        'inventory_margin_percent': round(inventory_stats['margin_percent'], 2) if inventory_stats['margin_percent'] else 0,
+        'inventory_avg_price': round(inventory_stats['avg_price'], 2) if inventory_stats['avg_price'] else 0,
+        'inventory_avg_margin_per_unit': round(inventory_stats['avg_margin_per_unit'], 2) if inventory_stats['avg_margin_per_unit'] else 0,
+        'inventory_active_skus': inventory_stats['active_skus'],
+        'sales_units': sales_stats['units'],
+        'sales_cost': sales_stats['cost'],
+        'sales_revenue': sales_stats['revenue'],
+        'sales_margin': sales_stats['margin'],
+        'sales_margin_percent': round(sales_stats['margin_percent'], 2) if sales_stats['margin_percent'] else 0,
+        'sales_avg_ticket': round(sales_stats['avg_ticket'], 2) if sales_stats['avg_ticket'] else 0,
+        'sell_through_rate': round(sell_through_rate, 2) if sell_through_rate else 0,
+        'unsold_units': inventory_stats['units'],
+        'total_committed_cost': inventory_stats['cost'] + sales_stats['cost'],
+        'total_realized_revenue': sales_stats['revenue'],
+        'total_expected_revenue': inventory_stats['revenue'] + sales_stats['revenue'],
+        'lifetime_margin': sales_stats['margin'],
+        'last_sale_at': last_sale_iso,
+        'last_sale_at_display': last_sale_human,
+    }
+
 @login_required
 def admin_store_management(request, store_id):
     """Главная страница управления оффлайн магазином"""
@@ -3753,56 +4143,31 @@ def admin_store_management(request, store_id):
     from productcolors.models import Color
     
     store = get_object_or_404(OfflineStore, pk=store_id)
-    
-    # Получаем все товары с их цветами и изображениями
+
     products = Product.objects.select_related('category').prefetch_related(
         'color_variants__color',
         'color_variants__images'
     ).all()
-    
-    # Получаем категории для фильтрации
+
     categories = Category.objects.filter(is_active=True).order_by('order', 'name')
-    
-    # Получаем товары в магазине
-    store_products = StoreProduct.objects.filter(store=store, is_active=True).select_related(
-        'product__category', 'color'
-    )
-    
-    # Получаем активные заказы
+
+    inventory_items = _get_store_inventory_items(store)
+    sales_items = _get_store_sales(store)
+
     active_orders = StoreOrder.objects.filter(store=store, status='draft').prefetch_related(
         'order_items__product__category', 'order_items__color'
     )
-    
-    # Статистика магазина
-    store_stats = {
-        'total_products': store_products.count(),
-        'total_cost': sum(sp.cost_price for sp in store_products),
-        'total_selling_price': sum(sp.selling_price for sp in store_products),
-        'total_margin': sum(sp.margin for sp in store_products),
-        'categories_count': store_products.values('product__category__name').distinct().count(),
-    }
-    
-    # Статистика по категориям
-    category_stats = {}
-    for sp in store_products:
-        cat_name = sp.product.category.name
-        if cat_name not in category_stats:
-            category_stats[cat_name] = {
-                'count': 0,
-                'total_cost': 0,
-                'total_selling_price': 0,
-                'total_margin': 0
-            }
-        category_stats[cat_name]['count'] += sp.quantity
-        category_stats[cat_name]['total_cost'] += sp.cost_price
-        category_stats[cat_name]['total_selling_price'] += sp.selling_price
-        category_stats[cat_name]['total_margin'] += sp.margin
-    
+
+    store_stats = _compose_store_stats(inventory_items, sales_items)
+    category_stats = _build_category_stats(inventory_items)
+    sold_products = [_serialize_sale(sale) for sale in sales_items]
+
     return render(request, 'pages/admin_store_management.html', {
         'store': store,
         'products': products,
         'categories': categories,
-        'store_products': store_products,
+        'store_products': inventory_items,
+        'sold_products': sold_products,
         'active_orders': active_orders,
         'store_stats': store_stats,
         'category_stats': category_stats,
@@ -4190,7 +4555,7 @@ def admin_store_update_product(request, store_id, product_id):
     
     try:
         store_product = get_object_or_404(StoreProduct, pk=product_id, store_id=store_id)
-        
+
         cost_price = request.POST.get('cost_price')
         selling_price = request.POST.get('selling_price')
         quantity = request.POST.get('quantity')
@@ -4201,17 +4566,30 @@ def admin_store_update_product(request, store_id, product_id):
             store_product.selling_price = int(selling_price)
         if quantity:
             store_product.quantity = int(quantity)
-        
+
         store_product.save()
-        
+
+        store = store_product.store
+        inventory_items = _get_store_inventory_items(store)
+        sales_items = _get_store_sales(store)
+        stats = _compose_store_stats(inventory_items, sales_items)
+        category_stats = _build_category_stats(inventory_items)
+
         return JsonResponse({
             'success': True,
-            'message': 'Товар обновлен',
-            'data': {
-                'total_cost': store_product.cost_price,
-                'total_selling_price': store_product.selling_price,
-                'total_margin': store_product.margin
-            }
+            'message': 'Товар оновлено',
+            'product': {
+                'id': store_product.id,
+                'cost_price': store_product.cost_price,
+                'selling_price': store_product.selling_price,
+                'quantity': store_product.quantity,
+                'margin_per_unit': store_product.margin,
+                'total_cost': store_product.cost_price * store_product.quantity,
+                'total_revenue': store_product.selling_price * store_product.quantity,
+                'total_margin': (store_product.selling_price - store_product.cost_price) * store_product.quantity,
+            },
+            'stats': stats,
+            'category_stats': category_stats,
         })
         
     except Exception as e:
@@ -4223,15 +4601,116 @@ def admin_store_remove_product(request, store_id, product_id):
     """Удаление товара из магазина"""
     if not request.user.is_staff:
         return JsonResponse({'error': 'Доступ запрещен'}, status=403)
-    
+
     from .models import StoreProduct
-    
+
     try:
         store_product = get_object_or_404(StoreProduct, pk=product_id, store_id=store_id)
+        store = store_product.store
+        removed_product_id = store_product.id
         store_product.delete()
-        
-        return JsonResponse({'success': True, 'message': 'Товар удален из магазина'})
-        
+
+        inventory_items = _get_store_inventory_items(store)
+        sales_items = _get_store_sales(store)
+        stats = _compose_store_stats(inventory_items, sales_items)
+        category_stats = _build_category_stats(inventory_items)
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Товар видалено з магазину',
+            'removed_product_id': removed_product_id,
+            'stats': stats,
+            'category_stats': category_stats,
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@login_required
+def admin_store_mark_product_sold(request, store_id, product_id):
+    """Позначає товар як проданий та переносить його в блок статистики продажів."""
+    if not request.user.is_staff:
+        return JsonResponse({'error': 'Доступ заборонено'}, status=403)
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Метод не підтримується'}, status=405)
+
+    from .models import StoreProduct, StoreSale
+
+    try:
+        store_product = get_object_or_404(StoreProduct, pk=product_id, store_id=store_id)
+        store = store_product.store
+
+        quantity_param = request.POST.get('quantity')
+
+        if quantity_param is None and request.body:
+            try:
+                payload = json.loads(request.body.decode('utf-8'))
+                quantity_param = payload.get('quantity')
+            except (ValueError, json.JSONDecodeError):
+                quantity_param = None
+
+        if quantity_param is None or quantity_param == '':
+            quantity_to_sell = store_product.quantity
+        else:
+            try:
+                quantity_to_sell = int(quantity_param)
+            except (TypeError, ValueError):
+                return JsonResponse({'error': 'Невірне значення кількості'}, status=400)
+
+        if quantity_to_sell <= 0:
+            return JsonResponse({'error': 'Кількість повинна бути більшою за нуль'}, status=400)
+
+        if quantity_to_sell > store_product.quantity:
+            return JsonResponse({'error': 'Кількість перевищує залишок товару'}, status=400)
+
+        sale = StoreSale.objects.create(
+            store=store,
+            product=store_product.product,
+            color=store_product.color,
+            size=store_product.size,
+            quantity=quantity_to_sell,
+            cost_price=store_product.cost_price,
+            selling_price=store_product.selling_price,
+            source_store_product=store_product,
+        )
+
+        remaining_product = None
+        removed_product_id = None
+
+        if quantity_to_sell >= store_product.quantity:
+            removed_product_id = store_product.id
+            store_product.delete()
+        else:
+            store_product.quantity -= quantity_to_sell
+            store_product.save(update_fields=['quantity', 'updated_at'])
+            remaining_product = {
+                'id': store_product.id,
+                'quantity': store_product.quantity,
+                'cost_price': store_product.cost_price,
+                'selling_price': store_product.selling_price,
+                'margin_per_unit': store_product.margin,
+                'total_cost': store_product.cost_price * store_product.quantity,
+                'total_revenue': store_product.selling_price * store_product.quantity,
+                'total_margin': (store_product.selling_price - store_product.cost_price) * store_product.quantity,
+            }
+
+        inventory_items = _get_store_inventory_items(store)
+        sales_items = _get_store_sales(store)
+        stats = _compose_store_stats(inventory_items, sales_items)
+        category_stats = _build_category_stats(inventory_items)
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Товар позначено як проданий',
+            'sale': _serialize_sale(sale),
+            'stats': stats,
+            'category_stats': category_stats,
+            'remaining_product': remaining_product,
+            'removed_product_id': removed_product_id,
+        })
+
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
 
@@ -4596,119 +5075,481 @@ def google_merchant_feed(request):
     response['Content-Disposition'] = 'inline; filename="google_merchant_feed.xml"'
     return response
 
-# ===== GOOGLE PAY =====
-@require_POST
-def google_pay_success(request):
-    """Обработка успешного платежа через Google Pay"""
-    import json
-    from orders.models import Order
-    from django.utils import timezone
-    
-    try:
-        # Получаем данные из запроса
-        data = json.loads(request.body)
-        payment_data = data.get('paymentData')
-        total_amount = float(data.get('totalAmount', 0))
-        
-        if not payment_data or total_amount <= 0:
-            return JsonResponse({
-                'success': False,
-                'error': 'Неверные данные платежа'
-            })
-        
-        # Получаем корзину
-        cart_sess = request.session.get('cart', {})
-        if not cart_sess:
-            return JsonResponse({
-                'success': False,
-                'error': 'Корзина пуста'
-            })
-        
-        # Получаем информацию о товарах
-        ids = [i['product_id'] for i in cart_sess.values()]
-        prods = Product.objects.in_bulk(ids)
-        
-        # Создаем заказ
-        order = Order()
-        
-        if request.user.is_authenticated:
-            # Для авторизованного пользователя
-            try:
-                prof = request.user.userprofile
-                order.user = request.user
-                order.full_name = prof.full_name or ''
-                order.phone = prof.phone or ''
-                order.city = prof.city or ''
-                order.np_office = prof.np_office or ''
-                order.pay_type = prof.pay_type or 'full'
-            except:
-                order.full_name = request.user.get_full_name() or request.user.username
-                order.phone = ''
-                order.city = ''
-                order.np_office = ''
-                order.pay_type = 'full'
+# ===== MONOBANK ACQUIRING =====
+monobank_logger = logging.getLogger('storefront.monobank')
+
+MONOBANK_SUCCESS_STATUSES = {'success', 'hold'}
+MONOBANK_PENDING_STATUSES = {'processing'}
+MONOBANK_FAILURE_STATUSES = {'failure', 'expired', 'rejected', 'canceled', 'cancelled', 'reversed'}
+
+
+class MonobankAPIError(Exception):
+    """Raised when Monobank API returns an error"""
+
+
+def _ensure_session_key(request):
+    if not request.session.session_key:
+        request.session.save()
+    return request.session.session_key
+
+
+def _validate_checkout_payload(raw_payload):
+    """Validate checkout payload and return (errors, cleaned_data)."""
+    full_name = (raw_payload.get('full_name') or '').strip()
+    phone = (raw_payload.get('phone') or '').strip()
+    city = (raw_payload.get('city') or '').strip()
+    np_office = (raw_payload.get('np_office') or '').strip()
+    pay_type = (raw_payload.get('pay_type') or 'full').strip().lower() or 'full'
+
+    errors = []
+    if len(full_name) < 3:
+        errors.append('ПІБ повинно містити мінімум 3 символи.')
+
+    digits = ''.join(filter(str.isdigit, phone))
+    if not phone.startswith('+380') or len(digits) != 12:
+        errors.append('Невірний формат телефону. Використовуйте формат +380XXXXXXXXX.')
+
+    if len(city) < 2:
+        errors.append('Введіть назву міста.')
+
+    if len(np_office) < 1:
+        errors.append('Введіть адресу відділення або поштомата.')
+
+    if pay_type not in ('full', 'partial'):
+        errors.append('Невідомий тип оплати.')
+
+    if pay_type != 'full':
+        errors.append('Для онлайн-оплати карткою потрібно обрати «Повна передоплата».')
+
+    cleaned = {
+        'full_name': full_name,
+        'phone': phone,
+        'city': city,
+        'np_office': np_office,
+        'pay_type': 'full'
+    }
+    return errors, cleaned
+
+
+def _create_or_update_monobank_order(request, customer_data):
+    """Create or update an order for Monobank payment, returning (order, amount_decimal, basket_order)."""
+    from orders.models import Order, OrderItem
+
+    cart = request.session.get('cart') or {}
+    if not cart:
+        raise ValueError('cart_empty')
+
+    product_ids = [item['product_id'] for item in cart.values()]
+    products = Product.objects.in_bulk(product_ids)
+
+    session_key = _ensure_session_key(request)
+    pending_order_id = request.session.get('monobank_pending_order_id')
+    order = None
+
+    if pending_order_id:
+        try:
+            order = Order.objects.select_for_update().get(id=pending_order_id)
+            if request.user.is_authenticated:
+                if order.user_id != request.user.id:
+                    order = None
+            else:
+                if order.user_id is not None or order.session_key != session_key:
+                    order = None
+        except Order.DoesNotExist:
+            order = None
+
+    with transaction.atomic():
+        if order is None:
+            order = Order.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                session_key=session_key,
+                full_name=customer_data['full_name'],
+                phone=customer_data['phone'],
+                city=customer_data['city'],
+                np_office=customer_data['np_office'],
+                pay_type='full',
+                status='new',
+                payment_status='checking',
+                total_sum=Decimal('0'),
+                discount_amount=Decimal('0')
+            )
         else:
-            # Для гостя - используем данные из Google Pay
-            billing_address = payment_data.get('paymentMethodData', {}).get('info', {}).get('billingAddress', {})
-            order.full_name = billing_address.get('name', 'Google Pay Customer')
-            order.phone = ''
-            order.city = billing_address.get('locality', '')
-            order.np_office = 'Google Pay'
+            OrderItem.objects.filter(order=order).delete()
+            order.full_name = customer_data['full_name']
+            order.phone = customer_data['phone']
+            order.city = customer_data['city']
+            order.np_office = customer_data['np_office']
             order.pay_type = 'full'
-        
-        # Устанавливаем статус заказа
-        order.status = 'pending'
-        order.payment_status = 'paid'  # Google Pay сразу оплачивает
-        order.payment_method = 'google_pay'
-        order.payment_data = json.dumps(payment_data)  # Сохраняем данные платежа
-        order.created = timezone.now()
-        order.save()
-        
-        # Добавляем товары в заказ
-        total_order_amount = 0
-        for key, item in cart_sess.items():
-            product = prods.get(item['product_id'])
+            order.session_key = session_key
+            order.payment_status = 'checking'
+            order.discount_amount = Decimal('0')
+            order.total_sum = Decimal('0')
+            order.save(update_fields=['full_name', 'phone', 'city', 'np_office', 'pay_type', 'session_key', 'payment_status', 'discount_amount', 'total_sum'])
+
+        order_items = []
+        total_sum = Decimal('0')
+
+        for key, item in cart.items():
+            product = products.get(item['product_id'])
             if not product:
                 continue
-            
-            from orders.models import OrderItem
-            order_item = OrderItem()
-            order_item.order = order
-            order_item.product = product
-            order_item.size = item['size']
-            order_item.qty = item['qty']
-            order_item.price = product.final_price
-            order_item.save()
-            
-            total_order_amount += product.final_price * item['qty']
-        
-        # Обновляем сумму заказа
-        order.total_amount = total_order_amount
-        order.save()
-        
-        # Очищаем корзину
-        request.session['cart'] = {}
-        request.session.modified = True
-        
-        # Удаляем примененный промокод
-        if 'applied_promo_code' in request.session:
-            del request.session['applied_promo_code']
-            request.session.modified = True
-        
-        if request.user.is_authenticated:
-            redirect_url = reverse('my_orders')
-        else:
-            redirect_url = reverse('order_success', args=[order.id])
 
-        return JsonResponse({
-            'success': True,
-            'order_id': order.id,
-            'message': 'Заказ успешно создан',
-            'redirect_url': redirect_url
-        })
-        
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'error': f'Ошибка создания заказа: {str(e)}'
-        })
+            qty = max(int(item.get('qty', 1)), 1)
+            unit_price = Decimal(str(product.final_price))
+            line_total = unit_price * qty
+            total_sum += line_total
+
+            color_variant = None
+            color_variant_id = item.get('color_variant_id')
+            if color_variant_id:
+                try:
+                    from productcolors.models import ProductColorVariant
+                    color_variant = ProductColorVariant.objects.get(id=color_variant_id)
+                except ProductColorVariant.DoesNotExist:
+                    color_variant = None
+
+            order_items.append(OrderItem(
+                order=order,
+                product=product,
+                color_variant=color_variant,
+                title=product.title,
+                size=item.get('size', ''),
+                qty=qty,
+                unit_price=unit_price,
+                line_total=line_total
+            ))
+
+        if not order_items:
+            raise ValueError('cart_empty')
+
+        OrderItem.objects.bulk_create(order_items)
+
+        basket_order = []
+        saved_items = (
+            order.items
+            .select_related('product', 'color_variant__color')
+            .prefetch_related('color_variant__images')
+        )
+
+        for saved in saved_items:
+            display_name = saved.title
+            if saved.size:
+                display_name = f"{display_name} • розмір {saved.size}"
+            if saved.color_name:
+                display_name = f"{display_name} • {saved.color_name}"
+            display_name = display_name[:128]
+
+            image_url = None
+            try:
+                img = saved.product_image
+                if img and hasattr(img, 'url'):
+                    image_url = request.build_absolute_uri(img.url)
+                    if image_url.startswith('http://'):
+                        image_url = 'https://' + image_url[len('http://'):]
+            except Exception:
+                image_url = None
+
+            line_total = Decimal(str(saved.line_total))
+            basket_item = {
+                'name': display_name,
+                'qty': saved.qty,
+                'sum': int((line_total * 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP)),
+                'unit': 'шт.',
+                'code': str(getattr(saved.product, 'sku', saved.product.id))
+            }
+            if image_url:
+                basket_item['iconUrl'] = image_url
+                basket_item['imageUrl'] = image_url
+            basket_order.append(basket_item)
+
+        discount = Decimal('0')
+        promo = None
+        promo_code_value = request.session.get('applied_promo_code')
+        if promo_code_value:
+            from .models import PromoCode
+            try:
+                potential_promo = PromoCode.objects.get(code=promo_code_value, is_active=True)
+                if potential_promo.can_be_used():
+                    possible_discount = potential_promo.calculate_discount(total_sum)
+                    if possible_discount > 0:
+                        discount = possible_discount
+                        promo = potential_promo
+                        promo.use()
+            except PromoCode.DoesNotExist:
+                pass
+
+        order.discount_amount = discount
+        order.promo_code = promo if discount > 0 else None
+        order.payment_provider = 'monobank'
+        order.total_sum = total_sum - discount
+        order.save(update_fields=['discount_amount', 'promo_code', 'payment_provider', 'total_sum'])
+
+    request.session['monobank_pending_order_id'] = order.id
+    return order, order.total_sum, basket_order
+
+
+def _monobank_api_request(method, endpoint, *, params=None, json_payload=None, timeout=10):
+    base_url = settings.MONOBANK_API_BASE.rstrip('/')
+    url = f"{base_url}{endpoint}"
+    headers = {'X-Token': settings.MONOBANK_TOKEN}
+
+    try:
+        if method.upper() == 'POST':
+            response = requests.post(url, params=params, json=json_payload, headers=headers, timeout=timeout)
+        elif method.upper() == 'GET':
+            response = requests.get(url, params=params, headers=headers, timeout=timeout)
+        else:
+            raise MonobankAPIError('Unsupported HTTP method')
+    except requests.RequestException as exc:
+        raise MonobankAPIError(f'Помилка з’єднання з платіжним сервісом: {exc}') from exc
+
+    try:
+        data = response.json()
+    except ValueError:
+        data = {}
+
+    if response.status_code >= 400 or 'errCode' in data:
+        err_text = data.get('errText') or data.get('message') or f'HTTP {response.status_code}'
+        raise MonobankAPIError(err_text)
+
+    return data
+
+
+def _record_monobank_status(order, payload, source='api'):
+    if not payload:
+        return
+
+    status = payload.get('status')
+    payment_payload = order.payment_payload or {}
+    history = payment_payload.get('history', [])
+    history.append({
+        'status': status,
+        'data': payload,
+        'source': source,
+        'received_at': timezone.now().isoformat()
+    })
+    payment_payload['history'] = history[-20:]
+    payment_payload['last_status'] = status
+    payment_payload['last_update_source'] = source
+    payment_payload['last_update_at'] = timezone.now().isoformat()
+    order.payment_payload = payment_payload
+
+    update_fields = ['payment_payload']
+
+    if status in MONOBANK_SUCCESS_STATUSES:
+        previous_status = order.payment_status
+        order.payment_status = 'paid'
+        update_fields.append('payment_status')
+        try:
+            order.save(update_fields=update_fields)
+        except Exception:
+            order.save()
+        if previous_status != 'paid':
+            try:
+                from orders.telegram_notifications import TelegramNotifier
+                notifier = TelegramNotifier()
+                notifier.send_new_order_notification(order)
+            except Exception:
+                monobank_logger.exception('Failed to send Telegram notification for paid order %s', order.id)
+        return
+
+    if status in MONOBANK_PENDING_STATUSES:
+        order.payment_status = 'checking'
+        update_fields.append('payment_status')
+    elif status in MONOBANK_FAILURE_STATUSES:
+        order.payment_status = 'unpaid'
+        update_fields.append('payment_status')
+
+    try:
+        order.save(update_fields=update_fields)
+    except Exception:
+        order.save()
+
+
+@require_POST
+def monobank_create_invoice(request):
+    """Create Monobank invoice and return redirect URL."""
+    payload = {}
+    if request.content_type == 'application/json':
+        try:
+            payload = json.loads(request.body.decode('utf-8'))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return JsonResponse({'success': False, 'error': 'Невірний формат даних.'})
+    else:
+        payload = request.POST
+
+    errors, customer = _validate_checkout_payload(payload)
+    if errors:
+        return JsonResponse({'success': False, 'error': ' '.join(errors)})
+
+    try:
+        order, amount_decimal, basket_order = _create_or_update_monobank_order(request, customer)
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'Кошик порожній. Додайте товари перед оплатою.'})
+
+    amount_minor = int((amount_decimal * 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
+    if amount_minor <= 0:
+        return JsonResponse({'success': False, 'error': 'Сума для оплати повинна бути більшою за 0.'})
+
+    redirect_url = request.build_absolute_uri(reverse('monobank_return'))
+    webhook_url = settings.MONOBANK_WEBHOOK_URL or request.build_absolute_uri(reverse('monobank_webhook'))
+
+    invoice_payload = {
+        'amount': amount_minor,
+        'ccy': 980,
+        'orderId': order.order_number,
+        'redirectUrl': redirect_url,
+        'webHookUrl': webhook_url,
+        'merchantPaymInfo': {
+            'destination': f'Оплата замовлення #{order.order_number}'
+        }
+    }
+
+    if basket_order:
+        invoice_payload['merchantPaymInfo']['basketOrder'] = basket_order[:20]
+
+    try:
+        creation_data = _monobank_api_request('POST', '/api/merchant/invoice/create', json_payload=invoice_payload)
+    except MonobankAPIError as exc:
+        needs_retry = False
+        basket_with_media = invoice_payload.get('merchantPaymInfo', {}).get('basketOrder') or []
+        for item in basket_with_media:
+            if any(key in item for key in ('iconUrl', 'imageUrl')):
+                needs_retry = True
+                break
+        if needs_retry:
+            stripped_payload = copy.deepcopy(invoice_payload)
+            for item in stripped_payload.get('merchantPaymInfo', {}).get('basketOrder', []) or []:
+                item.pop('iconUrl', None)
+                item.pop('imageUrl', None)
+            try:
+                creation_data = _monobank_api_request('POST', '/api/merchant/invoice/create', json_payload=stripped_payload)
+            except MonobankAPIError:
+                monobank_logger.warning('Monobank invoice creation failed after retry: %s', exc)
+                return JsonResponse({'success': False, 'error': str(exc)})
+            else:
+                invoice_payload = stripped_payload
+        else:
+            monobank_logger.warning('Monobank invoice creation failed: %s', exc)
+            return JsonResponse({'success': False, 'error': str(exc)})
+
+    invoice_id = creation_data.get('invoiceId')
+    page_url = creation_data.get('pageUrl')
+    if not invoice_id or not page_url:
+        return JsonResponse({'success': False, 'error': 'Не вдалося створити рахунок. Спробуйте пізніше.'})
+
+    order.payment_invoice_id = invoice_id
+    order.payment_payload = {
+        'request': invoice_payload,
+        'create': creation_data,
+        'history': []
+    }
+    order.payment_status = 'checking'
+    order.payment_provider = 'monobank'
+    order.save(update_fields=['payment_invoice_id', 'payment_payload', 'payment_status', 'payment_provider'])
+
+    request.session['monobank_invoice_id'] = invoice_id
+    request.session['monobank_pending_order_id'] = order.id
+    request.session.modified = True
+
+    return JsonResponse({
+        'success': True,
+        'redirect_url': page_url,
+        'order_id': order.id
+    })
+
+
+def _fetch_and_apply_invoice_status(order, invoice_id, source):
+    try:
+        status_data = _monobank_api_request('GET', '/api/merchant/invoice/status', params={'invoiceId': invoice_id})
+    except MonobankAPIError as exc:
+        monobank_logger.warning('Failed to fetch invoice status for %s: %s', invoice_id, exc)
+        raise
+
+    _record_monobank_status(order, status_data, source=source)
+    return status_data
+
+
+def _cleanup_after_success(request):
+    request.session.pop('cart', None)
+    request.session.pop('applied_promo_code', None)
+    request.session.pop('monobank_invoice_id', None)
+    request.session.pop('monobank_pending_order_id', None)
+    request.session.modified = True
+
+
+def monobank_return(request):
+    """Handle user return from Monobank payment page."""
+    from orders.models import Order
+    from django.contrib import messages
+
+    invoice_id = request.GET.get('invoiceId') or request.session.get('monobank_invoice_id')
+    if not invoice_id:
+        messages.error(request, 'Параметри платежу відсутні. Спробуйте оформити замовлення ще раз.')
+        return redirect('cart')
+
+    order = None
+    pending_id = request.session.get('monobank_pending_order_id')
+    if pending_id:
+        try:
+            order = Order.objects.get(id=pending_id)
+        except Order.DoesNotExist:
+            order = None
+
+    if order is None:
+        order = Order.objects.filter(payment_invoice_id=invoice_id).order_by('-created').first()
+
+    if order is None:
+        messages.error(request, 'Замовлення не знайдено. Спробуйте ще раз.')
+        return redirect('cart')
+
+    try:
+        status_data = _fetch_and_apply_invoice_status(order, invoice_id, source='return')
+    except MonobankAPIError as exc:
+        messages.error(request, f'Не вдалося підтвердити статус платежу: {exc}')
+        return redirect('my_orders' if request.user.is_authenticated else 'cart')
+
+    status = status_data.get('status')
+
+    if status in MONOBANK_SUCCESS_STATUSES:
+        _cleanup_after_success(request)
+        messages.success(request, 'Оплату успішно отримано!')
+        if request.user.is_authenticated:
+            return redirect('my_orders')
+        return redirect('order_success', order_id=order.id)
+
+    if status in MONOBANK_PENDING_STATUSES:
+        messages.info(request, 'Платіж обробляється. Ми повідомимо, щойно отримаємо підтвердження.')
+        if request.user.is_authenticated:
+            return redirect('my_orders')
+        return redirect('order_success', order_id=order.id)
+
+    messages.error(request, 'Оплату не завершено. Ви можете повторити спробу або обрати інший спосіб оплати.')
+    return redirect('cart')
+
+
+@csrf_exempt
+def monobank_webhook(request):
+    """Receive status updates from Monobank webhook."""
+    from orders.models import Order
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return HttpResponse(status=400)
+
+    invoice_id = payload.get('invoiceId')
+    if not invoice_id:
+        return HttpResponse(status=400)
+
+    try:
+        order = Order.objects.get(payment_invoice_id=invoice_id)
+    except Order.DoesNotExist:
+        monobank_logger.warning('Webhook received for unknown invoice %s', invoice_id)
+        return JsonResponse({'ok': True})
+
+    _record_monobank_status(order, payload, source='webhook')
+    return JsonResponse({'ok': True})

@@ -376,55 +376,286 @@ picture img {
   }
 }
 
-/* Кнопка Google Pay — контейнер та плейсхолдер */
-.cart-google-pay-container {
+/* Кнопка Monobank */
+.cart-monobank-container {
   width: 100%;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
-#google-pay-button-container {
-  width: 100%;
-  max-width: 320px;
-}
-
-.cart-google-pay-placeholder {
+.cart-monobank-btn {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  padding: 0.9rem 1.5rem;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.05);
-  color: rgba(255,255,255,0.78);
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  padding: 1rem 1.25rem;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(135deg, #2c1a43 0%, #6d37ff 45%, #ff2d85 100%);
+  color: #ffffff;
+  box-shadow: 0 12px 32px rgba(109, 55, 255, 0.35);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.cart-google-pay-spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid rgba(255,255,255,0.3);
+.cart-monobank-btn:hover:not(.loading) {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 40px rgba(109, 55, 255, 0.45);
+}
+
+.cart-monobank-btn.loading {
+  cursor: progress;
+  opacity: 0.78;
+  box-shadow: 0 8px 22px rgba(109, 55, 255, 0.28);
+}
+
+.cart-monobank-logo {
+  display: flex;
+  align-items: baseline;
+  gap: 0.2rem;
+  font-size: 1.32rem;
+  letter-spacing: 0.01em;
+  text-transform: lowercase;
+}
+
+.cart-monobank-details {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.cart-monobank-logo .mono {
+  font-weight: 600;
+}
+
+.cart-monobank-logo .dot {
+  opacity: 0.7;
+  font-weight: 500;
+}
+
+.cart-monobank-logo .pay {
+  font-weight: 700;
+}
+
+.cart-monobank-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  font-size: 1.05rem;
+  line-height: 1.12;
+}
+
+.cart-monobank-badges {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.cart-monobank-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  height: 28px;
+  padding: 0 0.8rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.78);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  font-family: 'Inter', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #ffffff;
+}
+
+.cart-monobank-badge .badge-symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.cart-monobank-badge .badge-text {
+  display: inline-flex;
+  align-items: center;
+}
+
+.cart-monobank-badge-gpay .badge-symbol {
+  background: linear-gradient(90deg, #4285f4, #ea4335 35%, #fbbc05 65%, #34a853 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.cart-monobank-badge-apple {
+  font-weight: 500;
+}
+
+.cart-monobank-badge-apple .badge-symbol {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.cart-monobank-badge-apple .badge-text {
+  font-weight: 600;
+}
+
+.cart-monobank-spinner {
+  width: 22px;
+  height: 22px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
   border-top-color: #ffffff;
   border-radius: 50%;
-  animation: gpay-spin 0.8s linear infinite;
+  animation: monobank-spin 0.8s linear infinite;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
-.cart-google-pay-unavailable {
+.cart-monobank-btn.loading .cart-monobank-spinner {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.cart-monobank-status {
+  min-height: 1.1rem;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.cart-monobank-status.error {
+  color: #ff90b4;
+}
+
+.cart-monobank-status.success {
+  color: #b8f7c7;
+}
+
+@keyframes monobank-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 520px) {
+  .cart-monobank-btn {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+  }
+
+  .cart-monobank-logo {
+    font-size: 1.18rem;
+  }
+
+  .cart-monobank-text {
+    font-size: 0.98rem;
+  }
+
+  .cart-monobank-badges {
+    gap: 0.35rem;
+  }
+
+  .cart-monobank-badge {
+    padding: 0 0.7rem;
+  }
+}
+
+/* Admin panel — Monobank meta */
+.payment-meta-card {
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(17, 19, 24, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.payment-meta-header {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 0.85rem 1.2rem;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.04);
-  color: rgba(255,255,255,0.68);
-  text-align: center;
-}
-  font-size: 1.05rem;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: rgba(232, 233, 236, 0.85);
 }
 
-#google-pay-button-container > button {
-  width: 100%;
-  min-height: 56px;
-  border-radius: 14px !important;
+.payment-meta-header svg {
+  color: rgba(124, 58, 237, 0.85);
+}
+
+.payment-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px 16px;
+}
+
+.payment-meta-card .info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.payment-meta-card .info-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(232, 233, 236, 0.55);
+}
+
+.payment-meta-card .info-value {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: rgba(232, 233, 236, 0.95);
+  word-break: break-all;
+}
+
+.payment-history {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.payment-history-item {
+  display: grid;
+  grid-template-columns: 120px 120px 1fr;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(124, 58, 237, 0.08);
+  border: 1px solid rgba(124, 58, 237, 0.15);
+  font-size: 0.78rem;
+  color: rgba(232, 233, 236, 0.82);
+}
+
+.payment-history-item .history-status {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.payment-history-item .history-time,
+.payment-history-item .history-modified {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.72rem;
+  color: rgba(209, 213, 219, 0.75);
+}
+
+@media (max-width: 768px) {
+  .payment-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .payment-history-item {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }

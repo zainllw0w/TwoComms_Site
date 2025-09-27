@@ -273,6 +273,18 @@ class StoreProduct(models.Model):
         """Маржа товара"""
         return self.selling_price - self.cost_price
 
+    @property
+    def total_cost(self):
+        return (self.cost_price or 0) * (self.quantity or 0)
+
+    @property
+    def total_revenue(self):
+        return (self.selling_price or 0) * (self.quantity or 0)
+
+    @property
+    def total_margin(self):
+        return self.total_revenue - self.total_cost
+
 
 class StoreOrder(models.Model):
     """Заказ в оффлайн магазине"""
@@ -321,6 +333,64 @@ class StoreOrderItem(models.Model):
     def total_price(self):
         """Общая цена элемента заказа"""
         return self.selling_price * self.quantity
+
+
+class StoreSale(models.Model):
+    """Факт продажу товару з офлайн-магазину."""
+
+    store = models.ForeignKey(
+        OfflineStore,
+        on_delete=models.CASCADE,
+        related_name='store_sales',
+        verbose_name='Магазин'
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name='store_sales',
+        verbose_name='Товар'
+    )
+    color = models.ForeignKey(
+        'productcolors.Color',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name='Колір'
+    )
+    size = models.CharField(max_length=10, blank=True, null=True, verbose_name='Розмір')
+    quantity = models.PositiveIntegerField(default=1, verbose_name='Кількість')
+    cost_price = models.PositiveIntegerField(verbose_name='Собівартість (грн)')
+    selling_price = models.PositiveIntegerField(verbose_name='Ціна продажу (грн)')
+    sold_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата продажу')
+    source_store_product = models.ForeignKey(
+        StoreProduct,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sales_history',
+        verbose_name='Джерело запису'
+    )
+    notes = models.CharField(max_length=255, blank=True, null=True, verbose_name='Примітки')
+
+    class Meta:
+        verbose_name = 'Проданий товар'
+        verbose_name_plural = 'Продані товари'
+        ordering = ['-sold_at']
+
+    def __str__(self):
+        return f"{self.product.title} — {self.store.name} ({self.quantity} шт.)"
+
+    @property
+    def margin(self):
+        return (self.selling_price - self.cost_price) * self.quantity
+
+    @property
+    def total_revenue(self):
+        return self.selling_price * self.quantity
+
+    @property
+    def total_cost(self):
+        return self.cost_price * self.quantity
 
 
 class StoreInvoice(models.Model):

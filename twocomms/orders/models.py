@@ -14,6 +14,7 @@ class Order(models.Model):
     ]
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='orders', null=True, blank=True)
     order_number = models.CharField(max_length=20, unique=True, blank=True)
+    session_key = models.CharField(max_length=40, blank=True, null=True)
     full_name = models.CharField(max_length=200)
     phone = models.CharField(max_length=32)
     city = models.CharField(max_length=100)
@@ -33,6 +34,9 @@ class Order(models.Model):
     shipment_status = models.CharField(max_length=100, blank=True, null=True, verbose_name='Статус посылки')
     shipment_status_updated = models.DateTimeField(null=True, blank=True, verbose_name='Время обновления статуса')
     payment_screenshot = models.ImageField(upload_to='payment_screenshots/', blank=True, null=True, verbose_name='Скріншот оплати')
+    payment_provider = models.CharField(max_length=50, blank=True, default='')
+    payment_invoice_id = models.CharField(max_length=128, blank=True, default='')
+    payment_payload = models.JSONField(blank=True, null=True)
     points_awarded = models.BooleanField(default=False, verbose_name='Бали нараховані')
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
