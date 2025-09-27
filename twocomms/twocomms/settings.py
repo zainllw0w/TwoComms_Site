@@ -147,7 +147,7 @@ USE_AI_KEYWORDS = os.environ.get('USE_AI_KEYWORDS', 'False').lower() in ('1','tr
 USE_AI_DESCRIPTIONS = os.environ.get('USE_AI_DESCRIPTIONS', 'False').lower() in ('1','true','yes')
 
 # Monobank acquiring
-MONOBANK_TOKEN = os.environ.get('MONOBANK_TOKEN', 'm8CXfZJ0M0mwabi5HZs0b6w')
+MONOBANK_TOKEN = os.environ.get('MONOBANK_TOKEN', '')
 MONOBANK_API_BASE = os.environ.get('MONOBANK_API_BASE', 'https://api.monobank.ua')
 # Optional override for webhook URL; if empty we build from request context
 MONOBANK_WEBHOOK_URL = os.environ.get('MONOBANK_WEBHOOK_URL', '')

@@ -6,7 +6,7 @@
 1. У бізнес-кабінеті [https://web.monobank.ua](https://web.monobank.ua) згенеруйте інтеграційний токен (Merchant → Налаштування → Інтернет-еквайринг).
 2. Задайте його у середовищі:
    ```bash
-   export MONOBANK_TOKEN="m8CXfZJ0M0mwabi5HZs0b6w"
+   export MONOBANK_TOKEN="<your-monobank-token>"
    ```
    У продакшн-оточенні краще зберігати токен у `.env`/секретах замість дефолтного значення в `settings.py`.
 3. За потреби можна перевизначити webhook-адресу:
