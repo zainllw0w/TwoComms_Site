@@ -479,16 +479,32 @@
           </svg>
           Доставка оплачується згідно тарифів перевізника.
         </div>
-        
+
         <div class="cart-checkout-actions">
-          <!-- Google Pay кнопка -->
-          <div class="cart-google-pay-container">
-            <div id="google-pay-button-container" class="cart-google-pay-placeholder">
-              <span class="cart-google-pay-spinner"></span>
-              <span>Google Pay завантажується…</span>
-            </div>
+          <!-- Monobank онлайн оплата -->
+          <div class="cart-monobank-container">
+            <button type="button" id="monobank-pay-btn" class="cart-monobank-btn" aria-live="polite">
+              <span class="cart-monobank-logo" aria-hidden="true">
+                <span class="mono">mono</span><span class="dot">·</span><span class="pay">pay</span>
+              </span>
+              <span class="cart-monobank-details">
+                <span class="cart-monobank-text">Онлайн оплата карткою</span>
+                <span class="cart-monobank-badges" aria-hidden="true">
+                  <span class="cart-monobank-badge cart-monobank-badge-gpay" role="presentation">
+                    <span class="badge-symbol">G</span>
+                    <span class="badge-text">Pay</span>
+                  </span>
+                  <span class="cart-monobank-badge cart-monobank-badge-apple" role="presentation">
+                    <span class="badge-symbol" aria-hidden="true"></span>
+                    <span class="badge-text">Pay</span>
+                  </span>
+                </span>
+              </span>
+              <span class="cart-monobank-spinner" aria-hidden="true"></span>
+            </button>
+            <div id="monobank-pay-status" class="cart-monobank-status" role="status" aria-live="polite"></div>
           </div>
-          
+
           {% if request.user.is_authenticated %}
             <button type="submit" form="deliveryForm" class="cart-checkout-btn">
               <div class="cart-checkout-btn-content">
@@ -503,7 +519,7 @@
             <button type="submit" form="guest-form" class="cart-checkout-btn cart-checkout-btn-guest">
               <div class="cart-checkout-btn-content">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  <path d="M12 2l3.09 6.26L22 9.27л-5 4.87 1.18 6.88L12 17.77л-6.18 3.25Л7 14.14 2 9.27л6.91-1.01L12 2z"/>
                 </svg>
                 <span>Замовити як гість</span>
               </div>
@@ -511,6 +527,8 @@
             </button>
           {% endif %}
         </div>
+
+
       </div>
     </div>
   </div>
@@ -705,65 +723,8 @@ document.addEventListener('DOMContentLoaded', function() {
      data-contents='[{% for it in items %}{"id":"{{ it.product.id }}","quantity":{{ it.qty }},"item_price":{{ it.unit_price }}}{% if not forloop.last %},{% endif %}{% endfor %}]'
      style="display:none"></div>
 
-<!-- Google Pay функциональность -->
+<!-- Монобанк функціональність -->
 <script>
-let paymentsClient = null;
-const gpayBaseRequest = { apiVersion: 2, apiVersionMinor: 0 };
-const gpayAllowedCardNetworks = ['MASTERCARD', 'VISA'];
-const gpayAllowedCardAuthMethods = ['PAN_ONLY', 'CRYPTOGRAM_3DS'];
-const gpayTokenizationSpecification = {
-  type: 'PAYMENT_GATEWAY',
-  parameters: {
-    gateway: 'stripe',             // TODO: заменить на ваш платёжный шлюз
-    gatewayMerchantId: 'your-merchant-id' // TODO: заменить на ваш merchant ID
-  }
-};
-
-function getGooglePaymentsClient() {
-  if (!paymentsClient) {
-    paymentsClient = new google.payments.api.PaymentsClient({ environment: 'TEST' });
-  }
-  return paymentsClient;
-}
-
-function getGoogleIsReadyToPayRequest() {
-  return {
-    ...gpayBaseRequest,
-    allowedPaymentMethods: [{
-      type: 'CARD',
-      parameters: {
-        allowedAuthMethods: gpayAllowedCardAuthMethods,
-        allowedCardNetworks: gpayAllowedCardNetworks
-      }
-    }]
-  };
-}
-
-function buildPaymentDataRequest(totalPrice) {
-  return {
-    ...gpayBaseRequest,
-    allowedPaymentMethods: [{
-      type: 'CARD',
-      parameters: {
-        allowedAuthMethods: gpayAllowedCardAuthMethods,
-        allowedCardNetworks: gpayAllowedCardNetworks,
-        billingAddressRequired: true,
-        billingAddressParameters: { format: 'FULL' }
-      },
-      tokenizationSpecification: gpayTokenizationSpecification
-    }],
-    transactionInfo: {
-      totalPriceStatus: 'FINAL',
-      totalPrice: totalPrice.toFixed(2),
-      currencyCode: 'UAH'
-    },
-    merchantInfo: {
-      merchantName: 'TwoComms',
-      merchantId: 'your-merchant-id'
-    }
-  };
-}
-
 function getCheckoutTotals() {
   const payload = document.getElementById('checkout-payload');
   if (!payload) {
@@ -779,141 +740,146 @@ function getCheckoutTotals() {
   };
 }
 
-function setGooglePayState(state, message) {
-  const container = document.getElementById('google-pay-button-container');
-  if (!container) return;
-  if (state === 'button') {
-    container.classList.remove('cart-google-pay-placeholder', 'cart-google-pay-unavailable');
-    container.innerHTML = '';
-  } else if (state === 'unavailable') {
-    container.classList.remove('cart-google-pay-placeholder');
-    container.classList.add('cart-google-pay-unavailable');
-    container.innerHTML = `<span>${message}</span>`;
+const isUserAuthenticated = {{ request.user.is_authenticated|yesno:'true,false' }};
+const monobankButton = document.getElementById('monobank-pay-btn');
+const monobankStatusEl = document.getElementById('monobank-pay-status');
+const csrfToken = (document.querySelector('[name=csrfmiddlewaretoken]') || {}).value || '';
+
+function setMonobankStatus(type, message) {
+  if (!monobankStatusEl) return;
+  monobankStatusEl.textContent = message || '';
+  monobankStatusEl.classList.remove('error', 'success');
+  if (type) {
+    monobankStatusEl.classList.add(type);
   }
 }
 
-function addGooglePayButton() {
-  const container = document.getElementById('google-pay-button-container');
-  if (!container) return;
-  const client = getGooglePaymentsClient();
-  setGooglePayState('button');
-  const button = client.createButton({
-    onClick: onGooglePayButtonClicked,
-    buttonColor: 'white',
-    buttonType: 'buy',
-    buttonLocale: 'uk',
-    buttonSizeMode: 'fill'
-  });
-  container.appendChild(button);
+function setMonobankLoading(isLoading) {
+  if (!monobankButton) return;
+  if (isLoading) {
+    monobankButton.classList.add('loading');
+    monobankButton.disabled = true;
+    monobankButton.setAttribute('aria-busy', 'true');
+  } else {
+    monobankButton.classList.remove('loading');
+    monobankButton.disabled = false;
+    monobankButton.removeAttribute('aria-busy');
+  }
 }
 
-function onGooglePayReady() {
+function collectCheckoutFormData() {
+  const form = isUserAuthenticated ? document.getElementById('deliveryForm') : document.getElementById('guest-form');
+  if (!form) {
+    setMonobankStatus('error', 'Форма доставки недоступна. Оновіть сторінку.');
+    return null;
+  }
+
+  if (typeof form.reportValidity === 'function' && !form.reportValidity()) {
+    return null;
+  }
+
+  const formData = new FormData(form);
+  const payload = {
+    full_name: (formData.get('full_name') || '').trim(),
+    phone: (formData.get('phone') || '').trim(),
+    city: (formData.get('city') || '').trim(),
+    np_office: (formData.get('np_office') || '').trim(),
+    pay_type: (formData.get('pay_type') || '').trim().toLowerCase()
+  };
+
+  if (!payload.full_name || !payload.phone || !payload.city || !payload.np_office) {
+    setMonobankStatus('error', 'Заповніть усі обовʼязкові поля доставки.');
+    return null;
+  }
+
+  if (payload.pay_type !== 'full') {
+    setMonobankStatus('error', 'Для онлайн-оплати потрібно обрати «Повна передоплата».');
+    return null;
+  }
+
+  payload.pay_type = 'full';
+  return payload;
+}
+
+function safeParse(jsonString, fallback) {
   try {
-    const client = getGooglePaymentsClient();
-    client.isReadyToPay(getGoogleIsReadyToPayRequest())
-      .then(res => {
-        if (res.result) {
-          addGooglePayButton();
-        } else {
-          setGooglePayState('unavailable', 'Google Pay недоступний для цього пристрою');
-        }
-      })
-      .catch(err => {
-        console.error('Google Pay readiness error', err);
-        setGooglePayState('unavailable', 'Google Pay тимчасово недоступний');
-      });
-  } catch (err) {
-    console.error('Google Pay init error', err);
-    setGooglePayState('unavailable', 'Google Pay недоступний');
+    return JSON.parse(jsonString);
+  } catch (_) {
+    return fallback;
   }
 }
 
-function onGooglePayButtonClicked() {
-  const totals = getCheckoutTotals();
-  if (!(totals.amount > 0)) {
-    alert('Сума має бути більшою за 0');
+function startMonobankPayment() {
+  const payload = collectCheckoutFormData();
+  if (!payload) {
     return;
   }
-  const request = buildPaymentDataRequest(totals.amount);
+
+  const totals = getCheckoutTotals();
+  const contentIds = safeParse(totals.ids || '[]', []);
+  const contents = safeParse(totals.contents || '[]', []);
+
   try {
     if (window.trackEvent) {
       window.trackEvent('InitiateCheckout', {
         value: totals.amount,
         currency: totals.currency,
         num_items: totals.numItems,
-        payment_method: 'google_pay',
-        content_ids: JSON.parse(totals.ids || '[]')
+        payment_method: 'monobank',
+        content_ids: contentIds,
+        contents: contents
       });
     }
   } catch (_) {}
 
-  getGooglePaymentsClient().loadPaymentData(request)
-    .then(paymentData => handleGooglePaySuccess(paymentData, totals))
-    .catch(err => {
-      if (err && err.statusCode === 'CANCELED') {
-        console.log('Користувач скасував оплату Google Pay');
-      } else {
-        console.error('Помилка Google Pay', err);
-        alert('Не вдалося завершити оплату Google Pay. Спробуйте ще раз.');
-      }
-    });
-}
+  setMonobankStatus('', '');
+  setMonobankLoading(true);
 
-function handleGooglePaySuccess(paymentData, totals) {
-  const csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-  const csrfToken = csrfEl ? csrfEl.value : '';
-
-  fetch('/cart/google-pay-success/', {
+  fetch('{% url "monobank_create_invoice" %}', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-CSRFToken': csrfToken,
       'X-Requested-With': 'XMLHttpRequest'
     },
-    body: JSON.stringify({
-      paymentData,
-      totalAmount: totals.amount
-    })
+    body: JSON.stringify(payload)
   })
-    .then(r => r.json())
+    .then(response => response.json().catch(() => ({ success: false, error: 'Неочікувана відповідь сервера.' })))
     .then(data => {
-      if (data && data.success) {
+      if (data && data.success && data.redirect_url) {
         try {
           if (window.trackEvent) {
-            window.trackEvent('Purchase', {
+            window.trackEvent('StartPayment', {
               value: totals.amount,
               currency: totals.currency,
               num_items: totals.numItems,
-              payment_method: 'google_pay',
-              content_ids: JSON.parse(totals.ids || '[]'),
-              contents: JSON.parse(totals.contents || '[]')
+              payment_method: 'monobank',
+              content_ids: contentIds
             });
           }
         } catch (_) {}
-        const redirectUrl = data.redirect_url || (data.order_id ? `/orders/success/${data.order_id}/` : '/');
-        window.location.href = redirectUrl;
-      } else {
-        throw new Error(data && data.error ? data.error : 'Невідома помилка');
+        window.location.href = data.redirect_url;
+        return;
       }
+
+      const errorMessage = (data && data.error) ? data.error : 'Не вдалося створити платіж. Спробуйте ще раз.';
+      setMonobankStatus('error', errorMessage);
     })
     .catch(err => {
-      console.error('Помилка оформлення Google Pay', err);
-      alert('Оплата пройшла, але не вдалося оформити замовлення. Зверніться до підтримки.');
+      console.error('Monobank payment error', err);
+      setMonobankStatus('error', 'Сталася помилка під час з’єднання. Спробуйте пізніше.');
+    })
+    .finally(() => {
+      setMonobankLoading(false);
     });
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-  const container = document.getElementById('google-pay-button-container');
-  if (!container) return;
-  const waitForGoogle = () => {
-    if (window.google && google.payments && google.payments.api) {
-      onGooglePayReady();
-    } else {
-      setTimeout(waitForGoogle, 300);
-    }
-  };
-  waitForGoogle();
-});
+if (monobankButton) {
+  monobankButton.addEventListener('click', function (event) {
+    event.preventDefault();
+    startMonobankPayment();
+  });
+}
 
 // Трекинг для аналитики
 document.addEventListener('DOMContentLoaded', function(){

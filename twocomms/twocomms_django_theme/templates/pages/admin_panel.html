@@ -618,6 +618,60 @@
         </div>
       </div>
 
+              {% if o.payment_provider %}
+              <div class="payment-meta-card">
+                <div class="payment-meta-header">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-.88 14.88-3.76-3.77 1.41-1.41 2.35 2.36 5.29-5.29 1.41 1.41-6.7 6.7z"/>
+                  </svg>
+                  <span>Оплата</span>
+                </div>
+                <div class="payment-meta-grid">
+                  <div class="info-item">
+                    <span class="info-label">Сервіс:</span>
+                    <span class="info-value">{{ o.payment_provider|capfirst }}</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="info-label">Invoice ID:</span>
+                    <span class="info-value">{{ o.payment_invoice_id|default:'—' }}</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="info-label">Статус Monobank:</span>
+                    <span class="info-value">{{ o.payment_payload.last_status|default:'немає даних' }}</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="info-label">Оновлено:</span>
+                    <span class="info-value">
+                      {% if o.payment_payload.last_update_at %}
+                        {{ o.payment_payload.last_update_at|date:"d.m.Y H:i" }}
+                      {% else %}
+                        —
+                      {% endif %}
+                    </span>
+                  </div>
+                </div>
+                {% if o.payment_payload.history %}
+                <div class="payment-history">
+                  {% for entry in o.payment_payload.history|slice:":5" %}
+                    <div class="payment-history-item">
+                      <span class="history-status">{{ entry.status|default:'—' }}</span>
+                      <span class="history-time">
+                        {% if entry.received_at %}
+                          {{ entry.received_at|date:"d.m.Y H:i" }}
+                        {% else %}
+                          —
+                        {% endif %}
+                      </span>
+                      {% if entry.data.modifiedDate %}
+                        <span class="history-modified">{{ entry.data.modifiedDate }}</span>
+                      {% endif %}
+                    </div>
+                  {% endfor %}
+                </div>
+                {% endif %}
+              </div>
+              {% endif %}
+
               <!-- Этапы статуса заказа (кликабельные для админа) -->
               <div class="order-status-track admin-status-track">
                 <div class="status-step {% if o.status == 'new' %}active{% elif o.status in 'prep,ship,done' %}completed{% endif %}" onclick="updateOrderStatus('{{ o.id }}', 'new')">
@@ -758,17 +812,17 @@
                   {% for item in o.items.all %}
                     <div class="order-item-card">
                       <div class="order-item-image">
-                        {% if item.color_variant and item.color_variant.images.exists %}
-                          <img src="{{ item.color_variant.images.first.image.url }}" alt="{{ item.product.title }}" class="order-item-img">
-                        {% elif item.product.images.exists %}
-                          <img src="{{ item.product.images.first.image.url }}" alt="{{ item.product.title }}" class="order-item-img">
-                        {% else %}
-                          <div class="order-item-placeholder">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
-                            </svg>
-                          </div>
-                        {% endif %}
+                        {% with img=item.product_image %}
+                          {% if img %}
+                            <img src="{{ img.url }}" alt="{{ item.product.title }}" class="order-item-img">
+                          {% else %}
+                            <div class="order-item-placeholder">
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5л3.5-4.5з"/>
+                              </svg>
+                            </div>
+                          {% endif %}
+                        {% endwith %}
                       </div>
                       
                       <div class="order-item-content">
@@ -785,10 +839,10 @@
                               <span class="spec-label">Кількість:</span>
                               <span class="spec-value">{{ item.qty }} шт</span>
                             </div>
-                            {% if item.color_variant %}
+                            {% if item.color_name %}
                             <div class="order-item-spec">
                               <span class="spec-label">Колір:</span>
-                              <span class="spec-value">{{ item.color_variant.name }}</span>
+                              <span class="spec-value">{{ item.color_name }}</span>
                             </div>
                             {% endif %}
                           </div>
