@@ -74,6 +74,7 @@ urlpatterns=[
     path('admin-panel/offline-store/<int:store_id>/add-to-store/', views.admin_store_add_products_to_store, name='admin_store_add_products_to_store'),
     path('admin-panel/offline-store/<int:store_id>/generate-invoice/', views.admin_store_generate_invoice, name='admin_store_generate_invoice'),
     path('admin-panel/offline-store/<int:store_id>/product/<int:product_id>/update/', views.admin_store_update_product, name='admin_store_update_product'),
+    path('admin-panel/offline-store/<int:store_id>/product/<int:product_id>/mark-sold/', views.admin_store_mark_product_sold, name='admin_store_mark_product_sold'),
     path('admin-panel/offline-store/<int:store_id>/product/<int:product_id>/remove/', views.admin_store_remove_product, name='admin_store_remove_product'),
     # print proposals
     path('admin-panel/print-proposal/update-status/', views.admin_print_proposal_update_status, name='admin_print_proposal_update_status'),
@@ -82,8 +83,10 @@ urlpatterns=[
     # promocodes in cart
     path('cart/apply-promo/', views.apply_promo_code, name='apply_promo_code'),
     path('cart/remove-promo/', views.remove_promo_code, name='remove_promo_code'),
-    # Google Pay
-    path('cart/google-pay-success/', views.google_pay_success, name='google_pay_success'),
+    # Monobank acquiring
+    path('cart/monobank/create-invoice/', views.monobank_create_invoice, name='monobank_create_invoice'),
+    path('payments/monobank/return/', views.monobank_return, name='monobank_return'),
+    path('payments/monobank/webhook/', views.monobank_webhook, name='monobank_webhook'),
     # API endpoints
     path('api/colors/', views.api_colors, name='api_colors'),
     path('debug/media/', views.debug_media, name='debug_media'),
@@ -100,6 +103,8 @@ urlpatterns=[
     path('google-merchant-feed.xml', views.google_merchant_feed, name='google_merchant_feed'),
     # alternate no-cache path
     path('google-merchant-feed-v2.xml', views.google_merchant_feed, name='google_merchant_feed_v2'),
+    # UAPROM-style product feed
+    path('products_feed.xml', views.uaprom_products_feed, name='uaprom_products_feed'),
     path('contacts/', views.contacts, name='contacts'),
     path('search/', views.search, name='search'),
     # favorites
