@@ -64,16 +64,16 @@ class Command(BaseCommand):
         
         # Заголовки таблицы (строка 2)
         headers = [
-            'Категория',
+            'Категорія',
             'Товар (S–XL)',
             'Артикул',
-            'Цвет',
+            'Колір',
             '8–15 шт. (за 1 шт.)',
             '16–31 шт.',
             '32–63 шт.',
             '64–99 шт.',
             '100+ шт.',
-            'Ссылка'
+            'Посилання'
         ]
         
         for col, header in enumerate(headers, 1):
@@ -112,7 +112,7 @@ class Command(BaseCommand):
                     ws.cell(row=row, column=1, value='Худи')
                     ws.cell(row=row, column=2, value=product_title)
                     ws.cell(row=row, column=3, value=sku)
-                    ws.cell(row=row, column=4, value='черный')  # Для худи всегда черный
+                    ws.cell(row=row, column=4, value='чорний')  # Для худи завжди чорний
                     
                     # Добавляем цены
                     for col, price in enumerate(hoodie_prices, 5):
@@ -128,7 +128,7 @@ class Command(BaseCommand):
                 ws.cell(row=row, column=1, value='Худи')
                 ws.cell(row=row, column=2, value=product_title)
                 ws.cell(row=row, column=3, value=sku)
-                ws.cell(row=row, column=4, value='черный')  # Для худи всегда черный
+                ws.cell(row=row, column=4, value='чорний')  # Для худи завжди чорний
                 
                 # Добавляем цены
                 for col, price in enumerate(hoodie_prices, 5):
@@ -164,7 +164,7 @@ class Command(BaseCommand):
                     ws.cell(row=row, column=1, value='Футболки')
                     ws.cell(row=row, column=2, value=product_title)
                     ws.cell(row=row, column=3, value=sku)
-                    ws.cell(row=row, column=4, value=color if color else 'черный')
+                    ws.cell(row=row, column=4, value=color if color else 'чорний')
                     
                     # Добавляем цены
                     for col, price in enumerate(tshirt_prices, 5):
@@ -180,7 +180,7 @@ class Command(BaseCommand):
                 ws.cell(row=row, column=1, value='Футболки')
                 ws.cell(row=row, column=2, value=product_title)
                 ws.cell(row=row, column=3, value=sku)
-                ws.cell(row=row, column=4, value='черный')
+                ws.cell(row=row, column=4, value='чорний')
                 
                 # Добавляем цены
                 for col, price in enumerate(tshirt_prices, 5):
