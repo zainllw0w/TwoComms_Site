@@ -5548,28 +5548,66 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
     
     # Build products array according to Monobank Checkout API
     products = []
+    computed_amount_minor = 0
     for item in items:
-        monobank_logger.info('Building product data for item: %s, qty=%s, unit_price=%s', 
-                           item.product.title, item.qty, item.unit_price)
-        
-        if not item.qty or not item.unit_price:
-            monobank_logger.error('Item has null qty or unit_price: qty=%s, unit_price=%s', 
-                                item.qty, item.unit_price)
+        qty_value = getattr(item, 'qty', None)
+        if qty_value is None:
+            qty_value = getattr(item, 'quantity', None)
+        monobank_logger.info('Building product data for item: %s, qty=%s, unit_price=%s',
+                             item.product.title, qty_value, getattr(item, 'unit_price', None))
+
+        try:
+            qty = int(qty_value) if qty_value is not None else 0
+        except (TypeError, ValueError):
+            qty = 0
+
+        if qty <= 0:
+            monobank_logger.error('Item has non-positive qty: %s', qty)
+            qty = 1
+
+        try:
+            unit_price_minor = int((Decimal(str(item.unit_price)) * 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
+            line_total_minor = int((Decimal(str(item.line_total)) * 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
+        except Exception as exc:
+            monobank_logger.exception('Failed to convert prices for item %s: %s', item.id if hasattr(item, 'id') else item.product_id, exc)
             continue
-            
+
+        if unit_price_minor <= 0 or line_total_minor <= 0:
+            monobank_logger.error('Item has non-positive price: unit=%s, total=%s', unit_price_minor, line_total_minor)
+            continue
+
+        computed_amount_minor += line_total_minor
+
         product_data = {
-            'name': item.product.title,
-            'quantity': item.qty,
-            'price': int(item.unit_price * 100),  # цена за единицу в копейках
+            'name': item.title or item.product.title,
+            'quantity': qty,
+            'price': unit_price_minor,
+            'sum': line_total_minor,
         }
+        product_data['count'] = qty
+
+        product_sku = getattr(item.product, 'sku', None)
+        if product_sku:
+            product_data['code'] = str(product_sku)
         if item.product.main_image:
             product_data['icon'] = request.build_absolute_uri(item.product.main_image.url)
+        if item.color_name:
+            product_data['description'] = item.color_name
+
         products.append(product_data)
-    
+
+    if not products:
+        monobank_logger.error('No products collected for monobank checkout payload')
+        raise MonobankAPIError('Кошик порожній. Додайте товари перед оплатою.')
+
     # Build payload
+    amount_minor = int((Decimal(str(amount_decimal)) * 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
+    if computed_amount_minor and abs(computed_amount_minor - amount_minor) > 1:
+        amount_minor = computed_amount_minor
+
     payload = {
         'order_ref': order.order_number,
-        'amount': int(amount_decimal * 100),  # сумма в копейках
+        'amount': amount_minor,
         'ccy': 980,  # гривна
         'count': total_qty,
         'products': products,
@@ -5595,46 +5633,54 @@ def _create_single_product_order(product, size, qty, color_variant_id, customer)
     """Create a temporary order for a single product for Monobank Checkout."""
     from orders.models import Order, OrderItem
     from productcolors.models import ProductColorVariant
-    
-    # Create temporary order
-    order = Order.objects.create(
-        customer_name=customer['full_name'],
-        customer_phone=customer['phone'],
-        customer_city=customer['city'],
-        customer_np_office=customer['np_office'],
-        pay_type=customer.get('pay_type', 'full'),
-        status='pending',
-        total_amount=0,  # Will be calculated below
-        user=customer.get('user')
-    )
-    
-    # Calculate price
-    unit_price = product.final_price
-    line_total = unit_price * qty
-    
-    # Get color variant if specified
+
+    customer_data = {
+        'user': customer.get('user'),
+        'full_name': (customer.get('full_name') or 'Користувач').strip() or 'Користувач',
+        'phone': customer.get('phone', '') or '',
+        'city': customer.get('city', '') or '',
+        'np_office': customer.get('np_office', '') or '',
+        'pay_type': customer.get('pay_type', 'full') or 'full'
+    }
+
+    qty_int = max(int(qty or 1), 1)
+
+    unit_price_raw = product.final_price if product.final_price is not None else getattr(product, 'price', None)
+    unit_price = Decimal(str(unit_price_raw or '0'))
+    line_total = (unit_price * qty_int).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
     color_variant = None
     if color_variant_id:
         try:
             color_variant = ProductColorVariant.objects.get(id=color_variant_id)
         except ProductColorVariant.DoesNotExist:
-            pass
-    
-    # Create order item
+            color_variant = None
+
+    order = Order.objects.create(
+        user=customer_data['user'],
+        full_name=customer_data['full_name'],
+        phone=customer_data['phone'],
+        city=customer_data['city'],
+        np_office=customer_data['np_office'],
+        pay_type=customer_data['pay_type'],
+        payment_status='checking',
+        status='new',
+        total_sum=line_total,
+        discount_amount=Decimal('0'),
+        payment_provider='monobank_checkout'
+    )
+
     OrderItem.objects.create(
         order=order,
         product=product,
         color_variant=color_variant,
-        size=size,
-        qty=qty,
+        title=product.title,
+        size=size or '',
+        qty=qty_int,
         unit_price=unit_price,
         line_total=line_total
     )
-    
-    # Update order total
-    order.total_amount = line_total
-    order.save(update_fields=['total_amount'])
-    
+
     return order
 
 
@@ -5796,6 +5842,7 @@ def monobank_return(request):
     except MonobankAPIError as exc:
         messages.error(request, f'Не вдалося підтвердити статус платежу: {exc}')
         return redirect('my_orders' if request.user.is_authenticated else 'cart')
+
 
     if status in MONOBANK_SUCCESS_STATUSES:
         _cleanup_after_success(request)
