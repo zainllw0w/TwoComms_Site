@@ -57,7 +57,7 @@ class Command(BaseCommand):
         center_alignment = Alignment(horizontal="center", vertical="center")
         
         # Заголовок (строка 1)
-        ws.merge_cells('A1:K1')
+        ws.merge_cells('A1:L1')
         ws['A1'] = "Оптові ціни від кількості. Мінімальне замовлення по моделі — від 8 шт. і кратно 8."
         ws['A1'].font = header_font
         ws['A1'].alignment = center_alignment
@@ -72,7 +72,8 @@ class Command(BaseCommand):
             '16–31 шт.',
             '32–63 шт.',
             '64–99 шт.',
-            '100+ шт.'
+            '100+ шт.',
+            'Ссылка на товар'
         ]
         
         for col, header in enumerate(headers, 1):
@@ -99,31 +100,43 @@ class Command(BaseCommand):
                 if variant.color:
                     colors.append(variant.color.name or str(variant.color))
             
+            # Формируем название с "[фліс]" в конце
+            product_title = f"{product.title} (S–XL) [фліс]"
+            
+            # Создаем ссылку на товар
+            product_url = f"https://twocomms.shop/product/{product.slug}/"
+            
             if colors:
                 # Если есть цвета, создаем строку для каждого цвета
                 for color in colors:
                     ws.cell(row=row, column=1, value='Худи')
-                    ws.cell(row=row, column=2, value=f"{product.title} (S–XL)")
+                    ws.cell(row=row, column=2, value=product_title)
                     ws.cell(row=row, column=3, value=sku)
-                    ws.cell(row=row, column=4, value=color)
+                    ws.cell(row=row, column=4, value='черный')  # Для худи всегда черный
                     
                     # Добавляем цены
                     for col, price in enumerate(hoodie_prices, 5):
                         ws.cell(row=row, column=col, value=price)
                         ws.cell(row=row, column=col).alignment = center_alignment
                     
+                    # Добавляем ссылку на товар
+                    ws.cell(row=row, column=10, value=product_url)
+                    
                     row += 1
             else:
                 # Если нет цветов, создаем одну строку
                 ws.cell(row=row, column=1, value='Худи')
-                ws.cell(row=row, column=2, value=f"{product.title} (S–XL)")
+                ws.cell(row=row, column=2, value=product_title)
                 ws.cell(row=row, column=3, value=sku)
-                ws.cell(row=row, column=4, value='')
+                ws.cell(row=row, column=4, value='черный')  # Для худи всегда черный
                 
                 # Добавляем цены
                 for col, price in enumerate(hoodie_prices, 5):
                     ws.cell(row=row, column=col, value=price)
                     ws.cell(row=row, column=col).alignment = center_alignment
+                
+                # Добавляем ссылку на товар
+                ws.cell(row=row, column=10, value=product_url)
                 
                 row += 1
         
@@ -139,11 +152,17 @@ class Command(BaseCommand):
                 if variant.color:
                     colors.append(variant.color.name or str(variant.color))
             
+            # Формируем название без [фліс]
+            product_title = f"{product.title} (S–XL)"
+            
+            # Создаем ссылку на товар
+            product_url = f"https://twocomms.shop/product/{product.slug}/"
+            
             if colors:
                 # Если есть цвета, создаем строку для каждого цвета
                 for color in colors:
                     ws.cell(row=row, column=1, value='Футболки')
-                    ws.cell(row=row, column=2, value=f"{product.title} (S–XL)")
+                    ws.cell(row=row, column=2, value=product_title)
                     ws.cell(row=row, column=3, value=sku)
                     ws.cell(row=row, column=4, value=color)
                     
@@ -152,11 +171,14 @@ class Command(BaseCommand):
                         ws.cell(row=row, column=col, value=price)
                         ws.cell(row=row, column=col).alignment = center_alignment
                     
+                    # Добавляем ссылку на товар
+                    ws.cell(row=row, column=10, value=product_url)
+                    
                     row += 1
             else:
                 # Если нет цветов, создаем одну строку
                 ws.cell(row=row, column=1, value='Футболки')
-                ws.cell(row=row, column=2, value=f"{product.title} (S–XL)")
+                ws.cell(row=row, column=2, value=product_title)
                 ws.cell(row=row, column=3, value=sku)
                 ws.cell(row=row, column=4, value='')
                 
@@ -164,6 +186,9 @@ class Command(BaseCommand):
                 for col, price in enumerate(tshirt_prices, 5):
                     ws.cell(row=row, column=col, value=price)
                     ws.cell(row=row, column=col).alignment = center_alignment
+                
+                # Добавляем ссылку на товар
+                ws.cell(row=row, column=10, value=product_url)
                 
                 row += 1
         
