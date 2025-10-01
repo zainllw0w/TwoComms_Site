@@ -198,7 +198,7 @@ class Command(BaseCommand):
             if colors:
                 # Если есть цвета, создаем строку для каждого цвета
                 for color in colors:
-                    ws.cell(row=row, column=1, value='Худи')
+                    ws.cell(row=row, column=1, value='Худі')
                     ws.cell(row=row, column=2, value=product_title)
                     ws.cell(row=row, column=3, value=sku)
                     ws.cell(row=row, column=4, value=_translate_color_to_ukrainian('чорний'))  # Для худи завжди чорний
@@ -214,7 +214,7 @@ class Command(BaseCommand):
                     row += 1
             else:
                 # Если нет цветов, создаем одну строку
-                ws.cell(row=row, column=1, value='Худи')
+                ws.cell(row=row, column=1, value='Худі')
                 ws.cell(row=row, column=2, value=product_title)
                 ws.cell(row=row, column=3, value=sku)
                 ws.cell(row=row, column=4, value=_translate_color_to_ukrainian('чорний'))  # Для худи завжди чорний
