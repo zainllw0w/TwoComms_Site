@@ -115,5 +115,6 @@ urlpatterns=[
     path('favorites/count/', views.favorites_count, name='favorites_count'),
     # wholesale prices
     path('pricelist_opt.xlsx', views.pricelist_redirect, name='wholesale_prices_xlsx'),
+    path('pricelist/', views.pricelist_page, name='pricelist_page'),
     path('test-pricelist/', views.test_pricelist, name='test_wholesale_prices'),
 ]
