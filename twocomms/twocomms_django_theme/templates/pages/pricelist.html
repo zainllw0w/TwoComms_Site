@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Оптові ціни TwoComms{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h1 class="card-title mb-4">Оптові ціни TwoComms</h1>
+                    <p class="card-text mb-4">
+                        Скачайте актуальний прайс-лист оптових цен на футболки и худи.
+                        Мінімальне замовлення по моделі — від 8 шт. і кратно 8.
+                    </p>
+                    <a href="/media/pricelist_opt.xlsx" class="btn btn-primary btn-lg" download>
+                        <i class="fas fa-download me-2"></i>
+                        Скачать прайс-лист (XLSX)
+                    </a>
+                    <div class="mt-4">
+                        <h5>Умови опта:</h5>
+                        <ul class="list-unstyled">
+                            <li><strong>Футболки:</strong> 750/700/650/600/550 грн (за 8-15/16-31/32-63/64-99/100+ шт.)</li>
+                            <li><strong>Худи:</strong> 1600/1500/1400/1300/1200 грн (за 8-15/16-31/32-63/64-99/100+ шт.)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

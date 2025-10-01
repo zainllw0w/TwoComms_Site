@@ -6108,3 +6108,8 @@ def pricelist_redirect(request):
     """Redirect to static pricelist file."""
     from django.shortcuts import redirect
     return redirect('/media/pricelist_opt.xlsx')
+
+
+def pricelist_page(request):
+    """Display pricelist download page."""
+    return render(request, 'pages/pricelist.html')
