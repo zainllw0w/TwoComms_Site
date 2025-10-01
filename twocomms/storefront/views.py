@@ -5361,7 +5361,7 @@ def _monobank_api_request(method, endpoint, *, params=None, json_payload=None, t
             raise MonobankAPIError('Unsupported HTTP method')
     except requests.RequestException as exc:
         monobank_logger.error('Monobank API request failed: %s', exc)
-        raise MonobankAPIError(f'Помилка з'єднання з платіжним сервісом: {exc}') from exc
+        raise MonobankAPIError(f'Помилка з\'єднання з платіжним сервісом: {exc}') from exc
 
     try:
         data = response.json()
