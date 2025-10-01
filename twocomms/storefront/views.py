@@ -6102,3 +6102,9 @@ def test_pricelist(request):
     """Simple test function to check if new URLs work."""
     from django.http import HttpResponse
     return HttpResponse("Pricelist test works!", content_type="text/plain")
+
+
+def pricelist_redirect(request):
+    """Redirect to static pricelist file."""
+    from django.shortcuts import redirect
+    return redirect('/media/pricelist_opt.xlsx')
