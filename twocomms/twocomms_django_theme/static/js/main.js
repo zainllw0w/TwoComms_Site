@@ -506,15 +506,19 @@ function requestMonoCheckout(){
 }
 
 function requestMonoCheckoutSingleProduct(button){
+  console.log('requestMonoCheckoutSingleProduct called with button:', button);
   const csrfToken = collectMonoCsrf();
   const productId = button.getAttribute('data-product-id');
+  console.log('Product ID:', productId);
   
   const rootSelector = button.getAttribute('data-product-root');
+  console.log('Root selector:', rootSelector);
   let root = null;
   if(rootSelector){
     try { root = document.querySelector(rootSelector); } catch(_) { root = null; }
   }
   if(!root) root = button.closest('[data-product-container]') || document;
+  console.log('Root element:', root);
   const find = (selector)=> root ? root.querySelector(selector) : document.querySelector(selector);
 
   let size = '';
@@ -545,7 +549,8 @@ function requestMonoCheckoutSingleProduct(button){
     single_product: true
   };
 
-  console.log('Sending single product checkout request:', payload);
+  console.log('Final payload for single product checkout:', payload);
+  console.log('Size:', size, 'Qty:', qty, 'ColorVariantId:', colorVariantId);
   
   return fetch('/cart/monobank/quick/', {
     method: 'POST',

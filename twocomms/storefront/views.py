@@ -1288,6 +1288,14 @@ def process_guest_order(request):
         unit = p.final_price
         line = unit * it['qty']
         total_sum += line
+        
+        monobank_logger.info('Creating OrderItem: product=%s, unit_price=%s, qty=%s, line_total=%s', 
+                           p.title, unit, it['qty'], line)
+        
+        if not unit:
+            monobank_logger.error('Product %s has null final_price: price=%s, discount_percent=%s', 
+                                p.title, p.price, getattr(p, 'discount_percent', 'N/A'))
+        
         OrderItem.objects.create(
             order=order,
             product=p,
