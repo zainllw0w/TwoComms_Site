@@ -5541,6 +5541,14 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
     # Build products array according to Monobank Checkout API
     products = []
     for item in items:
+        monobank_logger.info('Building product data for item: %s, qty=%s, unit_price=%s', 
+                           item.product.title, item.qty, item.unit_price)
+        
+        if not item.qty or not item.unit_price:
+            monobank_logger.error('Item has null qty or unit_price: qty=%s, unit_price=%s', 
+                                item.qty, item.unit_price)
+            continue
+            
         product_data = {
             'name': item.product.title,
             'quantity': item.qty,
@@ -5569,6 +5577,8 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
         'destination': getattr(settings, 'MONOBANK_CHECKOUT_DESTINATION_TEMPLATE', 'Оплата замовлення {order_number}').format(order_number=order.order_number),
         'dlv_info_merchant': getattr(settings, 'MONOBANK_CHECKOUT_DEFAULT_DLV_INFO', {})
     }
+    
+    monobank_logger.info('Built Monobank Checkout payload: %s', payload)
     
     return payload
 
