@@ -5378,6 +5378,33 @@ def _monobank_api_request(method, endpoint, *, params=None, json_payload=None, t
     return data
 
 
+def _prepare_checkout_customer_data(request):
+    """Prepare customer data for checkout from request."""
+    if request.user.is_authenticated:
+        try:
+            profile = request.user.userprofile
+            return {
+                'full_name': profile.full_name or f'{request.user.first_name} {request.user.last_name}'.strip() or 'Користувач',
+                'phone': profile.phone or '',
+                'city': profile.city or '',
+                'np_office': profile.np_office or '',
+                'pay_type': profile.pay_type or 'full',
+                'user': request.user
+            }
+        except:
+            pass
+    
+    # Default data for guests
+    return {
+        'full_name': 'Користувач',
+        'phone': '',
+        'city': '',
+        'np_office': '',
+        'pay_type': 'full',
+        'user': None
+    }
+
+
 def _record_monobank_status(order, payload, source='api'):
     if not payload:
         return
@@ -5544,33 +5571,6 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
     }
     
     return payload
-
-
-def _prepare_checkout_customer_data(request):
-    """Prepare customer data for checkout from request."""
-    if request.user.is_authenticated:
-        try:
-            profile = request.user.userprofile
-            return {
-                'full_name': profile.full_name or f'{request.user.first_name} {request.user.last_name}'.strip() or 'Користувач',
-                'phone': profile.phone or '',
-                'city': profile.city or '',
-                'np_office': profile.np_office or '',
-                'pay_type': profile.pay_type or 'full',
-                'user': request.user
-            }
-        except:
-            pass
-    
-    # Default data for guests
-    return {
-        'full_name': 'Користувач',
-        'phone': '',
-        'city': '',
-        'np_office': '',
-        'pay_type': 'full',
-        'user': None
-    }
 
 
 def _create_single_product_order(product, size, qty, color_variant_id, customer):
