@@ -426,43 +426,55 @@ function collectMonoCsrf(){
   return '';
 }
 
-function addProductToCartForMono(button){
-  const productId = button && button.getAttribute('data-product-id');
-  if(!productId) return Promise.resolve();
+function resolveMonoProductContext(button){
+  const context = {
+    productId: null,
+    size: '',
+    qty: 1,
+    colorVariantId: null
+  };
+  if(!button) return context;
+
+  context.productId = button.getAttribute('data-product-id');
 
   const rootSelector = button.getAttribute('data-product-root');
   let root = null;
   if(rootSelector){
     try { root = document.querySelector(rootSelector); } catch(_) { root = null; }
   }
-  if(!root) root = button.closest('[data-product-container]') || document;
+  if(!root) root = button.closest('[data-product-container]');
   const find = (selector)=> root ? root.querySelector(selector) : document.querySelector(selector);
 
-  let size = '';
   const checkedSize = find('input[name="size"]:checked');
-  if(checkedSize) size = checkedSize.value;
-  if(!size){
+  if(checkedSize) context.size = checkedSize.value;
+  if(!context.size){
     const sizeInput = find('input[name="size"]');
-    if(sizeInput) size = sizeInput.value;
+    if(sizeInput) context.size = sizeInput.value;
   }
-  if(!size) size = 'S';
+  context.size = (context.size || '').toString().trim();
 
-  let qty = 1;
   const qtyInput = find('#qty');
   if(qtyInput){
     const parsed = parseInt(qtyInput.value, 10);
-    if(Number.isFinite(parsed) && parsed > 0) qty = parsed;
+    if(Number.isFinite(parsed) && parsed > 0) context.qty = parsed;
   }
 
-  let colorVariantId = null;
   const colorActive = find('#color-picker .color-swatch.active') || document.querySelector('#color-picker .color-swatch.active');
-  if(colorActive) colorVariantId = colorActive.getAttribute('data-variant');
+  if(colorActive) context.colorVariantId = colorActive.getAttribute('data-variant');
+
+  return context;
+}
+
+function addProductToCartForMono(button){
+  const context = resolveMonoProductContext(button);
+  const productId = context.productId;
+  if(!productId) return Promise.resolve();
 
   const body = new URLSearchParams();
   body.append('product_id', String(productId));
-  body.append('size', String(size).toUpperCase());
-  body.append('qty', String(qty));
-  if(colorVariantId) body.append('color_variant_id', colorVariantId);
+  body.append('size', (context.size || 'S').toUpperCase());
+  body.append('qty', String(context.qty));
+  if(context.colorVariantId) body.append('color_variant_id', context.colorVariantId);
 
   const csrfToken = collectMonoCsrf();
 
@@ -506,52 +518,21 @@ function requestMonoCheckout(){
 }
 
 function requestMonoCheckoutSingleProduct(button){
-  console.log('requestMonoCheckoutSingleProduct called with button:', button);
   const csrfToken = collectMonoCsrf();
-  const productId = button.getAttribute('data-product-id');
-  console.log('Product ID:', productId);
-  
-  const rootSelector = button.getAttribute('data-product-root');
-  console.log('Root selector:', rootSelector);
-  let root = null;
-  if(rootSelector){
-    try { root = document.querySelector(rootSelector); } catch(_) { root = null; }
-  }
-  if(!root) root = button.closest('[data-product-container]') || document;
-  console.log('Root element:', root);
-  const find = (selector)=> root ? root.querySelector(selector) : document.querySelector(selector);
+  const context = resolveMonoProductContext(button);
 
-  let size = '';
-  const checkedSize = find('input[name="size"]:checked');
-  if(checkedSize) size = checkedSize.value;
-  if(!size){
-    const sizeInput = find('input[name="size"]');
-    if(sizeInput) size = sizeInput.value;
+  if(!context.productId){
+    return Promise.resolve({ data: { success: false, error: 'Товар недоступний.' }, status: 400, ok: false });
   }
-  if(!size) size = 'S';
-
-  let qty = 1;
-  const qtyInput = find('#qty');
-  if(qtyInput){
-    const parsed = parseInt(qtyInput.value, 10);
-    if(Number.isFinite(parsed) && parsed > 0) qty = parsed;
-  }
-
-  let colorVariantId = null;
-  const colorActive = find('#color-picker .color-swatch.active') || document.querySelector('#color-picker .color-swatch.active');
-  if(colorActive) colorVariantId = colorActive.getAttribute('data-variant');
 
   const payload = {
-    product_id: productId,
-    size: size.toUpperCase(),
-    qty: qty,
-    color_variant_id: colorVariantId,
+    product_id: context.productId,
+    size: (context.size || 'S').toUpperCase(),
+    qty: context.qty,
     single_product: true
   };
+  if(context.colorVariantId) payload.color_variant_id = context.colorVariantId;
 
-  console.log('Final payload for single product checkout:', payload);
-  console.log('Size:', size, 'Qty:', qty, 'ColorVariantId:', colorVariantId);
-  
   return fetch('/cart/monobank/quick/', {
     method: 'POST',
     headers: {
@@ -561,16 +542,7 @@ function requestMonoCheckoutSingleProduct(button){
     },
     credentials: 'same-origin',
     body: JSON.stringify(payload)
-  }).then(response => {
-    console.log('Single product checkout response status:', response.status);
-    return response.json().then(data => {
-      console.log('Single product checkout response data:', data);
-      return {data, status: response.status, ok: response.ok};
-    }).catch(err => {
-      console.error('Error parsing single product checkout response:', err);
-      return {data: null, status: response.status, ok: false};
-    });
-  });
+  }).then(response => response.json().then(data => ({data, status: response.status, ok: response.ok})).catch(() => ({data: null, status: response.status, ok: false})));
 }
 
 function startMonoCheckout(button, statusEl, options){
@@ -580,9 +552,7 @@ function startMonoCheckout(button, statusEl, options){
 
   const triggerType = button.getAttribute('data-mono-checkout-trigger');
   const isSingleProduct = triggerType === 'product';
-  
-  console.log('Starting Monobank checkout:', {triggerType, isSingleProduct});
-  
+
   let requestPromise;
   if(isSingleProduct) {
     // Для кнопки в детальном товаре создаем заказ на один товар
@@ -633,22 +603,15 @@ function startMonoCheckout(button, statusEl, options){
 function bindMonoCheckout(scope){
   const root = scope || document;
   const buttons = root.querySelectorAll('[data-mono-checkout-trigger]');
-  console.log('bindMonoCheckout: found', buttons.length, 'buttons');
-  
+
   buttons.forEach((button)=>{
     if(!button || button.dataset.monoCheckoutBound === '1') return;
     button.dataset.monoCheckoutBound = '1';
     const statusEl = getMonoCheckoutStatus(button);
     const triggerType = button.getAttribute('data-mono-checkout-trigger');
-    console.log('Binding Monobank Checkout button:', triggerType, button);
-    
     button.addEventListener('click', (event)=>{
-      console.log('Monobank Checkout button clicked:', triggerType, button);
       event.preventDefault();
-      if(button.disabled) {
-        console.log('Button is disabled, ignoring click');
-        return;
-      }
+      if(button.disabled) return;
       const options = { ensureProduct: triggerType === 'product' };
       startMonoCheckout(button, statusEl, options);
       const analytics = getCheckoutAnalyticsPayload();
