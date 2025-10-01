@@ -35,11 +35,16 @@ import json
 import logging
 import copy
 import re
+import base64
+import time
 
 from urllib.parse import urljoin
 import requests
 from decimal import Decimal, ROUND_HALF_UP
 from django.utils import timezone
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.exceptions import InvalidSignature
 
 HOME_PRODUCTS_PER_PAGE = 8
 
@@ -398,17 +403,17 @@ def uaprom_products_feed(request):
         else:
             description_ua_el.text = sanitized_description_ua
 
-                param_size = ET.SubElement(offer_el, "param", {"name": "Размер", "unit": ""})
-                param_size.text = size
+        param_size = ET.SubElement(offer_el, "param", {"name": "Размер", "unit": ""})
+        param_size.text = size
 
-                param_color = ET.SubElement(offer_el, "param", {"name": "Цвет", "unit": ""})
-                param_color.text = color_name
+        param_color = ET.SubElement(offer_el, "param", {"name": "Цвет", "unit": ""})
+        param_color.text = color_name
 
-                param_material = ET.SubElement(offer_el, "param", {"name": "Материал", "unit": ""})
-                param_material.text = material_value
+        param_material = ET.SubElement(offer_el, "param", {"name": "Материал", "unit": ""})
+        param_material.text = material_value
 
-                param_season = ET.SubElement(offer_el, "param", {"name": "Сезон", "unit": ""})
-                param_season.text = DEFAULT_FEED_SEASON
+        param_season = ET.SubElement(offer_el, "param", {"name": "Сезон", "unit": ""})
+        param_season.text = DEFAULT_FEED_SEASON
 
     ET.indent(catalog, space="  ", level=0)
     xml_payload = ET.tostring(catalog, encoding="utf-8", xml_declaration=True)
@@ -5083,6 +5088,58 @@ MONOBANK_PENDING_STATUSES = {'processing'}
 MONOBANK_FAILURE_STATUSES = {'failure', 'expired', 'rejected', 'canceled', 'cancelled', 'reversed'}
 
 
+MONOBANK_SIGNATURE_CACHE = {'key': None, 'fetched_at': 0}
+MONOBANK_SIGNATURE_TTL = 60 * 60  # 1 hour
+
+
+
+def _get_monobank_public_key():
+    now = time.time()
+    cache = MONOBANK_SIGNATURE_CACHE
+    if cache['key'] is not None and now - cache['fetched_at'] < MONOBANK_SIGNATURE_TTL:
+        return cache['key']
+    data = _monobank_api_request('GET', '/personal/checkout/signature/public/key')
+    key_b64 = (data.get('result') or {}).get('key')
+    if not key_b64:
+        raise MonobankAPIError('Не вдалося отримати ключ перевірки підпису.')
+    try:
+        pem_bytes = base64.b64decode(key_b64)
+        public_key = serialization.load_pem_public_key(pem_bytes)
+    except Exception as exc:
+        raise MonobankAPIError(f'Помилка при обробці ключа підпису: {exc}') from exc
+    cache['key'] = public_key
+    cache['fetched_at'] = now
+    return public_key
+
+
+def _invalidate_monobank_public_key():
+    MONOBANK_SIGNATURE_CACHE['key'] = None
+    MONOBANK_SIGNATURE_CACHE['fetched_at'] = 0
+
+
+def _verify_monobank_signature(request):
+    signature = request.headers.get('X-Sign') or request.META.get('HTTP_X_SIGN')
+    if not signature:
+        return False
+    try:
+        signature_bytes = base64.b64decode(signature)
+    except Exception:
+        return False
+    try:
+        public_key = _get_monobank_public_key()
+    except MonobankAPIError as exc:
+        monobank_logger.error('Unable to fetch Monobank signature key: %s', exc)
+        return False
+    try:
+        public_key.verify(signature_bytes, request.body, ec.ECDSA(hashes.SHA256()))
+        return True
+    except InvalidSignature:
+        return False
+    except Exception as exc:
+        monobank_logger.exception('Signature verification error: %s', exc)
+        return False
+
+
 class MonobankAPIError(Exception):
     """Raised when Monobank API returns an error"""
 
@@ -5366,86 +5423,66 @@ def _record_monobank_status(order, payload, source='api'):
         order.save()
 
 
+
 @require_POST
 def monobank_create_invoice(request):
-    """Create Monobank invoice and return redirect URL."""
-    payload = {}
-    if request.content_type == 'application/json':
-        try:
-            payload = json.loads(request.body.decode('utf-8'))
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            return JsonResponse({'success': False, 'error': 'Невірний формат даних.'})
-    else:
-        payload = request.POST
-
-    errors, customer = _validate_checkout_payload(payload)
-    if errors:
-        return JsonResponse({'success': False, 'error': ' '.join(errors)})
-
+    """Create Monobank pay invoice and return redirect URL."""
     try:
-        order, amount_decimal, basket_order = _create_or_update_monobank_order(request, customer)
+        customer = _prepare_checkout_customer_data(request)
+        order, amount_decimal, _ = _create_or_update_monobank_order(request, customer)
     except ValueError:
         return JsonResponse({'success': False, 'error': 'Кошик порожній. Додайте товари перед оплатою.'})
 
-    amount_minor = int((amount_decimal * 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
-    if amount_minor <= 0:
+    items_qs = list(order.items.select_related('product', 'color_variant__color'))
+    total_qty = sum(item.qty for item in items_qs)
+    if total_qty <= 0 or amount_decimal <= 0:
         return JsonResponse({'success': False, 'error': 'Сума для оплати повинна бути більшою за 0.'})
 
-    redirect_url = request.build_absolute_uri(reverse('monobank_return'))
-    webhook_url = settings.MONOBANK_WEBHOOK_URL or request.build_absolute_uri(reverse('monobank_webhook'))
-
-    invoice_payload = {
-        'amount': amount_minor,
-        'ccy': 980,
-        'orderId': order.order_number,
-        'redirectUrl': redirect_url,
-        'webHookUrl': webhook_url,
-        'merchantPaymInfo': {
-            'destination': f'Оплата замовлення #{order.order_number}'
-        }
-    }
-
-    if basket_order:
-        invoice_payload['merchantPaymInfo']['basketOrder'] = basket_order[:20]
-
     try:
-        creation_data = _monobank_api_request('POST', '/api/merchant/invoice/create', json_payload=invoice_payload)
+        # Для Monobank Pay используем API эквайринга
+        payload = {
+            'amount': int(amount_decimal * 100),  # сумма в копейках
+            'ccy': 980,  # гривна
+            'merchantPaymInfo': {
+                'reference': order.order_number,
+                'destination': f'Оплата замовлення {order.order_number}',
+                'basketOrder': [
+                    {
+                        'name': item.product.title,
+                        'qty': item.qty,
+                        'sum': int(item.line_total * 100),  # сумма в копейках
+                        'icon': item.product.main_image.url if item.product.main_image else '',
+                    } for item in items_qs
+                ]
+            },
+            'redirectUrl': request.build_absolute_uri('/payments/monobank/return/'),
+            'webHookUrl': request.build_absolute_uri('/payments/monobank/webhook/'),
+        }
+        
+        creation_data = _monobank_api_request('POST', '/api/merchant/invoice/create', json_payload=payload)
     except MonobankAPIError as exc:
-        needs_retry = False
-        basket_with_media = invoice_payload.get('merchantPaymInfo', {}).get('basketOrder') or []
-        for item in basket_with_media:
-            if any(key in item for key in ('iconUrl', 'imageUrl')):
-                needs_retry = True
-                break
-        if needs_retry:
-            stripped_payload = copy.deepcopy(invoice_payload)
-            for item in stripped_payload.get('merchantPaymInfo', {}).get('basketOrder', []) or []:
-                item.pop('iconUrl', None)
-                item.pop('imageUrl', None)
-            try:
-                creation_data = _monobank_api_request('POST', '/api/merchant/invoice/create', json_payload=stripped_payload)
-            except MonobankAPIError:
-                monobank_logger.warning('Monobank invoice creation failed after retry: %s', exc)
-                return JsonResponse({'success': False, 'error': str(exc)})
-            else:
-                invoice_payload = stripped_payload
-        else:
-            monobank_logger.warning('Monobank invoice creation failed: %s', exc)
-            return JsonResponse({'success': False, 'error': str(exc)})
+        monobank_logger.warning('Monobank pay invoice creation failed: %s', exc)
+        return JsonResponse({'success': False, 'error': str(exc)})
+    except Exception as exc:
+        monobank_logger.exception('Failed to build Mono Pay payload: %s', exc)
+        return JsonResponse({'success': False, 'error': 'Не вдалося підготувати дані для платежу. Спробуйте ще раз.'})
 
-    invoice_id = creation_data.get('invoiceId')
-    page_url = creation_data.get('pageUrl')
-    if not invoice_id or not page_url:
-        return JsonResponse({'success': False, 'error': 'Не вдалося створити рахунок. Спробуйте пізніше.'})
+    result = creation_data.get('result') or creation_data
+    invoice_id = result.get('invoiceId')
+    invoice_url = result.get('pageUrl')
+    
+    if not invoice_id or not invoice_url:
+        return JsonResponse({'success': False, 'error': 'Не вдалося створити платіж. Спробуйте пізніше.'})
 
-    order.payment_invoice_id = invoice_id
-    order.payment_payload = {
-        'request': invoice_payload,
+    payment_payload = {
+        'request': payload,
         'create': creation_data,
         'history': []
     }
+    order.payment_invoice_id = invoice_id
+    order.payment_payload = payment_payload
     order.payment_status = 'checking'
-    order.payment_provider = 'monobank'
+    order.payment_provider = 'monobank_pay'
     order.save(update_fields=['payment_invoice_id', 'payment_payload', 'payment_status', 'payment_provider'])
 
     request.session['monobank_invoice_id'] = invoice_id
@@ -5454,9 +5491,71 @@ def monobank_create_invoice(request):
 
     return JsonResponse({
         'success': True,
-        'redirect_url': page_url,
-        'order_id': order.id
+        'invoice_url': invoice_url,
+        'invoice_id': invoice_id,
+        'order_id': order.id,
+        'order_ref': order.order_number
     })
+
+
+@require_POST
+def monobank_create_checkout(request):
+    """Create Monobank checkout order and return redirect URL."""
+    try:
+        customer = _prepare_checkout_customer_data(request)
+        order, amount_decimal, _ = _create_or_update_monobank_order(request, customer)
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'Кошик порожній. Додайте товари перед оплатою.'})
+
+    items_qs = list(order.items.select_related('product', 'color_variant__color'))
+    total_qty = sum(item.qty for item in items_qs)
+    if total_qty <= 0 or amount_decimal <= 0:
+        return JsonResponse({'success': False, 'error': 'Сума для оплати повинна бути більшою за 0.'})
+
+    try:
+        payload = _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, items=items_qs)
+    except MonobankAPIError as exc:
+        return JsonResponse({'success': False, 'error': str(exc)})
+    except Exception as exc:
+        monobank_logger.exception('Failed to build Mono Checkout payload: %s', exc)
+        return JsonResponse({'success': False, 'error': 'Не вдалося підготувати дані для платежу. Спробуйте ще раз.'})
+
+    try:
+        creation_data = _monobank_api_request('POST', '/personal/checkout/order', json_payload=payload)
+    except MonobankAPIError as exc:
+        monobank_logger.warning('Monobank checkout order creation failed: %s', exc)
+        return JsonResponse({'success': False, 'error': str(exc)})
+
+    result = creation_data.get('result') or creation_data
+    order_id = result.get('order_id') or result.get('orderId')
+    redirect_url = result.get('redirect_url') or result.get('redirectUrl')
+    if not order_id or not redirect_url:
+        return JsonResponse({'success': False, 'error': 'Не вдалося створити замовлення. Спробуйте пізніше.'})
+
+    payment_payload = {
+        'request': payload,
+        'create': creation_data,
+        'history': []
+    }
+    order.payment_invoice_id = order_id
+    order.payment_payload = payment_payload
+    order.payment_status = 'checking'
+    order.payment_provider = 'monobank_checkout'
+    order.save(update_fields=['payment_invoice_id', 'payment_payload', 'payment_status', 'payment_provider'])
+
+    request.session['monobank_order_id'] = order_id
+    request.session['monobank_order_ref'] = order.order_number
+    request.session['monobank_invoice_id'] = order_id
+    request.session['monobank_pending_order_id'] = order.id
+    request.session.modified = True
+
+    return JsonResponse({
+        'success': True,
+        'redirect_url': redirect_url,
+        'order_id': order.id,
+        'order_ref': order.order_number
+    })
+
 
 
 def _fetch_and_apply_invoice_status(order, invoice_id, source):
@@ -5475,6 +5574,8 @@ def _cleanup_after_success(request):
     request.session.pop('applied_promo_code', None)
     request.session.pop('monobank_invoice_id', None)
     request.session.pop('monobank_pending_order_id', None)
+    request.session.pop('monobank_order_id', None)
+    request.session.pop('monobank_order_ref', None)
     request.session.modified = True
 
 
@@ -5483,33 +5584,42 @@ def monobank_return(request):
     from orders.models import Order
     from django.contrib import messages
 
+    order_id = request.GET.get('orderId') or request.session.get('monobank_order_id')
     invoice_id = request.GET.get('invoiceId') or request.session.get('monobank_invoice_id')
-    if not invoice_id:
-        messages.error(request, 'Параметри платежу відсутні. Спробуйте оформити замовлення ще раз.')
-        return redirect('cart')
+    order_ref = request.GET.get('orderRef') or request.session.get('monobank_order_ref')
 
     order = None
-    pending_id = request.session.get('monobank_pending_order_id')
-    if pending_id:
-        try:
-            order = Order.objects.get(id=pending_id)
-        except Order.DoesNotExist:
-            order = None
+    if order_id:
+        order = Order.objects.filter(payment_invoice_id=order_id).order_by('-created').first()
 
-    if order is None:
+    if order is None and invoice_id:
+        pending_id = request.session.get('monobank_pending_order_id')
+        if pending_id:
+            try:
+                order = Order.objects.get(id=pending_id)
+            except Order.DoesNotExist:
+                order = None
+
+    if order is None and invoice_id:
         order = Order.objects.filter(payment_invoice_id=invoice_id).order_by('-created').first()
+
+    if order is None and order_ref:
+        order = Order.objects.filter(order_number=order_ref).order_by('-created').first()
 
     if order is None:
         messages.error(request, 'Замовлення не знайдено. Спробуйте ще раз.')
         return redirect('cart')
 
     try:
-        status_data = _fetch_and_apply_invoice_status(order, invoice_id, source='return')
+        if order.payment_provider == 'monobank_checkout' or order_id:
+            result = _fetch_and_apply_checkout_status(order, source='return')
+            status = (result.get('payment_status') or '').lower()
+        else:
+            status_data = _fetch_and_apply_invoice_status(order, invoice_id, source='return')
+            status = status_data.get('status')
     except MonobankAPIError as exc:
         messages.error(request, f'Не вдалося підтвердити статус платежу: {exc}')
         return redirect('my_orders' if request.user.is_authenticated else 'cart')
-
-    status = status_data.get('status')
 
     if status in MONOBANK_SUCCESS_STATUSES:
         _cleanup_after_success(request)
@@ -5541,15 +5651,41 @@ def monobank_webhook(request):
     except (json.JSONDecodeError, UnicodeDecodeError):
         return HttpResponse(status=400)
 
+    # Legacy invoice webhook
     invoice_id = payload.get('invoiceId')
-    if not invoice_id:
-        return HttpResponse(status=400)
+    if invoice_id:
+        try:
+            order = Order.objects.get(payment_invoice_id=invoice_id)
+        except Order.DoesNotExist:
+            monobank_logger.warning('Webhook received for unknown invoice %s', invoice_id)
+            return JsonResponse({'ok': True})
 
-    try:
-        order = Order.objects.get(payment_invoice_id=invoice_id)
-    except Order.DoesNotExist:
-        monobank_logger.warning('Webhook received for unknown invoice %s', invoice_id)
+        _record_monobank_status(order, payload, source='webhook')
         return JsonResponse({'ok': True})
 
-    _record_monobank_status(order, payload, source='webhook')
+    # Checkout order webhook requires signature validation
+    if not _verify_monobank_signature(request):
+        monobank_logger.warning('Invalid or missing X-Sign for checkout webhook')
+        return HttpResponse(status=400)
+
+    result = payload.get('result') or {}
+    order_id = result.get('orderId') or result.get('order_id')
+    order_ref = result.get('orderRef') or result.get('order_ref')
+
+    order = None
+    if order_id:
+        order = Order.objects.filter(payment_invoice_id=order_id).first()
+    if order is None and order_ref:
+        order = Order.objects.filter(order_number=order_ref).first()
+
+    if order is None:
+        monobank_logger.warning('Checkout webhook received for unknown order: %s / %s', order_id, order_ref)
+        return JsonResponse({'ok': True})
+
+    try:
+        _update_order_from_checkout_result(order, result, source='webhook')
+    except Exception as exc:
+        monobank_logger.exception('Failed to process checkout webhook for order %s: %s', order.order_number, exc)
+        return HttpResponse(status=500)
+
     return JsonResponse({'ok': True})

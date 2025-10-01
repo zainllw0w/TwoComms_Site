@@ -354,13 +354,326 @@ function toggleMiniCart(){
   const panel=miniCartPanel(); if(!panel) return;
   if(panel.classList.contains('d-none') || !panel.classList.contains('show')) openMiniCart(); else closeMiniCart();
 }
+
+function getCheckoutAnalyticsPayload(){
+  const el = document.getElementById('checkout-payload');
+  if(!el) return null;
+  let contents = [];
+  let ids = [];
+  try { contents = JSON.parse(el.dataset.contents || '[]'); } catch(_){ contents = []; }
+  try { ids = JSON.parse(el.dataset.ids || '[]'); } catch(_){ ids = []; }
+  const value = parseFloat(el.dataset.value || '0');
+  const currency = el.dataset.currency || 'UAH';
+  const numItems = parseInt(el.dataset.numItems || String(contents.length) || '0', 10) || contents.length;
+  return { contents, content_ids: ids, value, currency, num_items: numItems };
+}
+
+function getMonoCheckoutStatus(button){
+  if(!button) return null;
+  const explicit = button.getAttribute('data-mono-status');
+  if(explicit){
+    try { return document.querySelector(explicit); } catch(_) { return null; }
+  }
+  const scope = button.closest('[data-mono-status-scope]') || button.closest('.vstack') || button.parentElement;
+  if(scope){
+    const el = scope.querySelector('[data-mono-checkout-status]');
+    if(el) return el;
+  }
+  return null;
+}
+
+function setMonoCheckoutStatus(statusEl, type, message){
+  if(!statusEl) return;
+  statusEl.textContent = message || '';
+  statusEl.classList.remove('error','success','text-danger','text-success');
+  if(type === 'error'){
+    statusEl.classList.remove('text-secondary');
+    statusEl.classList.add('error','text-danger');
+  } else if(type === 'success'){
+    statusEl.classList.remove('text-secondary');
+    statusEl.classList.add('success','text-success');
+  } else {
+    if(!statusEl.classList.contains('text-secondary')) statusEl.classList.add('text-secondary');
+  }
+}
+
+function toggleMonoCheckoutLoading(button, isLoading){
+  if(!button) return;
+  if(isLoading){
+    button.setAttribute('aria-busy','true');
+    button.disabled = true;
+    button.classList.add('loading');
+  } else {
+    button.removeAttribute('aria-busy');
+    button.disabled = false;
+    button.classList.remove('loading');
+  }
+}
+
+function collectMonoCsrf(){
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  if(meta && meta.getAttribute){
+    const token = meta.getAttribute('content');
+    if(token) return token;
+  }
+  const input = document.querySelector('[name="csrfmiddlewaretoken"]');
+  if(input && 'value' in input && input.value){
+    return input.value;
+  }
+  if(typeof getCookie === 'function'){
+    return getCookie('csrftoken');
+  }
+  return '';
+}
+
+function addProductToCartForMono(button){
+  const productId = button && button.getAttribute('data-product-id');
+  if(!productId) return Promise.resolve();
+
+  const rootSelector = button.getAttribute('data-product-root');
+  let root = null;
+  if(rootSelector){
+    try { root = document.querySelector(rootSelector); } catch(_) { root = null; }
+  }
+  if(!root) root = button.closest('[data-product-container]') || document;
+  const find = (selector)=> root ? root.querySelector(selector) : document.querySelector(selector);
+
+  let size = '';
+  const checkedSize = find('input[name="size"]:checked');
+  if(checkedSize) size = checkedSize.value;
+  if(!size){
+    const sizeInput = find('input[name="size"]');
+    if(sizeInput) size = sizeInput.value;
+  }
+  if(!size) size = 'S';
+
+  let qty = 1;
+  const qtyInput = find('#qty');
+  if(qtyInput){
+    const parsed = parseInt(qtyInput.value, 10);
+    if(Number.isFinite(parsed) && parsed > 0) qty = parsed;
+  }
+
+  let colorVariantId = null;
+  const colorActive = find('#color-picker .color-swatch.active') || document.querySelector('#color-picker .color-swatch.active');
+  if(colorActive) colorVariantId = colorActive.getAttribute('data-variant');
+
+  const body = new URLSearchParams();
+  body.append('product_id', String(productId));
+  body.append('size', String(size).toUpperCase());
+  body.append('qty', String(qty));
+  if(colorVariantId) body.append('color_variant_id', colorVariantId);
+
+  const csrfToken = collectMonoCsrf();
+
+  return fetch('/cart/add/', {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': csrfToken || '',
+      'X-Requested-With': 'XMLHttpRequest',
+      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+    },
+    body
+  })
+    .then(r => {
+      if(!r.ok) throw new Error('Не вдалося додати товар до кошика. Спробуйте ще раз.');
+      return r.json();
+    })
+    .then(data => {
+      if(!(data && data.ok)){
+        const message = data && data.error ? data.error : 'Не вдалося додати товар до кошика. Спробуйте ще раз.';
+        throw new Error(message);
+      }
+      try{ if(typeof data.count === 'number' && window.updateCartBadge) window.updateCartBadge(data.count); }catch(_){ }
+      try{ if(window.refreshMiniCart) window.refreshMiniCart(); }catch(_){ }
+      try{ if(window.refreshCartSummary) window.refreshCartSummary(); }catch(_){ }
+      return data;
+    });
+}
+
+function requestMonoCheckout(){
+  const csrfToken = collectMonoCsrf();
+  return fetch('/cart/monobank/quick/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken || '',
+      'X-Requested-With': 'XMLHttpRequest'
+    },
+    credentials: 'same-origin',
+    body: '{}'
+  }).then(response => response.json().then(data => ({data, status: response.status, ok: response.ok})).catch(() => ({data: null, status: response.status, ok: false})));
+}
+
+function startMonoCheckout(button, statusEl, options){
+  const opts = options || {};
+  setMonoCheckoutStatus(statusEl, '', '');
+  toggleMonoCheckoutLoading(button, true);
+
+  const ensureProduct = opts.ensureProduct ? addProductToCartForMono(button) : Promise.resolve();
+
+  return ensureProduct
+    .then(() => requestMonoCheckout())
+    .then(result => {
+      const data = result.data || {};
+      if(result.ok && data.success && data.redirect_url){
+        setMonoCheckoutStatus(statusEl, 'success', 'Відкриваємо mono checkout…');
+        const analytics = getCheckoutAnalyticsPayload();
+        try{
+          if(window.trackEvent && analytics){
+            window.trackEvent('StartPayment', {
+              value: analytics.value,
+              currency: analytics.currency,
+              num_items: analytics.num_items,
+              payment_method: 'monobank',
+              content_ids: analytics.content_ids
+            });
+          }
+        }catch(_){ }
+        window.location.href = data.redirect_url;
+        return;
+      }
+      let message = (data && data.error) ? data.error : 'Не вдалося створити платіж. Спробуйте ще раз.';
+      if(result.status === 401){
+        message = 'Увійдіть, щоб скористатися mono checkout.';
+      }
+      setMonoCheckoutStatus(statusEl, 'error', message);
+      throw new Error(message);
+    })
+    .catch(err => {
+      if(err && err.message){
+        setMonoCheckoutStatus(statusEl, 'error', err.message);
+      }
+    })
+    .finally(() => {
+      toggleMonoCheckoutLoading(button, false);
+    });
+}
+
+function bindMonoCheckout(scope){
+  const root = scope || document;
+  root.querySelectorAll('[data-mono-checkout-trigger]').forEach((button)=>{
+    if(!button || button.dataset.monoCheckoutBound === '1') return;
+    button.dataset.monoCheckoutBound = '1';
+    const statusEl = getMonoCheckoutStatus(button);
+    button.addEventListener('click', (event)=>{
+      event.preventDefault();
+      if(button.disabled) return;
+      const triggerType = button.getAttribute('data-mono-checkout-trigger');
+      const options = { ensureProduct: triggerType === 'product' };
+      startMonoCheckout(button, statusEl, options);
+      const analytics = getCheckoutAnalyticsPayload();
+      if(analytics){
+        try{
+          if(window.trackEvent){
+            window.trackEvent('InitiateCheckout', {
+              value: analytics.value,
+              currency: analytics.currency,
+              num_items: analytics.num_items,
+              payment_method: 'monobank',
+              content_ids: analytics.content_ids,
+              contents: analytics.contents
+            });
+          }
+        }catch(_){ }
+      }
+    });
+  });
+}
+
+// Monobank Pay (эквайринг) функции
+function requestMonobankPay(){
+  const csrfToken = collectMonoCsrf();
+  return fetch('/cart/monobank/create-invoice/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken || '',
+      'X-Requested-With': 'XMLHttpRequest'
+    },
+    credentials: 'same-origin',
+    body: '{}'
+  }).then(response => response.json().then(data => ({data, status: response.status, ok: response.ok})).catch(() => ({data: null, status: response.status, ok: false})));
+}
+
+function startMonobankPay(button, statusEl){
+  setMonoCheckoutStatus(statusEl, '', '');
+  toggleMonoCheckoutLoading(button, true);
+
+  return requestMonobankPay()
+    .then(result => {
+      const data = result.data || {};
+      if(result.ok && data.success && data.invoice_url){
+        setMonoCheckoutStatus(statusEl, 'success', 'Відкриваємо платіжну сторінку…');
+        const analytics = getCheckoutAnalyticsPayload();
+        try{
+          if(window.trackEvent && analytics){
+            window.trackEvent('StartPayment', {
+              value: analytics.value,
+              currency: analytics.currency,
+              num_items: analytics.num_items,
+              payment_method: 'monobank_pay',
+              content_ids: analytics.content_ids
+            });
+          }
+        }catch(_){ }
+        window.location.href = data.invoice_url;
+        return;
+      }
+      let message = (data && data.error) ? data.error : 'Не вдалося створити платіж. Спробуйте ще раз.';
+      if(result.status === 401){
+        message = 'Увійдіть, щоб скористатися онлайн оплатою.';
+      }
+      setMonoCheckoutStatus(statusEl, 'error', message);
+      throw new Error(message);
+    })
+    .catch(err => {
+      if(err && err.message){
+        setMonoCheckoutStatus(statusEl, 'error', err.message);
+      }
+    })
+    .finally(() => {
+      toggleMonoCheckoutLoading(button, false);
+    });
+}
+
+function bindMonobankPay(scope){
+  const root = scope || document;
+  root.querySelectorAll('[data-monobank-pay-trigger]').forEach((button)=>{
+    if(!button || button.dataset.monobankPayBound === '1') return;
+    button.dataset.monobankPayBound = '1';
+    const statusEl = getMonoCheckoutStatus(button);
+    button.addEventListener('click', (event)=>{
+      event.preventDefault();
+      if(button.disabled) return;
+      startMonobankPay(button, statusEl);
+      const analytics = getCheckoutAnalyticsPayload();
+      if(analytics){
+        try{
+          if(window.trackEvent){
+            window.trackEvent('InitiateCheckout', {
+              value: analytics.value,
+              currency: analytics.currency,
+              num_items: analytics.num_items,
+              payment_method: 'monobank_pay',
+              content_ids: analytics.content_ids,
+              contents: analytics.contents
+            });
+          }
+        }catch(_){ }
+      }
+    });
+  });
+}
+
+
 function refreshMiniCart(){
   const panel=miniCartPanel(); if(!panel) return Promise.resolve();
   const content = panel.querySelector('#mini-cart-content') || panel.querySelector('#mini-cart-content-mobile') || panel;
   content.innerHTML = "<div class='text-secondary small'>Завантаження…</div>";
   return fetch('/cart/mini/',{headers:{'X-Requested-With':'XMLHttpRequest'}, cache:'no-store'})
     .then(r=>r.text())
-    .then(html=>{ content.innerHTML = html; try{ applySwatchColors(content); }catch(_){ } })
+    .then(html=>{ content.innerHTML = html; try{ applySwatchColors(content); }catch(_){ } try{ bindMonoCheckout(content); }catch(_){ } })
     .catch(()=>{ content.innerHTML="<div class='text-danger small'>Не вдалося завантажити кошик</div>"; });
 }
 window.refreshMiniCart = refreshMiniCart;
@@ -368,6 +681,8 @@ window.openMiniCart = openMiniCart;
 
 // Обновляем сводку при загрузке
 document.addEventListener('DOMContentLoaded',()=>{
+  try{ bindMonoCheckout(document); }catch(_){ }
+  try{ bindMonobankPay(document); }catch(_){ }
   // Отложим, чтобы не мешать первому рендеру
   scheduleIdle(()=>{
     refreshCartSummary();

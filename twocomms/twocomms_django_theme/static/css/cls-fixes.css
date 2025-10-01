@@ -659,3 +659,167 @@ picture img {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+
+.mono-checkout-btn--inline {
+  width: auto;
+  min-width: 0;
+  padding: 0.75rem 1.1rem;
+}
+
+.mono-checkout-btn--inline .mono-checkout-body {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* Monobank Checkout кнопка в миникорзине */
+.mono-checkout-mini {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mono-checkout-btn-mini {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #ffffff !important;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: 8px !important;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.mono-checkout-btn-mini:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  transform: translateY(-1px);
+}
+
+.mono-checkout-btn-mini:active {
+  transform: translateY(0);
+}
+
+.mono-checkout-btn-mini.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.mono-checkout-btn-mini .mono-checkout-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.mono-checkout-btn-mini .mono-checkout-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.mono-checkout-btn-mini .mono-cat-icon {
+  width: 16px;
+  height: 16px;
+  fill: #ffffff;
+}
+
+.mono-checkout-btn-mini .mono-logo-word {
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.mono-checkout-btn-mini .mono-logo-word--mono {
+  color: #ffffff;
+}
+
+.mono-checkout-btn-mini .mono-logo-word--checkout {
+  color: #ffffff;
+}
+
+/* Monobank Checkout кнопка в детальном товаре */
+.mono-checkout-btn-product {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #ffffff !important;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: 8px !important;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  min-width: 200px;
+}
+
+.mono-checkout-btn-product:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  transform: translateY(-1px);
+  color: #ffffff !important;
+}
+
+.mono-checkout-btn-product:active {
+  transform: translateY(0);
+}
+
+.mono-checkout-btn-product.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.mono-checkout-btn-product .mono-checkout-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.mono-checkout-btn-product .mono-checkout-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.mono-checkout-btn-product .mono-cat-icon {
+  width: 16px;
+  height: 16px;
+  fill: #ffffff;
+}
+
+.mono-checkout-btn-product .mono-logo-word {
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.mono-checkout-btn-product .mono-logo-word--mono {
+  color: #ffffff;
+}
+
+.mono-checkout-btn-product .mono-logo-word--checkout {
+  color: #ffffff;
+}
+
+.cart-monobank-btn[aria-busy="true"] .cart-monobank-spinner {
+  opacity: 1;
+  transform: scale(1);
+}
+
+
+.mono-checkout-btn.loading .mono-checkout-spinner,
+.mono-checkout-item.loading .mono-checkout-spinner,
+.mono-checkout-btn[aria-busy="true"] .mono-checkout-spinner,
+.mono-checkout-item[aria-busy="true"] .mono-checkout-spinner {
+  opacity: 1;
+  transform: scale(1);
+}
