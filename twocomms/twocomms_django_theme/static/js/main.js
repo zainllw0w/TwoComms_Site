@@ -627,14 +627,23 @@ function startMonoCheckout(button, statusEl, options){
 
 function bindMonoCheckout(scope){
   const root = scope || document;
-  root.querySelectorAll('[data-mono-checkout-trigger]').forEach((button)=>{
+  const buttons = root.querySelectorAll('[data-mono-checkout-trigger]');
+  console.log('bindMonoCheckout: found', buttons.length, 'buttons');
+  
+  buttons.forEach((button)=>{
     if(!button || button.dataset.monoCheckoutBound === '1') return;
     button.dataset.monoCheckoutBound = '1';
     const statusEl = getMonoCheckoutStatus(button);
+    const triggerType = button.getAttribute('data-mono-checkout-trigger');
+    console.log('Binding Monobank Checkout button:', triggerType, button);
+    
     button.addEventListener('click', (event)=>{
+      console.log('Monobank Checkout button clicked:', triggerType, button);
       event.preventDefault();
-      if(button.disabled) return;
-      const triggerType = button.getAttribute('data-mono-checkout-trigger');
+      if(button.disabled) {
+        console.log('Button is disabled, ignoring click');
+        return;
+      }
       const options = { ensureProduct: triggerType === 'product' };
       startMonoCheckout(button, statusEl, options);
       const analytics = getCheckoutAnalyticsPayload();
