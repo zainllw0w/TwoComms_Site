@@ -480,30 +480,32 @@
           Доставка оплачується згідно тарифів перевізника.
         </div>
 
-        <div class="cart-checkout-actions">
-          <!-- Monobank онлайн оплата -->
-          <div class="cart-monobank-container">
-            <button type="button" id="monobank-pay-btn" class="cart-monobank-btn" aria-live="polite">
-              <span class="cart-monobank-logo" aria-hidden="true">
-                <span class="mono">mono</span><span class="dot">·</span><span class="pay">pay</span>
-              </span>
-              <span class="cart-monobank-details">
-                <span class="cart-monobank-text">Онлайн оплата карткою</span>
-                <span class="cart-monobank-badges" aria-hidden="true">
-                  <span class="cart-monobank-badge cart-monobank-badge-gpay" role="presentation">
-                    <span class="badge-symbol">G</span>
-                    <span class="badge-text">Pay</span>
-                  </span>
-                  <span class="cart-monobank-badge cart-monobank-badge-apple" role="presentation">
-                    <span class="badge-symbol" aria-hidden="true"></span>
-                    <span class="badge-text">Pay</span>
-                  </span>
-                </span>
-              </span>
-              <span class="cart-monobank-spinner" aria-hidden="true"></span>
-            </button>
-            <div id="monobank-pay-status" class="cart-monobank-status" role="status" aria-live="polite"></div>
-          </div>
+<div class="cart-checkout-actions">
+  <!-- Monobank онлайн оплата -->
+  <div class="cart-monobank-container" data-mono-status-scope>
+    <button type="button" id="monobank-pay-btn" class="cart-monobank-btn" data-monobank-pay-trigger="cart">
+      <span class="cart-monobank-logo" aria-hidden="true">
+        <span class="mono">mono</span><span class="dot">·</span><span class="pay">pay</span>
+      </span>
+      <span class="cart-monobank-details">
+        <span class="cart-monobank-text">Онлайн оплата карткою</span>
+        <span class="cart-monobank-badges" aria-hidden="true">
+          <span class="cart-monobank-badge cart-monobank-badge-gpay" role="presentation">
+            <span class="badge-symbol">G</span>
+            <span class="badge-text">Pay</span>
+          </span>
+          <span class="cart-monobank-badge cart-monobank-badge-apple" role="presentation">
+            <span class="badge-symbol" aria-hidden="true"></span>
+            <span class="badge-text">Pay</span>
+          </span>
+        </span>
+      </span>
+      <span class="cart-monobank-spinner" aria-hidden="true"></span>
+    </button>
+    <div id="monobank-pay-status" class="cart-monobank-status text-secondary" data-mono-checkout-status role="status" aria-live="polite"></div>
+  </div>
+
+
 
           {% if request.user.is_authenticated %}
             <button type="submit" form="deliveryForm" class="cart-checkout-btn">
@@ -725,163 +727,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- Монобанк функціональність -->
 <script>
-function getCheckoutTotals() {
-  const payload = document.getElementById('checkout-payload');
-  if (!payload) {
-    return { amount: 0, currency: 'UAH', contents: '[]', ids: '[]', numItems: 0 };
-  }
-  const amount = parseFloat(payload.dataset.value || '0');
-  return {
-    amount,
-    currency: payload.dataset.currency || 'UAH',
-    contents: payload.dataset.contents || '[]',
-    ids: payload.dataset.ids || '[]',
-    numItems: parseInt(payload.dataset.numItems || '0', 10) || 0
-  };
-}
-
-const isUserAuthenticated = {{ request.user.is_authenticated|yesno:'true,false' }};
-const monobankButton = document.getElementById('monobank-pay-btn');
-const monobankStatusEl = document.getElementById('monobank-pay-status');
-const csrfToken = (document.querySelector('[name=csrfmiddlewaretoken]') || {}).value || '';
-
-function setMonobankStatus(type, message) {
-  if (!monobankStatusEl) return;
-  monobankStatusEl.textContent = message || '';
-  monobankStatusEl.classList.remove('error', 'success');
-  if (type) {
-    monobankStatusEl.classList.add(type);
-  }
-}
-
-function setMonobankLoading(isLoading) {
-  if (!monobankButton) return;
-  if (isLoading) {
-    monobankButton.classList.add('loading');
-    monobankButton.disabled = true;
-    monobankButton.setAttribute('aria-busy', 'true');
-  } else {
-    monobankButton.classList.remove('loading');
-    monobankButton.disabled = false;
-    monobankButton.removeAttribute('aria-busy');
-  }
-}
-
-function collectCheckoutFormData() {
-  const form = isUserAuthenticated ? document.getElementById('deliveryForm') : document.getElementById('guest-form');
-  if (!form) {
-    setMonobankStatus('error', 'Форма доставки недоступна. Оновіть сторінку.');
-    return null;
-  }
-
-  if (typeof form.reportValidity === 'function' && !form.reportValidity()) {
-    return null;
-  }
-
-  const formData = new FormData(form);
-  const payload = {
-    full_name: (formData.get('full_name') || '').trim(),
-    phone: (formData.get('phone') || '').trim(),
-    city: (formData.get('city') || '').trim(),
-    np_office: (formData.get('np_office') || '').trim(),
-    pay_type: (formData.get('pay_type') || '').trim().toLowerCase()
-  };
-
-  if (!payload.full_name || !payload.phone || !payload.city || !payload.np_office) {
-    setMonobankStatus('error', 'Заповніть усі обовʼязкові поля доставки.');
-    return null;
-  }
-
-  if (payload.pay_type !== 'full') {
-    setMonobankStatus('error', 'Для онлайн-оплати потрібно обрати «Повна передоплата».');
-    return null;
-  }
-
-  payload.pay_type = 'full';
-  return payload;
-}
-
-function safeParse(jsonString, fallback) {
-  try {
-    return JSON.parse(jsonString);
-  } catch (_) {
-    return fallback;
-  }
-}
-
-function startMonobankPayment() {
-  const payload = collectCheckoutFormData();
-  if (!payload) {
-    return;
-  }
-
-  const totals = getCheckoutTotals();
-  const contentIds = safeParse(totals.ids || '[]', []);
-  const contents = safeParse(totals.contents || '[]', []);
-
-  try {
-    if (window.trackEvent) {
-      window.trackEvent('InitiateCheckout', {
-        value: totals.amount,
-        currency: totals.currency,
-        num_items: totals.numItems,
-        payment_method: 'monobank',
-        content_ids: contentIds,
-        contents: contents
-      });
-    }
-  } catch (_) {}
-
-  setMonobankStatus('', '');
-  setMonobankLoading(true);
-
-  fetch('{% url "monobank_create_invoice" %}', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRFToken': csrfToken,
-      'X-Requested-With': 'XMLHttpRequest'
-    },
-    body: JSON.stringify(payload)
-  })
-    .then(response => response.json().catch(() => ({ success: false, error: 'Неочікувана відповідь сервера.' })))
-    .then(data => {
-      if (data && data.success && data.redirect_url) {
-        try {
-          if (window.trackEvent) {
-            window.trackEvent('StartPayment', {
-              value: totals.amount,
-              currency: totals.currency,
-              num_items: totals.numItems,
-              payment_method: 'monobank',
-              content_ids: contentIds
-            });
-          }
-        } catch (_) {}
-        window.location.href = data.redirect_url;
-        return;
-      }
-
-      const errorMessage = (data && data.error) ? data.error : 'Не вдалося створити платіж. Спробуйте ще раз.';
-      setMonobankStatus('error', errorMessage);
-    })
-    .catch(err => {
-      console.error('Monobank payment error', err);
-      setMonobankStatus('error', 'Сталася помилка під час з’єднання. Спробуйте пізніше.');
-    })
-    .finally(() => {
-      setMonobankLoading(false);
-    });
-}
-
-if (monobankButton) {
-  monobankButton.addEventListener('click', function (event) {
-    event.preventDefault();
-    startMonobankPayment();
-  });
-}
-
-// Трекинг для аналитики
 document.addEventListener('DOMContentLoaded', function(){
   try{
     var el = document.getElementById('checkout-payload');
@@ -894,8 +739,6 @@ document.addEventListener('DOMContentLoaded', function(){
       var numItems = parseInt(el.dataset.numItems||String(contents.length)||'0',10) || contents.length;
       return { contents: contents, content_ids: ids, content_type: 'product', value: value, currency: currency, num_items: numItems };
     })();
-    
-    // Трекинг для обычных кнопок оформления заказа
     document.querySelectorAll('.cart-checkout-btn').forEach(function(btn){
       if(btn._icBound) return; btn._icBound = true;
       btn.addEventListener('click', function(){
@@ -903,10 +746,10 @@ document.addEventListener('DOMContentLoaded', function(){
         try{ if(window.trackEvent){ window.trackEvent('Lead', {lead_type:'checkout', value: payload && payload.value, currency: payload && payload.currency, num_items: payload && payload.num_items}); } }catch(_){ }
       }, {passive:true});
     });
-    
   }catch(_){ }
 });
 </script>
+
 {% endif %}
 {% endblock %}
 

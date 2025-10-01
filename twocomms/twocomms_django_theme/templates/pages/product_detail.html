@@ -424,16 +424,29 @@
     })();
     </script>
 
-    <div class="d-flex flex-wrap align-items-center gap-2">
+    <div class="d-flex flex-wrap align-items-center gap-2" id="product-action-bar" data-product-container>
       <div class="qty-control" data-qty>
         <button type="button" onclick="QtyDec('#qty'); return false;" aria-label="Зменшити">−</button>
         <input type="number" id="qty" min="1" value="1" inputmode="numeric">
         <button type="button" onclick="QtyInc('#qty'); return false;" aria-label="Збільшити">+</button>
       </div>
       <button type="button" class="btn btn-cta flex-grow-1 flex-md-grow-0" data-add-to-cart="{{ product.id }}" onclick="return AddToCart(this);">Додати в кошик</button>
-          </div>
-      <div class="small text-secondary mt-2">Накопичуйте бали за покупки та використовуйте їх для знижок</div>
+      <button type="button" class="btn btn-outline-light mono-checkout-btn-product" data-mono-checkout-trigger="product" data-product-id="{{ product.id }}" data-product-root="#product-action-bar">
+        <span class="mono-checkout-label">Оформити через</span>
+        <span class="mono-checkout-logo" aria-hidden="true">
+          <svg class="mono-cat-icon" viewBox="0 0 32 32" role="presentation" focusable="false">
+            <path class="mono-cat-head" d="M6 6.5V18c0 4.7 3.8 8.5 8.5 8.5h3c4.7 0 8.5-3.8 8.5-8.5V6.5l-3.8-2.2-5.7 3-5.7-3z"/>
+            <circle class="mono-cat-eye" cx="12.5" cy="14" r="1.4"/>
+            <circle class="mono-cat-eye" cx="19.5" cy="14" r="1.4"/>
+            <path class="mono-cat-mouth" d="M12 18c0 1.2 1.6 2.1 4 2.1s4-0.9 4-2.1"/>
+          </svg>
+          <span class="mono-logo-word mono-logo-word--mono">mono</span>
+          <span class="mono-logo-word mono-logo-word--checkout">checkout</span>
+        </span>
+      </button>
     </div>
+    <div class="mono-checkout-status text-secondary mt-2" data-mono-checkout-status role="status" aria-live="polite"></div>
+    <div class="small text-secondary mt-2">Накопичуйте бали за покупки та використовуйте їх для знижок</div>
   </div>
 
 <!-- Модальное окно с информацией о баллах -->

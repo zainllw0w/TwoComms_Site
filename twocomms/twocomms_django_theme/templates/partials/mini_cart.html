@@ -57,7 +57,23 @@
       <div class="fw-semibold">{{ total }} грн</div>
     </div>
     <a href="{% url 'cart' %}" class="btn btn-cta w-100">Перейти до оформлення</a>
-  {% else %}
+    <div class="mono-checkout-mini" data-mono-status-scope>
+      <button type="button" class="btn btn-outline-light w-100 mono-checkout-btn-mini" data-mono-checkout-trigger="mini">
+        <span class="mono-checkout-label">Оформити через</span>
+        <span class="mono-checkout-logo" aria-hidden="true">
+          <svg class="mono-cat-icon" viewBox="0 0 32 32" role="presentation" focusable="false">
+            <path class="mono-cat-head" d="M6 6.5V18c0 4.7 3.8 8.5 8.5 8.5h3c4.7 0 8.5-3.8 8.5-8.5V6.5l-3.8-2.2-5.7 3-5.7-3z"/>
+            <circle class="mono-cat-eye" cx="12.5" cy="14" r="1.4"/>
+            <circle class="mono-cat-eye" cx="19.5" cy="14" r="1.4"/>
+            <path class="mono-cat-mouth" d="M12 18c0 1.2 1.6 2.1 4 2.1s4-0.9 4-2.1"/>
+          </svg>
+          <span class="mono-logo-word mono-logo-word--mono">mono</span>
+          <span class="mono-logo-word mono-logo-word--checkout">checkout</span>
+        </span>
+      </button>
+      <div class="mono-checkout-status text-secondary text-center mt-2" data-mono-checkout-status role="status" aria-live="polite"></div>
+    </div>
+{% else %}
     <div class="text-secondary small">Кошик порожній.</div>
   {% endif %}
 </div>
