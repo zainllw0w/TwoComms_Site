@@ -17,7 +17,37 @@ import pymysql
 # Настройка PyMySQL для работы с MySQL
 pymysql.install_as_MySQLdb()
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+# Build paths inside the project
+
+# Helper parsers for environment variables
+def _env_bool(name, default=False):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return str(value).strip().lower() in ('1', 'true', 'yes', 'on')
+
+def _env_list(name, default=''):
+    value = os.environ.get(name, default)
+    if not value:
+        return []
+    return [item.strip() for item in value.split(',') if item.strip()]
+
+def _env_int(name, default):
+    try:
+        return int(os.environ.get(name, default))
+    except (TypeError, ValueError):
+        return default
+
+def _env_json(name, default=None):
+    value = os.environ.get(name)
+    if not value:
+        return {} if default is None else default
+    try:
+        import json
+        return json.loads(value)
+    except Exception:
+        return {} if default is None else default
+# Build paths inside the project like this: BASE_DIR / "subdir".
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -151,6 +181,25 @@ MONOBANK_TOKEN = os.environ.get('MONOBANK_TOKEN', '')
 MONOBANK_API_BASE = os.environ.get('MONOBANK_API_BASE', 'https://api.monobank.ua')
 # Optional override for webhook URL; if empty we build from request context
 MONOBANK_WEBHOOK_URL = os.environ.get('MONOBANK_WEBHOOK_URL', '')
+
+# Mono Checkout (order-based flow) configuration
+MONOBANK_CHECKOUT_DELIVERY_METHODS = _env_list('MONOBANK_CHECKOUT_DELIVERY_METHODS', 'pickup,np_brnm,courier,np_box')
+if not MONOBANK_CHECKOUT_DELIVERY_METHODS:
+    MONOBANK_CHECKOUT_DELIVERY_METHODS = ['pickup', 'np_brnm', 'courier', 'np_box']
+
+MONOBANK_CHECKOUT_PAYMENT_METHODS = _env_list('MONOBANK_CHECKOUT_PAYMENT_METHODS', 'card,payment_on_delivery')
+if not MONOBANK_CHECKOUT_PAYMENT_METHODS:
+    MONOBANK_CHECKOUT_PAYMENT_METHODS = ['card']
+
+MONOBANK_CHECKOUT_CALLBACK_URL = os.environ.get('MONOBANK_CHECKOUT_CALLBACK_URL', '')
+MONOBANK_CHECKOUT_RETURN_URL = os.environ.get('MONOBANK_CHECKOUT_RETURN_URL', '')
+MONOBANK_CHECKOUT_PAYMENTS_NUMBER = _env_int('MONOBANK_CHECKOUT_PAYMENTS_NUMBER', 3)
+MONOBANK_CHECKOUT_ACCEPTABLE_AGE = _env_int('MONOBANK_CHECKOUT_ACCEPTABLE_AGE', 18)
+MONOBANK_CHECKOUT_DLV_PAY_MERCHANT = _env_bool('MONOBANK_CHECKOUT_DLV_PAY_MERCHANT', False)
+MONOBANK_CHECKOUT_HOLD = _env_bool('MONOBANK_CHECKOUT_HOLD', False)
+MONOBANK_CHECKOUT_FL_RECALL = _env_bool('MONOBANK_CHECKOUT_FL_RECALL', False)
+MONOBANK_CHECKOUT_DESTINATION_TEMPLATE = os.environ.get('MONOBANK_CHECKOUT_DESTINATION_TEMPLATE', 'Оплата замовлення {order_number}')
+MONOBANK_CHECKOUT_DEFAULT_DLV_INFO = _env_json('MONOBANK_CHECKOUT_DEFAULT_DLV_INFO', {})
 
 # Redirects for social-auth
 SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/profile/setup/'

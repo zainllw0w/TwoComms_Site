@@ -85,6 +85,7 @@ urlpatterns=[
     path('cart/remove-promo/', views.remove_promo_code, name='remove_promo_code'),
     # Monobank acquiring
     path('cart/monobank/create-invoice/', views.monobank_create_invoice, name='monobank_create_invoice'),
+    path('cart/monobank/quick/', views.monobank_create_checkout, name='monobank_quick_invoice'),
     path('payments/monobank/return/', views.monobank_return, name='monobank_return'),
     path('payments/monobank/webhook/', views.monobank_webhook, name='monobank_webhook'),
     # API endpoints
