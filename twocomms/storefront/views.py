@@ -5498,14 +5498,158 @@ def monobank_create_invoice(request):
     })
 
 
+def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, items=None):
+    """Build payload for Monobank Checkout API."""
+    from django.conf import settings
+    
+    if items is None:
+        items = list(order.items.select_related('product', 'color_variant__color'))
+    
+    # Build products array
+    products = []
+    for item in items:
+        product_data = {
+            'name': item.product.title,
+            'qty': item.qty,
+            'sum': int(item.line_total * 100),  # сумма в копейках
+        }
+        if item.product.main_image:
+            product_data['icon'] = request.build_absolute_uri(item.product.main_image.url)
+        products.append(product_data)
+    
+    # Build payload
+    payload = {
+        'order_ref': order.order_number,
+        'amount': int(amount_decimal * 100),  # сумма в копейках
+        'ccy': 980,  # гривна
+        'count': total_qty,
+        'products': products,
+        'dlv_method_list': getattr(settings, 'MONOBANK_CHECKOUT_DELIVERY_METHODS', ['pickup', 'np_brnm']),
+        'payment_method_list': getattr(settings, 'MONOBANK_CHECKOUT_PAYMENT_METHODS', ['card']),
+        'dlv_pay_merchant': getattr(settings, 'MONOBANK_CHECKOUT_DLV_PAY_MERCHANT', False),
+        'payments_number': getattr(settings, 'MONOBANK_CHECKOUT_PAYMENTS_NUMBER', 3),
+        'callback_url': request.build_absolute_uri('/payments/monobank/webhook/'),
+        'return_url': request.build_absolute_uri('/payments/monobank/return/'),
+        'fl_recall': getattr(settings, 'MONOBANK_CHECKOUT_FL_RECALL', False),
+        'acceptable_age': getattr(settings, 'MONOBANK_CHECKOUT_ACCEPTABLE_AGE', 18),
+        'hold': getattr(settings, 'MONOBANK_CHECKOUT_HOLD', False),
+        'destination': getattr(settings, 'MONOBANK_CHECKOUT_DESTINATION_TEMPLATE', 'Оплата замовлення {order_number}').format(order_number=order.order_number),
+        'dlv_info_merchant': getattr(settings, 'MONOBANK_CHECKOUT_DEFAULT_DLV_INFO', {})
+    }
+    
+    return payload
+
+
+def _prepare_checkout_customer_data(request):
+    """Prepare customer data for checkout from request."""
+    if request.user.is_authenticated:
+        try:
+            profile = request.user.userprofile
+            return {
+                'full_name': profile.full_name or f'{request.user.first_name} {request.user.last_name}'.strip() or 'Користувач',
+                'phone': profile.phone or '',
+                'city': profile.city or '',
+                'np_office': profile.np_office or '',
+                'pay_type': profile.pay_type or 'full',
+                'user': request.user
+            }
+        except:
+            pass
+    
+    # Default data for guests
+    return {
+        'full_name': 'Користувач',
+        'phone': '',
+        'city': '',
+        'np_office': '',
+        'pay_type': 'full',
+        'user': None
+    }
+
+
+def _create_single_product_order(product, size, qty, color_variant_id, customer):
+    """Create a temporary order for a single product for Monobank Checkout."""
+    from orders.models import Order, OrderItem
+    from productcolors.models import ProductColorVariant
+    
+    # Create temporary order
+    order = Order.objects.create(
+        customer_name=customer['full_name'],
+        customer_phone=customer['phone'],
+        customer_city=customer['city'],
+        customer_np_office=customer['np_office'],
+        pay_type=customer.get('pay_type', 'full'),
+        status='pending',
+        total_amount=0,  # Will be calculated below
+        user=customer.get('user')
+    )
+    
+    # Calculate price
+    unit_price = product.final_price
+    line_total = unit_price * qty
+    
+    # Get color variant if specified
+    color_variant = None
+    if color_variant_id:
+        try:
+            color_variant = ProductColorVariant.objects.get(id=color_variant_id)
+        except ProductColorVariant.DoesNotExist:
+            pass
+    
+    # Create order item
+    OrderItem.objects.create(
+        order=order,
+        product=product,
+        color_variant=color_variant,
+        size=size,
+        qty=qty,
+        unit_price=unit_price,
+        line_total=line_total
+    )
+    
+    # Update order total
+    order.total_amount = line_total
+    order.save(update_fields=['total_amount'])
+    
+    return order
+
+
 @require_POST
 def monobank_create_checkout(request):
     """Create Monobank checkout order and return redirect URL."""
     try:
-        customer = _prepare_checkout_customer_data(request)
-        order, amount_decimal, _ = _create_or_update_monobank_order(request, customer)
-    except ValueError:
-        return JsonResponse({'success': False, 'error': 'Кошик порожній. Додайте товари перед оплатою.'})
+        # Проверяем, создаем ли заказ на один товар
+        body = json.loads(request.body.decode('utf-8')) if request.body else {}
+        single_product = body.get('single_product', False)
+        
+        if single_product:
+            # Создаем заказ на один товар
+            product_id = body.get('product_id')
+            size = body.get('size', 'S')
+            qty = int(body.get('qty', 1))
+            color_variant_id = body.get('color_variant_id')
+            
+            if not product_id:
+                return JsonResponse({'success': False, 'error': 'Не вказано ID товару.'})
+            
+            try:
+                product = Product.objects.get(id=product_id)
+            except Product.DoesNotExist:
+                return JsonResponse({'success': False, 'error': 'Товар не знайдено.'})
+            
+            # Создаем временный заказ на один товар
+            customer = _prepare_checkout_customer_data(request)
+            order = _create_single_product_order(product, size, qty, color_variant_id, customer)
+            amount_decimal = order.total_amount
+        else:
+            # Обычная логика для корзины
+            customer = _prepare_checkout_customer_data(request)
+            order, amount_decimal, _ = _create_or_update_monobank_order(request, customer)
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+    except Exception as e:
+        monobank_logger.exception('Error in monobank_create_checkout: %s', e)
+        return JsonResponse({'success': False, 'error': 'Помилка при створенні замовлення.'})
 
     items_qs = list(order.items.select_related('product', 'color_variant__color'))
     total_qty = sum(item.qty for item in items_qs)
