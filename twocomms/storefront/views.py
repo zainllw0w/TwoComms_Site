@@ -6096,3 +6096,9 @@ def wholesale_prices_xlsx(request):
     response['Content-Disposition'] = 'attachment; filename="pricelist_opt.xlsx"'
     
     return response
+
+
+def test_pricelist(request):
+    """Simple test function to check if new URLs work."""
+    from django.http import HttpResponse
+    return HttpResponse("Pricelist test works!", content_type="text/plain")
