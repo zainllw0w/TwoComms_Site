@@ -113,4 +113,6 @@ urlpatterns=[
     path('favorites/toggle/<int:product_id>/', views.toggle_favorite, name='toggle_favorite'),
     path('favorites/check/<int:product_id>/', views.check_favorite_status, name='check_favorite_status'),
     path('favorites/count/', views.favorites_count, name='favorites_count'),
+    # wholesale prices
+    path('pricelist_opt.xlsx', views.wholesale_prices_xlsx, name='wholesale_prices_xlsx'),
 ]
