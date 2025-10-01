@@ -505,15 +505,77 @@ function requestMonoCheckout(){
   }).then(response => response.json().then(data => ({data, status: response.status, ok: response.ok})).catch(() => ({data: null, status: response.status, ok: false})));
 }
 
+function requestMonoCheckoutSingleProduct(button){
+  const csrfToken = collectMonoCsrf();
+  const productId = button.getAttribute('data-product-id');
+  
+  const rootSelector = button.getAttribute('data-product-root');
+  let root = null;
+  if(rootSelector){
+    try { root = document.querySelector(rootSelector); } catch(_) { root = null; }
+  }
+  if(!root) root = button.closest('[data-product-container]') || document;
+  const find = (selector)=> root ? root.querySelector(selector) : document.querySelector(selector);
+
+  let size = '';
+  const checkedSize = find('input[name="size"]:checked');
+  if(checkedSize) size = checkedSize.value;
+  if(!size){
+    const sizeInput = find('input[name="size"]');
+    if(sizeInput) size = sizeInput.value;
+  }
+  if(!size) size = 'S';
+
+  let qty = 1;
+  const qtyInput = find('#qty');
+  if(qtyInput){
+    const parsed = parseInt(qtyInput.value, 10);
+    if(Number.isFinite(parsed) && parsed > 0) qty = parsed;
+  }
+
+  let colorVariantId = null;
+  const colorActive = find('#color-picker .color-swatch.active') || document.querySelector('#color-picker .color-swatch.active');
+  if(colorActive) colorVariantId = colorActive.getAttribute('data-variant');
+
+  const payload = {
+    product_id: productId,
+    size: size.toUpperCase(),
+    qty: qty,
+    color_variant_id: colorVariantId,
+    single_product: true
+  };
+
+  return fetch('/cart/monobank/quick/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken || '',
+      'X-Requested-With': 'XMLHttpRequest'
+    },
+    credentials: 'same-origin',
+    body: JSON.stringify(payload)
+  }).then(response => response.json().then(data => ({data, status: response.status, ok: response.ok})).catch(() => ({data: null, status: response.status, ok: false})));
+}
+
 function startMonoCheckout(button, statusEl, options){
   const opts = options || {};
   setMonoCheckoutStatus(statusEl, '', '');
   toggleMonoCheckoutLoading(button, true);
 
-  const ensureProduct = opts.ensureProduct ? addProductToCartForMono(button) : Promise.resolve();
+  const triggerType = button.getAttribute('data-mono-checkout-trigger');
+  const isSingleProduct = triggerType === 'product';
+  
+  let requestPromise;
+  if(isSingleProduct) {
+    // Для кнопки в детальном товаре создаем заказ на один товар
+    requestPromise = requestMonoCheckoutSingleProduct(button);
+  } else {
+    // Для миникорзины используем корзину
+    const ensureProduct = opts.ensureProduct ? addProductToCartForMono(button) : Promise.resolve();
+    requestPromise = ensureProduct.then(() => requestMonoCheckout());
+  }
 
-  return ensureProduct
-    .then(() => requestMonoCheckout())
+  return requestPromise
     .then(result => {
       const data = result.data || {};
       if(result.ok && data.success && data.redirect_url){
