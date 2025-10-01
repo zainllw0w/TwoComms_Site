@@ -5976,7 +5976,7 @@ def wholesale_prices_xlsx(request):
         '32–63 шт.',
         '64–99 шт.',
         '100+ шт.',
-        'Ссылка на товар'
+        'Ссылка'
     ]
     
     for col, header in enumerate(headers, 1):
@@ -6067,7 +6067,7 @@ def wholesale_prices_xlsx(request):
                 ws.cell(row=row, column=1, value='Футболки')
                 ws.cell(row=row, column=2, value=product_title)
                 ws.cell(row=row, column=3, value=sku)
-                ws.cell(row=row, column=4, value=color)
+                ws.cell(row=row, column=4, value=color if color else 'черный')
                 
                 # Добавляем цены
                 for col, price in enumerate(tshirt_prices, 5):
@@ -6079,11 +6079,11 @@ def wholesale_prices_xlsx(request):
                 
                 row += 1
         else:
-            # Если нет цветов, создаем одну строку
+            # Если нет цветов, создаем одну строку с черным цветом
             ws.cell(row=row, column=1, value='Футболки')
             ws.cell(row=row, column=2, value=product_title)
             ws.cell(row=row, column=3, value=sku)
-            ws.cell(row=row, column=4, value='')
+            ws.cell(row=row, column=4, value='черный')
             
             # Добавляем цены
             for col, price in enumerate(tshirt_prices, 5):
