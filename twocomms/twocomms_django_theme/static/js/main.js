@@ -545,6 +545,8 @@ function requestMonoCheckoutSingleProduct(button){
     single_product: true
   };
 
+  console.log('Sending single product checkout request:', payload);
+  
   return fetch('/cart/monobank/quick/', {
     method: 'POST',
     headers: {
@@ -554,7 +556,16 @@ function requestMonoCheckoutSingleProduct(button){
     },
     credentials: 'same-origin',
     body: JSON.stringify(payload)
-  }).then(response => response.json().then(data => ({data, status: response.status, ok: response.ok})).catch(() => ({data: null, status: response.status, ok: false})));
+  }).then(response => {
+    console.log('Single product checkout response status:', response.status);
+    return response.json().then(data => {
+      console.log('Single product checkout response data:', data);
+      return {data, status: response.status, ok: response.ok};
+    }).catch(err => {
+      console.error('Error parsing single product checkout response:', err);
+      return {data: null, status: response.status, ok: false};
+    });
+  });
 }
 
 function startMonoCheckout(button, statusEl, options){
@@ -564,6 +575,8 @@ function startMonoCheckout(button, statusEl, options){
 
   const triggerType = button.getAttribute('data-mono-checkout-trigger');
   const isSingleProduct = triggerType === 'product';
+  
+  console.log('Starting Monobank checkout:', {triggerType, isSingleProduct});
   
   let requestPromise;
   if(isSingleProduct) {

@@ -5350,6 +5350,8 @@ def _monobank_api_request(method, endpoint, *, params=None, json_payload=None, t
     url = f"{base_url}{endpoint}"
     headers = {'X-Token': settings.MONOBANK_TOKEN}
 
+    monobank_logger.info('Monobank API request: %s %s, payload: %s', method, endpoint, json_payload)
+
     try:
         if method.upper() == 'POST':
             response = requests.post(url, params=params, json=json_payload, headers=headers, timeout=timeout)
@@ -5358,15 +5360,19 @@ def _monobank_api_request(method, endpoint, *, params=None, json_payload=None, t
         else:
             raise MonobankAPIError('Unsupported HTTP method')
     except requests.RequestException as exc:
-        raise MonobankAPIError(f'Помилка з’єднання з платіжним сервісом: {exc}') from exc
+        monobank_logger.error('Monobank API request failed: %s', exc)
+        raise MonobankAPIError(f'Помилка з'єднання з платіжним сервісом: {exc}') from exc
 
     try:
         data = response.json()
     except ValueError:
         data = {}
 
+    monobank_logger.info('Monobank API response: status=%s, data=%s', response.status_code, data)
+
     if response.status_code >= 400 or 'errCode' in data:
         err_text = data.get('errText') or data.get('message') or f'HTTP {response.status_code}'
+        monobank_logger.error('Monobank API error: %s', err_text)
         raise MonobankAPIError(err_text)
 
     return data
@@ -5505,13 +5511,13 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
     if items is None:
         items = list(order.items.select_related('product', 'color_variant__color'))
     
-    # Build products array
+    # Build products array according to Monobank Checkout API
     products = []
     for item in items:
         product_data = {
             'name': item.product.title,
-            'qty': item.qty,
-            'sum': int(item.line_total * 100),  # сумма в копейках
+            'quantity': item.qty,
+            'price': int(item.unit_price * 100),  # цена за единицу в копейках
         }
         if item.product.main_image:
             product_data['icon'] = request.build_absolute_uri(item.product.main_image.url)
@@ -5622,6 +5628,8 @@ def monobank_create_checkout(request):
         body = json.loads(request.body.decode('utf-8')) if request.body else {}
         single_product = body.get('single_product', False)
         
+        monobank_logger.info('Monobank checkout request: single_product=%s, body=%s', single_product, body)
+        
         if single_product:
             # Создаем заказ на один товар
             product_id = body.get('product_id')
@@ -5629,18 +5637,24 @@ def monobank_create_checkout(request):
             qty = int(body.get('qty', 1))
             color_variant_id = body.get('color_variant_id')
             
+            monobank_logger.info('Single product checkout: product_id=%s, size=%s, qty=%s, color_variant_id=%s', 
+                               product_id, size, qty, color_variant_id)
+            
             if not product_id:
                 return JsonResponse({'success': False, 'error': 'Не вказано ID товару.'})
             
             try:
                 product = Product.objects.get(id=product_id)
+                monobank_logger.info('Found product: %s, price: %s', product.title, product.final_price)
             except Product.DoesNotExist:
                 return JsonResponse({'success': False, 'error': 'Товар не знайдено.'})
             
             # Создаем временный заказ на один товар
             customer = _prepare_checkout_customer_data(request)
+            monobank_logger.info('Customer data: %s', customer)
             order = _create_single_product_order(product, size, qty, color_variant_id, customer)
             amount_decimal = order.total_amount
+            monobank_logger.info('Created single product order: %s, amount: %s', order.order_number, amount_decimal)
         else:
             # Обычная логика для корзины
             customer = _prepare_checkout_customer_data(request)
