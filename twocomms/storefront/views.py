@@ -5914,6 +5914,95 @@ def monobank_webhook(request):
     return JsonResponse({'ok': True})
 
 
+def _translate_color_to_ukrainian(color_name):
+    """Translate color names from Russian to Ukrainian."""
+    color_translations = {
+        'черный': 'чорний',
+        'белый': 'білий',
+        'красный': 'червоний',
+        'синий': 'синій',
+        'зеленый': 'зелений',
+        'желтый': 'жовтий',
+        'оранжевый': 'помаранчевий',
+        'фиолетовый': 'фіолетовий',
+        'розовый': 'рожевий',
+        'серый': 'сірий',
+        'коричневый': 'коричневий',
+        'голубой': 'блакитний',
+        'бордовый': 'бордовий',
+        'темно-синий': 'темно-синій',
+        'светло-серый': 'світло-сірий',
+        'темно-серый': 'темно-сірий',
+        'бежевый': 'бежевий',
+        'кремовый': 'кремовий',
+        'оливковый': 'оливковий',
+        'бирюзовый': 'бірюзовий',
+        'лайм': 'лайм',
+        'лаванда': 'лаванда',
+        'мятный': 'м\'ятний',
+        'коралловый': 'кораловий',
+        'персиковый': 'персиковий',
+        'золотой': 'золотий',
+        'серебряный': 'срібний',
+        'медный': 'мідний',
+        'бронзовый': 'бронзовий',
+        'хаки': 'хаки',
+        'фуксия': 'фуксія',
+        'индиго': 'індиго',
+        'пурпурный': 'пурпурний',
+        'малиновый': 'малиновий',
+        'вишневый': 'вишневий',
+        'изумрудный': 'смарагдовий',
+        'нефрит': 'нефрит',
+        'бирюза': 'бірюза',
+        'бирюзово-зеленый': 'бірюзово-зелений',
+        'темно-зеленый': 'темно-зелений',
+        'светло-зеленый': 'світло-зелений',
+        'темно-красный': 'темно-червоний',
+        'светло-красный': 'світло-червоний',
+        'темно-синий': 'темно-синій',
+        'светло-синий': 'світло-синій',
+        'темно-фиолетовый': 'темно-фіолетовий',
+        'светло-фиолетовый': 'світло-фіолетовий',
+        'темно-коричневый': 'темно-коричневий',
+        'светло-коричневый': 'світло-коричневий',
+        'темно-розовый': 'темно-рожевий',
+        'светло-розовый': 'світло-рожевий',
+        'темно-желтый': 'темно-жовтий',
+        'светло-желтый': 'світло-жовтий',
+        'темно-оранжевый': 'темно-помаранчевий',
+        'светло-оранжевый': 'світло-помаранчевий',
+        # Додаткові кольори
+        'кайот': 'кайот',
+        'navy': 'navy',
+        'charcoal': 'charcoal',
+        'heather': 'heather',
+        'maroon': 'maroon',
+        'forest': 'forest',
+        'royal': 'royal',
+        'sport grey': 'sport grey',
+        'ash': 'ash',
+        'dark heather': 'dark heather',
+        'red': 'red',
+        'blue': 'blue',
+        'green': 'green',
+        'yellow': 'yellow',
+        'orange': 'orange',
+        'purple': 'purple',
+        'pink': 'pink',
+        'black': 'чорний',
+        'white': 'білий',
+        'grey': 'сірий',
+        'brown': 'коричневий',
+    }
+    
+    if not color_name:
+        return 'чорний'
+    
+    color_lower = color_name.lower().strip()
+    return color_translations.get(color_lower, color_name)
+
+
 def wholesale_prices_xlsx(request):
     """Generate and serve wholesale prices XLSX file."""
     from django.http import HttpResponse
@@ -6015,7 +6104,7 @@ def wholesale_prices_xlsx(request):
                 ws.cell(row=row, column=1, value='Худи')
                 ws.cell(row=row, column=2, value=product_title)
                 ws.cell(row=row, column=3, value=sku)
-                ws.cell(row=row, column=4, value='чорний')  # Для худи завжди чорний
+                ws.cell(row=row, column=4, value=_translate_color_to_ukrainian('чорний'))  # Для худи завжди чорний
                 
                 # Добавляем цены
                 for col, price in enumerate(hoodie_prices, 5):
@@ -6031,7 +6120,7 @@ def wholesale_prices_xlsx(request):
             ws.cell(row=row, column=1, value='Худи')
             ws.cell(row=row, column=2, value=product_title)
             ws.cell(row=row, column=3, value=sku)
-            ws.cell(row=row, column=4, value='чорний')  # Для худи завжди чорний
+            ws.cell(row=row, column=4, value=_translate_color_to_ukrainian('чорний'))  # Для худи завжди чорний
             
             # Добавляем цены
             for col, price in enumerate(hoodie_prices, 5):
@@ -6067,7 +6156,7 @@ def wholesale_prices_xlsx(request):
                 ws.cell(row=row, column=1, value='Футболки')
                 ws.cell(row=row, column=2, value=product_title)
                 ws.cell(row=row, column=3, value=sku)
-                ws.cell(row=row, column=4, value=color if color else 'чорний')
+                ws.cell(row=row, column=4, value=_translate_color_to_ukrainian(color if color else 'чорний'))
                 
                 # Добавляем цены
                 for col, price in enumerate(tshirt_prices, 5):
@@ -6083,7 +6172,7 @@ def wholesale_prices_xlsx(request):
             ws.cell(row=row, column=1, value='Футболки')
             ws.cell(row=row, column=2, value=product_title)
             ws.cell(row=row, column=3, value=sku)
-            ws.cell(row=row, column=4, value='чорний')
+            ws.cell(row=row, column=4, value=_translate_color_to_ukrainian('чорний'))
             
             # Добавляем цены
             for col, price in enumerate(tshirt_prices, 5):
