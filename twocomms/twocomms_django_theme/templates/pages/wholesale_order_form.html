@@ -1624,7 +1624,21 @@
 
     <!-- Generated Invoices Section -->
     <div class="generated-invoices-section">
-        <h2 class="section-title">Сформовані накладні</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2 class="section-title">Сформовані накладні</h2>
+            <button onclick="clearOldInvoices()" class="clear-invoices-btn" style="
+                background: rgba(239, 68, 68, 0.1);
+                border: 1px solid rgba(239, 68, 68, 0.3);
+                color: #ef4444;
+                padding: 0.5rem 1rem;
+                border-radius: 8px;
+                font-size: 0.875rem;
+                cursor: pointer;
+                transition: all 0.3s ease;
+            " onmouseover="this.style.background='rgba(239, 68, 68, 0.2)'" onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'">
+                Очистити старі
+            </button>
+        </div>
         <div class="invoices-list" id="invoices-list">
             <!-- Invoices will be dynamically added here -->
             <div style="color: rgba(255, 255, 255, 0.6); text-align: center; padding: 2rem;">
@@ -2755,6 +2769,19 @@ function loadInvoicesFromLocalStorage() {
     });
 }
 
+// Функция для очистки старых накладных из localStorage
+function clearOldInvoices() {
+    if (confirm('Очистити всі старі накладні зі списку? (Це видалить їх тільки зі списку, файли залишаться)')) {
+        localStorage.removeItem('wholesaleInvoices');
+        
+        // Очищаем список накладных в UI
+        const invoicesList = document.getElementById('invoices-list');
+        invoicesList.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">Немає збережених накладних</div>';
+        
+        showNotification('Старі накладні очищені зі списку', 'success');
+    }
+}
+
 // Color dots initialization
 function initializeColorDots() {
     const colorDots = document.querySelectorAll('.color-dot[data-color]');
@@ -2848,9 +2875,28 @@ function deleteInvoice(invoiceId) {
                 'X-CSRFToken': getCookie('csrftoken')
             }
         })
-        .then(response => response.json())
+        .then(response => {
+            // Проверяем статус ответа
+            if (response.status === 404) {
+                // Накладная не найдена в базе данных, но удаляем из UI и localStorage
+                const invoiceItem = document.querySelector(`[data-invoice-id="${invoiceId}"]`);
+                if (invoiceItem) {
+                    invoiceItem.remove();
+                }
+                
+                // Удаляем из localStorage
+                let invoices = JSON.parse(localStorage.getItem('wholesaleInvoices') || '[]');
+                invoices = invoices.filter(inv => inv.id !== invoiceId);
+                localStorage.setItem('wholesaleInvoices', JSON.stringify(invoices));
+                
+                showNotification('Накладна видалена зі списку (не знайдена в базі даних)', 'success');
+                return;
+            }
+            
+            return response.json();
+        })
         .then(data => {
-            if (data.success) {
+            if (data && data.success) {
                 const invoiceItem = document.querySelector(`[data-invoice-id="${invoiceId}"]`);
                 if (invoiceItem) {
                     invoiceItem.remove();
@@ -2862,7 +2908,7 @@ function deleteInvoice(invoiceId) {
                 localStorage.setItem('wholesaleInvoices', JSON.stringify(invoices));
                 
                 showNotification('Накладна видалена', 'success');
-            } else {
+            } else if (data) {
                 showNotification(data.error || 'Помилка при видаленні накладної', 'error');
             }
         })
