@@ -274,8 +274,12 @@
 .management-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 30px;
+    gap: 40px;
     margin-bottom: 30px;
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0 20px;
 }
 
 .management-column {
@@ -689,15 +693,15 @@
     backdrop-filter: blur(15px);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 12px;
-    padding: 8px;
-    margin-bottom: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
     box-shadow: 
         0 4px 12px rgba(0, 0, 0, 0.25),
         0 0 0 1px rgba(139, 92, 246, 0.1);
     border-left: 3px solid #8b5cf6;
     position: relative;
     transition: all 0.3s ease;
-    height: 66px;
+    height: 75px;
     display: flex;
     align-items: center;
 }
@@ -759,9 +763,10 @@
 .order-item-specs-row {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     font-size: 0.5rem;
     color: rgba(255, 255, 255, 0.6);
+    flex-wrap: wrap;
 }
 
 .order-item-color-section {
@@ -780,20 +785,20 @@
 
 .order-item-size {
     background: rgba(139, 92, 246, 0.2);
-    padding: 1px 4px;
-    border-radius: 3px;
+    padding: 2px 6px;
+    border-radius: 4px;
     font-size: 0.5rem;
     white-space: nowrap;
-    max-width: 40px;
+    margin: 1px 0;
 }
 
 .order-item-quantity {
     background: rgba(16, 185, 129, 0.2);
-    padding: 1px 4px;
-    border-radius: 3px;
+    padding: 2px 6px;
+    border-radius: 4px;
     font-size: 0.5rem;
     white-space: nowrap;
-    max-width: 40px;
+    margin: 1px 0;
 }
 
 .order-item-actions {
@@ -801,7 +806,7 @@
     flex-direction: column;
     align-items: flex-end;
     gap: 4px;
-    height: 50px;
+    height: 55px;
     justify-content: space-between;
 }
 
@@ -1695,6 +1700,23 @@ function initializeOrderForm() {
         addToOrder();
     });
     
+    // Handle size change
+    const sizeSelect = document.getElementById('productSize');
+    sizeSelect.addEventListener('change', function() {
+        const quantityInput = document.getElementById('quantity');
+        if (this.value === 'all') {
+            quantityInput.value = '4';
+            quantityInput.disabled = true;
+            quantityInput.style.opacity = '0.6';
+        } else {
+            quantityInput.disabled = false;
+            quantityInput.style.opacity = '1';
+            if (quantityInput.value === '4') {
+                quantityInput.value = '1';
+            }
+        }
+        updatePriceDisplay();
+    });
     
     // Handle quantity change
     const quantityInput = document.getElementById('quantity');
@@ -1717,6 +1739,8 @@ function showOrderForm() {
         // Set default values
         document.getElementById('productSize').value = '';
         document.getElementById('quantity').value = '1';
+        document.getElementById('quantity').disabled = false;
+        document.getElementById('quantity').style.opacity = '1';
         
         updatePriceDisplay();
     }
