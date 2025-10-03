@@ -6340,5 +6340,56 @@ def pricelist_page(request):
 
 def wholesale_page(request):
     """Render wholesale page with products and pricing."""
-    from django.http import HttpResponse
-    return HttpResponse("<h1>Оптові закупівлі TwoComms</h1><p>Сторінка працює!</p>")
+    try:
+        from django.db.models import Q
+        from storefront.models import Product, Category
+        
+        # Фильтруем категории по ключевым словам
+        tshirt_categories = Category.objects.filter(
+            Q(name__icontains='футболка') | 
+            Q(name__icontains='tshirt') | 
+            Q(name__icontains='t-shirt') |
+            Q(slug__icontains='футболка') |
+            Q(slug__icontains='tshirt') |
+            Q(slug__icontains='t-shirt')
+        )
+        
+        hoodie_categories = Category.objects.filter(
+            Q(name__icontains='худи') | 
+            Q(name__icontains='hoodie') | 
+            Q(name__icontains='hooded') |
+            Q(slug__icontains='худи') |
+            Q(slug__icontains='hoodie') |
+            Q(slug__icontains='hooded')
+        )
+        
+        # Получаем товары из нужных категорий
+        tshirt_products = Product.objects.filter(category__in=tshirt_categories).select_related('category')[:10]
+        hoodie_products = Product.objects.filter(category__in=hoodie_categories).select_related('category')[:10]
+        
+    except Exception as e:
+        # Если есть ошибка с базой данных, используем пустые списки
+        tshirt_products = []
+        hoodie_products = []
+    
+    # Цены для категорий
+    tshirt_prices = {
+        'drop': 700,
+        'wholesale': [650, 620, 590, 560, 520],
+        'ranges': ['8–15 шт.', '16–31 шт.', '32–63 шт.', '64–99 шт.', '100+ шт.']
+    }
+    
+    hoodie_prices = {
+        'drop': 1500,
+        'wholesale': [1400, 1350, 1300, 1250, 1200],
+        'ranges': ['8–15 шт.', '16–31 шт.', '32–63 шт.', '64–99 шт.', '100+ шт.']
+    }
+    
+    context = {
+        'tshirt_products': tshirt_products,
+        'hoodie_products': hoodie_products,
+        'tshirt_prices': tshirt_prices,
+        'hoodie_prices': hoodie_prices,
+    }
+    
+    return render(request, 'pages/wholesale.html', context)
