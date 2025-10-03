@@ -1075,6 +1075,7 @@ def cart_summary(request):
         for key, item in cart_to_clean.items():
             if item['product_id'] in missing_products:
                 cart.pop(key, None)
+        _reset_monobank_session(request, drop_pending=True)
         request.session['cart'] = cart
         request.session.modified = True
     
@@ -1109,6 +1110,7 @@ def cart_mini(request):
         for key, item in cart_to_clean.items():
             if item['product_id'] in missing_products:
                 cart_sess.pop(key, None)
+        _reset_monobank_session(request, drop_pending=True)
         request.session['cart'] = cart_sess
         request.session.modified = True
     
@@ -1330,6 +1332,7 @@ def process_guest_order(request):
     order.save()
     
     # Очищаем корзину и промокод
+    _reset_monobank_session(request, drop_pending=True)
     request.session['cart'] = {}
     request.session.pop('applied_promo_code', None)
     request.session.modified = True
@@ -1481,6 +1484,7 @@ def cart(request):
         for key, item in cart_to_clean.items():
             if item['product_id'] in missing_products:
                 cart_sess.pop(key, None)
+        _reset_monobank_session(request, drop_pending=True)
         request.session['cart'] = cart_sess
         request.session.modified = True
     
@@ -2517,6 +2521,7 @@ def order_create(request):
         order.save()
 
     # Очищаем корзину и промокод
+    _reset_monobank_session(request, drop_pending=True)
     request.session['cart'] = {}
     request.session.pop('applied_promo_code', None)
     request.session.modified = True
@@ -4820,13 +4825,19 @@ def static_sitemap(request):
 def admin_order_delete(request, pk: int):
     if not request.user.is_staff:
         return redirect('home')
+
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     try:
         from orders.models import Order
         order = Order.objects.get(pk=pk)
         order.delete()
+        if is_ajax:
+            return JsonResponse({'ok': True, 'removed_id': pk})
         from django.contrib import messages
         messages.success(request, f"Замовлення #{order.order_number} видалено")
     except Exception as e:
+        if is_ajax:
+            return JsonResponse({'ok': False, 'error': str(e)}, status=400)
         from django.contrib import messages
         messages.error(request, f"Помилка видалення: {e}")
     return redirect('admin_panel')
@@ -5520,6 +5531,7 @@ def _record_monobank_status(order, payload, source='api'):
 @require_POST
 def monobank_create_invoice(request):
     """Create Monobank pay invoice and return redirect URL."""
+    _cleanup_expired_monobank_orders()
     try:
         customer = _prepare_checkout_customer_data(request)
         order, amount_decimal, _ = _create_or_update_monobank_order(request, customer)
@@ -5765,6 +5777,7 @@ def _create_single_product_order(product, size, qty, color_variant_id, customer)
 @require_POST
 def monobank_create_checkout(request):
     """Create Monobank checkout order and return redirect URL."""
+    _cleanup_expired_monobank_orders()
     try:
         # Проверяем, создаем ли заказ на один товар
         body = json.loads(request.body.decode('utf-8')) if request.body else {}
@@ -6320,3 +6333,54 @@ def pricelist_redirect(request):
 def pricelist_page(request):
     """Display pricelist download page."""
     return render(request, 'pages/pricelist.html')
+
+
+def wholesale_page(request):
+    """Render wholesale page with products and pricing."""
+    from django.db.models import Q
+    from storefront.models import Product, Category
+    
+    # Фильтруем категории по ключевым словам
+    tshirt_categories = Category.objects.filter(
+        Q(name__icontains='футболка') | 
+        Q(name__icontains='tshirt') | 
+        Q(name__icontains='t-shirt') |
+        Q(slug__icontains='футболка') |
+        Q(slug__icontains='tshirt') |
+        Q(slug__icontains='t-shirt')
+    )
+    
+    hoodie_categories = Category.objects.filter(
+        Q(name__icontains='худи') | 
+        Q(name__icontains='hoodie') | 
+        Q(name__icontains='hooded') |
+        Q(slug__icontains='худи') |
+        Q(slug__icontains='hoodie') |
+        Q(slug__icontains='hooded')
+    )
+    
+    # Получаем товары из нужных категорий
+    tshirt_products = Product.objects.filter(category__in=tshirt_categories).select_related('category')
+    hoodie_products = Product.objects.filter(category__in=hoodie_categories).select_related('category')
+    
+    # Цены для категорий
+    tshirt_prices = {
+        'drop': 700,
+        'wholesale': [650, 620, 590, 560, 520],
+        'ranges': ['8–15 шт.', '16–31 шт.', '32–63 шт.', '64–99 шт.', '100+ шт.']
+    }
+    
+    hoodie_prices = {
+        'drop': 1500,
+        'wholesale': [1400, 1350, 1300, 1250, 1200],
+        'ranges': ['8–15 шт.', '16–31 шт.', '32–63 шт.', '64–99 шт.', '100+ шт.']
+    }
+    
+    context = {
+        'tshirt_products': tshirt_products,
+        'hoodie_products': hoodie_products,
+        'tshirt_prices': tshirt_prices,
+        'hoodie_prices': hoodie_prices,
+    }
+    
+    return render(request, 'pages/wholesale.html', context)
