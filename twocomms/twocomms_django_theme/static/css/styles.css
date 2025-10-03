@@ -19080,7 +19080,7 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 /* ===== COOPERATION PAGE STYLES ===== */
 
 .cooperation-hero {
-  background: linear-gradient(135deg, rgba(17, 17, 24, 0.95), rgba(10, 10, 16, 0.98));
+  background: linear-gradient(135deg, rgba(6, 6, 12, 0.98), rgba(1, 1, 3, 0.99));
   border-radius: 32px;
   padding: 6rem 3rem;
   text-align: center;
@@ -19286,14 +19286,18 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 }
 
 .cooperation-hero .hero-features {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: clamp(1.25rem, 3vw, 2rem);
-  width: min(100%, 420px);
+  display: flex;
+  justify-content: center;
+  gap: clamp(1.75rem, 3.5vw, 2.5rem);
+  flex-wrap: wrap;
+  width: min(100%, 960px);
   margin: 0 auto;
 }
 
 .cooperation-hero .hero-features .feature-card {
+  flex: 1 1 220px;
+  min-width: 220px;
+  max-width: 320px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 20px;
@@ -19776,12 +19780,15 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   }
   
   .cooperation-hero .hero-features {
-    grid-template-columns: minmax(220px, 1fr);
+    flex-direction: column;
+    align-items: stretch;
+    width: min(100%, 520px);
     gap: 1.25rem;
   }
   
-  .cooperation-hero .feature-card {
+  .cooperation-hero .hero-features .feature-card {
     padding: 1.5rem;
+    max-width: 100%;
   }
   
   .cooperation-hero .hero-subtitle {
@@ -19821,7 +19828,8 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   }
 
   .about-hero .hero-features {
-    grid-template-columns: minmax(220px, 1fr);
+    grid-template-columns: 1fr;
+    width: min(100%, 520px);
     gap: 1.25rem;
   }
 
@@ -20053,14 +20061,14 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 
 .about-hero .hero-features {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr);
-  gap: clamp(1.25rem, 3vw, 2rem);
-  width: min(100%, 420px);
-  margin: clamp(2rem, 4vw, 3rem) auto 0;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 2rem;
+  width: min(100%, 960px);
+  margin: 3rem auto 0;
 }
 
 .about-hero .hero-features .feature-card {
-  padding: 2rem 1.5rem;
+  padding: 2rem;
 }
 
 .feature-card {
