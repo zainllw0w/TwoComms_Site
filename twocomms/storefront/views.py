@@ -5623,14 +5623,14 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
     }
 
     delivery_methods = getattr(settings, 'MONOBANK_CHECKOUT_DELIVERY_METHODS', None)
-    if delivery_methods:
+    if delivery_methods and 'MONOBANK_CHECKOUT_DELIVERY_METHODS' in os.environ:
         payload['dlv_method_list'] = delivery_methods
 
     payment_methods = getattr(settings, 'MONOBANK_CHECKOUT_PAYMENT_METHODS', None)
-    if payment_methods:
+    if payment_methods and 'MONOBANK_CHECKOUT_PAYMENT_METHODS' in os.environ:
         payload['payment_method_list'] = payment_methods
 
-    if getattr(settings, 'MONOBANK_CHECKOUT_DLV_PAY_MERCHANT', False):
+    if getattr(settings, 'MONOBANK_CHECKOUT_DLV_PAY_MERCHANT', False) and 'MONOBANK_CHECKOUT_DLV_PAY_MERCHANT' in os.environ:
         payload['dlv_pay_merchant'] = True
 
     payments_number = getattr(settings, 'MONOBANK_CHECKOUT_PAYMENTS_NUMBER', None)
@@ -5639,8 +5639,10 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
 
     callback_url = getattr(settings, 'MONOBANK_CHECKOUT_CALLBACK_URL', '')
     return_url = getattr(settings, 'MONOBANK_CHECKOUT_RETURN_URL', '')
-    payload['callback_url'] = callback_url or request.build_absolute_uri('/payments/monobank/webhook/')
-    payload['return_url'] = return_url or request.build_absolute_uri('/payments/monobank/return/')
+    default_callback = request.build_absolute_uri('/payments/monobank/webhook/').replace('http://', 'https://', 1)
+    default_return = request.build_absolute_uri('/payments/monobank/return/').replace('http://', 'https://', 1)
+    payload['callback_url'] = callback_url or default_callback
+    payload['return_url'] = return_url or default_return
     
     monobank_logger.info('Built Monobank Checkout payload: %s', payload)
     
