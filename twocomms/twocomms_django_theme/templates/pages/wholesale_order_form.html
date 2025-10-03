@@ -1825,6 +1825,22 @@ function initializeCompanyForm() {
     const existingCompanyData = localStorage.getItem('wholesaleCompanyData');
     if (existingCompanyData) {
         const data = JSON.parse(existingCompanyData);
+        console.log('🔍 EXISTING LOCALSTORAGE DATA:', data);
+        
+        // Check if data is in old format (snake_case) and convert to new format (camelCase)
+        if (data.company_name && !data.companyName) {
+            console.log('🔄 CONVERTING OLD FORMAT TO NEW FORMAT');
+            const convertedData = {
+                companyName: data.company_name || '',
+                companyNumber: data.company_number || '',
+                deliveryAddress: data.delivery_address || '',
+                contactPhone: data.phone_number || '',
+                storeLink: data.store_link || ''
+            };
+            console.log('🔄 CONVERTED DATA:', convertedData);
+            localStorage.setItem('wholesaleCompanyData', JSON.stringify(convertedData));
+            data = convertedData;
+        }
         
         // Fill form with existing data (using correct API field names)
         document.getElementById('company-name').value = data.companyName || '';
