@@ -5619,18 +5619,28 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
         'ccy': 980,  # гривна
         'count': int(total_count),
         'products': products,
-        'dlv_method_list': getattr(settings, 'MONOBANK_CHECKOUT_DELIVERY_METHODS', ['pickup', 'np_brnm']),
-        'payment_method_list': getattr(settings, 'MONOBANK_CHECKOUT_PAYMENT_METHODS', ['card']),
-        'dlv_pay_merchant': getattr(settings, 'MONOBANK_CHECKOUT_DLV_PAY_MERCHANT', False),
-        'payments_number': getattr(settings, 'MONOBANK_CHECKOUT_PAYMENTS_NUMBER', 3),
-        'callback_url': request.build_absolute_uri('/payments/monobank/webhook/'),
-        'return_url': request.build_absolute_uri('/payments/monobank/return/'),
-        'fl_recall': getattr(settings, 'MONOBANK_CHECKOUT_FL_RECALL', False),
-        'acceptable_age': getattr(settings, 'MONOBANK_CHECKOUT_ACCEPTABLE_AGE', 18),
-        'hold': getattr(settings, 'MONOBANK_CHECKOUT_HOLD', False),
-        'destination': getattr(settings, 'MONOBANK_CHECKOUT_DESTINATION_TEMPLATE', 'Оплата замовлення {order_number}').format(order_number=order.order_number),
-        'dlv_info_merchant': getattr(settings, 'MONOBANK_CHECKOUT_DEFAULT_DLV_INFO', {})
+        'destination': getattr(settings, 'MONOBANK_CHECKOUT_DESTINATION_TEMPLATE', 'Оплата замовлення {order_number}').format(order_number=order.order_number)
     }
+
+    delivery_methods = getattr(settings, 'MONOBANK_CHECKOUT_DELIVERY_METHODS', None)
+    if delivery_methods:
+        payload['dlv_method_list'] = delivery_methods
+
+    payment_methods = getattr(settings, 'MONOBANK_CHECKOUT_PAYMENT_METHODS', None)
+    if payment_methods:
+        payload['payment_method_list'] = payment_methods
+
+    if getattr(settings, 'MONOBANK_CHECKOUT_DLV_PAY_MERCHANT', False):
+        payload['dlv_pay_merchant'] = True
+
+    payments_number = getattr(settings, 'MONOBANK_CHECKOUT_PAYMENTS_NUMBER', None)
+    if payments_number:
+        payload['payments_number'] = payments_number
+
+    callback_url = getattr(settings, 'MONOBANK_CHECKOUT_CALLBACK_URL', '')
+    return_url = getattr(settings, 'MONOBANK_CHECKOUT_RETURN_URL', '')
+    payload['callback_url'] = callback_url or request.build_absolute_uri('/payments/monobank/webhook/')
+    payload['return_url'] = return_url or request.build_absolute_uri('/payments/monobank/return/')
     
     monobank_logger.info('Built Monobank Checkout payload: %s', payload)
     
@@ -6084,7 +6094,7 @@ def wholesale_prices_xlsx(request):
     
     # Цены для категорий
     tshirt_prices = [750, 700, 650, 600, 550]
-    hoodie_prices = [1600, 1500, 1400, 1300, 1200]
+    hoodie_prices = [1450, 1400, 1350, 1300, 1200]
     
     row = 3
     
