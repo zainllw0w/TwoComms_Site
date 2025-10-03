@@ -6102,7 +6102,7 @@ def wholesale_prices_xlsx(request):
         cell.alignment = center_alignment
     
     # Цены для категорий
-    tshirt_prices = [750, 700, 650, 600, 550]
+    tshirt_prices = [650, 620, 590, 560, 520]
     hoodie_prices = [1400, 1350, 1300, 1250, 1200]
     
     row = 3
@@ -6190,8 +6190,8 @@ def wholesale_prices_xlsx(request):
                 ws.cell(row=row, column=2, value=product_title)
                 ws.cell(row=row, column=3, value=_translate_color_to_ukrainian(color if color else 'чорний'))
                 
-                # Добавляем дроп цену (фиксированная 800 для футболок)
-                ws.cell(row=row, column=4, value=800)
+                # Добавляем дроп цену (фиксированная 700 для футболок)
+                ws.cell(row=row, column=4, value=700)
                 ws.cell(row=row, column=4).alignment = center_alignment
                 
                 # Добавляем оптовые цены
@@ -6209,8 +6209,8 @@ def wholesale_prices_xlsx(request):
             ws.cell(row=row, column=2, value=product_title)
             ws.cell(row=row, column=3, value=_translate_color_to_ukrainian('чорний'))
             
-            # Добавляем дроп цену (фиксированная 800 для футболок)
-            ws.cell(row=row, column=4, value=800)
+            # Добавляем дроп цену (фиксированная 700 для футболок)
+            ws.cell(row=row, column=4, value=700)
             ws.cell(row=row, column=4).alignment = center_alignment
             
             # Добавляем оптовые цены
