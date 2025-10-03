@@ -2196,6 +2196,9 @@ function updateOrderStatistics() {
     
     // Update discount scales
     updateDiscountScales(tshirtQuantity, hoodieQuantity);
+    
+    // Update prices in existing order items
+    updateOrderItemPrices(tshirtQuantity, hoodieQuantity);
 }
 
 function getNextDiscountLevel(currentQuantity, type) {
@@ -2219,6 +2222,32 @@ function getNextDiscountLevel(currentQuantity, type) {
 function updateDiscountScales(tshirtQuantity, hoodieQuantity) {
     updateScale('tshirtScale', tshirtQuantity);
     updateScale('hoodieScale', hoodieQuantity);
+}
+
+function updateOrderItemPrices(tshirtQuantity, hoodieQuantity) {
+    // Update prices for all existing order items based on current total quantities
+    orderItems.forEach(item => {
+        const newPrice = getWholesalePrice(item.product.type, 
+            item.product.type === 'tshirt' ? tshirtQuantity : hoodieQuantity);
+        
+        // Update the item's price and total
+        item.price = newPrice;
+        item.total = newPrice * item.quantity;
+        
+        // Update the UI element
+        const itemElement = document.querySelector(`[data-item-id="${item.id}"]`);
+        if (itemElement) {
+            const priceElement = itemElement.querySelector('.order-item-price');
+            const totalElement = itemElement.querySelector('.order-item-total');
+            
+            if (priceElement) {
+                priceElement.textContent = `${newPrice}₴`;
+            }
+            if (totalElement) {
+                totalElement.textContent = `${item.total}₴`;
+            }
+        }
+    });
 }
 
 function updateScale(scaleId, quantity) {
