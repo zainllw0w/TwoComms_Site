@@ -37,6 +37,7 @@ import copy
 import re
 import base64
 import time
+from datetime import timedelta
 
 from urllib.parse import urljoin
 import requests
@@ -1031,8 +1032,12 @@ def add_to_cart(request):
     })
     item['qty'] += qty
     cart[key] = item
+    if removed:
+        _reset_monobank_session(request, drop_pending=True)
     request.session['cart'] = cart
     request.session.modified = True
+
+    _reset_monobank_session(request, drop_pending=True)
 
     ids = [i['product_id'] for i in cart.values()]
     prods = Product.objects.in_bulk(ids)
@@ -5096,6 +5101,53 @@ MONOBANK_PENDING_STATUSES = {'processing'}
 MONOBANK_FAILURE_STATUSES = {'failure', 'expired', 'rejected', 'canceled', 'cancelled', 'reversed'}
 
 
+def _reset_monobank_session(request, drop_pending=False):
+    """Сбрасывает связанные с Mono checkout данные в сессии."""
+    if drop_pending:
+        pending_id = request.session.get('monobank_pending_order_id')
+        if pending_id:
+            try:
+                from orders.models import Order
+                Order.objects.filter(
+                    id=pending_id,
+                    payment_provider__in=('monobank', 'monobank_checkout', 'monobank_pay'),
+                    payment_status__in=('unpaid', 'checking')
+                ).delete()
+            except Exception:
+                monobank_logger.debug('Failed to drop pending Monobank order %s', pending_id, exc_info=True)
+
+    for key in (
+        'monobank_pending_order_id',
+        'monobank_invoice_id',
+        'monobank_order_id',
+        'monobank_order_ref'
+    ):
+        if key in request.session:
+            request.session.pop(key, None)
+
+    request.session.modified = True
+
+
+def _cleanup_expired_monobank_orders():
+    """Удаляет старые неоплаченные Mono-заказы, чтобы они не копились."""
+    expire_minutes = getattr(settings, 'MONOBANK_CHECKOUT_EXPIRATION_MINUTES', 1440)
+    if expire_minutes and expire_minutes > 0:
+        threshold = timezone.now() - timedelta(minutes=expire_minutes)
+        try:
+            from orders.models import Order
+            stale_qs = Order.objects.filter(
+                payment_provider__in=('monobank', 'monobank_checkout', 'monobank_pay'),
+                payment_status__in=('unpaid', 'checking'),
+                created__lt=threshold
+            )
+            removed = stale_qs.count()
+            if removed:
+                monobank_logger.info('Pruned %s expired Monobank orders older than %s minutes', removed, expire_minutes)
+                stale_qs.delete()
+        except Exception:
+            monobank_logger.exception('Failed to prune expired Monobank orders')
+
+
 MONOBANK_SIGNATURE_CACHE = {'key': None, 'fetched_at': 0}
 MONOBANK_SIGNATURE_TTL = 60 * 60  # 1 hour
 
@@ -5586,8 +5638,14 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
         total_amount_major += line_total_major
         total_count += qty
 
+        name_parts = [item.title or item.product.title]
+        if item.size:
+            name_parts.append(f"розмір {item.size}")
+        if item.color_name:
+            name_parts.append(item.color_name)
+
         product_data = {
-            'name': item.title or item.product.title,
+            'name': ' • '.join(filter(None, name_parts)),
             'cnt': qty,
             'price': _as_number(line_total_major),
         }
@@ -6109,8 +6167,6 @@ def wholesale_prices_xlsx(request):
     
     # Сначала худи
     for product in hoodie_products.order_by('title'):
-        # Получаем артикул (если есть)
-        sku = getattr(product, 'sku', None) or f"TC-{product.id}"
         
         # Получаем цвета товара
         color_variants = ProductColorVariant.objects.filter(product=product)
@@ -6167,8 +6223,6 @@ def wholesale_prices_xlsx(request):
     
     # Затем футболки
     for product in tshirt_products.order_by('title'):
-        # Получаем артикул (если есть)
-        sku = getattr(product, 'sku', None) or f"TC-{product.id}"
         
         # Получаем цвета товара
         color_variants = ProductColorVariant.objects.filter(product=product)
