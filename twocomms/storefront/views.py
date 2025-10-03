@@ -6459,6 +6459,7 @@ def wholesale_order_form(request):
             user_profile = UserProfile.objects.get(user=request.user)
             company_data = {
                 'company_name': getattr(user_profile, 'company_name', '') or '',
+                'company_number': getattr(user_profile, 'company_number', '') or '',
                 'delivery_address': getattr(user_profile, 'delivery_address', '') or '',
                 'phone_number': user_profile.phone or '',
                 'store_link': getattr(user_profile, 'website', '') or ''
@@ -6562,6 +6563,13 @@ def generate_wholesale_invoice(request):
         ws[f'B{row}'] = company_data.get('companyName', '')
         ws[f'B{row}'].font = company_font
         ws[f'B{row}'].fill = company_fill
+        
+        if company_data.get('companyNumber'):
+            row += 1
+            ws[f'A{row}'] = 'Номер компанії/ЄДРПОУ/ІПН:'
+            ws[f'A{row}'].font = normal_font
+            ws[f'B{row}'] = company_data.get('companyNumber', '')
+            ws[f'B{row}'].font = normal_font
         
         row += 1
         ws[f'A{row}'] = 'Номер телефону:'
@@ -6699,6 +6707,8 @@ def generate_wholesale_invoice(request):
                 user_profile, created = UserProfile.objects.get_or_create(user=request.user)
                 if hasattr(user_profile, 'company_name'):
                     user_profile.company_name = company_data.get('companyName', '')
+                if hasattr(user_profile, 'company_number'):
+                    user_profile.company_number = company_data.get('companyNumber', '')
                 if hasattr(user_profile, 'delivery_address'):
                     user_profile.delivery_address = company_data.get('deliveryAddress', '')
                 user_profile.phone = company_data.get('contactPhone', '')
@@ -6713,6 +6723,7 @@ def generate_wholesale_invoice(request):
             invoice = WholesaleInvoice.objects.create(
                 invoice_number=invoice_number,
                 company_name=company_data.get('companyName', ''),
+                company_number=company_data.get('companyNumber', ''),
                 contact_phone=company_data.get('contactPhone', ''),
                 delivery_address=company_data.get('deliveryAddress', ''),
                 store_link=company_data.get('storeLink', ''),
