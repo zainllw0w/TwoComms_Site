@@ -50,7 +50,6 @@
 .product-card-wrap,
 .product-card-wrap .card.product {
   content-visibility: visible !important;
-  contain-intrinsic-size: auto !important;
 }
 
 /* Фолбэк: пока JavaScript не готов, элементы с reveal остаются видимыми */

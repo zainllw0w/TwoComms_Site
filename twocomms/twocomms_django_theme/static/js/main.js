@@ -1351,8 +1351,8 @@ document.addEventListener('DOMContentLoaded', function(){
         const px = target + 'px';
         cards.forEach(card=>{
           card.style.minHeight = px;
-          card.style.maxHeight = px;
-          card.style.height = px;
+          card.style.maxHeight = '';
+          card.style.height = '';
         });
       });
       eqScheduled = false;
@@ -1362,6 +1362,7 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   window.equalizeCardHeights = equalizeCardHeights;
   equalizeCardHeights();
+  window.addEventListener('load', equalizeCardHeights);
   const debouncedEqualize = debounce(equalizeCardHeights, 160);
   window.addEventListener('resize', debouncedEqualize);
   const mqHandler = ()=> debouncedEqualize();
