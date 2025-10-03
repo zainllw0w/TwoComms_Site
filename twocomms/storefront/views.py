@@ -6693,16 +6693,22 @@ def generate_wholesale_invoice(request):
         os.makedirs(invoice_dir, exist_ok=True)
         
         # Путь к файлу
-        file_name = f"{company_data.get('companyName', 'Company')}_накладнаОПТ_{timestamp}.xlsx"
+        company_name = company_data.get('companyName', 'Company').strip()
+        if not company_name:
+            company_name = 'Company'
+        file_name = f"{company_name}_накладнаОПТ_{timestamp}.xlsx"
         file_path = os.path.join(invoice_dir, file_name)
         
         # Сохраняем Excel файл на сервере
         wb.save(file_path)
         
-        # Обновляем invoice с путем к файлу
-        if 'invoice' in locals():
-            invoice.file_path = file_path
-            invoice.save()
+        # Обновляем invoice с путем к файлу (если invoice создался)
+        try:
+            if 'invoice' in locals() and invoice:
+                invoice.file_path = file_path
+                invoice.save()
+        except:
+            pass  # Игнорируем ошибки обновления
         
         # Подготавливаем ответ для скачивания
         response = HttpResponse(
@@ -6748,10 +6754,11 @@ def download_invoice_file(request, invoice_id):
             return JsonResponse({'error': 'Файл накладної не знайдено'}, status=404)
         
         # Отправляем файл
+        filename = invoice.file_name if hasattr(invoice, 'file_name') else os.path.basename(invoice.file_path)
         response = FileResponse(
             open(invoice.file_path, 'rb'),
             as_attachment=True,
-            filename=invoice.file_name
+            filename=filename
         )
         return response
         
