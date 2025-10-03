@@ -500,15 +500,16 @@
 
 .product-colors {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    align-items: center;
+    gap: 6px;
     margin-bottom: 4px;
+    flex-wrap: wrap;
 }
 
 .color-item {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
 }
 
 .color-dot {
@@ -1268,22 +1269,22 @@
                                 {% endif %}
                             </div>
                                 <div class="product-info">
-                                <div class="product-name">{{ product.title }}</div>
                                 <div class="product-category">Футболки</div>
+                                <div class="product-name">{{ product.title }}</div>
                                 <div class="product-colors">
                                     {% for color_variant in product.color_variants.all|slice:":3" %}
-                                        <div class="color-item">
+                                        <span class="color-item">
                                             <span class="color-dot" data-color="{{ color_variant.color.primary_hex }}"></span>
                                             <span class="color-name">{{ color_variant.color.name|default:"Чорний" }}</span>
-                                        </div>
+                                        </span>
                                     {% empty %}
-                                        <div class="color-item">
+                                        <span class="color-item">
                                             <span class="color-dot" data-color="#000000"></span>
                                             <span class="color-name">Чорний</span>
-                                        </div>
+                                        </span>
                                     {% endfor %}
                                     {% if product.color_variants.count > 3 %}
-                                        <div class="color-more">+{{ product.color_variants.count|add:"-3" }}</div>
+                                        <span class="color-more">+{{ product.color_variants.count|add:"-3" }}</span>
                                     {% endif %}
                                 </div>
                                 <div class="product-price">Опт: {{ tshirt_prices.wholesale.4 }}₴ - {{ tshirt_prices.wholesale.0 }}₴</div>
@@ -1311,13 +1312,13 @@
                                 {% endif %}
                             </div>
                             <div class="product-info">
-                                <div class="product-name">{{ product.title }} [фліс]</div>
                                 <div class="product-category">Худі</div>
+                                <div class="product-name">{{ product.title }} [фліс]</div>
                                 <div class="product-colors">
-                                    <div class="color-item">
+                                    <span class="color-item">
                                         <span class="color-dot" data-color="#000000"></span>
                                         <span class="color-name">Чорний</span>
-                                    </div>
+                                    </span>
                                 </div>
                                 <div class="product-price">Опт: {{ hoodie_prices.wholesale.4 }}₴ - {{ hoodie_prices.wholesale.0 }}₴</div>
                             </div>
@@ -1387,7 +1388,7 @@
             </div>
             
             <!-- Статистика заказа -->
-            <div class="order-statistics" id="orderStatistics" style="display: none;">
+            <div class="order-statistics" id="orderStatistics">
                 <div class="statistics-header">
                     <h4>Статистика замовлення</h4>
                 </div>
@@ -1507,6 +1508,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeProductClick();
     initializeOrderForm();
     initializeColorDots();
+    updateOrderStatistics(); // Initialize statistics on page load
 });
 
 // Company form handling
@@ -1641,7 +1643,7 @@ function handleDrop(e) {
             type: productCard.dataset.productType,
             title: productCard.querySelector('.product-name').textContent,
             image: productCard.querySelector('.product-image').src || '',
-            category: productCard.querySelector('.category-name').textContent
+            category: productCard.querySelector('.product-category').textContent
         };
         
         showOrderForm();
@@ -1677,7 +1679,7 @@ function initializeProductClick() {
                 type: this.dataset.productType,
                 title: this.querySelector('.product-name').textContent,
                 image: this.querySelector('.product-image').src || '',
-                category: this.querySelector('.category-name').textContent
+                category: this.querySelector('.product-category').textContent
             };
             
             showOrderForm();
@@ -1883,11 +1885,7 @@ function updateOrderStatistics() {
     const totalSumSpan = document.getElementById('totalSum');
     const progressInfoDiv = document.getElementById('progressInfo');
     
-    if (orderItems.length === 0) {
-        statisticsDiv.style.display = 'none';
-        return;
-    }
-    
+    // Statistics always visible
     statisticsDiv.style.display = 'block';
     
     // Calculate total sum
@@ -1906,35 +1904,39 @@ function updateOrderStatistics() {
     // Generate progress info
     let progressInfo = '';
     
-    // T-shirt progress
-    if (tshirtQuantity > 0) {
-        if (tshirtQuantity < 8) {
-            const needed = 8 - tshirtQuantity;
-            progressInfo += `<div class="warning">Не вистачає ${needed} футболок до мінімального опту (8 шт.)</div>`;
-        } else {
-            progressInfo += `<div class="success">Футболки: ${tshirtQuantity} шт. (оптова ціна)</div>`;
+    if (orderItems.length === 0) {
+        progressInfo = '<div style="color: rgba(255, 255, 255, 0.5); font-style: italic;">Додайте товари до накладної</div>';
+    } else {
+        // T-shirt progress
+        if (tshirtQuantity > 0) {
+            if (tshirtQuantity < 8) {
+                const needed = 8 - tshirtQuantity;
+                progressInfo += `<div class="warning">Не вистачає ${needed} футболок до мінімального опту (8 шт.)</div>`;
+            } else {
+                progressInfo += `<div class="success">Футболки: ${tshirtQuantity} шт. (оптова ціна)</div>`;
+            }
+            
+            // Next discount level
+            const nextLevel = getNextDiscountLevel(tshirtQuantity, 'tshirt');
+            if (nextLevel) {
+                progressInfo += `<div>До наступної скидки потрібно ще ${nextLevel.needed} футболок (${nextLevel.price}₴)</div>`;
+            }
         }
         
-        // Next discount level
-        const nextLevel = getNextDiscountLevel(tshirtQuantity, 'tshirt');
-        if (nextLevel) {
-            progressInfo += `<div>До наступної скидки потрібно ще ${nextLevel.needed} футболок (${nextLevel.price}₴)</div>`;
-        }
-    }
-    
-    // Hoodie progress
-    if (hoodieQuantity > 0) {
-        if (hoodieQuantity < 8) {
-            const needed = 8 - hoodieQuantity;
-            progressInfo += `<div class="warning">Не вистачає ${needed} худі до мінімального опту (8 шт.)</div>`;
-        } else {
-            progressInfo += `<div class="success">Худі: ${hoodieQuantity} шт. (оптова ціна)</div>`;
-        }
-        
-        // Next discount level
-        const nextLevel = getNextDiscountLevel(hoodieQuantity, 'hoodie');
-        if (nextLevel) {
-            progressInfo += `<div>До наступної скидки потрібно ще ${nextLevel.needed} худі (${nextLevel.price}₴)</div>`;
+        // Hoodie progress
+        if (hoodieQuantity > 0) {
+            if (hoodieQuantity < 8) {
+                const needed = 8 - hoodieQuantity;
+                progressInfo += `<div class="warning">Не вистачає ${needed} худі до мінімального опту (8 шт.)</div>`;
+            } else {
+                progressInfo += `<div class="success">Худі: ${hoodieQuantity} шт. (оптова ціна)</div>`;
+            }
+            
+            // Next discount level
+            const nextLevel = getNextDiscountLevel(hoodieQuantity, 'hoodie');
+            if (nextLevel) {
+                progressInfo += `<div>До наступної скидки потрібно ще ${nextLevel.needed} худі (${nextLevel.price}₴)</div>`;
+            }
         }
     }
     
