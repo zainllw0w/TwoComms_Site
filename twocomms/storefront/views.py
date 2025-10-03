@@ -6687,7 +6687,8 @@ def generate_wholesale_invoice(request):
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-        response['Content-Disposition'] = f'attachment; filename="{invoice.file_name}"'
+        file_name = f"{company_data.get('companyName', 'Company')}_накладнаОПТ_{timestamp}.xlsx"
+        response['Content-Disposition'] = f'attachment; filename="{file_name}"'
         
         # Сохраняем Excel файл
         wb.save(response)
@@ -6696,7 +6697,7 @@ def generate_wholesale_invoice(request):
             'success': True,
             'invoice_number': invoice_number,
             'invoice_id': invoice_id,
-            'file_name': f"{company_data.get('companyName', 'Company')}_накладнаОПТ_{timestamp}.xlsx",
+            'file_name': file_name,
             'total_amount': total_amount,
             'total_tshirts': total_tshirts,
             'total_hoodies': total_hoodies
