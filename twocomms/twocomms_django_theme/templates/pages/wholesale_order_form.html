@@ -1702,7 +1702,16 @@ function initializeCompanyForm() {
         e.preventDefault();
         
         const formData = new FormData(companyForm);
-        const companyData = Object.fromEntries(formData.entries());
+        const rawData = Object.fromEntries(formData.entries());
+        
+        // Convert form field names to expected API format
+        const companyData = {
+            companyName: rawData.company_name || '',
+            companyNumber: rawData.company_number || '',
+            deliveryAddress: rawData.delivery_address || '',
+            contactPhone: rawData.phone_number || '',
+            storeLink: rawData.store_link || ''
+        };
         
         // Store company data in localStorage
         localStorage.setItem('wholesaleCompanyData', JSON.stringify(companyData));
@@ -1805,12 +1814,12 @@ function initializeCompanyForm() {
     if (existingCompanyData) {
         const data = JSON.parse(existingCompanyData);
         
-        // Fill form with existing data
-        document.getElementById('company-name').value = data.company_name || '';
-        document.getElementById('company-number').value = data.company_number || '';
-        document.getElementById('delivery-address').value = data.delivery_address || '';
-        document.getElementById('phone-number').value = data.phone_number || '';
-        document.getElementById('store-link').value = data.store_link || '';
+        // Fill form with existing data (using correct API field names)
+        document.getElementById('company-name').value = data.companyName || '';
+        document.getElementById('company-number').value = data.companyNumber || '';
+        document.getElementById('delivery-address').value = data.deliveryAddress || '';
+        document.getElementById('phone-number').value = data.contactPhone || '';
+        document.getElementById('store-link').value = data.storeLink || '';
         
         // Enable invoice generation
         generateInvoiceBtn.disabled = false;
