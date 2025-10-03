@@ -503,10 +503,8 @@
     color: rgba(255, 255, 255, 0.95);
     font-size: 0.75rem;
     font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 140px;
+    word-wrap: break-word;
+    line-height: 1.2;
 }
 
 .product-colors {
@@ -1468,9 +1466,6 @@
                         <div class="scale-container">
                             <div class="scale-label">Футболки</div>
                             <div class="scale-bar" id="tshirtScale">
-                                <div class="scale-segment" data-range="1-7" data-price="{{ tshirt_prices.wholesale.0 }}" style="background: #ef4444;">
-                                    <span class="segment-label">1-7</span>
-                                </div>
                                 <div class="scale-segment" data-range="8-15" data-price="{{ tshirt_prices.wholesale.0 }}" style="background: #10b981;">
                                     <span class="segment-label">8-15</span>
                                 </div>
@@ -1499,9 +1494,6 @@
                         <div class="scale-container">
                             <div class="scale-label">Худі</div>
                             <div class="scale-bar" id="hoodieScale">
-                                <div class="scale-segment" data-range="1-7" data-price="{{ hoodie_prices.wholesale.0 }}" style="background: #ef4444;">
-                                    <span class="segment-label">1-7</span>
-                                </div>
                                 <div class="scale-segment" data-range="8-15" data-price="{{ hoodie_prices.wholesale.0 }}" style="background: #10b981;">
                                     <span class="segment-label">8-15</span>
                                 </div>
@@ -1675,12 +1667,18 @@ function initializeDragAndDrop() {
 }
 
 function handleDragStart(e) {
-    e.target.classList.add('dragging');
-    e.dataTransfer.setData('text/plain', e.target.dataset.productId);
+    const productCard = e.target.closest('.product-card');
+    if (productCard) {
+        productCard.classList.add('dragging');
+        e.dataTransfer.setData('text/plain', productCard.dataset.productId);
+    }
 }
 
 function handleDragEnd(e) {
-    e.target.classList.remove('dragging');
+    const productCard = e.target.closest('.product-card');
+    if (productCard) {
+        productCard.classList.remove('dragging');
+    }
 }
 
 function handleDragOver(e) {
@@ -2107,36 +2105,8 @@ function updateScale(scaleId, quantity) {
         const [min, max] = parseRange(range);
         
         if (quantity < 8) {
-            // Below minimum wholesale - show red for 1-7 tier, gray for others
-            if (min === 1 && max === 7) {
-                segment.classList.add('active');
-                segment.style.backgroundColor = '#ef4444'; // Red for insufficient quantity
-                
-                // Show progress within 1-7 tier
-                const tierSize = 7 - 1 + 1;
-                const currentProgress = Math.min(quantity, tierSize);
-                const progressPercent = (currentProgress / tierSize) * 100;
-                
-                let progressFill = segment.querySelector('.progress-fill');
-                if (!progressFill) {
-                    progressFill = document.createElement('div');
-                    progressFill.className = 'progress-fill';
-                    progressFill.style.position = 'absolute';
-                    progressFill.style.top = '0';
-                    progressFill.style.left = '0';
-                    progressFill.style.height = '100%';
-                    progressFill.style.backgroundColor = '#ef4444';
-                    progressFill.style.borderRadius = '3px';
-                    progressFill.style.transition = 'width 0.3s ease';
-                    progressFill.style.zIndex = '1';
-                    segment.style.position = 'relative';
-                    segment.appendChild(progressFill);
-                }
-                progressFill.style.width = `${progressPercent}%`;
-            } else {
-                // Future tiers - gray
-                segment.style.backgroundColor = '#374151';
-            }
+            // Below minimum wholesale - show gray for all segments
+            segment.style.backgroundColor = '#374151';
         } else if (quantity >= min && (max === null || quantity <= max)) {
             // Current tier - show progress
             segment.classList.add('active');
