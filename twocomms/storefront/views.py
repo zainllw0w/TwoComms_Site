@@ -6692,6 +6692,9 @@ def generate_wholesale_invoice(request):
         invoice_dir = os.path.join(settings.MEDIA_ROOT, user_folder)
         os.makedirs(invoice_dir, exist_ok=True)
         
+        # Логируем создание папки
+        print(f"Creating invoice directory: {invoice_dir}")
+        
         # Путь к файлу
         company_name = company_data.get('companyName', 'Company').strip()
         if not company_name:
@@ -6701,6 +6704,7 @@ def generate_wholesale_invoice(request):
         
         # Сохраняем Excel файл на сервере
         wb.save(file_path)
+        print(f"Saved invoice file: {file_path}")
         
         # Обновляем invoice с путем к файлу (если invoice создался)
         try:
@@ -6736,7 +6740,7 @@ def generate_wholesale_invoice(request):
 
 def download_invoice_file(request, invoice_id):
     """Скачивание сохраненного файла накладной"""
-    from django.http import FileResponse
+    from django.http import FileResponse, HttpResponse
     from django.conf import settings
     import os
     
@@ -6751,18 +6755,23 @@ def download_invoice_file(request, invoice_id):
         
         # Проверяем существование файла
         if not invoice.file_path or not os.path.exists(invoice.file_path):
-            return JsonResponse({'error': 'Файл накладної не знайдено'}, status=404)
+            # Если файл не найден, возвращаем ошибку
+            return HttpResponse('Файл накладної не знайдено', status=404)
         
         # Отправляем файл
         filename = os.path.basename(invoice.file_path) if invoice.file_path else f"invoice_{invoice.id}.xlsx"
-        response = FileResponse(
-            open(invoice.file_path, 'rb'),
-            as_attachment=True,
-            filename=filename
-        )
-        return response
+        
+        try:
+            response = FileResponse(
+                open(invoice.file_path, 'rb'),
+                as_attachment=True,
+                filename=filename
+            )
+            return response
+        except Exception as file_error:
+            return HttpResponse(f'Помилка при відкритті файлу: {str(file_error)}', status=500)
         
     except WholesaleInvoice.DoesNotExist:
-        return JsonResponse({'error': 'Накладна не знайдена'}, status=404)
+        return HttpResponse('Накладна не знайдена', status=404)
     except Exception as e:
-        return JsonResponse({'error': f'Помилка при скачуванні: {str(e)}'}, status=500)
+        return HttpResponse(f'Помилка при скачуванні: {str(e)}', status=500)
