@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Оптові закупівлі — TwoComms{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row">
+        <div class="col-12">
+            <h1>Оптові закупівлі TwoComms</h1>
+            <p>Сторінка в розробці</p>
+            
+            <h2>Ціни</h2>
+            <div class="row">
+                <div class="col-md-6">
+                    <h3>Футболки</h3>
+                    <p>Дроп: {{ tshirt_prices.drop }} грн</p>
+                    <ul>
+                        {% for price in tshirt_prices.wholesale %}
+                        <li>{{ tshirt_prices.ranges|slice:forloop.counter0:1|first }}: {{ price }} грн</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h3>Худі</h3>
+                    <p>Дроп: {{ hoodie_prices.drop }} грн</p>
+                    <ul>
+                        {% for price in hoodie_prices.wholesale %}
+                        <li>{{ hoodie_prices.ranges|slice:forloop.counter0:1|first }}: {{ price }} грн</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <a href="https://t.me/twocomms_wholesale" class="btn btn-primary">
+                    Співпраця по дропу
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
