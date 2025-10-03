@@ -1567,6 +1567,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeCompanyForm();
     initializeDragAndDrop();
     initializeCategoryFilter();
+    initializeProductClick();
     initializeOrderForm();
     initializeColorDots();
     loadOrderData(); // Load saved data
@@ -1668,7 +1669,6 @@ function initializeDragAndDrop() {
     productCards.forEach(card => {
         card.addEventListener('dragstart', handleDragStart);
         card.addEventListener('dragend', handleDragEnd);
-        card.addEventListener('click', handleProductClick);
     });
     
     if (dropZone) {
@@ -1678,37 +1678,14 @@ function initializeDragAndDrop() {
     }
 }
 
-function handleProductClick(e) {
-    e.preventDefault();
-    const productCard = e.currentTarget;
-    console.log('Product clicked:', productCard.dataset.productId);
-    
-    if (productCard && productCard.dataset.productId) {
-        currentProduct = {
-            id: productCard.dataset.productId,
-            type: productCard.dataset.productType,
-            title: productCard.querySelector('.product-name').textContent,
-            image: productCard.querySelector('.product-image').src || '',
-            category: productCard.querySelector('.product-category').textContent
-        };
-        
-        showOrderForm();
-    }
-}
 
 function handleDragStart(e) {
-    const productCard = e.target.closest('.product-card');
-    if (productCard) {
-        productCard.classList.add('dragging');
-        e.dataTransfer.setData('text/plain', productCard.dataset.productId);
-    }
+    e.target.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', e.target.dataset.productId);
 }
 
 function handleDragEnd(e) {
-    const productCard = e.target.closest('.product-card');
-    if (productCard) {
-        productCard.classList.remove('dragging');
-    }
+    e.target.classList.remove('dragging');
 }
 
 function handleDragOver(e) {
@@ -1728,15 +1705,7 @@ function handleDrop(e) {
     const productCard = document.querySelector(`[data-product-id="${productId}"]`);
     
     if (productCard) {
-        currentProduct = {
-            id: productId,
-            type: productCard.dataset.productType,
-            title: productCard.querySelector('.product-name').textContent,
-            image: productCard.querySelector('.product-image').src || '',
-            category: productCard.querySelector('.product-category').textContent
-        };
-        
-        showOrderForm();
+        selectProduct(productId);
     }
 }
 
@@ -1756,6 +1725,42 @@ function initializeCategoryFilter() {
             }
         });
     });
+}
+
+// Инициализация клика по карточкам товаров
+function initializeProductClick() {
+    const productCards = document.querySelectorAll('.product-card');
+    
+    productCards.forEach(card => {
+        card.addEventListener('click', function(e) {
+            // Предотвращаем клик при drag and drop
+            if (e.target.closest('.remove-item-btn')) return;
+            
+            const productId = this.dataset.productId;
+            if (productId) {
+                selectProduct(productId);
+            }
+        });
+        
+        // Добавляем визуальную обратную связь при клике
+        card.style.cursor = 'pointer';
+    });
+}
+
+// Выбор товара
+function selectProduct(productId) {
+    const productCard = document.querySelector(`[data-product-id="${productId}"]`);
+    if (!productCard) return;
+    
+    currentProduct = {
+        id: productId,
+        type: productCard.dataset.productType,
+        title: productCard.querySelector('.product-name').textContent,
+        image: productCard.querySelector('.product-image').src || '',
+        category: productCard.querySelector('.product-category').textContent
+    };
+    
+    showOrderForm();
 }
 
 
