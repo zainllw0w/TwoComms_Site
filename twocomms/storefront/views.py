@@ -6458,10 +6458,10 @@ def wholesale_order_form(request):
             from accounts.models import UserProfile
             user_profile = UserProfile.objects.get(user=request.user)
             company_data = {
-                'company_name': user_profile.company_name or '',
-                'delivery_address': user_profile.delivery_address or '',
+                'company_name': getattr(user_profile, 'company_name', '') or '',
+                'delivery_address': getattr(user_profile, 'delivery_address', '') or '',
                 'phone_number': user_profile.phone or '',
-                'store_link': user_profile.website or ''
+                'store_link': getattr(user_profile, 'website', '') or ''
             }
         except UserProfile.DoesNotExist:
             pass
@@ -6697,10 +6697,13 @@ def generate_wholesale_invoice(request):
         if request.user.is_authenticated:
             try:
                 user_profile, created = UserProfile.objects.get_or_create(user=request.user)
-                user_profile.company_name = company_data.get('companyName', '')
-                user_profile.delivery_address = company_data.get('deliveryAddress', '')
+                if hasattr(user_profile, 'company_name'):
+                    user_profile.company_name = company_data.get('companyName', '')
+                if hasattr(user_profile, 'delivery_address'):
+                    user_profile.delivery_address = company_data.get('deliveryAddress', '')
                 user_profile.phone = company_data.get('contactPhone', '')
-                user_profile.website = company_data.get('storeLink', '')
+                if hasattr(user_profile, 'website'):
+                    user_profile.website = company_data.get('storeLink', '')
                 user_profile.save()
             except Exception as e:
                 print(f"Error saving user profile: {e}")
