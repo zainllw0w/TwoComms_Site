@@ -931,6 +931,33 @@
     background: rgba(139, 92, 246, 0.1);
     border-radius: 8px;
     border: 1px solid rgba(139, 92, 246, 0.2);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.total-sum.highlight {
+    background: rgba(139, 92, 246, 0.2);
+    border-color: rgba(139, 92, 246, 0.4);
+    box-shadow: 0 0 15px rgba(139, 92, 246, 0.3);
+    transform: scale(1.02);
+}
+
+.total-sum.highlight::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.2), transparent);
+    animation: highlight-slide 1.5s ease-in-out;
+}
+
+@keyframes highlight-slide {
+    0% { left: -100%; }
+    50% { left: 0%; }
+    100% { left: 100%; }
 }
 
 .sum-label {
@@ -1004,6 +1031,22 @@
 
 .scale-segment.progress {
     background: linear-gradient(90deg, currentColor 0%, rgba(255, 255, 255, 0.3) 100%) !important;
+}
+
+.scale-segment.completed {
+    background: #10b981;
+    opacity: 0.8;
+}
+
+.scale-segment .progress-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: #10b981;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+    z-index: 1;
 }
 
 .segment-label {
@@ -1514,6 +1557,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeProductClick();
     initializeOrderForm();
     initializeColorDots();
+    loadOrderData(); // Load saved data
     updateOrderStatistics(); // Initialize statistics on page load
 });
 
@@ -1532,6 +1576,7 @@ function initializeCompanyForm() {
         
         // Store company data in localStorage
         localStorage.setItem('wholesaleCompanyData', JSON.stringify(companyData));
+        saveOrderData(); // Save complete order data
         
         // Enable invoice generation button
         generateInvoiceBtn.disabled = false;
@@ -1735,7 +1780,32 @@ function showOrderForm() {
         dropZone.style.display = 'none';
         
         // Populate form with product data
-        document.getElementById('productColor').innerHTML = '<option value="default">Чорний (дефолт)</option>';
+        const colorSelect = document.getElementById('productColor');
+        colorSelect.innerHTML = '';
+        
+        if (currentProduct.type === 'tshirt') {
+            // Add available colors for t-shirts
+            const productCard = document.querySelector(`[data-product-id="${currentProduct.id}"]`);
+            if (productCard) {
+                const colorItems = productCard.querySelectorAll('.color-item');
+                colorItems.forEach((colorItem, index) => {
+                    const colorName = colorItem.querySelector('.color-name').textContent;
+                    const colorDot = colorItem.querySelector('.color-dot');
+                    const colorHex = colorDot ? colorDot.getAttribute('data-color') : '#000000';
+                    
+                    const option = document.createElement('option');
+                    option.value = colorHex;
+                    option.textContent = colorName;
+                    if (index === 0) option.selected = true;
+                    colorSelect.appendChild(option);
+                });
+            } else {
+                colorSelect.innerHTML = '<option value="#000000">Чорний</option>';
+            }
+        } else {
+            // For hoodies, only black
+            colorSelect.innerHTML = '<option value="#000000">Чорний</option>';
+        }
         
         // Set default values
         document.getElementById('productSize').value = '';
@@ -1821,6 +1891,7 @@ function addToOrder() {
     
     // Update statistics
     updateOrderStatistics();
+    saveOrderData(); // Save to localStorage
     
     // Reset form
     hideOrderForm();
@@ -1891,6 +1962,7 @@ function removeOrderItem(itemId) {
     
     // Update statistics
     updateOrderStatistics();
+    saveOrderData(); // Save to localStorage
     
     showNotification('Товар видалено з накладної', 'success');
 }
@@ -1916,6 +1988,13 @@ function updateOrderStatistics() {
     // Calculate total sum
     const totalSum = orderItems.reduce((sum, item) => sum + item.total, 0);
     totalSumSpan.textContent = `${totalSum}₴`;
+    
+    // Add highlight animation to total sum
+    const totalSumDiv = totalSumSpan.closest('.total-sum');
+    totalSumDiv.classList.add('highlight');
+    setTimeout(() => {
+        totalSumDiv.classList.remove('highlight');
+    }, 1500);
     
     // Calculate quantities by type
     const tshirtQuantity = orderItems
@@ -2001,19 +2080,45 @@ function updateScale(scaleId, quantity) {
     const segments = scale.querySelectorAll('.scale-segment');
     
     segments.forEach((segment, index) => {
-        segment.classList.remove('active', 'progress');
+        segment.classList.remove('active', 'progress', 'completed');
         
         const range = segment.dataset.range;
         const [min, max] = parseRange(range);
         
         if (quantity >= min && (max === null || quantity <= max)) {
+            // Current tier - show progress
             segment.classList.add('active');
-        } else if (quantity > max && index < segments.length - 1) {
-            // Show progress to next level
-            const nextSegment = segments[index + 1];
-            const nextMin = parseInt(nextSegment.dataset.range.split('-')[0]);
-            const progress = (quantity - max) / (nextMin - max);
-            segment.style.background = `linear-gradient(90deg, #10b981 ${progress * 100}%, #ef4444 ${progress * 100}%)`;
+            
+            // Calculate progress within current tier
+            const tierSize = (max === null ? 100 : max) - min + 1;
+            const currentProgress = Math.min(quantity - min + 1, tierSize);
+            const progressPercent = (currentProgress / tierSize) * 100;
+            
+            // Create or update progress fill
+            let progressFill = segment.querySelector('.progress-fill');
+            if (!progressFill) {
+                progressFill = document.createElement('div');
+                progressFill.className = 'progress-fill';
+                progressFill.style.position = 'absolute';
+                progressFill.style.top = '0';
+                progressFill.style.left = '0';
+                progressFill.style.height = '100%';
+                progressFill.style.backgroundColor = '#10b981';
+                progressFill.style.borderRadius = '3px';
+                progressFill.style.transition = 'width 0.3s ease';
+                progressFill.style.zIndex = '1';
+                segment.style.position = 'relative';
+                segment.appendChild(progressFill);
+            }
+            progressFill.style.width = `${progressPercent}%`;
+            
+        } else if (quantity > max) {
+            // Completed tier
+            segment.classList.add('completed');
+            segment.style.backgroundColor = '#10b981';
+        } else {
+            // Future tier
+            segment.style.backgroundColor = '#374151';
         }
     });
 }
@@ -2024,6 +2129,58 @@ function parseRange(range) {
     }
     const [min, max] = range.split('-').map(Number);
     return [min, max];
+}
+
+// LocalStorage functions
+function saveOrderData() {
+    const orderData = {
+        orderItems: orderItems,
+        companyData: {
+            companyName: document.getElementById('companyName').value,
+            deliveryAddress: document.getElementById('deliveryAddress').value,
+            contactPhone: document.getElementById('contactPhone').value,
+            storeLink: document.getElementById('storeLink').value
+        },
+        timestamp: Date.now()
+    };
+    localStorage.setItem('wholesaleOrderData', JSON.stringify(orderData));
+}
+
+function loadOrderData() {
+    const savedData = localStorage.getItem('wholesaleOrderData');
+    if (savedData) {
+        try {
+            const orderData = JSON.parse(savedData);
+            
+            // Load company data
+            if (orderData.companyData) {
+                document.getElementById('companyName').value = orderData.companyData.companyName || '';
+                document.getElementById('deliveryAddress').value = orderData.companyData.deliveryAddress || '';
+                document.getElementById('contactPhone').value = orderData.companyData.contactPhone || '';
+                document.getElementById('storeLink').value = orderData.companyData.storeLink || '';
+            }
+            
+            // Load order items
+            if (orderData.orderItems && orderData.orderItems.length > 0) {
+                orderItems = orderData.orderItems;
+                
+                // Clear existing items
+                const orderItemsContainer = document.getElementById('orderItems');
+                orderItemsContainer.innerHTML = '';
+                
+                // Rebuild order items UI
+                orderItems.forEach(item => {
+                    addOrderItemToUI(item);
+                });
+            }
+        } catch (e) {
+            console.error('Error loading saved order data:', e);
+        }
+    }
+}
+
+function clearOrderData() {
+    localStorage.removeItem('wholesaleOrderData');
 }
 
 // Color dots initialization
