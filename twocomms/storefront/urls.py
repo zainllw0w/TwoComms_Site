@@ -120,4 +120,5 @@ urlpatterns=[
     path('wholesale/', views.wholesale_page, name='wholesale_page'),
     path('opt/', views.wholesale_page, name='wholesale_page_alt'),
     path('wholesale/order-form/', views.wholesale_order_form, name='wholesale_order_form'),
+    path('wholesale/generate-invoice/', views.generate_wholesale_invoice, name='generate_wholesale_invoice'),
 ]
