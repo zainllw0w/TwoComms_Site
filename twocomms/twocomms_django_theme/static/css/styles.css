@@ -10416,7 +10416,6 @@ body::after {
 }
 
 .product-card-wrap{position:relative}
-.product-card-wrap, .card.product { content-visibility: auto; contain-intrinsic-size: 320px 280px; }
 .product-card-dots{
   position:absolute;
   right:12px;
