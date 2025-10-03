@@ -1932,6 +1932,9 @@ function addToOrder() {
     document.getElementById('quantity').value = '8'; // Reset to minimum wholesale quantity
     updatePriceDisplay(); // Update price display
     
+    // Keep form open for adding more items
+    showOrderForm();
+    
     showNotification('Товар додано до накладної', 'success');
 }
 
