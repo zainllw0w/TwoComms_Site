@@ -56,7 +56,9 @@
       <div class="fw-semibold">Разом</div>
       <div class="fw-semibold">{{ total }} грн</div>
     </div>
-    <a href="{% url 'cart' %}" class="btn btn-cta w-100">Оформити на сайті</a>
+    <div class="text-center mt-2">
+      <a href="{% url 'delivery' %}" class="small text-decoration-underline">Умови доставки і оплати</a>
+    </div>
     <div class="mono-checkout-mini" data-mono-status-scope>
       <button type="button" class="btn btn-outline-light w-100 mono-checkout-btn-mini" data-mono-checkout-trigger="mini">
         <span class="mono-checkout-label">Оформити через</span>
