@@ -6464,17 +6464,8 @@ def wholesale_order_form(request):
                 'phone_number': user_profile.phone or '',
                 'store_link': getattr(user_profile, 'website', '') or ''
             }
-            print(f"🔍 DEBUG: User profile data for {request.user.username}:")
-            print(f"  company_name: '{company_data['company_name']}'")
-            print(f"  company_number: '{company_data['company_number']}'")
-            print(f"  delivery_address: '{company_data['delivery_address']}'")
-            print(f"  phone_number: '{company_data['phone_number']}'")
-            print(f"  store_link: '{company_data['store_link']}'")
         except UserProfile.DoesNotExist:
-            print(f"🔍 DEBUG: UserProfile does not exist for {request.user.username}")
             pass
-    else:
-        print(f"🔍 DEBUG: User is not authenticated")
     
     context = {
         'tshirt_products': tshirt_products,
@@ -6507,12 +6498,6 @@ def generate_wholesale_invoice(request):
         company_data = data.get('companyData', {})
         order_items = data.get('orderItems', [])
         
-        # DEBUG: Логируем полученные данные
-        print(f"🔍 DEBUG: Received data: {data}")
-        print(f"🔍 DEBUG: Company data: {company_data}")
-        print(f"🔍 DEBUG: Company name from data: {company_data.get('companyName', 'NOT_FOUND')}")
-        print(f"🔍 DEBUG: Company name type: {type(company_data.get('companyName', 'NOT_FOUND'))}")
-        
         if not order_items:
             return JsonResponse({'error': 'Немає товарів для накладної'}, status=400)
         
@@ -6527,20 +6512,12 @@ def generate_wholesale_invoice(request):
         
         # Красивое название файла с названием компании
         company_name = company_data.get('companyName', 'Company').strip()
-        print(f"🔍 DEBUG: Company name after processing: '{company_name}'")
-        print(f"🔍 DEBUG: Company name length: {len(company_name)}")
-        print(f"🔍 DEBUG: Company name repr: {repr(company_name)}")
-        
         if not company_name:
             company_name = 'Company'
-            print(f"🔍 DEBUG: Company name was empty, using default: '{company_name}'")
         
         # Красивая дата для названия файла
         beautiful_date = now.strftime('%d.%m.%Y_%H-%M')
         file_name = f"{company_name}_накладнаОПТ_{beautiful_date}.xlsx"
-        
-        print(f"🔍 DEBUG: Final file name: '{file_name}'")
-        print(f"🔍 DEBUG: File name length: {len(file_name)}")
         
         # Подсчитываем общие данные
         total_tshirts = 0
@@ -6723,8 +6700,8 @@ def generate_wholesale_invoice(request):
         ws[f'A{row}'] = f'Загальна сума: {total_amount}₴'
         ws[f'A{row}'].font = title_font
         
-        # Настраиваем ширину колонок
-        column_widths = [5, 30, 15, 15, 10, 12, 12]
+        # Настраиваем ширину колонок для лучшего отображения текста
+        column_widths = [8, 40, 12, 15, 12, 15, 15]
         for col, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(col)].width = width
         
