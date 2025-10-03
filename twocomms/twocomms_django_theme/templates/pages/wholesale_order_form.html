@@ -1632,8 +1632,8 @@
 let currentProduct = null;
 let currentOrderId = null;
 let orderItems = [];
-let tshirtPrices = JSON.parse('{{ tshirt_prices|escapejs }}');
-let hoodiePrices = JSON.parse('{{ hoodie_prices|escapejs }}');
+let tshirtPrices = {{ tshirt_prices|safe }};
+let hoodiePrices = {{ hoodie_prices|safe }};
 
 // Initialize color dots with proper colors
 function initializeColorDots() {
