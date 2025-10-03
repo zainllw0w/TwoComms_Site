@@ -1822,22 +1822,25 @@ function updatePriceDisplay() {
     
     const quantity = parseInt(document.getElementById('quantity').value) || 1;
     
-    // Update price based on quantity (only wholesale prices)
+    // Update price based on quantity (only wholesale prices, minimum 8 items)
     let price = 0;
-    if (currentProduct.type === 'tshirt') {
-        // Determine wholesale price based on quantity
-        if (quantity >= 100) price = tshirtPrices.wholesale[4];
-        else if (quantity >= 64) price = tshirtPrices.wholesale[3];
-        else if (quantity >= 32) price = tshirtPrices.wholesale[2];
-        else if (quantity >= 16) price = tshirtPrices.wholesale[1];
-        else price = tshirtPrices.wholesale[0];
-    } else if (currentProduct.type === 'hoodie') {
-        // Determine wholesale price based on quantity
-        if (quantity >= 100) price = hoodiePrices.wholesale[4];
-        else if (quantity >= 64) price = hoodiePrices.wholesale[3];
-        else if (quantity >= 32) price = hoodiePrices.wholesale[2];
-        else if (quantity >= 16) price = hoodiePrices.wholesale[1];
-        else price = hoodiePrices.wholesale[0];
+    if (quantity >= 8) { // Only calculate price for wholesale quantities (8+)
+        if (currentProduct.type === 'tshirt') {
+            // Determine wholesale price based on quantity
+            if (quantity >= 100) price = tshirtPrices.wholesale[4];
+            else if (quantity >= 64) price = tshirtPrices.wholesale[3];
+            else if (quantity >= 32) price = tshirtPrices.wholesale[2];
+            else if (quantity >= 16) price = tshirtPrices.wholesale[1];
+            else price = tshirtPrices.wholesale[0]; // 8-15 items
+        } else if (currentProduct.type === 'hoodie') {
+            // Determine wholesale price based on quantity
+            if (quantity >= 100) price = hoodiePrices.wholesale[4];
+            else if (quantity >= 64) price = hoodiePrices.wholesale[3];
+            else if (quantity >= 32) price = hoodiePrices.wholesale[2];
+            else if (quantity >= 16) price = hoodiePrices.wholesale[1];
+            else price = hoodiePrices.wholesale[0]; // 8-15 items
+        }
+    }
     }
     
     // Update button text to show price
@@ -1857,20 +1860,26 @@ function addToOrder() {
         return;
     }
     
-    // Calculate price (only wholesale)
+    // Check minimum wholesale quantity
+    if (quantity < 8) {
+        showNotification('Мінімальна оптова кількість: 8 штук', 'error');
+        return;
+    }
+    
+    // Calculate price (only wholesale, minimum 8 items)
     let price = 0;
     if (currentProduct.type === 'tshirt') {
         if (quantity >= 100) price = tshirtPrices.wholesale[4];
         else if (quantity >= 64) price = tshirtPrices.wholesale[3];
         else if (quantity >= 32) price = tshirtPrices.wholesale[2];
         else if (quantity >= 16) price = tshirtPrices.wholesale[1];
-        else price = tshirtPrices.wholesale[0];
+        else price = tshirtPrices.wholesale[0]; // 8-15 items
     } else if (currentProduct.type === 'hoodie') {
         if (quantity >= 100) price = hoodiePrices.wholesale[4];
         else if (quantity >= 64) price = hoodiePrices.wholesale[3];
         else if (quantity >= 32) price = hoodiePrices.wholesale[2];
         else if (quantity >= 16) price = hoodiePrices.wholesale[1];
-        else price = hoodiePrices.wholesale[0];
+        else price = hoodiePrices.wholesale[0]; // 8-15 items
     }
     
     // Create order item
@@ -2085,7 +2094,38 @@ function updateScale(scaleId, quantity) {
         const range = segment.dataset.range;
         const [min, max] = parseRange(range);
         
-        if (quantity >= min && (max === null || quantity <= max)) {
+        if (quantity < 8) {
+            // Below minimum wholesale - show red for 1-7 tier, gray for others
+            if (min === 1 && max === 7) {
+                segment.classList.add('active');
+                segment.style.backgroundColor = '#ef4444'; // Red for insufficient quantity
+                
+                // Show progress within 1-7 tier
+                const tierSize = 7 - 1 + 1;
+                const currentProgress = Math.min(quantity, tierSize);
+                const progressPercent = (currentProgress / tierSize) * 100;
+                
+                let progressFill = segment.querySelector('.progress-fill');
+                if (!progressFill) {
+                    progressFill = document.createElement('div');
+                    progressFill.className = 'progress-fill';
+                    progressFill.style.position = 'absolute';
+                    progressFill.style.top = '0';
+                    progressFill.style.left = '0';
+                    progressFill.style.height = '100%';
+                    progressFill.style.backgroundColor = '#ef4444';
+                    progressFill.style.borderRadius = '3px';
+                    progressFill.style.transition = 'width 0.3s ease';
+                    progressFill.style.zIndex = '1';
+                    segment.style.position = 'relative';
+                    segment.appendChild(progressFill);
+                }
+                progressFill.style.width = `${progressPercent}%`;
+            } else {
+                // Future tiers - gray
+                segment.style.backgroundColor = '#374151';
+            }
+        } else if (quantity >= min && (max === null || quantity <= max)) {
             // Current tier - show progress
             segment.classList.add('active');
             
