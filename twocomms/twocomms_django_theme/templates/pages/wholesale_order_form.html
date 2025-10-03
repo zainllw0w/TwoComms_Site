@@ -503,64 +503,49 @@
     color: rgba(255, 255, 255, 0.95);
     font-size: 0.75rem;
     font-weight: 600;
-    word-wrap: break-word;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
     line-height: 1.2;
 }
 
 .product-colors {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 6px;
+    gap: 6px;
+    margin-bottom: 4px;
     flex-wrap: wrap;
-    padding: 2px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .color-item {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 2px 4px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    gap: 4px;
 }
 
 .color-dot {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
-    border: 2px solid rgba(255, 255, 255, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.3);
     display: inline-block;
     flex-shrink: 0;
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
-    position: relative;
-    z-index: 1;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
 }
 
 .color-name {
-    color: rgba(255, 255, 255, 0.9);
-    font-size: 0.65rem;
-    font-weight: 500;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.6rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 80px;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .color-more {
-    font-size: 0.6rem;
-    color: rgba(139, 92, 246, 0.8);
-    margin-left: 4px;
-    padding: 2px 4px;
-    background: rgba(139, 92, 246, 0.1);
-    border-radius: 4px;
-    border: 1px solid rgba(139, 92, 246, 0.2);
-    font-weight: 500;
+    font-size: 0.55rem;
+    color: rgba(232, 233, 236, 0.6);
+    margin-left: 2px;
 }
 
 .product-price {
@@ -1580,16 +1565,12 @@ let hoodiePrices = {
 // Initialize the page
 document.addEventListener('DOMContentLoaded', function() {
     initializeCompanyForm();
-    
-    // Wait a bit for all elements to be rendered
-    setTimeout(() => {
-        initializeDragAndDrop();
-        initializeCategoryFilter();
-        initializeOrderForm();
-        initializeColorDots();
-        loadOrderData(); // Load saved data
-        updateOrderStatistics(); // Initialize statistics on page load
-    }, 100);
+    initializeDragAndDrop();
+    initializeCategoryFilter();
+    initializeOrderForm();
+    initializeColorDots();
+    loadOrderData(); // Load saved data
+    updateOrderStatistics(); // Initialize statistics on page load
 });
 
 // Company form handling
@@ -1684,30 +1665,13 @@ function initializeDragAndDrop() {
     const productCards = document.querySelectorAll('.product-card');
     const dropZone = document.getElementById('orderDropZone');
     
-    console.log('Found product cards:', productCards.length);
-    console.log('Found drop zone:', dropZone);
-    
-    // Remove existing event listeners to avoid duplicates
     productCards.forEach(card => {
-        card.removeEventListener('dragstart', handleDragStart);
-        card.removeEventListener('dragend', handleDragEnd);
-        card.removeEventListener('click', handleProductClick);
-        
-        // Re-add event listeners
         card.addEventListener('dragstart', handleDragStart);
         card.addEventListener('dragend', handleDragEnd);
         card.addEventListener('click', handleProductClick);
-        
-        // Ensure draggable attribute is set
-        card.setAttribute('draggable', 'true');
     });
     
     if (dropZone) {
-        dropZone.removeEventListener('dragover', handleDragOver);
-        dropZone.removeEventListener('drop', handleDrop);
-        dropZone.removeEventListener('dragleave', handleDragLeave);
-        
-        // Re-add event listeners
         dropZone.addEventListener('dragover', handleDragOver);
         dropZone.addEventListener('drop', handleDrop);
         dropZone.addEventListener('dragleave', handleDragLeave);
@@ -1791,12 +1755,6 @@ function initializeCategoryFilter() {
                 card.style.display = 'none';
             }
         });
-        
-        // Re-initialize drag and drop for visible cards
-        setTimeout(() => {
-            initializeDragAndDrop();
-            initializeColorDots();
-        }, 50);
     });
 }
 
@@ -2290,23 +2248,10 @@ function clearOrderData() {
 // Color dots initialization
 function initializeColorDots() {
     const colorDots = document.querySelectorAll('.color-dot[data-color]');
-    console.log('Found color dots:', colorDots.length);
-    
-    colorDots.forEach((dot, index) => {
+    colorDots.forEach(dot => {
         const color = dot.getAttribute('data-color');
-        console.log(`Color dot ${index}:`, color);
         if (color) {
             dot.style.backgroundColor = color;
-            dot.style.display = 'inline-block'; // Ensure visibility
-        }
-    });
-    
-    // Also try to find dots without data-color attribute and set default
-    const allColorDots = document.querySelectorAll('.color-dot');
-    allColorDots.forEach(dot => {
-        if (!dot.getAttribute('data-color')) {
-            dot.setAttribute('data-color', '#000000');
-            dot.style.backgroundColor = '#000000';
         }
     });
 }
