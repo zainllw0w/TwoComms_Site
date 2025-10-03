@@ -149,179 +149,75 @@
         </div>
       </div>
 
-<!-- Products Section -->
-<section class="products-section">
-  <div class="container">
-    <!-- Hoodies Section -->
-    {% if hoodie_products %}
-    <div class="category-section">
-      <div class="category-header">
-        <h2 class="category-title">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 0.5rem;">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-          </svg>
-          Худі [фліс]
-        </h2>
-        <p class="category-subtitle">М'які та зручні худі з капюшоном</p>
-      </div>
-      
-      <div class="products-grid">
-        {% for product in hoodie_products %}
-        <div class="product-card">
-          <div class="product-image-container">
-            {% if product.main_image %}
-              <img src="{{ product.main_image.url }}" alt="{{ product.title }} - TwoComms" class="product-image">
-            {% else %}
-              {% static 'img/placeholder.jpg' as placeholder %}
-              <img src="{{ placeholder }}" alt="{{ product.title }} - TwoComms" class="product-image">
-            {% endif %}
-            <div class="product-overlay">
-              <div class="product-badge">Дроп: {{ hoodie_prices.drop }} грн</div>
-            </div>
-          </div>
-          <div class="product-content">
-            <h3 class="product-title">{{ product.title }} [фліс]</h3>
-            <div class="product-prices">
-              <div class="drop-price">
-                <span class="price-label">Дроп:</span>
-                <span class="price-value">{{ hoodie_prices.drop }} грн</span>
-              </div>
-              <div class="wholesale-prices">
-                <span class="wholesale-label">Оптові ціни:</span>
-                <div class="wholesale-ranges">
-                  {% for price in hoodie_prices.wholesale %}
-                  <div class="wholesale-range">
-                    <span class="range-label">{{ hoodie_prices.ranges|slice:forloop.counter0:1|first }}</span>
-                    <span class="range-price">{{ price }} грн</span>
-                  </div>
-                  {% endfor %}
+      <!-- Products Section -->
+      {% if hoodie_products %}
+      <div class="mb-5">
+        <h2 class="text-center mb-4">Худі [фліс]</h2>
+        <div class="row">
+          {% for product in hoodie_products %}
+          <div class="col-md-4 col-lg-3 mb-4">
+            <div class="card h-100">
+              {% if product.main_image %}
+                <img src="{{ product.main_image.url }}" class="card-img-top" alt="{{ product.title }}">
+              {% endif %}
+              <div class="card-body">
+                <h5 class="card-title">{{ product.title }} [фліс]</h5>
+                <div class="mb-2">
+                  <small class="text-muted">Дроп: {{ hoodie_prices.drop }} грн</small>
+                </div>
+                <div class="mb-2">
+                  <small class="text-muted">Опт: {{ hoodie_prices.wholesale.0 }}-{{ hoodie_prices.wholesale|last }} грн</small>
                 </div>
               </div>
             </div>
           </div>
+          {% endfor %}
         </div>
-        {% endfor %}
       </div>
-    </div>
-    {% endif %}
+      {% endif %}
 
-    <!-- T-shirts Section -->
-    {% if tshirt_products %}
-    <div class="category-section">
-      <div class="category-header">
-        <h2 class="category-title">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 0.5rem;">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-          </svg>
-          Футболки
-        </h2>
-        <p class="category-subtitle">Класичні футболки з ексклюзивними принтами</p>
-      </div>
-      
-      <div class="products-grid">
-        {% for product in tshirt_products %}
-        <div class="product-card">
-          <div class="product-image-container">
-            {% if product.main_image %}
-              <img src="{{ product.main_image.url }}" alt="{{ product.title }} - TwoComms" class="product-image">
-            {% else %}
-              {% static 'img/placeholder.jpg' as placeholder %}
-              <img src="{{ placeholder }}" alt="{{ product.title }} - TwoComms" class="product-image">
-            {% endif %}
-            <div class="product-overlay">
-              <div class="product-badge">Дроп: {{ tshirt_prices.drop }} грн</div>
-            </div>
-          </div>
-          <div class="product-content">
-            <h3 class="product-title">{{ product.title }}</h3>
-            <div class="product-prices">
-              <div class="drop-price">
-                <span class="price-label">Дроп:</span>
-                <span class="price-value">{{ tshirt_prices.drop }} грн</span>
-              </div>
-              <div class="wholesale-prices">
-                <span class="wholesale-label">Оптові ціни:</span>
-                <div class="wholesale-ranges">
-                  {% for price in tshirt_prices.wholesale %}
-                  <div class="wholesale-range">
-                    <span class="range-label">{{ tshirt_prices.ranges|slice:forloop.counter0:1|first }}</span>
-                    <span class="range-price">{{ price }} грн</span>
-                  </div>
-                  {% endfor %}
+      {% if tshirt_products %}
+      <div class="mb-5">
+        <h2 class="text-center mb-4">Футболки</h2>
+        <div class="row">
+          {% for product in tshirt_products %}
+          <div class="col-md-4 col-lg-3 mb-4">
+            <div class="card h-100">
+              {% if product.main_image %}
+                <img src="{{ product.main_image.url }}" class="card-img-top" alt="{{ product.title }}">
+              {% endif %}
+              <div class="card-body">
+                <h5 class="card-title">{{ product.title }}</h5>
+                <div class="mb-2">
+                  <small class="text-muted">Дроп: {{ tshirt_prices.drop }} грн</small>
+                </div>
+                <div class="mb-2">
+                  <small class="text-muted">Опт: {{ tshirt_prices.wholesale.0 }}-{{ tshirt_prices.wholesale|last }} грн</small>
                 </div>
               </div>
             </div>
           </div>
+          {% endfor %}
         </div>
-        {% endfor %}
       </div>
-    </div>
-    {% endif %}
-  </div>
-</section>
+      {% endif %}
 
-<!-- Cooperation Section -->
-<section id="cooperation" class="cooperation-section">
-  <div class="container">
-    <div class="cooperation-content">
-      <h2 class="cooperation-title">Співпраця по дропу</h2>
-      <p class="cooperation-description">
-        Зацікавлені в співпраці? Зв'яжіться з нами через Telegram для обговорення умов дропшипінгу 
-        та отримання персональних умов співпраці.
-      </p>
-      <div class="cooperation-buttons">
-        <a href="https://t.me/twocomms_wholesale" class="cooperation-btn" target="_blank">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-          </svg>
-          Написати в Telegram
-        </a>
-        <button class="cooperation-btn secondary" onclick="showInvoiceModal()">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
-          </svg>
-          Сформувати накладну
-        </button>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Invoice Modal -->
-<div class="modal fade" id="invoiceModal" tabindex="-1" aria-labelledby="invoiceModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content" style="background: rgba(14, 15, 18, 0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1);">
-      <div class="modal-header" style="border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
-        <h5 class="modal-title" id="invoiceModalLabel" style="color: white; font-weight: 600;">Формування накладної</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <div class="text-center py-5">
-          <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor" style="color: rgba(255, 255, 255, 0.5); margin-bottom: 1rem;">
-            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
-          </svg>
-          <h4 style="color: white; margin-bottom: 1rem;">Функція в розробці</h4>
-          <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 2rem;">
-            Наразі функція формування накладних знаходиться в розробці. 
-            Незабаром ви зможете створювати накладні на оптові замовлення прямо на сайті.
-          </p>
-          <p style="color: rgba(255, 255, 255, 0.6); font-size: 0.9rem;">
-            Поки що для замовлення звертайтесь через 
-            <a href="https://t.me/twocomms_wholesale" target="_blank" style="color: #10b981;">Telegram</a>
-          </p>
+      <!-- Cooperation Section -->
+      <div class="text-center">
+        <h2 class="mb-4">Співпраця по дропу</h2>
+        <p class="lead mb-4">
+          Зацікавлені в співпраці? Зв'яжіться з нами через Telegram для обговорення умов дропшипінгу.
+        </p>
+        <div class="mb-4">
+          <a href="https://t.me/twocomms_wholesale" class="btn btn-success btn-lg me-3" target="_blank">
+            Написати в Telegram
+          </a>
+          <button class="btn btn-outline-secondary btn-lg" onclick="alert('Функція в розробці')">
+            Сформувати накладну
+          </button>
         </div>
       </div>
     </div>
   </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-  {{ block.super }}
-  <script>
-    function showInvoiceModal() {
-      const modal = new bootstrap.Modal(document.getElementById('invoiceModal'));
-      modal.show();
-    }
-  </script>
 {% endblock %}
