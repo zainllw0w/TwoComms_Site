@@ -8,6 +8,13 @@ from openpyxl.utils import get_column_letter
 import os
 
 
+def _get_product_image_url(product):
+    """Get product image URL for Excel."""
+    if product.main_image:
+        return f"https://twocomms.shop{product.main_image.url}"
+    return None
+
+
 def _translate_color_to_ukrainian(color_name):
     """Translate color names from Russian to Ukrainian."""
     color_translations = {
@@ -157,6 +164,7 @@ class Command(BaseCommand):
             'Товар (S–XL)',
             'Артикул',
             'Колір',
+            'Дроп (фікс. ціна)',
             '8–15 шт. (за 1 шт.)',
             '16–31 шт.',
             '32–63 шт.',
@@ -173,7 +181,7 @@ class Command(BaseCommand):
         
         # Цены для категорий
         tshirt_prices = [750, 700, 650, 600, 550]
-        hoodie_prices = [1450, 1400, 1350, 1300, 1200]
+        hoodie_prices = [1400, 1350, 1300, 1250, 1200]
         
         row = 3
         
@@ -199,33 +207,55 @@ class Command(BaseCommand):
                 # Если есть цвета, создаем строку для каждого цвета
                 for color in colors:
                     ws.cell(row=row, column=1, value='Худі')
-                    ws.cell(row=row, column=2, value=product_title)
+                    
+                    # Добавляем изображение и название товара
+                    image_url = _get_product_image_url(product)
+                    product_title_with_image = f"{product_title}"
+                    if image_url:
+                        product_title_with_image = f"[IMG] {product_title}"
+                    ws.cell(row=row, column=2, value=product_title_with_image)
+                    
                     ws.cell(row=row, column=3, value=sku)
                     ws.cell(row=row, column=4, value=_translate_color_to_ukrainian('чорний'))  # Для худи завжди чорний
                     
-                    # Добавляем цены
-                    for col, price in enumerate(hoodie_prices, 5):
+                    # Добавляем дроп цену (фиксированная 1500)
+                    ws.cell(row=row, column=5, value=1500)
+                    ws.cell(row=row, column=5).alignment = center_alignment
+                    
+                    # Добавляем оптовые цены
+                    for col, price in enumerate(hoodie_prices, 6):
                         ws.cell(row=row, column=col, value=price)
                         ws.cell(row=row, column=col).alignment = center_alignment
                     
                     # Добавляем ссылку на товар
-                    ws.cell(row=row, column=10, value=product_url)
+                    ws.cell(row=row, column=11, value=product_url)
                     
                     row += 1
             else:
                 # Если нет цветов, создаем одну строку
                 ws.cell(row=row, column=1, value='Худі')
-                ws.cell(row=row, column=2, value=product_title)
+                
+                # Добавляем изображение и название товара
+                image_url = _get_product_image_url(product)
+                product_title_with_image = f"{product_title}"
+                if image_url:
+                    product_title_with_image = f"[IMG] {product_title}"
+                ws.cell(row=row, column=2, value=product_title_with_image)
+                
                 ws.cell(row=row, column=3, value=sku)
                 ws.cell(row=row, column=4, value=_translate_color_to_ukrainian('чорний'))  # Для худи завжди чорний
                 
-                # Добавляем цены
-                for col, price in enumerate(hoodie_prices, 5):
+                # Добавляем дроп цену (фиксированная 1500)
+                ws.cell(row=row, column=5, value=1500)
+                ws.cell(row=row, column=5).alignment = center_alignment
+                
+                # Добавляем оптовые цены
+                for col, price in enumerate(hoodie_prices, 6):
                     ws.cell(row=row, column=col, value=price)
                     ws.cell(row=row, column=col).alignment = center_alignment
                 
                 # Добавляем ссылку на товар
-                ws.cell(row=row, column=10, value=product_url)
+                ws.cell(row=row, column=11, value=product_url)
                 
                 row += 1
         
@@ -251,33 +281,55 @@ class Command(BaseCommand):
                 # Если есть цвета, создаем строку для каждого цвета
                 for color in colors:
                     ws.cell(row=row, column=1, value='Футболки')
-                    ws.cell(row=row, column=2, value=product_title)
+                    
+                    # Добавляем изображение и название товара
+                    image_url = _get_product_image_url(product)
+                    product_title_with_image = f"{product_title}"
+                    if image_url:
+                        product_title_with_image = f"[IMG] {product_title}"
+                    ws.cell(row=row, column=2, value=product_title_with_image)
+                    
                     ws.cell(row=row, column=3, value=sku)
                     ws.cell(row=row, column=4, value=_translate_color_to_ukrainian(color if color else 'чорний'))
                     
-                    # Добавляем цены
-                    for col, price in enumerate(tshirt_prices, 5):
+                    # Добавляем дроп цену (фиксированная 800 для футболок)
+                    ws.cell(row=row, column=5, value=800)
+                    ws.cell(row=row, column=5).alignment = center_alignment
+                    
+                    # Добавляем оптовые цены
+                    for col, price in enumerate(tshirt_prices, 6):
                         ws.cell(row=row, column=col, value=price)
                         ws.cell(row=row, column=col).alignment = center_alignment
                     
                     # Добавляем ссылку на товар
-                    ws.cell(row=row, column=10, value=product_url)
+                    ws.cell(row=row, column=11, value=product_url)
                     
                     row += 1
             else:
                 # Если нет цветов, создаем одну строку с черным цветом
                 ws.cell(row=row, column=1, value='Футболки')
-                ws.cell(row=row, column=2, value=product_title)
+                
+                # Добавляем изображение и название товара
+                image_url = _get_product_image_url(product)
+                product_title_with_image = f"{product_title}"
+                if image_url:
+                    product_title_with_image = f"[IMG] {product_title}"
+                ws.cell(row=row, column=2, value=product_title_with_image)
+                
                 ws.cell(row=row, column=3, value=sku)
                 ws.cell(row=row, column=4, value=_translate_color_to_ukrainian('чорний'))
                 
-                # Добавляем цены
-                for col, price in enumerate(tshirt_prices, 5):
+                # Добавляем дроп цену (фиксированная 800 для футболок)
+                ws.cell(row=row, column=5, value=800)
+                ws.cell(row=row, column=5).alignment = center_alignment
+                
+                # Добавляем оптовые цены
+                for col, price in enumerate(tshirt_prices, 6):
                     ws.cell(row=row, column=col, value=price)
                     ws.cell(row=row, column=col).alignment = center_alignment
                 
                 # Добавляем ссылку на товар
-                ws.cell(row=row, column=10, value=product_url)
+                ws.cell(row=row, column=11, value=product_url)
                 
                 row += 1
         
