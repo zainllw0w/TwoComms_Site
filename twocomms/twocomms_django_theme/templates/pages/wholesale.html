@@ -256,15 +256,16 @@
     }
     
     .pricing-card {
-      background: rgba(255,255,255,0.08);
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(255,255,255,0.15);
+      background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.06));
+      backdrop-filter: blur(25px);
+      border: 2px solid rgba(255,255,255,0.2);
       border-radius: 25px;
       padding: 2.5rem;
       text-align: center;
       position: relative;
       overflow: hidden;
       transition: all 0.4s ease;
+      box-shadow: 0 10px 35px rgba(0,0,0,0.15);
     }
     
     .pricing-card::before {
@@ -274,25 +275,39 @@
       left: 0;
       right: 0;
       height: 5px;
-      background: linear-gradient(90deg, #8b5cf6, #3b82f6, #10b981);
+      background: linear-gradient(90deg, #8b5cf6, #3b82f6, #10b981, #f59e0b);
+      background-size: 200% 100%;
+      animation: gradientShift 3s ease-in-out infinite;
+    }
+    
+    @keyframes gradientShift {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
     }
     
     .pricing-card:hover {
-      transform: translateY(-10px);
-      border-color: rgba(139, 92, 246, 0.5);
-      box-shadow: 0 25px 50px rgba(139, 92, 246, 0.2);
+      transform: translateY(-12px) scale(1.02);
+      border-color: rgba(139, 92, 246, 0.6);
+      box-shadow: 0 25px 50px rgba(139, 92, 246, 0.3);
     }
     
     .pricing-icon {
-      width: 80px;
-      height: 80px;
-      background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.2));
+      width: 90px;
+      height: 90px;
+      background: linear-gradient(135deg, #8b5cf6, #3b82f6);
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       margin: 0 auto 1.5rem;
-      color: #8b5cf6;
+      color: white;
+      box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
+      transition: all 0.3s ease;
+    }
+    
+    .pricing-card:hover .pricing-icon {
+      transform: scale(1.1) rotate(5deg);
+      box-shadow: 0 12px 35px rgba(139, 92, 246, 0.6);
     }
     
     .pricing-title {
@@ -316,22 +331,48 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 0.75rem 0;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding: 1rem 1.25rem;
+      background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+      border-radius: 15px;
+      border: 1px solid rgba(255,255,255,0.2);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 0.75rem;
     }
     
-    .price-range:last-child {
-      border-bottom: none;
+    .price-range::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+      transition: left 0.5s;
+    }
+    
+    .price-range:hover::before {
+      left: 100%;
+    }
+    
+    .price-range:hover {
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.1));
+      border-color: rgba(139, 92, 246, 0.4);
+      transform: translateX(5px);
     }
     
     .range-label {
-      color: rgba(255,255,255,0.8);
-      font-weight: 500;
+      color: rgba(255,255,255,0.9);
+      font-weight: 600;
+      font-size: 0.95rem;
     }
     
     .range-price {
-      color: white;
+      color: #f59e0b;
       font-weight: 700;
+      font-size: 1.2rem;
+      text-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
       font-size: 1.1rem;
     }
     
@@ -800,7 +841,7 @@
       <div class="pricing-card">
         <div class="pricing-icon">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
           </svg>
         </div>
         <h3 class="pricing-title">Дроп ціни</h3>
@@ -824,10 +865,10 @@
       <div class="pricing-card">
         <div class="pricing-icon">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+            <path d="M19 7h-3V6a4 4 0 0 0-8 0v1H5a1 1 0 0 0-1 1v11a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8a1 1 0 0 0-1-1zM10 6a2 2 0 0 1 4 0v1h-4V6zm8 13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V9h2v1a1 1 0 0 0 2 0V9h4v1a1 1 0 0 0 2 0V9h2v10z"/>
           </svg>
         </div>
-        <h3 class="pricing-title">Оптові ціни</h3>
+        <h3 class="pricing-title">Футболки опт</h3>
         <p class="pricing-description">
           Вигідні ціни залежно від обсягу замовлення. 
           Чим більше замовляєте, тим менше платите за одиницю.
@@ -860,10 +901,10 @@
       <div class="pricing-card">
         <div class="pricing-icon">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+            <path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zm4 18v-6h2.5l-2.54-7.63A1.5 1.5 0 0 0 18.54 8H17c-.8 0-1.54.37-2.01.99L14 10.5l-1.99-1.51C11.54 8.37 10.8 8 10 8H8.46c-.8 0-1.54.37-2.01.99L4 10.5l-1.99-1.51C1.54 8.37.8 8 0 8v2h2.5L0 17.63V22h2v-4h2v4h2v-4h2v4h2v-4h2v4h2v-4h2v4h2z"/>
           </svg>
         </div>
-        <h3 class="pricing-title">Худі [фліс] - Опт</h3>
+        <h3 class="pricing-title">Худі [фліс] опт</h3>
         <p class="pricing-description">
           Спеціальні ціни для худі з флісом. 
           М'який та зручний матеріал.
