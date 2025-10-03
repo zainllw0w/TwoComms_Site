@@ -19289,7 +19289,7 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   display: flex;
   justify-content: center;
   gap: clamp(1.75rem, 3.5vw, 2.5rem);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   width: min(100%, 960px);
   margin: 0 auto;
 }
@@ -19381,6 +19381,12 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 
 .hero-cta {
   animation: ctaFadeIn 1s ease-out 1.4s both;
+}
+
+@media (max-width: 992px) {
+  .cooperation-hero .hero-features {
+    flex-wrap: wrap;
+  }
 }
 
 @keyframes ctaFadeIn {
