@@ -1652,15 +1652,40 @@ function initializeColorDots() {
 
 // Initialize the page
 document.addEventListener('DOMContentLoaded', function() {
-    initializeCompanyForm();
-    initializeDragAndDrop();
-    initializeColorDots();
-    initializeCategoryFilter();
-    initializeProductClick();
-    initializeOrderForm();
-    loadOrderData(); // Load saved data
-    loadInvoicesFromLocalStorage(); // Load saved invoices
-    updateOrderStatistics(); // Initialize statistics on page load
+    console.log('🚀 DOM Content Loaded - Initializing wholesale order form...');
+    
+    try {
+        console.log('📋 Initializing company form...');
+        initializeCompanyForm();
+        
+        console.log('🎯 Initializing drag and drop...');
+        initializeDragAndDrop();
+        
+        console.log('🎨 Initializing color dots...');
+        initializeColorDots();
+        
+        console.log('🔍 Initializing category filter...');
+        initializeCategoryFilter();
+        
+        console.log('🖱️ Initializing product click handlers...');
+        initializeProductClick();
+        
+        console.log('📝 Initializing order form...');
+        initializeOrderForm();
+        
+        console.log('💾 Loading saved order data...');
+        loadOrderData(); // Load saved data
+        
+        console.log('📄 Loading saved invoices...');
+        loadInvoicesFromLocalStorage(); // Load saved invoices
+        
+        console.log('📊 Initializing statistics...');
+        updateOrderStatistics(); // Initialize statistics on page load
+        
+        console.log('✅ All initialization completed successfully!');
+    } catch (error) {
+        console.error('❌ Error during initialization:', error);
+    }
 });
 
 // Company form handling
@@ -1790,10 +1815,15 @@ function initializeCompanyForm() {
 
 // Drag and Drop functionality (exactly like admin store management)
 function initializeDragAndDrop() {
+    console.log('🔧 Initializing drag and drop...');
     const productCards = document.querySelectorAll('.product-card');
     const dropZone = document.getElementById('orderDropZone');
     
-    productCards.forEach(card => {
+    console.log(`📦 Found ${productCards.length} product cards`);
+    console.log(`🎯 Drop zone found:`, !!dropZone);
+    
+    productCards.forEach((card, index) => {
+        console.log(`📋 Product card ${index + 1}:`, card.dataset.productId, card.dataset.productType);
         card.addEventListener('dragstart', handleDragStart);
         card.addEventListener('dragend', handleDragEnd);
     });
@@ -1802,16 +1832,21 @@ function initializeDragAndDrop() {
         dropZone.addEventListener('dragover', handleDragOver);
         dropZone.addEventListener('drop', handleDrop);
         dropZone.addEventListener('dragleave', handleDragLeave);
+        console.log('✅ Drop zone event listeners added');
+    } else {
+        console.error('❌ Drop zone not found!');
     }
 }
 
 
 function handleDragStart(e) {
+    console.log('🚀 Drag start:', e.target.dataset.productId);
     e.target.classList.add('dragging');
     e.dataTransfer.setData('text/plain', e.target.dataset.productId);
 }
 
 function handleDragEnd(e) {
+    console.log('🏁 Drag end');
     e.target.classList.remove('dragging');
 }
 
@@ -1825,14 +1860,21 @@ function handleDragLeave(e) {
 }
 
 function handleDrop(e) {
+    console.log('🎯 Drop event triggered');
     e.preventDefault();
     e.currentTarget.classList.remove('drag-over');
     
     const productId = e.dataTransfer.getData('text/plain');
+    console.log('📦 Dropped product ID:', productId);
+    
     const productCard = document.querySelector(`[data-product-id="${productId}"]`);
+    console.log('🔍 Product card found:', !!productCard);
     
     if (productCard) {
+        console.log('✅ Calling selectProduct with ID:', productId);
         selectProduct(productId);
+    } else {
+        console.error('❌ Product card not found for ID:', productId);
     }
 }
 
@@ -1856,42 +1898,77 @@ function initializeCategoryFilter() {
 
 // Инициализация клика по карточкам товаров
 function initializeProductClick() {
+    console.log('🖱️ Initializing product click handlers...');
     const productCards = document.querySelectorAll('.product-card');
     
-    productCards.forEach(card => {
+    console.log(`📦 Found ${productCards.length} product cards for click handlers`);
+    
+    productCards.forEach((card, index) => {
+        console.log(`🖱️ Adding click handler to product card ${index + 1}:`, card.dataset.productId);
+        
         card.addEventListener('click', function(e) {
+            console.log('🖱️ Product card clicked:', this.dataset.productId);
+            
             // Предотвращаем клик при drag and drop
-            if (e.target.closest('.remove-item-btn')) return;
+            if (e.target.closest('.remove-item-btn')) {
+                console.log('🚫 Click prevented - remove button clicked');
+                return;
+            }
             
             const productId = this.dataset.productId;
+            console.log('📦 Product ID from click:', productId);
+            
             if (productId) {
+                console.log('✅ Calling selectProduct from click with ID:', productId);
                 selectProduct(productId);
+            } else {
+                console.error('❌ No product ID found in clicked card');
             }
         });
         
         // Добавляем визуальную обратную связь при клике
         card.style.cursor = 'pointer';
     });
+    
+    console.log('✅ Product click handlers initialized');
 }
 
 // Выбор товара
 function selectProduct(productId) {
+    console.log('🎯 selectProduct called with ID:', productId);
+    
     const productCard = document.querySelector(`[data-product-id="${productId}"]`);
-    if (!productCard) return;
+    console.log('🔍 Product card found:', !!productCard);
+    
+    if (!productCard) {
+        console.error('❌ Product card not found for ID:', productId);
+        return;
+    }
+    
+    console.log('📋 Product card data:', {
+        id: productCard.dataset.productId,
+        type: productCard.dataset.productType,
+        title: productCard.querySelector('.product-name')?.textContent
+    });
     
     // Получаем главное изображение товара
     const productImage = productCard.querySelector('.product-image');
     const mainImage = productImage ? productImage.src : '';
+    console.log('🖼️ Main image:', mainImage);
     
     // Получаем все доступные цвета с их изображениями
     const colorVariants = [];
     const colorItems = productCard.querySelectorAll('.color-item');
-    colorItems.forEach(colorItem => {
+    console.log('🎨 Found color items:', colorItems.length);
+    
+    colorItems.forEach((colorItem, index) => {
         const colorName = colorItem.querySelector('.color-name').textContent;
         const colorHex = colorItem.dataset.colorHex || '#000000';
         
         // Берем изображение цвета из data-color-image, если есть, иначе основное изображение
         const colorImageUrl = colorItem.dataset.colorImage || mainImage;
+        
+        console.log(`🎨 Color ${index + 1}:`, { name: colorName, hex: colorHex, image: colorImageUrl });
         
         colorVariants.push({
             name: colorName,
@@ -1910,17 +1987,29 @@ function selectProduct(productId) {
         color_variants: colorVariants
     };
     
+    console.log('📦 Current product set:', currentProduct);
+    console.log('🎯 Calling showOrderForm...');
+    
     showOrderForm();
 }
 
 
 // Order form functionality
 function initializeOrderForm() {
+    console.log('📝 Initializing order form...');
     const addToOrderBtn = document.getElementById('addToOrderBtn');
     
-    addToOrderBtn.addEventListener('click', function() {
-        addToOrder();
-    });
+    console.log('🔘 Add to order button found:', !!addToOrderBtn);
+    
+    if (addToOrderBtn) {
+        addToOrderBtn.addEventListener('click', function() {
+            console.log('🔘 Add to order button clicked');
+            addToOrder();
+        });
+        console.log('✅ Add to order button event listener added');
+    } else {
+        console.error('❌ Add to order button not found!');
+    }
     
     // Handle size change
     const sizeSelect = document.getElementById('productSize');
@@ -1948,62 +2037,111 @@ function initializeOrderForm() {
 }
 
 function showOrderForm() {
+    console.log('📋 showOrderForm called');
+    console.log('📦 Current product:', currentProduct);
+    
     const orderForm = document.getElementById('orderForm');
     const dropZone = document.getElementById('orderDropZone');
     
+    console.log('🔍 Order form element:', !!orderForm);
+    console.log('🔍 Drop zone element:', !!dropZone);
+    
     if (currentProduct) {
-        orderForm.style.display = 'block';
-        dropZone.style.display = 'none';
+        console.log('✅ Current product exists, showing form...');
         
-        // Populate form with product data
-        
-        const colorSelect = document.getElementById('productColor');
-        colorSelect.innerHTML = '';
-        
-        if (currentProduct.type === 'tshirt' && currentProduct.color_variants && currentProduct.color_variants.length > 0) {
-            // Add available colors for t-shirts
-            currentProduct.color_variants.forEach((colorVariant, index) => {
-                const option = document.createElement('option');
-                option.value = colorVariant.name;
-                option.dataset.colorHex = colorVariant.hex;
-                option.dataset.colorImage = colorVariant.image;
-                option.textContent = colorVariant.name;
-                if (index === 0) option.selected = true;
-                colorSelect.appendChild(option);
-            });
+        if (orderForm) {
+            orderForm.style.display = 'block';
+            console.log('✅ Order form displayed');
         } else {
-            // Default to black if no colors available
-            colorSelect.innerHTML = '<option value="Чорний" data-color-hex="#000000" data-color-image="">Чорний</option>';
+            console.error('❌ Order form element not found!');
         }
         
+        if (dropZone) {
+            dropZone.style.display = 'none';
+            console.log('✅ Drop zone hidden');
+        } else {
+            console.error('❌ Drop zone element not found!');
+        }
+        
+        // Populate form with product data
+        const colorSelect = document.getElementById('productColor');
+        console.log('🎨 Color select element:', !!colorSelect);
+        
+        if (colorSelect) {
+            colorSelect.innerHTML = '';
+            
+            if (currentProduct.type === 'tshirt' && currentProduct.color_variants && currentProduct.color_variants.length > 0) {
+                console.log('👕 Adding t-shirt colors...');
+                // Add available colors for t-shirts
+                currentProduct.color_variants.forEach((colorVariant, index) => {
+                    const option = document.createElement('option');
+                    option.value = colorVariant.name;
+                    option.dataset.colorHex = colorVariant.hex;
+                    option.dataset.colorImage = colorVariant.image;
+                    option.textContent = colorVariant.name;
+                    if (index === 0) option.selected = true;
+                    colorSelect.appendChild(option);
+                    console.log(`🎨 Added color option: ${colorVariant.name}`);
+                });
+            } else {
+                console.log('⚫ Adding default black color...');
+                // Default to black if no colors available
+                colorSelect.innerHTML = '<option value="Чорний" data-color-hex="#000000" data-color-image="">Чорний</option>';
+            }
+        } else {
+            console.error('❌ Color select element not found!');
+        }
         
         // Set default values
-        document.getElementById('productSize').value = '';
-        document.getElementById('quantity').value = '1';
-        document.getElementById('quantity').disabled = false;
-        document.getElementById('quantity').style.opacity = '1';
+        const sizeSelect = document.getElementById('productSize');
+        const quantityInput = document.getElementById('quantity');
+        const selectedColorImage = document.getElementById('selectedColorImage');
+        
+        console.log('🔧 Setting form defaults...');
+        console.log('📏 Size select:', !!sizeSelect);
+        console.log('🔢 Quantity input:', !!quantityInput);
+        console.log('🖼️ Selected color image:', !!selectedColorImage);
+        
+        if (sizeSelect) sizeSelect.value = '';
+        if (quantityInput) {
+            quantityInput.value = '1';
+            quantityInput.disabled = false;
+            quantityInput.style.opacity = '1';
+        }
         
         // Set initial color image
-        const selectedOption = colorSelect.options[colorSelect.selectedIndex];
-        if (selectedOption && selectedOption.dataset.colorImage) {
-            document.getElementById('selectedColorImage').value = selectedOption.dataset.colorImage;
+        if (colorSelect && selectedColorImage) {
+            const selectedOption = colorSelect.options[colorSelect.selectedIndex];
+            if (selectedOption && selectedOption.dataset.colorImage) {
+                selectedColorImage.value = selectedOption.dataset.colorImage;
+                console.log('🖼️ Set initial color image:', selectedOption.dataset.colorImage);
+            }
         }
         
         // Add color change handler
-        colorSelect.addEventListener('change', function() {
-            const selectedOption = this.options[this.selectedIndex];
-            const colorImage = selectedOption ? selectedOption.dataset.colorImage : '';
-            
-            // Store selected color image in hidden field
-            document.getElementById('selectedColorImage').value = colorImage;
-            
-            // Update currentProduct for later use
-            if (currentProduct) {
-                currentProduct.image = colorImage || currentProduct.main_image;
-            }
-        });
+        if (colorSelect) {
+            colorSelect.addEventListener('change', function() {
+                console.log('🎨 Color changed to:', this.value);
+                const selectedOption = this.options[this.selectedIndex];
+                const colorImage = selectedOption ? selectedOption.dataset.colorImage : '';
+                
+                // Store selected color image in hidden field
+                if (selectedColorImage) {
+                    selectedColorImage.value = colorImage;
+                }
+                
+                // Update currentProduct for later use
+                if (currentProduct) {
+                    currentProduct.image = colorImage || currentProduct.main_image;
+                }
+            });
+        }
         
+        console.log('💰 Calling updatePriceDisplay...');
         updatePriceDisplay();
+        console.log('✅ showOrderForm completed successfully');
+    } else {
+        console.error('❌ No current product to show form for!');
     }
 }
 
@@ -2028,30 +2166,68 @@ function getWholesalePrice(productType, quantity) {
 }
 
 function updatePriceDisplay() {
-    if (!currentProduct) return;
+    console.log('💰 updatePriceDisplay called');
+    console.log('📦 Current product:', !!currentProduct);
     
-    const quantity = parseInt(document.getElementById('quantity').value) || 1;
+    if (!currentProduct) {
+        console.log('❌ No current product, returning');
+        return;
+    }
+    
+    const quantityInput = document.getElementById('quantity');
+    console.log('🔢 Quantity input found:', !!quantityInput);
+    
+    const quantity = parseInt(quantityInput ? quantityInput.value : '1') || 1;
+    console.log('🔢 Quantity value:', quantity);
     
     // Calculate total quantity for this product type after adding this item
     const currentTotalQuantity = getTotalQuantityForProductType(currentProduct.type);
     const newTotalQuantity = currentTotalQuantity + quantity;
+    console.log('📊 Quantity calculations:', { currentTotalQuantity, newTotalQuantity });
     
     // Calculate price based on total quantity for this product type
     const price = getWholesalePrice(currentProduct.type, newTotalQuantity);
     const total = price * quantity;
+    console.log('💰 Price calculations:', { price, total });
+    
     const addBtn = document.getElementById('addToOrderBtn');
+    console.log('🔘 Add button found:', !!addBtn);
 
-    addBtn.textContent = `Додати ${quantity} шт. (${total}₴)`;
+    if (addBtn) {
+        addBtn.textContent = `Додати ${quantity} шт. (${total}₴)`;
+        console.log('✅ Button text updated');
+    } else {
+        console.error('❌ Add button not found for price update');
+    }
 }
 
 function addToOrder() {
-    if (!currentProduct) return;
+    console.log('➕ addToOrder called');
+    console.log('📦 Current product:', !!currentProduct);
     
-    const size = document.getElementById('productSize').value;
-    const color = document.getElementById('productColor').value;
-    const quantity = parseInt(document.getElementById('quantity').value) || 1;
+    if (!currentProduct) {
+        console.log('❌ No current product, returning');
+        return;
+    }
+    
+    const sizeSelect = document.getElementById('productSize');
+    const colorSelect = document.getElementById('productColor');
+    const quantityInput = document.getElementById('quantity');
+    
+    console.log('🔧 Form elements found:', {
+        sizeSelect: !!sizeSelect,
+        colorSelect: !!colorSelect,
+        quantityInput: !!quantityInput
+    });
+    
+    const size = sizeSelect ? sizeSelect.value : '';
+    const color = colorSelect ? colorSelect.value : '';
+    const quantity = parseInt(quantityInput ? quantityInput.value : '1') || 1;
+    
+    console.log('📋 Form values:', { size, color, quantity });
     
     if (!size) {
+        console.log('❌ No size selected, showing error');
         showNotification('Оберіть розмір', 'error');
         return;
     }
