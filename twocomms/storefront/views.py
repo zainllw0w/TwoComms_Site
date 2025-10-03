@@ -6395,6 +6395,7 @@ def wholesale_page(request):
     return render(request, 'pages/wholesale.html', context)
 
 
+@login_required
 def wholesale_order_form(request):
     """Render wholesale order form page."""
     try:
@@ -6464,6 +6465,7 @@ def wholesale_order_form(request):
 
 @require_POST
 @csrf_exempt
+@login_required
 def generate_wholesale_invoice(request):
     """Генерирует Excel накладную для оптового заказа"""
     import json
@@ -6483,9 +6485,15 @@ def generate_wholesale_invoice(request):
         if not order_items:
             return JsonResponse({'error': 'Немає товарів для накладної'}, status=400)
         
-        # Генерируем номер накладной
+        # Генерируем номер накладной с названием компании
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        invoice_number = f"ОПТ_{timestamp}"
+        company_name_short = company_data.get('companyName', 'Company').strip()[:20]  # Ограничиваем длину
+        if not company_name_short:
+            company_name_short = 'Company'
+        # Очищаем название от недопустимых символов для имени файла
+        import re
+        company_name_clean = re.sub(r'[^\w\s-]', '', company_name_short).strip()
+        invoice_number = f"ОПТ_{company_name_clean}_{timestamp}"
         
         # Подсчитываем общие данные
         total_tshirts = 0
@@ -6660,9 +6668,10 @@ def generate_wholesale_invoice(request):
         for col, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(col)].width = width
         
-        # Сохраняем в базу данных (временно отключено из-за проблем с миграцией)
+        # Сохраняем в базу данных
         try:
             invoice = WholesaleInvoice.objects.create(
+                user=request.user if request.user.is_authenticated else None,
                 invoice_number=invoice_number,
                 company_name=company_data.get('companyName', ''),
                 contact_phone=company_data.get('contactPhone', ''),
@@ -6695,11 +6704,14 @@ def generate_wholesale_invoice(request):
         # Логируем создание папки
         print(f"Creating invoice directory: {invoice_dir}")
         
-        # Путь к файлу
+        # Путь к файлу с красивым названием
         company_name = company_data.get('companyName', 'Company').strip()
         if not company_name:
             company_name = 'Company'
-        file_name = f"{company_name}_накладнаОПТ_{timestamp}.xlsx"
+        
+        # Создаем красивое название файла
+        date_formatted = datetime.now().strftime('%d.%m.%Y_%H-%M')
+        file_name = f"{company_name_clean}_накладнаОПТ_{date_formatted}.xlsx"
         file_path = os.path.join(invoice_dir, file_name)
         
         # Сохраняем Excel файл на сервере
@@ -6729,6 +6741,7 @@ def generate_wholesale_invoice(request):
             'invoice_number': invoice_number,
             'invoice_id': invoice_id,
             'file_name': file_name,
+            'company_name': company_name,
             'total_amount': total_amount,
             'total_tshirts': total_tshirts,
             'total_hoodies': total_hoodies
@@ -6746,6 +6759,7 @@ def _update_order_from_checkout_result(order, result, source='api'):
     """Заглушка для функции обновления заказа из результата checkout"""
     pass
 
+@login_required
 def download_invoice_file(request, invoice_id):
     """Скачивание сохраненного файла накладной"""
     from django.http import FileResponse, HttpResponse
@@ -6754,13 +6768,8 @@ def download_invoice_file(request, invoice_id):
     import os
     
     try:
-        # Получаем накладную
-        invoice = WholesaleInvoice.objects.get(id=invoice_id)
-        
-        # Проверяем права доступа (только владелец или анонимные)
-        if request.user.is_authenticated:
-            # Для зарегистрированных пользователей можно добавить проверку
-            pass
+        # Получаем накладную только для текущего пользователя
+        invoice = WholesaleInvoice.objects.get(id=invoice_id, user=request.user)
         
         # Проверяем существование файла
         if not invoice.file_path or not os.path.exists(invoice.file_path):
@@ -6784,3 +6793,32 @@ def download_invoice_file(request, invoice_id):
         return HttpResponse('Накладна не знайдена', status=404)
     except Exception as e:
         return HttpResponse(f'Помилка при скачуванні: {str(e)}', status=500)
+
+
+@require_POST
+@login_required
+def delete_wholesale_invoice(request, invoice_id):
+    """Удаление накладной"""
+    from orders.models import WholesaleInvoice
+    import os
+    
+    try:
+        # Получаем накладную только для текущего пользователя
+        invoice = WholesaleInvoice.objects.get(id=invoice_id, user=request.user)
+        
+        # Удаляем файл если он существует
+        if invoice.file_path and os.path.exists(invoice.file_path):
+            try:
+                os.remove(invoice.file_path)
+            except Exception as e:
+                print(f"Error deleting file {invoice.file_path}: {e}")
+        
+        # Удаляем запись из базы данных
+        invoice.delete()
+        
+        return JsonResponse({'success': True, 'message': 'Накладна успішно видалена'})
+        
+    except WholesaleInvoice.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Накладна не знайдена'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Помилка: {str(e)}'}, status=500)
