@@ -1874,11 +1874,7 @@ function updatePriceDisplay() {
     const total = price * quantity;
     const addBtn = document.getElementById('addToOrderBtn');
 
-    if (quantity < 8) {
-        addBtn.textContent = `Мінімум 8 шт. (по ${price}₴)`;
-    } else {
-        addBtn.textContent = `Додати в накладну (${total}₴)`;
-    }
+    addBtn.textContent = `Додати ${quantity} шт. (${total}₴)`;
 }
 
 function addToOrder() {
@@ -1921,9 +1917,6 @@ function addToOrder() {
     // Reset form fields but keep form open
     document.getElementById('quantity').value = '8'; // Reset to minimum wholesale quantity
     updatePriceDisplay(); // Update price display
-    
-    // Keep form open for adding more items
-    showOrderForm();
     
     showNotification('Товар додано до накладної', 'success');
 }
@@ -2214,13 +2207,16 @@ function saveOrderData() {
         timestamp: Date.now()
     };
     localStorage.setItem('wholesaleOrderData', JSON.stringify(orderData));
+    console.log('Saved order data:', orderData);
 }
 
 function loadOrderData() {
     const savedData = localStorage.getItem('wholesaleOrderData');
+    console.log('Loading saved data:', savedData);
     if (savedData) {
         try {
             const orderData = JSON.parse(savedData);
+            console.log('Parsed order data:', orderData);
             
             // Load company data
             if (orderData.companyData) {
