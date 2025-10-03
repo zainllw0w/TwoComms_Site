@@ -6754,7 +6754,7 @@ def download_invoice_file(request, invoice_id):
             return JsonResponse({'error': 'Файл накладної не знайдено'}, status=404)
         
         # Отправляем файл
-        filename = invoice.file_name if hasattr(invoice, 'file_name') else os.path.basename(invoice.file_path)
+        filename = os.path.basename(invoice.file_path) if invoice.file_path else f"invoice_{invoice.id}.xlsx"
         response = FileResponse(
             open(invoice.file_path, 'rb'),
             as_attachment=True,
