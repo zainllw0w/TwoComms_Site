@@ -2211,17 +2211,17 @@ function addToOrder() {
     }
     
     const sizeSelect = document.getElementById('productSize');
-    const colorSelect = document.getElementById('productColor');
+    const colorSelectElement = document.getElementById('productColor');
     const quantityInput = document.getElementById('quantity');
     
     console.log('🔧 Form elements found:', {
         sizeSelect: !!sizeSelect,
-        colorSelect: !!colorSelect,
+        colorSelectElement: !!colorSelectElement,
         quantityInput: !!quantityInput
     });
     
     const size = sizeSelect ? sizeSelect.value : '';
-    const color = colorSelect ? colorSelect.value : '';
+    const color = colorSelectElement ? colorSelectElement.value : '';
     const quantity = parseInt(quantityInput ? quantityInput.value : '1') || 1;
     
     console.log('📋 Form values:', { size, color, quantity });
@@ -2240,8 +2240,8 @@ function addToOrder() {
     const price = getWholesalePrice(currentProduct.type, newTotalQuantity);
     
     // Get color name and image from select option
-    const colorSelect = document.getElementById('productColor');
-    const selectedOption = colorSelect.options[colorSelect.selectedIndex];
+    const colorSelectForImage = document.getElementById('productColor');
+    const selectedOption = colorSelectForImage.options[colorSelectForImage.selectedIndex];
     const colorName = selectedOption ? selectedOption.textContent : 'Чорний';
     const colorImage = selectedOption ? selectedOption.dataset.colorImage : currentProduct.main_image;
     
