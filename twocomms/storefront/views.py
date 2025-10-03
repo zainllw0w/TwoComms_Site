@@ -6364,8 +6364,8 @@ def wholesale_page(request):
         )
         
         # Получаем товары из нужных категорий
-        tshirt_products = Product.objects.filter(category__in=tshirt_categories).select_related('category')[:10]
-        hoodie_products = Product.objects.filter(category__in=hoodie_categories).select_related('category')[:10]
+        tshirt_products = Product.objects.filter(category__in=tshirt_categories).select_related('category')
+        hoodie_products = Product.objects.filter(category__in=hoodie_categories).select_related('category')
         
     except Exception as e:
         # Если есть ошибка с базой данных, используем пустые списки
