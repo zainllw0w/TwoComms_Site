@@ -1400,13 +1400,13 @@
                                 </div>
                                 <div class="product-colors">
                                     {% for color_variant in product.color_variants.all|slice:":3" %}
-                                        <span class="color-item" data-color-name="{{ color_variant.color.name|default:'Чорний' }}" data-color-hex="{{ color_variant.color.primary_hex }}" data-color-image="{% if color_variant.images.first %}{{ color_variant.images.first.image.url }}{% endif %}">
-                                            <span class="color-dot" data-color="{{ color_variant.color.primary_hex|default:'#000000' }}"></span>
+                                        <span class="color-item">
+                                            <span class="color-dot" data-color="{{ color_variant.color.primary_hex }}"></span>
                                             <span class="color-name">{{ color_variant.color.name|default:"Чорний" }}</span>
                                         </span>
                                     {% empty %}
-                                        <span class="color-item" data-color-name="Чорний" data-color-hex="#000000" data-color-image="">
-                                            <span class="color-dot" data-color="#000000" style="background-color: #000000;"></span>
+                                        <span class="color-item">
+                                            <span class="color-dot" data-color="#000000"></span>
                                             <span class="color-name">Чорний</span>
                                         </span>
                                     {% endfor %}
@@ -1445,7 +1445,7 @@
                                     <span class="product-name">{{ product.title }} [фліс]</span>
                                 </div>
                                 <div class="product-colors">
-                                    <span class="color-item" data-color-name="Чорний" data-color-hex="#000000">
+                                    <span class="color-item">
                                         <span class="color-dot" data-color="#000000"></span>
                                         <span class="color-name">Чорний</span>
                                     </span>
@@ -1632,31 +1632,16 @@ let orderItems = [];
 let tshirtPrices = JSON.parse('{{ tshirt_prices|escapejs }}');
 let hoodiePrices = JSON.parse('{{ hoodie_prices|escapejs }}');
 
-// Initialize color dots with proper colors (legacy function - now handled by the main initializeColorDots)
-function initializeColorDotsLegacy() {
-    const colorDots = document.querySelectorAll('.color-dot');
-    colorDots.forEach(dot => {
-        const color = dot.getAttribute('data-color') || '#000000';
-        dot.style.backgroundColor = color;
-        dot.style.display = 'inline-block';
-        dot.style.width = '10px';
-        dot.style.height = '10px';
-        dot.style.borderRadius = '50%';
-        dot.style.border = '1px solid rgba(255, 255, 255, 0.3)';
-        dot.style.boxShadow = '0 0 0 1px rgba(0, 0, 0, 0.2)';
-    });
-}
 
 // Initialize the page
 document.addEventListener('DOMContentLoaded', function() {
     initializeCompanyForm();
     initializeDragAndDrop();
-    initializeColorDots();
     initializeCategoryFilter();
     initializeProductClick();
     initializeOrderForm();
+    initializeColorDots();
     loadOrderData(); // Load saved data
-    loadInvoicesFromLocalStorage(); // Load saved invoices
     updateOrderStatistics(); // Initialize statistics on page load
 });
 
@@ -1876,36 +1861,12 @@ function selectProduct(productId) {
     const productCard = document.querySelector(`[data-product-id="${productId}"]`);
     if (!productCard) return;
     
-    // Получаем главное изображение товара
-    const productImage = productCard.querySelector('.product-image');
-    const mainImage = productImage ? productImage.src : '';
-    
-    // Получаем все доступные цвета с их изображениями
-    const colorVariants = [];
-    const colorItems = productCard.querySelectorAll('.color-item');
-    colorItems.forEach(colorItem => {
-        const colorName = colorItem.querySelector('.color-name').textContent;
-        const colorHex = colorItem.dataset.colorHex || '#000000';
-        
-        // Ищем изображение для этого цвета
-        const colorImage = colorItem.querySelector('img');
-        const imageUrl = colorImage ? colorImage.src : mainImage;
-        
-        colorVariants.push({
-            name: colorName,
-            hex: colorHex,
-            image: imageUrl
-        });
-    });
-    
     currentProduct = {
         id: productId,
         type: productCard.dataset.productType,
         title: productCard.querySelector('.product-name').textContent,
-        main_image: mainImage,
-        image: mainImage, // Для обратной совместимости
-        category: productCard.querySelector('.product-category').textContent,
-        color_variants: colorVariants
+        image: productCard.querySelector('.product-image').src || '',
+        category: productCard.querySelector('.product-category').textContent
     };
     
     showOrderForm();
@@ -2558,21 +2519,6 @@ function loadInvoicesFromLocalStorage() {
 function initializeColorDots() {
     const colorDots = document.querySelectorAll('.color-dot[data-color]');
     colorDots.forEach(dot => {
-        const color = dot.getAttribute('data-color');
-        if (color) {
-            dot.style.backgroundColor = color;
-            dot.style.display = 'inline-block';
-            dot.style.width = '10px';
-            dot.style.height = '10px';
-            dot.style.borderRadius = '50%';
-            dot.style.border = '1px solid rgba(255, 255, 255, 0.3)';
-            dot.style.boxShadow = '0 0 0 1px rgba(0, 0, 0, 0.2)';
-        }
-    });
-    
-    // Также инициализируем цветные точки в элементах заказа
-    const orderColorDots = document.querySelectorAll('.order-item-color-dot[data-color]');
-    orderColorDots.forEach(dot => {
         const color = dot.getAttribute('data-color');
         if (color) {
             dot.style.backgroundColor = color;
