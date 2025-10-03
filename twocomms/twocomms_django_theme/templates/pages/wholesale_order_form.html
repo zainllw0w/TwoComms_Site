@@ -1673,7 +1673,6 @@ function initializeDragAndDrop() {
     
     if (dropZone) {
         dropZone.addEventListener('dragover', handleDragOver);
-        dropZone.addEventListener('dragenter', handleDragOver);
         dropZone.addEventListener('drop', handleDrop);
         dropZone.addEventListener('dragleave', handleDragLeave);
     }
@@ -1681,19 +1680,12 @@ function initializeDragAndDrop() {
 
 
 function handleDragStart(e) {
-    const productCard = e.target.closest('.product-card');
-    if (productCard) {
-        console.log('Drag started for product:', productCard.dataset.productId);
-        productCard.classList.add('dragging');
-        e.dataTransfer.setData('text/plain', productCard.dataset.productId);
-    }
+    e.target.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', e.target.dataset.productId);
 }
 
 function handleDragEnd(e) {
-    const productCard = e.target.closest('.product-card');
-    if (productCard) {
-        productCard.classList.remove('dragging');
-    }
+    e.target.classList.remove('dragging');
 }
 
 function handleDragOver(e) {
@@ -1710,14 +1702,10 @@ function handleDrop(e) {
     e.currentTarget.classList.remove('drag-over');
     
     const productId = e.dataTransfer.getData('text/plain');
-    console.log('Drop received for product:', productId);
     const productCard = document.querySelector(`[data-product-id="${productId}"]`);
     
     if (productCard) {
-        console.log('Product card found, calling selectProduct');
         selectProduct(productId);
-    } else {
-        console.log('Product card not found for ID:', productId);
     }
 }
 
