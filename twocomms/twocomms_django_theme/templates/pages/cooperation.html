@@ -3,6 +3,49 @@
 
 {% block title %}Співпраця з TwoComms{% endblock %}
 
+{% block extra_css %}
+  {{ block.super }}
+  <style>
+    .cooperation-hero .hero-features {
+      display: grid !important;
+      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+      gap: clamp(1.5rem, 3vw, 2.5rem) !important;
+      width: min(100%, 1024px) !important;
+      margin: 0 auto !important;
+    }
+
+    .cooperation-hero .hero-features .feature-card {
+      display: flex !important;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      opacity: 1 !important;
+      transform: none !important;
+      animation: none !important;
+    }
+
+    @media (max-width: 1200px) {
+      .cooperation-hero .hero-features {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .cooperation-hero .hero-features {
+        grid-template-columns: 1fr !important;
+        width: min(100%, 520px) !important;
+      }
+    }
+
+    .cooperation-hero .hero-logo,
+    .cooperation-hero .hero-logo img {
+      border: none !important;
+      filter: none !important;
+      box-shadow: none !important;
+    }
+  </style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid py-4">
   <!-- Hero Section -->
