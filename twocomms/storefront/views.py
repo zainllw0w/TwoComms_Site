@@ -5147,10 +5147,12 @@ def _cleanup_expired_monobank_orders():
         threshold = timezone.now() - timedelta(minutes=expire_minutes)
         try:
             from orders.models import Order
+            from django.db.models import Q
             stale_qs = Order.objects.filter(
                 payment_provider__in=('monobank', 'monobank_checkout', 'monobank_pay'),
-                payment_status__in=('unpaid', 'checking'),
                 created__lt=threshold
+            ).filter(
+                Q(payment_status__in=('unpaid', 'checking')) | Q(status='cancelled')
             )
             removed = stale_qs.count()
             if removed:
