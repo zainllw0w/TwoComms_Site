@@ -6392,4 +6392,4 @@ def wholesale_page(request):
         'hoodie_prices': hoodie_prices,
     }
     
-    return render(request, 'pages/pricelist.html', context)
+    return render(request, 'pages/wholesale.html', context)
