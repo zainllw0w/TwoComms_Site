@@ -1107,6 +1107,7 @@
     justify-content: space-between;
     align-items: center;
     transition: all 0.3s ease;
+    margin-bottom: 0.5rem;
 }
 
 .invoice-item:hover {
@@ -1118,16 +1119,83 @@
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
+    flex: 1;
+    margin-right: 1rem;
 }
 
 .invoice-name {
     color: rgba(255, 255, 255, 0.95);
     font-weight: 600;
+    font-size: 1rem;
 }
 
 .invoice-date {
     color: rgba(255, 255, 255, 0.6);
     font-size: 0.85rem;
+}
+
+.invoice-stats {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.8rem;
+}
+
+.invoice-total {
+    color: #10b981;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.invoice-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.action-btn:hover {
+    background: #2563eb;
+    transform: translateY(-1px);
+}
+
+.action-btn svg {
+    flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+    .invoice-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+    
+    .invoice-info {
+        margin-right: 0;
+    }
+    
+    .invoice-actions {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .action-btn {
+        flex: 1;
+        min-width: 0;
+        justify-content: center;
+    }
 }
 
 .download-button {
@@ -1611,7 +1679,7 @@ function initializeCompanyForm() {
     });
     
     // Handle invoice generation
-    generateInvoiceBtn.addEventListener('click', function() {
+    generateInvoiceBtn.addEventListener('click', async function() {
         const companyData = localStorage.getItem('wholesaleCompanyData');
         
         if (!companyData) {
@@ -1624,7 +1692,7 @@ function initializeCompanyForm() {
             return;
         }
         
-        // Simulate invoice generation
+        // Disable button during generation
         generateInvoiceBtn.disabled = true;
         generateInvoiceBtn.innerHTML = `
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="animate-spin">
@@ -1633,28 +1701,54 @@ function initializeCompanyForm() {
             Формування накладної...
         `;
         
-        setTimeout(() => {
-            // Create mock invoice
-            const invoice = {
-                id: Date.now(),
-                name: `Накладна_${new Date().toLocaleDateString('uk-UA').replace(/\./g, '_')}_${Math.random().toString(36).substr(2, 5).toUpperCase()}.xlsx`,
-                date: new Date().toLocaleDateString('uk-UA'),
-                company: JSON.parse(companyData).company_name
+        try {
+            // Prepare data for invoice generation
+            const invoiceData = {
+                companyData: JSON.parse(companyData),
+                orderItems: orderItems
             };
             
-            // Add invoice to list
-            addInvoiceToList(invoice);
+            // Send request to generate invoice
+            const response = await fetch('/wholesale/generate-invoice/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(invoiceData)
+            });
             
-            // Clear order items
-            orderItems = [];
-            document.getElementById('orderItems').innerHTML = '';
+            const result = await response.json();
             
+            if (result.success) {
+                // Add to invoices list
+                const invoiceInfo = {
+                    id: result.invoice_id,
+                    name: result.file_name,
+                    date: new Date().toLocaleDateString('uk-UA'),
+                    company: result.company_name,
+                    invoice_number: result.invoice_number,
+                    total_amount: result.total_amount,
+                    total_tshirts: result.total_tshirts,
+                    total_hoodies: result.total_hoodies
+                };
+                addInvoiceToList(invoiceInfo);
+                
+                // Clear order and localStorage
+                clearOrderData();
+                
+                showNotification('Накладна успішно сформована!', 'success');
+            } else {
+                showNotification(result.error || 'Помилка при створенні накладної', 'error');
+            }
+        } catch (error) {
+            console.error('Error generating invoice:', error);
+            showNotification('Помилка при створенні накладної', 'error');
+        } finally {
             // Reset button
             generateInvoiceBtn.disabled = false;
-            generateInvoiceBtn.innerHTML = `Сформувати накладну`;
-            
-            showNotification('Накладна успішно сформована!', 'success');
-        }, 2000);
+            generateInvoiceBtn.innerHTML = 'Сформувати накладну';
+        }
     });
     
     // Check if company data exists on page load
@@ -2215,6 +2309,22 @@ function parseRange(range) {
     return [min, max];
 }
 
+// Helper functions
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
 // LocalStorage functions
 function saveOrderData() {
     const companyNameEl = document.getElementById('companyName');
@@ -2317,17 +2427,40 @@ function addInvoiceToList(invoice) {
     
     const invoiceItem = document.createElement('div');
     invoiceItem.className = 'invoice-item';
+    invoiceItem.dataset.invoiceId = invoice.id;
+    
+    // Format total amount
+    const totalAmount = invoice.total_amount ? `${invoice.total_amount}₴` : '';
+    const statsText = invoice.total_tshirts && invoice.total_hoodies ? 
+        `Футболки: ${invoice.total_tshirts}шт, Худі: ${invoice.total_hoodies}шт` : '';
+    
     invoiceItem.innerHTML = `
         <div class="invoice-info">
             <div class="invoice-name">${invoice.name}</div>
             <div class="invoice-date">${invoice.date} - ${invoice.company}</div>
+            <div class="invoice-stats">${statsText}</div>
+            <div class="invoice-total">${totalAmount}</div>
         </div>
-        <a href="#" class="download-button" onclick="downloadInvoice('${invoice.id}')">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z"/>
-            </svg>
-            Скачати
-        </a>
+        <div class="invoice-actions">
+            <button class="action-btn" onclick="downloadInvoice('${invoice.id}')" title="Скачати">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z"/>
+                </svg>
+                Скачати
+            </button>
+            <button class="action-btn" onclick="deleteInvoice('${invoice.id}')" title="Видалити" style="background: #ef4444;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/>
+                </svg>
+                Видалити
+            </button>
+            <button class="action-btn" onclick="sendToWork('${invoice.id}')" title="Відправити в роботу" style="background: #10b981;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M2,21L23,12L2,3V10L17,12L2,14V21Z"/>
+                </svg>
+                Відправити
+            </button>
+        </div>
     `;
     
     invoicesList.appendChild(invoiceItem);
@@ -2336,6 +2469,24 @@ function addInvoiceToList(invoice) {
 // Global function for downloading invoices
 function downloadInvoice(invoiceId) {
     showNotification('Функція скачування буде реалізована наступним етапом', 'info');
+}
+
+// Global function for deleting invoices
+function deleteInvoice(invoiceId) {
+    if (confirm('Ви впевнені, що хочете видалити цю накладну?')) {
+        const invoiceItem = document.querySelector(`[data-invoice-id="${invoiceId}"]`);
+        if (invoiceItem) {
+            invoiceItem.remove();
+            showNotification('Накладна видалена', 'success');
+        }
+    }
+}
+
+// Global function for sending invoices to work
+function sendToWork(invoiceId) {
+    if (confirm('Відправити накладну в роботу? Очікуйте дзвінка для підтвердження.')) {
+        showNotification('Накладна відправлена на перевірку. Очікуйте дзвінка!', 'success');
+    }
 }
 
 // Notification system

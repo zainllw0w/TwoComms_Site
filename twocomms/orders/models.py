@@ -153,3 +153,46 @@ class OrderItem(models.Model):
         if self.color_variant and self.color_variant.images.exists():
             return self.color_variant.images.first().image
         return self.product.main_image
+
+
+class WholesaleInvoice(models.Model):
+    """Модель для оптовых накладных"""
+    STATUS_CHOICES = [
+        ('pending', 'Очікує обробки'),
+        ('approved', 'Підтверджено'),
+        ('processing', 'В обробці'),
+        ('shipped', 'Відправлено'),
+        ('delivered', 'Доставлено'),
+        ('cancelled', 'Скасовано'),
+    ]
+    
+    invoice_number = models.CharField(max_length=100, unique=True, verbose_name="Номер накладної")
+    company_name = models.CharField(max_length=200, verbose_name="Назва компанії/ФОП/ПІБ")
+    contact_phone = models.CharField(max_length=32, verbose_name="Номер телефону")
+    delivery_address = models.TextField(verbose_name="Адреса доставки")
+    store_link = models.URLField(blank=True, null=True, verbose_name="Посилання на магазин")
+    
+    total_tshirts = models.IntegerField(default=0, verbose_name="Кількість футболок")
+    total_hoodies = models.IntegerField(default=0, verbose_name="Кількість худі")
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Загальна сума")
+    
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name="Статус")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата створення")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата оновлення")
+    
+    # JSON поле для хранения деталей заказа
+    order_details = models.JSONField(verbose_name="Деталі замовлення")
+    
+    class Meta:
+        verbose_name = "Оптова накладна"
+        verbose_name_plural = "Оптові накладні"
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.invoice_number} - {self.company_name}"
+    
+    @property
+    def file_name(self):
+        """Генерирует имя файла для Excel"""
+        date_str = self.created_at.strftime('%Y%m%d_%H%M%S')
+        return f"{self.company_name}_накладнаОПТ_{date_str}.xlsx"
