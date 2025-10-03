@@ -1834,6 +1834,33 @@ function initializeCompanyForm() {
         
         // Enable invoice generation
         generateInvoiceBtn.disabled = false;
+    } else {
+        // If no localStorage data, check if form has pre-filled data from Django
+        const companyNameEl = document.getElementById('company-name');
+        const companyNumberEl = document.getElementById('company-number');
+        const deliveryAddressEl = document.getElementById('delivery-address');
+        const phoneNumberEl = document.getElementById('phone-number');
+        const storeLinkEl = document.getElementById('store-link');
+        
+        // Check if any form field has data (from Django context)
+        if (companyNameEl && companyNameEl.value.trim()) {
+            console.log('DEBUG: Found pre-filled form data, saving to localStorage');
+            
+            // Convert form data to API format and save to localStorage
+            const companyData = {
+                companyName: companyNameEl.value.trim(),
+                companyNumber: companyNumberEl ? companyNumberEl.value.trim() : '',
+                deliveryAddress: deliveryAddressEl ? deliveryAddressEl.value.trim() : '',
+                contactPhone: phoneNumberEl ? phoneNumberEl.value.trim() : '',
+                storeLink: storeLinkEl ? storeLinkEl.value.trim() : ''
+            };
+            
+            console.log('DEBUG: Saving pre-filled data to localStorage:', companyData);
+            localStorage.setItem('wholesaleCompanyData', JSON.stringify(companyData));
+            
+            // Enable invoice generation
+            generateInvoiceBtn.disabled = false;
+        }
     }
 }
 
