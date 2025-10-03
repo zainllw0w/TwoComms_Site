@@ -1488,7 +1488,7 @@
                                 </div>
                             </div>
                             <div class="scale-prices">
-                                <span class="price-item">0₴</span>
+                                <span class="price-item">Не опт</span>
                                 <span class="price-item">{{ tshirt_prices.wholesale.0 }}₴</span>
                                 <span class="price-item">{{ tshirt_prices.wholesale.1 }}₴</span>
                                 <span class="price-item">{{ tshirt_prices.wholesale.2 }}₴</span>
@@ -1520,7 +1520,7 @@
                                 </div>
                             </div>
                             <div class="scale-prices">
-                                <span class="price-item">0₴</span>
+                                <span class="price-item">Не опт</span>
                                 <span class="price-item">{{ hoodie_prices.wholesale.0 }}₴</span>
                                 <span class="price-item">{{ hoodie_prices.wholesale.1 }}₴</span>
                                 <span class="price-item">{{ hoodie_prices.wholesale.2 }}₴</span>
@@ -1843,34 +1843,30 @@ function showOrderForm() {
     }
 }
 
+function getWholesalePrice(productType, quantity) {
+    const prices = productType === 'tshirt' ? tshirtPrices.wholesale : hoodiePrices.wholesale;
+
+    if (quantity >= 100) return prices[4];
+    if (quantity >= 64) return prices[3];
+    if (quantity >= 32) return prices[2];
+    if (quantity >= 16) return prices[1];
+    if (quantity >= 8) return prices[0];
+    return prices[0]; // Always return minimum wholesale price even for 1-7 items
+}
+
 function updatePriceDisplay() {
     if (!currentProduct) return;
     
     const quantity = parseInt(document.getElementById('quantity').value) || 1;
-    
-    // Update price based on quantity (only wholesale prices, minimum 8 items)
-    let price = 0;
-    if (quantity >= 8) { // Only calculate price for wholesale quantities (8+)
-        if (currentProduct.type === 'tshirt') {
-            // Determine wholesale price based on quantity
-            if (quantity >= 100) price = tshirtPrices.wholesale[4];
-            else if (quantity >= 64) price = tshirtPrices.wholesale[3];
-            else if (quantity >= 32) price = tshirtPrices.wholesale[2];
-            else if (quantity >= 16) price = tshirtPrices.wholesale[1];
-            else price = tshirtPrices.wholesale[0]; // 8-15 items
-        } else if (currentProduct.type === 'hoodie') {
-            // Determine wholesale price based on quantity
-            if (quantity >= 100) price = hoodiePrices.wholesale[4];
-            else if (quantity >= 64) price = hoodiePrices.wholesale[3];
-            else if (quantity >= 32) price = hoodiePrices.wholesale[2];
-            else if (quantity >= 16) price = hoodiePrices.wholesale[1];
-            else price = hoodiePrices.wholesale[0]; // 8-15 items
-        }
-    }
-    
-    // Update button text to show price
+    const price = getWholesalePrice(currentProduct.type, quantity);
+    const total = price * quantity;
     const addBtn = document.getElementById('addToOrderBtn');
-    addBtn.textContent = `Додати в накладну (${price * quantity}₴)`;
+
+    if (quantity < 8) {
+        addBtn.textContent = `Мінімум 8 шт. (по ${price}₴)`;
+    } else {
+        addBtn.textContent = `Додати в накладну (${total}₴)`;
+    }
 }
 
 function addToOrder() {
@@ -1885,27 +1881,10 @@ function addToOrder() {
         return;
     }
     
-    // Check minimum wholesale quantity
-    if (quantity < 8) {
-        showNotification('Мінімальна оптова кількість: 8 штук', 'error');
-        return;
-    }
+    // Allow adding items with quantity 1-7, but they won't count toward wholesale total
     
     // Calculate price (only wholesale, minimum 8 items)
-    let price = 0;
-    if (currentProduct.type === 'tshirt') {
-        if (quantity >= 100) price = tshirtPrices.wholesale[4];
-        else if (quantity >= 64) price = tshirtPrices.wholesale[3];
-        else if (quantity >= 32) price = tshirtPrices.wholesale[2];
-        else if (quantity >= 16) price = tshirtPrices.wholesale[1];
-        else price = tshirtPrices.wholesale[0]; // 8-15 items
-    } else if (currentProduct.type === 'hoodie') {
-        if (quantity >= 100) price = hoodiePrices.wholesale[4];
-        else if (quantity >= 64) price = hoodiePrices.wholesale[3];
-        else if (quantity >= 32) price = hoodiePrices.wholesale[2];
-        else if (quantity >= 16) price = hoodiePrices.wholesale[1];
-        else price = hoodiePrices.wholesale[0]; // 8-15 items
-    }
+    const price = getWholesalePrice(currentProduct.type, quantity);
     
     // Create order item
     const orderItem = {
@@ -2025,7 +2004,24 @@ function updateOrderStatistics() {
     
     // Calculate total sum
     const totalSum = orderItems.reduce((sum, item) => sum + item.total, 0);
-    totalSumSpan.textContent = `${totalSum}₴`;
+    
+    // Check if we have wholesale quantities
+    const tshirtQuantity = orderItems
+        .filter(item => item.product.type === 'tshirt')
+        .reduce((sum, item) => sum + item.quantity, 0);
+    const hoodieQuantity = orderItems
+        .filter(item => item.product.type === 'hoodie')
+        .reduce((sum, item) => sum + item.quantity, 0);
+    
+    if (tshirtQuantity > 0 && tshirtQuantity < 8) {
+        totalSumSpan.textContent = 'Не опт';
+    } else if (hoodieQuantity > 0 && hoodieQuantity < 8) {
+        totalSumSpan.textContent = 'Не опт';
+    } else if (totalSum === 0) {
+        totalSumSpan.textContent = '0₴';
+    } else {
+        totalSumSpan.textContent = `${totalSum}₴`;
+    }
     
     // Add highlight animation to total sum
     const totalSumDiv = totalSumSpan.closest('.total-sum');
@@ -2053,7 +2049,7 @@ function updateOrderStatistics() {
         if (tshirtQuantity > 0) {
             if (tshirtQuantity < 8) {
                 const needed = 8 - tshirtQuantity;
-                progressInfo += `<div class="warning">Не вистачає ${needed} футболок до мінімального опту (8 шт.)</div>`;
+                progressInfo += `<div class="warning">Опт недоступний: додайте ще ${needed} футболок (мін. 8 шт.)</div>`;
             } else {
                 progressInfo += `<div class="success">Футболки: ${tshirtQuantity} шт. (оптова ціна)</div>`;
             }
@@ -2069,7 +2065,7 @@ function updateOrderStatistics() {
         if (hoodieQuantity > 0) {
             if (hoodieQuantity < 8) {
                 const needed = 8 - hoodieQuantity;
-                progressInfo += `<div class="warning">Не вистачає ${needed} худі до мінімального опту (8 шт.)</div>`;
+                progressInfo += `<div class="warning">Опт недоступний: додайте ще ${needed} худі (мін. 8 шт.)</div>`;
             } else {
                 progressInfo += `<div class="success">Худі: ${hoodieQuantity} шт. (оптова ціна)</div>`;
             }
@@ -2299,16 +2295,17 @@ function showNotification(message, type) {
     const notification = document.createElement('div');
     notification.style.cssText = `
         position: fixed;
-        top: 20px;
+        top: 100px;
         right: 20px;
         background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
         color: white;
         padding: 1rem 1.5rem;
         border-radius: 12px;
         font-weight: 600;
-        z-index: 1000;
+        z-index: 10000;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
         animation: slideIn 0.3s ease;
+        pointer-events: none;
     `;
     notification.textContent = message;
     
