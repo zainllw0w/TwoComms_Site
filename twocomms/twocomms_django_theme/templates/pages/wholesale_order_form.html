@@ -480,49 +480,57 @@
     height: 64px;
 }
 
-.product-category {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.category-name {
-    color: rgba(255, 255, 255, 0.6);
-    font-size: 0.65rem;
-    font-weight: 400;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 120px;
-}
-
 .product-name {
-    color: rgba(232, 233, 236, 0.6);
-    font-size: 0.65rem;
-    font-weight: 400;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.7rem;
+    font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 120px;
+    margin-bottom: 2px;
+}
+
+.product-category {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.6rem;
+    font-weight: 400;
+    margin-bottom: 4px;
 }
 
 .product-colors {
     display: flex;
-    align-items: center;
-    gap: 4px;
+    flex-direction: column;
+    gap: 2px;
     margin-bottom: 4px;
 }
 
+.color-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
 .color-dot {
-    width: 12px;
-    height: 12px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     border: 1px solid rgba(255, 255, 255, 0.2);
     display: inline-block;
+    flex-shrink: 0;
+}
+
+.color-name {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.55rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80px;
 }
 
 .color-more {
-    font-size: 0.7rem;
+    font-size: 0.55rem;
     color: rgba(232, 233, 236, 0.6);
     margin-left: 2px;
 }
@@ -885,6 +893,134 @@
     transform: none;
 }
 
+/* Order Statistics */
+.order-statistics {
+    margin-top: 15px;
+    padding: 15px;
+    background: rgba(20, 22, 27, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+}
+
+.statistics-header h4 {
+    color: var(--tc-text);
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin: 0 0 10px 0;
+}
+
+.statistics-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.total-sum {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: rgba(139, 92, 246, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.sum-label {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.sum-value {
+    color: #8b5cf6;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.progress-info {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.4;
+}
+
+.progress-info .warning {
+    color: #f59e0b;
+}
+
+.progress-info .success {
+    color: #10b981;
+}
+
+/* Discount Scales */
+.discount-scales {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.scale-container {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.scale-label {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.scale-bar {
+    display: flex;
+    height: 20px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.scale-segment {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.scale-segment.active {
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+    transform: scale(1.05);
+}
+
+.scale-segment.progress {
+    background: linear-gradient(90deg, currentColor 0%, rgba(255, 255, 255, 0.3) 100%) !important;
+}
+
+.segment-label {
+    color: white;
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    z-index: 1;
+}
+
+.scale-prices {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+}
+
+.price-item {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.6rem;
+    font-weight: 500;
+    text-align: center;
+    flex: 1;
+}
+
 /* Generated Invoices Section */
 .generated-invoices-section {
     background: linear-gradient(135deg, 
@@ -1131,22 +1267,26 @@
                                     </div>
                                 {% endif %}
                             </div>
-                            <div class="product-info">
-                                <div class="product-category">
-                                    <span class="category-name">Футболки</span>
-                                    <span class="product-name">{{ product.title }}</span>
-                                </div>
+                                <div class="product-info">
+                                <div class="product-name">{{ product.title }}</div>
+                                <div class="product-category">Футболки</div>
                                 <div class="product-colors">
                                     {% for color_variant in product.color_variants.all|slice:":3" %}
-                                        <span class="color-dot" data-color="{{ color_variant.color.primary_hex }}" title="{{ color_variant.color.name|default:color_variant.color.primary_hex }}"></span>
+                                        <div class="color-item">
+                                            <span class="color-dot" data-color="{{ color_variant.color.primary_hex }}"></span>
+                                            <span class="color-name">{{ color_variant.color.name|default:"Чорний" }}</span>
+                                        </div>
                                     {% empty %}
-                                        <span class="color-dot" data-color="#000000" title="Чорний (дефолт)"></span>
+                                        <div class="color-item">
+                                            <span class="color-dot" data-color="#000000"></span>
+                                            <span class="color-name">Чорний</span>
+                                        </div>
                                     {% endfor %}
                                     {% if product.color_variants.count > 3 %}
-                                        <span class="color-more">+{{ product.color_variants.count|add:"-3" }}</span>
+                                        <div class="color-more">+{{ product.color_variants.count|add:"-3" }}</div>
                                     {% endif %}
                                 </div>
-                                <div class="product-price">Дроп: {{ tshirt_prices.drop }}₴ | Опт: {{ tshirt_prices.wholesale.0 }}₴</div>
+                                <div class="product-price">Опт: {{ tshirt_prices.wholesale.4 }}₴ - {{ tshirt_prices.wholesale.0 }}₴</div>
                             </div>
                         </div>
                     </div>
@@ -1171,14 +1311,15 @@
                                 {% endif %}
                             </div>
                             <div class="product-info">
-                                <div class="product-category">
-                                    <span class="category-name">Худі [фліс]</span>
-                                    <span class="product-name">{{ product.title }}</span>
-                                </div>
+                                <div class="product-name">{{ product.title }} [фліс]</div>
+                                <div class="product-category">Худі</div>
                                 <div class="product-colors">
-                                    <span class="color-dot" data-color="#000000" title="Чорний (дефолт)"></span>
+                                    <div class="color-item">
+                                        <span class="color-dot" data-color="#000000"></span>
+                                        <span class="color-name">Чорний</span>
+                                    </div>
                                 </div>
-                                <div class="product-price">Дроп: {{ hoodie_prices.drop }}₴ | Опт: {{ hoodie_prices.wholesale.0 }}₴</div>
+                                <div class="product-price">Опт: {{ hoodie_prices.wholesale.4 }}₴ - {{ hoodie_prices.wholesale.0 }}₴</div>
                             </div>
                         </div>
                     </div>
@@ -1202,11 +1343,11 @@
                         <label class="form-label">Розмір</label>
                         <select class="form-select" id="productSize" required>
                             <option value="">Оберіть розмір</option>
+                            <option value="all">Всі ростовки (S-XL)</option>
                             <option value="S">S</option>
                             <option value="M">M</option>
                             <option value="L">L</option>
                             <option value="XL">XL</option>
-                            <option value="XXL">XXL</option>
                         </select>
                     </div>
                     
@@ -1217,13 +1358,6 @@
                         </select>
                     </div>
                     
-                    <div class="form-group">
-                        <label class="form-label">Тип ціни</label>
-                        <select class="form-select" id="priceType">
-                            <option value="drop">Дроп ціна</option>
-                            <option value="wholesale">Оптова ціна</option>
-                        </select>
-                    </div>
                     
                     <div class="form-group">
                         <label class="form-label">Кількість</label>
@@ -1250,6 +1384,89 @@
                 <button class="action-btn generate-invoice-btn" id="generateInvoiceBtn">
                     Сформувати накладну
                 </button>
+            </div>
+            
+            <!-- Статистика заказа -->
+            <div class="order-statistics" id="orderStatistics" style="display: none;">
+                <div class="statistics-header">
+                    <h4>Статистика замовлення</h4>
+                </div>
+                
+                <div class="statistics-content">
+                    <div class="total-sum">
+                        <span class="sum-label">Сума накладної:</span>
+                        <span class="sum-value" id="totalSum">0₴</span>
+                    </div>
+                    
+                    <div class="progress-info" id="progressInfo">
+                        <!-- Динамически заполняется -->
+                    </div>
+                    
+                    <!-- Шкалы скидок -->
+                    <div class="discount-scales">
+                        <div class="scale-container">
+                            <div class="scale-label">Футболки</div>
+                            <div class="scale-bar" id="tshirtScale">
+                                <div class="scale-segment" data-range="1-7" data-price="{{ tshirt_prices.wholesale.0 }}" style="background: #ef4444;">
+                                    <span class="segment-label">1-7</span>
+                                </div>
+                                <div class="scale-segment" data-range="8-15" data-price="{{ tshirt_prices.wholesale.0 }}" style="background: #10b981;">
+                                    <span class="segment-label">8-15</span>
+                                </div>
+                                <div class="scale-segment" data-range="16-31" data-price="{{ tshirt_prices.wholesale.1 }}" style="background: #10b981;">
+                                    <span class="segment-label">16-31</span>
+                                </div>
+                                <div class="scale-segment" data-range="32-63" data-price="{{ tshirt_prices.wholesale.2 }}" style="background: #10b981;">
+                                    <span class="segment-label">32-63</span>
+                                </div>
+                                <div class="scale-segment" data-range="64-99" data-price="{{ tshirt_prices.wholesale.3 }}" style="background: #10b981;">
+                                    <span class="segment-label">64-99</span>
+                                </div>
+                                <div class="scale-segment" data-range="100+" data-price="{{ tshirt_prices.wholesale.4 }}" style="background: #10b981;">
+                                    <span class="segment-label">100+</span>
+                                </div>
+                            </div>
+                            <div class="scale-prices">
+                                <span class="price-item">{{ tshirt_prices.wholesale.0 }}₴</span>
+                                <span class="price-item">{{ tshirt_prices.wholesale.1 }}₴</span>
+                                <span class="price-item">{{ tshirt_prices.wholesale.2 }}₴</span>
+                                <span class="price-item">{{ tshirt_prices.wholesale.3 }}₴</span>
+                                <span class="price-item">{{ tshirt_prices.wholesale.4 }}₴</span>
+                            </div>
+                        </div>
+                        
+                        <div class="scale-container">
+                            <div class="scale-label">Худі</div>
+                            <div class="scale-bar" id="hoodieScale">
+                                <div class="scale-segment" data-range="1-7" data-price="{{ hoodie_prices.wholesale.0 }}" style="background: #ef4444;">
+                                    <span class="segment-label">1-7</span>
+                                </div>
+                                <div class="scale-segment" data-range="8-15" data-price="{{ hoodie_prices.wholesale.0 }}" style="background: #10b981;">
+                                    <span class="segment-label">8-15</span>
+                                </div>
+                                <div class="scale-segment" data-range="16-31" data-price="{{ hoodie_prices.wholesale.1 }}" style="background: #10b981;">
+                                    <span class="segment-label">16-31</span>
+                                </div>
+                                <div class="scale-segment" data-range="32-63" data-price="{{ hoodie_prices.wholesale.2 }}" style="background: #10b981;">
+                                    <span class="segment-label">32-63</span>
+                                </div>
+                                <div class="scale-segment" data-range="64-99" data-price="{{ hoodie_prices.wholesale.3 }}" style="background: #10b981;">
+                                    <span class="segment-label">64-99</span>
+                                </div>
+                                <div class="scale-segment" data-range="100+" data-price="{{ hoodie_prices.wholesale.4 }}" style="background: #10b981;">
+                                    <span class="segment-label">100+</span>
+                                </div>
+                            </div>
+                            <div class="scale-prices">
+                                <span class="price-item">{{ hoodie_prices.wholesale.0 }}₴</span>
+                                <span class="price-item">{{ hoodie_prices.wholesale.1 }}₴</span>
+                                <span class="price-item">{{ hoodie_prices.wholesale.2 }}₴</span>
+                                <span class="price-item">{{ hoodie_prices.wholesale.3 }}₴</span>
+                                <span class="price-item">{{ hoodie_prices.wholesale.4 }}₴</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1476,11 +1693,6 @@ function initializeOrderForm() {
         addToOrder();
     });
     
-    // Handle price type change
-    const priceTypeSelect = document.getElementById('priceType');
-    priceTypeSelect.addEventListener('change', function() {
-        updatePriceDisplay();
-    });
     
     // Handle quantity change
     const quantityInput = document.getElementById('quantity');
@@ -1503,7 +1715,6 @@ function showOrderForm() {
         // Set default values
         document.getElementById('productSize').value = '';
         document.getElementById('quantity').value = '1';
-        document.getElementById('priceType').value = 'drop';
         
         updatePriceDisplay();
     }
@@ -1512,33 +1723,24 @@ function showOrderForm() {
 function updatePriceDisplay() {
     if (!currentProduct) return;
     
-    const priceType = document.getElementById('priceType').value;
     const quantity = parseInt(document.getElementById('quantity').value) || 1;
     
-    // Update price based on type and quantity
+    // Update price based on quantity (only wholesale prices)
     let price = 0;
     if (currentProduct.type === 'tshirt') {
-        if (priceType === 'drop') {
-            price = tshirtPrices.drop;
-        } else {
-            // Determine wholesale price based on quantity
-            if (quantity >= 100) price = tshirtPrices.wholesale[4];
-            else if (quantity >= 64) price = tshirtPrices.wholesale[3];
-            else if (quantity >= 32) price = tshirtPrices.wholesale[2];
-            else if (quantity >= 16) price = tshirtPrices.wholesale[1];
-            else price = tshirtPrices.wholesale[0];
-        }
+        // Determine wholesale price based on quantity
+        if (quantity >= 100) price = tshirtPrices.wholesale[4];
+        else if (quantity >= 64) price = tshirtPrices.wholesale[3];
+        else if (quantity >= 32) price = tshirtPrices.wholesale[2];
+        else if (quantity >= 16) price = tshirtPrices.wholesale[1];
+        else price = tshirtPrices.wholesale[0];
     } else if (currentProduct.type === 'hoodie') {
-        if (priceType === 'drop') {
-            price = hoodiePrices.drop;
-        } else {
-            // Determine wholesale price based on quantity
-            if (quantity >= 100) price = hoodiePrices.wholesale[4];
-            else if (quantity >= 64) price = hoodiePrices.wholesale[3];
-            else if (quantity >= 32) price = hoodiePrices.wholesale[2];
-            else if (quantity >= 16) price = hoodiePrices.wholesale[1];
-            else price = hoodiePrices.wholesale[0];
-        }
+        // Determine wholesale price based on quantity
+        if (quantity >= 100) price = hoodiePrices.wholesale[4];
+        else if (quantity >= 64) price = hoodiePrices.wholesale[3];
+        else if (quantity >= 32) price = hoodiePrices.wholesale[2];
+        else if (quantity >= 16) price = hoodiePrices.wholesale[1];
+        else price = hoodiePrices.wholesale[0];
     }
     
     // Update button text to show price
@@ -1551,7 +1753,6 @@ function addToOrder() {
     
     const size = document.getElementById('productSize').value;
     const color = document.getElementById('productColor').value;
-    const priceType = document.getElementById('priceType').value;
     const quantity = parseInt(document.getElementById('quantity').value) || 1;
     
     if (!size) {
@@ -1559,37 +1760,28 @@ function addToOrder() {
         return;
     }
     
-    // Calculate price
+    // Calculate price (only wholesale)
     let price = 0;
     if (currentProduct.type === 'tshirt') {
-        if (priceType === 'drop') {
-            price = tshirtPrices.drop;
-        } else {
-            if (quantity >= 100) price = tshirtPrices.wholesale[4];
-            else if (quantity >= 64) price = tshirtPrices.wholesale[3];
-            else if (quantity >= 32) price = tshirtPrices.wholesale[2];
-            else if (quantity >= 16) price = tshirtPrices.wholesale[1];
-            else price = tshirtPrices.wholesale[0];
-        }
+        if (quantity >= 100) price = tshirtPrices.wholesale[4];
+        else if (quantity >= 64) price = tshirtPrices.wholesale[3];
+        else if (quantity >= 32) price = tshirtPrices.wholesale[2];
+        else if (quantity >= 16) price = tshirtPrices.wholesale[1];
+        else price = tshirtPrices.wholesale[0];
     } else if (currentProduct.type === 'hoodie') {
-        if (priceType === 'drop') {
-            price = hoodiePrices.drop;
-        } else {
-            if (quantity >= 100) price = hoodiePrices.wholesale[4];
-            else if (quantity >= 64) price = hoodiePrices.wholesale[3];
-            else if (quantity >= 32) price = hoodiePrices.wholesale[2];
-            else if (quantity >= 16) price = hoodiePrices.wholesale[1];
-            else price = hoodiePrices.wholesale[0];
-        }
+        if (quantity >= 100) price = hoodiePrices.wholesale[4];
+        else if (quantity >= 64) price = hoodiePrices.wholesale[3];
+        else if (quantity >= 32) price = hoodiePrices.wholesale[2];
+        else if (quantity >= 16) price = hoodiePrices.wholesale[1];
+        else price = hoodiePrices.wholesale[0];
     }
     
     // Create order item
     const orderItem = {
         id: Date.now(),
         product: currentProduct,
-        size: size,
+        size: size === 'all' ? 'Всі ростовки (S-XL)' : size,
         color: color === 'default' ? 'Чорний' : color,
-        priceType: priceType,
         quantity: quantity,
         price: price,
         total: price * quantity
@@ -1599,6 +1791,9 @@ function addToOrder() {
     
     // Add to UI
     addOrderItemToUI(orderItem);
+    
+    // Update statistics
+    updateOrderStatistics();
     
     // Reset form
     hideOrderForm();
@@ -1649,7 +1844,7 @@ function addOrderItemToUI(orderItem) {
                 </button>
                 
                 <div class="order-item-prices">
-                    <div class="order-item-cost">${orderItem.priceType === 'drop' ? 'Дроп' : 'Опт'}</div>
+                    <div class="order-item-cost">Опт</div>
                     <div class="order-item-selling">${orderItem.total}₴</div>
                 </div>
             </div>
@@ -1667,6 +1862,9 @@ function removeOrderItem(itemId) {
         orderItemElement.remove();
     }
     
+    // Update statistics
+    updateOrderStatistics();
+    
     showNotification('Товар видалено з накладної', 'success');
 }
 
@@ -1678,6 +1876,127 @@ function hideOrderForm() {
     dropZone.style.display = 'block';
     
     currentProduct = null;
+}
+
+function updateOrderStatistics() {
+    const statisticsDiv = document.getElementById('orderStatistics');
+    const totalSumSpan = document.getElementById('totalSum');
+    const progressInfoDiv = document.getElementById('progressInfo');
+    
+    if (orderItems.length === 0) {
+        statisticsDiv.style.display = 'none';
+        return;
+    }
+    
+    statisticsDiv.style.display = 'block';
+    
+    // Calculate total sum
+    const totalSum = orderItems.reduce((sum, item) => sum + item.total, 0);
+    totalSumSpan.textContent = `${totalSum}₴`;
+    
+    // Calculate quantities by type
+    const tshirtQuantity = orderItems
+        .filter(item => item.product.type === 'tshirt')
+        .reduce((sum, item) => sum + item.quantity, 0);
+    
+    const hoodieQuantity = orderItems
+        .filter(item => item.product.type === 'hoodie')
+        .reduce((sum, item) => sum + item.quantity, 0);
+    
+    // Generate progress info
+    let progressInfo = '';
+    
+    // T-shirt progress
+    if (tshirtQuantity > 0) {
+        if (tshirtQuantity < 8) {
+            const needed = 8 - tshirtQuantity;
+            progressInfo += `<div class="warning">Не вистачає ${needed} футболок до мінімального опту (8 шт.)</div>`;
+        } else {
+            progressInfo += `<div class="success">Футболки: ${tshirtQuantity} шт. (оптова ціна)</div>`;
+        }
+        
+        // Next discount level
+        const nextLevel = getNextDiscountLevel(tshirtQuantity, 'tshirt');
+        if (nextLevel) {
+            progressInfo += `<div>До наступної скидки потрібно ще ${nextLevel.needed} футболок (${nextLevel.price}₴)</div>`;
+        }
+    }
+    
+    // Hoodie progress
+    if (hoodieQuantity > 0) {
+        if (hoodieQuantity < 8) {
+            const needed = 8 - hoodieQuantity;
+            progressInfo += `<div class="warning">Не вистачає ${needed} худі до мінімального опту (8 шт.)</div>`;
+        } else {
+            progressInfo += `<div class="success">Худі: ${hoodieQuantity} шт. (оптова ціна)</div>`;
+        }
+        
+        // Next discount level
+        const nextLevel = getNextDiscountLevel(hoodieQuantity, 'hoodie');
+        if (nextLevel) {
+            progressInfo += `<div>До наступної скидки потрібно ще ${nextLevel.needed} худі (${nextLevel.price}₴)</div>`;
+        }
+    }
+    
+    progressInfoDiv.innerHTML = progressInfo;
+    
+    // Update discount scales
+    updateDiscountScales(tshirtQuantity, hoodieQuantity);
+}
+
+function getNextDiscountLevel(currentQuantity, type) {
+    const prices = type === 'tshirt' ? tshirtPrices.wholesale : hoodiePrices.wholesale;
+    
+    if (currentQuantity < 8) {
+        return { needed: 8 - currentQuantity, price: prices[0] };
+    } else if (currentQuantity < 16) {
+        return { needed: 16 - currentQuantity, price: prices[1] };
+    } else if (currentQuantity < 32) {
+        return { needed: 32 - currentQuantity, price: prices[2] };
+    } else if (currentQuantity < 64) {
+        return { needed: 64 - currentQuantity, price: prices[3] };
+    } else if (currentQuantity < 100) {
+        return { needed: 100 - currentQuantity, price: prices[4] };
+    }
+    
+    return null; // Already at maximum discount
+}
+
+function updateDiscountScales(tshirtQuantity, hoodieQuantity) {
+    updateScale('tshirtScale', tshirtQuantity);
+    updateScale('hoodieScale', hoodieQuantity);
+}
+
+function updateScale(scaleId, quantity) {
+    const scale = document.getElementById(scaleId);
+    if (!scale) return;
+    
+    const segments = scale.querySelectorAll('.scale-segment');
+    
+    segments.forEach((segment, index) => {
+        segment.classList.remove('active', 'progress');
+        
+        const range = segment.dataset.range;
+        const [min, max] = parseRange(range);
+        
+        if (quantity >= min && (max === null || quantity <= max)) {
+            segment.classList.add('active');
+        } else if (quantity > max && index < segments.length - 1) {
+            // Show progress to next level
+            const nextSegment = segments[index + 1];
+            const nextMin = parseInt(nextSegment.dataset.range.split('-')[0]);
+            const progress = (quantity - max) / (nextMin - max);
+            segment.style.background = `linear-gradient(90deg, #10b981 ${progress * 100}%, #ef4444 ${progress * 100}%)`;
+        }
+    });
+}
+
+function parseRange(range) {
+    if (range.includes('+')) {
+        return [parseInt(range.replace('+', '')), null];
+    }
+    const [min, max] = range.split('-').map(Number);
+    return [min, max];
 }
 
 // Color dots initialization
