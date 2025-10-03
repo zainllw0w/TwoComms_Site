@@ -1644,6 +1644,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeOrderForm();
     initializeColorDots();
     loadOrderData(); // Load saved data
+    loadInvoicesFromLocalStorage(); // Load saved invoices
     updateOrderStatistics(); // Initialize statistics on page load
 });
 
@@ -1735,6 +1736,9 @@ function initializeCompanyForm() {
                     total_hoodies: result.total_hoodies
                 };
                 addInvoiceToList(invoiceInfo);
+                
+                // Save invoice to localStorage
+                saveInvoiceToLocalStorage(invoiceInfo);
                 
                 // Clear order and localStorage
                 clearOrderData();
@@ -1933,17 +1937,18 @@ function showOrderForm() {
                     const colorHex = colorDot ? colorDot.getAttribute('data-color') : '#000000';
                     
                     const option = document.createElement('option');
-                    option.value = colorHex;
+                    option.value = colorName; // Use color name instead of hex
+                    option.dataset.colorHex = colorHex; // Store hex in data attribute
                     option.textContent = colorName;
                     if (index === 0) option.selected = true;
                     colorSelect.appendChild(option);
                 });
             } else {
-                colorSelect.innerHTML = '<option value="#000000">Чорний</option>';
+                colorSelect.innerHTML = '<option value="Чорний">Чорний</option>';
             }
         } else {
             // For hoodies, only black
-            colorSelect.innerHTML = '<option value="#000000">Чорний</option>';
+            colorSelect.innerHTML = '<option value="Чорний">Чорний</option>';
         }
         
         // Set default values
@@ -2012,12 +2017,17 @@ function addToOrder() {
     // Calculate price based on total quantity for this product type
     const price = getWholesalePrice(currentProduct.type, newTotalQuantity);
     
+    // Get color name from select option
+    const colorSelect = document.getElementById('productColor');
+    const selectedOption = colorSelect.options[colorSelect.selectedIndex];
+    const colorName = selectedOption ? selectedOption.textContent : 'Чорний';
+    
     // Create order item
     const orderItem = {
         id: Date.now(),
         product: currentProduct,
         size: size === 'all' ? 'Всі ростовки (S-XL)' : size,
-        color: color === 'default' ? 'Чорний' : color,
+        color: colorName,
         quantity: quantity,
         price: price,
         total: price * quantity
@@ -2459,6 +2469,19 @@ function clearOrderData() {
     currentProduct = null;
 }
 
+function saveInvoiceToLocalStorage(invoiceInfo) {
+    let invoices = JSON.parse(localStorage.getItem('wholesaleInvoices') || '[]');
+    invoices.push(invoiceInfo);
+    localStorage.setItem('wholesaleInvoices', JSON.stringify(invoices));
+}
+
+function loadInvoicesFromLocalStorage() {
+    const invoices = JSON.parse(localStorage.getItem('wholesaleInvoices') || '[]');
+    invoices.forEach(invoice => {
+        addInvoiceToList(invoice);
+    });
+}
+
 // Color dots initialization
 function initializeColorDots() {
     const colorDots = document.querySelectorAll('.color-dot[data-color]');
@@ -2521,7 +2544,27 @@ function addInvoiceToList(invoice) {
 
 // Global function for downloading invoices
 function downloadInvoice(invoiceId) {
-    showNotification('Функція скачування буде реалізована наступним етапом', 'info');
+    // Find the invoice item to get the file name
+    const invoiceItem = document.querySelector(`[data-invoice-id="${invoiceId}"]`);
+    if (!invoiceItem) {
+        showNotification('Накладна не знайдена', 'error');
+        return;
+    }
+    
+    const invoiceName = invoiceItem.querySelector('.invoice-name').textContent;
+    
+    // Create a link to download the file
+    const link = document.createElement('a');
+    link.href = `/wholesale/generate-invoice/`;
+    link.download = invoiceName;
+    link.style.display = 'none';
+    
+    // Add to DOM, click, and remove
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showNotification('Накладна завантажується...', 'success');
 }
 
 // Global function for deleting invoices
