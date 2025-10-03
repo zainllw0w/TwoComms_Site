@@ -1032,7 +1032,7 @@ def add_to_cart(request):
     })
     item['qty'] += qty
     cart[key] = item
-    if removed:
+    if qty <= 0:
         _reset_monobank_session(request, drop_pending=True)
     request.session['cart'] = cart
     request.session.modified = True
@@ -6738,10 +6738,19 @@ def generate_wholesale_invoice(request):
         return JsonResponse({'error': f'Помилка при створенні накладної: {str(e)}'}, status=500)
 
 
+def _fetch_and_apply_checkout_status(order, source='api'):
+    """Заглушка для функции получения статуса checkout"""
+    return {'payment_status': 'unknown'}
+
+def _update_order_from_checkout_result(order, result, source='api'):
+    """Заглушка для функции обновления заказа из результата checkout"""
+    pass
+
 def download_invoice_file(request, invoice_id):
     """Скачивание сохраненного файла накладной"""
     from django.http import FileResponse, HttpResponse
     from django.conf import settings
+    from orders.models import WholesaleInvoice
     import os
     
     try:
