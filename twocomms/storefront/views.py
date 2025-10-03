@@ -6508,17 +6508,12 @@ def generate_wholesale_invoice(request):
         
         # Красивое название файла с названием компании
         company_name = company_data.get('companyName', 'Company').strip()
-        print(f"DEBUG: company_data = {company_data}")
-        print(f"DEBUG: company_name from data = '{company_name}'")
-        
         if not company_name:
             company_name = 'Company'
-            print(f"DEBUG: Using default company name = '{company_name}'")
         
         # Красивая дата для названия файла
         beautiful_date = now.strftime('%d.%m.%Y_%H-%M')
         file_name = f"{company_name}_накладнаОПТ_{beautiful_date}.xlsx"
-        print(f"DEBUG: Final file_name = '{file_name}'")
         
         # Подсчитываем общие данные
         total_tshirts = 0
@@ -6858,21 +6853,27 @@ def delete_wholesale_invoice(request, invoice_id):
         # Получаем накладную
         invoice = WholesaleInvoice.objects.get(id=invoice_id)
         
-        # Удаляем файл, если он существует
-        if invoice.file_path and os.path.exists(invoice.file_path):
+        # Удаляем файл, если он существует (не критично, если файл не найден)
+        if invoice.file_path:
             try:
-                os.remove(invoice.file_path)
+                if os.path.exists(invoice.file_path):
+                    os.remove(invoice.file_path)
+                    print(f"File deleted: {invoice.file_path}")
+                else:
+                    print(f"File not found (but that's OK): {invoice.file_path}")
             except Exception as e:
-                print(f"Error deleting file: {e}")
+                print(f"Error deleting file (but continuing): {e}")
         
         # Удаляем запись из базы данных
         invoice.delete()
+        print(f"Invoice {invoice_id} deleted successfully")
         
         return JsonResponse({'success': True, 'message': 'Накладна видалена'})
-        
+
     except WholesaleInvoice.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Накладна не знайдена'}, status=404)
     except Exception as e:
+        print(f"Error deleting invoice {invoice_id}: {e}")
         return JsonResponse({'success': False, 'error': f'Помилка: {str(e)}'}, status=500)
 
 

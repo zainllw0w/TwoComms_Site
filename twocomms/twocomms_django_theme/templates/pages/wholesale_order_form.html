@@ -1782,7 +1782,8 @@ function initializeCompanyForm() {
                     invoice_number: result.invoice_number,
                     total_amount: result.total_amount,
                     total_tshirts: result.total_tshirts,
-                    total_hoodies: result.total_hoodies
+                    total_hoodies: result.total_hoodies,
+                    timestamp: Date.now() // Добавляем timestamp для сортировки
                 };
                 addInvoiceToList(invoiceInfo);
                 
@@ -2741,7 +2742,15 @@ function saveInvoiceToLocalStorage(invoiceInfo) {
 
 function loadInvoicesFromLocalStorage() {
     const invoices = JSON.parse(localStorage.getItem('wholesaleInvoices') || '[]');
-    invoices.forEach(invoice => {
+    // Сортируем по дате создания (новые сверху) - если есть timestamp
+    const sortedInvoices = invoices.sort((a, b) => {
+        if (a.timestamp && b.timestamp) {
+            return b.timestamp - a.timestamp; // Новые сверху
+        }
+        return 0;
+    });
+    
+    sortedInvoices.forEach(invoice => {
         addInvoiceToList(invoice);
     });
 }
@@ -2809,7 +2818,8 @@ function addInvoiceToList(invoice) {
         </div>
     `;
     
-    invoicesList.appendChild(invoiceItem);
+    // Добавляем новую накладную в начало списка (сверху)
+    invoicesList.insertBefore(invoiceItem, invoicesList.firstChild);
 }
 
 // Global function for downloading invoices
@@ -2858,7 +2868,18 @@ function deleteInvoice(invoiceId) {
         })
         .catch(error => {
             console.error('Error deleting invoice:', error);
-            showNotification('Помилка при видаленні накладної', 'error');
+            // Даже если есть ошибка, удаляем из UI и localStorage
+            const invoiceItem = document.querySelector(`[data-invoice-id="${invoiceId}"]`);
+            if (invoiceItem) {
+                invoiceItem.remove();
+            }
+            
+            // Удаляем из localStorage
+            let invoices = JSON.parse(localStorage.getItem('wholesaleInvoices') || '[]');
+            invoices = invoices.filter(inv => inv.id !== invoiceId);
+            localStorage.setItem('wholesaleInvoices', JSON.stringify(invoices));
+            
+            showNotification('Накладна видалена зі списку (файл може бути недоступний)', 'success');
         });
     }
 }
