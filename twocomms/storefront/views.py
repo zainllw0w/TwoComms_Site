@@ -6340,20 +6340,5 @@ def pricelist_page(request):
 
 def wholesale_page(request):
     """Render wholesale page with products and pricing."""
-    # Простая версия для отладки
-    context = {
-        'tshirt_products': [],
-        'hoodie_products': [],
-        'tshirt_prices': {
-            'drop': 700,
-            'wholesale': [650, 620, 590, 560, 520],
-            'ranges': ['8–15 шт.', '16–31 шт.', '32–63 шт.', '64–99 шт.', '100+ шт.']
-        },
-        'hoodie_prices': {
-            'drop': 1500,
-            'wholesale': [1400, 1350, 1300, 1250, 1200],
-            'ranges': ['8–15 шт.', '16–31 шт.', '32–63 шт.', '64–99 шт.', '100+ шт.']
-        },
-    }
-    
-    return render(request, 'pages/pricelist.html', context)
+    from django.http import HttpResponse
+    return HttpResponse("<h1>Оптові закупівлі TwoComms</h1><p>Сторінка працює!</p>")
