@@ -17,6 +17,21 @@
       min-height: 100vh;
       background: var(--tc-bg);
       color: var(--tc-text);
+      overflow-x: hidden; /* Prevent horizontal scrolling */
+      word-wrap: break-word; /* Prevent text overflow */
+    }
+    
+    /* Ensure proper mobile viewport handling */
+    * {
+      box-sizing: border-box;
+    }
+    
+    /* Prevent content from being cut off */
+    .categories-unified-block,
+    .pricing-cards,
+    .products-grid {
+      max-width: 100%;
+      overflow: hidden;
     }
     
     /* Hero Section - Similar to Main Page */
@@ -1647,8 +1662,381 @@
       }
     }
     
-    /* Small mobile devices */
+    /* Small mobile devices - PROPORTIONAL SCALING */
     @media (max-width: 480px) {
+      /* Hero section proportional scaling */
+      .wholesale-hero .hero-title-main {
+        font-size: 1.8rem;
+      }
+      
+      .wholesale-hero .hero-title-accent {
+        font-size: 1.3rem;
+      }
+      
+      .wholesale-hero .hero-subtitle {
+        font-size: 0.85rem;
+        line-height: 1.4;
+      }
+      
+      .wholesale-hero .hero-actions {
+        gap: 0.75rem;
+      }
+      
+      .wholesale-hero .hero-btn-primary,
+      .wholesale-hero .hero-btn-secondary {
+        padding: 0.6rem 1.2rem;
+        font-size: 0.85rem;
+        min-height: auto;
+      }
+      
+      /* Pricing section - PROPORTIONAL SCALING */
+      .categories-unified-block {
+        margin: 1rem 0;
+        border-radius: 10px;
+      }
+      
+      .categories-header-unified {
+        padding: 1rem 0.75rem 0.5rem 0.75rem;
+      }
+      
+      .categories-title-text {
+        font-size: 1.2rem;
+      }
+      
+      .section-subtitle {
+        font-size: 0.8rem;
+        margin-top: 0.25rem;
+      }
+      
+      .categories-content-unified {
+        padding: 0 0.75rem 0.75rem 0.75rem;
+      }
+      
+      .pricing-cards {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+        margin-top: 1rem;
+      }
+      
+      .pricing-card {
+        padding: 0.75rem;
+        min-height: auto;
+        border-radius: 12px;
+      }
+      
+      .pricing-icon {
+        width: 35px;
+        height: 35px;
+        margin-bottom: 0.5rem;
+      }
+      
+      .pricing-icon img {
+        width: 18px;
+        height: 18px;
+      }
+      
+      .pricing-title {
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+      }
+      
+      .pricing-description {
+        font-size: 0.75rem;
+        margin-bottom: 0.75rem;
+        line-height: 1.3;
+      }
+      
+      /* Price items - COMPACT PROPORTIONAL */
+      .price-ranges {
+        gap: 0.5rem;
+        margin-top: 1rem;
+      }
+      
+      .price-item-content {
+        padding: 0.5rem 0.75rem;
+        gap: 0.5rem;
+        border-radius: 10px;
+      }
+      
+      .price-item-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+      }
+      
+      .price-item-icon svg {
+        width: 14px;
+        height: 14px;
+      }
+      
+      .price-item-name {
+        font-size: 0.75rem;
+        line-height: 1.2;
+      }
+      
+      .price-item-desc {
+        font-size: 0.65rem;
+        line-height: 1.2;
+      }
+      
+      .price-item-value {
+        font-size: 0.9rem;
+        min-width: 50px;
+      }
+      
+      /* Featured price items */
+      .price-item.featured .price-item-value {
+        font-size: 1rem;
+      }
+      
+      /* Categories - PROPORTIONAL SCALING */
+      .categories-grid-compact {
+        grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+        gap: 0.5rem;
+      }
+      
+      .category-card-compact {
+        padding: 0.5rem;
+        min-height: 70px;
+        border-radius: 10px;
+      }
+      
+      .card-icon-compact {
+        width: 30px;
+        height: 30px;
+        margin-bottom: 0.25rem;
+      }
+      
+      .card-icon-compact img {
+        width: 14px;
+        height: 14px;
+      }
+      
+      .card-title-compact {
+        font-size: 0.65rem;
+        line-height: 1.2;
+      }
+      
+      /* Product cards - PROPORTIONAL SCALING */
+      .products-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 0.5rem;
+        margin-top: 1rem;
+      }
+      
+      .product-card {
+        min-width: 120px;
+        border-radius: 8px;
+      }
+      
+      .product-image-container {
+        aspect-ratio: 4/5;
+      }
+      
+      .product-content {
+        padding: 0.4rem;
+      }
+      
+      .product-title {
+        font-size: 0.7rem;
+        line-height: 1.2;
+        margin-bottom: 0.25rem;
+      }
+      
+      .product-badge {
+        font-size: 0.6rem;
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+      }
+      
+      .product-prices {
+        margin: 0.25rem 0;
+      }
+      
+      .price-section {
+        margin: 0.25rem 0;
+      }
+      
+      .price-label {
+        font-size: 0.6rem;
+      }
+      
+      .price-value {
+        font-size: 0.75rem;
+      }
+      
+      .wholesale-ranges {
+        grid-template-columns: 1fr;
+        gap: 0.15rem;
+        margin-top: 0.25rem;
+      }
+      
+      .wholesale-range {
+        padding: 0.2rem 0.3rem;
+        font-size: 0.6rem;
+        min-height: 22px;
+        border-radius: 4px;
+      }
+      
+      .range-label {
+        font-size: 0.55rem;
+      }
+      
+      .range-price {
+        font-size: 0.6rem;
+      }
+      
+      .product-colors,
+      .product-material {
+        margin: 0.15rem 0;
+      }
+      
+      .color-list {
+        font-size: 0.6rem;
+        line-height: 1.2;
+      }
+      
+      .material-info {
+        font-size: 0.55rem;
+        line-height: 1.2;
+      }
+      
+      /* Container margins */
+      .wholesale-container {
+        padding: 0 0.5rem;
+      }
+    }
+    
+    /* Extra small mobile devices - ULTRA COMPACT */
+    @media (max-width: 360px) {
+      .wholesale-hero .hero-title-main {
+        font-size: 1.5rem;
+      }
+      
+      .wholesale-hero .hero-title-accent {
+        font-size: 1.1rem;
+      }
+      
+      .wholesale-hero .hero-subtitle {
+        font-size: 0.8rem;
+      }
+      
+      .wholesale-hero .hero-btn-primary,
+      .wholesale-hero .hero-btn-secondary {
+        padding: 0.5rem 1rem;
+        font-size: 0.8rem;
+      }
+      
+      .categories-title-text {
+        font-size: 1.1rem;
+      }
+      
+      .section-subtitle {
+        font-size: 0.75rem;
+      }
+      
+      .pricing-cards {
+        gap: 0.5rem;
+      }
+      
+      .pricing-card {
+        padding: 0.5rem;
+      }
+      
+      .pricing-title {
+        font-size: 0.85rem;
+      }
+      
+      .pricing-description {
+        font-size: 0.7rem;
+      }
+      
+      .price-item-content {
+        padding: 0.4rem 0.5rem;
+        gap: 0.4rem;
+      }
+      
+      .price-item-icon {
+        width: 24px;
+        height: 24px;
+      }
+      
+      .price-item-icon svg {
+        width: 12px;
+        height: 12px;
+      }
+      
+      .price-item-name {
+        font-size: 0.7rem;
+      }
+      
+      .price-item-desc {
+        font-size: 0.6rem;
+      }
+      
+      .price-item-value {
+        font-size: 0.85rem;
+        min-width: 45px;
+      }
+      
+      .categories-grid-compact {
+        grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+        gap: 0.4rem;
+      }
+      
+      .category-card-compact {
+        padding: 0.4rem;
+        min-height: 60px;
+      }
+      
+      .card-icon-compact {
+        width: 25px;
+        height: 25px;
+      }
+      
+      .card-icon-compact img {
+        width: 12px;
+        height: 12px;
+      }
+      
+      .card-title-compact {
+        font-size: 0.6rem;
+      }
+      
+      .products-grid {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 0.4rem;
+      }
+      
+      .product-card {
+        min-width: 100px;
+      }
+      
+      .product-content {
+        padding: 0.3rem;
+      }
+      
+      .product-title {
+        font-size: 0.65rem;
+      }
+      
+      .wholesale-range {
+        padding: 0.15rem 0.25rem;
+        font-size: 0.55rem;
+        min-height: 20px;
+      }
+      
+      .wholesale-container {
+        padding: 0 0.25rem;
+      }
+    }
+    
+    /* Landscape orientation optimization for small screens */
+    @media (max-width: 768px) and (orientation: landscape) {
+      .wholesale-hero {
+        padding: 2rem 0;
+      }
+      
       .wholesale-hero .hero-title-main {
         font-size: 2rem;
       }
@@ -1657,84 +2045,14 @@
         font-size: 1.5rem;
       }
       
-      .wholesale-hero .hero-subtitle {
-        font-size: 0.9rem;
-      }
-      
       .pricing-cards {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 1rem;
       }
       
-      .pricing-card {
-        padding: 0.75rem;
-      }
-      
-      .price-item-content {
-        padding: 0.5rem 0.75rem;
-        gap: 0.5rem;
-      }
-      
-      .price-item-icon {
-        width: 30px;
-        height: 30px;
-      }
-      
-      .price-item-name {
-        font-size: 0.8rem;
-      }
-      
-      .price-item-desc {
-        font-size: 0.7rem;
-      }
-      
-      .price-item-value {
-        font-size: 1rem;
-        min-width: 60px;
-      }
-      
       .products-grid {
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 0.5rem;
-      }
-      
-      .product-card {
-        min-width: 140px;
-      }
-      
-      .wholesale-ranges {
-        grid-template-columns: 1fr;
-        gap: 0.2rem;
-      }
-      
-      .wholesale-range {
-        padding: 0.25rem 0.4rem;
-        font-size: 0.65rem;
-        min-height: 26px;
-      }
-      
-      .categories-grid-compact {
-        grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
-        gap: 0.5rem;
-      }
-      
-      .category-card-compact {
-        padding: 0.75rem;
-        min-height: 80px;
-      }
-      
-      .card-icon-compact {
-        width: 35px;
-        height: 35px;
-      }
-      
-      .card-icon-compact img {
-        width: 16px;
-        height: 16px;
-      }
-      
-      .card-title-compact {
-        font-size: 0.7rem;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 0.75rem;
       }
     }
     
@@ -1753,6 +2071,24 @@
       .categories-grid-compact {
         grid-template-columns: repeat(3, 1fr);
         gap: 1.5rem;
+      }
+    }
+    
+    /* Ultra-wide screens */
+    @media (min-width: 1920px) {
+      .wholesale-container {
+        max-width: 1800px;
+        margin: 0 auto;
+      }
+      
+      .pricing-cards {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 3rem;
+      }
+      
+      .products-grid {
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 2rem;
       }
     }
   </style>
