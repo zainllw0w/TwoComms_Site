@@ -1906,8 +1906,6 @@ function addToOrder() {
     };
     
     orderItems.push(orderItem);
-    console.log('Added item to orderItems:', orderItem);
-    console.log('Current orderItems array:', orderItems);
     
     // Add to UI
     addOrderItemToUI(orderItem);
@@ -2115,7 +2113,6 @@ function updateScale(scaleId, quantity) {
     segments.forEach((segment, index) => {
         // Reset all classes and styles
         segment.classList.remove('active', 'progress', 'completed');
-        segment.style.backgroundColor = '';
         
         // Remove existing progress fill
         const existingFill = segment.querySelector('.progress-fill');
@@ -2127,9 +2124,9 @@ function updateScale(scaleId, quantity) {
         const [min, max] = parseRange(range);
         
         if (quantity >= min && quantity <= max) {
-            // Current tier - highlight with green and show progress
+            // Current tier - highlight with darker green and show progress
             segment.classList.add('active');
-            segment.style.backgroundColor = '#10b981';
+            segment.style.backgroundColor = '#059669';
             
             // Calculate progress within current tier
             const tierSize = max - min + 1;
@@ -2145,7 +2142,7 @@ function updateScale(scaleId, quantity) {
                 left: 0;
                 height: 100%;
                 width: ${progressPercent}%;
-                background: #059669;
+                background: #047857;
                 border-radius: 3px;
                 transition: width 0.3s ease;
                 z-index: 1;
@@ -2176,27 +2173,29 @@ function parseRange(range) {
 
 // LocalStorage functions
 function saveOrderData() {
+    const companyNameEl = document.getElementById('companyName');
+    const deliveryAddressEl = document.getElementById('deliveryAddress');
+    const contactPhoneEl = document.getElementById('contactPhone');
+    const storeLinkEl = document.getElementById('storeLink');
+    
     const orderData = {
         orderItems: orderItems,
         companyData: {
-            companyName: document.getElementById('companyName').value,
-            deliveryAddress: document.getElementById('deliveryAddress').value,
-            contactPhone: document.getElementById('contactPhone').value,
-            storeLink: document.getElementById('storeLink').value
+            companyName: companyNameEl ? companyNameEl.value : '',
+            deliveryAddress: deliveryAddressEl ? deliveryAddressEl.value : '',
+            contactPhone: contactPhoneEl ? contactPhoneEl.value : '',
+            storeLink: storeLinkEl ? storeLinkEl.value : ''
         },
         timestamp: Date.now()
     };
     localStorage.setItem('wholesaleOrderData', JSON.stringify(orderData));
-    console.log('Saved order data:', orderData);
 }
 
 function loadOrderData() {
     const savedData = localStorage.getItem('wholesaleOrderData');
-    console.log('Loading saved data:', savedData);
     if (savedData) {
         try {
             const orderData = JSON.parse(savedData);
-            console.log('Parsed order data:', orderData);
             
             // Load company data
             if (orderData.companyData) {
@@ -2208,9 +2207,7 @@ function loadOrderData() {
             
             // Load order items
             if (orderData.orderItems && orderData.orderItems.length > 0) {
-                console.log('Loading orderItems:', orderData.orderItems);
                 orderItems = orderData.orderItems;
-                console.log('Set orderItems to:', orderItems);
                 
                 // Clear existing items
                 const orderItemsContainer = document.getElementById('orderItems');
@@ -2218,7 +2215,6 @@ function loadOrderData() {
                 
                 // Rebuild order items UI
                 orderItems.forEach(item => {
-                    console.log('Adding item to UI:', item);
                     addOrderItemToUI(item);
                 });
                 
