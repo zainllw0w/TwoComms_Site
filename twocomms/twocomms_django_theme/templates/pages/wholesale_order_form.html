@@ -1690,16 +1690,16 @@ function handleDragEnd(e) {
 
 function handleDragOver(e) {
     e.preventDefault();
-    e.target.classList.add('drag-over');
+    e.currentTarget.classList.add('drag-over');
 }
 
 function handleDragLeave(e) {
-    e.target.classList.remove('drag-over');
+    e.currentTarget.classList.remove('drag-over');
 }
 
 function handleDrop(e) {
     e.preventDefault();
-    e.target.classList.remove('drag-over');
+    e.currentTarget.classList.remove('drag-over');
     
     const productId = e.dataTransfer.getData('text/plain');
     const productCard = document.querySelector(`[data-product-id="${productId}"]`);
@@ -1866,7 +1866,6 @@ function updatePriceDisplay() {
             else if (quantity >= 16) price = hoodiePrices.wholesale[1];
             else price = hoodiePrices.wholesale[0]; // 8-15 items
         }
-    }
     }
     
     // Update button text to show price
