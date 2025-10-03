@@ -1400,12 +1400,16 @@
                                 </div>
                                 <div class="product-colors">
                                     {% for color_variant in product.color_variants.all|slice:":3" %}
-                                        <span class="color-item">
-                                            <span class="color-dot" data-color="{{ color_variant.color.primary_hex }}"></span>
+                                        <span class="color-item" data-color-name="{{ color_variant.color.name|default:'Чорний' }}" data-color-hex="{{ color_variant.color.primary_hex }}">
+                                            {% if color_variant.images.first %}
+                                                <img src="{{ color_variant.images.first.image.url }}" alt="{{ color_variant.color.name }}" style="width: 20px; height: 20px; border-radius: 50%; object-fit: cover;">
+                                            {% else %}
+                                                <span class="color-dot" data-color="{{ color_variant.color.primary_hex }}"></span>
+                                            {% endif %}
                                             <span class="color-name">{{ color_variant.color.name|default:"Чорний" }}</span>
                                         </span>
                                     {% empty %}
-                                        <span class="color-item">
+                                        <span class="color-item" data-color-name="Чорний" data-color-hex="#000000">
                                             <span class="color-dot" data-color="#000000"></span>
                                             <span class="color-name">Чорний</span>
                                         </span>
@@ -1445,7 +1449,7 @@
                                     <span class="product-name">{{ product.title }} [фліс]</span>
                                 </div>
                                 <div class="product-colors">
-                                    <span class="color-item">
+                                    <span class="color-item" data-color-name="Чорний" data-color-hex="#000000">
                                         <span class="color-dot" data-color="#000000"></span>
                                         <span class="color-name">Чорний</span>
                                     </span>
@@ -1470,6 +1474,18 @@
             <div class="order-content">
                 <!-- Форма добавления товара -->
                 <div class="order-form" id="orderForm" style="display: none;">
+                    <!-- Информация о товаре -->
+                    <div class="order-form-product-info" style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px; padding: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 8px;">
+                        <div class="order-form-product-image" style="width: 60px; height: 60px; border-radius: 8px; overflow: hidden; background: rgba(24, 26, 32, 0.7); border: 1px solid rgba(255, 255, 255, 0.1);">
+                            <img id="orderFormProductImage" src="" alt="" style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+                        <div class="order-form-product-details">
+                            <div id="orderFormProductName" style="font-weight: 500; margin-bottom: 4px;"></div>
+                            <div id="orderFormProductCategory" style="font-size: 12px; color: rgba(255, 255, 255, 0.7);"></div>
+                            <div id="selectedColorInfo" style="font-size: 12px; color: rgba(255, 255, 255, 0.7); margin-top: 2px;"></div>
+                        </div>
+                    </div>
+                    
                     <div class="form-group">
                         <label class="form-label">Розмір</label>
                         <select class="form-select" id="productSize" required>
@@ -1873,8 +1889,7 @@ function selectProduct(productId) {
     const colorItems = productCard.querySelectorAll('.color-item');
     colorItems.forEach(colorItem => {
         const colorName = colorItem.querySelector('.color-name').textContent;
-        const colorDot = colorItem.querySelector('.color-dot');
-        const colorHex = colorDot ? colorDot.getAttribute('data-color') : '#000000';
+        const colorHex = colorItem.dataset.colorHex || '#000000';
         
         // Ищем изображение для этого цвета
         const colorImage = colorItem.querySelector('img');
@@ -1943,6 +1958,14 @@ function showOrderForm() {
         dropZone.style.display = 'none';
         
         // Populate form with product data
+        document.getElementById('orderFormProductName').textContent = currentProduct.title;
+        document.getElementById('orderFormProductCategory').textContent = currentProduct.category;
+        
+        // Set initial image
+        const productImage = document.getElementById('orderFormProductImage');
+        productImage.src = currentProduct.main_image;
+        productImage.alt = currentProduct.title;
+        
         const colorSelect = document.getElementById('productColor');
         colorSelect.innerHTML = '';
         
@@ -1962,11 +1985,40 @@ function showOrderForm() {
             colorSelect.innerHTML = '<option value="Чорний" data-color-hex="#000000" data-color-image="">Чорний</option>';
         }
         
+        // Update color info
+        const selectedOption = colorSelect.options[colorSelect.selectedIndex];
+        if (selectedOption) {
+            document.getElementById('selectedColorInfo').textContent = `Колір: ${selectedOption.textContent}`;
+        }
+        
         // Set default values
         document.getElementById('productSize').value = '';
         document.getElementById('quantity').value = '1';
         document.getElementById('quantity').disabled = false;
         document.getElementById('quantity').style.opacity = '1';
+        
+        // Add color change handler
+        colorSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const colorImage = selectedOption ? selectedOption.dataset.colorImage : '';
+            const colorName = selectedOption ? selectedOption.textContent : '';
+            
+            // Update the product image in the form
+            const productImage = document.getElementById('orderFormProductImage');
+            if (colorImage && colorImage !== '') {
+                productImage.src = colorImage;
+            } else {
+                productImage.src = currentProduct.main_image;
+            }
+            
+            // Update color info
+            document.getElementById('selectedColorInfo').textContent = `Колір: ${colorName}`;
+            
+            // Update currentProduct for later use
+            if (currentProduct) {
+                currentProduct.image = colorImage || currentProduct.main_image;
+            }
+        });
         
         updatePriceDisplay();
     }
@@ -2096,8 +2148,8 @@ function addOrderItemToUI(orderItem) {
     orderItemElement.innerHTML = `
         <div class="order-item-content">
             <div class="order-item-image">
-                ${orderItem.product.main_image ? 
-                    `<img src="${orderItem.product.main_image}" alt="${orderItem.product.title}" class="order-product-image">` :
+                ${orderItem.product.image ? 
+                    `<img src="${orderItem.product.image}" alt="${orderItem.product.title}" class="order-product-image">` :
                     `<div class="order-product-image" style="background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #718096;">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
