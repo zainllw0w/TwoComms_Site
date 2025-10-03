@@ -69,19 +69,6 @@
       min-height: clamp(400px, 30vw, 500px);
     }
     
-    .wholesale-hero .hero-logo {
-      margin-bottom: 1rem;
-    }
-    
-    .wholesale-hero .hero-logo img {
-      filter: drop-shadow(0 0 30px rgba(139, 92, 246, 0.7));
-      transition: all 0.3s ease;
-    }
-    
-    .wholesale-hero .hero-logo img:hover {
-      filter: drop-shadow(0 0 40px rgba(139, 92, 246, 1));
-      transform: scale(1.05);
-    }
     
     .wholesale-hero .hero-title {
       display: flex;
@@ -756,17 +743,12 @@
       <img src="{% static 'img/logo.svg' %}" alt="TwoComms Background">
     </div>
     
-    <div class="hero-content">
-      <div class="hero-text-section">
-        <!-- Logo -->
-        <div class="hero-logo">
-          <img src="{% static 'img/logo.svg' %}" alt="TwoComms" width="100" height="100">
-        </div>
-        
-        <div class="hero-title">
-          <span class="hero-title-main">Оптові закупівлі</span>
-          <span class="hero-title-accent">TwoComms</span>
-        </div>
+              <div class="hero-content">
+                <div class="hero-text-section">
+                  <div class="hero-title">
+                    <span class="hero-title-main">Оптові закупівлі</span>
+                    <span class="hero-title-accent">TwoComms</span>
+                  </div>
         <p class="hero-subtitle">
           Вигідні ціни для дропшипінгу та оптових закупівель.<br>
           Якісний стріт & мілітарі одяг з ексклюзивними принтами.
@@ -774,23 +756,20 @@
         <div class="hero-actions">
           <a href="https://t.me/twocomms_wholesale" class="hero-btn-primary" target="_blank">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
             </svg>
-            Співпраця по дропу
+            Напишіть нам для співпраці в Telegram
           </a>
           <button class="hero-btn-secondary" onclick="showOrderModal()">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+              <path d="M19 7h-3V6a4 4 0 0 0-8 0v1H5a1 1 0 0 0-1 1v11a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8a1 1 0 0 0-1-1zM10 6a2 2 0 0 1 4 0v1h-4V6zm8 13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V9h2v1a1 1 0 0 0 2 0V9h4v1a1 1 0 0 0 2 0V9h2v10z"/>
             </svg>
             Сформувати замовлення
           </button>
           <a href="/media/pricelist_opt.xlsx" class="hero-btn-secondary" download>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
-              <polyline points="14,2 14,8 20,8"/>
-              <line x1="16" y1="13" x2="8" y2="13"/>
-              <line x1="16" y1="17" x2="8" y2="17"/>
-              <polyline points="10,9 9,9 8,9"/>
+              <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+              <path d="M8,12H16V14H8V12M8,16H13V18H8V16"/>
             </svg>
             Завантажити прайс (Excel)
           </a>
