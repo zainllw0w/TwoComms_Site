@@ -117,8 +117,210 @@
     margin-bottom: 2rem;
     backdrop-filter: blur(20px);
     box-shadow: 
-        0 10px 30px rgba(0, 0, 0, 0.2),
-        0 4px 15px rgba(139, 92, 246, 0.05);
+        0 8px 32px rgba(0, 0, 0, 0.1),
+        0 4px 16px rgba(139, 92, 246, 0.05);
+}
+
+.section-subtitle {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 1rem;
+    margin-top: 0.5rem;
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+/* Company Form Cards Grid */
+.company-form-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+/* Company Form Card */
+.company-form-card {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.06) 0%,
+        rgba(255, 255, 255, 0.03) 50%,
+        rgba(255, 255, 255, 0.01) 100%
+    );
+    border: 1px solid rgba(139, 92, 246, 0.12);
+    border-radius: 16px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+}
+
+.company-form-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 
+        0 12px 40px rgba(0, 0, 0, 0.15),
+        0 6px 20px rgba(139, 92, 246, 0.1);
+    border-color: rgba(139, 92, 246, 0.25);
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.1) 0%,
+        rgba(255, 255, 255, 0.05) 50%,
+        rgba(255, 255, 255, 0.03) 100%
+    );
+}
+
+.company-form-card-wide {
+    grid-column: 1 / -1;
+}
+
+/* Form Card Icon */
+.form-card-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, 
+        rgba(139, 92, 246, 0.15) 0%,
+        rgba(99, 102, 241, 0.1) 50%,
+        rgba(59, 130, 246, 0.05) 100%
+    );
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    margin-right: 1rem;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+
+.company-form-card:hover .form-card-icon {
+    background: linear-gradient(135deg, 
+        rgba(139, 92, 246, 0.25) 0%,
+        rgba(99, 102, 241, 0.2) 50%,
+        rgba(59, 130, 246, 0.15) 100%
+    );
+    border-color: rgba(139, 92, 246, 0.4);
+    transform: scale(1.1);
+}
+
+.form-card-icon svg {
+    color: rgba(139, 92, 246, 0.8);
+    transition: all 0.3s ease;
+}
+
+.company-form-card:hover .form-card-icon svg {
+    color: #8b5cf6;
+    transform: scale(1.1);
+}
+
+/* Form Card Content */
+.form-card-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.form-card-label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 0.75rem;
+    transition: color 0.3s ease;
+}
+
+.company-form-card:hover .form-card-label {
+    color: #ffffff;
+}
+
+.required {
+    color: #ef4444;
+    margin-left: 0.25rem;
+}
+
+/* Form Card Inputs */
+.form-card-input,
+.form-card-textarea {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: #ffffff;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.form-card-input:focus,
+.form-card-textarea:focus {
+    outline: none;
+    border-color: rgba(139, 92, 246, 0.5);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 
+        0 0 0 3px rgba(139, 92, 246, 0.1),
+        0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.form-card-input::placeholder,
+.form-card-textarea::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.form-card-textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+/* Form Submit Container */
+.form-submit-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+.form-submit-button {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 2rem;
+    background: linear-gradient(135deg, 
+        rgba(139, 92, 246, 0.8) 0%,
+        rgba(99, 102, 241, 0.7) 50%,
+        rgba(59, 130, 246, 0.6) 100%
+    );
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    border-radius: 16px;
+    color: #ffffff;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+    box-shadow: 
+        0 4px 16px rgba(139, 92, 246, 0.2),
+        0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.form-submit-button:hover {
+    transform: translateY(-2px);
+    background: linear-gradient(135deg, 
+        rgba(139, 92, 246, 0.9) 0%,
+        rgba(99, 102, 241, 0.8) 50%,
+        rgba(59, 130, 246, 0.7) 100%
+    );
+    border-color: rgba(139, 92, 246, 0.5);
+    box-shadow: 
+        0 8px 24px rgba(139, 92, 246, 0.3),
+        0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.form-submit-button:active {
+    transform: translateY(0);
+}
+
+.form-submit-button svg {
+    transition: transform 0.3s ease;
+}
+
+.form-submit-button:hover svg {
+    transform: scale(1.1);
 }
 
 .section-title {
@@ -501,13 +703,17 @@
 
 .product-name {
     color: rgba(255, 255, 255, 0.95);
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 140px;
     line-height: 1.2;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    max-width: 100%;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 .product-colors {
@@ -1275,65 +1481,109 @@
         <p class="order-form-subtitle">Заповніть форму для створення оптового замовлення та генерації накладної</p>
     </div>
 
-    <!-- Company Information Form -->
+    <!-- Company Information Form - Beautiful Design -->
     <div class="company-form-section">
         <h2 class="section-title">Інформація про компанію</h2>
+        <p class="section-subtitle">Заповніть дані для формування накладної</p>
+        
         <form id="company-form">
-            <div class="form-grid">
-                <div class="form-group">
-                    <label class="form-label" for="company-name">
-                        Назва компанії/магазину/ФОП
-                        <span class="required">*</span>
-                    </label>
-                    <input type="text" id="company-name" name="company_name" class="form-input" 
-                           placeholder="Введіть назву компанії або ФОП" 
-                           value="{{ company_data.company_name|default:'' }}" required>
+            <div class="company-form-cards">
+                <!-- Company Name Card -->
+                <div class="company-form-card">
+                    <div class="form-card-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                        </svg>
+                    </div>
+                    <div class="form-card-content">
+                        <label class="form-card-label" for="company-name">
+                            Назва компанії/магазину/ФОП
+                            <span class="required">*</span>
+                        </label>
+                        <input type="text" id="company-name" name="company_name" class="form-card-input" 
+                               placeholder="Введіть назву компанії або ФОП" 
+                               value="{{ company_data.company_name|default:'' }}" required>
+                    </div>
                 </div>
                 
-                <div class="form-group">
-                    <label class="form-label" for="company-number">
-                        Номер компанії/ЄДРПОУ/ІПН
-                    </label>
-                    <input type="text" id="company-number" name="company_number" class="form-input" 
-                           placeholder="Введіть номер компанії (необов'язково)"
-                           value="{{ company_data.company_number|default:'' }}">
+                <!-- Company Number Card -->
+                <div class="company-form-card">
+                    <div class="form-card-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                        </svg>
+                    </div>
+                    <div class="form-card-content">
+                        <label class="form-card-label" for="company-number">
+                            Номер компанії/ЄДРПОУ/ІПН
+                        </label>
+                        <input type="text" id="company-number" name="company_number" class="form-card-input" 
+                               placeholder="Введіть номер компанії (необов'язково)"
+                               value="{{ company_data.company_number|default:'' }}">
+                    </div>
                 </div>
                 
-                <div class="form-group">
-                    <label class="form-label" for="delivery-address">
-                        Адреса доставки
-                        <span class="required">*</span>
-                    </label>
-                    <textarea id="delivery-address" name="delivery_address" class="form-input form-textarea" 
-                              placeholder="Введіть повну адресу доставки" required>{{ company_data.delivery_address|default:'' }}</textarea>
+                <!-- Delivery Address Card -->
+                <div class="company-form-card company-form-card-wide">
+                    <div class="form-card-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                        </svg>
+                    </div>
+                    <div class="form-card-content">
+                        <label class="form-card-label" for="delivery-address">
+                            Адреса доставки
+                            <span class="required">*</span>
+                        </label>
+                        <textarea id="delivery-address" name="delivery_address" class="form-card-textarea" 
+                                  placeholder="Введіть повну адресу доставки" required>{{ company_data.delivery_address|default:'' }}</textarea>
+                    </div>
                 </div>
                 
-                <div class="form-group">
-                    <label class="form-label" for="phone-number">
-                        Номер телефону для зв'язку
-                        <span class="required">*</span>
-                    </label>
-                    <input type="tel" id="phone-number" name="phone_number" class="form-input" 
-                           placeholder="+380 XX XXX XX XX" 
-                           value="{{ company_data.phone_number|default:'' }}" required>
+                <!-- Phone Number Card -->
+                <div class="company-form-card">
+                    <div class="form-card-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+                        </svg>
+                    </div>
+                    <div class="form-card-content">
+                        <label class="form-card-label" for="phone-number">
+                            Номер телефону для зв'язку
+                            <span class="required">*</span>
+                        </label>
+                        <input type="tel" id="phone-number" name="phone_number" class="form-card-input" 
+                               placeholder="+380 XX XXX XX XX" 
+                               value="{{ company_data.phone_number|default:'' }}" required>
+                    </div>
                 </div>
                 
-                <div class="form-group">
-                    <label class="form-label" for="store-link">
-                        Посилання на магазин (онлайн)
-                    </label>
-                    <input type="url" id="store-link" name="store_link" class="form-input" 
-                           placeholder="https://your-store.com (необов'язково)"
-                           value="{{ company_data.store_link|default:'' }}">
+                <!-- Store Link Card -->
+                <div class="company-form-card">
+                    <div class="form-card-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
+                        </svg>
+                    </div>
+                    <div class="form-card-content">
+                        <label class="form-card-label" for="store-link">
+                            Посилання на магазин (онлайн)
+                        </label>
+                        <input type="url" id="store-link" name="store_link" class="form-card-input" 
+                               placeholder="https://your-store.com (необов'язково)"
+                               value="{{ company_data.store_link|default:'' }}">
+                    </div>
                 </div>
             </div>
             
-            <button type="submit" class="save-button">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
-                </svg>
-                Зберегти інформацію
-            </button>
+            <div class="form-submit-container">
+                <button type="submit" class="form-submit-button">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
+                    </svg>
+                    Зберегти інформацію
+                </button>
+            </div>
         </form>
     </div>
 
@@ -1342,24 +1592,24 @@
         <h2 class="section-title">Статистика оптових закупок</h2>
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-value">{{ wholesale_stats.total_products }}</div>
-                <div class="stat-label">Всього товарів</div>
+                <div class="stat-value">{{ user_invoice_stats.total_invoices|default:0 }}</div>
+                <div class="stat-label">Накладних створено</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">{{ wholesale_stats.tshirt_count }}</div>
+                <div class="stat-value">{{ user_invoice_stats.last_invoice_date|default:"Немає" }}</div>
+                <div class="stat-label">Остання накладна</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ user_invoice_stats.total_products_available|default:0 }}</div>
+                <div class="stat-label">Доступно товарів</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ user_invoice_stats.tshirt_count|default:0 }}</div>
                 <div class="stat-label">Футболки</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">{{ wholesale_stats.hoodie_count }}</div>
+                <div class="stat-value">{{ user_invoice_stats.hoodie_count|default:0 }}</div>
                 <div class="stat-label">Худі</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ wholesale_stats.min_order_value }}₴</div>
-                <div class="stat-label">Мін. замовлення</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ wholesale_stats.max_savings_percent }}%</div>
-                <div class="stat-label">Макс. економія</div>
             </div>
         </div>
     </div>
@@ -1559,20 +1809,25 @@
                                 <div class="scale-segment" data-range="1-7" data-price="0" style="background: #ef4444;">
                                     <span class="segment-label">1-7</span>
                                 </div>
-                                <div class="scale-segment" data-range="8-15" data-price="{{ tshirt_prices.wholesale.0 }}" style="background: #10b981;">
+                                <div class="scale-segment" data-range="8-15" data-price="{{ tshirt_prices.wholesale.0 }}" style="background: #6b7280;">
                                     <span class="segment-label">8-15</span>
+                                    <div class="price-indicator" style="background: #fbbf24; height: 3px; position: absolute; top: 0; left: 0; right: 0;"></div>
                                 </div>
-                                <div class="scale-segment" data-range="16-31" data-price="{{ tshirt_prices.wholesale.1 }}" style="background: #10b981;">
+                                <div class="scale-segment" data-range="16-31" data-price="{{ tshirt_prices.wholesale.1 }}" style="background: #6b7280;">
                                     <span class="segment-label">16-31</span>
+                                    <div class="price-indicator" style="background: #fbbf24; height: 3px; position: absolute; top: 0; left: 0; right: 0;"></div>
                                 </div>
-                                <div class="scale-segment" data-range="32-63" data-price="{{ tshirt_prices.wholesale.2 }}" style="background: #10b981;">
+                                <div class="scale-segment" data-range="32-63" data-price="{{ tshirt_prices.wholesale.2 }}" style="background: #6b7280;">
                                     <span class="segment-label">32-63</span>
+                                    <div class="price-indicator" style="background: #fbbf24; height: 3px; position: absolute; top: 0; left: 0; right: 0;"></div>
                                 </div>
-                                <div class="scale-segment" data-range="64-99" data-price="{{ tshirt_prices.wholesale.3 }}" style="background: #10b981;">
+                                <div class="scale-segment" data-range="64-99" data-price="{{ tshirt_prices.wholesale.3 }}" style="background: #6b7280;">
                                     <span class="segment-label">64-99</span>
+                                    <div class="price-indicator" style="background: #fbbf24; height: 3px; position: absolute; top: 0; left: 0; right: 0;"></div>
                                 </div>
-                                <div class="scale-segment" data-range="100+" data-price="{{ tshirt_prices.wholesale.4 }}" style="background: #10b981;">
+                                <div class="scale-segment" data-range="100+" data-price="{{ tshirt_prices.wholesale.4 }}" style="background: #6b7280;">
                                     <span class="segment-label">100+</span>
+                                    <div class="price-indicator" style="background: #fbbf24; height: 3px; position: absolute; top: 0; left: 0; right: 0;"></div>
                                 </div>
                             </div>
                             <div class="scale-prices">
@@ -1591,20 +1846,25 @@
                                 <div class="scale-segment" data-range="1-7" data-price="0" style="background: #ef4444;">
                                     <span class="segment-label">1-7</span>
                                 </div>
-                                <div class="scale-segment" data-range="8-15" data-price="{{ hoodie_prices.wholesale.0 }}" style="background: #10b981;">
+                                <div class="scale-segment" data-range="8-15" data-price="{{ hoodie_prices.wholesale.0 }}" style="background: #6b7280;">
                                     <span class="segment-label">8-15</span>
+                                    <div class="price-indicator" style="background: #fbbf24; height: 3px; position: absolute; top: 0; left: 0; right: 0;"></div>
                                 </div>
-                                <div class="scale-segment" data-range="16-31" data-price="{{ hoodie_prices.wholesale.1 }}" style="background: #10b981;">
+                                <div class="scale-segment" data-range="16-31" data-price="{{ hoodie_prices.wholesale.1 }}" style="background: #6b7280;">
                                     <span class="segment-label">16-31</span>
+                                    <div class="price-indicator" style="background: #fbbf24; height: 3px; position: absolute; top: 0; left: 0; right: 0;"></div>
                                 </div>
-                                <div class="scale-segment" data-range="32-63" data-price="{{ hoodie_prices.wholesale.2 }}" style="background: #10b981;">
+                                <div class="scale-segment" data-range="32-63" data-price="{{ hoodie_prices.wholesale.2 }}" style="background: #6b7280;">
                                     <span class="segment-label">32-63</span>
+                                    <div class="price-indicator" style="background: #fbbf24; height: 3px; position: absolute; top: 0; left: 0; right: 0;"></div>
                                 </div>
-                                <div class="scale-segment" data-range="64-99" data-price="{{ hoodie_prices.wholesale.3 }}" style="background: #10b981;">
+                                <div class="scale-segment" data-range="64-99" data-price="{{ hoodie_prices.wholesale.3 }}" style="background: #6b7280;">
                                     <span class="segment-label">64-99</span>
+                                    <div class="price-indicator" style="background: #fbbf24; height: 3px; position: absolute; top: 0; left: 0; right: 0;"></div>
                                 </div>
-                                <div class="scale-segment" data-range="100+" data-price="{{ hoodie_prices.wholesale.4 }}" style="background: #10b981;">
+                                <div class="scale-segment" data-range="100+" data-price="{{ hoodie_prices.wholesale.4 }}" style="background: #6b7280;">
                                     <span class="segment-label">100+</span>
+                                    <div class="price-indicator" style="background: #fbbf24; height: 3px; position: absolute; top: 0; left: 0; right: 0;"></div>
                                 </div>
                             </div>
                             <div class="scale-prices">
@@ -2508,15 +2768,15 @@ function updateScale(scaleId, quantity) {
                 segment.appendChild(progressFill);
                 
             } else {
-                // Green tier for wholesale (8+)
-                segment.style.backgroundColor = '#059669';
+                // Gray tier for wholesale (8+) with green progress fill
+                segment.style.backgroundColor = '#6b7280';
                 
-                // Calculate progress within green tier
+                // Calculate progress within gray tier
                 const tierSize = max - min + 1;
                 const currentProgress = quantity - min + 1;
                 const progressPercent = (currentProgress / tierSize) * 100;
                 
-                // Create progress fill with darker green
+                // Create progress fill with green color
                 const progressFill = document.createElement('div');
                 progressFill.className = 'progress-fill';
                 progressFill.style.cssText = `
@@ -2525,7 +2785,7 @@ function updateScale(scaleId, quantity) {
                     left: 0;
                     height: 100%;
                     width: ${progressPercent}%;
-                    background: #047857;
+                    background: #10b981;
                     border-radius: 3px;
                     transition: width 0.3s ease;
                     z-index: 1;

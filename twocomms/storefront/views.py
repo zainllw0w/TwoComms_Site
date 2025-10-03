@@ -6453,9 +6453,11 @@ def wholesale_order_form(request):
     
     # Получаем сохраненные данные компании для авторизованных пользователей
     company_data = {}
+    user_invoice_stats = {}
     if request.user.is_authenticated:
         try:
             from accounts.models import UserProfile
+            from orders.models import WholesaleInvoice
             user_profile = UserProfile.objects.get(user=request.user)
             company_data = {
                 'company_name': getattr(user_profile, 'company_name', '') or '',
@@ -6463,6 +6465,17 @@ def wholesale_order_form(request):
                 'delivery_address': getattr(user_profile, 'delivery_address', '') or '',
                 'phone_number': user_profile.phone or '',
                 'store_link': getattr(user_profile, 'website', '') or ''
+            }
+            
+            # Статистика накладных пользователя
+            user_invoices = WholesaleInvoice.objects.filter(user=request.user).order_by('-created_at')
+            last_invoice = user_invoices.first()
+            user_invoice_stats = {
+                'total_invoices': user_invoices.count(),
+                'last_invoice_date': last_invoice.created_at.strftime('%d.%m.%Y %H:%M') if last_invoice else 'Немає накладних',
+                'total_products_available': tshirt_products.count() + hoodie_products.count(),
+                'tshirt_count': tshirt_products.count(),
+                'hoodie_count': hoodie_products.count()
             }
         except UserProfile.DoesNotExist:
             pass
@@ -6474,6 +6487,7 @@ def wholesale_order_form(request):
         'hoodie_prices': hoodie_prices,
         'wholesale_stats': wholesale_stats,
         'company_data': company_data,
+        'user_invoice_stats': user_invoice_stats,
     }
     
     return render(request, 'pages/wholesale_order_form.html', context)
@@ -6700,10 +6714,21 @@ def generate_wholesale_invoice(request):
         ws[f'A{row}'] = f'Загальна сума: {total_amount}₴'
         ws[f'A{row}'].font = title_font
         
-        # Настраиваем ширину колонок для лучшего отображения текста
-        column_widths = [8, 40, 12, 15, 12, 15, 15]
-        for col, width in enumerate(column_widths, 1):
-            ws.column_dimensions[get_column_letter(col)].width = width
+        # Автоматически настраиваем ширину колонок по содержимому
+        for column in ws.columns:
+            max_length = 0
+            column_letter = get_column_letter(column[0].column)
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            # Устанавливаем минимальную ширину и добавляем небольшой отступ
+            adjusted_width = max(max_length + 2, 12)
+            # Ограничиваем максимальную ширину для читаемости
+            adjusted_width = min(adjusted_width, 50)
+            ws.column_dimensions[column_letter].width = adjusted_width
         
         # Сохраняем данные компании в профиль пользователя (если авторизован)
         if request.user.is_authenticated:
