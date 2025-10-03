@@ -5119,13 +5119,14 @@ def _reset_monobank_session(request, drop_pending=False):
         if pending_id:
             try:
                 from orders.models import Order
-                Order.objects.filter(
+                qs = Order.objects.filter(
                     id=pending_id,
-                    payment_provider__in=('monobank', 'monobank_checkout', 'monobank_pay'),
-                    payment_status__in=('unpaid', 'checking')
-                ).delete()
+                    payment_provider__in=('monobank', 'monobank_checkout', 'monobank_pay')
+                )
+                if qs.exists():
+                    qs.update(status='cancelled', payment_status='unpaid')
             except Exception:
-                monobank_logger.debug('Failed to drop pending Monobank order %s', pending_id, exc_info=True)
+                monobank_logger.debug('Failed to cancel pending Monobank order %s', pending_id, exc_info=True)
 
     for key in (
         'monobank_pending_order_id',
@@ -6353,4 +6354,4 @@ def wholesale_page(request):
         },
     }
     
-    return render(request, 'pages/wholesale_simple.html', context)
+    return render(request, 'pages/pricelist.html', context)
