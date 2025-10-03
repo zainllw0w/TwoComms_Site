@@ -1735,9 +1735,13 @@ function initializeCompanyForm() {
     
     // Handle invoice generation
     generateInvoiceBtn.addEventListener('click', async function() {
+        console.log('🚀 INVOICE GENERATION STARTED');
+        
         const companyData = localStorage.getItem('wholesaleCompanyData');
+        console.log('📦 RAW LOCALSTORAGE DATA:', companyData);
         
         if (!companyData) {
+            console.log('❌ NO COMPANY DATA IN LOCALSTORAGE');
             showNotification('Спочатку заповніть інформацію про компанію', 'error');
             return;
         }
@@ -1759,11 +1763,16 @@ function initializeCompanyForm() {
         try {
             // Prepare data for invoice generation
             const parsedCompanyData = JSON.parse(companyData);
+            console.log('🔍 PARSED COMPANY DATA:', parsedCompanyData);
+            console.log('🏢 COMPANY NAME FROM PARSED DATA:', parsedCompanyData.companyName);
             
             const invoiceData = {
                 companyData: parsedCompanyData,
                 orderItems: orderItems
             };
+            
+            console.log('📤 SENDING TO SERVER:', invoiceData);
+            console.log('📤 COMPANY NAME BEING SENT:', invoiceData.companyData.companyName);
             
             // Send request to generate invoice
             const response = await fetch('/wholesale/generate-invoice/', {
@@ -1836,6 +1845,13 @@ function initializeCompanyForm() {
         
         // Check if any form field has data (from Django context)
         if (companyNameEl && companyNameEl.value.trim()) {
+            console.log('🔍 FOUND PRE-FILLED FORM DATA:');
+            console.log('  companyNameEl.value:', companyNameEl.value);
+            console.log('  companyNumberEl.value:', companyNumberEl ? companyNumberEl.value : 'null');
+            console.log('  deliveryAddressEl.value:', deliveryAddressEl ? deliveryAddressEl.value : 'null');
+            console.log('  phoneNumberEl.value:', phoneNumberEl ? phoneNumberEl.value : 'null');
+            console.log('  storeLinkEl.value:', storeLinkEl ? storeLinkEl.value : 'null');
+            
             // Convert form data to API format and save to localStorage
             const companyData = {
                 companyName: companyNameEl.value.trim(),
@@ -1844,10 +1860,20 @@ function initializeCompanyForm() {
                 contactPhone: phoneNumberEl ? phoneNumberEl.value.trim() : '',
                 storeLink: storeLinkEl ? storeLinkEl.value.trim() : ''
             };
+            
+            console.log('💾 SAVING TO LOCALSTORAGE:', companyData);
             localStorage.setItem('wholesaleCompanyData', JSON.stringify(companyData));
+            
+            // Verify what was saved
+            const saved = localStorage.getItem('wholesaleCompanyData');
+            console.log('✅ VERIFIED SAVED DATA:', saved);
             
             // Enable invoice generation
             generateInvoiceBtn.disabled = false;
+        } else {
+            console.log('❌ NO PRE-FILLED FORM DATA FOUND');
+            console.log('  companyNameEl:', companyNameEl);
+            console.log('  companyNameEl.value:', companyNameEl ? companyNameEl.value : 'null');
         }
     }
 }
