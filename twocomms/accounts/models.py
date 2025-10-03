@@ -20,6 +20,11 @@ class UserProfile(models.Model):
     instagram = models.CharField(max_length=100, blank=True, verbose_name='Instagram')
     is_ubd = models.BooleanField(default=False, verbose_name='УБД')
     ubd_doc = models.ImageField(upload_to='ubd_docs/', blank=True, null=True, verbose_name='Фото посвідчення УБД')
+    
+    # Поля для оптовых заказов
+    company_name = models.CharField(max_length=200, blank=True, verbose_name='Назва компанії/ФОП/ПІБ')
+    delivery_address = models.TextField(blank=True, verbose_name='Адреса доставки')
+    website = models.URLField(blank=True, null=True, verbose_name='Посилання на магазин')
 
     def __str__(self):
         return f'Profile for {self.user.username}'

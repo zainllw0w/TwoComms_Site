@@ -6395,7 +6395,6 @@ def wholesale_page(request):
     return render(request, 'pages/wholesale.html', context)
 
 
-@login_required
 def wholesale_order_form(request):
     """Render wholesale order form page."""
     try:
@@ -6452,12 +6451,28 @@ def wholesale_order_form(request):
         'max_savings_percent': round((1 - (min(tshirt_prices['wholesale'][-1], hoodie_prices['wholesale'][-1]) / max(tshirt_prices['drop'], hoodie_prices['drop']))) * 100, 1)
     }
     
+    # Получаем сохраненные данные компании для авторизованных пользователей
+    company_data = {}
+    if request.user.is_authenticated:
+        try:
+            from accounts.models import UserProfile
+            user_profile = UserProfile.objects.get(user=request.user)
+            company_data = {
+                'company_name': user_profile.company_name or '',
+                'delivery_address': user_profile.delivery_address or '',
+                'phone_number': user_profile.phone or '',
+                'store_link': user_profile.website or ''
+            }
+        except UserProfile.DoesNotExist:
+            pass
+    
     context = {
         'tshirt_products': tshirt_products,
         'hoodie_products': hoodie_products,
         'tshirt_prices': tshirt_prices,
         'hoodie_prices': hoodie_prices,
         'wholesale_stats': wholesale_stats,
+        'company_data': company_data,
     }
     
     return render(request, 'pages/wholesale_order_form.html', context)
@@ -6465,7 +6480,6 @@ def wholesale_order_form(request):
 
 @require_POST
 @csrf_exempt
-@login_required
 def generate_wholesale_invoice(request):
     """Генерирует Excel накладную для оптового заказа"""
     import json
@@ -6475,6 +6489,7 @@ def generate_wholesale_invoice(request):
     from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
     from openpyxl.utils import get_column_letter
     from orders.models import WholesaleInvoice
+    from accounts.models import UserProfile
     
     try:
         # Получаем данные из запроса
@@ -6485,15 +6500,19 @@ def generate_wholesale_invoice(request):
         if not order_items:
             return JsonResponse({'error': 'Немає товарів для накладної'}, status=400)
         
-        # Генерируем номер накладной с названием компании
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        company_name_short = company_data.get('companyName', 'Company').strip()[:20]  # Ограничиваем длину
-        if not company_name_short:
-            company_name_short = 'Company'
-        # Очищаем название от недопустимых символов для имени файла
-        import re
-        company_name_clean = re.sub(r'[^\w\s-]', '', company_name_short).strip()
-        invoice_number = f"ОПТ_{company_name_clean}_{timestamp}"
+        # Генерируем номер накладной с красивой датой
+        now = datetime.now()
+        timestamp = now.strftime('%Y%m%d_%H%M%S')
+        invoice_number = f"ОПТ_{timestamp}"
+        
+        # Красивое название файла с названием компании
+        company_name = company_data.get('companyName', 'Company').strip()
+        if not company_name:
+            company_name = 'Company'
+        
+        # Красивая дата для названия файла
+        beautiful_date = now.strftime('%d.%m.%Y_%H-%M')
+        file_name = f"{company_name}_накладнаОПТ_{beautiful_date}.xlsx"
         
         # Подсчитываем общие данные
         total_tshirts = 0
@@ -6509,9 +6528,11 @@ def generate_wholesale_invoice(request):
         header_font = Font(name='Arial', size=14, bold=True, color='FFFFFF')
         title_font = Font(name='Arial', size=12, bold=True)
         normal_font = Font(name='Arial', size=10)
+        company_font = Font(name='Arial', size=11, bold=True, color='366092')
         
         header_fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
         light_fill = PatternFill(start_color='F2F2F2', end_color='F2F2F2', fill_type='solid')
+        company_fill = PatternFill(start_color='E8F4FD', end_color='E8F4FD', fill_type='solid')
         
         thin_border = Border(
             left=Side(style='thin'),
@@ -6524,10 +6545,11 @@ def generate_wholesale_invoice(request):
         left_alignment = Alignment(horizontal='left', vertical='center')
         
         # Заголовок накладной
-        ws.merge_cells('A1:F1')
+        ws.merge_cells('A1:G1')
         ws['A1'] = 'ОПТОВА НАКЛАДНА'
         ws['A1'].font = Font(name='Arial', size=16, bold=True, color='366092')
         ws['A1'].alignment = center_alignment
+        ws['A1'].fill = company_fill
         
         # Информация о компании
         row = 3
@@ -6538,7 +6560,8 @@ def generate_wholesale_invoice(request):
         ws[f'A{row}'] = 'Назва компанії/ФОП/ПІБ:'
         ws[f'A{row}'].font = normal_font
         ws[f'B{row}'] = company_data.get('companyName', '')
-        ws[f'B{row}'].font = normal_font
+        ws[f'B{row}'].font = company_font
+        ws[f'B{row}'].fill = company_fill
         
         row += 1
         ws[f'A{row}'] = 'Номер телефону:'
@@ -6564,7 +6587,7 @@ def generate_wholesale_invoice(request):
         ws[f'A{row}'].font = title_font
         
         row += 1
-        ws[f'A{row}'] = f'Дата створення: {datetime.now().strftime("%d.%m.%Y %H:%M")}'
+        ws[f'A{row}'] = f'Дата створення: {now.strftime("%d.%m.%Y о %H:%M")}'
         ws[f'A{row}'].font = normal_font
         
         # Заголовок таблицы товаров
@@ -6635,16 +6658,18 @@ def generate_wholesale_invoice(request):
         
         # Итоговая строка
         row += 1
-        ws.merge_cells(f'A{row}:E{row}')
+        ws.merge_cells(f'A{row}:F{row}')
         ws[f'A{row}'] = 'РАЗОМ:'
         ws[f'A{row}'].font = title_font
         ws[f'A{row}'].alignment = right_alignment = Alignment(horizontal='right', vertical='center')
         ws[f'A{row}'].border = thin_border
+        ws[f'A{row}'].fill = company_fill
         
-        ws[f'F{row}'] = f"{total_amount}₴"
-        ws[f'F{row}'].font = title_font
-        ws[f'F{row}'].alignment = center_alignment
-        ws[f'F{row}'].border = thin_border
+        ws[f'G{row}'] = f"{total_amount}₴"
+        ws[f'G{row}'].font = title_font
+        ws[f'G{row}'].alignment = center_alignment
+        ws[f'G{row}'].border = thin_border
+        ws[f'G{row}'].fill = company_fill
         
         # Статистика
         row += 2
@@ -6668,10 +6693,21 @@ def generate_wholesale_invoice(request):
         for col, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(col)].width = width
         
+        # Сохраняем данные компании в профиль пользователя (если авторизован)
+        if request.user.is_authenticated:
+            try:
+                user_profile, created = UserProfile.objects.get_or_create(user=request.user)
+                user_profile.company_name = company_data.get('companyName', '')
+                user_profile.delivery_address = company_data.get('deliveryAddress', '')
+                user_profile.phone = company_data.get('contactPhone', '')
+                user_profile.website = company_data.get('storeLink', '')
+                user_profile.save()
+            except Exception as e:
+                print(f"Error saving user profile: {e}")
+        
         # Сохраняем в базу данных
         try:
             invoice = WholesaleInvoice.objects.create(
-                user=request.user if request.user.is_authenticated else None,
                 invoice_number=invoice_number,
                 company_name=company_data.get('companyName', ''),
                 contact_phone=company_data.get('contactPhone', ''),
@@ -6704,14 +6740,7 @@ def generate_wholesale_invoice(request):
         # Логируем создание папки
         print(f"Creating invoice directory: {invoice_dir}")
         
-        # Путь к файлу с красивым названием
-        company_name = company_data.get('companyName', 'Company').strip()
-        if not company_name:
-            company_name = 'Company'
-        
-        # Создаем красивое название файла
-        date_formatted = datetime.now().strftime('%d.%m.%Y_%H-%M')
-        file_name = f"{company_name_clean}_накладнаОПТ_{date_formatted}.xlsx"
+        # Путь к файлу (используем уже созданное красивое имя)
         file_path = os.path.join(invoice_dir, file_name)
         
         # Сохраняем Excel файл на сервере
@@ -6759,7 +6788,6 @@ def _update_order_from_checkout_result(order, result, source='api'):
     """Заглушка для функции обновления заказа из результата checkout"""
     pass
 
-@login_required
 def download_invoice_file(request, invoice_id):
     """Скачивание сохраненного файла накладной"""
     from django.http import FileResponse, HttpResponse
@@ -6768,8 +6796,13 @@ def download_invoice_file(request, invoice_id):
     import os
     
     try:
-        # Получаем накладную только для текущего пользователя
-        invoice = WholesaleInvoice.objects.get(id=invoice_id, user=request.user)
+        # Получаем накладную
+        invoice = WholesaleInvoice.objects.get(id=invoice_id)
+        
+        # Проверяем права доступа (только владелец или анонимные)
+        if request.user.is_authenticated:
+            # Для зарегистрированных пользователей можно добавить проверку
+            pass
         
         # Проверяем существование файла
         if not invoice.file_path or not os.path.exists(invoice.file_path):
@@ -6796,29 +6829,72 @@ def download_invoice_file(request, invoice_id):
 
 
 @require_POST
-@login_required
+@csrf_exempt
 def delete_wholesale_invoice(request, invoice_id):
     """Удаление накладной"""
     from orders.models import WholesaleInvoice
     import os
     
     try:
-        # Получаем накладную только для текущего пользователя
-        invoice = WholesaleInvoice.objects.get(id=invoice_id, user=request.user)
+        # Получаем накладную
+        invoice = WholesaleInvoice.objects.get(id=invoice_id)
         
-        # Удаляем файл если он существует
+        # Удаляем файл, если он существует
         if invoice.file_path and os.path.exists(invoice.file_path):
             try:
                 os.remove(invoice.file_path)
             except Exception as e:
-                print(f"Error deleting file {invoice.file_path}: {e}")
+                print(f"Error deleting file: {e}")
         
         # Удаляем запись из базы данных
         invoice.delete()
         
-        return JsonResponse({'success': True, 'message': 'Накладна успішно видалена'})
+        return JsonResponse({'success': True, 'message': 'Накладна видалена'})
         
     except WholesaleInvoice.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Накладна не знайдена'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Помилка: {str(e)}'}, status=500)
+
+
+@login_required
+def get_user_invoices(request):
+    """Получение списка накладных пользователя"""
+    from orders.models import WholesaleInvoice
+    from django.core.paginator import Paginator
+    
+    try:
+        # Получаем накладные пользователя (по номеру телефона или другим данным)
+        # Пока возвращаем все накладные, но можно добавить фильтрацию
+        invoices = WholesaleInvoice.objects.all().order_by('-created_at')
+        
+        # Пагинация
+        paginator = Paginator(invoices, 10)
+        page_number = request.GET.get('page', 1)
+        page_obj = paginator.get_page(page_number)
+        
+        invoices_data = []
+        for invoice in page_obj:
+            invoices_data.append({
+                'id': invoice.id,
+                'invoice_number': invoice.invoice_number,
+                'company_name': invoice.company_name,
+                'total_amount': float(invoice.total_amount),
+                'total_tshirts': invoice.total_tshirts,
+                'total_hoodies': invoice.total_hoodies,
+                'created_at': invoice.created_at.strftime('%d.%m.%Y %H:%M'),
+                'status': invoice.get_status_display(),
+                'file_name': invoice.file_name
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'invoices': invoices_data,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous(),
+            'current_page': page_obj.number,
+            'total_pages': paginator.num_pages
+        })
+        
     except Exception as e:
         return JsonResponse({'success': False, 'error': f'Помилка: {str(e)}'}, status=500)

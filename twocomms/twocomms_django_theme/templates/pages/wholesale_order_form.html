@@ -1286,7 +1286,8 @@
                         <span class="required">*</span>
                     </label>
                     <input type="text" id="company-name" name="company_name" class="form-input" 
-                           placeholder="Введіть назву компанії або ФОП" required>
+                           placeholder="Введіть назву компанії або ФОП" 
+                           value="{{ company_data.company_name|default:'' }}" required>
                 </div>
                 
                 <div class="form-group">
@@ -1295,7 +1296,7 @@
                         <span class="required">*</span>
                     </label>
                     <textarea id="delivery-address" name="delivery_address" class="form-input form-textarea" 
-                              placeholder="Введіть повну адресу доставки" required></textarea>
+                              placeholder="Введіть повну адресу доставки" required>{{ company_data.delivery_address|default:'' }}</textarea>
                 </div>
                 
                 <div class="form-group">
@@ -1304,7 +1305,8 @@
                         <span class="required">*</span>
                     </label>
                     <input type="tel" id="phone-number" name="phone_number" class="form-input" 
-                           placeholder="+380 XX XXX XX XX" required>
+                           placeholder="+380 XX XXX XX XX" 
+                           value="{{ company_data.phone_number|default:'' }}" required>
                 </div>
                 
                 <div class="form-group">
@@ -1312,7 +1314,8 @@
                         Посилання на магазин (онлайн)
                     </label>
                     <input type="url" id="store-link" name="store_link" class="form-input" 
-                           placeholder="https://your-store.com (необов'язково)">
+                           placeholder="https://your-store.com (необов'язково)"
+                           value="{{ company_data.store_link|default:'' }}">
                 </div>
             </div>
             
@@ -1400,13 +1403,13 @@
                                 </div>
                                 <div class="product-colors">
                                     {% for color_variant in product.color_variants.all|slice:":3" %}
-                                        <span class="color-item">
-                                            <span class="color-dot" data-color="{{ color_variant.color.primary_hex }}"></span>
+                                        <span class="color-item" data-color-name="{{ color_variant.color.name|default:'Чорний' }}" data-color-hex="{{ color_variant.color.primary_hex }}" data-color-image="{% if color_variant.images.first %}{{ color_variant.images.first.image.url }}{% else %}{{ product.main_image.url|default:'' }}{% endif %}">
+                                            <span class="color-dot" data-color="{{ color_variant.color.primary_hex|default:'#000000' }}"></span>
                                             <span class="color-name">{{ color_variant.color.name|default:"Чорний" }}</span>
                                         </span>
                                     {% empty %}
-                                        <span class="color-item">
-                                            <span class="color-dot" data-color="#000000"></span>
+                                        <span class="color-item" data-color-name="Чорний" data-color-hex="#000000" data-color-image="{{ product.main_image.url|default:'' }}">
+                                            <span class="color-dot" data-color="#000000" style="background-color: #000000;"></span>
                                             <span class="color-name">Чорний</span>
                                         </span>
                                     {% endfor %}
@@ -1445,7 +1448,7 @@
                                     <span class="product-name">{{ product.title }} [фліс]</span>
                                 </div>
                                 <div class="product-colors">
-                                    <span class="color-item">
+                                    <span class="color-item" data-color-name="Чорний" data-color-hex="#000000" data-color-image="{{ product.main_image.url|default:'' }}">
                                         <span class="color-dot" data-color="#000000"></span>
                                         <span class="color-name">Чорний</span>
                                     </span>
@@ -1632,16 +1635,31 @@ let orderItems = [];
 let tshirtPrices = JSON.parse('{{ tshirt_prices|escapejs }}');
 let hoodiePrices = JSON.parse('{{ hoodie_prices|escapejs }}');
 
+// Initialize color dots with proper colors
+function initializeColorDots() {
+    const colorDots = document.querySelectorAll('.color-dot');
+    colorDots.forEach(dot => {
+        const color = dot.getAttribute('data-color') || '#000000';
+        dot.style.backgroundColor = color;
+        dot.style.display = 'inline-block';
+        dot.style.width = '10px';
+        dot.style.height = '10px';
+        dot.style.borderRadius = '50%';
+        dot.style.border = '1px solid rgba(255, 255, 255, 0.3)';
+        dot.style.boxShadow = '0 0 0 1px rgba(0, 0, 0, 0.2)';
+    });
+}
 
 // Initialize the page
 document.addEventListener('DOMContentLoaded', function() {
     initializeCompanyForm();
     initializeDragAndDrop();
+    initializeColorDots();
     initializeCategoryFilter();
     initializeProductClick();
     initializeOrderForm();
-    initializeColorDots();
     loadOrderData(); // Load saved data
+    loadInvoicesFromLocalStorage(); // Load saved invoices
     updateOrderStatistics(); // Initialize statistics on page load
 });
 
@@ -1861,12 +1879,35 @@ function selectProduct(productId) {
     const productCard = document.querySelector(`[data-product-id="${productId}"]`);
     if (!productCard) return;
     
+    // Получаем главное изображение товара
+    const productImage = productCard.querySelector('.product-image');
+    const mainImage = productImage ? productImage.src : '';
+    
+    // Получаем все доступные цвета с их изображениями
+    const colorVariants = [];
+    const colorItems = productCard.querySelectorAll('.color-item');
+    colorItems.forEach(colorItem => {
+        const colorName = colorItem.querySelector('.color-name').textContent;
+        const colorHex = colorItem.dataset.colorHex || '#000000';
+        
+        // Берем изображение цвета из data-color-image, если есть, иначе основное изображение
+        const colorImageUrl = colorItem.dataset.colorImage || mainImage;
+        
+        colorVariants.push({
+            name: colorName,
+            hex: colorHex,
+            image: colorImageUrl
+        });
+    });
+    
     currentProduct = {
         id: productId,
         type: productCard.dataset.productType,
         title: productCard.querySelector('.product-name').textContent,
-        image: productCard.querySelector('.product-image').src || '',
-        category: productCard.querySelector('.product-category').textContent
+        main_image: mainImage,
+        image: mainImage, // Для обратной совместимости
+        category: productCard.querySelector('.product-category').textContent,
+        color_variants: colorVariants
     };
     
     showOrderForm();
@@ -1958,7 +1999,6 @@ function showOrderForm() {
             
             // Update currentProduct for later use
             if (currentProduct) {
-                // Use color-specific image if available, otherwise use main image
                 currentProduct.image = colorImage || currentProduct.main_image;
             }
         });
@@ -2027,7 +2067,7 @@ function addToOrder() {
     const colorSelect = document.getElementById('productColor');
     const selectedOption = colorSelect.options[colorSelect.selectedIndex];
     const colorName = selectedOption ? selectedOption.textContent : 'Чорний';
-    const colorImage = document.getElementById('selectedColorImage').value || currentProduct.main_image;
+    const colorImage = selectedOption ? selectedOption.dataset.colorImage : currentProduct.main_image;
     
     // Check if we already have this exact item (same product, size, color)
     const existingItemIndex = orderItems.findIndex(item => 
@@ -2058,7 +2098,7 @@ function addToOrder() {
             id: Date.now(),
             product: {
                 ...currentProduct,
-                image: colorImage || currentProduct.main_image // Use color-specific image or fallback to main
+                image: colorImage // Use color-specific image
             },
             size: size === 'all' ? 'Всі ростовки (S-XL)' : size,
             color: colorName,
@@ -2107,7 +2147,7 @@ function addOrderItemToUI(orderItem) {
                 <div class="order-item-specs-row">
                     <div class="order-item-color-section">
                         <span class="order-item-color-text">${orderItem.color}</span>
-                        <span class="order-item-color-dot" data-color="#000000" style="background-color: #000000; width: 8px; height: 8px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.2); display: inline-block; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);"></span>
+                        <span class="order-item-color-dot" data-color="#000000" style="background-color: #000000; width: 8px; height: 8px; border-radius: 50%; display: inline-block; border: 1px solid rgba(255, 255, 255, 0.2);"></span>
                     </div>
                     
                     <div class="order-item-size">${orderItem.size}</div>
@@ -2522,6 +2562,12 @@ function initializeColorDots() {
         const color = dot.getAttribute('data-color');
         if (color) {
             dot.style.backgroundColor = color;
+            dot.style.display = 'inline-block';
+            dot.style.width = '10px';
+            dot.style.height = '10px';
+            dot.style.borderRadius = '50%';
+            dot.style.border = '1px solid rgba(255, 255, 255, 0.3)';
+            dot.style.boxShadow = '0 0 0 1px rgba(0, 0, 0, 0.2)';
         }
     });
 }
@@ -2593,7 +2639,7 @@ function downloadInvoice(invoiceId) {
 // Global function for deleting invoices
 function deleteInvoice(invoiceId) {
     if (confirm('Ви впевнені, що хочете видалити цю накладну?')) {
-        // Отправляем запрос на сервер для удаления
+        // Отправляем запрос на удаление
         fetch(`/wholesale/delete-invoice/${invoiceId}/`, {
             method: 'POST',
             headers: {
@@ -2611,7 +2657,7 @@ function deleteInvoice(invoiceId) {
                 
                 // Удаляем из localStorage
                 let invoices = JSON.parse(localStorage.getItem('wholesaleInvoices') || '[]');
-                invoices = invoices.filter(inv => inv.id != invoiceId);
+                invoices = invoices.filter(inv => inv.id !== invoiceId);
                 localStorage.setItem('wholesaleInvoices', JSON.stringify(invoices));
                 
                 showNotification('Накладна видалена', 'success');
