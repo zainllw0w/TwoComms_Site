@@ -1824,7 +1824,7 @@ function initializeCompanyForm() {
     // Check if company data exists on page load
     const existingCompanyData = localStorage.getItem('wholesaleCompanyData');
     if (existingCompanyData) {
-        const data = JSON.parse(existingCompanyData);
+        let data = JSON.parse(existingCompanyData);
         console.log('🔍 EXISTING LOCALSTORAGE DATA:', data);
         
         // Check if data is in old format (snake_case) and convert to new format (camelCase)
