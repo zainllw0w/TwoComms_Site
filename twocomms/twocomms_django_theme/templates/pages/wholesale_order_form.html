@@ -1864,9 +1864,28 @@ function selectProduct(productId) {
     const productCard = document.querySelector(`[data-product-id="${productId}"]`);
     if (!productCard) return;
     
-    // Всегда используем главное изображение товара, а не изображение конкретного цвета
+    // Получаем главное изображение товара
     const productImage = productCard.querySelector('.product-image');
     const mainImage = productImage ? productImage.src : '';
+    
+    // Получаем все доступные цвета с их изображениями
+    const colorVariants = [];
+    const colorItems = productCard.querySelectorAll('.color-item');
+    colorItems.forEach(colorItem => {
+        const colorName = colorItem.querySelector('.color-name').textContent;
+        const colorDot = colorItem.querySelector('.color-dot');
+        const colorHex = colorDot ? colorDot.getAttribute('data-color') : '#000000';
+        
+        // Ищем изображение для этого цвета
+        const colorImage = colorItem.querySelector('img');
+        const imageUrl = colorImage ? colorImage.src : mainImage;
+        
+        colorVariants.push({
+            name: colorName,
+            hex: colorHex,
+            image: imageUrl
+        });
+    });
     
     currentProduct = {
         id: productId,
@@ -1874,7 +1893,8 @@ function selectProduct(productId) {
         title: productCard.querySelector('.product-name').textContent,
         main_image: mainImage,
         image: mainImage, // Для обратной совместимости
-        category: productCard.querySelector('.product-category').textContent
+        category: productCard.querySelector('.product-category').textContent,
+        color_variants: colorVariants
     };
     
     showOrderForm();
@@ -1926,29 +1946,20 @@ function showOrderForm() {
         const colorSelect = document.getElementById('productColor');
         colorSelect.innerHTML = '';
         
-        if (currentProduct.type === 'tshirt') {
+        if (currentProduct.type === 'tshirt' && currentProduct.color_variants && currentProduct.color_variants.length > 0) {
             // Add available colors for t-shirts
-            const productCard = document.querySelector(`[data-product-id="${currentProduct.id}"]`);
-            if (productCard) {
-                const colorItems = productCard.querySelectorAll('.color-item');
-                colorItems.forEach((colorItem, index) => {
-                    const colorName = colorItem.querySelector('.color-name').textContent;
-                    const colorDot = colorItem.querySelector('.color-dot');
-                    const colorHex = colorDot ? colorDot.getAttribute('data-color') : '#000000';
-                    
-                    const option = document.createElement('option');
-                    option.value = colorName; // Use color name instead of hex
-                    option.dataset.colorHex = colorHex; // Store hex in data attribute
-                    option.textContent = colorName;
-                    if (index === 0) option.selected = true;
-                    colorSelect.appendChild(option);
-                });
-            } else {
-                colorSelect.innerHTML = '<option value="Чорний">Чорний</option>';
-            }
+            currentProduct.color_variants.forEach((colorVariant, index) => {
+                const option = document.createElement('option');
+                option.value = colorVariant.name;
+                option.dataset.colorHex = colorVariant.hex;
+                option.dataset.colorImage = colorVariant.image;
+                option.textContent = colorVariant.name;
+                if (index === 0) option.selected = true;
+                colorSelect.appendChild(option);
+            });
         } else {
-            // For hoodies, only black
-            colorSelect.innerHTML = '<option value="Чорний">Чорний</option>';
+            // Default to black if no colors available
+            colorSelect.innerHTML = '<option value="Чорний" data-color-hex="#000000" data-color-image="">Чорний</option>';
         }
         
         // Set default values
@@ -2017,26 +2028,53 @@ function addToOrder() {
     // Calculate price based on total quantity for this product type
     const price = getWholesalePrice(currentProduct.type, newTotalQuantity);
     
-    // Get color name from select option
+    // Get color name and image from select option
     const colorSelect = document.getElementById('productColor');
     const selectedOption = colorSelect.options[colorSelect.selectedIndex];
     const colorName = selectedOption ? selectedOption.textContent : 'Чорний';
+    const colorImage = selectedOption ? selectedOption.dataset.colorImage : currentProduct.main_image;
     
-    // Create order item
-    const orderItem = {
-        id: Date.now(),
-        product: currentProduct,
-        size: size === 'all' ? 'Всі ростовки (S-XL)' : size,
-        color: colorName,
-        quantity: quantity,
-        price: price,
-        total: price * quantity
-    };
+    // Check if we already have this exact item (same product, size, color)
+    const existingItemIndex = orderItems.findIndex(item => 
+        item.product.id === currentProduct.id && 
+        item.size === (size === 'all' ? 'Всі ростовки (S-XL)' : size) &&
+        item.color === colorName
+    );
     
-    orderItems.push(orderItem);
-    
-    // Add to UI
-    addOrderItemToUI(orderItem);
+    if (existingItemIndex !== -1) {
+        // Update existing item quantity
+        const existingItem = orderItems[existingItemIndex];
+        existingItem.quantity += quantity;
+        existingItem.total = existingItem.price * existingItem.quantity;
+        
+        // Update UI
+        const itemElement = document.querySelector(`[data-item-id="${existingItem.id}"]`);
+        if (itemElement) {
+            const quantityElement = itemElement.querySelector('.order-item-quantity');
+            const totalElement = itemElement.querySelector('.order-item-selling');
+            if (quantityElement) quantityElement.textContent = `${existingItem.quantity} шт.`;
+            if (totalElement) totalElement.textContent = `${existingItem.total}₴`;
+        }
+        
+        showNotification('Кількість товару оновлено', 'success');
+    } else {
+        // Create new order item
+        const orderItem = {
+            id: Date.now(),
+            product: {
+                ...currentProduct,
+                image: colorImage // Use color-specific image
+            },
+            size: size === 'all' ? 'Всі ростовки (S-XL)' : size,
+            color: colorName,
+            quantity: quantity,
+            price: price,
+            total: price * quantity
+        };
+        
+        orderItems.push(orderItem);
+        addOrderItemToUI(orderItem);
+    }
     
     // Update statistics
     updateOrderStatistics();
@@ -2544,19 +2582,9 @@ function addInvoiceToList(invoice) {
 
 // Global function for downloading invoices
 function downloadInvoice(invoiceId) {
-    // Find the invoice item to get the file name
-    const invoiceItem = document.querySelector(`[data-invoice-id="${invoiceId}"]`);
-    if (!invoiceItem) {
-        showNotification('Накладна не знайдена', 'error');
-        return;
-    }
-    
-    const invoiceName = invoiceItem.querySelector('.invoice-name').textContent;
-    
-    // Create a link to download the file
+    // Create a link to download the saved file
     const link = document.createElement('a');
-    link.href = `/wholesale/generate-invoice/`;
-    link.download = invoiceName;
+    link.href = `/wholesale/download-invoice/${invoiceId}/`;
     link.style.display = 'none';
     
     // Add to DOM, click, and remove

@@ -183,6 +183,9 @@ class WholesaleInvoice(models.Model):
     # JSON поле для хранения деталей заказа
     order_details = models.JSONField(verbose_name="Деталі замовлення")
     
+    # Путь к файлу накладной
+    file_path = models.CharField(max_length=500, blank=True, null=True, verbose_name="Шлях до файлу")
+    
     class Meta:
         verbose_name = "Оптова накладна"
         verbose_name_plural = "Оптові накладні"

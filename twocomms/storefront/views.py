@@ -6683,15 +6683,36 @@ def generate_wholesale_invoice(request):
             invoice_id = int(time.time())
             print(f"Database error (temporary workaround): {e}")
         
-        # Подготавливаем ответ
+        # Сохраняем файл на сервере
+        import os
+        from django.conf import settings
+        
+        # Создаем папку для накладных пользователя
+        user_folder = f"invoices/user_{request.user.id if request.user.is_authenticated else 'anonymous'}"
+        invoice_dir = os.path.join(settings.MEDIA_ROOT, user_folder)
+        os.makedirs(invoice_dir, exist_ok=True)
+        
+        # Путь к файлу
+        file_name = f"{company_data.get('companyName', 'Company')}_накладнаОПТ_{timestamp}.xlsx"
+        file_path = os.path.join(invoice_dir, file_name)
+        
+        # Сохраняем Excel файл на сервере
+        wb.save(file_path)
+        
+        # Обновляем invoice с путем к файлу
+        if 'invoice' in locals():
+            invoice.file_path = file_path
+            invoice.save()
+        
+        # Подготавливаем ответ для скачивания
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-        file_name = f"{company_data.get('companyName', 'Company')}_накладнаОПТ_{timestamp}.xlsx"
         response['Content-Disposition'] = f'attachment; filename="{file_name}"'
         
-        # Сохраняем Excel файл
-        wb.save(response)
+        # Читаем файл и отправляем
+        with open(file_path, 'rb') as f:
+            response.write(f.read())
         
         return JsonResponse({
             'success': True,
@@ -6705,3 +6726,36 @@ def generate_wholesale_invoice(request):
         
     except Exception as e:
         return JsonResponse({'error': f'Помилка при створенні накладної: {str(e)}'}, status=500)
+
+
+def download_invoice_file(request, invoice_id):
+    """Скачивание сохраненного файла накладной"""
+    from django.http import FileResponse
+    from django.conf import settings
+    import os
+    
+    try:
+        # Получаем накладную
+        invoice = WholesaleInvoice.objects.get(id=invoice_id)
+        
+        # Проверяем права доступа (только владелец или анонимные)
+        if request.user.is_authenticated:
+            # Для зарегистрированных пользователей можно добавить проверку
+            pass
+        
+        # Проверяем существование файла
+        if not invoice.file_path or not os.path.exists(invoice.file_path):
+            return JsonResponse({'error': 'Файл накладної не знайдено'}, status=404)
+        
+        # Отправляем файл
+        response = FileResponse(
+            open(invoice.file_path, 'rb'),
+            as_attachment=True,
+            filename=invoice.file_name
+        )
+        return response
+        
+    except WholesaleInvoice.DoesNotExist:
+        return JsonResponse({'error': 'Накладна не знайдена'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': f'Помилка при скачуванні: {str(e)}'}, status=500)
