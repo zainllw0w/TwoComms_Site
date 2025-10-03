@@ -179,8 +179,8 @@ class Command(BaseCommand):
             cell.alignment = center_alignment
         
         # Цены для категорий
-        tshirt_prices = [650, 620, 590, 560, 520]
-        hoodie_prices = [1400, 1350, 1300, 1250, 1200]
+        tshirt_prices = [600, 570, 540, 510, 450]
+        hoodie_prices = [1350, 1300, 1250, 1200, 1150]
         
         row = 3
         
@@ -207,8 +207,8 @@ class Command(BaseCommand):
                     ws.cell(row=row, column=2, value=product_title)
                     ws.cell(row=row, column=3, value=_translate_color_to_ukrainian('чорний'))  # Для худи завжди чорний
                     
-                    # Добавляем дроп цену (фиксированная 1500)
-                    ws.cell(row=row, column=4, value=1500)
+                    # Добавляем дроп цену (фиксированная 1450)
+                    ws.cell(row=row, column=4, value=1450)
                     ws.cell(row=row, column=4).alignment = center_alignment
                     
                     # Добавляем оптовые цены
@@ -226,8 +226,8 @@ class Command(BaseCommand):
                 ws.cell(row=row, column=2, value=product_title)
                 ws.cell(row=row, column=3, value=_translate_color_to_ukrainian('чорний'))  # Для худи завжди чорний
                 
-                # Добавляем дроп цену (фиксированная 1500)
-                ws.cell(row=row, column=4, value=1500)
+                # Добавляем дроп цену (фиксированная 1450)
+                ws.cell(row=row, column=4, value=1450)
                 ws.cell(row=row, column=4).alignment = center_alignment
                 
                 # Добавляем оптовые цены
@@ -263,8 +263,8 @@ class Command(BaseCommand):
                     ws.cell(row=row, column=2, value=product_title)
                     ws.cell(row=row, column=3, value=_translate_color_to_ukrainian(color if color else 'чорний'))
                     
-                    # Добавляем дроп цену (фиксированная 700 для футболок)
-                    ws.cell(row=row, column=4, value=700)
+                    # Добавляем дроп цену (фиксированная 650 для футболок)
+                    ws.cell(row=row, column=4, value=650)
                     ws.cell(row=row, column=4).alignment = center_alignment
                     
                     # Добавляем оптовые цены
@@ -282,8 +282,8 @@ class Command(BaseCommand):
                 ws.cell(row=row, column=2, value=product_title)
                 ws.cell(row=row, column=3, value=_translate_color_to_ukrainian('чорний'))
                 
-                # Добавляем дроп цену (фиксированная 700 для футболок)
-                ws.cell(row=row, column=4, value=700)
+                # Добавляем дроп цену (фиксированная 650 для футболок)
+                ws.cell(row=row, column=4, value=650)
                 ws.cell(row=row, column=4).alignment = center_alignment
                 
                 # Добавляем оптовые цены
