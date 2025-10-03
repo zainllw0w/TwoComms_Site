@@ -1466,6 +1466,9 @@
                         <div class="scale-container">
                             <div class="scale-label">Футболки</div>
                             <div class="scale-bar" id="tshirtScale">
+                                <div class="scale-segment" data-range="1-7" data-price="0" style="background: #ef4444;">
+                                    <span class="segment-label">1-7</span>
+                                </div>
                                 <div class="scale-segment" data-range="8-15" data-price="{{ tshirt_prices.wholesale.0 }}" style="background: #10b981;">
                                     <span class="segment-label">8-15</span>
                                 </div>
@@ -1483,6 +1486,7 @@
                                 </div>
                             </div>
                             <div class="scale-prices">
+                                <span class="price-item">0₴</span>
                                 <span class="price-item">{{ tshirt_prices.wholesale.0 }}₴</span>
                                 <span class="price-item">{{ tshirt_prices.wholesale.1 }}₴</span>
                                 <span class="price-item">{{ tshirt_prices.wholesale.2 }}₴</span>
@@ -1494,6 +1498,9 @@
                         <div class="scale-container">
                             <div class="scale-label">Худі</div>
                             <div class="scale-bar" id="hoodieScale">
+                                <div class="scale-segment" data-range="1-7" data-price="0" style="background: #ef4444;">
+                                    <span class="segment-label">1-7</span>
+                                </div>
                                 <div class="scale-segment" data-range="8-15" data-price="{{ hoodie_prices.wholesale.0 }}" style="background: #10b981;">
                                     <span class="segment-label">8-15</span>
                                 </div>
@@ -1511,6 +1518,7 @@
                                 </div>
                             </div>
                             <div class="scale-prices">
+                                <span class="price-item">0₴</span>
                                 <span class="price-item">{{ hoodie_prices.wholesale.0 }}₴</span>
                                 <span class="price-item">{{ hoodie_prices.wholesale.1 }}₴</span>
                                 <span class="price-item">{{ hoodie_prices.wholesale.2 }}₴</span>
@@ -1557,7 +1565,6 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeCompanyForm();
     initializeDragAndDrop();
     initializeCategoryFilter();
-    initializeProductClick();
     initializeOrderForm();
     initializeColorDots();
     loadOrderData(); // Load saved data
@@ -1656,14 +1663,38 @@ function initializeDragAndDrop() {
     const productCards = document.querySelectorAll('.product-card');
     const dropZone = document.getElementById('orderDropZone');
     
+    console.log('Found product cards:', productCards.length);
+    console.log('Found drop zone:', dropZone);
+    
     productCards.forEach(card => {
         card.addEventListener('dragstart', handleDragStart);
         card.addEventListener('dragend', handleDragEnd);
+        card.addEventListener('click', handleProductClick);
     });
     
-    dropZone.addEventListener('dragover', handleDragOver);
-    dropZone.addEventListener('drop', handleDrop);
-    dropZone.addEventListener('dragleave', handleDragLeave);
+    if (dropZone) {
+        dropZone.addEventListener('dragover', handleDragOver);
+        dropZone.addEventListener('drop', handleDrop);
+        dropZone.addEventListener('dragleave', handleDragLeave);
+    }
+}
+
+function handleProductClick(e) {
+    e.preventDefault();
+    const productCard = e.currentTarget;
+    console.log('Product clicked:', productCard.dataset.productId);
+    
+    if (productCard && productCard.dataset.productId) {
+        currentProduct = {
+            id: productCard.dataset.productId,
+            type: productCard.dataset.productType,
+            title: productCard.querySelector('.product-name').textContent,
+            image: productCard.querySelector('.product-image').src || '',
+            category: productCard.querySelector('.product-category').textContent
+        };
+        
+        showOrderForm();
+    }
 }
 
 function handleDragStart(e) {
@@ -1728,24 +1759,6 @@ function initializeCategoryFilter() {
     });
 }
 
-// Product click functionality
-function initializeProductClick() {
-    const productCards = document.querySelectorAll('.product-card');
-    
-    productCards.forEach(card => {
-        card.addEventListener('click', function() {
-            currentProduct = {
-                id: this.dataset.productId,
-                type: this.dataset.productType,
-                title: this.querySelector('.product-name').textContent,
-                image: this.querySelector('.product-image').src || '',
-                category: this.querySelector('.product-category').textContent
-            };
-            
-            showOrderForm();
-        });
-    });
-}
 
 // Order form functionality
 function initializeOrderForm() {
@@ -2105,8 +2118,36 @@ function updateScale(scaleId, quantity) {
         const [min, max] = parseRange(range);
         
         if (quantity < 8) {
-            // Below minimum wholesale - show gray for all segments
-            segment.style.backgroundColor = '#374151';
+            // Below minimum wholesale - show red for 1-7 tier, gray for others
+            if (min === 1 && max === 7) {
+                segment.classList.add('active');
+                segment.style.backgroundColor = '#ef4444'; // Red base
+                
+                // Show progress within 1-7 tier with dark red/burgundy fill
+                const tierSize = 7 - 1 + 1;
+                const currentProgress = Math.min(quantity, tierSize);
+                const progressPercent = (currentProgress / tierSize) * 100;
+                
+                let progressFill = segment.querySelector('.progress-fill');
+                if (!progressFill) {
+                    progressFill = document.createElement('div');
+                    progressFill.className = 'progress-fill';
+                    progressFill.style.position = 'absolute';
+                    progressFill.style.top = '0';
+                    progressFill.style.left = '0';
+                    progressFill.style.height = '100%';
+                    progressFill.style.backgroundColor = '#7f1d1d'; // Dark red/burgundy
+                    progressFill.style.borderRadius = '3px';
+                    progressFill.style.transition = 'width 0.3s ease';
+                    progressFill.style.zIndex = '1';
+                    segment.style.position = 'relative';
+                    segment.appendChild(progressFill);
+                }
+                progressFill.style.width = `${progressPercent}%`;
+            } else {
+                // Future tiers - gray
+                segment.style.backgroundColor = '#374151';
+            }
         } else if (quantity >= min && (max === null || quantity <= max)) {
             // Current tier - show progress
             segment.classList.add('active');
