@@ -19297,7 +19297,7 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 .cooperation-hero .hero-features .feature-card {
   flex: 1 1 220px;
   min-width: 220px;
-  max-width: 320px;
+  max-width: 280px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 20px;
