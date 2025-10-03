@@ -432,15 +432,15 @@
       background: linear-gradient(to bottom, rgba(139, 92, 246, 0.3), transparent);
     }
     
-    /* Products Section - Compact Beautiful Cards */
+    /* Products Section - Ultra Compact Beautiful Cards */
     .products-section {
       margin: 2rem 0;
     }
     
     .products-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 1.5rem;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1rem;
       margin-top: 2rem;
     }
     
@@ -448,16 +448,16 @@
       background: rgba(255,255,255,0.08);
       backdrop-filter: blur(20px);
       border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 15px;
+      border-radius: 12px;
       overflow: hidden;
       transition: all 0.3s ease;
       position: relative;
     }
     
     .product-card:hover {
-      transform: translateY(-5px);
+      transform: translateY(-3px);
       border-color: rgba(139, 92, 246, 0.5);
-      box-shadow: 0 15px 30px rgba(139, 92, 246, 0.2);
+      box-shadow: 0 10px 25px rgba(139, 92, 246, 0.2);
     }
     
     .product-image-container {
@@ -487,7 +487,7 @@
       display: flex;
       align-items: flex-start;
       justify-content: flex-end;
-      padding: 0.75rem;
+      padding: 0.5rem;
       opacity: 0;
       transition: opacity 0.3s ease;
     }
@@ -499,32 +499,36 @@
     .product-badge {
       background: linear-gradient(135deg, #f59e0b, #d97706);
       color: white;
-      padding: 0.4rem 0.8rem;
-      border-radius: 20px;
-      font-size: 0.75rem;
+      padding: 0.3rem 0.6rem;
+      border-radius: 15px;
+      font-size: 0.7rem;
       font-weight: 700;
-      box-shadow: 0 3px 10px rgba(245, 158, 11, 0.3);
+      box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
     }
     
     .product-content {
-      padding: 1.25rem;
+      padding: 0.8rem;
     }
     
     .product-title {
-      font-size: 1rem;
+      font-size: 0.85rem;
       font-weight: 600;
-      margin-bottom: 1rem;
+      margin-bottom: 0.8rem;
       color: white;
-      line-height: 1.3;
+      line-height: 1.2;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
     
-    /* Price Display - Beautiful and Clear */
+    /* Ultra Compact Price Display */
     .product-prices {
-      margin-top: 0.75rem;
+      margin-top: 0.5rem;
     }
     
     .price-section {
-      margin-bottom: 1rem;
+      margin-bottom: 0.8rem;
     }
     
     .price-section:last-child {
@@ -533,44 +537,80 @@
     
     .price-label {
       color: rgba(255,255,255,0.7);
-      font-size: 0.8rem;
+      font-size: 0.7rem;
       font-weight: 500;
-      margin-bottom: 0.25rem;
+      margin-bottom: 0.2rem;
       display: block;
     }
     
     .price-value {
       color: #f59e0b;
       font-weight: 700;
-      font-size: 1.1rem;
+      font-size: 1rem;
       display: block;
     }
     
     .wholesale-ranges {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.25rem;
-      margin-top: 0.5rem;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.15rem;
+      margin-top: 0.4rem;
+    }
+    
+    .wholesale-range:nth-child(4),
+    .wholesale-range:nth-child(5) {
+      grid-column: span 1;
+    }
+    
+    .wholesale-range:nth-child(4) {
+      grid-column: 1 / 2;
+    }
+    
+    .wholesale-range:nth-child(5) {
+      grid-column: 2 / 3;
     }
     
     .wholesale-range {
       display: flex;
-      justify-content: space-between;
+      flex-direction: column;
       align-items: center;
-      font-size: 0.75rem;
-      padding: 0.25rem 0;
-      background: rgba(255,255,255,0.05);
-      border-radius: 6px;
-      padding: 0.25rem 0.5rem;
+      font-size: 0.65rem;
+      padding: 0.3rem 0.2rem;
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.1));
+      border-radius: 8px;
+      border: 1px solid rgba(139, 92, 246, 0.2);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .wholesale-range::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(59, 130, 246, 0.05));
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    
+    .wholesale-range:hover::before {
+      opacity: 1;
     }
     
     .range-label {
       color: rgba(255,255,255,0.6);
+      font-size: 0.6rem;
+      margin-bottom: 0.1rem;
     }
     
     .range-price {
       color: white;
-      font-weight: 600;
+      font-weight: 700;
+      font-size: 0.75rem;
+      position: relative;
+      z-index: 1;
     }
     
     /* Section Titles */
@@ -859,12 +899,26 @@
             <div class="price-section">
               <span class="price-label">Оптові ціни:</span>
               <div class="wholesale-ranges">
-                {% for price in hoodie_prices.wholesale %}
                 <div class="wholesale-range">
-                  <span class="range-label">{{ hoodie_prices.ranges|slice:forloop.counter0|first }}:</span>
-                  <span class="range-price">{{ price }} грн</span>
+                  <span class="range-label">8-15 шт</span>
+                  <span class="range-price">{{ hoodie_prices.wholesale.0 }} грн</span>
                 </div>
-                {% endfor %}
+                <div class="wholesale-range">
+                  <span class="range-label">16-31 шт</span>
+                  <span class="range-price">{{ hoodie_prices.wholesale.1 }} грн</span>
+                </div>
+                <div class="wholesale-range">
+                  <span class="range-label">32-63 шт</span>
+                  <span class="range-price">{{ hoodie_prices.wholesale.2 }} грн</span>
+                </div>
+                <div class="wholesale-range">
+                  <span class="range-label">64-99 шт</span>
+                  <span class="range-price">{{ hoodie_prices.wholesale.3 }} грн</span>
+                </div>
+                <div class="wholesale-range">
+                  <span class="range-label">100+ шт</span>
+                  <span class="range-price">{{ hoodie_prices.wholesale.4 }} грн</span>
+                </div>
               </div>
             </div>
           </div>
@@ -893,12 +947,26 @@
             <div class="price-section">
               <span class="price-label">Оптові ціни:</span>
               <div class="wholesale-ranges">
-                {% for price in tshirt_prices.wholesale %}
                 <div class="wholesale-range">
-                  <span class="range-label">{{ tshirt_prices.ranges|slice:forloop.counter0|first }}:</span>
-                  <span class="range-price">{{ price }} грн</span>
+                  <span class="range-label">8-15 шт</span>
+                  <span class="range-price">{{ tshirt_prices.wholesale.0 }} грн</span>
                 </div>
-                {% endfor %}
+                <div class="wholesale-range">
+                  <span class="range-label">16-31 шт</span>
+                  <span class="range-price">{{ tshirt_prices.wholesale.1 }} грн</span>
+                </div>
+                <div class="wholesale-range">
+                  <span class="range-label">32-63 шт</span>
+                  <span class="range-price">{{ tshirt_prices.wholesale.2 }} грн</span>
+                </div>
+                <div class="wholesale-range">
+                  <span class="range-label">64-99 шт</span>
+                  <span class="range-price">{{ tshirt_prices.wholesale.3 }} грн</span>
+                </div>
+                <div class="wholesale-range">
+                  <span class="range-label">100+ шт</span>
+                  <span class="range-price">{{ tshirt_prices.wholesale.4 }} грн</span>
+                </div>
               </div>
             </div>
           </div>
