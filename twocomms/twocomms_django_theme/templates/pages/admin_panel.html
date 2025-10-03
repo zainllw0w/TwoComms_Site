@@ -3,6 +3,40 @@
 
 {% block title %}Адмін-панель — TwoComms{% endblock %}
 
+{% block extra_css %}
+<style>
+  .order-actions-inline {
+    margin-left: auto;
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  .order-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    background: rgba(239, 68, 68, 0.12);
+    color: #f87171;
+    font-size: 0.875rem;
+    transition: background 0.2s ease, transform 0.2s ease, color 0.2s ease;
+  }
+
+  .order-action-btn.danger:hover {
+    background: rgba(239, 68, 68, 0.22);
+    color: #fca5a5;
+    transform: translateY(-1px);
+  }
+
+  .order-action-btn svg {
+    flex-shrink: 0;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 {% csrf_token %}
 <div class="admin-panel">
@@ -566,17 +600,17 @@
                         {{ o.created|date:"d.m.Y о H:i" }}
                       </div>
                     </div>
-+                    <div class="order-actions-inline">
-+                      <form method="post" action="{% url 'admin_order_delete' o.id %}" onsubmit="return confirm('Видалити замовлення #{{ o.order_number }}?');">
-+                        {% csrf_token %}
-+                        <button type="submit" class="order-action-btn danger" title="Видалити замовлення">
-+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-+                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-+                          </svg>
-+                          <span>Видалити</span>
-+                        </button>
-+                      </form>
-+                    </div>
+                    <div class="order-actions-inline">
+                      <form method="post" action="{% url 'admin_order_delete' o.id %}" data-order-delete-form data-order-id="{{ o.id }}" data-order-number="{{ o.order_number }}">
+                        {% csrf_token %}
+                        <button type="submit" class="order-action-btn danger" title="Видалити замовлення">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                          </svg>
+                          <span>Видалити</span>
+                        </button>
+                      </form>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2168,6 +2202,42 @@ function filterOrders(status, payment) {
   
   window.location.href = currentUrl.toString();
 }
+
+document.addEventListener('DOMContentLoaded', function(){
+  const deleteForms = document.querySelectorAll('[data-order-delete-form]');
+  deleteForms.forEach(function(form){
+    form.addEventListener('submit', function(event){
+      event.preventDefault();
+      const orderNumber = form.getAttribute('data-order-number');
+      const confirmText = orderNumber ? `Видалити замовлення #${orderNumber}?` : 'Видалити це замовлення?';
+      if(!window.confirm(confirmText)) return;
+
+      const formData = new FormData(form);
+      fetch(form.action, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+      })
+        .then(function(response){
+          if(!response.ok) return response.json().then(function(data){ throw new Error(data.error || 'Помилка видалення'); });
+          return response.json();
+        })
+        .then(function(data){
+          if(data.ok){
+            const card = form.closest('.admin-order-card');
+            if(card){ card.remove(); }
+          } else {
+            alert(data.error || 'Не вдалося видалити замовлення.');
+          }
+        })
+        .catch(function(err){
+          alert(err.message || 'Сталася помилка під час видалення замовлення.');
+        });
+    });
+  });
+});
 
 /* Функция для фильтрации заказов конкретного пользователя */
 function filterUserOrders(userId, filterType, filterValue) {
