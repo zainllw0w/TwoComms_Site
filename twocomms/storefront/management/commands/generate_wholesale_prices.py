@@ -186,8 +186,6 @@ class Command(BaseCommand):
         
         # Сначала худи
         for product in hoodie_products.order_by('title'):
-            # Получаем артикул (если есть)
-            sku = getattr(product, 'sku', None) or f"TC-{product.id}"
             
             # Получаем цвета товара
             color_variants = ProductColorVariant.objects.filter(product=product)
@@ -244,8 +242,6 @@ class Command(BaseCommand):
         
         # Затем футболки
         for product in tshirt_products.order_by('title'):
-            # Получаем артикул (если есть)
-            sku = getattr(product, 'sku', None) or f"TC-{product.id}"
             
             # Получаем цвета товара
             color_variants = ProductColorVariant.objects.filter(product=product)
