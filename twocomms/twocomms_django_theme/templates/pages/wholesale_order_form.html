@@ -1565,17 +1565,13 @@ let hoodiePrices = {
 // Initialize the page
 document.addEventListener('DOMContentLoaded', function() {
     initializeCompanyForm();
-    
-    // Wait a bit for all elements to be rendered
-    setTimeout(() => {
-        initializeDragAndDrop();
-        initializeCategoryFilter();
-        initializeProductClick();
-        initializeOrderForm();
-        initializeColorDots();
-        loadOrderData(); // Load saved data
-        updateOrderStatistics(); // Initialize statistics on page load
-    }, 100);
+    initializeDragAndDrop();
+    initializeCategoryFilter();
+    initializeProductClick();
+    initializeOrderForm();
+    initializeColorDots();
+    loadOrderData(); // Load saved data
+    updateOrderStatistics(); // Initialize statistics on page load
 });
 
 // Company form handling
@@ -1669,9 +1665,6 @@ function initializeCompanyForm() {
 function initializeDragAndDrop() {
     const productCards = document.querySelectorAll('.product-card');
     const dropZone = document.getElementById('orderDropZone');
-    
-    console.log('Found product cards:', productCards.length);
-    console.log('Found drop zone:', dropZone ? 'Yes' : 'No');
     
     productCards.forEach(card => {
         card.addEventListener('dragstart', handleDragStart);
@@ -2037,14 +2030,7 @@ function updateOrderStatistics() {
         totalSumDiv.classList.remove('highlight');
     }, 1500);
     
-    // Calculate quantities by type
-    const tshirtQuantity = orderItems
-        .filter(item => item.product.type === 'tshirt')
-        .reduce((sum, item) => sum + item.quantity, 0);
-    
-    const hoodieQuantity = orderItems
-        .filter(item => item.product.type === 'hoodie')
-        .reduce((sum, item) => sum + item.quantity, 0);
+    // Calculate quantities by type (variables already declared above)
     
     // Generate progress info
     let progressInfo = '';
