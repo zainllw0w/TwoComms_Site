@@ -167,7 +167,7 @@
                     <div class="price-ranges">
                       {% for price in hoodie_prices.wholesale %}
                         <span class="price-range">
-                          <span class="range">{{ hoodie_prices.ranges|slice:forloop.counter0|last }}</span>
+                          <span class="range">{{ hoodie_prices.ranges|slice:forloop.counter0:1|first }}</span>
                           <span class="price">{{ price }} грн</span>
                         </span>
                       {% endfor %}
@@ -222,7 +222,7 @@
                     <div class="price-ranges">
                       {% for price in tshirt_prices.wholesale %}
                         <span class="price-range">
-                          <span class="range">{{ tshirt_prices.ranges|slice:forloop.counter0|last }}</span>
+                          <span class="range">{{ tshirt_prices.ranges|slice:forloop.counter0:1|first }}</span>
                           <span class="price">{{ price }} грн</span>
                         </span>
                       {% endfor %}
