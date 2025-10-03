@@ -1,0 +1,815 @@
+{% extends "base.html" %}
+{% load static %}
+{% load math_filters %}
+
+{% block title %}Формування оптового замовлення - TwoComms{% endblock %}
+
+{% block extra_css %}
+<style>
+.order-form-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+    background: var(--tc-bg);
+    min-height: 100vh;
+    position: relative;
+}
+
+.order-form-container::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: 
+        radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.2) 0%, transparent 60%),
+        radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.2) 0%, transparent 60%),
+        radial-gradient(circle at 40% 40%, rgba(236, 72, 153, 0.15) 0%, transparent 60%),
+        radial-gradient(circle at 60% 60%, rgba(16, 185, 129, 0.1) 0%, transparent 50%);
+    animation: gradientShift 25s ease infinite;
+}
+
+.order-form-container::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: 
+        linear-gradient(45deg, transparent 30%, rgba(139, 92, 246, 0.03) 50%, transparent 70%),
+        linear-gradient(-45deg, transparent 30%, rgba(59, 130, 246, 0.03) 50%, transparent 70%);
+    animation: shimmer 15s ease infinite;
+}
+
+@keyframes gradientShift {
+    0%, 100% { 
+        opacity: 1; 
+        transform: scale(1) rotate(0deg);
+    }
+    33% { 
+        opacity: 0.8; 
+        transform: scale(1.05) rotate(1deg);
+    }
+    66% { 
+        opacity: 0.9; 
+        transform: scale(0.95) rotate(-1deg);
+    }
+}
+
+@keyframes shimmer {
+    0%, 100% { 
+        opacity: 0.3; 
+        transform: translateX(-100%) translateY(-100%);
+    }
+    50% { 
+        opacity: 0.6; 
+        transform: translateX(100%) translateY(100%);
+    }
+}
+
+/* Header Section */
+.order-form-header {
+    background: linear-gradient(135deg, 
+        rgba(139, 92, 246, 0.1) 0%,
+        rgba(59, 130, 246, 0.08) 50%,
+        rgba(236, 72, 153, 0.06) 100%
+    );
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-radius: 20px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    backdrop-filter: blur(20px);
+    box-shadow: 
+        0 20px 60px rgba(0, 0, 0, 0.3),
+        0 8px 25px rgba(139, 92, 246, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.order-form-title {
+    font-size: 2.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6, #ec4899);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.order-form-subtitle {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 1.1rem;
+    text-align: center;
+    margin-bottom: 0;
+}
+
+/* Company Form Section */
+.company-form-section {
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.08) 0%,
+        rgba(255, 255, 255, 0.04) 50%,
+        rgba(255, 255, 255, 0.02) 100%
+    );
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    backdrop-filter: blur(20px);
+    box-shadow: 
+        0 10px 30px rgba(0, 0, 0, 0.2),
+        0 4px 15px rgba(139, 92, 246, 0.05);
+}
+
+.section-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.95);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.section-title::before {
+    content: '';
+    width: 4px;
+    height: 24px;
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    border-radius: 2px;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-label {
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.form-label .required {
+    color: #ef4444;
+    margin-left: 0.25rem;
+}
+
+.form-input {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: rgba(139, 92, 246, 0.5);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.form-input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.form-textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.save-button {
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    border: none;
+    border-radius: 12px;
+    padding: 0.875rem 2rem;
+    color: white;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 auto;
+}
+
+.save-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
+}
+
+.save-button:active {
+    transform: translateY(0);
+}
+
+/* Statistics Section */
+.stats-section {
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.08) 0%,
+        rgba(255, 255, 255, 0.04) 50%,
+        rgba(255, 255, 255, 0.02) 100%
+    );
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    backdrop-filter: blur(20px);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, 
+        rgba(139, 92, 246, 0.1) 0%,
+        rgba(59, 130, 246, 0.05) 50%,
+        rgba(236, 72, 153, 0.05) 100%
+    );
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(139, 92, 246, 0.2);
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+/* Two Column Layout */
+.two-column-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.column {
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.08) 0%,
+        rgba(255, 255, 255, 0.04) 50%,
+        rgba(255, 255, 255, 0.02) 100%
+    );
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    border-radius: 16px;
+    padding: 2rem;
+    backdrop-filter: blur(20px);
+}
+
+/* Products Column */
+.products-column {
+    /* Additional styles for products column */
+}
+
+.products-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.product-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(139, 92, 246, 0.1);
+    border-radius: 12px;
+    padding: 1rem;
+    transition: all 0.3s ease;
+}
+
+.product-item:hover {
+    background: rgba(139, 92, 246, 0.1);
+    border-color: rgba(139, 92, 246, 0.3);
+}
+
+.product-name {
+    color: rgba(255, 255, 255, 0.95);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.product-prices {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+}
+
+.drop-price {
+    color: #f59e0b;
+    font-weight: 700;
+}
+
+.wholesale-price {
+    color: #10b981;
+    font-weight: 600;
+}
+
+/* Invoice Generation Column */
+.invoice-column {
+    /* Additional styles for invoice column */
+}
+
+.invoice-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.invoice-button {
+    background: linear-gradient(135deg, #10b981, #059669);
+    border: none;
+    border-radius: 12px;
+    padding: 1rem 2rem;
+    color: white;
+    font-weight: 700;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.invoice-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+}
+
+.invoice-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Generated Invoices Section */
+.generated-invoices-section {
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.08) 0%,
+        rgba(255, 255, 255, 0.04) 50%,
+        rgba(255, 255, 255, 0.02) 100%
+    );
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    border-radius: 16px;
+    padding: 2rem;
+    backdrop-filter: blur(20px);
+}
+
+.invoices-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.invoice-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(139, 92, 246, 0.1);
+    border-radius: 12px;
+    padding: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.3s ease;
+}
+
+.invoice-item:hover {
+    background: rgba(139, 92, 246, 0.1);
+    border-color: rgba(139, 92, 246, 0.3);
+}
+
+.invoice-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.invoice-name {
+    color: rgba(255, 255, 255, 0.95);
+    font-weight: 600;
+}
+
+.invoice-date {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.85rem;
+}
+
+.download-button {
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    color: white;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.download-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+    text-decoration: none;
+    color: white;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .order-form-container {
+        padding: 1rem;
+    }
+    
+    .order-form-title {
+        font-size: 2rem;
+    }
+    
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .two-column-layout {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .order-form-header,
+    .company-form-section,
+    .stats-section,
+    .column,
+    .generated-invoices-section {
+        padding: 1.5rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="order-form-container">
+    <!-- Header Section -->
+    <div class="order-form-header">
+        <h1 class="order-form-title">Формування оптового замовлення</h1>
+        <p class="order-form-subtitle">Заповніть форму для створення оптового замовлення та генерації накладної</p>
+    </div>
+
+    <!-- Company Information Form -->
+    <div class="company-form-section">
+        <h2 class="section-title">Інформація про компанію</h2>
+        <form id="company-form">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label" for="company-name">
+                        Назва компанії/магазину/ФОП
+                        <span class="required">*</span>
+                    </label>
+                    <input type="text" id="company-name" name="company_name" class="form-input" 
+                           placeholder="Введіть назву компанії або ФОП" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="delivery-address">
+                        Адреса доставки
+                        <span class="required">*</span>
+                    </label>
+                    <textarea id="delivery-address" name="delivery_address" class="form-input form-textarea" 
+                              placeholder="Введіть повну адресу доставки" required></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="phone-number">
+                        Номер телефону для зв'язку
+                        <span class="required">*</span>
+                    </label>
+                    <input type="tel" id="phone-number" name="phone_number" class="form-input" 
+                           placeholder="+380 XX XXX XX XX" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="store-link">
+                        Посилання на магазин (онлайн)
+                    </label>
+                    <input type="url" id="store-link" name="store_link" class="form-input" 
+                           placeholder="https://your-store.com (необов'язково)">
+                </div>
+            </div>
+            
+            <button type="submit" class="save-button">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
+                </svg>
+                Зберегти інформацію
+            </button>
+        </form>
+    </div>
+
+    <!-- Statistics Section -->
+    <div class="stats-section">
+        <h2 class="section-title">Статистика оптових закупок</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ wholesale_stats.total_products }}</div>
+                <div class="stat-label">Всього товарів</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ wholesale_stats.tshirt_count }}</div>
+                <div class="stat-label">Футболки</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ wholesale_stats.hoodie_count }}</div>
+                <div class="stat-label">Худі</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ wholesale_stats.min_order_value }}₴</div>
+                <div class="stat-label">Мін. замовлення</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ wholesale_stats.max_savings_percent }}%</div>
+                <div class="stat-label">Макс. економія</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Two Column Layout -->
+    <div class="two-column-layout">
+        <!-- Products Column -->
+        <div class="column products-column">
+            <h2 class="section-title">Доступні товари</h2>
+            <div class="products-list">
+                {% for product in tshirt_products %}
+                <div class="product-item">
+                    <div class="product-name">{{ product.title }}</div>
+                    <div class="product-prices">
+                        <span class="drop-price">Дроп: {{ tshirt_prices.drop }}₴</span>
+                        <span class="wholesale-price">Опт: {{ tshirt_prices.wholesale.0 }}₴</span>
+                    </div>
+                </div>
+                {% endfor %}
+                
+                {% for product in hoodie_products %}
+                <div class="product-item">
+                    <div class="product-name">{{ product.title }} [фліс]</div>
+                    <div class="product-prices">
+                        <span class="drop-price">Дроп: {{ hoodie_prices.drop }}₴</span>
+                        <span class="wholesale-price">Опт: {{ hoodie_prices.wholesale.0 }}₴</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Invoice Generation Column -->
+        <div class="column invoice-column">
+            <h2 class="section-title">Формування накладної</h2>
+            <div class="invoice-form">
+                <p style="color: rgba(255, 255, 255, 0.7); margin-bottom: 1rem;">
+                    Виберіть товари та кількість для формування оптової накладної
+                </p>
+                
+                <button type="button" class="invoice-button" id="generate-invoice-btn" disabled>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                    </svg>
+                    Сформувати накладну
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generated Invoices Section -->
+    <div class="generated-invoices-section">
+        <h2 class="section-title">Сформовані накладні</h2>
+        <div class="invoices-list" id="invoices-list">
+            <!-- Invoices will be dynamically added here -->
+            <div style="color: rgba(255, 255, 255, 0.6); text-align: center; padding: 2rem;">
+                Поки що немає сформованих накладних
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const companyForm = document.getElementById('company-form');
+    const generateInvoiceBtn = document.getElementById('generate-invoice-btn');
+    const invoicesList = document.getElementById('invoices-list');
+    
+    // Handle company form submission
+    companyForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(companyForm);
+        const companyData = Object.fromEntries(formData.entries());
+        
+        // Store company data in localStorage
+        localStorage.setItem('wholesaleCompanyData', JSON.stringify(companyData));
+        
+        // Enable invoice generation button
+        generateInvoiceBtn.disabled = false;
+        generateInvoiceBtn.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+            </svg>
+            Сформувати накладну
+        `;
+        
+        // Show success message
+        showNotification('Інформація про компанію збережена!', 'success');
+    });
+    
+    // Handle invoice generation
+    generateInvoiceBtn.addEventListener('click', function() {
+        const companyData = localStorage.getItem('wholesaleCompanyData');
+        
+        if (!companyData) {
+            showNotification('Спочатку заповніть інформацію про компанію', 'error');
+            return;
+        }
+        
+        // Simulate invoice generation
+        generateInvoiceBtn.disabled = true;
+        generateInvoiceBtn.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="animate-spin">
+                <path d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z"/>
+            </svg>
+            Формування накладної...
+        `;
+        
+        setTimeout(() => {
+            // Create mock invoice
+            const invoice = {
+                id: Date.now(),
+                name: `Накладна_${new Date().toLocaleDateString('uk-UA').replace(/\./g, '_')}_${Math.random().toString(36).substr(2, 5).toUpperCase()}.xlsx`,
+                date: new Date().toLocaleDateString('uk-UA'),
+                company: JSON.parse(companyData).company_name
+            };
+            
+            // Add invoice to list
+            addInvoiceToList(invoice);
+            
+            // Reset button
+            generateInvoiceBtn.disabled = false;
+            generateInvoiceBtn.innerHTML = `
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                </svg>
+                Сформувати накладну
+            `;
+            
+            showNotification('Накладна успішно сформована!', 'success');
+        }, 2000);
+    });
+    
+    // Check if company data exists on page load
+    const existingCompanyData = localStorage.getItem('wholesaleCompanyData');
+    if (existingCompanyData) {
+        const data = JSON.parse(existingCompanyData);
+        
+        // Fill form with existing data
+        document.getElementById('company-name').value = data.company_name || '';
+        document.getElementById('delivery-address').value = data.delivery_address || '';
+        document.getElementById('phone-number').value = data.phone_number || '';
+        document.getElementById('store-link').value = data.store_link || '';
+        
+        // Enable invoice generation
+        generateInvoiceBtn.disabled = false;
+    }
+    
+    function addInvoiceToList(invoice) {
+        const emptyMessage = invoicesList.querySelector('div[style*="text-align: center"]');
+        if (emptyMessage) {
+            emptyMessage.remove();
+        }
+        
+        const invoiceItem = document.createElement('div');
+        invoiceItem.className = 'invoice-item';
+        invoiceItem.innerHTML = `
+            <div class="invoice-info">
+                <div class="invoice-name">${invoice.name}</div>
+                <div class="invoice-date">${invoice.date} - ${invoice.company}</div>
+            </div>
+            <a href="#" class="download-button" onclick="downloadInvoice('${invoice.id}')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z"/>
+                </svg>
+                Скачати
+            </a>
+        `;
+        
+        invoicesList.appendChild(invoiceItem);
+    }
+    
+    function showNotification(message, type) {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${type === 'success' ? '#10b981' : '#ef4444'};
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 600;
+            z-index: 1000;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s ease;
+        `;
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            notification.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 300);
+        }, 3000);
+    }
+});
+
+// Global function for downloading invoices
+function downloadInvoice(invoiceId) {
+    // This would be implemented to actually download the invoice file
+    showNotification('Функція скачування буде реалізована наступним етапом', 'info');
+}
+
+// Add CSS animations
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    
+    @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+    }
+    
+    .animate-spin {
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

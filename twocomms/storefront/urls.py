@@ -119,4 +119,5 @@ urlpatterns=[
     path('test-pricelist/', views.test_pricelist, name='test_wholesale_prices'),
     path('wholesale/', views.wholesale_page, name='wholesale_page'),
     path('opt/', views.wholesale_page, name='wholesale_page_alt'),
+    path('wholesale/order-form/', views.wholesale_order_form, name='wholesale_order_form'),
 ]
