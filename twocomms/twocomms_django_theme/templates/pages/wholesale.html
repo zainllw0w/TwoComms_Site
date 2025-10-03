@@ -238,21 +238,23 @@
       }
     }
     
-    /* Pricing Section - Like Old Version */
+    /* Pricing Section - Integrated with Categories Design */
     .pricing-section {
-      background: rgba(255,255,255,0.05);
-      backdrop-filter: blur(20px);
-      border-radius: 20px;
-      padding: 2rem;
       margin: 2rem 0;
-      border: 1px solid rgba(255,255,255,0.1);
     }
     
     .pricing-cards {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
       gap: 2rem;
-      margin-top: 3rem;
+      margin-top: 1rem;
+    }
+    
+    .section-subtitle {
+      color: rgba(255,255,255,0.7);
+      font-size: 1rem;
+      margin-top: 0.5rem;
+      text-align: left;
     }
     
     .pricing-card {
@@ -1402,11 +1404,55 @@
   </section>
 
   <!-- Pricing Section -->
-  <section class="pricing-section">
-    <h2 class="section-title">Система ціноутворення</h2>
-    <p class="section-subtitle">Прозорі та вигідні умови для всіх типів співпраці</p>
-    
-    <div class="pricing-cards">
+  <section class="mb-4 mb-md-5 reveal pricing-section">
+    <!-- Единый блок ценообразования -->
+    <div class="categories-unified-block">
+      <!-- Фоновые эффекты для всего блока -->
+      <div class="categories-bg-unified">
+        <div class="dark-particles">
+          <div class="particle"></div>
+          <div class="particle"></div>
+          <div class="particle"></div>
+          <div class="particle"></div>
+        </div>
+        <div class="dark-glow"></div>
+        <div class="dark-gradient-1"></div>
+        <div class="dark-gradient-2"></div>
+        <div class="floating-logos">
+          <div class="floating-logo logo-1">
+            <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="16" height="16">
+          </div>
+          <div class="floating-logo logo-2">
+            <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип - декоративний" width="14" height="14">
+          </div>
+          <div class="floating-logo logo-3">
+            <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="18" height="18">
+          </div>
+          <div class="floating-logo logo-4">
+            <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="12" height="12">
+          </div>
+          <div class="floating-logo logo-5">
+            <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="15" height="15">
+          </div>
+        </div>
+      </div>
+      
+      <!-- Заголовок секции -->
+      <div class="categories-header-unified">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="categories-title-compact">
+            <div class="title-with-catalog-icon">
+              <h2 class="categories-title-text">Система ціноутворення</h2>
+            </div>
+            <div class="title-accent-line"></div>
+          </div>
+        </div>
+        <p class="section-subtitle">Прозорі та вигідні умови для всіх типів співпраці</p>
+      </div>
+
+      <!-- Контейнер карточек ценообразования -->
+      <div class="categories-content-unified">
+        <div class="pricing-cards">
       <!-- Drop Prices -->
       <div class="pricing-card">
         <div class="card-bg-dark">
@@ -1506,6 +1552,8 @@
             <span class="range-label">Худі (100+ шт)</span>
             <span class="range-price">{{ hoodie_prices.wholesale.4 }} грн</span>
           </div>
+        </div>
+      </div>
         </div>
       </div>
     </div>
