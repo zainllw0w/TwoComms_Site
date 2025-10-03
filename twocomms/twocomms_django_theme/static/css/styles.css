@@ -19181,7 +19181,9 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   margin: 0;
   opacity: 0.18;
   pointer-events: none;
-  filter: drop-shadow(0 32px 120px rgba(139, 92, 246, 0.45));
+  filter: none;
+  border: none;
+  box-shadow: none;
 }
 
 .cooperation-hero .logo-image {
@@ -19189,6 +19191,8 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   height: 100%;
   object-fit: contain;
   filter: none;
+  border: none;
+  box-shadow: none;
   transition: none;
 }
 
@@ -19301,7 +19305,9 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   transition: all 0.4s ease;
   position: relative;
   overflow: hidden;
-  animation: cardSlideIn 1s ease-out;
+  animation: none;
+  opacity: 1;
+  transform: none;
 }
 
 .feature-card:nth-child(1) { animation-delay: 0.8s; animation-fill-mode: both; }

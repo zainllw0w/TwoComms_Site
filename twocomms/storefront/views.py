@@ -6393,3 +6393,70 @@ def wholesale_page(request):
     }
     
     return render(request, 'pages/wholesale.html', context)
+
+
+def wholesale_order_form(request):
+    """Render wholesale order form page."""
+    try:
+        from django.db.models import Q
+        from storefront.models import Product, Category
+        
+        # Фильтруем категории по ключевым словам
+        tshirt_categories = Category.objects.filter(
+            Q(name__icontains='футболка') | 
+            Q(name__icontains='tshirt') | 
+            Q(name__icontains='t-shirt') |
+            Q(slug__icontains='футболка') |
+            Q(slug__icontains='tshirt') |
+            Q(slug__icontains='t-shirt')
+        )
+        
+        hoodie_categories = Category.objects.filter(
+            Q(name__icontains='худи') | 
+            Q(name__icontains='hoodie') | 
+            Q(name__icontains='hooded') |
+            Q(slug__icontains='худи') |
+            Q(slug__icontains='hoodie') |
+            Q(slug__icontains='hooded')
+        )
+        
+        # Получаем товары из нужных категорий
+        tshirt_products = Product.objects.filter(category__in=tshirt_categories).select_related('category')
+        hoodie_products = Product.objects.filter(category__in=hoodie_categories).select_related('category')
+        
+    except Exception as e:
+        # Если есть ошибка с базой данных, используем пустые списки
+        tshirt_products = []
+        hoodie_products = []
+    
+    # Цены для категорий
+    tshirt_prices = {
+        'drop': 650,
+        'wholesale': [600, 570, 540, 510, 450],
+        'ranges': ['8–15 шт.', '16–31 шт.', '32–63 шт.', '64–99 шт.', '100+ шт.']
+    }
+    
+    hoodie_prices = {
+        'drop': 1450,
+        'wholesale': [1350, 1300, 1250, 1200, 1150],
+        'ranges': ['8–15 шт.', '16–31 шт.', '32–63 шт.', '64–99 шт.', '100+ шт.']
+    }
+    
+    # Статистика для оптовых закупок
+    wholesale_stats = {
+        'total_products': len(list(tshirt_products)) + len(list(hoodie_products)),
+        'tshirt_count': len(list(tshirt_products)),
+        'hoodie_count': len(list(hoodie_products)),
+        'min_order_value': min(tshirt_prices['wholesale'][-1], hoodie_prices['wholesale'][-1]) * 8,  # минимальный заказ 8 штук
+        'max_savings_percent': round((1 - (min(tshirt_prices['wholesale'][-1], hoodie_prices['wholesale'][-1]) / max(tshirt_prices['drop'], hoodie_prices['drop']))) * 100, 1)
+    }
+    
+    context = {
+        'tshirt_products': tshirt_products,
+        'hoodie_products': hoodie_products,
+        'tshirt_prices': tshirt_prices,
+        'hoodie_prices': hoodie_prices,
+        'wholesale_stats': wholesale_stats,
+    }
+    
+    return render(request, 'pages/wholesale_order_form.html', context)
