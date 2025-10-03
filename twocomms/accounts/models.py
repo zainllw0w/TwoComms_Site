@@ -23,6 +23,7 @@ class UserProfile(models.Model):
     
     # Поля для оптовых заказов
     company_name = models.CharField(max_length=200, blank=True, verbose_name='Назва компанії/ФОП/ПІБ')
+    company_number = models.CharField(max_length=50, blank=True, verbose_name='Номер компанії/ЄДРПОУ/ІПН')
     delivery_address = models.TextField(blank=True, verbose_name='Адреса доставки')
     website = models.URLField(blank=True, null=True, verbose_name='Посилання на магазин')
 

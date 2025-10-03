@@ -1291,6 +1291,15 @@
                 </div>
                 
                 <div class="form-group">
+                    <label class="form-label" for="company-number">
+                        Номер компанії/ЄДРПОУ/ІПН
+                    </label>
+                    <input type="text" id="company-number" name="company_number" class="form-input" 
+                           placeholder="Введіть номер компанії (необов'язково)"
+                           value="{{ company_data.company_number|default:'' }}">
+                </div>
+                
+                <div class="form-group">
                     <label class="form-label" for="delivery-address">
                         Адреса доставки
                         <span class="required">*</span>
@@ -1804,6 +1813,7 @@ function initializeCompanyForm() {
         
         // Fill form with existing data
         document.getElementById('company-name').value = data.company_name || '';
+        document.getElementById('company-number').value = data.company_number || '';
         document.getElementById('delivery-address').value = data.delivery_address || '';
         document.getElementById('phone-number').value = data.phone_number || '';
         document.getElementById('store-link').value = data.store_link || '';
@@ -2644,10 +2654,13 @@ function saveOrderData() {
     const contactPhoneEl = document.getElementById('contactPhone');
     const storeLinkEl = document.getElementById('storeLink');
     
+    const companyNumberEl = document.getElementById('company-number');
+    
     const orderData = {
         orderItems: orderItems,
         companyData: {
             companyName: companyNameEl ? companyNameEl.value : '',
+            companyNumber: companyNumberEl ? companyNumberEl.value : '',
             deliveryAddress: deliveryAddressEl ? deliveryAddressEl.value : '',
             contactPhone: contactPhoneEl ? contactPhoneEl.value : '',
             storeLink: storeLinkEl ? storeLinkEl.value : ''
@@ -2666,11 +2679,13 @@ function loadOrderData() {
             // Load company data
             if (orderData.companyData) {
                 const companyNameEl = document.getElementById('companyName');
+                const companyNumberEl = document.getElementById('company-number');
                 const deliveryAddressEl = document.getElementById('deliveryAddress');
                 const contactPhoneEl = document.getElementById('contactPhone');
                 const storeLinkEl = document.getElementById('storeLink');
                 
                 if (companyNameEl) companyNameEl.value = orderData.companyData.companyName || '';
+                if (companyNumberEl) companyNumberEl.value = orderData.companyData.companyNumber || '';
                 if (deliveryAddressEl) deliveryAddressEl.value = orderData.companyData.deliveryAddress || '';
                 if (contactPhoneEl) contactPhoneEl.value = orderData.companyData.contactPhone || '';
                 if (storeLinkEl) storeLinkEl.value = orderData.companyData.storeLink || '';
