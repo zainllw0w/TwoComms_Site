@@ -6508,12 +6508,17 @@ def generate_wholesale_invoice(request):
         
         # Красивое название файла с названием компании
         company_name = company_data.get('companyName', 'Company').strip()
+        print(f"DEBUG: company_data = {company_data}")
+        print(f"DEBUG: company_name from data = '{company_name}'")
+        
         if not company_name:
             company_name = 'Company'
+            print(f"DEBUG: Using default company name = '{company_name}'")
         
         # Красивая дата для названия файла
         beautiful_date = now.strftime('%d.%m.%Y_%H-%M')
         file_name = f"{company_name}_накладнаОПТ_{beautiful_date}.xlsx"
+        print(f"DEBUG: Final file_name = '{file_name}'")
         
         # Подсчитываем общие данные
         total_tshirts = 0
