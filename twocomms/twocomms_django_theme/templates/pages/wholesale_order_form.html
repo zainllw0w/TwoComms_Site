@@ -1643,6 +1643,7 @@ function initializeColorDots() {
         dot.style.height = '10px';
         dot.style.borderRadius = '50%';
         dot.style.border = '1px solid rgba(255, 255, 255, 0.3)';
+        dot.style.boxShadow = '0 0 0 1px rgba(0, 0, 0, 0.2)';
     });
 }
 
@@ -1996,6 +1997,7 @@ function showOrderForm() {
             
             // Update currentProduct for later use
             if (currentProduct) {
+                // Use color-specific image if available, otherwise use main image
                 currentProduct.image = colorImage || currentProduct.main_image;
             }
         });
@@ -2095,7 +2097,7 @@ function addToOrder() {
             id: Date.now(),
             product: {
                 ...currentProduct,
-                image: colorImage // Use color-specific image
+                image: colorImage || currentProduct.main_image // Use color-specific image or fallback to main
             },
             size: size === 'all' ? 'Всі ростовки (S-XL)' : size,
             color: colorName,
@@ -2144,7 +2146,7 @@ function addOrderItemToUI(orderItem) {
                 <div class="order-item-specs-row">
                     <div class="order-item-color-section">
                         <span class="order-item-color-text">${orderItem.color}</span>
-                        <span class="order-item-color-dot" data-color="#000000"></span>
+                        <span class="order-item-color-dot" data-color="#000000" style="background-color: #000000; width: 8px; height: 8px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.2); display: inline-block; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);"></span>
                     </div>
                     
                     <div class="order-item-size">${orderItem.size}</div>
@@ -2559,6 +2561,12 @@ function initializeColorDots() {
         const color = dot.getAttribute('data-color');
         if (color) {
             dot.style.backgroundColor = color;
+            dot.style.display = 'inline-block';
+            dot.style.width = '10px';
+            dot.style.height = '10px';
+            dot.style.borderRadius = '50%';
+            dot.style.border = '1px solid rgba(255, 255, 255, 0.3)';
+            dot.style.boxShadow = '0 0 0 1px rgba(0, 0, 0, 0.2)';
         }
     });
 }
@@ -2630,11 +2638,36 @@ function downloadInvoice(invoiceId) {
 // Global function for deleting invoices
 function deleteInvoice(invoiceId) {
     if (confirm('Ви впевнені, що хочете видалити цю накладну?')) {
-        const invoiceItem = document.querySelector(`[data-invoice-id="${invoiceId}"]`);
-        if (invoiceItem) {
-            invoiceItem.remove();
-            showNotification('Накладна видалена', 'success');
-        }
+        // Отправляем запрос на сервер для удаления
+        fetch(`/wholesale/delete-invoice/${invoiceId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const invoiceItem = document.querySelector(`[data-invoice-id="${invoiceId}"]`);
+                if (invoiceItem) {
+                    invoiceItem.remove();
+                }
+                
+                // Удаляем из localStorage
+                let invoices = JSON.parse(localStorage.getItem('wholesaleInvoices') || '[]');
+                invoices = invoices.filter(inv => inv.id != invoiceId);
+                localStorage.setItem('wholesaleInvoices', JSON.stringify(invoices));
+                
+                showNotification('Накладна видалена', 'success');
+            } else {
+                showNotification(data.error || 'Помилка при видаленні накладної', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting invoice:', error);
+            showNotification('Помилка при видаленні накладної', 'error');
+        });
     }
 }
 
