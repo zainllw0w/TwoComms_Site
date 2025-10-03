@@ -1906,6 +1906,8 @@ function addToOrder() {
     };
     
     orderItems.push(orderItem);
+    console.log('Added item to orderItems:', orderItem);
+    console.log('Current orderItems array:', orderItems);
     
     // Add to UI
     addOrderItemToUI(orderItem);
@@ -1914,9 +1916,8 @@ function addToOrder() {
     updateOrderStatistics();
     saveOrderData(); // Save to localStorage
     
-    // Reset form fields but keep form open
-    document.getElementById('quantity').value = '8'; // Reset to minimum wholesale quantity
-    updatePriceDisplay(); // Update price display
+    // Hide form after adding item
+    hideOrderForm();
     
     showNotification('Товар додано до накладної', 'success');
 }
@@ -2112,75 +2113,54 @@ function updateScale(scaleId, quantity) {
     const segments = scale.querySelectorAll('.scale-segment');
     
     segments.forEach((segment, index) => {
+        // Reset all classes and styles
         segment.classList.remove('active', 'progress', 'completed');
+        segment.style.backgroundColor = '';
+        
+        // Remove existing progress fill
+        const existingFill = segment.querySelector('.progress-fill');
+        if (existingFill) {
+            existingFill.remove();
+        }
         
         const range = segment.dataset.range;
         const [min, max] = parseRange(range);
         
-        if (quantity < 8) {
-            // Below minimum wholesale - show red for 1-7 tier, gray for others
-            if (min === 1 && max === 7) {
-                segment.classList.add('active');
-                segment.style.backgroundColor = '#ef4444'; // Red base
-                
-                // Show progress within 1-7 tier with dark red/burgundy fill
-                const tierSize = 7 - 1 + 1;
-                const currentProgress = Math.min(quantity, tierSize);
-                const progressPercent = (currentProgress / tierSize) * 100;
-                
-                let progressFill = segment.querySelector('.progress-fill');
-                if (!progressFill) {
-                    progressFill = document.createElement('div');
-                    progressFill.className = 'progress-fill';
-                    progressFill.style.position = 'absolute';
-                    progressFill.style.top = '0';
-                    progressFill.style.left = '0';
-                    progressFill.style.height = '100%';
-                    progressFill.style.backgroundColor = '#7f1d1d'; // Dark red/burgundy
-                    progressFill.style.borderRadius = '3px';
-                    progressFill.style.transition = 'width 0.3s ease';
-                    progressFill.style.zIndex = '1';
-                    segment.style.position = 'relative';
-                    segment.appendChild(progressFill);
-                }
-                progressFill.style.width = `${progressPercent}%`;
-            } else {
-                // Future tiers - gray
-                segment.style.backgroundColor = '#374151';
-            }
-        } else if (quantity >= min && (max === null || quantity <= max)) {
-            // Current tier - show progress
+        if (quantity >= min && quantity <= max) {
+            // Current tier - highlight with green and show progress
             segment.classList.add('active');
+            segment.style.backgroundColor = '#10b981';
             
             // Calculate progress within current tier
-            const tierSize = (max === null ? 100 : max) - min + 1;
-            const currentProgress = Math.min(quantity - min + 1, tierSize);
+            const tierSize = max - min + 1;
+            const currentProgress = quantity - min + 1;
             const progressPercent = (currentProgress / tierSize) * 100;
             
-            // Create or update progress fill
-            let progressFill = segment.querySelector('.progress-fill');
-            if (!progressFill) {
-                progressFill = document.createElement('div');
-                progressFill.className = 'progress-fill';
-                progressFill.style.position = 'absolute';
-                progressFill.style.top = '0';
-                progressFill.style.left = '0';
-                progressFill.style.height = '100%';
-                progressFill.style.backgroundColor = '#10b981';
-                progressFill.style.borderRadius = '3px';
-                progressFill.style.transition = 'width 0.3s ease';
-                progressFill.style.zIndex = '1';
-                segment.style.position = 'relative';
-                segment.appendChild(progressFill);
-            }
-            progressFill.style.width = `${progressPercent}%`;
+            // Create progress fill
+            const progressFill = document.createElement('div');
+            progressFill.className = 'progress-fill';
+            progressFill.style.cssText = `
+                position: absolute;
+                top: 0;
+                left: 0;
+                height: 100%;
+                width: ${progressPercent}%;
+                background: #059669;
+                border-radius: 3px;
+                transition: width 0.3s ease;
+                z-index: 1;
+            `;
+            
+            segment.style.position = 'relative';
+            segment.appendChild(progressFill);
             
         } else if (quantity > max) {
-            // Completed tier
+            // Completed tier - full green
             segment.classList.add('completed');
             segment.style.backgroundColor = '#10b981';
+            
         } else {
-            // Future tier
+            // Future tier - gray
             segment.style.backgroundColor = '#374151';
         }
     });
@@ -2228,7 +2208,9 @@ function loadOrderData() {
             
             // Load order items
             if (orderData.orderItems && orderData.orderItems.length > 0) {
+                console.log('Loading orderItems:', orderData.orderItems);
                 orderItems = orderData.orderItems;
+                console.log('Set orderItems to:', orderItems);
                 
                 // Clear existing items
                 const orderItemsContainer = document.getElementById('orderItems');
@@ -2236,6 +2218,7 @@ function loadOrderData() {
                 
                 // Rebuild order items UI
                 orderItems.forEach(item => {
+                    console.log('Adding item to UI:', item);
                     addOrderItemToUI(item);
                 });
                 
