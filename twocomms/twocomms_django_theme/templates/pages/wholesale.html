@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% load static %}
-{% load responsive_images %}
 
 {% block title %}Оптові закупівлі — TwoComms{% endblock %}
 
@@ -144,7 +143,7 @@
             <div class="wholesale-product-card glass rounded-4 overflow-hidden h-100">
               <div class="product-image-container">
                 {% if product.main_image %}
-                  {% optimized_image product.main_image.url product.title "product-image" 400 500 sizes='(max-width: 768px) 50vw, (max-width: 992px) 33vw, 25vw' %}
+                  <img src="{{ product.main_image.url }}" alt="{{ product.title }}" class="product-image">
                 {% else %}
                   {% static 'img/placeholder.jpg' as placeholder %}
                   <img src="{{ placeholder }}" alt="{{ product.title }}" class="product-image">
@@ -199,7 +198,7 @@
             <div class="wholesale-product-card glass rounded-4 overflow-hidden h-100">
               <div class="product-image-container">
                 {% if product.main_image %}
-                  {% optimized_image product.main_image.url product.title "product-image" 400 500 sizes='(max-width: 768px) 50vw, (max-width: 992px) 33vw, 25vw' %}
+                  <img src="{{ product.main_image.url }}" alt="{{ product.title }}" class="product-image">
                 {% else %}
                   {% static 'img/placeholder.jpg' as placeholder %}
                   <img src="{{ placeholder }}" alt="{{ product.title }}" class="product-image">
