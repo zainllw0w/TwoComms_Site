@@ -1445,6 +1445,9 @@
                 <button class="action-btn generate-invoice-btn" id="generateInvoiceBtn">
                     Сформувати накладну
                 </button>
+                <button class="action-btn" id="clearOrderBtn" style="background: #ef4444; margin-left: 10px;">
+                    Очистити замовлення
+                </button>
             </div>
             
             <!-- Статистика заказа -->
@@ -1578,6 +1581,7 @@ document.addEventListener('DOMContentLoaded', function() {
 function initializeCompanyForm() {
     const companyForm = document.getElementById('company-form');
     const generateInvoiceBtn = document.getElementById('generateInvoiceBtn');
+    const clearOrderBtn = document.getElementById('clearOrderBtn');
     const invoicesList = document.getElementById('invoices-list');
     
     // Handle company form submission
@@ -1596,6 +1600,14 @@ function initializeCompanyForm() {
         
         // Show success message
         showNotification('Інформація про компанію збережена!', 'success');
+    });
+    
+    // Handle clear order button
+    clearOrderBtn.addEventListener('click', function() {
+        if (confirm('Ви впевнені, що хочете очистити замовлення? Цю дію неможливо скасувати.')) {
+            clearOrderData();
+            showNotification('Замовлення очищено', 'success');
+        }
     });
     
     // Handle invoice generation
@@ -2230,6 +2242,9 @@ function loadOrderData() {
                 orderItems.forEach(item => {
                     addOrderItemToUI(item);
                 });
+                
+                // Show notification that data was restored
+                showNotification(`Відновлено ${orderItems.length} товарів з попередньої сесії`, 'info');
             }
         } catch (e) {
             console.error('Error loading saved order data:', e);
@@ -2238,7 +2253,23 @@ function loadOrderData() {
 }
 
 function clearOrderData() {
+    // Clear localStorage
     localStorage.removeItem('wholesaleOrderData');
+    
+    // Clear order items array
+    orderItems = [];
+    
+    // Clear UI
+    document.getElementById('orderItems').innerHTML = '';
+    
+    // Reset statistics
+    updateOrderStatistics();
+    
+    // Hide order form if it's open
+    hideOrderForm();
+    
+    // Reset current product
+    currentProduct = null;
 }
 
 // Color dots initialization
