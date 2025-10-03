@@ -1949,6 +1949,12 @@ function showOrderForm() {
     }
 }
 
+function getTotalQuantityForProductType(productType) {
+    return orderItems
+        .filter(item => item.product.type === productType)
+        .reduce((total, item) => total + item.quantity, 0);
+}
+
 function getWholesalePrice(productType, quantity) {
     const prices = productType === 'tshirt' ? tshirtPrices.wholesale : hoodiePrices.wholesale;
 
@@ -1957,14 +1963,23 @@ function getWholesalePrice(productType, quantity) {
     if (quantity >= 32) return prices[2];
     if (quantity >= 16) return prices[1];
     if (quantity >= 8) return prices[0];
-    return prices[0]; // Always return minimum wholesale price even for 1-7 items
+    
+    // For 1-7 items, return the appropriate wholesale price based on total quantity
+    // This will be used for individual item pricing in the order
+    return prices[0]; // Use minimum wholesale price for individual items
 }
 
 function updatePriceDisplay() {
     if (!currentProduct) return;
     
     const quantity = parseInt(document.getElementById('quantity').value) || 1;
-    const price = getWholesalePrice(currentProduct.type, quantity);
+    
+    // Calculate total quantity for this product type after adding this item
+    const currentTotalQuantity = getTotalQuantityForProductType(currentProduct.type);
+    const newTotalQuantity = currentTotalQuantity + quantity;
+    
+    // Calculate price based on total quantity for this product type
+    const price = getWholesalePrice(currentProduct.type, newTotalQuantity);
     const total = price * quantity;
     const addBtn = document.getElementById('addToOrderBtn');
 
@@ -1983,10 +1998,12 @@ function addToOrder() {
         return;
     }
     
-    // Allow adding items with quantity 1-7, but they won't count toward wholesale total
+    // Calculate total quantity for this product type after adding this item
+    const currentTotalQuantity = getTotalQuantityForProductType(currentProduct.type);
+    const newTotalQuantity = currentTotalQuantity + quantity;
     
-    // Calculate price (only wholesale, minimum 8 items)
-    const price = getWholesalePrice(currentProduct.type, quantity);
+    // Calculate price based on total quantity for this product type
+    const price = getWholesalePrice(currentProduct.type, newTotalQuantity);
     
     // Create order item
     const orderItem = {
