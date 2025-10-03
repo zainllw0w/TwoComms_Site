@@ -5546,13 +5546,21 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
     if items is None:
         items = list(order.items.select_related('product', 'color_variant__color'))
     
-    # Build products array according to Monobank Checkout API
+    def _as_number(dec: Decimal):
+        """Convert Decimal to int if possible, otherwise to float."""
+        if dec == dec.to_integral():
+            return int(dec)
+        return float(dec)
+
     products = []
-    computed_amount_minor = 0
+    total_amount_major = Decimal('0')
+    total_count = 0
+
     for item in items:
         qty_value = getattr(item, 'qty', None)
         if qty_value is None:
             qty_value = getattr(item, 'quantity', None)
+
         monobank_logger.info('Building product data for item: %s, qty=%s, unit_price=%s',
                              item.product.title, qty_value, getattr(item, 'unit_price', None))
 
@@ -5566,29 +5574,27 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
             qty = 1
 
         try:
-            unit_price_minor = int((Decimal(str(item.unit_price)) * 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
-            line_total_minor = int((Decimal(str(item.line_total)) * 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
+            line_total_major = Decimal(str(item.line_total)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         except Exception as exc:
-            monobank_logger.exception('Failed to convert prices for item %s: %s', item.id if hasattr(item, 'id') else item.product_id, exc)
+            monobank_logger.exception('Failed to convert line total for item %s: %s', item.id if hasattr(item, 'id') else item.product_id, exc)
             continue
 
-        if unit_price_minor <= 0 or line_total_minor <= 0:
-            monobank_logger.error('Item has non-positive price: unit=%s, total=%s', unit_price_minor, line_total_minor)
+        if line_total_major <= 0:
+            monobank_logger.error('Item has non-positive line total: %s', line_total_major)
             continue
 
-        computed_amount_minor += line_total_minor
+        total_amount_major += line_total_major
+        total_count += qty
 
         product_data = {
             'name': item.title or item.product.title,
-            'quantity': qty,
-            'price': unit_price_minor,
-            'sum': line_total_minor,
+            'cnt': qty,
+            'price': _as_number(line_total_major),
         }
-        product_data['count'] = qty
 
-        product_sku = getattr(item.product, 'sku', None)
-        if product_sku:
-            product_data['code'] = str(product_sku)
+        code_product = getattr(item.product, 'sku', None) or getattr(item.product, 'id', None)
+        if code_product is not None:
+            product_data['code_product'] = str(code_product)
         if item.product.main_image:
             product_data['icon'] = request.build_absolute_uri(item.product.main_image.url)
         if item.color_name:
@@ -5600,16 +5606,18 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
         monobank_logger.error('No products collected for monobank checkout payload')
         raise MonobankAPIError('Кошик порожній. Додайте товари перед оплатою.')
 
-    # Build payload
-    amount_minor = int((Decimal(str(amount_decimal)) * 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
-    if computed_amount_minor and abs(computed_amount_minor - amount_minor) > 1:
-        amount_minor = computed_amount_minor
+    if total_count <= 0:
+        total_count = sum(max(int(getattr(item, 'qty', 1) or 1), 1) for item in items)
+
+    amount_major = Decimal(str(amount_decimal)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    if total_amount_major and amount_major != total_amount_major:
+        amount_major = total_amount_major
 
     payload = {
         'order_ref': order.order_number,
-        'amount': amount_minor,
+        'amount': _as_number(amount_major),
         'ccy': 980,  # гривна
-        'count': total_qty,
+        'count': int(total_count),
         'products': products,
         'dlv_method_list': getattr(settings, 'MONOBANK_CHECKOUT_DELIVERY_METHODS', ['pickup', 'np_brnm']),
         'payment_method_list': getattr(settings, 'MONOBANK_CHECKOUT_PAYMENT_METHODS', ['card']),
