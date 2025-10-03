@@ -6467,11 +6467,11 @@ def wholesale_order_form(request):
                 'store_link': getattr(user_profile, 'website', '') or ''
             }
             
-            # Статистика накладных пользователя
-            user_invoices = WholesaleInvoice.objects.filter(user=request.user).order_by('-created_at')
-            last_invoice = user_invoices.first()
+            # Статистика накладных пользователя (показываем общую статистику)
+            all_invoices = WholesaleInvoice.objects.all().order_by('-created_at')
+            last_invoice = all_invoices.first()
             user_invoice_stats = {
-                'total_invoices': user_invoices.count(),
+                'total_invoices': all_invoices.count(),
                 'last_invoice_date': last_invoice.created_at.strftime('%d.%m.%Y %H:%M') if last_invoice else 'Немає накладних',
                 'total_products_available': tshirt_products.count() + hoodie_products.count(),
                 'tshirt_count': tshirt_products.count(),
