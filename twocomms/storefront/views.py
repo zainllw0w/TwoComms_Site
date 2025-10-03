@@ -6460,3 +6460,240 @@ def wholesale_order_form(request):
     }
     
     return render(request, 'pages/wholesale_order_form.html', context)
+
+
+@require_POST
+@csrf_exempt
+def generate_wholesale_invoice(request):
+    """Генерирует Excel накладную для оптового заказа"""
+    import json
+    from datetime import datetime
+    from django.http import HttpResponse
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from openpyxl.utils import get_column_letter
+    from orders.models import WholesaleInvoice
+    
+    try:
+        # Получаем данные из запроса
+        data = json.loads(request.body)
+        company_data = data.get('companyData', {})
+        order_items = data.get('orderItems', [])
+        
+        if not order_items:
+            return JsonResponse({'error': 'Немає товарів для накладної'}, status=400)
+        
+        # Генерируем номер накладной
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        invoice_number = f"ОПТ_{timestamp}"
+        
+        # Подсчитываем общие данные
+        total_tshirts = 0
+        total_hoodies = 0
+        total_amount = 0
+        
+        # Создаем Excel файл
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Оптова накладна"
+        
+        # Стили
+        header_font = Font(name='Arial', size=14, bold=True, color='FFFFFF')
+        title_font = Font(name='Arial', size=12, bold=True)
+        normal_font = Font(name='Arial', size=10)
+        
+        header_fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+        light_fill = PatternFill(start_color='F2F2F2', end_color='F2F2F2', fill_type='solid')
+        
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        center_alignment = Alignment(horizontal='center', vertical='center')
+        left_alignment = Alignment(horizontal='left', vertical='center')
+        
+        # Заголовок накладной
+        ws.merge_cells('A1:F1')
+        ws['A1'] = 'ОПТОВА НАКЛАДНА'
+        ws['A1'].font = Font(name='Arial', size=16, bold=True, color='366092')
+        ws['A1'].alignment = center_alignment
+        
+        # Информация о компании
+        row = 3
+        ws[f'A{row}'] = 'Інформація про замовника:'
+        ws[f'A{row}'].font = title_font
+        
+        row += 1
+        ws[f'A{row}'] = 'Назва компанії/ФОП/ПІБ:'
+        ws[f'A{row}'].font = normal_font
+        ws[f'B{row}'] = company_data.get('companyName', '')
+        ws[f'B{row}'].font = normal_font
+        
+        row += 1
+        ws[f'A{row}'] = 'Номер телефону:'
+        ws[f'A{row}'].font = normal_font
+        ws[f'B{row}'] = company_data.get('contactPhone', '')
+        ws[f'B{row}'].font = normal_font
+        
+        row += 1
+        ws[f'A{row}'] = 'Адреса доставки:'
+        ws[f'A{row}'].font = normal_font
+        ws[f'B{row}'] = company_data.get('deliveryAddress', '')
+        ws[f'B{row}'].font = normal_font
+        
+        if company_data.get('storeLink'):
+            row += 1
+            ws[f'A{row}'] = 'Посилання на магазин:'
+            ws[f'A{row}'].font = normal_font
+            ws[f'B{row}'] = company_data.get('storeLink', '')
+            ws[f'B{row}'].font = normal_font
+        
+        row += 2
+        ws[f'A{row}'] = f'Номер накладної: {invoice_number}'
+        ws[f'A{row}'].font = title_font
+        
+        row += 1
+        ws[f'A{row}'] = f'Дата створення: {datetime.now().strftime("%d.%m.%Y %H:%M")}'
+        ws[f'A{row}'].font = normal_font
+        
+        # Заголовок таблицы товаров
+        row += 2
+        headers = ['№', 'Назва товару', 'Розмір', 'Колір', 'Кількість', 'Ціна за од.', 'Сума']
+        
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=row, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = center_alignment
+            cell.border = thin_border
+        
+        # Заполняем товары
+        item_number = 1
+        row += 1
+        
+        for item in order_items:
+            product = item.get('product', {})
+            quantity = item.get('quantity', 0)
+            price = item.get('price', 0)
+            total = item.get('total', 0)
+            
+            # Подсчитываем общие данные
+            if product.get('type') == 'tshirt':
+                total_tshirts += quantity
+            elif product.get('type') == 'hoodie':
+                total_hoodies += quantity
+            
+            total_amount += total
+            
+            # Заполняем строку товара
+            ws.cell(row=row, column=1, value=item_number).font = normal_font
+            ws.cell(row=row, column=1).alignment = center_alignment
+            ws.cell(row=row, column=1).border = thin_border
+            
+            ws.cell(row=row, column=2, value=product.get('title', '')).font = normal_font
+            ws.cell(row=row, column=2).alignment = left_alignment
+            ws.cell(row=row, column=2).border = thin_border
+            
+            ws.cell(row=row, column=3, value=item.get('size', '')).font = normal_font
+            ws.cell(row=row, column=3).alignment = center_alignment
+            ws.cell(row=row, column=3).border = thin_border
+            
+            ws.cell(row=row, column=4, value=item.get('color', '')).font = normal_font
+            ws.cell(row=row, column=4).alignment = center_alignment
+            ws.cell(row=row, column=4).border = thin_border
+            
+            ws.cell(row=row, column=5, value=quantity).font = normal_font
+            ws.cell(row=row, column=5).alignment = center_alignment
+            ws.cell(row=row, column=5).border = thin_border
+            
+            ws.cell(row=row, column=6, value=f"{price}₴").font = normal_font
+            ws.cell(row=row, column=6).alignment = center_alignment
+            ws.cell(row=row, column=6).border = thin_border
+            
+            ws.cell(row=row, column=7, value=f"{total}₴").font = normal_font
+            ws.cell(row=row, column=7).alignment = center_alignment
+            ws.cell(row=row, column=7).border = thin_border
+            
+            # Чередуем цвет фона строк
+            if item_number % 2 == 0:
+                for col in range(1, 8):
+                    ws.cell(row=row, column=col).fill = light_fill
+            
+            item_number += 1
+            row += 1
+        
+        # Итоговая строка
+        row += 1
+        ws.merge_cells(f'A{row}:E{row}')
+        ws[f'A{row}'] = 'РАЗОМ:'
+        ws[f'A{row}'].font = title_font
+        ws[f'A{row}'].alignment = right_alignment = Alignment(horizontal='right', vertical='center')
+        ws[f'A{row}'].border = thin_border
+        
+        ws[f'F{row}'] = f"{total_amount}₴"
+        ws[f'F{row}'].font = title_font
+        ws[f'F{row}'].alignment = center_alignment
+        ws[f'F{row}'].border = thin_border
+        
+        # Статистика
+        row += 2
+        ws[f'A{row}'] = 'Статистика замовлення:'
+        ws[f'A{row}'].font = title_font
+        
+        row += 1
+        ws[f'A{row}'] = f'Футболки: {total_tshirts} шт.'
+        ws[f'A{row}'].font = normal_font
+        
+        row += 1
+        ws[f'A{row}'] = f'Худі: {total_hoodies} шт.'
+        ws[f'A{row}'].font = normal_font
+        
+        row += 1
+        ws[f'A{row}'] = f'Загальна сума: {total_amount}₴'
+        ws[f'A{row}'].font = title_font
+        
+        # Настраиваем ширину колонок
+        column_widths = [5, 30, 15, 15, 10, 12, 12]
+        for col, width in enumerate(column_widths, 1):
+            ws.column_dimensions[get_column_letter(col)].width = width
+        
+        # Сохраняем в базу данных
+        invoice = WholesaleInvoice.objects.create(
+            invoice_number=invoice_number,
+            company_name=company_data.get('companyName', ''),
+            contact_phone=company_data.get('contactPhone', ''),
+            delivery_address=company_data.get('deliveryAddress', ''),
+            store_link=company_data.get('storeLink', ''),
+            total_tshirts=total_tshirts,
+            total_hoodies=total_hoodies,
+            total_amount=total_amount,
+            order_details={
+                'company_data': company_data,
+                'order_items': order_items
+            }
+        )
+        
+        # Подготавливаем ответ
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{invoice.file_name}"'
+        
+        # Сохраняем Excel файл
+        wb.save(response)
+        
+        return JsonResponse({
+            'success': True,
+            'invoice_number': invoice_number,
+            'invoice_id': invoice.id,
+            'file_name': invoice.file_name,
+            'total_amount': total_amount,
+            'total_tshirts': total_tshirts,
+            'total_hoodies': total_hoodies
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': f'Помилка при створенні накладної: {str(e)}'}, status=500)
