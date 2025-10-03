@@ -484,6 +484,21 @@
     height: 64px;
 }
 
+
+.product-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+}
+
+.product-category {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.65rem;
+    font-weight: 500;
+}
+
 .product-name {
     color: rgba(255, 255, 255, 0.95);
     font-size: 0.75rem;
@@ -492,14 +507,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 140px;
-    margin-bottom: 4px;
-}
-
-.product-category {
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 0.65rem;
-    font-weight: 500;
-    margin-bottom: 4px;
 }
 
 .product-colors {
@@ -1318,8 +1325,10 @@
                                 {% endif %}
                             </div>
                                 <div class="product-info">
-                                <div class="product-category">Футболки</div>
-                                <div class="product-name">{{ product.title }}</div>
+                                <div class="product-title-row">
+                                    <span class="product-category">Футболки</span>
+                                    <span class="product-name">{{ product.title }}</span>
+                                </div>
                                 <div class="product-colors">
                                     {% for color_variant in product.color_variants.all|slice:":3" %}
                                         <span class="color-item">
@@ -1361,8 +1370,10 @@
                                 {% endif %}
                             </div>
                             <div class="product-info">
-                                <div class="product-category">Худі</div>
-                                <div class="product-name">{{ product.title }} [фліс]</div>
+                                <div class="product-title-row">
+                                    <span class="product-category">Худі</span>
+                                    <span class="product-name">{{ product.title }} [фліс]</span>
+                                </div>
                                 <div class="product-colors">
                                     <span class="color-item">
                                         <span class="color-dot" data-color="#000000"></span>
@@ -1902,8 +1913,9 @@ function addToOrder() {
     updateOrderStatistics();
     saveOrderData(); // Save to localStorage
     
-    // Reset form
-    hideOrderForm();
+    // Reset form fields but keep form open
+    document.getElementById('quantity').value = '8'; // Reset to minimum wholesale quantity
+    updatePriceDisplay(); // Update price display
     
     showNotification('Товар додано до накладної', 'success');
 }
