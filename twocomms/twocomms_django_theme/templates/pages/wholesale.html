@@ -13,14 +13,62 @@
   {{ block.super }}
   <style>
     /* Professional Wholesale Page Styles */
+    
+    /* Header Override */
+    .navbar {
+      background: rgba(14, 15, 18, 0.95) !important;
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .navbar-brand img {
+      width: 50px;
+      height: 50px;
+      filter: drop-shadow(0 0 15px rgba(139, 92, 246, 0.6));
+      transition: all 0.3s ease;
+    }
+    
+    .navbar-brand:hover img {
+      filter: drop-shadow(0 0 20px rgba(139, 92, 246, 0.8));
+      transform: scale(1.05);
+    }
+    
+    .navbar-nav .nav-link {
+      color: rgba(255, 255, 255, 0.9) !important;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+    
+    .navbar-nav .nav-link:hover {
+      color: #8b5cf6 !important;
+      transform: translateY(-1px);
+    }
+    
+    .navbar-nav .btn {
+      background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+      border: none;
+      color: white;
+      font-weight: 600;
+      padding: 0.5rem 1.5rem;
+      border-radius: 8px;
+      transition: all 0.3s ease;
+    }
+    
+    .navbar-nav .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
+      color: white;
+    }
+    
+    /* Hero Section */
     .wholesale-hero {
       position: relative;
-      min-height: 80vh;
+      min-height: 60vh;
       display: flex;
       align-items: center;
       overflow: hidden;
-      background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(99, 102, 241, 0.15) 25%, rgba(59, 130, 246, 0.2) 50%, rgba(16, 185, 129, 0.15) 75%, rgba(139, 92, 246, 0.2) 100%);
-      animation: gradientShift 15s ease-in-out infinite;
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(99, 102, 241, 0.1) 25%, rgba(59, 130, 246, 0.15) 50%, rgba(16, 185, 129, 0.1) 75%, rgba(139, 92, 246, 0.15) 100%);
+      animation: gradientShift 20s ease-in-out infinite;
     }
 
     .hero-particles {
@@ -156,13 +204,60 @@
       text-decoration: none;
     }
 
+    /* Sticky Pricing Section */
+    .pricing-sticky {
+      position: sticky;
+      top: 80px;
+      z-index: 100;
+      background: rgba(14, 15, 18, 0.95);
+      backdrop-filter: blur(20px);
+      border-radius: 15px;
+      padding: 1.5rem;
+      margin: 2rem 0;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      transition: all 0.3s ease;
+    }
+
+    .pricing-sticky:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    .pricing-compact {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+    }
+
+    .pricing-item {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 1rem;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .pricing-item h4 {
+      color: white;
+      font-size: 1.1rem;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+    }
+
+    .pricing-item .price {
+      color: #8b5cf6;
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
     /* Category Filters */
     .category-filters {
       background: rgba(255, 255, 255, 0.05);
       backdrop-filter: blur(20px);
       border-radius: 20px;
       padding: 1.5rem;
-      margin: 3rem 0;
+      margin: 2rem 0;
       border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
@@ -286,37 +381,37 @@
       font-size: 1.1rem;
     }
 
-    /* Product Cards */
+    /* Product Cards - Compact Design */
     .products-section {
-      padding: 4rem 0;
+      padding: 2rem 0;
     }
 
     .products-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 2rem;
-      margin-top: 2rem;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1rem;
     }
 
     .product-card {
       background: rgba(255, 255, 255, 0.08);
       backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 20px;
+      border-radius: 15px;
       overflow: hidden;
-      transition: all 0.4s ease;
+      transition: all 0.3s ease;
       position: relative;
     }
 
     .product-card:hover {
-      transform: translateY(-8px);
+      transform: translateY(-5px);
       border-color: rgba(139, 92, 246, 0.5);
-      box-shadow: 0 20px 40px rgba(139, 92, 246, 0.2);
+      box-shadow: 0 15px 30px rgba(139, 92, 246, 0.2);
     }
 
     .product-image-container {
       position: relative;
-      aspect-ratio: 4/5;
+      aspect-ratio: 3/4;
       overflow: hidden;
     }
 
@@ -324,11 +419,11 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      transition: transform 0.4s ease;
+      transition: transform 0.3s ease;
     }
 
     .product-card:hover .product-image {
-      transform: scale(1.1);
+      transform: scale(1.05);
     }
 
     .product-overlay {
@@ -337,11 +432,11 @@
       left: 0;
       right: 0;
       bottom: 0;
-      background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7) 0%, transparent 50%, rgba(0, 0, 0, 0.8) 100%);
+      background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6) 0%, transparent 40%, rgba(0, 0, 0, 0.7) 100%);
       display: flex;
       align-items: flex-start;
       justify-content: flex-end;
-      padding: 1rem;
+      padding: 0.75rem;
       opacity: 0;
       transition: opacity 0.3s ease;
     }
@@ -353,31 +448,31 @@
     .product-badge {
       background: linear-gradient(135deg, #f59e0b, #d97706);
       color: white;
-      padding: 0.5rem 1rem;
-      border-radius: 10px;
-      font-size: 0.8rem;
+      padding: 0.4rem 0.8rem;
+      border-radius: 8px;
+      font-size: 0.75rem;
       font-weight: 700;
-      box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+      box-shadow: 0 3px 10px rgba(245, 158, 11, 0.3);
     }
 
     .product-content {
-      padding: 2rem;
+      padding: 1.25rem;
     }
 
     .product-title {
-      font-size: 1.2rem;
-      font-weight: 700;
-      margin-bottom: 1.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
       color: white;
       line-height: 1.3;
     }
 
     .product-prices {
-      margin-top: 1rem;
+      margin-top: 0.75rem;
     }
 
     .price-section {
-      margin-bottom: 1.5rem;
+      margin-bottom: 1rem;
     }
 
     .price-section:last-child {
@@ -385,24 +480,24 @@
     }
 
     .price-label {
-      color: rgba(255, 255, 255, 0.8);
-      font-size: 0.9rem;
-      font-weight: 600;
-      margin-bottom: 0.5rem;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.8rem;
+      font-weight: 500;
+      margin-bottom: 0.25rem;
       display: block;
     }
 
     .price-value {
       color: #f59e0b;
-      font-weight: 800;
-      font-size: 1.3rem;
+      font-weight: 700;
+      font-size: 1.1rem;
       display: block;
     }
 
     .wholesale-ranges {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.25rem;
       margin-top: 0.5rem;
     }
 
@@ -410,17 +505,17 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.85rem;
-      padding: 0.4rem 0;
+      font-size: 0.75rem;
+      padding: 0.25rem 0;
     }
 
     .range-label {
-      color: rgba(255, 255, 255, 0.7);
+      color: rgba(255, 255, 255, 0.6);
     }
 
     .range-price {
       color: white;
-      font-weight: 700;
+      font-weight: 600;
     }
 
     /* Animations */
@@ -451,6 +546,11 @@
 
     @keyframes slideInUp {
       from { opacity: 0; transform: translateY(50px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
       to { opacity: 1; transform: translateY(0); }
     }
 
@@ -524,11 +624,38 @@
   </div>
 </section>
 
+<!-- Sticky Pricing Section -->
+<div class="container">
+  <div class="pricing-sticky">
+    <div class="text-center mb-3">
+      <h3 style="color: white; margin-bottom: 1rem; font-size: 1.5rem;">Система ціноутворення</h3>
+    </div>
+    <div class="pricing-compact">
+      <div class="pricing-item">
+        <h4>Футболки - Дроп</h4>
+        <div class="price">{{ tshirt_prices.drop }} грн</div>
+      </div>
+      <div class="pricing-item">
+        <h4>Худі - Дроп</h4>
+        <div class="price">{{ hoodie_prices.drop }} грн</div>
+      </div>
+      <div class="pricing-item">
+        <h4>Футболки - Опт</h4>
+        <div class="price">{{ tshirt_prices.wholesale.0 }}-{{ tshirt_prices.wholesale|last }} грн</div>
+      </div>
+      <div class="pricing-item">
+        <h4>Худі - Опт</h4>
+        <div class="price">{{ hoodie_prices.wholesale.0 }}-{{ hoodie_prices.wholesale|last }} грн</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Category Filters -->
 <div class="container">
   <div class="category-filters">
     <div class="text-center mb-3">
-      <h3 style="color: white; margin-bottom: 1rem;">Фільтр по категоріях</h3>
+      <h3 style="color: white; margin-bottom: 1rem;">Категорії товарів</h3>
     </div>
     <div class="filter-buttons">
       <button class="filter-btn active" data-filter="all">Всі товари</button>
@@ -538,113 +665,6 @@
   </div>
 </div>
 
-<!-- Pricing Information -->
-<section class="pricing-section">
-  <div class="container">
-    <div class="text-center mb-4">
-      <h2 style="color: white; font-size: 2.5rem; font-weight: 700; margin-bottom: 1rem;">Система ціноутворення</h2>
-      <p style="color: rgba(255, 255, 255, 0.7); font-size: 1.2rem;">Прозорі та вигідні умови для всіх типів співпраці</p>
-    </div>
-
-    <div class="pricing-cards">
-      <!-- Drop Prices -->
-      <div class="pricing-card">
-        <div class="pricing-icon">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-          </svg>
-        </div>
-        <h3 class="pricing-title">Дроп ціни</h3>
-        <p class="pricing-description">
-          Фіксовані ціни незалежно від кількості замовлення. 
-          Ідеально для дропшипінгу та роздрібної торгівлі.
-        </p>
-        <div class="price-ranges">
-          <div class="price-range">
-            <span class="range-label">Футболки</span>
-            <span class="range-price">{{ tshirt_prices.drop }} грн</span>
-          </div>
-          <div class="price-range">
-            <span class="range-label">Худі [фліс]</span>
-            <span class="range-price">{{ hoodie_prices.drop }} грн</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Wholesale Prices -->
-      <div class="pricing-card">
-        <div class="pricing-icon">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
-          </svg>
-        </div>
-        <h3 class="pricing-title">Оптові ціни</h3>
-        <p class="pricing-description">
-          Вигідні ціни залежно від обсягу замовлення. 
-          Чим більше замовляєте, тим менше платите за одиницю.
-        </p>
-        <div class="price-ranges">
-          <div class="price-range">
-            <span class="range-label">Футболки (8-15 шт)</span>
-            <span class="range-price">{{ tshirt_prices.wholesale.0 }} грн</span>
-          </div>
-          <div class="price-range">
-            <span class="range-label">Футболки (16-31 шт)</span>
-            <span class="range-price">{{ tshirt_prices.wholesale.1 }} грн</span>
-          </div>
-          <div class="price-range">
-            <span class="range-label">Футболки (32-63 шт)</span>
-            <span class="range-price">{{ tshirt_prices.wholesale.2 }} грн</span>
-          </div>
-          <div class="price-range">
-            <span class="range-label">Футболки (64-99 шт)</span>
-            <span class="range-price">{{ tshirt_prices.wholesale.3 }} грн</span>
-          </div>
-          <div class="price-range">
-            <span class="range-label">Футболки (100+ шт)</span>
-            <span class="range-price">{{ tshirt_prices.wholesale.4 }} грн</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Hoodie Wholesale Prices -->
-      <div class="pricing-card">
-        <div class="pricing-icon">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
-          </svg>
-        </div>
-        <h3 class="pricing-title">Худі [фліс] - Опт</h3>
-        <p class="pricing-description">
-          Спеціальні ціни для худі з флісом. 
-          М'який та зручний матеріал.
-        </p>
-        <div class="price-ranges">
-          <div class="price-range">
-            <span class="range-label">Худі (8-15 шт)</span>
-            <span class="range-price">{{ hoodie_prices.wholesale.0 }} грн</span>
-          </div>
-          <div class="price-range">
-            <span class="range-label">Худі (16-31 шт)</span>
-            <span class="range-price">{{ hoodie_prices.wholesale.1 }} грн</span>
-          </div>
-          <div class="price-range">
-            <span class="range-label">Худі (32-63 шт)</span>
-            <span class="range-price">{{ hoodie_prices.wholesale.2 }} грн</span>
-          </div>
-          <div class="price-range">
-            <span class="range-label">Худі (64-99 шт)</span>
-            <span class="range-price">{{ hoodie_prices.wholesale.3 }} грн</span>
-          </div>
-          <div class="price-range">
-            <span class="range-label">Худі (100+ шт)</span>
-            <span class="range-price">{{ hoodie_prices.wholesale.4 }} грн</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
 
 <!-- Products Section -->
 <section class="products-section">
@@ -726,32 +746,6 @@
   </div>
 </section>
 
-<!-- Cooperation Section -->
-<section style="padding: 4rem 0; background: rgba(255, 255, 255, 0.02); text-align: center;">
-  <div class="container">
-    <div style="max-width: 800px; margin: 0 auto;">
-      <h2 style="font-size: 2.5rem; font-weight: 700; margin-bottom: 1.5rem; color: white;">Співпраця по дропу</h2>
-      <p style="font-size: 1.2rem; color: rgba(255, 255, 255, 0.8); margin-bottom: 2rem; line-height: 1.6;">
-        Зацікавлені в співпраці? Зв'яжіться з нами через Telegram для обговорення умов дропшипінгу 
-        та отримання персональних умов співпраці.
-      </p>
-      <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
-        <a href="https://t.me/twocomms_wholesale" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 1rem 2rem; background: linear-gradient(135deg, #10b981, #059669); color: white; text-decoration: none; border-radius: 12px; font-weight: 600; transition: all 0.3s ease;" target="_blank" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 10px 30px rgba(16, 185, 129, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-          </svg>
-          Написати в Telegram
-        </a>
-        <button onclick="showInvoiceModal()" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 1rem 2rem; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); color: white; border-radius: 12px; font-weight: 600; transition: all 0.3s ease; cursor: pointer;" onmouseover="this.style.background='rgba(255, 255, 255, 0.2)'; this.style.borderColor='rgba(255, 255, 255, 0.5)'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'; this.style.borderColor='rgba(255, 255, 255, 0.3)'; this.style.transform='translateY(0)'">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
-          </svg>
-          Сформувати накладну
-        </button>
-      </div>
-    </div>
-  </div>
-</section>
 
 {% endblock %}
 
@@ -765,5 +759,33 @@
     function showInvoiceModal() {
       alert('Функція формування накладних в розробці. Звертайтесь через Telegram: https://t.me/twocomms_wholesale');
     }
+
+    // Category filtering functionality
+    document.addEventListener('DOMContentLoaded', function() {
+      const filterButtons = document.querySelectorAll('.filter-btn');
+      const productCards = document.querySelectorAll('.product-card');
+
+      filterButtons.forEach(button => {
+        button.addEventListener('click', function() {
+          // Remove active class from all buttons
+          filterButtons.forEach(btn => btn.classList.remove('active'));
+          // Add active class to clicked button
+          this.classList.add('active');
+
+          const filter = this.getAttribute('data-filter');
+
+          productCards.forEach(card => {
+            const category = card.getAttribute('data-category');
+            
+            if (filter === 'all' || category === filter) {
+              card.style.display = 'block';
+              card.style.animation = 'fadeInUp 0.5s ease-out';
+            } else {
+              card.style.display = 'none';
+            }
+          });
+        });
+      });
+    });
   </script>
 {% endblock %}
