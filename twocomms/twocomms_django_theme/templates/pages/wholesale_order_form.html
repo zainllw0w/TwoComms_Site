@@ -1379,6 +1379,7 @@
                          data-product-id="{{ product.id }}" 
                          data-category-id="tshirts"
                          data-product-type="tshirt"
+                         data-main-image="{{ product.main_image.url|default:'' }}"
                          draggable="true">
                         <div class="product-card-content">
                             <div class="product-image-container">
@@ -1424,6 +1425,7 @@
                          data-product-id="{{ product.id }}" 
                          data-category-id="hoodies"
                          data-product-type="hoodie"
+                         data-main-image="{{ product.main_image.url|default:'' }}"
                          draggable="true">
                         <div class="product-card-content">
                             <div class="product-image-container">
@@ -1858,11 +1860,15 @@ function selectProduct(productId) {
     const productCard = document.querySelector(`[data-product-id="${productId}"]`);
     if (!productCard) return;
     
+    // Всегда используем главное изображение товара, а не изображение конкретного цвета
+    const mainImage = productCard.dataset.mainImage || productCard.querySelector('.product-image').src || '';
+    
     currentProduct = {
         id: productId,
         type: productCard.dataset.productType,
         title: productCard.querySelector('.product-name').textContent,
-        image: productCard.querySelector('.product-image').src || '',
+        main_image: mainImage,
+        image: mainImage, // Для обратной совместимости
         category: productCard.querySelector('.product-category').textContent
     };
     
@@ -2041,8 +2047,8 @@ function addOrderItemToUI(orderItem) {
     orderItemElement.innerHTML = `
         <div class="order-item-content">
             <div class="order-item-image">
-                ${orderItem.product.image ? 
-                    `<img src="${orderItem.product.image}" alt="${orderItem.product.title}" class="order-product-image">` :
+                ${orderItem.product.main_image ? 
+                    `<img src="${orderItem.product.main_image}" alt="${orderItem.product.title}" class="order-product-image">` :
                     `<div class="order-product-image" style="background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #718096;">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
