@@ -1632,8 +1632,8 @@ let orderItems = [];
 let tshirtPrices = JSON.parse('{{ tshirt_prices|escapejs }}');
 let hoodiePrices = JSON.parse('{{ hoodie_prices|escapejs }}');
 
-// Initialize color dots with proper colors
-function initializeColorDots() {
+// Initialize color dots with proper colors (legacy function - now handled by the main initializeColorDots)
+function initializeColorDotsLegacy() {
     const colorDots = document.querySelectorAll('.color-dot');
     colorDots.forEach(dot => {
         const color = dot.getAttribute('data-color') || '#000000';
@@ -1651,10 +1651,10 @@ function initializeColorDots() {
 document.addEventListener('DOMContentLoaded', function() {
     initializeCompanyForm();
     initializeDragAndDrop();
-    initializeColorDots();
     initializeCategoryFilter();
     initializeProductClick();
     initializeOrderForm();
+    initializeColorDots(); // Initialize color dots after all other elements are ready
     loadOrderData(); // Load saved data
     loadInvoicesFromLocalStorage(); // Load saved invoices
     updateOrderStatistics(); // Initialize statistics on page load
@@ -1791,6 +1791,8 @@ function initializeDragAndDrop() {
     const dropZone = document.getElementById('orderDropZone');
     
     productCards.forEach(card => {
+        // Убеждаемся, что карточка draggable
+        card.draggable = true;
         card.addEventListener('dragstart', handleDragStart);
         card.addEventListener('dragend', handleDragEnd);
     });
@@ -1804,12 +1806,20 @@ function initializeDragAndDrop() {
 
 
 function handleDragStart(e) {
-    e.target.classList.add('dragging');
-    e.dataTransfer.setData('text/plain', e.target.dataset.productId);
+    // Находим ближайшую карточку товара
+    const productCard = e.target.closest('.product-card');
+    if (productCard) {
+        productCard.classList.add('dragging');
+        e.dataTransfer.setData('text/plain', productCard.dataset.productId);
+    }
 }
 
 function handleDragEnd(e) {
-    e.target.classList.remove('dragging');
+    // Находим ближайшую карточку товара
+    const productCard = e.target.closest('.product-card');
+    if (productCard) {
+        productCard.classList.remove('dragging');
+    }
 }
 
 function handleDragOver(e) {
@@ -1859,6 +1869,9 @@ function initializeProductClick() {
         card.addEventListener('click', function(e) {
             // Предотвращаем клик при drag and drop
             if (e.target.closest('.remove-item-btn')) return;
+            
+            // Проверяем, что это не drag операция
+            if (e.target.classList.contains('dragging') || e.target.closest('.dragging')) return;
             
             const productId = this.dataset.productId;
             if (productId) {
@@ -2567,6 +2580,15 @@ function initializeColorDots() {
             dot.style.borderRadius = '50%';
             dot.style.border = '1px solid rgba(255, 255, 255, 0.3)';
             dot.style.boxShadow = '0 0 0 1px rgba(0, 0, 0, 0.2)';
+        }
+    });
+    
+    // Также инициализируем цветные точки в элементах заказа
+    const orderColorDots = document.querySelectorAll('.order-item-color-dot[data-color]');
+    orderColorDots.forEach(dot => {
+        const color = dot.getAttribute('data-color');
+        if (color) {
+            dot.style.backgroundColor = color;
         }
     });
 }
