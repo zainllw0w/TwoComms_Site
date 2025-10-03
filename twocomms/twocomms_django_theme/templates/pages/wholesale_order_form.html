@@ -1861,7 +1861,8 @@ function selectProduct(productId) {
     if (!productCard) return;
     
     // Всегда используем главное изображение товара, а не изображение конкретного цвета
-    const mainImage = productCard.dataset.mainImage || productCard.querySelector('.product-image').src || '';
+    const productImage = productCard.querySelector('.product-image');
+    const mainImage = productImage ? productImage.src : '';
     
     currentProduct = {
         id: productId,
@@ -2080,7 +2081,7 @@ function addOrderItemToUI(orderItem) {
                 </button>
                 
                 <div class="order-item-prices">
-                    <div class="order-item-cost">Опт</div>
+                    <div class="order-item-cost">${orderItem.price}₴</div>
                     <div class="order-item-selling">${orderItem.total}₴</div>
                 </div>
             </div>
@@ -2237,14 +2238,14 @@ function updateOrderItemPrices(tshirtQuantity, hoodieQuantity) {
         // Update the UI element
         const itemElement = document.querySelector(`[data-item-id="${item.id}"]`);
         if (itemElement) {
-            const priceElement = itemElement.querySelector('.order-item-price');
-            const totalElement = itemElement.querySelector('.order-item-total');
+            const costElement = itemElement.querySelector('.order-item-cost');
+            const sellingElement = itemElement.querySelector('.order-item-selling');
             
-            if (priceElement) {
-                priceElement.textContent = `${newPrice}₴`;
+            if (costElement) {
+                costElement.textContent = `${newPrice}₴`;
             }
-            if (totalElement) {
-                totalElement.textContent = `${item.total}₴`;
+            if (sellingElement) {
+                sellingElement.textContent = `${item.total}₴`;
             }
         }
     });
