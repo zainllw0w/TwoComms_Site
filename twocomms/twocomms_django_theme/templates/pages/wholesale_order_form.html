@@ -2649,10 +2649,10 @@ function getCookie(name) {
 
 // LocalStorage functions
 function saveOrderData() {
-    const companyNameEl = document.getElementById('companyName');
-    const deliveryAddressEl = document.getElementById('deliveryAddress');
-    const contactPhoneEl = document.getElementById('contactPhone');
-    const storeLinkEl = document.getElementById('storeLink');
+    const companyNameEl = document.getElementById('company-name');
+    const deliveryAddressEl = document.getElementById('delivery-address');
+    const contactPhoneEl = document.getElementById('phone-number');
+    const storeLinkEl = document.getElementById('store-link');
     
     const companyNumberEl = document.getElementById('company-number');
     
@@ -2678,11 +2678,11 @@ function loadOrderData() {
             
             // Load company data
             if (orderData.companyData) {
-                const companyNameEl = document.getElementById('companyName');
+                const companyNameEl = document.getElementById('company-name');
                 const companyNumberEl = document.getElementById('company-number');
-                const deliveryAddressEl = document.getElementById('deliveryAddress');
-                const contactPhoneEl = document.getElementById('contactPhone');
-                const storeLinkEl = document.getElementById('storeLink');
+                const deliveryAddressEl = document.getElementById('delivery-address');
+                const contactPhoneEl = document.getElementById('phone-number');
+                const storeLinkEl = document.getElementById('store-link');
                 
                 if (companyNameEl) companyNameEl.value = orderData.companyData.companyName || '';
                 if (companyNumberEl) companyNumberEl.value = orderData.companyData.companyNumber || '';
