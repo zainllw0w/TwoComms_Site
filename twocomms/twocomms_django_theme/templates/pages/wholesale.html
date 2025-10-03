@@ -462,7 +462,7 @@
     
     .product-image-container {
       position: relative;
-      aspect-ratio: 3/4;
+      aspect-ratio: 4/5;
       overflow: hidden;
     }
     
@@ -550,35 +550,24 @@
       display: block;
     }
     
+    /* Single line wholesale prices */
     .wholesale-ranges {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 0.15rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.2rem;
       margin-top: 0.4rem;
-    }
-    
-    .wholesale-range:nth-child(4),
-    .wholesale-range:nth-child(5) {
-      grid-column: span 1;
-    }
-    
-    .wholesale-range:nth-child(4) {
-      grid-column: 1 / 2;
-    }
-    
-    .wholesale-range:nth-child(5) {
-      grid-column: 2 / 3;
+      justify-content: center;
     }
     
     .wholesale-range {
       display: flex;
-      flex-direction: column;
       align-items: center;
-      font-size: 0.65rem;
-      padding: 0.3rem 0.2rem;
-      background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.1));
-      border-radius: 8px;
-      border: 1px solid rgba(139, 92, 246, 0.2);
+      gap: 0.2rem;
+      font-size: 0.6rem;
+      padding: 0.2rem 0.4rem;
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(59, 130, 246, 0.15));
+      border-radius: 12px;
+      border: 1px solid rgba(139, 92, 246, 0.3);
       position: relative;
       overflow: hidden;
     }
@@ -590,7 +579,7 @@
       left: 0;
       right: 0;
       bottom: 0;
-      background: linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(59, 130, 246, 0.05));
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.1));
       opacity: 0;
       transition: opacity 0.3s ease;
     }
@@ -600,17 +589,69 @@
     }
     
     .range-label {
-      color: rgba(255,255,255,0.6);
-      font-size: 0.6rem;
-      margin-bottom: 0.1rem;
+      color: rgba(255,255,255,0.7);
+      font-size: 0.55rem;
+      white-space: nowrap;
     }
     
     .range-price {
       color: white;
       font-weight: 700;
-      font-size: 0.75rem;
+      font-size: 0.65rem;
       position: relative;
       z-index: 1;
+    }
+    
+    /* Product colors */
+    .product-colors {
+      margin: 0.5rem 0;
+    }
+    
+    .colors-label {
+      color: rgba(255,255,255,0.7);
+      font-size: 0.7rem;
+      font-weight: 500;
+      margin-bottom: 0.3rem;
+      display: block;
+    }
+    
+    .color-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+    }
+    
+    .color-item {
+      background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      padding: 0.2rem 0.5rem;
+      font-size: 0.6rem;
+      color: rgba(255,255,255,0.8);
+      font-weight: 500;
+    }
+    
+    /* Product material */
+    .product-material {
+      margin: 0.5rem 0;
+    }
+    
+    .material-label {
+      color: rgba(255,255,255,0.7);
+      font-size: 0.7rem;
+      font-weight: 500;
+      margin-bottom: 0.3rem;
+      display: block;
+    }
+    
+    .material-info {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05));
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 8px;
+      padding: 0.3rem 0.5rem;
+      font-size: 0.6rem;
+      color: rgba(255,255,255,0.8);
+      line-height: 1.3;
     }
     
     /* Section Titles */
@@ -891,6 +932,26 @@
         </div>
         <div class="product-content">
           <h3 class="product-title">{{ product.title }} [фліс]</h3>
+          <!-- Product Colors -->
+          <div class="product-colors">
+            <span class="colors-label">Кольори:</span>
+            <div class="color-list">
+              <span class="color-item">Чорний</span>
+              <span class="color-item">Білий</span>
+              <span class="color-item">Сірий</span>
+            </div>
+          </div>
+
+          <!-- Product Material -->
+          <div class="product-material">
+            <span class="material-label">Матеріал:</span>
+            <div class="material-info">
+              90% Бавовна, 10% Поліестер<br>
+              Трьохнитка пеньє
+            </div>
+          </div>
+
+          <!-- Prices -->
           <div class="product-prices">
             <div class="price-section">
               <span class="price-label">Дроп ціна:</span>
@@ -900,23 +961,23 @@
               <span class="price-label">Оптові ціни:</span>
               <div class="wholesale-ranges">
                 <div class="wholesale-range">
-                  <span class="range-label">8-15 шт</span>
+                  <span class="range-label">8-15</span>
                   <span class="range-price">{{ hoodie_prices.wholesale.0 }} грн</span>
                 </div>
                 <div class="wholesale-range">
-                  <span class="range-label">16-31 шт</span>
+                  <span class="range-label">16-31</span>
                   <span class="range-price">{{ hoodie_prices.wholesale.1 }} грн</span>
                 </div>
                 <div class="wholesale-range">
-                  <span class="range-label">32-63 шт</span>
+                  <span class="range-label">32-63</span>
                   <span class="range-price">{{ hoodie_prices.wholesale.2 }} грн</span>
                 </div>
                 <div class="wholesale-range">
-                  <span class="range-label">64-99 шт</span>
+                  <span class="range-label">64-99</span>
                   <span class="range-price">{{ hoodie_prices.wholesale.3 }} грн</span>
                 </div>
                 <div class="wholesale-range">
-                  <span class="range-label">100+ шт</span>
+                  <span class="range-label">100+</span>
                   <span class="range-price">{{ hoodie_prices.wholesale.4 }} грн</span>
                 </div>
               </div>
@@ -939,6 +1000,27 @@
         </div>
         <div class="product-content">
           <h3 class="product-title">{{ product.title }}</h3>
+          <!-- Product Colors -->
+          <div class="product-colors">
+            <span class="colors-label">Кольори:</span>
+            <div class="color-list">
+              <span class="color-item">Чорний</span>
+              <span class="color-item">Білий</span>
+              <span class="color-item">Сірий</span>
+              <span class="color-item">Кайот</span>
+            </div>
+          </div>
+
+          <!-- Product Material -->
+          <div class="product-material">
+            <span class="material-label">Матеріал:</span>
+            <div class="material-info">
+              95% Бавовна, 5% Еластан<br>
+              Кулір пеньє
+            </div>
+          </div>
+
+          <!-- Prices -->
           <div class="product-prices">
             <div class="price-section">
               <span class="price-label">Дроп ціна:</span>
@@ -948,23 +1030,23 @@
               <span class="price-label">Оптові ціни:</span>
               <div class="wholesale-ranges">
                 <div class="wholesale-range">
-                  <span class="range-label">8-15 шт</span>
+                  <span class="range-label">8-15</span>
                   <span class="range-price">{{ tshirt_prices.wholesale.0 }} грн</span>
                 </div>
                 <div class="wholesale-range">
-                  <span class="range-label">16-31 шт</span>
+                  <span class="range-label">16-31</span>
                   <span class="range-price">{{ tshirt_prices.wholesale.1 }} грн</span>
                 </div>
                 <div class="wholesale-range">
-                  <span class="range-label">32-63 шт</span>
+                  <span class="range-label">32-63</span>
                   <span class="range-price">{{ tshirt_prices.wholesale.2 }} грн</span>
                 </div>
                 <div class="wholesale-range">
-                  <span class="range-label">64-99 шт</span>
+                  <span class="range-label">64-99</span>
                   <span class="range-price">{{ tshirt_prices.wholesale.3 }} грн</span>
                 </div>
                 <div class="wholesale-range">
-                  <span class="range-label">100+ шт</span>
+                  <span class="range-label">100+</span>
                   <span class="range-price">{{ tshirt_prices.wholesale.4 }} грн</span>
                 </div>
               </div>
