@@ -2109,6 +2109,7 @@ function updateScale(scaleId, quantity) {
     if (!scale) return;
     
     const segments = scale.querySelectorAll('.scale-segment');
+    const priceItems = scale.parentElement.querySelectorAll('.price-item');
     
     segments.forEach((segment, index) => {
         // Reset all classes and styles
@@ -2120,36 +2121,79 @@ function updateScale(scaleId, quantity) {
             existingFill.remove();
         }
         
+        // Reset price text color
+        if (priceItems[index]) {
+            priceItems[index].style.color = '';
+            priceItems[index].style.textShadow = '';
+        }
+        
         const range = segment.dataset.range;
         const [min, max] = parseRange(range);
         
         if (quantity >= min && quantity <= max) {
-            // Current tier - highlight with darker green and show progress
+            // Current tier - highlight and show progress
             segment.classList.add('active');
-            segment.style.backgroundColor = '#059669';
             
-            // Calculate progress within current tier
-            const tierSize = max - min + 1;
-            const currentProgress = quantity - min + 1;
-            const progressPercent = (currentProgress / tierSize) * 100;
+            if (min === 1 && max === 7) {
+                // Red tier for 1-7 (non-wholesale)
+                segment.style.backgroundColor = '#ef4444';
+                
+                // Calculate progress within red tier
+                const tierSize = max - min + 1;
+                const currentProgress = quantity - min + 1;
+                const progressPercent = (currentProgress / tierSize) * 100;
+                
+                // Create progress fill with burgundy color
+                const progressFill = document.createElement('div');
+                progressFill.className = 'progress-fill';
+                progressFill.style.cssText = `
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    height: 100%;
+                    width: ${progressPercent}%;
+                    background: #7f1d1d;
+                    border-radius: 3px;
+                    transition: width 0.3s ease;
+                    z-index: 1;
+                `;
+                
+                segment.style.position = 'relative';
+                segment.appendChild(progressFill);
+                
+            } else {
+                // Green tier for wholesale (8+)
+                segment.style.backgroundColor = '#059669';
+                
+                // Calculate progress within green tier
+                const tierSize = max - min + 1;
+                const currentProgress = quantity - min + 1;
+                const progressPercent = (currentProgress / tierSize) * 100;
+                
+                // Create progress fill with darker green
+                const progressFill = document.createElement('div');
+                progressFill.className = 'progress-fill';
+                progressFill.style.cssText = `
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    height: 100%;
+                    width: ${progressPercent}%;
+                    background: #047857;
+                    border-radius: 3px;
+                    transition: width 0.3s ease;
+                    z-index: 1;
+                `;
+                
+                segment.style.position = 'relative';
+                segment.appendChild(progressFill);
+            }
             
-            // Create progress fill
-            const progressFill = document.createElement('div');
-            progressFill.className = 'progress-fill';
-            progressFill.style.cssText = `
-                position: absolute;
-                top: 0;
-                left: 0;
-                height: 100%;
-                width: ${progressPercent}%;
-                background: #047857;
-                border-radius: 3px;
-                transition: width 0.3s ease;
-                z-index: 1;
-            `;
-            
-            segment.style.position = 'relative';
-            segment.appendChild(progressFill);
+            // Make current price text golden
+            if (priceItems[index]) {
+                priceItems[index].style.color = '#fbbf24';
+                priceItems[index].style.textShadow = '0 0 10px #fbbf24, 0 0 20px #fbbf24';
+            }
             
         } else if (quantity > max) {
             // Completed tier - full green
@@ -2199,10 +2243,15 @@ function loadOrderData() {
             
             // Load company data
             if (orderData.companyData) {
-                document.getElementById('companyName').value = orderData.companyData.companyName || '';
-                document.getElementById('deliveryAddress').value = orderData.companyData.deliveryAddress || '';
-                document.getElementById('contactPhone').value = orderData.companyData.contactPhone || '';
-                document.getElementById('storeLink').value = orderData.companyData.storeLink || '';
+                const companyNameEl = document.getElementById('companyName');
+                const deliveryAddressEl = document.getElementById('deliveryAddress');
+                const contactPhoneEl = document.getElementById('contactPhone');
+                const storeLinkEl = document.getElementById('storeLink');
+                
+                if (companyNameEl) companyNameEl.value = orderData.companyData.companyName || '';
+                if (deliveryAddressEl) deliveryAddressEl.value = orderData.companyData.deliveryAddress || '';
+                if (contactPhoneEl) contactPhoneEl.value = orderData.companyData.contactPhone || '';
+                if (storeLinkEl) storeLinkEl.value = orderData.companyData.storeLink || '';
             }
             
             // Load order items
