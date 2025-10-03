@@ -267,15 +267,15 @@
     font-weight: 600;
 }
 
-/* Two Column Layout */
-.two-column-layout {
+/* Management Grid Layout (exactly like admin store management) */
+.management-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 2rem;
     margin-bottom: 2rem;
 }
 
-.column {
+.management-column {
     background: linear-gradient(135deg, 
         rgba(255, 255, 255, 0.08) 0%,
         rgba(255, 255, 255, 0.04) 50%,
@@ -283,93 +283,479 @@
     );
     border: 1px solid rgba(139, 92, 246, 0.15);
     border-radius: 16px;
-    padding: 2rem;
+    padding: 1.5rem;
     backdrop-filter: blur(20px);
+    min-height: 600px;
 }
 
-/* Products Column */
-.products-column {
-    /* Additional styles for products column */
-}
-
-.products-list {
+.column-header {
     display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    max-height: 600px;
-    overflow-y: auto;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(139, 92, 246, 0.1);
 }
 
-.product-item {
+.column-icon {
+    width: 24px;
+    height: 24px;
+    color: #8b5cf6;
+}
+
+.column-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.95);
+    margin: 0;
+}
+
+/* Category Filter */
+.category-filter {
+    margin-bottom: 1.5rem;
+}
+
+.filter-select {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-radius: 12px;
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: rgba(139, 92, 246, 0.5);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+/* Products Scroll Container */
+.products-scroll-container {
+    max-height: 500px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+}
+
+.products-scroll-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.products-scroll-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 3px;
+}
+
+.products-scroll-container::-webkit-scrollbar-thumb {
+    background: rgba(139, 92, 246, 0.3);
+    border-radius: 3px;
+}
+
+.products-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 92, 246, 0.5);
+}
+
+/* Product Cards */
+.product-card {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(139, 92, 246, 0.1);
     border-radius: 12px;
     padding: 1rem;
+    margin-bottom: 1rem;
+    cursor: pointer;
     transition: all 0.3s ease;
+    position: relative;
 }
 
-.product-item:hover {
+.product-card:hover {
     background: rgba(139, 92, 246, 0.1);
     border-color: rgba(139, 92, 246, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(139, 92, 246, 0.15);
+}
+
+.product-card.dragging {
+    opacity: 0.5;
+    transform: rotate(5deg);
+}
+
+.product-card-content {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.product-image-container {
+    flex-shrink: 0;
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.product-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.product-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.product-category {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.category-name {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .product-name {
     color: rgba(255, 255, 255, 0.95);
+    font-size: 0.9rem;
     font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.product-colors {
+    display: flex;
+    align-items: center;
+    gap: 4px;
     margin-bottom: 0.5rem;
 }
 
-.product-prices {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+.color-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    display: inline-block;
+}
+
+.color-more {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin-left: 2px;
+}
+
+.product-price {
+    color: #8b5cf6;
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-shadow: 0 0 10px rgba(139, 92, 246, 0.3);
+}
+
+/* Order Form */
+.order-form {
+    background: rgba(20, 22, 27, 0.6);
+    backdrop-filter: blur(10px);
+    border: 2px dashed rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-label {
+    display: block;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 5px;
     font-size: 0.9rem;
 }
 
-.drop-price {
-    color: #f59e0b;
-    font-weight: 700;
+.form-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    background: rgba(20, 22, 27, 0.6);
+    color: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
 }
 
-.wholesale-price {
-    color: #10b981;
+.form-input:focus {
+    outline: none;
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+    background: rgba(20, 22, 27, 0.8);
+}
+
+.form-select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    background: rgba(20, 22, 27, 0.6);
+    color: rgba(255, 255, 255, 0.95);
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.form-select:focus {
+    outline: none;
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+    background: rgba(20, 22, 27, 0.8);
+}
+
+.add-to-order-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
+    color: white;
     font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
 }
 
-/* Invoice Generation Column */
-.invoice-column {
-    /* Additional styles for invoice column */
+.add-to-order-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
 }
 
-.invoice-form {
+.add-to-order-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Drop Zone */
+.drop-zone {
+    background: rgba(20, 22, 27, 0.6);
+    backdrop-filter: blur(10px);
+    border: 2px dashed rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    padding: 30px;
+    text-align: center;
+    color: #718096;
+    transition: all 0.3s ease;
+    margin-bottom: 15px;
+}
+
+.drop-zone.drag-over {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.05);
+    color: #667eea;
+}
+
+.drop-zone-text {
+    font-size: 1rem;
+    margin-bottom: 8px;
+}
+
+.drop-zone-subtext {
+    font-size: 0.8rem;
+    opacity: 0.7;
+}
+
+/* Order Items Scroll Container */
+.order-items-scroll-container {
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+}
+
+.order-items-scroll-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.order-items-scroll-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 3px;
+}
+
+.order-items-scroll-container::-webkit-scrollbar-thumb {
+    background: rgba(139, 92, 246, 0.3);
+    border-radius: 3px;
+}
+
+.order-items-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 92, 246, 0.5);
+}
+
+/* Order Items */
+.order-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(139, 92, 246, 0.1);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    transition: all 0.3s ease;
+}
+
+.order-item:hover {
+    background: rgba(139, 92, 246, 0.1);
+    border-color: rgba(139, 92, 246, 0.3);
+}
+
+.order-item-content {
     display: flex;
-    flex-direction: column;
+    align-items: center;
     gap: 1rem;
 }
 
-.invoice-button {
-    background: linear-gradient(135deg, #10b981, #059669);
+.order-item-image {
+    flex-shrink: 0;
+    width: 50px;
+    height: 50px;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.order-product-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.order-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.order-item-title {
+    color: rgba(255, 255, 255, 0.95);
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+}
+
+.order-item-specs-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.order-item-color-section {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.order-item-color-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    display: inline-block;
+}
+
+.order-item-size {
+    background: rgba(139, 92, 246, 0.2);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+}
+
+.order-item-quantity {
+    background: rgba(16, 185, 129, 0.2);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+}
+
+.order-item-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+}
+
+.remove-item-btn {
+    background: rgba(239, 68, 68, 0.2);
     border: none;
-    border-radius: 12px;
-    padding: 1rem 2rem;
-    color: white;
-    font-weight: 700;
-    font-size: 1.1rem;
+    border-radius: 6px;
+    padding: 0.5rem;
+    color: #ef4444;
     cursor: pointer;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.remove-item-btn:hover {
+    background: rgba(239, 68, 68, 0.3);
+    transform: scale(1.1);
+}
+
+.order-item-prices {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
+}
+
+.order-item-cost {
+    color: #f59e0b;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.order-item-selling {
+    color: #10b981;
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+/* Order Actions */
+.order-actions {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(139, 92, 246, 0.1);
+}
+
+.action-btn {
+    width: 100%;
+    padding: 1rem 2rem;
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
 }
 
-.invoice-button:hover {
+.generate-invoice-btn {
+    background: linear-gradient(135deg, #10b981, #059669);
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.generate-invoice-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
 }
 
-.invoice-button:disabled {
+.generate-invoice-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
     transform: none;
@@ -581,46 +967,163 @@
         </div>
     </div>
 
-    <!-- Two Column Layout -->
-    <div class="two-column-layout">
-        <!-- Products Column -->
-        <div class="column products-column">
-            <h2 class="section-title">Доступні товари</h2>
-            <div class="products-list">
+    <!-- Management Grid Layout (exactly like admin store management) -->
+    <div class="management-grid">
+        <!-- Колонка 1: Все товары -->
+        <div class="management-column">
+            <div class="column-header">
+                <svg class="column-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                <h3 class="column-title">Всі товари</h3>
+            </div>
+            
+            <!-- Фильтр по категориям -->
+            <div class="category-filter">
+                <select class="filter-select" id="categoryFilter">
+                    <option value="">Всі категорії</option>
+                    <option value="tshirts">Футболки</option>
+                    <option value="hoodies">Худі</option>
+                </select>
+            </div>
+            
+            <!-- Список товаров -->
+            <div id="productsList" class="products-scroll-container">
                 {% for product in tshirt_products %}
-                <div class="product-item">
-                    <div class="product-name">{{ product.title }}</div>
-                    <div class="product-prices">
-                        <span class="drop-price">Дроп: {{ tshirt_prices.drop }}₴</span>
-                        <span class="wholesale-price">Опт: {{ tshirt_prices.wholesale.0 }}₴</span>
+                    <div class="product-card" 
+                         data-product-id="{{ product.id }}" 
+                         data-category-id="tshirts"
+                         data-product-type="tshirt"
+                         draggable="true">
+                        <div class="product-card-content">
+                            <div class="product-image-container">
+                                {% if product.main_image %}
+                                    <img src="{{ product.main_image.url }}" alt="{{ product.title }}" class="product-image">
+                                {% else %}
+                                    <div class="product-image" style="background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #718096;">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                                        </svg>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="product-info">
+                                <div class="product-category">
+                                    <span class="category-name">Футболки</span>
+                                    <span class="product-name">{{ product.title }}</span>
+                                </div>
+                                <div class="product-colors">
+                                    {% for color_variant in product.color_variants.all|slice:":3" %}
+                                        <span class="color-dot" data-color="{{ color_variant.color.primary_hex }}" title="{{ color_variant.color.name|default:color_variant.color.primary_hex }}"></span>
+                                    {% empty %}
+                                        <span class="color-dot" data-color="#000000" title="Чорний (дефолт)"></span>
+                                    {% endfor %}
+                                    {% if product.color_variants.count > 3 %}
+                                        <span class="color-more">+{{ product.color_variants.count|add:"-3" }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="product-price">Дроп: {{ tshirt_prices.drop }}₴ | Опт: {{ tshirt_prices.wholesale.0 }}₴</div>
+                            </div>
+                        </div>
                     </div>
-                </div>
                 {% endfor %}
                 
                 {% for product in hoodie_products %}
-                <div class="product-item">
-                    <div class="product-name">{{ product.title }} [фліс]</div>
-                    <div class="product-prices">
-                        <span class="drop-price">Дроп: {{ hoodie_prices.drop }}₴</span>
-                        <span class="wholesale-price">Опт: {{ hoodie_prices.wholesale.0 }}₴</span>
+                    <div class="product-card" 
+                         data-product-id="{{ product.id }}" 
+                         data-category-id="hoodies"
+                         data-product-type="hoodie"
+                         draggable="true">
+                        <div class="product-card-content">
+                            <div class="product-image-container">
+                                {% if product.main_image %}
+                                    <img src="{{ product.main_image.url }}" alt="{{ product.title }}" class="product-image">
+                                {% else %}
+                                    <div class="product-image" style="background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #718096;">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                                        </svg>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="product-info">
+                                <div class="product-category">
+                                    <span class="category-name">Худі [фліс]</span>
+                                    <span class="product-name">{{ product.title }}</span>
+                                </div>
+                                <div class="product-colors">
+                                    <span class="color-dot" data-color="#000000" title="Чорний (дефолт)"></span>
+                                </div>
+                                <div class="product-price">Дроп: {{ hoodie_prices.drop }}₴ | Опт: {{ hoodie_prices.wholesale.0 }}₴</div>
+                            </div>
+                        </div>
                     </div>
-                </div>
                 {% endfor %}
             </div>
         </div>
 
-        <!-- Invoice Generation Column -->
-        <div class="column invoice-column">
-            <h2 class="section-title">Формування накладної</h2>
-            <div class="invoice-form">
-                <p style="color: rgba(255, 255, 255, 0.7); margin-bottom: 1rem;">
-                    Виберіть товари та кількість для формування оптової накладної
-                </p>
+        <!-- Колонка 2: Формирование накладной -->
+        <div class="management-column order-column">
+            <div class="column-header">
+                <svg class="column-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+                <h3 class="column-title">Формування накладної</h3>
+            </div>
+            
+            <div class="order-content">
+                <!-- Форма добавления товара -->
+                <div class="order-form" id="orderForm" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label">Розмір</label>
+                        <select class="form-select" id="productSize" required>
+                            <option value="">Оберіть розмір</option>
+                            <option value="S">S</option>
+                            <option value="M">M</option>
+                            <option value="L">L</option>
+                            <option value="XL">XL</option>
+                            <option value="XXL">XXL</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Колір</label>
+                        <select class="form-select" id="productColor">
+                            <option value="default">Чорний (дефолт)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Тип ціни</label>
+                        <select class="form-select" id="priceType">
+                            <option value="drop">Дроп ціна</option>
+                            <option value="wholesale">Оптова ціна</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Кількість</label>
+                        <input type="number" class="form-input" id="quantity" min="1" value="1">
+                    </div>
+                    
+                    <button class="add-to-order-btn" id="addToOrderBtn">Додати в накладну</button>
+                </div>
                 
-                <button type="button" class="invoice-button" id="generate-invoice-btn" disabled>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
-                    </svg>
+                <!-- Зона для перетаскивания -->
+                <div class="drop-zone" id="orderDropZone">
+                    <div class="drop-zone-text">Перетягніть товар</div>
+                    <div class="drop-zone-subtext">або клікніть на товар</div>
+                </div>
+                
+                <!-- Список товаров в заказе -->
+                <div id="orderItems" class="order-items-scroll-container" style="margin-top: 15px;">
+                    <!-- Items will be added here dynamically -->
+                </div>
+            </div>
+            
+            <!-- Кнопка формирования накладной -->
+            <div class="order-actions">
+                <button class="action-btn generate-invoice-btn" id="generateInvoiceBtn">
                     Сформувати накладну
                 </button>
             </div>
@@ -642,9 +1145,33 @@
 
 {% block extra_js %}
 <script>
+// Global variables for wholesale order management
+let currentProduct = null;
+let currentOrderId = null;
+let orderItems = [];
+let tshirtPrices = {
+    drop: {{ tshirt_prices.drop }},
+    wholesale: [{{ tshirt_prices.wholesale.0 }}, {{ tshirt_prices.wholesale.1 }}, {{ tshirt_prices.wholesale.2 }}, {{ tshirt_prices.wholesale.3 }}, {{ tshirt_prices.wholesale.4 }}]
+};
+let hoodiePrices = {
+    drop: {{ hoodie_prices.drop }},
+    wholesale: [{{ hoodie_prices.wholesale.0 }}, {{ hoodie_prices.wholesale.1 }}, {{ hoodie_prices.wholesale.2 }}, {{ hoodie_prices.wholesale.3 }}, {{ hoodie_prices.wholesale.4 }}]
+};
+
+// Initialize the page
 document.addEventListener('DOMContentLoaded', function() {
+    initializeCompanyForm();
+    initializeDragAndDrop();
+    initializeCategoryFilter();
+    initializeProductClick();
+    initializeOrderForm();
+    initializeColorDots();
+});
+
+// Company form handling
+function initializeCompanyForm() {
     const companyForm = document.getElementById('company-form');
-    const generateInvoiceBtn = document.getElementById('generate-invoice-btn');
+    const generateInvoiceBtn = document.getElementById('generateInvoiceBtn');
     const invoicesList = document.getElementById('invoices-list');
     
     // Handle company form submission
@@ -659,12 +1186,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Enable invoice generation button
         generateInvoiceBtn.disabled = false;
-        generateInvoiceBtn.innerHTML = `
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
-            </svg>
-            Сформувати накладну
-        `;
         
         // Show success message
         showNotification('Інформація про компанію збережена!', 'success');
@@ -676,6 +1197,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (!companyData) {
             showNotification('Спочатку заповніть інформацію про компанію', 'error');
+            return;
+        }
+        
+        if (orderItems.length === 0) {
+            showNotification('Додайте товари до накладної', 'error');
             return;
         }
         
@@ -700,14 +1226,13 @@ document.addEventListener('DOMContentLoaded', function() {
             // Add invoice to list
             addInvoiceToList(invoice);
             
+            // Clear order items
+            orderItems = [];
+            document.getElementById('orderItems').innerHTML = '';
+            
             // Reset button
             generateInvoiceBtn.disabled = false;
-            generateInvoiceBtn.innerHTML = `
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
-                </svg>
-                Сформувати накладну
-            `;
+            generateInvoiceBtn.innerHTML = `Сформувати накладну`;
             
             showNotification('Накладна успішно сформована!', 'success');
         }, 2000);
@@ -727,65 +1252,380 @@ document.addEventListener('DOMContentLoaded', function() {
         // Enable invoice generation
         generateInvoiceBtn.disabled = false;
     }
+}
+
+// Drag and Drop functionality (exactly like admin store management)
+function initializeDragAndDrop() {
+    const productCards = document.querySelectorAll('.product-card');
+    const dropZone = document.getElementById('orderDropZone');
     
-    function addInvoiceToList(invoice) {
-        const emptyMessage = invoicesList.querySelector('div[style*="text-align: center"]');
-        if (emptyMessage) {
-            emptyMessage.remove();
+    productCards.forEach(card => {
+        card.addEventListener('dragstart', handleDragStart);
+        card.addEventListener('dragend', handleDragEnd);
+    });
+    
+    dropZone.addEventListener('dragover', handleDragOver);
+    dropZone.addEventListener('drop', handleDrop);
+    dropZone.addEventListener('dragleave', handleDragLeave);
+}
+
+function handleDragStart(e) {
+    e.target.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', e.target.dataset.productId);
+}
+
+function handleDragEnd(e) {
+    e.target.classList.remove('dragging');
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.target.classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+    e.target.classList.remove('drag-over');
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    e.target.classList.remove('drag-over');
+    
+    const productId = e.dataTransfer.getData('text/plain');
+    const productCard = document.querySelector(`[data-product-id="${productId}"]`);
+    
+    if (productCard) {
+        currentProduct = {
+            id: productId,
+            type: productCard.dataset.productType,
+            title: productCard.querySelector('.product-name').textContent,
+            image: productCard.querySelector('.product-image').src || '',
+            category: productCard.querySelector('.category-name').textContent
+        };
+        
+        showOrderForm();
+    }
+}
+
+// Category filter functionality
+function initializeCategoryFilter() {
+    const categoryFilter = document.getElementById('categoryFilter');
+    const productCards = document.querySelectorAll('.product-card');
+    
+    categoryFilter.addEventListener('change', function() {
+        const selectedCategory = this.value;
+        
+        productCards.forEach(card => {
+            if (selectedCategory === '' || card.dataset.categoryId === selectedCategory) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    });
+}
+
+// Product click functionality
+function initializeProductClick() {
+    const productCards = document.querySelectorAll('.product-card');
+    
+    productCards.forEach(card => {
+        card.addEventListener('click', function() {
+            currentProduct = {
+                id: this.dataset.productId,
+                type: this.dataset.productType,
+                title: this.querySelector('.product-name').textContent,
+                image: this.querySelector('.product-image').src || '',
+                category: this.querySelector('.category-name').textContent
+            };
+            
+            showOrderForm();
+        });
+    });
+}
+
+// Order form functionality
+function initializeOrderForm() {
+    const addToOrderBtn = document.getElementById('addToOrderBtn');
+    
+    addToOrderBtn.addEventListener('click', function() {
+        addToOrder();
+    });
+    
+    // Handle price type change
+    const priceTypeSelect = document.getElementById('priceType');
+    priceTypeSelect.addEventListener('change', function() {
+        updatePriceDisplay();
+    });
+    
+    // Handle quantity change
+    const quantityInput = document.getElementById('quantity');
+    quantityInput.addEventListener('input', function() {
+        updatePriceDisplay();
+    });
+}
+
+function showOrderForm() {
+    const orderForm = document.getElementById('orderForm');
+    const dropZone = document.getElementById('orderDropZone');
+    
+    if (currentProduct) {
+        orderForm.style.display = 'block';
+        dropZone.style.display = 'none';
+        
+        // Populate form with product data
+        document.getElementById('productColor').innerHTML = '<option value="default">Чорний (дефолт)</option>';
+        
+        // Set default values
+        document.getElementById('productSize').value = '';
+        document.getElementById('quantity').value = '1';
+        document.getElementById('priceType').value = 'drop';
+        
+        updatePriceDisplay();
+    }
+}
+
+function updatePriceDisplay() {
+    if (!currentProduct) return;
+    
+    const priceType = document.getElementById('priceType').value;
+    const quantity = parseInt(document.getElementById('quantity').value) || 1;
+    
+    // Update price based on type and quantity
+    let price = 0;
+    if (currentProduct.type === 'tshirt') {
+        if (priceType === 'drop') {
+            price = tshirtPrices.drop;
+        } else {
+            // Determine wholesale price based on quantity
+            if (quantity >= 100) price = tshirtPrices.wholesale[4];
+            else if (quantity >= 64) price = tshirtPrices.wholesale[3];
+            else if (quantity >= 32) price = tshirtPrices.wholesale[2];
+            else if (quantity >= 16) price = tshirtPrices.wholesale[1];
+            else price = tshirtPrices.wholesale[0];
         }
-        
-        const invoiceItem = document.createElement('div');
-        invoiceItem.className = 'invoice-item';
-        invoiceItem.innerHTML = `
-            <div class="invoice-info">
-                <div class="invoice-name">${invoice.name}</div>
-                <div class="invoice-date">${invoice.date} - ${invoice.company}</div>
-            </div>
-            <a href="#" class="download-button" onclick="downloadInvoice('${invoice.id}')">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z"/>
-                </svg>
-                Скачати
-            </a>
-        `;
-        
-        invoicesList.appendChild(invoiceItem);
+    } else if (currentProduct.type === 'hoodie') {
+        if (priceType === 'drop') {
+            price = hoodiePrices.drop;
+        } else {
+            // Determine wholesale price based on quantity
+            if (quantity >= 100) price = hoodiePrices.wholesale[4];
+            else if (quantity >= 64) price = hoodiePrices.wholesale[3];
+            else if (quantity >= 32) price = hoodiePrices.wholesale[2];
+            else if (quantity >= 16) price = hoodiePrices.wholesale[1];
+            else price = hoodiePrices.wholesale[0];
+        }
     }
     
-    function showNotification(message, type) {
-        // Create notification element
-        const notification = document.createElement('div');
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: ${type === 'success' ? '#10b981' : '#ef4444'};
-            color: white;
-            padding: 1rem 1.5rem;
-            border-radius: 12px;
-            font-weight: 600;
-            z-index: 1000;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-            animation: slideIn 0.3s ease;
-        `;
-        notification.textContent = message;
-        
-        document.body.appendChild(notification);
-        
-        // Remove after 3 seconds
-        setTimeout(() => {
-            notification.style.animation = 'slideOut 0.3s ease';
-            setTimeout(() => {
-                document.body.removeChild(notification);
-            }, 300);
-        }, 3000);
+    // Update button text to show price
+    const addBtn = document.getElementById('addToOrderBtn');
+    addBtn.textContent = `Додати в накладну (${price * quantity}₴)`;
+}
+
+function addToOrder() {
+    if (!currentProduct) return;
+    
+    const size = document.getElementById('productSize').value;
+    const color = document.getElementById('productColor').value;
+    const priceType = document.getElementById('priceType').value;
+    const quantity = parseInt(document.getElementById('quantity').value) || 1;
+    
+    if (!size) {
+        showNotification('Оберіть розмір', 'error');
+        return;
     }
-});
+    
+    // Calculate price
+    let price = 0;
+    if (currentProduct.type === 'tshirt') {
+        if (priceType === 'drop') {
+            price = tshirtPrices.drop;
+        } else {
+            if (quantity >= 100) price = tshirtPrices.wholesale[4];
+            else if (quantity >= 64) price = tshirtPrices.wholesale[3];
+            else if (quantity >= 32) price = tshirtPrices.wholesale[2];
+            else if (quantity >= 16) price = tshirtPrices.wholesale[1];
+            else price = tshirtPrices.wholesale[0];
+        }
+    } else if (currentProduct.type === 'hoodie') {
+        if (priceType === 'drop') {
+            price = hoodiePrices.drop;
+        } else {
+            if (quantity >= 100) price = hoodiePrices.wholesale[4];
+            else if (quantity >= 64) price = hoodiePrices.wholesale[3];
+            else if (quantity >= 32) price = hoodiePrices.wholesale[2];
+            else if (quantity >= 16) price = hoodiePrices.wholesale[1];
+            else price = hoodiePrices.wholesale[0];
+        }
+    }
+    
+    // Create order item
+    const orderItem = {
+        id: Date.now(),
+        product: currentProduct,
+        size: size,
+        color: color === 'default' ? 'Чорний' : color,
+        priceType: priceType,
+        quantity: quantity,
+        price: price,
+        total: price * quantity
+    };
+    
+    orderItems.push(orderItem);
+    
+    // Add to UI
+    addOrderItemToUI(orderItem);
+    
+    // Reset form
+    hideOrderForm();
+    
+    showNotification('Товар додано до накладної', 'success');
+}
+
+function addOrderItemToUI(orderItem) {
+    const orderItemsContainer = document.getElementById('orderItems');
+    
+    const orderItemElement = document.createElement('div');
+    orderItemElement.className = 'order-item';
+    orderItemElement.dataset.itemId = orderItem.id;
+    
+    orderItemElement.innerHTML = `
+        <div class="order-item-content">
+            <div class="order-item-image">
+                ${orderItem.product.image ? 
+                    `<img src="${orderItem.product.image}" alt="${orderItem.product.title}" class="order-product-image">` :
+                    `<div class="order-product-image" style="background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #718096;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                        </svg>
+                    </div>`
+                }
+            </div>
+            
+            <div class="order-item-info">
+                <div class="order-item-title">${orderItem.product.title}</div>
+                
+                <div class="order-item-specs-row">
+                    <div class="order-item-color-section">
+                        <span class="order-item-color-text">${orderItem.color}</span>
+                        <span class="order-item-color-dot" data-color="#000000"></span>
+                    </div>
+                    
+                    <div class="order-item-size">${orderItem.size}</div>
+                    
+                    <div class="order-item-quantity">${orderItem.quantity} шт.</div>
+                </div>
+            </div>
+            
+            <div class="order-item-actions">
+                <button class="remove-item-btn" onclick="removeOrderItem(${orderItem.id})">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                    </svg>
+                </button>
+                
+                <div class="order-item-prices">
+                    <div class="order-item-cost">${orderItem.priceType === 'drop' ? 'Дроп' : 'Опт'}</div>
+                    <div class="order-item-selling">${orderItem.total}₴</div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    orderItemsContainer.appendChild(orderItemElement);
+}
+
+function removeOrderItem(itemId) {
+    orderItems = orderItems.filter(item => item.id !== itemId);
+    
+    const orderItemElement = document.querySelector(`[data-item-id="${itemId}"]`);
+    if (orderItemElement) {
+        orderItemElement.remove();
+    }
+    
+    showNotification('Товар видалено з накладної', 'success');
+}
+
+function hideOrderForm() {
+    const orderForm = document.getElementById('orderForm');
+    const dropZone = document.getElementById('orderDropZone');
+    
+    orderForm.style.display = 'none';
+    dropZone.style.display = 'block';
+    
+    currentProduct = null;
+}
+
+// Color dots initialization
+function initializeColorDots() {
+    const colorDots = document.querySelectorAll('.color-dot[data-color]');
+    colorDots.forEach(dot => {
+        const color = dot.getAttribute('data-color');
+        if (color) {
+            dot.style.backgroundColor = color;
+        }
+    });
+}
+
+// Invoice list management
+function addInvoiceToList(invoice) {
+    const invoicesList = document.getElementById('invoices-list');
+    const emptyMessage = invoicesList.querySelector('div[style*="text-align: center"]');
+    if (emptyMessage) {
+        emptyMessage.remove();
+    }
+    
+    const invoiceItem = document.createElement('div');
+    invoiceItem.className = 'invoice-item';
+    invoiceItem.innerHTML = `
+        <div class="invoice-info">
+            <div class="invoice-name">${invoice.name}</div>
+            <div class="invoice-date">${invoice.date} - ${invoice.company}</div>
+        </div>
+        <a href="#" class="download-button" onclick="downloadInvoice('${invoice.id}')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z"/>
+            </svg>
+            Скачати
+        </a>
+    `;
+    
+    invoicesList.appendChild(invoiceItem);
+}
 
 // Global function for downloading invoices
 function downloadInvoice(invoiceId) {
-    // This would be implemented to actually download the invoice file
     showNotification('Функція скачування буде реалізована наступним етапом', 'info');
+}
+
+// Notification system
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
+        font-weight: 600;
+        z-index: 1000;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        animation: slideIn 0.3s ease;
+    `;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => {
+            if (document.body.contains(notification)) {
+                document.body.removeChild(notification);
+            }
+        }, 300);
+    }, 3000);
 }
 
 // Add CSS animations
