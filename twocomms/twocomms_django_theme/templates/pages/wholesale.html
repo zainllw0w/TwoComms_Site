@@ -97,156 +97,57 @@
 {% endblock %}
 
 {% block content %}
-<!-- Hero Section -->
-<section class="wholesale-hero">
-  <div class="hero-background">
-    <div class="hero-gradient"></div>
-    <div class="hero-pattern"></div>
-  </div>
-  
-  <div class="hero-sparkles">
-    <div class="sparkle sparkle-1"></div>
-    <div class="sparkle sparkle-2"></div>
-    <div class="sparkle sparkle-3"></div>
-    <div class="sparkle sparkle-4"></div>
-    <div class="sparkle sparkle-5"></div>
-    <div class="sparkle sparkle-6"></div>
-    <div class="sparkle sparkle-7"></div>
-    <div class="sparkle sparkle-8"></div>
-  </div>
-
-  <div class="container">
-    <div class="hero-content">
-      <div class="hero-logo">
-        <img src="{% static 'img/logo.svg' %}" alt="TwoComms" class="logo-image">
-        <div class="logo-glow"></div>
-      </div>
-      
-      <h1 class="hero-title">
-        <span class="title-line">Оптові закупівлі</span>
-        <span class="title-line gradient-text">TwoComms</span>
-      </h1>
-      
-      <p class="hero-subtitle">
-        Вигідні ціни для дропшипінгу та оптових закупівель.<br>
-        Якісний стріт & мілітарі одяг з ексклюзивними принтами.
-      </p>
-
-      <div class="hero-features">
-        <div class="feature-card">
-          <div class="feature-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-          </div>
-          <div class="feature-content">
-            <h3 class="feature-title">Мінімум 8 шт</h3>
-            <p class="feature-desc">Гнучкі умови замовлення</p>
-          </div>
-        </div>
-        
-        <div class="feature-card">
-          <div class="feature-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-            </svg>
-          </div>
-          <div class="feature-content">
-            <h3 class="feature-title">Дроп ціни</h3>
-            <p class="feature-desc">700-1500 грн</p>
-          </div>
-        </div>
-        
-        <div class="feature-card">
-          <div class="feature-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
-            </svg>
-          </div>
-          <div class="feature-content">
-            <h3 class="feature-title">Оптові ціни</h3>
-            <p class="feature-desc">520-1400 грн</p>
-          </div>
+<div class="container py-5">
+  <div class="row">
+    <div class="col-12">
+      <div class="text-center mb-5">
+        <h1 class="display-4 mb-3">Оптові закупівлі TwoComms</h1>
+        <p class="lead">Вигідні ціни для дропшипінгу та оптових закупівель</p>
+        <div class="mt-4">
+          <a href="https://t.me/twocomms_wholesale" class="btn btn-primary btn-lg me-3" target="_blank">
+            Співпраця по дропу
+          </a>
+          <a href="/media/pricelist_opt.xlsx" class="btn btn-outline-primary btn-lg" download>
+            Завантажити прайс
+          </a>
         </div>
       </div>
 
-      <div class="hero-cta">
-        <a href="#cooperation" class="cta-button">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-          </svg>
-          Співпраця по дропу
-        </a>
-        <a href="/media/pricelist_opt.xlsx" class="cta-button secondary" download>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
-          </svg>
-          Завантажити прайс
-        </a>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Pricing Information -->
-<section class="pricing-section">
-  <div class="container">
-    <div class="section-header">
-      <h2 class="section-title">Система ціноутворення</h2>
-      <p class="section-subtitle">Прозорі та вигідні умови для всіх типів співпраці</p>
-    </div>
-
-    <div class="pricing-cards">
-      <!-- Drop Prices -->
-      <div class="pricing-card">
-        <div class="pricing-icon">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-          </svg>
-        </div>
-        <h3 class="pricing-title">Дроп ціни</h3>
-        <p class="pricing-description">
-          Фіксовані ціни незалежно від кількості замовлення. 
-          Ідеально для дропшипінгу та роздрібної торгівлі.
-        </p>
-        <div class="price-ranges">
-          <div class="price-range">
-            <span class="range-label">Футболки</span>
-            <span class="range-price">{{ tshirt_prices.drop }} грн</span>
+      <!-- Pricing Information -->
+      <div class="row mb-5">
+        <div class="col-md-6">
+          <div class="card h-100">
+            <div class="card-body text-center">
+              <h3 class="card-title">Дроп ціни</h3>
+              <p class="card-text">Фіксовані ціни незалежно від кількості</p>
+              <div class="mt-3">
+                <div class="mb-2">
+                  <strong>Футболки:</strong> {{ tshirt_prices.drop }} грн
+                </div>
+                <div>
+                  <strong>Худі:</strong> {{ hoodie_prices.drop }} грн
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="price-range">
-            <span class="range-label">Худі</span>
-            <span class="range-price">{{ hoodie_prices.drop }} грн</span>
+        </div>
+        <div class="col-md-6">
+          <div class="card h-100">
+            <div class="card-body text-center">
+              <h3 class="card-title">Оптові ціни</h3>
+              <p class="card-text">Вигідні ціни залежно від обсягу</p>
+              <div class="mt-3">
+                <div class="mb-2">
+                  <strong>Футболки:</strong> {{ tshirt_prices.wholesale.0 }}-{{ tshirt_prices.wholesale|last }} грн
+                </div>
+                <div>
+                  <strong>Худі:</strong> {{ hoodie_prices.wholesale.0 }}-{{ hoodie_prices.wholesale|last }} грн
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-
-      <!-- Wholesale Prices -->
-      <div class="pricing-card">
-        <div class="pricing-icon">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
-          </svg>
-        </div>
-        <h3 class="pricing-title">Оптові ціни</h3>
-        <p class="pricing-description">
-          Вигідні ціни залежно від обсягу замовлення. 
-          Чим більше замовляєте, тим менше платите за одиницю.
-        </p>
-        <div class="price-ranges">
-          <div class="price-range">
-            <span class="range-label">Футболки</span>
-            <span class="range-price">{{ tshirt_prices.wholesale.0 }}-{{ tshirt_prices.wholesale|last }} грн</span>
-          </div>
-          <div class="price-range">
-            <span class="range-label">Худі</span>
-            <span class="range-price">{{ hoodie_prices.wholesale.0 }}-{{ hoodie_prices.wholesale|last }} грн</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
 
 <!-- Products Section -->
 <section class="products-section">
