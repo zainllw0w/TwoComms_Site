@@ -456,7 +456,6 @@
     gap: 10px;
     height: 64px;
     width: 100%;
-    pointer-events: none; /* Позволяем событиям проходить к родительской карточке */
 }
 
 .product-image-container {
@@ -467,7 +466,6 @@
     overflow: hidden;
     background: rgba(24, 26, 32, 0.7);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    pointer-events: none; /* Позволяем событиям проходить к родительской карточке */
 }
 
 .product-image {
@@ -484,7 +482,6 @@
     gap: 2px;
     min-width: 0;
     height: 64px;
-    pointer-events: none; /* Позволяем событиям проходить к родительской карточке */
 }
 
 
@@ -494,14 +491,12 @@
     gap: 8px;
     margin-bottom: 4px;
     flex-wrap: wrap;
-    pointer-events: none; /* Позволяем событиям проходить к родительской карточке */
 }
 
 .product-category {
     color: rgba(255, 255, 255, 0.7);
     font-size: 0.65rem;
     font-weight: 500;
-    pointer-events: none; /* Позволяем событиям проходить к родительской карточке */
 }
 
 .product-name {
@@ -513,7 +508,6 @@
     text-overflow: ellipsis;
     max-width: 140px;
     line-height: 1.2;
-    pointer-events: none; /* Позволяем событиям проходить к родительской карточке */
 }
 
 .product-colors {
@@ -522,14 +516,12 @@
     gap: 6px;
     margin-bottom: 4px;
     flex-wrap: wrap;
-    pointer-events: none; /* Позволяем событиям проходить к родительской карточке */
 }
 
 .color-item {
     display: flex;
     align-items: center;
     gap: 4px;
-    pointer-events: none; /* Позволяем событиям проходить к родительской карточке */
 }
 
 .color-dot {
@@ -540,7 +532,6 @@
     display: inline-block;
     flex-shrink: 0;
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
-    pointer-events: none; /* Позволяем событиям проходить к родительской карточке */
 }
 
 .color-name {
@@ -549,14 +540,12 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    pointer-events: none; /* Позволяем событиям проходить к родительской карточке */
 }
 
 .color-more {
     font-size: 0.55rem;
     color: rgba(232, 233, 236, 0.6);
     margin-left: 2px;
-    pointer-events: none; /* Позволяем событиям проходить к родительской карточке */
 }
 
 .product-price {
@@ -564,7 +553,6 @@
     font-weight: 700;
     font-size: 0.85rem;
     text-shadow: 0 0 10px rgba(139, 92, 246, 0.3);
-    pointer-events: none; /* Позволяем событиям проходить к родительской карточке */
 }
 
 /* Order Form */
@@ -1663,10 +1651,10 @@ function initializeColorDotsLegacy() {
 document.addEventListener('DOMContentLoaded', function() {
     initializeCompanyForm();
     initializeDragAndDrop();
+    initializeColorDots();
     initializeCategoryFilter();
     initializeProductClick();
     initializeOrderForm();
-    initializeColorDots(); // Initialize color dots after all other elements are ready
     loadOrderData(); // Load saved data
     loadInvoicesFromLocalStorage(); // Load saved invoices
     updateOrderStatistics(); // Initialize statistics on page load
@@ -1803,8 +1791,6 @@ function initializeDragAndDrop() {
     const dropZone = document.getElementById('orderDropZone');
     
     productCards.forEach(card => {
-        // Убеждаемся, что карточка draggable
-        card.draggable = true;
         card.addEventListener('dragstart', handleDragStart);
         card.addEventListener('dragend', handleDragEnd);
     });
@@ -1818,20 +1804,12 @@ function initializeDragAndDrop() {
 
 
 function handleDragStart(e) {
-    // Находим ближайшую карточку товара
-    const productCard = e.target.closest('.product-card');
-    if (productCard) {
-        productCard.classList.add('dragging');
-        e.dataTransfer.setData('text/plain', productCard.dataset.productId);
-    }
+    e.target.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', e.target.dataset.productId);
 }
 
 function handleDragEnd(e) {
-    // Находим ближайшую карточку товара
-    const productCard = e.target.closest('.product-card');
-    if (productCard) {
-        productCard.classList.remove('dragging');
-    }
+    e.target.classList.remove('dragging');
 }
 
 function handleDragOver(e) {
@@ -1881,9 +1859,6 @@ function initializeProductClick() {
         card.addEventListener('click', function(e) {
             // Предотвращаем клик при drag and drop
             if (e.target.closest('.remove-item-btn')) return;
-            
-            // Проверяем, что это не drag операция
-            if (e.target.classList.contains('dragging') || e.target.closest('.dragging')) return;
             
             const productId = this.dataset.productId;
             if (productId) {
