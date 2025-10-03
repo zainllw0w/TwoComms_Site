@@ -6337,50 +6337,73 @@ def pricelist_page(request):
 
 def wholesale_page(request):
     """Render wholesale page with products and pricing."""
-    from django.db.models import Q
-    from storefront.models import Product, Category
-    
-    # Фильтруем категории по ключевым словам
-    tshirt_categories = Category.objects.filter(
-        Q(name__icontains='футболка') | 
-        Q(name__icontains='tshirt') | 
-        Q(name__icontains='t-shirt') |
-        Q(slug__icontains='футболка') |
-        Q(slug__icontains='tshirt') |
-        Q(slug__icontains='t-shirt')
-    )
-    
-    hoodie_categories = Category.objects.filter(
-        Q(name__icontains='худи') | 
-        Q(name__icontains='hoodie') | 
-        Q(name__icontains='hooded') |
-        Q(slug__icontains='худи') |
-        Q(slug__icontains='hoodie') |
-        Q(slug__icontains='hooded')
-    )
-    
-    # Получаем товары из нужных категорий
-    tshirt_products = Product.objects.filter(category__in=tshirt_categories).select_related('category')
-    hoodie_products = Product.objects.filter(category__in=hoodie_categories).select_related('category')
-    
-    # Цены для категорий
-    tshirt_prices = {
-        'drop': 700,
-        'wholesale': [650, 620, 590, 560, 520],
-        'ranges': ['8–15 шт.', '16–31 шт.', '32–63 шт.', '64–99 шт.', '100+ шт.']
-    }
-    
-    hoodie_prices = {
-        'drop': 1500,
-        'wholesale': [1400, 1350, 1300, 1250, 1200],
-        'ranges': ['8–15 шт.', '16–31 шт.', '32–63 шт.', '64–99 шт.', '100+ шт.']
-    }
-    
-    context = {
-        'tshirt_products': tshirt_products,
-        'hoodie_products': hoodie_products,
-        'tshirt_prices': tshirt_prices,
-        'hoodie_prices': hoodie_prices,
-    }
-    
-    return render(request, 'pages/wholesale.html', context)
+    try:
+        from django.db.models import Q
+        from storefront.models import Product, Category
+        
+        # Фильтруем категории по ключевым словам
+        tshirt_categories = Category.objects.filter(
+            Q(name__icontains='футболка') | 
+            Q(name__icontains='tshirt') | 
+            Q(name__icontains='t-shirt') |
+            Q(slug__icontains='футболка') |
+            Q(slug__icontains='tshirt') |
+            Q(slug__icontains='t-shirt')
+        )
+        
+        hoodie_categories = Category.objects.filter(
+            Q(name__icontains='худи') | 
+            Q(name__icontains='hoodie') | 
+            Q(name__icontains='hooded') |
+            Q(slug__icontains='худи') |
+            Q(slug__icontains='hoodie') |
+            Q(slug__icontains='hooded')
+        )
+        
+        # Получаем товары из нужных категорий
+        tshirt_products = Product.objects.filter(category__in=tshirt_categories).select_related('category')[:20]
+        hoodie_products = Product.objects.filter(category__in=hoodie_categories).select_related('category')[:20]
+        
+        # Цены для категорий
+        tshirt_prices = {
+            'drop': 700,
+            'wholesale': [650, 620, 590, 560, 520],
+            'ranges': ['8–15 шт.', '16–31 шт.', '32–63 шт.', '64–99 шт.', '100+ шт.']
+        }
+        
+        hoodie_prices = {
+            'drop': 1500,
+            'wholesale': [1400, 1350, 1300, 1250, 1200],
+            'ranges': ['8–15 шт.', '16–31 шт.', '32–63 шт.', '64–99 шт.', '100+ шт.']
+        }
+        
+        context = {
+            'tshirt_products': tshirt_products,
+            'hoodie_products': hoodie_products,
+            'tshirt_prices': tshirt_prices,
+            'hoodie_prices': hoodie_prices,
+        }
+        
+        return render(request, 'pages/wholesale.html', context)
+    except Exception as e:
+        # Логируем ошибку и возвращаем простую страницу
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in wholesale_page: {e}")
+        
+        # Возвращаем простую страницу с базовым контекстом
+        context = {
+            'tshirt_products': [],
+            'hoodie_products': [],
+            'tshirt_prices': {
+                'drop': 700,
+                'wholesale': [650, 620, 590, 560, 520],
+                'ranges': ['8–15 шт.', '16–31 шт.', '32–63 шт.', '64–99 шт.', '100+ шт.']
+            },
+            'hoodie_prices': {
+                'drop': 1500,
+                'wholesale': [1400, 1350, 1300, 1250, 1200],
+                'ranges': ['8–15 шт.', '16–31 шт.', '32–63 шт.', '64–99 шт.', '100+ шт.']
+            },
+        }
+        return render(request, 'pages/wholesale.html', context)
