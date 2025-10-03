@@ -19285,17 +19285,15 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   }
 }
 
-.cooperation-hero .hero-features,
-.about-hero .hero-features {
+.cooperation-hero .hero-features {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: clamp(1.25rem, 3vw, 2rem);
-  width: min(100%, 760px);
+  width: min(100%, 420px);
   margin: 0 auto;
 }
 
-.cooperation-hero .feature-card,
-.about-hero .feature-card {
+.cooperation-hero .hero-features .feature-card {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 20px;
@@ -19800,6 +19798,65 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
     padding: clamp(3rem, 10vw, 4.5rem) 1rem clamp(2.5rem, 8vw, 3.5rem);
   }
 
+  .about-hero {
+    padding: clamp(3rem, 8vw, 4.5rem) 1.5rem;
+  }
+
+  .about-hero .hero-content {
+    padding: clamp(3rem, 10vw, 4.5rem) 1rem clamp(2.5rem, 8vw, 3.5rem);
+  }
+
+  .about-hero .hero-logo {
+    top: clamp(-2rem, -12vw, -1rem);
+    width: clamp(150px, 44vw, 210px);
+    height: clamp(150px, 44vw, 210px);
+  }
+
+  .about-hero .hero-title {
+    font-size: 2.5rem;
+  }
+
+  .about-hero .hero-subtitle {
+    font-size: 1.1rem;
+  }
+
+  .about-hero .hero-features {
+    grid-template-columns: minmax(220px, 1fr);
+    gap: 1.25rem;
+  }
+
+  .about-hero .feature-card {
+    padding: 1.5rem;
+  }
+
+  .contacts-hero {
+    padding: clamp(3rem, 9vw, 4.5rem) 1.5rem;
+  }
+
+  .contacts-hero .hero-content {
+    padding: clamp(2.5rem, 8vw, 3.5rem) 1rem;
+  }
+
+  .contacts-hero::before {
+    top: clamp(-1.5rem, -10vw, -0.5rem);
+    width: clamp(140px, 46vw, 200px);
+    height: clamp(140px, 46vw, 200px);
+  }
+
+  .contacts-hero .hero-title {
+    font-size: 2.4rem;
+  }
+
+  .contacts-hero .hero-subtitle {
+    font-size: 1.05rem;
+  }
+
+  .contacts-hero .hero-icon {
+    width: 68px;
+    height: 68px;
+    margin-bottom: 1rem;
+  }
+
   .section-title {
     font-size: 2rem;
   }
@@ -19993,11 +20050,17 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   to { opacity: 1; }
 }
 
+
 .about-hero .hero-features {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 2rem;
-  margin-top: 3rem;
+  grid-template-columns: minmax(220px, 1fr);
+  gap: clamp(1.25rem, 3vw, 2rem);
+  width: min(100%, 420px);
+  margin: clamp(2rem, 4vw, 3rem) auto 0;
+}
+
+.about-hero .hero-features .feature-card {
+  padding: 2rem 1.5rem;
 }
 
 .feature-card {
@@ -20290,11 +20353,11 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
     padding: 2rem 1rem;
   }
   
-  .hero-title {
+  .about-hero .hero-title {
     font-size: 2.5rem;
   }
   
-  .hero-features {
+  .about-hero .hero-features {
     grid-template-columns: 1fr;
     gap: 1rem;
   }
@@ -20337,6 +20400,21 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(99, 102, 241, 0.05));
   backdrop-filter: blur(20px);
+}
+
+.contacts-hero::before {
+  content: '';
+  position: absolute;
+  top: clamp(-2.5rem, -7vw, -1.5rem);
+  left: 50%;
+  transform: translate(-50%, 0);
+  width: clamp(170px, 28vw, 240px);
+  height: clamp(170px, 28vw, 240px);
+  background: url('../img/logo.svg') center/contain no-repeat;
+  opacity: 0.14;
+  pointer-events: none;
+  filter: drop-shadow(0 28px 110px rgba(139, 92, 246, 0.4));
+  z-index: 0;
 }
 
 .contacts-hero .hero-background {
@@ -20382,9 +20460,17 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 .contacts-hero .sparkle-6 { top: 80%; right: 10%; animation-delay: 2.5s; }
 
 .contacts-hero .hero-content {
+  position: relative;
   text-align: center;
   z-index: 1;
-  max-width: 600px;
+  max-width: 640px;
+  width: 100%;
+  margin: 0 auto;
+  padding: clamp(3.5rem, 7vw, 5rem) 1.5rem clamp(2.5rem, 6vw, 4rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(1.25rem, 3vw, 2rem);
 }
 
 .contacts-hero .hero-icon {
@@ -20397,6 +20483,8 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   align-items: center;
   justify-content: center;
   color: #8b5cf6;
+  position: relative;
+  z-index: 2;
 }
 
 .contacts-hero .hero-title {
@@ -20407,11 +20495,15 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  position: relative;
+  z-index: 2;
 }
 
 .contacts-hero .hero-subtitle {
   font-size: 1.25rem;
   color: rgba(232, 233, 236, 0.8);
+  position: relative;
+  z-index: 2;
 }
 
 /* Contact Methods */
