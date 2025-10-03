@@ -173,7 +173,7 @@ class Command(BaseCommand):
         
         # Цены для категорий
         tshirt_prices = [750, 700, 650, 600, 550]
-        hoodie_prices = [1600, 1500, 1400, 1300, 1200]
+        hoodie_prices = [1450, 1400, 1350, 1300, 1200]
         
         row = 3
         
