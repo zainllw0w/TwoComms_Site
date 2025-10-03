@@ -166,7 +166,6 @@ class WholesaleInvoice(models.Model):
         ('cancelled', 'Скасовано'),
     ]
     
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='wholesale_invoices', null=True, blank=True, verbose_name="Користувач")
     invoice_number = models.CharField(max_length=100, unique=True, verbose_name="Номер накладної")
     company_name = models.CharField(max_length=200, verbose_name="Назва компанії/ФОП/ПІБ")
     contact_phone = models.CharField(max_length=32, verbose_name="Номер телефону")
