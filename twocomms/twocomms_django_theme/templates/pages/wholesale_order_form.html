@@ -1713,6 +1713,10 @@ function initializeCompanyForm() {
             storeLink: rawData.store_link || ''
         };
         
+        console.log('DEBUG: Raw form data:', rawData);
+        console.log('DEBUG: Converted company data:', companyData);
+        console.log('DEBUG: Company name being saved:', companyData.companyName);
+        
         // Store company data in localStorage
         localStorage.setItem('wholesaleCompanyData', JSON.stringify(companyData));
         saveOrderData(); // Save complete order data
@@ -1757,10 +1761,17 @@ function initializeCompanyForm() {
         
         try {
             // Prepare data for invoice generation
+            const parsedCompanyData = JSON.parse(companyData);
+            console.log('DEBUG: Raw companyData from localStorage:', companyData);
+            console.log('DEBUG: Parsed companyData:', parsedCompanyData);
+            console.log('DEBUG: Company name from parsed data:', parsedCompanyData.companyName);
+            
             const invoiceData = {
-                companyData: JSON.parse(companyData),
+                companyData: parsedCompanyData,
                 orderItems: orderItems
             };
+            
+            console.log('DEBUG: Final invoiceData being sent:', invoiceData);
             
             // Send request to generate invoice
             const response = await fetch('/wholesale/generate-invoice/', {

@@ -6498,6 +6498,11 @@ def generate_wholesale_invoice(request):
         company_data = data.get('companyData', {})
         order_items = data.get('orderItems', [])
         
+        # DEBUG: Логируем полученные данные
+        print(f"DEBUG: Received data: {data}")
+        print(f"DEBUG: Company data: {company_data}")
+        print(f"DEBUG: Company name from data: {company_data.get('companyName', 'NOT_FOUND')}")
+        
         if not order_items:
             return JsonResponse({'error': 'Немає товарів для накладної'}, status=400)
         
@@ -6508,8 +6513,10 @@ def generate_wholesale_invoice(request):
         
         # Красивое название файла с названием компании
         company_name = company_data.get('companyName', 'Company').strip()
+        print(f"DEBUG: Company name after processing: '{company_name}'")
         if not company_name:
             company_name = 'Company'
+            print(f"DEBUG: Company name was empty, using default: '{company_name}'")
         
         # Красивая дата для названия файла
         beautiful_date = now.strftime('%d.%m.%Y_%H-%M')
