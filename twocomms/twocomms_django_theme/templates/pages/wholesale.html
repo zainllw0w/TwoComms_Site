@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+{% load static %}
+{% load responsive_images %}
+
+{% block title %}Оптові закупівлі — TwoComms{% endblock %}
+
+{% block description %}Оптові ціни на стріт & мілітарі одяг TwoComms. Футболки та худі з вигідними цінами для дропшипінгу та оптових закупівель. Мінімальне замовлення від 8 шт.{% endblock %}
+
+{% block keywords %}оптові ціни, дропшипінг, оптові закупівлі, футболки оптом, худі оптом, стріт одяг оптом, TwoComms опт, дроп ціни{% endblock %}
+
+{% block og_type %}website{% endblock %}
+
+{% block extra_css %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/wholesale.css' %}">
+{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-wholesale">
+  <div class="container">
+    <div class="row align-items-center min-vh-50">
+      <div class="col-lg-6">
+        <div class="hero-content reveal">
+          <h1 class="display-4 fw-bold mb-4">
+            Оптові закупівлі
+            <span class="text-primary">TwoComms</span>
+          </h1>
+          <p class="lead mb-4">
+            Вигідні ціни для дропшипінгу та оптових закупівель. 
+            Якісний стріт & мілітарі одяг з ексклюзивними принтами.
+          </p>
+          <div class="hero-stats d-flex gap-4 mb-4">
+            <div class="stat-item">
+              <div class="stat-number">8+</div>
+              <div class="stat-label">Мінімальне замовлення</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-number">700-1500</div>
+              <div class="stat-label">Дроп ціни (грн)</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-number">520-1200</div>
+              <div class="stat-label">Оптові ціни (грн)</div>
+            </div>
+          </div>
+          <div class="hero-buttons d-flex gap-3">
+            <a href="#cooperation" class="btn btn-primary btn-lg">
+              <i class="fab fa-telegram-plane me-2"></i>
+              Співпраця по дропу
+            </a>
+            <button class="btn btn-outline-primary btn-lg" onclick="showInvoiceModal()">
+              <i class="fas fa-file-invoice me-2"></i>
+              Сформувати накладну
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="hero-image reveal">
+          <div class="hero-image-container">
+            {% static 'img/wholesale-hero.jpg' as hero_img %}
+            <img src="{{ hero_img }}" 
+                 alt="Оптові закупівлі TwoComms" 
+                 class="img-fluid rounded-4 shadow-lg"
+                 onerror="this.src='{% static 'img/placeholder.jpg' %}'">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Pricing Information -->
+<section class="pricing-info py-5">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-10">
+        <div class="pricing-card glass rounded-4 p-4 reveal">
+          <h2 class="h3 text-center mb-4">Система ціноутворення</h2>
+          <div class="row g-4">
+            <div class="col-md-6">
+              <div class="price-type-card">
+                <div class="price-type-header">
+                  <i class="fas fa-bolt text-warning"></i>
+                  <h4>Дроп ціни</h4>
+                </div>
+                <p class="text-muted">Фіксовані ціни незалежно від кількості</p>
+                <div class="price-examples">
+                  <div class="price-item">
+                    <span class="product-type">Футболки:</span>
+                    <span class="price-value">700 грн</span>
+                  </div>
+                  <div class="price-item">
+                    <span class="product-type">Худі:</span>
+                    <span class="price-value">1500 грн</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="price-type-card">
+                <div class="price-type-header">
+                  <i class="fas fa-chart-line text-success"></i>
+                  <h4>Оптові ціни</h4>
+                </div>
+                <p class="text-muted">Ціни залежно від кількості замовлення</p>
+                <div class="price-examples">
+                  <div class="price-item">
+                    <span class="product-type">Футболки:</span>
+                    <span class="price-value">650-520 грн</span>
+                  </div>
+                  <div class="price-item">
+                    <span class="product-type">Худі:</span>
+                    <span class="price-value">1400-1200 грн</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Products Section -->
+<section class="products-section py-5">
+  <div class="container">
+    <!-- Hoodies Section -->
+    <div class="category-section mb-5">
+      <div class="category-header reveal">
+        <h2 class="h3 mb-3">
+          <i class="fas fa-tshirt text-primary me-2"></i>
+          Худі [фліс]
+        </h2>
+        <p class="text-muted">М'які та зручні худі з капюшоном</p>
+      </div>
+      
+      <div class="products-grid">
+        <div class="row g-4" data-stagger-grid>
+          {% for product in hoodie_products %}
+          <div class="col-lg-3 col-md-4 col-sm-6 stagger-item reveal-stagger">
+            <div class="wholesale-product-card glass rounded-4 overflow-hidden h-100">
+              <div class="product-image-container">
+                {% if product.main_image %}
+                  {% optimized_image product.main_image.url product.title "product-image" 400 500 sizes='(max-width: 768px) 50vw, (max-width: 992px) 33vw, 25vw' %}
+                {% else %}
+                  {% static 'img/placeholder.jpg' as placeholder %}
+                  <img src="{{ placeholder }}" alt="{{ product.title }}" class="product-image">
+                {% endif %}
+                <div class="product-overlay">
+                  <div class="product-badges">
+                    <span class="badge bg-warning">Дроп: {{ hoodie_prices.drop }} грн</span>
+                  </div>
+                </div>
+              </div>
+              <div class="product-content p-3">
+                <h5 class="product-title mb-2">{{ product.title }} [фліс]</h5>
+                <div class="product-prices">
+                  <div class="drop-price">
+                    <span class="price-label">Дроп:</span>
+                    <span class="price-value text-warning fw-bold">{{ hoodie_prices.drop }} грн</span>
+                  </div>
+                  <div class="wholesale-prices">
+                    <span class="price-label">Опт:</span>
+                    <div class="price-ranges">
+                      {% for price in hoodie_prices.wholesale %}
+                        <span class="price-range">
+                          <span class="range">{{ hoodie_prices.ranges|slice:forloop.counter0|last }}</span>
+                          <span class="price">{{ price }} грн</span>
+                        </span>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- T-shirts Section -->
+    <div class="category-section">
+      <div class="category-header reveal">
+        <h2 class="h3 mb-3">
+          <i class="fas fa-tshirt text-primary me-2"></i>
+          Футболки
+        </h2>
+        <p class="text-muted">Класичні футболки з ексклюзивними принтами</p>
+      </div>
+      
+      <div class="products-grid">
+        <div class="row g-4" data-stagger-grid>
+          {% for product in tshirt_products %}
+          <div class="col-lg-3 col-md-4 col-sm-6 stagger-item reveal-stagger">
+            <div class="wholesale-product-card glass rounded-4 overflow-hidden h-100">
+              <div class="product-image-container">
+                {% if product.main_image %}
+                  {% optimized_image product.main_image.url product.title "product-image" 400 500 sizes='(max-width: 768px) 50vw, (max-width: 992px) 33vw, 25vw' %}
+                {% else %}
+                  {% static 'img/placeholder.jpg' as placeholder %}
+                  <img src="{{ placeholder }}" alt="{{ product.title }}" class="product-image">
+                {% endif %}
+                <div class="product-overlay">
+                  <div class="product-badges">
+                    <span class="badge bg-warning">Дроп: {{ tshirt_prices.drop }} грн</span>
+                  </div>
+                </div>
+              </div>
+              <div class="product-content p-3">
+                <h5 class="product-title mb-2">{{ product.title }}</h5>
+                <div class="product-prices">
+                  <div class="drop-price">
+                    <span class="price-label">Дроп:</span>
+                    <span class="price-value text-warning fw-bold">{{ tshirt_prices.drop }} грн</span>
+                  </div>
+                  <div class="wholesale-prices">
+                    <span class="price-label">Опт:</span>
+                    <div class="price-ranges">
+                      {% for price in tshirt_prices.wholesale %}
+                        <span class="price-range">
+                          <span class="range">{{ tshirt_prices.ranges|slice:forloop.counter0|last }}</span>
+                          <span class="price">{{ price }} грн</span>
+                        </span>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Cooperation Section -->
+<section id="cooperation" class="cooperation-section py-5">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-8">
+        <div class="cooperation-card glass rounded-4 p-5 text-center reveal">
+          <h2 class="h3 mb-4">Співпраця по дропу</h2>
+          <p class="lead mb-4">
+            Зацікавлені в співпраці? Зв'яжіться з нами через Telegram для обговорення умов дропшипінгу.
+          </p>
+          <a href="https://t.me/twocomms_wholesale" target="_blank" class="btn btn-primary btn-lg">
+            <i class="fab fa-telegram-plane me-2"></i>
+            Написати в Telegram
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Invoice Modal -->
+<div class="modal fade" id="invoiceModal" tabindex="-1" aria-labelledby="invoiceModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content glass border-0">
+      <div class="modal-header border-0">
+        <h5 class="modal-title" id="invoiceModalLabel">Формування накладної</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="text-center py-5">
+          <i class="fas fa-tools fa-3x text-muted mb-3"></i>
+          <h4>Функція в розробці</h4>
+          <p class="text-muted">
+            Наразі функція формування накладних знаходиться в розробці. 
+            Незабаром ви зможете створювати накладні на оптові замовлення прямо на сайті.
+          </p>
+          <p class="small text-muted">
+            Поки що для замовлення звертайтесь через 
+            <a href="https://t.me/twocomms_wholesale" target="_blank" class="text-primary">Telegram</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+  {{ block.super }}
+  <script>
+    function showInvoiceModal() {
+      const modal = new bootstrap.Modal(document.getElementById('invoiceModal'));
+      modal.show();
+    }
+  </script>
+{% endblock %}
