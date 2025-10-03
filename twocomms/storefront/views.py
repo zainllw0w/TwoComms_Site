@@ -6501,8 +6501,12 @@ def generate_wholesale_invoice(request):
         if not order_items:
             return JsonResponse({'error': 'Немає товарів для накладної'}, status=400)
         
-        # Генерируем номер накладной с красивой датой
-        now = datetime.now()
+        # Генерируем номер накладной с красивой датой (киевское время)
+        from django.utils import timezone
+        import pytz
+        
+        kiev_tz = pytz.timezone('Europe/Kiev')
+        now = timezone.now().astimezone(kiev_tz)
         timestamp = now.strftime('%Y%m%d_%H%M%S')
         invoice_number = f"ОПТ_{timestamp}"
         
