@@ -168,6 +168,7 @@ class WholesaleInvoice(models.Model):
     
     invoice_number = models.CharField(max_length=100, unique=True, verbose_name="Номер накладної")
     company_name = models.CharField(max_length=200, verbose_name="Назва компанії/ФОП/ПІБ")
+    company_number = models.CharField(max_length=50, blank=True, verbose_name="Номер компанії/ЄДРПОУ/ІПН")
     contact_phone = models.CharField(max_length=32, verbose_name="Номер телефону")
     delivery_address = models.TextField(verbose_name="Адреса доставки")
     store_link = models.URLField(blank=True, null=True, verbose_name="Посилання на магазин")
