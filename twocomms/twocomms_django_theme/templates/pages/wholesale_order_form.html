@@ -620,6 +620,7 @@
     text-align: center;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
@@ -864,6 +865,7 @@
     max-width: 100%;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
@@ -2118,8 +2120,8 @@
 let currentProduct = null;
 let currentOrderId = null;
 let orderItems = [];
-let tshirtPrices = {{ tshirt_prices|safe }};
-let hoodiePrices = {{ hoodie_prices|safe }};
+let tshirtPrices = JSON.parse('{{ tshirt_prices|escapejs }}');
+let hoodiePrices = JSON.parse('{{ hoodie_prices|escapejs }}');
 
 // Initialize color dots with proper colors
 function initializeColorDots() {
