@@ -41,7 +41,7 @@ from datetime import timedelta
 
 from urllib.parse import urljoin
 import requests
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 from django.utils import timezone
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -1123,14 +1123,7 @@ def cart_mini(request):
             continue
         
         # Получаем информацию о цвете
-        color_variant = None
-        color_variant_id = it.get('color_variant_id')
-        if color_variant_id:
-            try:
-                from productcolors.models import ProductColorVariant
-                color_variant = ProductColorVariant.objects.get(id=color_variant_id)
-            except ProductColorVariant.DoesNotExist:
-                pass
+        color_variant = _get_color_variant_safe(it.get('color_variant_id'))
         
         unit = p.final_price
         line = unit * it['qty']
@@ -1283,14 +1276,7 @@ def process_guest_order(request):
             continue
         
         # Получаем информацию о цвете
-        color_variant = None
-        color_variant_id = it.get('color_variant_id')
-        if color_variant_id:
-            try:
-                from productcolors.models import ProductColorVariant
-                color_variant = ProductColorVariant.objects.get(id=color_variant_id)
-            except ProductColorVariant.DoesNotExist:
-                pass
+        color_variant = _get_color_variant_safe(it.get('color_variant_id'))
         
         unit = p.final_price
         line = unit * it['qty']
@@ -2479,14 +2465,7 @@ def order_create(request):
                 continue
             
             # Получаем информацию о цвете
-            color_variant = None
-            color_variant_id = it.get('color_variant_id')
-            if color_variant_id:
-                try:
-                    from productcolors.models import ProductColorVariant
-                    color_variant = ProductColorVariant.objects.get(id=color_variant_id)
-                except ProductColorVariant.DoesNotExist:
-                    pass
+            color_variant = _get_color_variant_safe(it.get('color_variant_id'))
             
             unit = p.final_price
             line = unit * it['qty']
@@ -5140,6 +5119,44 @@ def _reset_monobank_session(request, drop_pending=False):
     request.session.modified = True
 
 
+def _normalize_color_variant_id(raw):
+    """
+    Приводит значение идентификатора цветового варианта к int либо None.
+    Отсекает плейсхолдеры вида 'default', 'null', 'None', 'false', 'undefined'.
+    """
+    if raw is None:
+        return None
+    if isinstance(raw, int):
+        return raw if raw > 0 else None
+    try:
+        value = str(raw).strip()
+    except Exception:
+        return None
+    if not value:
+        return None
+    lowered = value.lower()
+    if lowered in {'default', 'none', 'null', 'false', 'undefined'}:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _get_color_variant_safe(color_variant_id):
+    """
+    Возвращает экземпляр ProductColorVariant либо None, не выбрасывая ошибок.
+    """
+    normalized_id = _normalize_color_variant_id(color_variant_id)
+    if not normalized_id:
+        return None
+    try:
+        from productcolors.models import ProductColorVariant
+        return ProductColorVariant.objects.get(id=normalized_id)
+    except (ProductColorVariant.DoesNotExist, ValueError, TypeError):
+        return None
+
+
 def _cleanup_expired_monobank_orders():
     """Удаляет старые неоплаченные Mono-заказы, чтобы они не копились."""
     expire_minutes = getattr(settings, 'MONOBANK_CHECKOUT_EXPIRATION_MINUTES', 1440)
@@ -5324,20 +5341,19 @@ def _create_or_update_monobank_order(request, customer_data):
             product = products.get(item['product_id'])
             if not product:
                 continue
-
-            qty = max(int(item.get('qty', 1)), 1)
-            unit_price = Decimal(str(product.final_price))
+            try:
+                qty = int(item.get('qty', 1) or 1)
+            except (TypeError, ValueError):
+                qty = 1
+            qty = max(qty, 1)
+            try:
+                unit_price = Decimal(str(product.final_price))
+            except (InvalidOperation, TypeError, ValueError):
+                monobank_logger.warning('Skipping cart item %s: invalid price %s', key, product.final_price)
+                continue
             line_total = unit_price * qty
             total_sum += line_total
-
-            color_variant = None
-            color_variant_id = item.get('color_variant_id')
-            if color_variant_id not in (None, '', 'default', 'null', 'None'):
-                try:
-                    from productcolors.models import ProductColorVariant
-                    color_variant = ProductColorVariant.objects.get(id=int(color_variant_id))
-                except (ValueError, ProductColorVariant.DoesNotExist):
-                    color_variant = None
+            color_variant = _get_color_variant_safe(item.get('color_variant_id'))
 
             order_items.append(OrderItem(
                 order=order,
@@ -5547,6 +5563,50 @@ def monobank_create_invoice(request):
         return JsonResponse({'success': False, 'error': 'Сума для оплати повинна бути більшою за 0.'})
 
     try:
+        basket_entries = []
+        for item in items_qs:
+            name_parts = [item.product.title]
+            if item.size:
+                name_parts.append(f"розмір {item.size}")
+            color_name = getattr(item, 'color_name', None)
+            if color_name:
+                name_parts.append(color_name)
+            display_name = ' • '.join(filter(None, name_parts))[:128]
+            try:
+                line_total_minor = int(Decimal(str(item.line_total)) * 100)
+            except (InvalidOperation, TypeError, ValueError):
+                monobank_logger.warning('Skipping item %s in Mono Pay basket: invalid line total %s', item.id, item.line_total)
+                continue
+
+            icon_url = ''
+            try:
+                image_obj = None
+                if getattr(item, 'color_variant', None) and item.color_variant.images.exists():
+                    image_obj = item.color_variant.images.first().image
+                elif item.product.main_image:
+                    image_obj = item.product.main_image
+                if image_obj and hasattr(image_obj, 'url'):
+                    icon_url = request.build_absolute_uri(image_obj.url)
+                    if icon_url.startswith('http://'):
+                        icon_url = 'https://' + icon_url[len('http://'):]
+            except Exception:
+                icon_url = ''
+
+            try:
+                qty_minor = max(int(getattr(item, 'qty', 1) or 1), 1)
+            except (TypeError, ValueError):
+                qty_minor = 1
+
+            basket_entries.append({
+                'name': display_name or item.product.title[:128],
+                'qty': qty_minor,
+                'sum': line_total_minor,
+                'icon': icon_url
+            })
+
+        if not basket_entries:
+            return JsonResponse({'success': False, 'error': 'Кошик порожній. Додайте товари перед оплатою.'})
+
         # Для Monobank Pay используем API эквайринга
         payload = {
             'amount': int(amount_decimal * 100),  # сумма в копейках
@@ -5554,14 +5614,7 @@ def monobank_create_invoice(request):
             'merchantPaymInfo': {
                 'reference': order.order_number,
                 'destination': f'Оплата замовлення {order.order_number}',
-                'basketOrder': [
-                    {
-                        'name': item.product.title,
-                        'qty': item.qty,
-                        'sum': int(item.line_total * 100),  # сумма в копейках
-                        'icon': item.product.main_image.url if item.product.main_image else '',
-                    } for item in items_qs
-                ]
+                'basketOrder': basket_entries
             },
             'redirectUrl': request.build_absolute_uri('/payments/monobank/return/'),
             'webHookUrl': request.build_absolute_uri('/payments/monobank/webhook/'),
@@ -5725,7 +5778,6 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
 def _create_single_product_order(product, size, qty, color_variant_id, customer):
     """Create a temporary order for a single product for Monobank Checkout."""
     from orders.models import Order, OrderItem
-    from productcolors.models import ProductColorVariant
 
     customer_data = {
         'user': customer.get('user'),
@@ -5736,18 +5788,19 @@ def _create_single_product_order(product, size, qty, color_variant_id, customer)
         'pay_type': customer.get('pay_type', 'full') or 'full'
     }
 
-    qty_int = max(int(qty or 1), 1)
-
+    try:
+        qty_int = max(int(qty or 1), 1)
+    except (TypeError, ValueError):
+        qty_int = 1
     unit_price_raw = product.final_price if product.final_price is not None else getattr(product, 'price', None)
-    unit_price = Decimal(str(unit_price_raw or '0'))
+    try:
+        unit_price = Decimal(str(unit_price_raw or '0'))
+    except (InvalidOperation, TypeError, ValueError):
+        monobank_logger.warning('Single checkout: invalid price for product %s (%s)', product.id, unit_price_raw)
+        unit_price = Decimal('0')
     line_total = (unit_price * qty_int).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
-    color_variant = None
-    if color_variant_id:
-        try:
-            color_variant = ProductColorVariant.objects.get(id=color_variant_id)
-        except ProductColorVariant.DoesNotExist:
-            color_variant = None
+    color_variant = _get_color_variant_safe(color_variant_id)
 
     order = Order.objects.create(
         user=customer_data['user'],
