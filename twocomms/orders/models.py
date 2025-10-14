@@ -2,7 +2,7 @@ from django.conf import settings
 from django.db import models
 from storefront.models import Product, PromoCode
 from productcolors.models import ProductColorVariant
-from datetime import datetime
+from django.utils import timezone
 
 class Order(models.Model):
     STATUS_CHOICES = [
@@ -53,19 +53,16 @@ class Order(models.Model):
         super().save(*args, **kwargs)
     
     def generate_order_number(self):
-        """Генерирует номер заказа в формате TWC+дата+N+номер"""
-        today = datetime.now()
+        """Генерирует уникальный номер заказа в формате TWC+дата+N+номер."""
+        today = timezone.localdate()
         date_str = today.strftime('%d%m%Y')
-        
-        # Получаем количество заказов за сегодня
-        today_orders = Order.objects.filter(
-            created__date=today.date()
-        ).count()
-        
-        # Номер по счету (начиная с 01)
-        order_count = today_orders + 1
-        
-        return f"TWC{date_str}N{order_count:02d}"
+        counter = 1
+
+        while True:
+            number = f"TWC{date_str}N{counter:02d}"
+            if not Order.objects.filter(order_number=number).exists():
+                return number
+            counter += 1
     
     def get_user_display(self):
         """Возвращает отображаемое имя пользователя"""
