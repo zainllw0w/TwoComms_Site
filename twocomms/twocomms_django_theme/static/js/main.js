@@ -719,14 +719,48 @@ function bindMonobankPay(scope){
 }
 
 
+let miniCartFetchController = null;
+let miniCartFetchSeq = 0;
+
 function refreshMiniCart(){
   const panel=miniCartPanel(); if(!panel) return Promise.resolve();
   const content = panel.querySelector('#mini-cart-content') || panel.querySelector('#mini-cart-content-mobile') || panel;
   content.innerHTML = "<div class='text-secondary small'>Завантаження…</div>";
-  return fetch('/cart/mini/',{headers:{'X-Requested-With':'XMLHttpRequest'}, cache:'no-store'})
+
+  if(typeof AbortController !== 'undefined'){
+    if(miniCartFetchController){
+      try{ miniCartFetchController.abort(); }catch(_){}
+    }
+    miniCartFetchController = new AbortController();
+  } else {
+    miniCartFetchController = null;
+  }
+
+  const currentSeq = ++miniCartFetchSeq;
+  const controller = miniCartFetchController;
+
+  return fetch('/cart/mini/',{
+    headers:{'X-Requested-With':'XMLHttpRequest'},
+    cache:'no-store',
+    signal: controller ? controller.signal : undefined
+  })
     .then(r=>r.text())
-    .then(html=>{ content.innerHTML = html; try{ applySwatchColors(content); }catch(_){ } try{ bindMonoCheckout(content); }catch(_){ } })
-    .catch(()=>{ content.innerHTML="<div class='text-danger small'>Не вдалося завантажити кошик</div>"; });
+    .then(html=>{
+      if(currentSeq !== miniCartFetchSeq) return;
+      content.innerHTML = html;
+      try{ applySwatchColors(content); }catch(_){ }
+      try{ bindMonoCheckout(content); }catch(_){ }
+    })
+    .catch(err=>{
+      if(controller && err && err.name === 'AbortError') return;
+      if(currentSeq !== miniCartFetchSeq) return;
+      content.innerHTML="<div class='text-danger small'>Не вдалося завантажити кошик</div>";
+    })
+    .finally(()=>{
+      if(controller && miniCartFetchController === controller){
+        miniCartFetchController = null;
+      }
+    });
 }
 window.refreshMiniCart = refreshMiniCart;
 window.openMiniCart = openMiniCart;
