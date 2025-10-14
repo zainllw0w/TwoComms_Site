@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.db import models
+from django.db import models, IntegrityError, transaction
 from storefront.models import Product, PromoCode
 from productcolors.models import ProductColorVariant
 from django.utils import timezone
@@ -48,9 +48,20 @@ class Order(models.Model):
         return f'Order {self.order_number} by {self.get_user_display()} — {self.get_status_display()}'
     
     def save(self, *args, **kwargs):
-        if not self.order_number:
-            self.order_number = self.generate_order_number()
-        super().save(*args, **kwargs)
+        attempts = 0
+        while True:
+            if not self.order_number:
+                self.order_number = self.generate_order_number()
+            try:
+                with transaction.atomic():
+                    super().save(*args, **kwargs)
+                break
+            except IntegrityError:
+                attempts += 1
+                if attempts >= 5:
+                    raise
+                # сбросим номер и попробуем ещё раз
+                self.order_number = None
     
     def generate_order_number(self):
         """Генерирует уникальный номер заказа в формате TWC+дата+N+номер."""
