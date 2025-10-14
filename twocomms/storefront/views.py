@@ -5332,11 +5332,11 @@ def _create_or_update_monobank_order(request, customer_data):
 
             color_variant = None
             color_variant_id = item.get('color_variant_id')
-            if color_variant_id:
+            if color_variant_id not in (None, '', 'default', 'null', 'None'):
                 try:
                     from productcolors.models import ProductColorVariant
-                    color_variant = ProductColorVariant.objects.get(id=color_variant_id)
-                except ProductColorVariant.DoesNotExist:
+                    color_variant = ProductColorVariant.objects.get(id=int(color_variant_id))
+                except (ValueError, ProductColorVariant.DoesNotExist):
                     color_variant = None
 
             order_items.append(OrderItem(
