@@ -5303,6 +5303,17 @@ def _create_or_update_monobank_order(request, customer_data):
             else:
                 if order.user_id is not None or order.session_key != session_key:
                     order = None
+            if order and (order.payment_invoice_id or order.payment_status == 'paid'):
+                # Не переиспользуем заказ с уже созданным счетом/оплаченным статусом
+                try:
+                    order.status = 'cancelled'
+                    order.payment_status = 'unpaid'
+                    order.payment_invoice_id = None
+                    order.payment_payload = {}
+                    order.save(update_fields=['status', 'payment_status', 'payment_invoice_id', 'payment_payload'])
+                except Exception:
+                    pass
+                order = None
         except Order.DoesNotExist:
             order = None
 
@@ -5555,11 +5566,13 @@ def monobank_create_invoice(request):
         customer = _prepare_checkout_customer_data(request)
         order, amount_decimal, _ = _create_or_update_monobank_order(request, customer)
     except ValueError:
+        _reset_monobank_session(request, drop_pending=True)
         return JsonResponse({'success': False, 'error': 'Кошик порожній. Додайте товари перед оплатою.'})
 
     items_qs = list(order.items.select_related('product', 'color_variant__color'))
     total_qty = sum(item.qty for item in items_qs)
     if total_qty <= 0 or amount_decimal <= 0:
+        _reset_monobank_session(request, drop_pending=True)
         return JsonResponse({'success': False, 'error': 'Сума для оплати повинна бути більшою за 0.'})
 
     try:
@@ -5605,6 +5618,7 @@ def monobank_create_invoice(request):
             })
 
         if not basket_entries:
+            _reset_monobank_session(request, drop_pending=True)
             return JsonResponse({'success': False, 'error': 'Кошик порожній. Додайте товари перед оплатою.'})
 
         # Для Monobank Pay используем API эквайринга
@@ -5623,16 +5637,19 @@ def monobank_create_invoice(request):
         creation_data = _monobank_api_request('POST', '/api/merchant/invoice/create', json_payload=payload)
     except MonobankAPIError as exc:
         monobank_logger.warning('Monobank pay invoice creation failed: %s', exc)
+        _reset_monobank_session(request, drop_pending=True)
         return JsonResponse({'success': False, 'error': str(exc)})
     except Exception as exc:
         monobank_logger.exception('Failed to build Mono Pay payload: %s', exc)
+        _reset_monobank_session(request, drop_pending=True)
         return JsonResponse({'success': False, 'error': 'Не вдалося підготувати дані для платежу. Спробуйте ще раз.'})
 
     result = creation_data.get('result') or creation_data
     invoice_id = result.get('invoiceId')
     invoice_url = result.get('pageUrl')
-    
+
     if not invoice_id or not invoice_url:
+        _reset_monobank_session(request, drop_pending=True)
         return JsonResponse({'success': False, 'error': 'Не вдалося створити платіж. Спробуйте пізніше.'})
 
     payment_payload = {
@@ -5845,7 +5862,11 @@ def monobank_create_checkout(request):
             # Создаем заказ на один товар
             product_id = body.get('product_id')
             size = body.get('size', 'S')
-            qty = int(body.get('qty', 1))
+            try:
+                qty = int(body.get('qty', 1))
+            except (TypeError, ValueError):
+                qty = 1
+            qty = max(qty, 1)
             color_variant_id = body.get('color_variant_id')
             
             monobank_logger.info('Single product checkout: product_id=%s, size=%s, qty=%s, color_variant_id=%s', 
@@ -5871,34 +5892,41 @@ def monobank_create_checkout(request):
             customer = _prepare_checkout_customer_data(request)
             order, amount_decimal, _ = _create_or_update_monobank_order(request, customer)
     except ValueError as e:
+        _reset_monobank_session(request, drop_pending=True)
         return JsonResponse({'success': False, 'error': str(e)})
     except Exception as e:
         monobank_logger.exception('Error in monobank_create_checkout: %s', e)
+        _reset_monobank_session(request, drop_pending=True)
         return JsonResponse({'success': False, 'error': 'Помилка при створенні замовлення.'})
 
     items_qs = list(order.items.select_related('product', 'color_variant__color'))
     total_qty = sum(item.qty for item in items_qs)
     if total_qty <= 0 or amount_decimal <= 0:
+        _reset_monobank_session(request, drop_pending=True)
         return JsonResponse({'success': False, 'error': 'Сума для оплати повинна бути більшою за 0.'})
 
     try:
         payload = _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, items=items_qs)
     except MonobankAPIError as exc:
+        _reset_monobank_session(request, drop_pending=True)
         return JsonResponse({'success': False, 'error': str(exc)})
     except Exception as exc:
         monobank_logger.exception('Failed to build Mono Checkout payload: %s', exc)
+        _reset_monobank_session(request, drop_pending=True)
         return JsonResponse({'success': False, 'error': 'Не вдалося підготувати дані для платежу. Спробуйте ще раз.'})
 
     try:
         creation_data = _monobank_api_request('POST', '/personal/checkout/order', json_payload=payload)
     except MonobankAPIError as exc:
         monobank_logger.warning('Monobank checkout order creation failed: %s', exc)
+        _reset_monobank_session(request, drop_pending=True)
         return JsonResponse({'success': False, 'error': str(exc)})
 
     result = creation_data.get('result') or creation_data
     order_id = result.get('order_id') or result.get('orderId')
     redirect_url = result.get('redirect_url') or result.get('redirectUrl')
     if not order_id or not redirect_url:
+        _reset_monobank_session(request, drop_pending=True)
         return JsonResponse({'success': False, 'error': 'Не вдалося створити замовлення. Спробуйте пізніше.'})
 
     payment_payload = {
