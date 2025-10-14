@@ -5373,14 +5373,18 @@ def _create_or_update_monobank_order(request, customer_data):
                 if order.user_id is not None or order.session_key != session_key:
                     order = None
             if order and (order.payment_invoice_id or order.payment_status == 'paid'):
-                # Не переиспользуем заказ с уже созданным счетом / оплаченным статусом
+                # Не переиспользуем существующий заказ, но сохраняем его для истории
                 stale_order_id = order.id
-                if order.payment_invoice_id and order.payment_status != 'paid':
+                if order.payment_status != 'paid':
                     try:
-                        order.delete()
-                        monobank_logger.info('Discarded stale Monobank pending order %s', stale_order_id)
+                        order.status = 'cancelled'
+                        order.payment_status = 'unpaid'
+                        order.payment_invoice_id = None
+                        order.payment_payload = {}
+                        order.save(update_fields=['status', 'payment_status', 'payment_invoice_id', 'payment_payload'])
+                        monobank_logger.info('Marked stale Monobank order %s as cancelled', stale_order_id)
                     except Exception:
-                        monobank_logger.exception('Failed to delete stale Monobank order %s', stale_order_id)
+                        monobank_logger.exception('Failed to mark stale Monobank order %s as cancelled', stale_order_id)
                 order = None
                 request.session.pop('monobank_pending_order_id', None)
                 request.session.modified = True
