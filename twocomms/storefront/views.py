@@ -5212,6 +5212,28 @@ def _get_color_variant_safe(color_variant_id):
         return None
 
 
+def _hex_to_name(hex_value: str):
+    if not hex_value:
+        return None
+    h = hex_value.strip().lstrip('#').upper()
+    mapping = {
+        '000000': 'чорний',
+        'FFFFFF': 'білий',
+        'FAFAFA': 'білий',
+        'F5F5F5': 'білий',
+        'FF0000': 'червоний',
+        'C1382F': 'бордовий',
+        'FFA500': 'помаранчевий',
+        'FFFF00': 'жовтий',
+        '00FF00': 'зелений',
+        '0000FF': 'синій',
+        '808080': 'сірий',
+        'A52A2A': 'коричневий',
+        '800080': 'фіолетовий',
+    }
+    return mapping.get(h)
+
+
 def _color_label_from_variant(color_variant):
     if not color_variant:
         return None
@@ -5224,8 +5246,14 @@ def _color_label_from_variant(color_variant):
     primary = (getattr(color, 'primary_hex', '') or '').strip()
     secondary = (getattr(color, 'secondary_hex', '') or '').strip()
     if secondary:
+        label = _translate_color_to_ukrainian('/'.join(filter(None, [_hex_to_name(primary), _hex_to_name(secondary)])))
+        if label:
+            return label
         return f'{primary}+{secondary}'
     if primary:
+        label = _hex_to_name(primary)
+        if label:
+            return _translate_color_to_ukrainian(label)
         return primary
     return None
 

@@ -157,12 +157,34 @@ class OrderItem(models.Model):
                 name = (getattr(color, 'name', '') or '').strip()
                 if name:
                     return name
-                primary = getattr(color, 'primary_hex', '') or ''
-                secondary = getattr(color, 'secondary_hex', '') or ''
+                primary = (getattr(color, 'primary_hex', '') or '').strip().lstrip('#').upper()
+                secondary = (getattr(color, 'secondary_hex', '') or '').strip().lstrip('#').upper()
+
+                hex_map = {
+                    '000000': 'чорний',
+                    'FFFFFF': 'білий',
+                    'FAFAFA': 'білий',
+                    'F5F5F5': 'білий',
+                    'FF0000': 'червоний',
+                    'C1382F': 'бордовий',
+                    'FFA500': 'помаранчевий',
+                    'FFFF00': 'жовтий',
+                    '00FF00': 'зелений',
+                    '0000FF': 'синій',
+                    '808080': 'сірий',
+                    'A52A2A': 'коричневий',
+                    '800080': 'фіолетовий',
+                }
+
                 if secondary:
-                    return f'{primary}+{secondary}'
-                if primary:
-                    return primary
+                    a = hex_map.get(primary)
+                    b = hex_map.get(secondary)
+                    if a and b:
+                        return f"{a}/{b}"
+                if primary in hex_map:
+                    return hex_map[primary]
+                if secondary and secondary in hex_map:
+                    return hex_map[secondary]
         return None
     
     @property
