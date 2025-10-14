@@ -290,7 +290,7 @@ def uaprom_products_feed(request):
 
     categories_ids = {p.category_id for p in products if p.category_id}
     categories_map = {
-        cat.id: cat for cat in Category.objects.filter(id__in=categories_ids)
+        cat.id: cat for cat in Category.objects.select_related().filter(id__in=categories_ids)
     }
 
     catalog = ET.Element("yml_catalog", {"date": timezone.now().strftime("%Y-%m-%d %H:%M")})
@@ -460,7 +460,7 @@ def google_merchant_feed(request):
 def home(request):
     # Оптимизированные запросы с select_related и prefetch_related
     featured = Product.objects.select_related('category').filter(featured=True).order_by('-id').first()
-    categories = Category.objects.filter(is_active=True).order_by('order','name')
+    categories = Category.objects.select_related().filter(is_active=True).order_by('order','name')
     page_number = request.GET.get('page', '1')
     product_qs = Product.objects.select_related('category').order_by('-id')
     paginator = Paginator(product_qs, HOME_PRODUCTS_PER_PAGE)
@@ -592,7 +592,7 @@ def catalog(request, cat_slug=None):
         cache.set('categories_ordered', categories, 600)
     if cat_slug:
         category = get_object_or_404(Category, slug=cat_slug)
-        products = Product.objects.filter(category=category).order_by('-id')
+        products = Product.objects.select_related('category').filter(category=category).order_by('-id')
         show_category_cards = False
     else:
         category = None
@@ -1285,7 +1285,7 @@ def process_guest_order(request):
     from django.utils import timezone
     from datetime import timedelta
     
-    recent_orders = Order.objects.filter(
+    recent_orders = Order.objects.select_related('user').filter(
         full_name=full_name,
         phone=phone,
         city=city,
@@ -1814,7 +1814,7 @@ def admin_panel(request):
         ctx.update({'user_data': user_data})
     elif section == 'catalogs':
         from .models import Category, Product
-        categories = Category.objects.filter(is_active=True).order_by('order','name') if hasattr(Category, 'order') else Category.objects.filter(is_active=True).order_by('name')
+        categories = Category.objects.select_related().filter(is_active=True).order_by('order','name') if hasattr(Category, 'order') else Category.objects.select_related().filter(is_active=True).order_by('name')
         products = Product.objects.select_related('category').order_by('-id')
         ctx.update({'categories': categories, 'products': products})
     elif section == 'promocodes':
@@ -1899,7 +1899,7 @@ def admin_panel(request):
             # Подсчет заказов по статусам
             status_counts = {}
             for status_code, status_name in Order.STATUS_CHOICES:
-                status_counts[status_code] = Order.objects.filter(status=status_code).count()
+                status_counts[status_code] = Order.objects.select_related('user').filter(status=status_code).count()
             
             # Подсчет заказов по статусам оплаты
             payment_status_counts = {}
@@ -1909,7 +1909,7 @@ def admin_panel(request):
                 ('partial', 'Внесена передплата'),
                 ('paid', 'Оплачено повністю')
             ]:
-                payment_status_counts[payment_status_code] = Order.objects.filter(payment_status=payment_status_code).count()
+                payment_status_counts[payment_status_code] = Order.objects.select_related('user').filter(payment_status=payment_status_code).count()
             
             # Общее количество заказов
             total_orders = Order.objects.count()
@@ -1976,7 +1976,7 @@ def admin_panel(request):
             
             # Базовые QuerySet'ы для фильтрации
             if start_date and end_date:
-                orders_qs = Order.objects.filter(created__date__range=[start_date, end_date])
+                orders_qs = Order.objects.select_related('user').filter(created__date__range=[start_date, end_date])
                 users_qs = User.objects.filter(date_joined__date__range=[start_date, end_date])
             else:
                 orders_qs = Order.objects.all()
@@ -1987,7 +1987,7 @@ def admin_panel(request):
             # Заказы
             try:
                 orders_count = orders_qs.count()
-                orders_today = Order.objects.filter(created__date=today).count()
+                orders_today = Order.objects.select_related('user').filter(created__date=today).count()
             except Exception as e:
                 orders_count = 0
                 orders_today = 0
@@ -2483,7 +2483,7 @@ def order_create(request):
     from datetime import timedelta
     
     # Проверяем, не было ли уже заказа от этого пользователя в последние 5 минут
-    recent_orders = Order.objects.filter(
+    recent_orders = Order.objects.select_related('user').filter(
         user=request.user,
         created__gte=timezone.now() - timedelta(minutes=5)
     )
@@ -2597,7 +2597,7 @@ def order_success(request, order_id):
 @login_required
 def my_orders(request):
     from orders.models import Order
-    qs = Order.objects.filter(user=request.user).prefetch_related('items__product').order_by('-created')
+    qs = Order.objects.select_related('user').filter(user=request.user).prefetch_related('items__product').order_by('-created')
     return render(request, 'pages/my_orders.html', {'orders': qs})
 
 @login_required
@@ -2652,7 +2652,7 @@ def my_promocodes(request):
     from orders.models import Order
     
     # Получаем все заказы пользователя с промокодами
-    orders_with_promocodes = Order.objects.filter(
+    orders_with_promocodes = Order.objects.select_related('user').filter(
         user=request.user,
         promo_code__isnull=False
     ).select_related('promo_code').order_by('-created')
@@ -3720,7 +3720,7 @@ def toggle_favorite(request, product_id):
         
         # Подсчитываем общее количество избранных товаров
         if request.user.is_authenticated:
-            favorites_count = FavoriteProduct.objects.filter(user=request.user).count()
+            favorites_count = FavoriteProduct.objects.select_related('category').filter(user=request.user).count()
         else:
             favorites_count = len(request.session.get('favorites', []))
         
@@ -3741,7 +3741,7 @@ def favorites_list(request):
     """Страница с избранными товарами"""
     if request.user.is_authenticated:
         # Для авторизованных пользователей - получаем из базы данных
-        favorites = FavoriteProduct.objects.filter(user=request.user).select_related('product', 'product__category')
+        favorites = FavoriteProduct.objects.select_related('category').filter(user=request.user).select_related('product', 'product__category')
     else:
         # Для неавторизованных пользователей - получаем из сессии
         session_favorites = request.session.get('favorites', [])
@@ -3749,7 +3749,7 @@ def favorites_list(request):
         
         if session_favorites:
             # Получаем товары по ID из сессии
-            products = Product.objects.filter(id__in=session_favorites).select_related('category')
+            products = Product.objects.select_related('category').filter(id__in=session_favorites).select_related('category')
             
             # Создаем объекты, похожие на FavoriteProduct
             for product in products:
@@ -3788,7 +3788,7 @@ def check_favorite_status(request, product_id):
     try:
         if request.user.is_authenticated:
             # Для авторизованных пользователей - проверяем в базе данных
-            is_favorite = FavoriteProduct.objects.filter(
+            is_favorite = FavoriteProduct.objects.select_related('category').filter(
                 user=request.user,
                 product_id=product_id
             ).exists()
@@ -3808,7 +3808,7 @@ def favorites_count(request):
     try:
         if request.user.is_authenticated:
             # Для авторизованных пользователей - считаем в базе данных
-            count = FavoriteProduct.objects.filter(user=request.user).count()
+            count = FavoriteProduct.objects.select_related('category').filter(user=request.user).count()
         else:
             # Для неавторизованных пользователей - считаем в сессии
             session_favorites = request.session.get('favorites', [])
@@ -4203,12 +4203,12 @@ def admin_store_management(request, store_id):
         'color_variants__images'
     ).all()
 
-    categories = Category.objects.filter(is_active=True).order_by('order', 'name')
+    categories = Category.objects.select_related().filter(is_active=True).order_by('order', 'name')
 
     inventory_items = _get_store_inventory_items(store)
     sales_items = _get_store_sales(store)
 
-    active_orders = StoreOrder.objects.filter(store=store, status='draft').prefetch_related(
+    active_orders = StoreOrder.objects.select_related('user').filter(store=store, status='draft').prefetch_related(
         'order_items__product__category', 'order_items__color'
     )
 
@@ -4441,7 +4441,7 @@ def admin_store_add_products_to_store(request, store_id):
         added_count = 0
         for item in order.order_items.all():
             # Проверяем, есть ли уже такой товар в магазине
-            existing_product = StoreProduct.objects.filter(
+            existing_product = StoreProduct.objects.select_related('category').filter(
                 store=store,
                 product=item.product,
                 size=item.size,
@@ -5151,7 +5151,7 @@ def _reset_monobank_session(request, drop_pending=False):
         if pending_id:
             try:
                 from orders.models import Order
-                qs = Order.objects.filter(
+                qs = Order.objects.select_related('user').filter(
                     id=pending_id,
                     payment_provider__in=('monobank', 'monobank_checkout', 'monobank_pay')
                 )
@@ -5210,6 +5210,24 @@ def _get_color_variant_safe(color_variant_id):
         return None
 
 
+def _drop_pending_monobank_order(request):
+    """
+    Сбрасывает текущий Monobank-заказ в сессии,
+    помечая его отменённым и очищая связанный state.
+    """
+    if not (
+        request.session.get('monobank_pending_order_id')
+        or request.session.get('monobank_invoice_id')
+        or request.session.get('monobank_order_id')
+        or request.session.get('monobank_order_ref')
+    ):
+        return
+    try:
+        _reset_monobank_session(request, drop_pending=True)
+    except Exception:
+        monobank_logger.exception('Failed to drop pending Monobank order for session %s', request.session.session_key)
+
+
 def _notify_monobank_order(order, method_label):
     """
     Отправляет Telegram-уведомление о заказе, оформленном через Monobank.
@@ -5234,7 +5252,7 @@ def _cleanup_expired_monobank_orders():
         try:
             from orders.models import Order
             from django.db.models import Q
-            stale_qs = Order.objects.filter(
+            stale_qs = Order.objects.select_related('user').filter(
                 payment_provider__in=('monobank', 'monobank_checkout', 'monobank_pay'),
                 created__lt=threshold
             ).filter(
@@ -5636,6 +5654,7 @@ def _record_monobank_status(order, payload, source='api'):
 def monobank_create_invoice(request):
     """Create Monobank pay invoice and return redirect URL."""
     _cleanup_expired_monobank_orders()
+    _drop_pending_monobank_order(request)
     try:
         customer = _prepare_checkout_customer_data(request)
         order, amount_decimal, _ = _create_or_update_monobank_order(request, customer)
@@ -5740,6 +5759,11 @@ def monobank_create_invoice(request):
     request.session['monobank_invoice_id'] = invoice_id
     request.session['monobank_pending_order_id'] = order.id
     request.session.modified = True
+
+    try:
+        _notify_monobank_order(order, 'Mono Pay')
+    except Exception:
+        pass
 
     return JsonResponse({
         'success': True,
@@ -5925,6 +5949,7 @@ def _create_single_product_order(product, size, qty, color_variant_id, customer)
 def monobank_create_checkout(request):
     """Create Monobank checkout order and return redirect URL."""
     _cleanup_expired_monobank_orders()
+    _drop_pending_monobank_order(request)
     try:
         # Проверяем, создаем ли заказ на один товар
         body = json.loads(request.body.decode('utf-8')) if request.body else {}
@@ -6020,6 +6045,11 @@ def monobank_create_checkout(request):
     request.session['monobank_pending_order_id'] = order.id
     request.session.modified = True
 
+    try:
+        _notify_monobank_order(order, 'Mono Checkout')
+    except Exception:
+        pass
+
     return JsonResponse({
         'success': True,
         'redirect_url': redirect_url,
@@ -6061,7 +6091,7 @@ def monobank_return(request):
 
     order = None
     if order_id:
-        order = Order.objects.filter(payment_invoice_id=order_id).order_by('-created').first()
+        order = Order.objects.select_related('user').filter(payment_invoice_id=order_id).order_by('-created').first()
 
     if order is None and invoice_id:
         pending_id = request.session.get('monobank_pending_order_id')
@@ -6072,10 +6102,10 @@ def monobank_return(request):
                 order = None
 
     if order is None and invoice_id:
-        order = Order.objects.filter(payment_invoice_id=invoice_id).order_by('-created').first()
+        order = Order.objects.select_related('user').filter(payment_invoice_id=invoice_id).order_by('-created').first()
 
     if order is None and order_ref:
-        order = Order.objects.filter(order_number=order_ref).order_by('-created').first()
+        order = Order.objects.select_related('user').filter(order_number=order_ref).order_by('-created').first()
 
     if order is None:
         messages.error(request, 'Замовлення не знайдено. Спробуйте ще раз.')
@@ -6146,9 +6176,9 @@ def monobank_webhook(request):
 
     order = None
     if order_id:
-        order = Order.objects.filter(payment_invoice_id=order_id).first()
+        order = Order.objects.select_related('user').filter(payment_invoice_id=order_id).first()
     if order is None and order_ref:
-        order = Order.objects.filter(order_number=order_ref).first()
+        order = Order.objects.select_related('user').filter(order_number=order_ref).first()
 
     if order is None:
         monobank_logger.warning('Checkout webhook received for unknown order: %s / %s', order_id, order_ref)
@@ -6271,7 +6301,7 @@ def wholesale_prices_xlsx(request):
     import io
     
     # Фильтруем категории по ключевым словам
-    tshirt_categories = Category.objects.filter(
+    tshirt_categories = Category.objects.select_related().filter(
         Q(name__icontains='футболка') | 
         Q(name__icontains='tshirt') | 
         Q(name__icontains='t-shirt') |
@@ -6280,7 +6310,7 @@ def wholesale_prices_xlsx(request):
         Q(slug__icontains='t-shirt')
     )
     
-    hoodie_categories = Category.objects.filter(
+    hoodie_categories = Category.objects.select_related().filter(
         Q(name__icontains='худи') | 
         Q(name__icontains='hoodie') | 
         Q(name__icontains='hooded') |
@@ -6290,8 +6320,8 @@ def wholesale_prices_xlsx(request):
     )
     
     # Получаем товары из нужных категорий
-    tshirt_products = Product.objects.filter(category__in=tshirt_categories)
-    hoodie_products = Product.objects.filter(category__in=hoodie_categories)
+    tshirt_products = Product.objects.select_related('category').filter(category__in=tshirt_categories)
+    hoodie_products = Product.objects.select_related('category').filter(category__in=hoodie_categories)
     
     # Создаем XLSX файл в памяти
     wb = openpyxl.Workbook()
@@ -6500,7 +6530,7 @@ def wholesale_page(request):
         from storefront.models import Product, Category
         
         # Фильтруем категории по ключевым словам
-        tshirt_categories = Category.objects.filter(
+        tshirt_categories = Category.objects.select_related().filter(
             Q(name__icontains='футболка') | 
             Q(name__icontains='tshirt') | 
             Q(name__icontains='t-shirt') |
@@ -6509,7 +6539,7 @@ def wholesale_page(request):
             Q(slug__icontains='t-shirt')
         )
         
-        hoodie_categories = Category.objects.filter(
+        hoodie_categories = Category.objects.select_related().filter(
             Q(name__icontains='худи') | 
             Q(name__icontains='hoodie') | 
             Q(name__icontains='hooded') |
@@ -6519,8 +6549,8 @@ def wholesale_page(request):
         )
         
         # Получаем товары из нужных категорий
-        tshirt_products = Product.objects.filter(category__in=tshirt_categories).select_related('category')
-        hoodie_products = Product.objects.filter(category__in=hoodie_categories).select_related('category')
+        tshirt_products = Product.objects.select_related('category').filter(category__in=tshirt_categories).select_related('category')
+        hoodie_products = Product.objects.select_related('category').filter(category__in=hoodie_categories).select_related('category')
         
     except Exception as e:
         # Если есть ошибка с базой данных, используем пустые списки
@@ -6557,7 +6587,7 @@ def wholesale_order_form(request):
         from storefront.models import Product, Category
         
         # Фильтруем категории по ключевым словам
-        tshirt_categories = Category.objects.filter(
+        tshirt_categories = Category.objects.select_related().filter(
             Q(name__icontains='футболка') | 
             Q(name__icontains='tshirt') | 
             Q(name__icontains='t-shirt') |
@@ -6566,7 +6596,7 @@ def wholesale_order_form(request):
             Q(slug__icontains='t-shirt')
         )
         
-        hoodie_categories = Category.objects.filter(
+        hoodie_categories = Category.objects.select_related().filter(
             Q(name__icontains='худи') | 
             Q(name__icontains='hoodie') | 
             Q(name__icontains='hooded') |
@@ -6576,8 +6606,8 @@ def wholesale_order_form(request):
         )
         
         # Получаем товары из нужных категорий
-        tshirt_products = Product.objects.filter(category__in=tshirt_categories).select_related('category')
-        hoodie_products = Product.objects.filter(category__in=hoodie_categories).select_related('category')
+        tshirt_products = Product.objects.select_related('category').filter(category__in=tshirt_categories).select_related('category')
+        hoodie_products = Product.objects.select_related('category').filter(category__in=hoodie_categories).select_related('category')
         
     except Exception as e:
         # Если есть ошибка с базой данных, используем пустые списки
