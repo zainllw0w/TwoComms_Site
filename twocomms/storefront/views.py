@@ -1184,6 +1184,7 @@ def cart_mini(request):
             'product': p,
             'size': it['size'],
             'color_variant': color_variant,
+            'color_label': _color_label_from_variant(color_variant),
             'qty': it['qty'],
             'unit_price': unit,
             'line_total': line
@@ -1558,6 +1559,7 @@ def cart(request):
             'product': p,
             'size': it['size'],
             'color_variant': color_variant,
+            'color_label': _color_label_from_variant(color_variant),
             'qty': it['qty'],
             'unit_price': unit,
             'line_total': line
@@ -5208,6 +5210,24 @@ def _get_color_variant_safe(color_variant_id):
         return ProductColorVariant.objects.get(id=normalized_id)
     except (ProductColorVariant.DoesNotExist, ValueError, TypeError):
         return None
+
+
+def _color_label_from_variant(color_variant):
+    if not color_variant:
+        return None
+    color = getattr(color_variant, 'color', None)
+    if not color:
+        return None
+    name = (getattr(color, 'name', '') or '').strip()
+    if name:
+        return _translate_color_to_ukrainian(name)
+    primary = (getattr(color, 'primary_hex', '') or '').strip()
+    secondary = (getattr(color, 'secondary_hex', '') or '').strip()
+    if secondary:
+        return f'{primary}+{secondary}'
+    if primary:
+        return primary
+    return None
 
 
 def _drop_pending_monobank_order(request):
