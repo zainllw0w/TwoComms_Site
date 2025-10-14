@@ -5210,6 +5210,22 @@ def _get_color_variant_safe(color_variant_id):
         return None
 
 
+def _notify_monobank_order(order, method_label):
+    """
+    Отправляет Telegram-уведомление о заказе, оформленном через Monobank.
+    """
+    try:
+        from orders.telegram_notifications import TelegramNotifier
+        notifier = TelegramNotifier()
+        if not notifier.is_configured():
+            return
+        message = notifier.format_order_message(order)
+        message = f"💳 <b>{method_label}</b>\n{message}"
+        notifier.send_message(message)
+    except Exception:
+        monobank_logger.exception('Failed to send %s Telegram notification for order %s', method_label, order.id if order else None)
+
+
 def _cleanup_expired_monobank_orders():
     """Удаляет старые неоплаченные Mono-заказы, чтобы они не копились."""
     expire_minutes = getattr(settings, 'MONOBANK_CHECKOUT_EXPIRATION_MINUTES', 1440)
@@ -5357,16 +5373,17 @@ def _create_or_update_monobank_order(request, customer_data):
                 if order.user_id is not None or order.session_key != session_key:
                     order = None
             if order and (order.payment_invoice_id or order.payment_status == 'paid'):
-                # Не переиспользуем заказ с уже созданным счетом/оплаченным статусом
-                try:
-                    order.status = 'cancelled'
-                    order.payment_status = 'unpaid'
-                    order.payment_invoice_id = None
-                    order.payment_payload = {}
-                    order.save(update_fields=['status', 'payment_status', 'payment_invoice_id', 'payment_payload'])
-                except Exception:
-                    pass
+                # Не переиспользуем заказ с уже созданным счетом / оплаченным статусом
+                stale_order_id = order.id
+                if order.payment_invoice_id and order.payment_status != 'paid':
+                    try:
+                        order.delete()
+                        monobank_logger.info('Discarded stale Monobank pending order %s', stale_order_id)
+                    except Exception:
+                        monobank_logger.exception('Failed to delete stale Monobank order %s', stale_order_id)
                 order = None
+                request.session.pop('monobank_pending_order_id', None)
+                request.session.modified = True
         except Order.DoesNotExist:
             order = None
 
