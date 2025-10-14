@@ -1048,6 +1048,21 @@ def add_to_cart(request):
         if p:
             total_sum += i['qty'] * p.final_price
 
+    try:
+        cart_logger.info(
+            'add_to_cart: session=%s user=%s key=%s product=%s size=%s color=%s qty=%s cart_keys=%s',
+            request.session.session_key,
+            request.user.id if request.user.is_authenticated else None,
+            key,
+            product.id,
+            size,
+            color_variant_id,
+            item['qty'],
+            list(cart.keys())
+        )
+    except Exception:
+        pass
+
     return JsonResponse({'ok': True, 'count': total_qty, 'total': total_sum})
 
 def cart_summary(request):
@@ -1078,6 +1093,16 @@ def cart_summary(request):
         _reset_monobank_session(request, drop_pending=True)
         request.session['cart'] = cart
         request.session.modified = True
+        try:
+            cart_logger.warning(
+                'cart_summary_cleanup: session=%s user=%s removed_products=%s remaining_keys=%s',
+                request.session.session_key,
+                request.user.id if request.user.is_authenticated else None,
+                list(missing_products),
+                list(cart.keys())
+            )
+        except Exception:
+            pass
     
     # Пересчитываем с очищенной корзиной
     total_qty = sum(i['qty'] for i in cart.values())
@@ -1113,6 +1138,26 @@ def cart_mini(request):
         _reset_monobank_session(request, drop_pending=True)
         request.session['cart'] = cart_sess
         request.session.modified = True
+        try:
+            cart_logger.warning(
+                'cart_view_cleanup: session=%s user=%s removed_products=%s remaining_keys=%s',
+                request.session.session_key,
+                request.user.id if request.user.is_authenticated else None,
+                list(missing_products),
+                list(cart_sess.keys())
+            )
+        except Exception:
+            pass
+        try:
+            cart_logger.warning(
+                'cart_mini_cleanup: session=%s user=%s removed_products=%s remaining_keys=%s',
+                request.session.session_key,
+                request.user.id if request.user.is_authenticated else None,
+                list(missing_products),
+                list(cart_sess.keys())
+            )
+        except Exception:
+            pass
     
     items = []
     total = 0
@@ -1414,6 +1459,20 @@ def cart_remove(request):
             total_sum += i['qty'] * p.final_price
 
 
+
+    try:
+        cart_logger.info(
+            'cart_remove: session=%s user=%s key=%s pid=%s size=%s removed=%s remaining_keys=%s',
+            request.session.session_key,
+            request.user.id if request.user.is_authenticated else None,
+            key,
+            pid,
+            size,
+            removed,
+            list(cart.keys())
+        )
+    except Exception:
+        pass
 
     return JsonResponse({'ok': True, 'count': total_qty, 'total': total_sum, 'removed': removed, 'keys': list(cart.keys())})
 
@@ -5078,6 +5137,7 @@ def google_merchant_feed(request):
 
 # ===== MONOBANK ACQUIRING =====
 monobank_logger = logging.getLogger('storefront.monobank')
+cart_logger = logging.getLogger('storefront.cart')
 
 MONOBANK_SUCCESS_STATUSES = {'success', 'hold'}
 MONOBANK_PENDING_STATUSES = {'processing'}
