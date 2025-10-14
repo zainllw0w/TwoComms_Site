@@ -5378,36 +5378,13 @@ def _create_or_update_monobank_order(request, customer_data):
     products = Product.objects.in_bulk(product_ids)
 
     session_key = _ensure_session_key(request)
-    pending_order_id = request.session.get('monobank_pending_order_id')
     order = None
 
+    # В случае, если в сессии всё же остался pending id — сбрасываем.
+    pending_order_id = request.session.get('monobank_pending_order_id')
     if pending_order_id:
-        try:
-            order = Order.objects.select_for_update().get(id=pending_order_id)
-            if request.user.is_authenticated:
-                if order.user_id != request.user.id:
-                    order = None
-            else:
-                if order.user_id is not None or order.session_key != session_key:
-                    order = None
-            if order and (order.payment_invoice_id or order.payment_status == 'paid'):
-                # Не переиспользуем существующий заказ, но сохраняем его для истории
-                stale_order_id = order.id
-                if order.payment_status != 'paid':
-                    try:
-                        order.status = 'cancelled'
-                        order.payment_status = 'unpaid'
-                        order.payment_invoice_id = None
-                        order.payment_payload = {}
-                        order.save(update_fields=['status', 'payment_status', 'payment_invoice_id', 'payment_payload'])
-                        monobank_logger.info('Marked stale Monobank order %s as cancelled', stale_order_id)
-                    except Exception:
-                        monobank_logger.exception('Failed to mark stale Monobank order %s as cancelled', stale_order_id)
-                order = None
-                request.session.pop('monobank_pending_order_id', None)
-                request.session.modified = True
-        except Order.DoesNotExist:
-            order = None
+        monobank_logger.info('Discarding leftover pending Monobank order %s', pending_order_id)
+        _drop_pending_monobank_order(request)
 
     with transaction.atomic():
         if order is None:
