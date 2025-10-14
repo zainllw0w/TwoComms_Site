@@ -152,7 +152,17 @@ class OrderItem(models.Model):
     def color_name(self):
         """Возвращает название цвета или None"""
         if self.color_variant:
-            return str(self.color_variant.color)
+            color = getattr(self.color_variant, 'color', None)
+            if color:
+                name = (getattr(color, 'name', '') or '').strip()
+                if name:
+                    return name
+                primary = getattr(color, 'primary_hex', '') or ''
+                secondary = getattr(color, 'secondary_hex', '') or ''
+                if secondary:
+                    return f'{primary}+{secondary}'
+                if primary:
+                    return primary
         return None
     
     @property
