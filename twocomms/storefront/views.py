@@ -1483,14 +1483,7 @@ def cart(request):
             continue
         
         # Получаем информацию о цвете
-        color_variant = None
-        color_variant_id = it.get('color_variant_id')
-        if color_variant_id:
-            try:
-                from productcolors.models import ProductColorVariant
-                color_variant = ProductColorVariant.objects.get(id=color_variant_id)
-            except ProductColorVariant.DoesNotExist:
-                pass
+        color_variant = _get_color_variant_safe(it.get('color_variant_id'))
         
         unit = p.final_price
         line = unit * it['qty']
