@@ -929,6 +929,12 @@
             if(window.updateCartBadge) window.updateCartBadge(d.count);
             if(window.refreshMiniCart) window.refreshMiniCart();
             if(window.openMiniCart) window.openMiniCart();
+            if(document.querySelector('.cart-page-container')){
+              try{
+                if(window.refreshCartPage){ window.refreshCartPage(); }
+                else { window.location.reload(); }
+              }catch(_){ window.location.reload(); }
+            }
           }catch(_){}
           try{ if(window.fbq){ fbq('track','AddToCart',{content_ids:[String(productId)], content_type:'product'}); } }catch(_){}
         } else {
