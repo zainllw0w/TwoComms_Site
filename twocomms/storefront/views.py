@@ -5967,7 +5967,7 @@ def _create_single_product_order(product, size, qty, color_variant_id, customer)
         line_total=line_total
     )
 
-    return order
+    return order, line_total
 
 
 @require_POST
@@ -6008,8 +6008,7 @@ def monobank_create_checkout(request):
             # Создаем временный заказ на один товар
             customer = _prepare_checkout_customer_data(request)
             monobank_logger.info('Customer data: %s', customer)
-            order = _create_single_product_order(product, size, qty, color_variant_id, customer)
-            amount_decimal = order.total_amount
+            order, amount_decimal = _create_single_product_order(product, size, qty, color_variant_id, customer)
             monobank_logger.info('Created single product order: %s, amount: %s', order.order_number, amount_decimal)
         else:
             # Обычная логика для корзины
