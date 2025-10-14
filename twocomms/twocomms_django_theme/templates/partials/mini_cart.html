@@ -37,7 +37,7 @@
                       data-secondary="{{ s|default:'' }}">
                 </span>
                 {% endwith %}
-                <span>Колір</span>
+                <span>{{ it.color_label|default:'Колір' }}</span>
               </div>
               {% endif %}
             </div>
