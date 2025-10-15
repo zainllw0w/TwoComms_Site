@@ -163,6 +163,13 @@
       <div class="d-flex gap-2 overflow-auto pb-2" id="product-thumbs"></div>
     </div>
 
+    {# Передаем список дополнительных изображений продукта в безопасном JSON #}
+    {% if images %}
+    <script id="product-extra-images" type="application/json">[
+      {% for ph in images %}{% if ph.image %}"{{ ph.image.url }}"{% else %}null{% endif %}{% if not forloop.last %},{% endif %}{% endfor %}
+    ]</script>
+    {% endif %}
+
     <!-- Красивые вкладки для описания и размерной сетки -->
     <div class="product-tabs-container mb-4">
       <div class="product-tabs-header">
@@ -275,7 +282,21 @@
         inner.innerHTML = '';
         indicators.innerHTML = '';
         thumbs.innerHTML = '';
-        var list = images && images.length ? images : ['{% if product.main_image %}{{ product.main_image.url }}{% else %}{% static "img/placeholder.jpg" %}{% endif %}'];
+        var list;
+        if(images && images.length){
+          list = images;
+        } else {
+          // Fallback: главное изображение + дополнительные изображения товара
+          var mainUrl = '{% if product.main_image %}{{ product.main_image.url }}{% else %}{% static "img/placeholder.jpg" %}{% endif %}';
+          var extra = [];
+          var extraTag = document.getElementById('product-extra-images');
+          if(extraTag){
+            try{ extra = JSON.parse(extraTag.textContent||'[]') || []; }catch(_){ extra = []; }
+            // фильтруем пустые
+            extra = extra.filter(function(u){ return !!u; });
+          }
+          list = [mainUrl].concat(extra);
+        }
 
         list.forEach(function(url, idx){
           var item = document.createElement('div');
