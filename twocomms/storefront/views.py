@@ -5234,6 +5234,34 @@ def _hex_to_name(hex_value: str):
     return mapping.get(h)
 
 
+def _allocate_discount(line_totals, discount):
+    """
+    Розподіляє знижку по товарах пропорційно.
+    Повертає список скоригованих сум (Decimal).
+    """
+    line_totals = [Decimal(str(x)) for x in line_totals]
+    total = sum(line_totals)
+    discount = Decimal(str(discount or 0))
+    if total <= 0 or discount <= 0:
+        return line_totals
+    discount = min(discount, total)
+    adjusted = []
+    remaining = discount
+    for idx, amount in enumerate(line_totals):
+        if idx == len(line_totals) - 1:
+            share = remaining
+        else:
+            share = (amount / total * discount).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            share = min(share, remaining)
+        adjusted_amount = max(Decimal('0'), amount - share)
+        adjusted.append(adjusted_amount)
+        remaining -= share
+    # Якщо через округлення залишилось – віднімаємо з останньої позиції
+    if remaining > 0 and adjusted:
+        adjusted[-1] = max(Decimal('0'), adjusted[-1] - remaining)
+    return adjusted
+
+
 def _color_label_from_variant(color_variant):
     if not color_variant:
         return None
@@ -5681,7 +5709,27 @@ def monobank_create_invoice(request):
     _cleanup_expired_monobank_orders()
     _drop_pending_monobank_order(request)
     try:
-        customer = _prepare_checkout_customer_data(request)
+        # Try to take guest checkout fields from JSON body when user is not authenticated
+        body = {}
+        try:
+            body = json.loads(request.body.decode('utf-8')) if request.body else {}
+        except Exception:
+            body = {}
+
+        if not request.user.is_authenticated and any(k in (body or {}) for k in ('full_name','phone','city','np_office','pay_type')):
+            errors, cleaned = _validate_checkout_payload(body or {})
+            if errors:
+                return JsonResponse({'success': False, 'error': '\n'.join(errors)})
+            customer = {
+                'full_name': cleaned['full_name'],
+                'phone': cleaned['phone'],
+                'city': cleaned['city'],
+                'np_office': cleaned['np_office'],
+                'pay_type': cleaned['pay_type'],
+                'user': None
+            }
+        else:
+            customer = _prepare_checkout_customer_data(request)
         order, amount_decimal, _ = _create_or_update_monobank_order(request, customer)
     except ValueError:
         _reset_monobank_session(request, drop_pending=True)
@@ -6006,13 +6054,39 @@ def monobank_create_checkout(request):
                 return JsonResponse({'success': False, 'error': 'Товар не знайдено.'})
             
             # Создаем временный заказ на один товар
-            customer = _prepare_checkout_customer_data(request)
+            if not request.user.is_authenticated and any(k in (body or {}) for k in ('full_name','phone','city','np_office','pay_type')):
+                errors, cleaned = _validate_checkout_payload(body or {})
+                if errors:
+                    return JsonResponse({'success': False, 'error': '\n'.join(errors)})
+                customer = {
+                    'full_name': cleaned['full_name'],
+                    'phone': cleaned['phone'],
+                    'city': cleaned['city'],
+                    'np_office': cleaned['np_office'],
+                    'pay_type': cleaned['pay_type'],
+                    'user': None
+                }
+            else:
+                customer = _prepare_checkout_customer_data(request)
             monobank_logger.info('Customer data: %s', customer)
             order, amount_decimal = _create_single_product_order(product, size, qty, color_variant_id, customer)
             monobank_logger.info('Created single product order: %s, amount: %s', order.order_number, amount_decimal)
         else:
             # Обычная логика для корзины
-            customer = _prepare_checkout_customer_data(request)
+            if not request.user.is_authenticated and any(k in (body or {}) for k in ('full_name','phone','city','np_office','pay_type')):
+                errors, cleaned = _validate_checkout_payload(body or {})
+                if errors:
+                    return JsonResponse({'success': False, 'error': '\n'.join(errors)})
+                customer = {
+                    'full_name': cleaned['full_name'],
+                    'phone': cleaned['phone'],
+                    'city': cleaned['city'],
+                    'np_office': cleaned['np_office'],
+                    'pay_type': cleaned['pay_type'],
+                    'user': None
+                }
+            else:
+                customer = _prepare_checkout_customer_data(request)
             order, amount_decimal, _ = _create_or_update_monobank_order(request, customer)
     except ValueError as e:
         _reset_monobank_session(request, drop_pending=True)
