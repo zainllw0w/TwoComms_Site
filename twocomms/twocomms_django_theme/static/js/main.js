@@ -505,6 +505,22 @@ function addProductToCartForMono(button){
 
 function requestMonoCheckout(){
   const csrfToken = collectMonoCsrf();
+  // Collect guest form fields if present (for unauthenticated users)
+  const guestForm = document.getElementById('guest-form');
+  let payload = {};
+  if(guestForm){
+    const getVal = (name)=>{
+      const el = guestForm.querySelector(`[name="${name}"]`);
+      return el && 'value' in el ? (el.value||'').trim() : '';
+    };
+    payload = {
+      full_name: getVal('full_name'),
+      phone: getVal('phone'),
+      city: getVal('city'),
+      np_office: getVal('np_office'),
+      pay_type: getVal('pay_type') || 'full'
+    };
+  }
   return fetch('/cart/monobank/quick/', {
     method: 'POST',
     headers: {
@@ -513,7 +529,7 @@ function requestMonoCheckout(){
       'X-Requested-With': 'XMLHttpRequest'
     },
     credentials: 'same-origin',
-    body: '{}'
+    body: JSON.stringify(payload)
   }).then(response => response.json().then(data => ({data, status: response.status, ok: response.ok})).catch(() => ({data: null, status: response.status, ok: false})));
 }
 
@@ -532,6 +548,19 @@ function requestMonoCheckoutSingleProduct(button){
     single_product: true
   };
   if(context.colorVariantId) payload.color_variant_id = context.colorVariantId;
+  // Include guest fields if present
+  const guestForm = document.getElementById('guest-form');
+  if(guestForm){
+    const getVal = (name)=>{
+      const el = guestForm.querySelector(`[name="${name}"]`);
+      return el && 'value' in el ? (el.value||'').trim() : '';
+    };
+    payload.full_name = getVal('full_name');
+    payload.phone = getVal('phone');
+    payload.city = getVal('city');
+    payload.np_office = getVal('np_office');
+    payload.pay_type = getVal('pay_type') || 'full';
+  }
 
   return fetch('/cart/monobank/quick/', {
     method: 'POST',
@@ -636,6 +665,22 @@ function bindMonoCheckout(scope){
 // Monobank Pay (эквайринг) функции
 function requestMonobankPay(){
   const csrfToken = collectMonoCsrf();
+  // Collect guest form fields if present
+  const guestForm = document.getElementById('guest-form');
+  let payload = {};
+  if(guestForm){
+    const getVal = (name)=>{
+      const el = guestForm.querySelector(`[name="${name}"]`);
+      return el && 'value' in el ? (el.value||'').trim() : '';
+    };
+    payload = {
+      full_name: getVal('full_name'),
+      phone: getVal('phone'),
+      city: getVal('city'),
+      np_office: getVal('np_office'),
+      pay_type: getVal('pay_type') || 'full'
+    };
+  }
   return fetch('/cart/monobank/create-invoice/', {
     method: 'POST',
     headers: {
@@ -644,7 +689,7 @@ function requestMonobankPay(){
       'X-Requested-With': 'XMLHttpRequest'
     },
     credentials: 'same-origin',
-    body: '{}'
+    body: JSON.stringify(payload)
   }).then(response => response.json().then(data => ({data, status: response.status, ok: response.ok})).catch(() => ({data: null, status: response.status, ok: false})));
 }
 

@@ -1,0 +1,500 @@
+:root{
+  --tc-bg: #0e0f12;
+  --tc-elevate: #14161b;
+  --tc-text: #e8e9ec;
+  --tc-primary: #8b5cf6;
+}
+
+/* Современный фон главной страницы */
+body {
+  background: var(--tc-bg);
+  color: var(--tc-text);
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Основной градиентный фон - менее подвижный и более размытый */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  background: 
+    radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+    linear-gradient(135deg, 
+      #0a0b0f 0%,
+      #0e0f12 25%,
+      #121318 50%,
+      #0e0f12 75%,
+      #0a0b0f 100%
+    );
+  animation: backgroundShift 120s ease-in-out infinite;
+  backdrop-filter: blur(3px);
+  filter: blur(1px);
+}
+
+/* Анимированные частицы фона - менее подвижные */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background: url('../img/noise.png') repeat;
+  opacity: 0.06;
+  animation: noiseMove 150s linear infinite;
+  backdrop-filter: blur(2px);
+  filter: blur(0.5px);
+}
+
+/* Дополнительные декоративные элементы */
+body::before {
+  background-image: 
+    radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+    linear-gradient(135deg, 
+      #0a0b0f 0%,
+      #0e0f12 25%,
+      #121318 50%,
+      #0e0f12 75%,
+      #0a0b0f 100%
+    );
+}
+
+/* Плавные и ненавязчивые анимации фона */
+@keyframes backgroundShift {
+  0%, 100% { 
+    transform: translateX(0) translateY(0) scale(1);
+    filter: hue-rotate(0deg);
+  }
+  25% { 
+    transform: translateX(-0.5%) translateY(-0.3%) scale(1.005);
+    filter: hue-rotate(1deg);
+  }
+  50% { 
+    transform: translateX(0.3%) translateY(-0.5%) scale(0.998);
+    filter: hue-rotate(-0.5deg);
+  }
+  75% { 
+    transform: translateX(-0.2%) translateY(0.3%) scale(1.002);
+    filter: hue-rotate(0.3deg);
+  }
+}
+
+@keyframes noiseMove {
+  0% { transform: translateX(0) translateY(0); }
+  25% { transform: translateX(-3px) translateY(-2px); }
+  50% { transform: translateX(2px) translateY(-3px); }
+  75% { transform: translateX(-2px) translateY(2px); }
+  100% { transform: translateX(0) translateY(0); }
+}
+
+/* Дополнительные декоративные элементы фона */
+body::after {
+  background-image: 
+    url('../img/noise.png'),
+    radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.03) 0%, transparent 30%),
+    radial-gradient(circle at 90% 80%, rgba(99, 102, 241, 0.02) 0%, transparent 30%);
+  background-size: 
+    200px 200px,
+    400px 400px,
+    300px 300px;
+  background-position: 
+    0 0,
+    0 0,
+    100% 100%;
+  animation: 
+    noiseMove 30s linear infinite,
+    backgroundFloat 70s ease-in-out infinite;
+}
+
+/* Плавная анимация плавания */
+@keyframes backgroundFloat {
+  0%, 100% { 
+    transform: translateX(0) translateY(0) rotate(0deg);
+    opacity: 0.06;
+  }
+  33% { 
+    transform: translateX(0.5%) translateY(-0.3%) rotate(0.2deg);
+    opacity: 0.07;
+  }
+  66% { 
+    transform: translateX(-0.3%) translateY(0.5%) rotate(-0.2deg);
+    opacity: 0.05;
+  }
+}
+
+/* Плавающие декоративные элементы */
+body::before {
+  background-image: 
+    radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 60% 70%, rgba(139, 92, 246, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 30% 10%, rgba(99, 102, 241, 0.04) 0%, transparent 35%),
+    linear-gradient(135deg, 
+      #0a0b0f 0%,
+      #0e0f12 25%,
+      #121318 50%,
+      #0e0f12 75%,
+      #0a0b0f 100%
+    );
+  background-size: 
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%;
+  animation: 
+    backgroundShift 60s ease-in-out infinite,
+    backgroundPulse 45s ease-in-out infinite;
+}
+
+/* Тонкая пульсация фона */
+@keyframes backgroundPulse {
+  0%, 100% { 
+    opacity: 1;
+    filter: hue-rotate(0deg) saturate(1);
+  }
+  50% { 
+    opacity: 0.98;
+    filter: hue-rotate(2deg) saturate(1.02);
+  }
+}
+
+/* Дополнительные декоративные элементы для создания глубины */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  background-image: 
+    radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 60% 70%, rgba(139, 92, 246, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 30% 10%, rgba(99, 102, 241, 0.04) 0%, transparent 35%),
+    linear-gradient(135deg, 
+      #0a0b0f 0%,
+      #0e0f12 25%,
+      #121318 50%,
+      #0e0f12 75%,
+      #0a0b0f 100%
+    );
+  background-size: 
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%;
+  animation: 
+    backgroundShift 60s ease-in-out infinite,
+    backgroundPulse 45s ease-in-out infinite;
+}
+
+/* Создаем дополнительный слой для эффекта глубины */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-image: 
+    url('../img/noise.png'),
+    radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.03) 0%, transparent 30%),
+    radial-gradient(circle at 90% 80%, rgba(99, 102, 241, 0.02) 0%, transparent 30%),
+    radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.01) 0%, transparent 60%);
+  background-size: 
+    200px 200px,
+    400px 400px,
+    300px 300px,
+    500px 500px;
+  background-position: 
+    0 0,
+    0 0,
+    100% 100%,
+    50% 50%;
+  animation: 
+    noiseMove 30s linear infinite,
+    backgroundFloat 70s ease-in-out infinite;
+  opacity: 0.06;
+}
+
+/* Дополнительные плавающие элементы */
+body::before {
+  background-image: 
+    radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 60% 70%, rgba(139, 92, 246, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 30% 10%, rgba(99, 102, 241, 0.04) 0%, transparent 35%),
+    radial-gradient(circle at 70% 30%, rgba(59, 130, 246, 0.03) 0%, transparent 45%),
+    radial-gradient(circle at 15% 60%, rgba(139, 92, 246, 0.02) 0%, transparent 40%),
+    linear-gradient(135deg, 
+      #0a0b0f 0%,
+      #0e0f12 25%,
+      #121318 50%,
+      #0e0f12 75%,
+      #0a0b0f 100%
+    );
+  background-size: 
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%;
+  animation: 
+    backgroundShift 20s ease-in-out infinite,
+    backgroundPulse 15s ease-in-out infinite,
+    backgroundRotate 120s linear infinite;
+}
+
+/* Медленное и плавное вращение фона */
+@keyframes backgroundRotate {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.005); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+/* Адаптивность фона для мобильных устройств */
+@media (max-width: 768px) {
+  body::before {
+    background-image: 
+      radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
+      radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.04) 0%, transparent 50%),
+      linear-gradient(135deg, 
+        #0a0b0f 0%,
+        #0e0f12 25%,
+        #121318 50%,
+        #0e0f12 75%,
+        #0a0b0f 100%
+      );
+    animation: 
+      backgroundShift 80s ease-in-out infinite,
+      backgroundPulse 60s ease-in-out infinite;
+  }
+  
+  body::after {
+    opacity: 0.04;
+    animation: 
+      noiseMove 40s linear infinite,
+      backgroundFloat 30s ease-in-out infinite;
+  }
+}
+
+/* Перекрытия для лёгкого режима на мобилках: отключаем эффекты нижнего меню и фон */
+@media (max-width: 576px){
+  .perf-lite .bottom-nav{backdrop-filter:none !important;-webkit-backdrop-filter:none !important;box-shadow:none !important;border-color:rgba(255,255,255,.06) !important}
+  .perf-lite body::before, .perf-lite body::after{display:none !important}
+}
+
+@media (max-width: 480px) {
+  body::before {
+    background-image: 
+      radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.05) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.04) 0%, transparent 50%),
+      linear-gradient(135deg, 
+        #0a0b0f 0%,
+        #0e0f12 50%,
+        #0a0b0f 100%
+      );
+    animation: 
+      backgroundShift 100s ease-in-out infinite;
+  }
+  
+  body::after {
+    opacity: 0.03;
+    animation: 
+      noiseMove 120s linear infinite;
+  }
+}
+
+/* Дополнительные плавающие элементы, отталкивающиеся от фона */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  background-image: 
+    radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 60% 70%, rgba(139, 92, 246, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 30% 10%, rgba(99, 102, 241, 0.04) 0%, transparent 35%),
+    radial-gradient(circle at 70% 30%, rgba(59, 130, 246, 0.03) 0%, transparent 45%),
+    radial-gradient(circle at 15% 60%, rgba(139, 92, 246, 0.02) 0%, transparent 40%),
+    radial-gradient(circle at 85% 90%, rgba(99, 102, 241, 0.015) 0%, transparent 35%),
+    radial-gradient(circle at 5% 15%, rgba(59, 130, 246, 0.01) 0%, transparent 30%),
+    linear-gradient(135deg, 
+      #0a0b0f 0%,
+      #0e0f12 25%,
+      #121318 50%,
+      #0e0f12 75%,
+      #0a0b0f 100%
+    );
+  background-size: 
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%;
+  animation: 
+    backgroundShift 120s ease-in-out infinite,
+    backgroundPulse 90s ease-in-out infinite,
+    backgroundRotate 200s linear infinite;
+}
+
+/* Дополнительные элементы для создания глубины */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-image: 
+    url('../img/noise.png'),
+    radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.03) 0%, transparent 30%),
+    radial-gradient(circle at 90% 80%, rgba(99, 102, 241, 0.02) 0%, transparent 30%),
+    radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.01) 0%, transparent 60%),
+    radial-gradient(circle at 25% 75%, rgba(139, 92, 246, 0.008) 0%, transparent 25%),
+    radial-gradient(circle at 75% 25%, rgba(99, 102, 241, 0.006) 0%, transparent 20%);
+  background-size: 
+    200px 200px,
+    400px 400px,
+    300px 300px,
+    500px 500px,
+    350px 350px,
+    250px 250px;
+  background-position: 
+    0 0,
+    0 0,
+    100% 100%,
+    50% 50%,
+    25% 75%,
+    75% 25%;
+  animation: 
+    noiseMove 150s linear infinite,
+    backgroundFloat 120s ease-in-out infinite;
+  opacity: 0.06;
+}
+
+/* Отключение анимаций для пользователей с предпочтением уменьшенной анимации */
+@media (prefers-reduced-motion: reduce) {
+  body::before,
+  body::after {
+    animation: none;
+  }
+}.bg-elevate{background-color:var(--tc-elevate)!important}.hero.bg-hero{border:1px solid rgba(255,255,255,.06);border-radius:1.25rem;background:url('../img/vignette.png') center/cover no-repeat,linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));backdrop-filter:blur(10px) saturate(120%)}.card.product{border:1px solid rgba(255,255,255,.06);background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));border-radius:1.25rem;transition:transform .25s,box-shadow .25s,border-color .25s}
+
+/* ВЫРАВНИВАНИЕ КАРТОЧЕК С ПОДДЕРЖКОЙ JAVASCRIPT */
+.row[data-stagger-grid] {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  margin: 0 !important;
+  align-items: stretch !important;
+  gap: 0.5rem !important;
+}
+
+.row[data-stagger-grid] .col {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  height: auto !important;
+}
+
+.card.product {
+  display: flex !important;
+  flex-direction: column !important;
+  height: auto !important;
+  margin: 0 !important;
+  border: 1px solid rgba(255,255,255,.06) !important;
+  background: linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0)) !important;
+  border-radius: 1.25rem !important;
+  transition: transform .25s,box-shadow .25s,border-color .25s !important;
+  min-height: 0 !important;
+}
+
+.card.product .card-body {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+  padding: 0.5rem !important;
+  justify-content: space-between !important;
+  gap: 0.25rem !important;
+  align-items: flex-start !important;
+}
+
+.card.product .ratio {
+  height: 250px !important;
+  min-height: 250px !important;
+  max-height: 250px !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  border-radius: 1.25rem 1.25rem 0 0 !important;
+  overflow: hidden !important;
+}
+
+.card.product .card-title,
+.card.product h3,
+.card.product h4,
+.card.product h5 {
+  height: 1.2em !important;
+  min-height: 1.2em !important;
+  max-height: 1.2em !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  margin-bottom: 0 !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  line-height: 1.2em !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+}
+
+.card.product .small {
+  height: 1.1em !important;
+  min-height: 1.1em !important;
+  max-height: 1.1em !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  margin-bottom: 0 !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  line-height: 1.1em !important;
+  font-size: 0.8rem !important;
+}
+
+/* Принудительное выравнивание элементов карточки */
+.card.product .points-reward-card,
+.card.product .d-flex.align-items-center.gap-2,
+.card.product .badge,
+.card.product .text-decoration-line-through {
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  margin-bottom: 0 !important;
+  height: auto !important;
+}
+
+/* Блок с балами прижимается к низу и растягивается */
+.card.product .points-reward-card {
+  margin-top: auto !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  padding-top: 0.25rem !important;
+  width: 100% !important;
+}

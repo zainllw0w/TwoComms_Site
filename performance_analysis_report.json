@@ -1,0 +1,351 @@
+{
+  "analysis_date": "2025-10-14T04:35:07.428956",
+  "project": "TwoComms",
+  "summary": {
+    "total_issues": 18,
+    "critical_issues": 0,
+    "performance_issues": 19,
+    "security_issues": 0,
+    "recommendations": 6
+  },
+  "critical_issues": [],
+  "performance_issues": [
+    {
+      "category": "models",
+      "severity": "high",
+      "message": "Дублирующееся поле \"name\" найдено 2 раз",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.425427"
+    },
+    {
+      "category": "models",
+      "severity": "high",
+      "message": "Дублирующееся поле \"slug\" найдено 2 раз",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.425430"
+    },
+    {
+      "category": "models",
+      "severity": "high",
+      "message": "Дублирующееся поле \"order\" найдено 2 раз",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.425431"
+    },
+    {
+      "category": "models",
+      "severity": "high",
+      "message": "Дублирующееся поле \"description\" найдено 4 раз",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.425432"
+    },
+    {
+      "category": "models",
+      "severity": "high",
+      "message": "Дублирующееся поле \"is_active\" найдено 4 раз",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.425433"
+    },
+    {
+      "category": "models",
+      "severity": "high",
+      "message": "Дублирующееся поле \"ai_keywords\" найдено 2 раз",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.425434"
+    },
+    {
+      "category": "models",
+      "severity": "high",
+      "message": "Дублирующееся поле \"ai_description\" найдено 2 раз",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.425435"
+    },
+    {
+      "category": "models",
+      "severity": "high",
+      "message": "Дублирующееся поле \"ai_content_generated\" найдено 2 раз",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.425436"
+    },
+    {
+      "category": "models",
+      "severity": "high",
+      "message": "Дублирующееся поле \"image\" найдено 2 раз",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.425437"
+    },
+    {
+      "category": "models",
+      "severity": "high",
+      "message": "Дублирующееся поле \"status\" найдено 2 раз",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.425438"
+    },
+    {
+      "category": "models",
+      "severity": "high",
+      "message": "Дублирующееся поле \"created_at\" найдено 6 раз",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.425439"
+    },
+    {
+      "category": "models",
+      "severity": "high",
+      "message": "Дублирующееся поле \"updated_at\" найдено 5 раз",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.425440"
+    },
+    {
+      "category": "models",
+      "severity": "high",
+      "message": "Дублирующееся поле \"is_bot\" найдено 2 раз",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.425441"
+    },
+    {
+      "category": "models",
+      "severity": "high",
+      "message": "Дублирующееся поле \"size\" найдено 3 раз",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.425442"
+    },
+    {
+      "category": "models",
+      "severity": "high",
+      "message": "Дублирующееся поле \"quantity\" найдено 3 раз",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.425443"
+    },
+    {
+      "category": "models",
+      "severity": "high",
+      "message": "Дублирующееся поле \"cost_price\" найдено 3 раз",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.425444"
+    },
+    {
+      "category": "models",
+      "severity": "high",
+      "message": "Дублирующееся поле \"selling_price\" найдено 3 раз",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.425445"
+    },
+    {
+      "category": "models",
+      "severity": "high",
+      "message": "Дублирующееся поле \"notes\" найдено 2 раз",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.425446"
+    },
+    {
+      "category": "memory",
+      "severity": "high",
+      "message": "Потенциальная утечка памяти: Order\\.objects\\.all\\(\\) без пагинации",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/views.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.428849"
+    }
+  ],
+  "security_issues": [],
+  "other_issues": [
+    {
+      "category": "models",
+      "severity": "medium",
+      "message": "Поле может нуждаться в индексе: category=models.ForeignKey(Category, on_delete=mod...",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.424242"
+    },
+    {
+      "category": "models",
+      "severity": "medium",
+      "message": "Поле может нуждаться в индексе: user = models.ForeignKey...",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.424290"
+    },
+    {
+      "category": "models",
+      "severity": "medium",
+      "message": "Поле может нуждаться в индексе: created_at = models.DateTimeField(auto_now_add=Tru...",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.424334"
+    },
+    {
+      "category": "models",
+      "severity": "medium",
+      "message": "Поле может нуждаться в индексе: is_active=models.BooleanField...",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.424368"
+    },
+    {
+      "category": "models",
+      "severity": "medium",
+      "message": "Поле может нуждаться в индексе: status = models.CharField...",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.424401"
+    },
+    {
+      "category": "static",
+      "severity": "medium",
+      "message": "Большой CSS файл: styles.css (446.6KB)",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/staticfiles/css/styles.css",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.426891"
+    },
+    {
+      "category": "static",
+      "severity": "medium",
+      "message": "Много неминифицированных CSS файлов: 16",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/staticfiles",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.426957"
+    },
+    {
+      "category": "static",
+      "severity": "medium",
+      "message": "Большой JS файл: jquery.min.js (85.5KB)",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/staticfiles/admin/js/vendor/jquery/jquery.min.js",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.427671"
+    },
+    {
+      "category": "static",
+      "severity": "medium",
+      "message": "Большой JS файл: jquery.js (278.6KB)",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/staticfiles/admin/js/vendor/jquery/jquery.js",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.427683"
+    },
+    {
+      "category": "static",
+      "severity": "medium",
+      "message": "Большой JS файл: xregexp.min.js (159.4KB)",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/staticfiles/admin/js/vendor/xregexp/xregexp.min.js",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.427694"
+    },
+    {
+      "category": "static",
+      "severity": "medium",
+      "message": "Большой JS файл: xregexp.js (317.5KB)",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/staticfiles/admin/js/vendor/xregexp/xregexp.js",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.427704"
+    },
+    {
+      "category": "static",
+      "severity": "medium",
+      "message": "Большой JS файл: select2.full.min.js (77.4KB)",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/staticfiles/admin/js/vendor/select2/select2.full.min.js",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.427714"
+    },
+    {
+      "category": "static",
+      "severity": "medium",
+      "message": "Большой JS файл: select2.full.js (169.5KB)",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/staticfiles/admin/js/vendor/select2/select2.full.js",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.427724"
+    },
+    {
+      "category": "database",
+      "severity": "medium",
+      "message": "Поле \"created\" может нуждаться в db_index=True",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.428402"
+    },
+    {
+      "category": "database",
+      "severity": "medium",
+      "message": "Поле \"updated\" может нуждаться в db_index=True",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.428442"
+    },
+    {
+      "category": "database",
+      "severity": "medium",
+      "message": "Поле \"is_active\" может нуждаться в db_index=True",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.428482"
+    },
+    {
+      "category": "database",
+      "severity": "medium",
+      "message": "Поле \"status\" может нуждаться в db_index=True",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.428518"
+    },
+    {
+      "category": "database",
+      "severity": "medium",
+      "message": "Поле \"user\" может нуждаться в db_index=True",
+      "file_path": "/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/storefront/models.py",
+      "line": null,
+      "timestamp": "2025-10-14T04:35:07.428557"
+    }
+  ],
+  "recommendations": [
+    {
+      "category": "Database",
+      "priority": "high",
+      "title": "Добавить индексы для часто используемых полей",
+      "description": "Добавить db_index=True для полей: created, updated, is_active, status, user_id"
+    },
+    {
+      "category": "Performance",
+      "priority": "high",
+      "title": "Оптимизировать CSS файлы",
+      "description": "Минифицировать CSS файлы, разделить на критические и некритические, использовать gzip"
+    },
+    {
+      "category": "Views",
+      "priority": "high",
+      "title": "Использовать select_related и prefetch_related",
+      "description": "Добавить оптимизацию запросов для предотвращения N+1 проблем"
+    },
+    {
+      "category": "Caching",
+      "priority": "medium",
+      "title": "Расширить кэширование",
+      "description": "Добавить кэширование для категорий, популярных товаров, статических страниц"
+    },
+    {
+      "category": "Security",
+      "priority": "critical",
+      "title": "Исправить настройки безопасности",
+      "description": "Установить DEBUG=False, укрепить SECRET_KEY, настроить ALLOWED_HOSTS"
+    },
+    {
+      "category": "Static Files",
+      "priority": "medium",
+      "title": "Оптимизировать изображения",
+      "description": "Добавить WebP формат, lazy loading, сжатие изображений"
+    }
+  ]
+}
