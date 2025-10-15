@@ -441,6 +441,9 @@
         document.querySelectorAll('#color-picker .color-swatch').forEach(function(b){
           b.addEventListener('click', onColorClick);
         });
+      } else {
+        // Без кольорів: збираємо карусель з головного та додаткових зображень
+        rebuildCarousel([]);
       }
     })();
     </script>
