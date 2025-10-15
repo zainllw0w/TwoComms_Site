@@ -40,8 +40,8 @@
             <button class="nav-link d-flex align-items-center mb-2" id="images-tab" data-bs-toggle="pill" data-bs-target="#images" type="button">
               <i class="fas fa-images me-2"></i>
               <span>Зображення</span>
-              {% if obj.productimage_set.all %}
-                <span class="badge bg-primary ms-auto">{{ obj.productimage_set.count }}</span>
+              {% if obj.images.all %}
+                <span class="badge bg-primary ms-auto">{{ obj.images.count }}</span>
               {% endif %}
             </button>
             <button class="nav-link d-flex align-items-center mb-2" id="preview-tab" data-bs-toggle="pill" data-bs-target="#preview" type="button">
@@ -375,9 +375,9 @@
             </div>
             
             <div class="card-body">
-              {% if obj.productimage_set.all %}
+              {% if obj.images.all %}
                 <div class="row g-3">
-                  {% for image in obj.productimage_set.all %}
+                  {% for image in obj.images.all %}
                     <div class="col-md-6 col-lg-4 col-xl-3">
                       <div class="card bg-dark border-0 h-100">
                         <img src="{{ image.image.url }}" class="card-img-top" 
@@ -503,7 +503,7 @@
                         </li>
                         <li class="mb-2">
                           <i class="fas fa-images me-2 text-primary"></i>
-                          <strong>Зображення:</strong> {{ obj.productimage_set.count }}
+                          <strong>Зображення:</strong> {{ obj.images.count }}
                         </li>
                       </ul>
                     </div>

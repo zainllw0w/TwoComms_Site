@@ -3308,21 +3308,26 @@ def admin_product_edit_unified(request, pk):
                 return redirect(request.path)
         
         elif form_type == 'image':
-            additional_image = request.FILES.get('additional_image')
+            # Поддержка загрузки одного или нескольких изображений
+            files = []
+            one = request.FILES.get('additional_image')
+            many = request.FILES.getlist('additional_image')
+            if many:
+                files = many
+            elif one:
+                files = [one]
             
-            if additional_image:
-                ProductImage.objects.create(
-                    product=obj,
-                    image=additional_image
-                )
-                
-                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                    return JsonResponse({'success': True, 'message': 'Зображення успішно додано!'})
-                return redirect(request.path)
-            else:
-                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                    return JsonResponse({'success': True, 'message': 'Зображення успішно додано!'})
-                return redirect(request.path)
+            created = 0
+            for f in files:
+                try:
+                    ProductImage.objects.create(product=obj, image=f)
+                    created += 1
+                except Exception:
+                    continue
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'message': f'Додано зображень: {created}'})
+            return redirect(request.path)
     
     form = ProductForm(instance=obj)
     
