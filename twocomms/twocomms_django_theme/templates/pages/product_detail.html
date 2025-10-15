@@ -293,63 +293,12 @@
         list.forEach(function(url, idx){
           var item = document.createElement('div');
           item.className = 'carousel-item' + (idx===0?' active':'');
-          
-          // Проверяем, является ли это изображение цветового варианта
-          var isColorImage = url.includes('/product_colors/');
-          
-          if (isColorImage) {
-            // Создаем оптимизированное изображение с поддержкой WebP/AVIF
-            var picture = document.createElement('picture');
-            var avifSource = document.createElement('source');
-            var webpSource = document.createElement('source');
-            var img = document.createElement('img');
-            
-            // Генерируем URL для оптимизированных версий
-            var baseUrl = url.replace(/\/[^\/]+\.(jpg|jpeg|png)$/, '');
-            var fileName = url.match(/\/([^\/]+)\.(jpg|jpeg|png)$/);
-            if (fileName) {
-              var baseName = fileName[1];
-              avifSource.setAttribute('srcset', baseUrl + '/optimized/' + baseName + '.avif');
-              avifSource.setAttribute('type', 'image/avif');
-              webpSource.setAttribute('srcset', baseUrl + '/optimized/' + baseName + '.webp');
-              webpSource.setAttribute('type', 'image/webp');
-            }
-            
-            img.src = url;
-            img.className = 'd-block w-100 h-100 object-fit-contain';
-            img.alt = '{{ product.title|escapejs }} — фото';
-            img.src = url;
-            img.className = 'd-block w-100 h-100 object-fit-contain';
-            img.alt = '{{ product.title|escapejs }} — фото';
-            
-            picture.appendChild(avifSource);
-            picture.appendChild(webpSource);
-            picture.appendChild(img);
-            item.appendChild(picture);
-          } else {
-            // Оптимизируем обычные изображения товаров (папка products)
-            var picture2 = document.createElement('picture');
-            var avif2 = document.createElement('source');
-            var webp2 = document.createElement('source');
-            var img2 = document.createElement('img');
-            var baseUrl2 = url.replace(/\/[^\/]+\.(jpg|jpeg|png)$/, '');
-            var fileName2 = url.match(/\/([^\/]+)\.(jpg|jpeg|png)$/);
-            if (fileName2) {
-              var baseName2 = fileName2[1];
-              avif2.setAttribute('srcset', baseUrl2 + '/optimized/' + baseName2 + '.avif');
-              avif2.setAttribute('type', 'image/avif');
-              webp2.setAttribute('srcset', baseUrl2 + '/optimized/' + baseName2 + '.webp');
-              webp2.setAttribute('type', 'image/webp');
-            }
-            img2.src = url;
-            img2.className = 'd-block w-100 h-100 object-fit-contain';
-            img2.alt = '';
-            picture2.appendChild(avif2);
-            picture2.appendChild(webp2);
-            picture2.appendChild(img2);
-            item.appendChild(picture2);
-          }
-          
+          var img = document.createElement('img');
+          img.src = url;
+          img.className = 'd-block w-100 h-100 object-fit-contain';
+          img.alt = '{{ product.title|escapejs }}';
+          item.appendChild(img);
+
           inner.appendChild(item);
 
           var ind = document.createElement('button');
@@ -362,49 +311,9 @@
 
           var th = document.createElement('button');
           th.type='button'; th.className='btn p-0 thumb'; th.setAttribute('data-bs-target','#productCarousel'); th.setAttribute('data-bs-slide-to', String(idx));
-          
-          if (isColorImage && fileName) {
-            // Создаем оптимизированную миниатюру для цветовых вариантов
-            var thumbPicture = document.createElement('picture');
-            var thumbAvifSource = document.createElement('source');
-            var thumbWebpSource = document.createElement('source');
-            var thumbImg = document.createElement('img');
-            
-            var baseName = fileName[1];
-            thumbAvifSource.setAttribute('srcset', baseUrl + '/optimized/' + baseName + '.avif');
-            thumbAvifSource.setAttribute('type', 'image/avif');
-            thumbWebpSource.setAttribute('srcset', baseUrl + '/optimized/' + baseName + '.webp');
-            thumbWebpSource.setAttribute('type', 'image/webp');
-            
-            thumbImg.src = url;
-            thumbImg.className = 'rounded-3 object-fit-cover';
-            thumbImg.style.width = '72px';
-            thumbImg.style.height = '72px';
-            thumbImg.alt = '{{ product.title|escapejs }} — миниатюра';
-            
-            thumbPicture.appendChild(thumbAvifSource);
-            thumbPicture.appendChild(thumbWebpSource);
-            thumbPicture.appendChild(thumbImg);
-            th.appendChild(thumbPicture);
-          } else {
-            // Оптимизированная миниатюра для обычных изображений
-            var tp = document.createElement('picture');
-            var ta = document.createElement('source');
-            var tw = document.createElement('source');
-            var ti = document.createElement('img');
-            var baseUrlT = url.replace(/\/[^\/]+\.(jpg|jpeg|png)$/, '');
-            var fileNameT = url.match(/\/([^\/]+)\.(jpg|jpeg|png)$/);
-            if (fileNameT) {
-              var baseNameT = fileNameT[1];
-              ta.setAttribute('srcset', baseUrlT + '/optimized/' + baseNameT + '.avif');
-              ta.setAttribute('type', 'image/avif');
-              tw.setAttribute('srcset', baseUrlT + '/optimized/' + baseNameT + '.webp');
-              tw.setAttribute('type', 'image/webp');
-            }
-            ti.src = url; ti.className='rounded-3 object-fit-cover'; ti.style.width='72px'; ti.style.height='72px'; ti.alt='';
-            tp.appendChild(ta); tp.appendChild(tw); tp.appendChild(ti);
-            th.appendChild(tp);
-          }
+          var ti = document.createElement('img');
+          ti.src = url; ti.className='rounded-3 object-fit-cover'; ti.style.width='72px'; ti.style.height='72px'; ti.alt='';
+          th.appendChild(ti);
           
           thumbs.appendChild(th);
         });
