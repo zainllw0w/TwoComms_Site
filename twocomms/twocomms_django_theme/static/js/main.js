@@ -508,17 +508,19 @@ function requestMonoCheckout(){
   // Collect guest form fields if present (for unauthenticated users)
   const guestForm = document.getElementById('guest-form');
   let payload = {};
-  if(guestForm){
-    const getVal = (name)=>{
-      const el = guestForm.querySelector(`[name="${name}"]`);
-      return el && 'value' in el ? (el.value||'').trim() : '';
-    };
+  const getAnyVal = (name)=>{
+    const fromForm = guestForm && guestForm.querySelector(`[name="${name}"]`);
+    if(fromForm && 'value' in fromForm) return (fromForm.value||'').trim();
+    const anywhere = document.querySelector(`[name="${name}"]`);
+    return anywhere && 'value' in anywhere ? (anywhere.value||'').trim() : '';
+  };
+  if(guestForm || document.querySelector('[name="full_name"]') || document.querySelector('[name="phone"]')){
     payload = {
-      full_name: getVal('full_name'),
-      phone: getVal('phone'),
-      city: getVal('city'),
-      np_office: getVal('np_office'),
-      pay_type: getVal('pay_type') || 'full'
+      full_name: getAnyVal('full_name'),
+      phone: getAnyVal('phone'),
+      city: getAnyVal('city'),
+      np_office: getAnyVal('np_office'),
+      pay_type: getAnyVal('pay_type') || 'full'
     };
   }
   return fetch('/cart/monobank/quick/', {
@@ -550,16 +552,18 @@ function requestMonoCheckoutSingleProduct(button){
   if(context.colorVariantId) payload.color_variant_id = context.colorVariantId;
   // Include guest fields if present
   const guestForm = document.getElementById('guest-form');
-  if(guestForm){
-    const getVal = (name)=>{
-      const el = guestForm.querySelector(`[name="${name}"]`);
-      return el && 'value' in el ? (el.value||'').trim() : '';
-    };
-    payload.full_name = getVal('full_name');
-    payload.phone = getVal('phone');
-    payload.city = getVal('city');
-    payload.np_office = getVal('np_office');
-    payload.pay_type = getVal('pay_type') || 'full';
+  const getAnyVal = (name)=>{
+    const fromForm = guestForm && guestForm.querySelector(`[name="${name}"]`);
+    if(fromForm && 'value' in fromForm) return (fromForm.value||'').trim();
+    const anywhere = document.querySelector(`[name="${name}"]`);
+    return anywhere && 'value' in anywhere ? (anywhere.value||'').trim() : '';
+  };
+  if(guestForm || document.querySelector('[name="full_name"]') || document.querySelector('[name="phone"]')){
+    payload.full_name = getAnyVal('full_name');
+    payload.phone = getAnyVal('phone');
+    payload.city = getAnyVal('city');
+    payload.np_office = getAnyVal('np_office');
+    payload.pay_type = getAnyVal('pay_type') || 'full';
   }
 
   return fetch('/cart/monobank/quick/', {
@@ -668,17 +672,19 @@ function requestMonobankPay(){
   // Collect guest form fields if present
   const guestForm = document.getElementById('guest-form');
   let payload = {};
-  if(guestForm){
-    const getVal = (name)=>{
-      const el = guestForm.querySelector(`[name="${name}"]`);
-      return el && 'value' in el ? (el.value||'').trim() : '';
-    };
+  const getAnyVal = (name)=>{
+    const fromForm = guestForm && guestForm.querySelector(`[name="${name}"]`);
+    if(fromForm && 'value' in fromForm) return (fromForm.value||'').trim();
+    const anywhere = document.querySelector(`[name="${name}"]`);
+    return anywhere && 'value' in anywhere ? (anywhere.value||'').trim() : '';
+  };
+  if(guestForm || document.querySelector('[name="full_name"]') || document.querySelector('[name="phone"]')){
     payload = {
-      full_name: getVal('full_name'),
-      phone: getVal('phone'),
-      city: getVal('city'),
-      np_office: getVal('np_office'),
-      pay_type: getVal('pay_type') || 'full'
+      full_name: getAnyVal('full_name'),
+      phone: getAnyVal('phone'),
+      city: getAnyVal('city'),
+      np_office: getAnyVal('np_office'),
+      pay_type: getAnyVal('pay_type') || 'full'
     };
   }
   return fetch('/cart/monobank/create-invoice/', {
