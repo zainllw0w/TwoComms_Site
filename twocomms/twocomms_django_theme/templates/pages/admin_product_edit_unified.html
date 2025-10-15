@@ -705,6 +705,60 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Ensure Bootstrap modals render above any transformed parent by moving them to body
+    (function relocateModals(){
+        var ids = ['addColorModal','addImageModal'];
+        ids.forEach(function(id){
+            var el = document.getElementById(id);
+            if(el && el.parentElement !== document.body){
+                try{ document.body.appendChild(el); }catch(_){ }
+            }
+        });
+    })();
+
+    // Enforce high z-index for admin modals in case of custom stacking contexts
+    function boostZ(modalEl){
+        if(!modalEl) return;
+        modalEl.style.zIndex = '20010';
+        try{
+            // Adjust backdrop when shown
+            modalEl.addEventListener('shown.bs.modal', function(){
+                var backdrops = document.querySelectorAll('.modal-backdrop');
+                backdrops.forEach(function(bd){ bd.style.zIndex = '20000'; });
+                modalEl.style.zIndex = '20010';
+            });
+        }catch(_){ }
+    }
+    boostZ(document.getElementById('addColorModal'));
+    boostZ(document.getElementById('addImageModal'));
+
+    // Improve multi-image preview for color_images
+    (function bindImagePreview(){
+        var input = document.querySelector('#addColorModal input[name="color_images"]');
+        var previewWrap = document.getElementById('imagePreviewContainer');
+        var grid = document.getElementById('imagePreviewGrid');
+        if(!input || !previewWrap || !grid) return;
+        input.addEventListener('change', function(){
+            var files = Array.from(input.files||[]);
+            grid.innerHTML = '';
+            if(!files.length){ previewWrap.style.display = 'none'; return; }
+            files.forEach(function(file){
+                try{
+                    var url = URL.createObjectURL(file);
+                    var item = document.createElement('div');
+                    item.className = 'image-preview-item';
+                    item.style.width = '88px';
+                    item.style.height = '88px';
+                    item.style.borderRadius = '10px';
+                    item.style.overflow = 'hidden';
+                    item.style.border = '1px solid rgba(255,255,255,.1)';
+                    item.innerHTML = '<img src="'+url+'" alt="preview" style="width:100%;height:100%;object-fit:cover;">';
+                    grid.appendChild(item);
+                }catch(_){ }
+            });
+            previewWrap.style.display = '';
+        });
+    })();
     // Обработка формы товара
     const productForm = document.getElementById('product-form');
     
