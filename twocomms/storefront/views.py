@@ -1935,9 +1935,7 @@ def admin_panel(request):
         try:
             from orders.models import WholesaleInvoice
             # Показываем только отправленные накладные (статус pending и выше, исключаем draft)
-            invoices = WholesaleInvoice.objects.filter(
-                status__in=['pending', 'processing', 'shipped', 'delivered', 'cancelled']
-            ).order_by('-created_at')[:100]
+            invoices = WholesaleInvoice.objects.exclude(status='draft').order_by('-created_at')[:100]
         except Exception:
             invoices = []
         ctx.update({'invoices': invoices})
