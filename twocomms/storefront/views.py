@@ -1953,6 +1953,7 @@ def admin_update_invoice_status(request, invoice_id):
     
     try:
         from orders.models import WholesaleInvoice
+        from orders.telegram_notifications import telegram_notifier
         import json
         
         data = json.loads(request.body)
@@ -1962,8 +1963,26 @@ def admin_update_invoice_status(request, invoice_id):
             return JsonResponse({'error': 'Invalid status'}, status=400)
         
         invoice = WholesaleInvoice.objects.get(id=invoice_id)
+        old_status = invoice.status
         invoice.status = new_status
         invoice.save()
+        
+        # Отправляем уведомление в Telegram при отправке накладной на проверку
+        if new_status == 'pending' and old_status == 'draft':
+            try:
+                # Отправляем уведомление о новой накладной
+                telegram_notifier.send_invoice_notification(invoice)
+                
+                # Если есть файл накладной, отправляем его тоже
+                if invoice.file_path:
+                    import os
+                    from django.conf import settings
+                    file_path = os.path.join(settings.MEDIA_ROOT, invoice.file_path)
+                    if os.path.exists(file_path):
+                        telegram_notifier.send_invoice_document(invoice, file_path)
+            except Exception as e:
+                # Логируем ошибку, но не прерываем выполнение
+                print(f"Ошибка отправки Telegram уведомления: {e}")
         
         return JsonResponse({'success': True, 'status': new_status})
     except Exception as e:
@@ -7322,6 +7341,7 @@ def collaboration_admin(request):
 @staff_member_required
 def update_invoice_status(request, invoice_id):
     from orders.models import WholesaleInvoice
+    from orders.telegram_notifications import telegram_notifier
     import json
     try:
         invoice = WholesaleInvoice.objects.get(id=invoice_id)
@@ -7330,8 +7350,28 @@ def update_invoice_status(request, invoice_id):
         allowed = {'processing','approved','shipped','delivered','cancelled','pending'}
         if new_status not in allowed:
             return JsonResponse({'success': False, 'error': 'Невірний статус'}, status=400)
+        
+        old_status = invoice.status
         invoice.status = new_status
         invoice.save(update_fields=['status'])
+        
+        # Отправляем уведомление в Telegram при отправке накладной на проверку
+        if new_status == 'pending' and old_status == 'draft':
+            try:
+                # Отправляем уведомление о новой накладной
+                telegram_notifier.send_invoice_notification(invoice)
+                
+                # Если есть файл накладной, отправляем его тоже
+                if invoice.file_path:
+                    import os
+                    from django.conf import settings
+                    file_path = os.path.join(settings.MEDIA_ROOT, invoice.file_path)
+                    if os.path.exists(file_path):
+                        telegram_notifier.send_invoice_document(invoice, file_path)
+            except Exception as e:
+                # Логируем ошибку, но не прерываем выполнение
+                print(f"Ошибка отправки Telegram уведомления: {e}")
+        
         return JsonResponse({'success': True})
     except WholesaleInvoice.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Накладна не знайдена'}, status=404)
