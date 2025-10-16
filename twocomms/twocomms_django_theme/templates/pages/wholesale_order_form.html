@@ -3968,8 +3968,19 @@ function openSendModal(invoiceId){
     if (!m) return;
     const t = document.getElementById('sendModalText');
     if (t) t.textContent = `Накладна #${invoiceId} відправлена. Для швидшої обробки — звʼяжіться з нами в Telegram.`;
-    m.classList.add('show');
+    
+    // Принудительно устанавливаем стили для центрирования
+    m.style.position = 'fixed';
+    m.style.top = '0';
+    m.style.left = '0';
+    m.style.width = '100vw';
+    m.style.height = '100vh';
     m.style.display = 'flex';
+    m.style.alignItems = 'center';
+    m.style.justifyContent = 'center';
+    m.style.zIndex = '10000';
+    m.style.background = 'rgba(0,0,0,0.6)';
+    m.classList.add('show');
 }
 function closeSendModal(){
     const m = document.getElementById('sendModal');
