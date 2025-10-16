@@ -4054,114 +4054,136 @@ async function sendToWork(invoiceId) {
 }
 
 function openSendModal(invoiceId){
-    console.log('Opening modal for invoice:', invoiceId);
+    console.log('Opening popup for invoice:', invoiceId);
     
-    const t = document.getElementById('sendModalText');
-    if (t) {
-        t.textContent = `Накладна #${invoiceId} відправлена. Для швидшої обробки — звʼяжіться з нами в Telegram.`;
-    }
+    // Create a simple popup notification
+    const popup = document.createElement('div');
+    popup.id = 'sendPopup';
+    popup.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) scale(0.8);
+        background: linear-gradient(135deg, rgba(20,22,27,.95), rgba(14,16,22,.95));
+        border: 1px solid rgba(255,255,255,.1);
+        border-radius: 14px;
+        padding: 30px;
+        max-width: 500px;
+        width: 90vw;
+        z-index: 10000;
+        box-shadow: 0 20px 60px rgba(0,0,0,.5);
+        text-align: center;
+        color: #e5e7eb;
+        opacity: 0;
+        transition: all 0.3s ease;
+    `;
     
-    const modalElement = document.getElementById('sendModal');
-    console.log('Modal element found:', modalElement);
-    
-    if (!modalElement) {
-        console.error('Modal element not found!');
-        return;
-    }
-    
-    // Always use manual positioning to ensure it works
-    modalElement.style.display = 'block';
-    modalElement.style.position = 'fixed';
-    modalElement.style.top = '0';
-    modalElement.style.left = '0';
-    modalElement.style.width = '100vw';
-    modalElement.style.height = '100vh';
-    modalElement.style.zIndex = '1055';
-    modalElement.style.padding = '0';
-    modalElement.style.margin = '0';
-    modalElement.classList.add('show');
-    modalElement.setAttribute('aria-hidden', 'false');
-    
-    // Prevent body scroll
-    document.body.style.overflow = 'hidden';
-    
-    // Position dialog in center of viewport
-    const dialog = modalElement.querySelector('.modal-dialog');
-    if (dialog) {
-        dialog.style.position = 'fixed';
-        dialog.style.top = '50vh';
-        dialog.style.left = '50vw';
-        dialog.style.transform = 'translate(-50%, -50%)';
-        dialog.style.margin = '0';
-        dialog.style.maxWidth = '500px';
-        dialog.style.width = '90vw';
-        dialog.style.maxHeight = '90vh';
-        dialog.style.overflowY = 'auto';
-        dialog.style.zIndex = '1056';
-        dialog.style.pointerEvents = 'auto';
-    }
+    popup.innerHTML = `
+        <h3 style="margin: 0 0 15px; font-weight: 800; color: #e5e7eb; font-size: 1.2rem;">
+            Накладна відправлена
+        </h3>
+        <p style="margin: 0 0 20px; color: rgba(229,231,235,.8);">
+            Накладна #${invoiceId} відправлена. Для швидшої обробки — звʼяжіться з нами в Telegram.
+        </p>
+        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+            <button onclick="closeSendPopup()" style="
+                background: transparent;
+                border: 1px solid rgba(255,255,255,.2);
+                color: #e5e7eb;
+                border-radius: 8px;
+                padding: 10px 20px;
+                font-weight: 700;
+                cursor: pointer;
+            ">Закрити</button>
+            <a href="https://t.me/twocomms" target="_blank" rel="noopener" style="
+                background: linear-gradient(135deg, #0f172a, #0b1220);
+                border: 1px solid rgba(99,102,241,.35);
+                color: #e5e7eb;
+                border-radius: 8px;
+                padding: 10px 20px;
+                font-weight: 700;
+                text-decoration: none;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+            ">
+                <i class="fab fa-telegram"></i> Відкрити Telegram
+            </a>
+        </div>
+    `;
     
     // Add backdrop
     const backdrop = document.createElement('div');
-    backdrop.className = 'modal-backdrop fade show';
-    backdrop.id = 'sendModalBackdrop';
-    backdrop.style.position = 'fixed';
-    backdrop.style.top = '0';
-    backdrop.style.left = '0';
-    backdrop.style.width = '100vw';
-    backdrop.style.height = '100vh';
-    backdrop.style.zIndex = '1050';
-    backdrop.style.cursor = 'pointer';
-    backdrop.style.pointerEvents = 'auto';
+    backdrop.id = 'sendPopupBackdrop';
+    backdrop.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0,0,0,.6);
+        z-index: 9999;
+        cursor: pointer;
+    `;
     
-    // Add click handler to close modal when clicking backdrop
-    backdrop.addEventListener('click', function(event) {
-        event.stopPropagation();
-        closeSendModal();
+    // Add click handler to close popup when clicking backdrop
+    backdrop.addEventListener('click', function() {
+        closeSendPopup();
     });
     
     // Add escape key handler
     const escapeHandler = function(event) {
         if (event.key === 'Escape') {
-            closeSendModal();
-            document.removeEventListener('keydown', escapeHandler);
+            closeSendPopup();
         }
     };
     document.addEventListener('keydown', escapeHandler);
     
     // Store escape handler for cleanup
-    modalElement.escapeHandler = escapeHandler;
+    popup.escapeHandler = escapeHandler;
     
     document.body.appendChild(backdrop);
-    console.log('Modal shown manually');
+    document.body.appendChild(popup);
+    
+    // Animate popup appearance
+    setTimeout(() => {
+        popup.style.transform = 'translate(-50%, -50%) scale(1)';
+        popup.style.opacity = '1';
+    }, 10);
+    
+    console.log('Popup shown');
 }
-function closeSendModal(){
-    console.log('Closing modal');
+function closeSendPopup(){
+    console.log('Closing popup');
     
-    const modalElement = document.getElementById('sendModal');
-    if (!modalElement) return;
+    const popup = document.getElementById('sendPopup');
+    const backdrop = document.getElementById('sendPopupBackdrop');
     
-    // Hide modal
-    modalElement.style.display = 'none';
-    modalElement.classList.remove('show');
-    modalElement.setAttribute('aria-hidden', 'true');
+    if (popup) {
+        // Animate popup disappearance
+        popup.style.transform = 'translate(-50%, -50%) scale(0.8)';
+        popup.style.opacity = '0';
+        
+        // Remove after animation
+        setTimeout(() => {
+            // Remove escape key handler
+            if (popup.escapeHandler) {
+                document.removeEventListener('keydown', popup.escapeHandler);
+            }
+            popup.remove();
+        }, 300);
+    }
     
-    // Restore body scroll
-    document.body.style.overflow = '';
-    
-    // Remove backdrop
-    const backdrop = document.getElementById('sendModalBackdrop');
     if (backdrop) {
         backdrop.remove();
     }
     
-    // Remove escape key handler
-    if (modalElement.escapeHandler) {
-        document.removeEventListener('keydown', modalElement.escapeHandler);
-        modalElement.escapeHandler = null;
-    }
-    
-    console.log('Modal closed successfully');
+    console.log('Popup closed successfully');
+}
+
+// Keep the old function for compatibility
+function closeSendModal(){
+    closeSendPopup();
 }
 
 // Restore sent button states from localStorage
