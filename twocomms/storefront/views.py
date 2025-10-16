@@ -7104,7 +7104,8 @@ def generate_wholesale_invoice(request):
             'company_name': company_name,
             'total_amount': total_amount,
             'total_tshirts': total_tshirts,
-            'total_hoodies': total_hoodies
+            'total_hoodies': total_hoodies,
+            'timestamp': int(now.timestamp() * 1000)
         })
         
     except Exception as e:
