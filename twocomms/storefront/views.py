@@ -7084,6 +7084,7 @@ def generate_wholesale_invoice(request):
                 total_tshirts=total_tshirts,
                 total_hoodies=total_hoodies,
                 total_amount=total_amount,
+                status='draft',  # Явно указываем статус
                 order_details={
                     'company_data': company_data,
                     'order_items': order_items
