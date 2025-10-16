@@ -3980,15 +3980,18 @@ async function checkInvoiceApprovalStatus(invoiceId) {
         if (result.success) {
             const payBtn = document.querySelector(`.pay-btn[data-invoice-id="${invoiceId}"]`);
             const paymentInfo = document.querySelector(`.payment-info[data-invoice-id="${invoiceId}"]`);
+            const sendBtn = document.querySelector(`.action-btn[data-invoice-id="${invoiceId}"]`);
             
             if (result.is_approved) {
-                // Показываем кнопку оплаты
+                // Показываем кнопку оплаты и скрываем кнопку отправки
                 if (payBtn) payBtn.style.display = 'inline-flex';
                 if (paymentInfo) paymentInfo.style.display = 'none';
+                if (sendBtn) sendBtn.style.display = 'none';
             } else {
                 // Показываем информацию о том, что нужно одобрение
                 if (payBtn) payBtn.style.display = 'none';
                 if (paymentInfo) paymentInfo.style.display = 'block';
+                if (sendBtn) sendBtn.style.display = 'inline-flex';
             }
         }
     } catch (error) {
@@ -4087,9 +4090,9 @@ async function sendToWork(invoiceId) {
         // Обновляем кнопку
         const btn = document.querySelector(`.action-btn[data-invoice-id="${invoiceId}"]`);
         if (btn) { 
-            btn.textContent = 'Накладна відправлена'; 
+            btn.textContent = 'Очікує одобрення'; 
             btn.disabled = true; 
-            btn.style.background = '#6b7280'; 
+            btn.style.background = '#f59e0b'; 
             btn.style.whiteSpace = 'nowrap';
             btn.style.overflow = 'hidden';
             btn.style.textOverflow = 'ellipsis';
@@ -4251,9 +4254,9 @@ function restoreSentButtonStates() {
                 console.log('Restoring button for invoice', invoice.id);
                 const btn = document.querySelector(`.action-btn[data-invoice-id="${invoice.id}"]`);
                 if (btn) {
-                    btn.textContent = 'Накладна відправлена';
+                    btn.textContent = 'Очікує одобрення';
                     btn.disabled = true;
-                    btn.style.background = '#6b7280';
+                    btn.style.background = '#f59e0b';
                     btn.style.whiteSpace = 'nowrap';
                     btn.style.overflow = 'hidden';
                     btn.style.textOverflow = 'ellipsis';
