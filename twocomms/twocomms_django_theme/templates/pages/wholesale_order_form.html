@@ -2145,6 +2145,20 @@
     z-index: 1055 !important;
 }
 
+/* Force modal to be positioned relative to viewport, not document */
+.send-modal .modal-dialog {
+    position: fixed !important;
+    top: 50vh !important;
+    left: 50vw !important;
+    transform: translate(-50%, -50%) !important;
+    margin: 0 !important;
+    max-width: 500px !important;
+    width: 90vw !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+    z-index: 1056 !important;
+}
+
 .send-modal .modal-content {
     background: linear-gradient(135deg, rgba(20,22,27,.95), rgba(14,16,22,.95));
     border: 1px solid rgba(255,255,255,.1);
@@ -2181,17 +2195,20 @@
     height: 100vh !important;
     padding: 0 !important;
     margin: 0 !important;
+    overflow: hidden !important;
 }
 
 .send-modal .modal-dialog {
     position: fixed !important;
-    top: 50% !important;
-    left: 50% !important;
+    top: 50vh !important;
+    left: 50vw !important;
     transform: translate(-50%, -50%) !important;
     margin: 0 !important;
     max-width: 500px !important;
     width: 90vw !important;
     z-index: 1056 !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
 }
 
 .send-modal-backdrop {
@@ -4058,12 +4075,14 @@ function openSendModal(invoiceId){
         const dialog = modalElement.querySelector('.modal-dialog');
         if (dialog) {
             dialog.style.position = 'fixed';
-            dialog.style.top = '50%';
-            dialog.style.left = '50%';
+            dialog.style.top = '50vh';
+            dialog.style.left = '50vw';
             dialog.style.transform = 'translate(-50%, -50%)';
             dialog.style.margin = '0';
             dialog.style.maxWidth = '500px';
             dialog.style.width = '90vw';
+            dialog.style.maxHeight = '90vh';
+            dialog.style.overflowY = 'auto';
             dialog.style.zIndex = '1056';
         }
         
@@ -4124,12 +4143,14 @@ function openSendModal(invoiceId){
         const dialog = modalElement.querySelector('.modal-dialog');
         if (dialog) {
             dialog.style.position = 'fixed';
-            dialog.style.top = '50%';
-            dialog.style.left = '50%';
+            dialog.style.top = '50vh';
+            dialog.style.left = '50vw';
             dialog.style.transform = 'translate(-50%, -50%)';
             dialog.style.margin = '0';
             dialog.style.maxWidth = '500px';
             dialog.style.width = '90vw';
+            dialog.style.maxHeight = '90vh';
+            dialog.style.overflowY = 'auto';
             dialog.style.zIndex = '1056';
         }
         
