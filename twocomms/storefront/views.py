@@ -7165,27 +7165,58 @@ def delete_wholesale_invoice(request, invoice_id):
     """Удаление накладной"""
     from orders.models import WholesaleInvoice
     import os
+    import glob
+    from django.conf import settings
     
     try:
         # Получаем накладную
         invoice = WholesaleInvoice.objects.get(id=invoice_id)
         
-        # Удаляем файл, если он существует (не критично, если файл не найден)
-        if invoice.file_path:
-            try:
+        # Удаляем файл(ы) накладной на диске
+        try:
+            deleted_any = False
+            # 1) Если знаем точный путь — удалить его
+            if invoice.file_path and os.path.isabs(invoice.file_path):
                 if os.path.exists(invoice.file_path):
                     os.remove(invoice.file_path)
+                    deleted_any = True
                     print(f"File deleted: {invoice.file_path}")
-                else:
-                    print(f"File not found (but that's OK): {invoice.file_path}")
-            except Exception as e:
-                print(f"Error deleting file (but continuing): {e}")
+            # 2) На случай если путь не сохранён или файл перемещён:
+            # Пытаемся найти все файлы в media/invoices/, содержащие номер накладной или часть имени компании
+            base_dir = os.path.join(settings.MEDIA_ROOT, 'invoices')
+            if os.path.isdir(base_dir):
+                safe_company = (invoice.company_name or '').strip().replace(' ', '_')
+                patterns = []
+                if invoice.invoice_number:
+                    patterns.append(f"**/*{invoice.invoice_number}*.xlsx")
+                if safe_company:
+                    patterns.append(f"**/*{safe_company}*накладнаОПТ*.xlsx")
+                for pattern in patterns:
+                    for path in glob.glob(os.path.join(base_dir, pattern), recursive=True):
+                        try:
+                            if os.path.isfile(path):
+                                os.remove(path)
+                                deleted_any = True
+                                print(f"Matched and deleted: {path}")
+                        except Exception as ge:
+                            print(f"Error deleting matched file {path}: {ge}")
+                # 3) Чистим пустые директории user_*/ после удаления
+                for root, dirs, files in os.walk(base_dir, topdown=False):
+                    if not dirs and not files:
+                        try:
+                            os.rmdir(root)
+                        except OSError:
+                            pass
+            if not deleted_any:
+                print(f"No invoice file(s) found to delete for invoice {invoice_id}")
+        except Exception as e:
+            print(f"Error during invoice file cleanup: {e}")
         
         # Удаляем запись из базы данных
         invoice.delete()
         print(f"Invoice {invoice_id} deleted successfully")
         
-        return JsonResponse({'success': True, 'message': 'Накладна видалена'})
+        return JsonResponse({'success': True, 'message': 'Накладна видалена назавжди'})
 
     except WholesaleInvoice.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Накладна не знайдена'}, status=404)
