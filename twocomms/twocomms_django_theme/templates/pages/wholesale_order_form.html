@@ -2316,14 +2316,14 @@
             </div>
             <div class="stat-card">
                 <span class="stat-icon" style="width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;">
-                    <img src="{% static 'img/icons/tshirt.svg' %}" alt="tshirt" width="18" height="18">
+                    <img src="/media/category_icons/optimized/free-icon-clothes-1720753_24x24.png" alt="tshirt" width="18" height="18">
                 </span>
                 <div class="stat-value">{{ user_invoice_stats.tshirt_count|default:0 }}</div>
                 <div class="stat-label">Футболок</div>
             </div>
             <div class="stat-card">
                 <span class="stat-icon" style="width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;">
-                    <img src="{% static 'img/icons/hoodie.svg' %}" alt="hoodie" width="18" height="18">
+                    <img src="/media/category_icons/optimized/free-icon-clothes-1720860_24x24.png" alt="hoodie" width="18" height="18">
                 </span>
                 <div class="stat-value">{{ user_invoice_stats.hoodie_count|default:0 }}</div>
                 <div class="stat-label">Худі</div>
@@ -2633,13 +2633,15 @@
 {% endblock %}
 
 {% block extra_js %}
+{{ tshirt_prices|json_script:"tshirt-prices-data" }}
+{{ hoodie_prices|json_script:"hoodie-prices-data" }}
 <script>
 // Global variables for wholesale order management
 let currentProduct = null;
 let currentOrderId = null;
 let orderItems = [];
-let tshirtPrices = {{ tshirt_prices|safe }};
-let hoodiePrices = {{ hoodie_prices|safe }};
+const tshirtPrices = JSON.parse(document.getElementById('tshirt-prices-data').textContent);
+const hoodiePrices = JSON.parse(document.getElementById('hoodie-prices-data').textContent);
 
 // Initialize color dots with proper colors
 function initializeColorDots() {
