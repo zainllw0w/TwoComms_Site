@@ -103,6 +103,7 @@ if 'social_django.context_processors.login_redirect' not in TEMPLATES[0]['OPTION
 # Telegram Bot настройки
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
+TELEGRAM_ADMIN_ID = os.environ.get('TELEGRAM_ADMIN_ID', '')
 
 # Nova Poshta API настройки
 NOVA_POSHTA_API_KEY = os.environ.get('NOVA_POSHTA_API_KEY', '')

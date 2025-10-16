@@ -14,20 +14,24 @@ class TelegramNotifier:
     def __init__(self):
         self.bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
         self.chat_id = os.environ.get('TELEGRAM_CHAT_ID')
+        self.admin_id = os.environ.get('TELEGRAM_ADMIN_ID')
         
     def is_configured(self):
         """Проверяет, настроен ли бот"""
-        return bool(self.bot_token and self.chat_id)
+        return bool(self.bot_token and (self.chat_id or self.admin_id))
     
     def send_message(self, message, parse_mode='HTML'):
         """Отправляет сообщение в Telegram"""
         if not self.is_configured():
             return False
             
+        # Используем админ ID, если он доступен, иначе chat_id
+        target_id = self.admin_id if self.admin_id else self.chat_id
+        
         try:
             url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
             data = {
-                'chat_id': self.chat_id,
+                'chat_id': target_id,
                 'text': message,
                 'parse_mode': parse_mode
             }
@@ -332,6 +336,9 @@ class TelegramNotifier:
         if not self.is_configured():
             return False
             
+        # Используем админ ID, если он доступен, иначе chat_id
+        target_id = self.admin_id if self.admin_id else self.chat_id
+            
         try:
             url = f"https://api.telegram.org/bot{self.bot_token}/sendDocument"
             
@@ -339,7 +346,7 @@ class TelegramNotifier:
             with open(file_path, 'rb') as file:
                 files = {'document': file}
                 data = {
-                    'chat_id': self.chat_id,
+                    'chat_id': target_id,
                     'caption': f"📋 Накладна #{invoice.invoice_number}\n🏢 {invoice.company_name}\n💰 {invoice.total_amount} грн",
                     'parse_mode': 'HTML'
                 }
