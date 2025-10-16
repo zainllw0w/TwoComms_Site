@@ -1941,6 +1941,34 @@ def admin_panel(request):
         except Exception:
             invoices = []
         ctx.update({'invoices': invoices})
+    
+    return render(request, 'pages/admin_panel.html', ctx)
+
+@require_POST
+@login_required
+def admin_update_invoice_status(request, invoice_id):
+    """Обновление статуса накладной (только для staff)"""
+    if not request.user.is_staff:
+        return JsonResponse({'error': 'Access denied'}, status=403)
+    
+    try:
+        from orders.models import WholesaleInvoice
+        import json
+        
+        data = json.loads(request.body)
+        new_status = data.get('status')
+        
+        if new_status not in ['pending', 'processing', 'shipped', 'delivered', 'cancelled']:
+            return JsonResponse({'error': 'Invalid status'}, status=400)
+        
+        invoice = WholesaleInvoice.objects.get(id=invoice_id)
+        invoice.status = new_status
+        invoice.save()
+        
+        return JsonResponse({'success': True, 'status': new_status})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
     else:
         # stats — основная статистика с фильтрами по времени
         try:

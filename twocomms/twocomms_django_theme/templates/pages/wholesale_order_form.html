@@ -2686,13 +2686,13 @@
         </div>
     </div>
     <!-- Modal -->
-    <div id="sendModal" class="modal-backdrop">
-        <div class="modal-card">
-            <div class="modal-title">Накладна відправлена</div>
-            <div class="modal-text" id="sendModalText">Для швидшої обробки — звʼяжіться з нами в Telegram.</div>
-            <div class="modal-actions">
-                <button class="btn-outline" onclick="closeSendModal()">Закрити</button>
-                <a class="btn-tg" href="https://t.me/twocomms" target="_blank" rel="noopener">Відкрити Telegram</a>
+    <div id="sendModal" class="modal-backdrop" style="position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(0,0,0,0.6) !important; display: none !important; align-items: center !important; justify-content: center !important; z-index: 10000 !important; margin: 0 !important; padding: 0 !important;">
+        <div class="modal-card" style="background: linear-gradient(135deg, rgba(20,22,27,.95), rgba(14,16,22,.95)); border:1px solid rgba(255,255,255,.1); border-radius: 14px; padding: 20px; width: min(520px, 92vw); box-shadow: 0 20px 60px rgba(0,0,0,.5);">
+            <div class="modal-title" style="margin:0 0 8px; font-weight:800; color:#e5e7eb; font-size: 1.1rem;">Накладна відправлена</div>
+            <div class="modal-text" id="sendModalText" style="color: rgba(229,231,235,.8); margin-bottom: 14px;">Для швидшої обробки — звʼяжіться з нами в Telegram.</div>
+            <div class="modal-actions" style="display:flex; gap:10px; justify-content:flex-end;">
+                <button class="btn-outline" onclick="closeSendModal()" style="background: transparent; border:1px solid rgba(255,255,255,.2); color:#e5e7eb; border-radius: 8px; padding:8px 12px; font-weight:700;">Закрити</button>
+                <a class="btn-tg" href="https://t.me/twocomms" target="_blank" rel="noopener" style="position:relative; display:inline-flex; align-items:center; gap:8px; padding:8px 12px; background: linear-gradient(135deg, #0f172a, #0b1220); border:1px solid rgba(99,102,241,.35); color:#e5e7eb; border-radius:8px; font-weight:700; text-decoration:none;">Відкрити Telegram</a>
             </div>
         </div>
     </div>
@@ -3940,12 +3940,15 @@ function deleteInvoice(invoiceId) {
 async function sendToWork(invoiceId) {
     if (!confirm('Відправити накладну на перевірку?')) return;
     try {
+        // Сначала обновляем статус накладной в базе данных
         const res = await fetch(`/admin-panel/invoices/update-status/${invoiceId}/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
             body: JSON.stringify({ status: 'pending' })
         });
         if (!res.ok) throw new Error('Помилка сервера');
+        
+        // Обновляем кнопку
         const btn = document.querySelector(`[data-invoice-id="${invoiceId}"] .action-btn[onclick^="sendToWork"]`);
         if (btn) { 
             btn.textContent = 'Накладна відправлена'; 
@@ -3957,8 +3960,11 @@ async function sendToWork(invoiceId) {
             // Сохраняем состояние в localStorage
             localStorage.setItem(`invoice_${invoiceId}_sent`, 'true');
         }
+        
+        // Показываем модальное окно
         openSendModal(invoiceId);
     } catch (e) {
+        console.error('Error sending invoice:', e);
         showNotification('Не вдалося відправити накладну', 'error');
     }
 }
@@ -3969,17 +3975,8 @@ function openSendModal(invoiceId){
     const t = document.getElementById('sendModalText');
     if (t) t.textContent = `Накладна #${invoiceId} відправлена. Для швидшої обробки — звʼяжіться з нами в Telegram.`;
     
-    // Принудительно устанавливаем стили для центрирования
-    m.style.position = 'fixed';
-    m.style.top = '0';
-    m.style.left = '0';
-    m.style.width = '100vw';
-    m.style.height = '100vh';
+    // Просто показываем модальное окно (стили уже в inline)
     m.style.display = 'flex';
-    m.style.alignItems = 'center';
-    m.style.justifyContent = 'center';
-    m.style.zIndex = '10000';
-    m.style.background = 'rgba(0,0,0,0.6)';
     m.classList.add('show');
 }
 function closeSendModal(){
