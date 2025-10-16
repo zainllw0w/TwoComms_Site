@@ -3668,18 +3668,24 @@ function saveInvoiceToLocalStorage(invoiceInfo) {
 
 function loadInvoicesFromLocalStorage() {
     const invoices = JSON.parse(localStorage.getItem('wholesaleInvoices') || '[]');
-    
-    // Сортируем по дате создания (новые сверху) - если есть timestamp
-    const sortedInvoices = invoices.sort((a, b) => {
-        if (a.timestamp && b.timestamp) {
-            return b.timestamp - a.timestamp; // Новые сверху
+    // Нормализуем timestamp (новые сверху)
+    const normalized = invoices.map(inv => {
+        let ts = inv.timestamp;
+        if (!ts && inv.date) {
+            const parsed = Date.parse(inv.date);
+            ts = isNaN(parsed) ? 0 : parsed;
         }
-        return 0;
+        if (!ts) {
+            // если нет даты — ставим 0, такие будут внизу
+            ts = 0;
+        }
+        return { ...inv, _ts: ts };
     });
-    
-    sortedInvoices.forEach(invoice => {
-        addInvoiceToList(invoice);
-    });
+    normalized
+        .sort((a, b) => b._ts - a._ts)
+        .forEach(invoice => {
+            addInvoiceToList(invoice);
+        });
 }
 
 // Функция для очистки старых накладных из localStorage
