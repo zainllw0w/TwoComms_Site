@@ -255,6 +255,99 @@ class TelegramNotifier:
 • <a href="https://twocomms.shop/my-orders/">📋 Мої замовлення</a>"""
 
         return message
+    
+    def send_invoice_notification(self, invoice):
+        """
+        Отправляет уведомление о новой накладной админу
+        
+        Args:
+            invoice (WholesaleInvoice): Накладная
+            
+        Returns:
+            bool: True если сообщение отправлено успешно
+        """
+        if not self.is_configured():
+            return False
+            
+        message = self.format_invoice_message(invoice)
+        return self.send_message(message)
+    
+    def format_invoice_message(self, invoice):
+        """
+        Форматирует сообщение о накладной
+        
+        Args:
+            invoice (WholesaleInvoice): Накладная
+            
+        Returns:
+            str: Отформатированное сообщение
+        """
+        # Основная информация о накладной
+        invoice_header = f"📋 <b>НОВА НАКЛАДНА #{invoice.invoice_number}</b>\n"
+        
+        # Создаем блок с информацией о накладной
+        full_block = f"""
+<pre language="text">
+┌─────────────────────────────────────────┐
+│  📋 НАКЛАДНА #{invoice.invoice_number}                │
+├─────────────────────────────────────────┤
+│  🏢 КОМПАНІЯ:
+│     Назва: {invoice.company_name}
+│     Номер: {invoice.company_number or 'Не вказано'}
+│     Телефон: {invoice.contact_phone}
+│     Адреса: {invoice.delivery_address}
+├─────────────────────────────────────────┤
+│  📊 ДЕТАЛІ НАКЛАДНОЇ:
+│     Статус: {invoice.get_status_display()}
+│     Футболки: {invoice.total_tshirts} шт.
+│     Худі: {invoice.total_hoodies} шт.
+│     Загальна сума: {invoice.total_amount} грн
+│     Дата створення: {invoice.created_at.strftime('%d.%m.%Y %H:%M')}
+└─────────────────────────────────────────┘
+</pre>"""
+        
+        # Добавляем ссылки
+        links = f"""
+🔗 <b>Корисні посилання:</b>
+• <a href="https://t.me/twocomms">💬 Допомога в Telegram</a>
+• <a href="https://twocomms.shop/admin-panel/collaboration/">📋 Адмін панель</a>
+• <a href="https://twocomms.shop/wholesale/download-invoice/{invoice.id}/">📥 Скачати накладну</a>"""
+        
+        # Собираем полное сообщение
+        message = f"{invoice_header}\n{full_block}\n{links}"
+        
+        return message
+    
+    def send_invoice_document(self, invoice, file_path):
+        """
+        Отправляет документ накладной в Telegram
+        
+        Args:
+            invoice (WholesaleInvoice): Накладная
+            file_path (str): Путь к файлу накладной
+            
+        Returns:
+            bool: True если документ отправлен успешно
+        """
+        if not self.is_configured():
+            return False
+            
+        try:
+            url = f"https://api.telegram.org/bot{self.bot_token}/sendDocument"
+            
+            # Читаем файл
+            with open(file_path, 'rb') as file:
+                files = {'document': file}
+                data = {
+                    'chat_id': self.chat_id,
+                    'caption': f"📋 Накладна #{invoice.invoice_number}\n🏢 {invoice.company_name}\n💰 {invoice.total_amount} грн",
+                    'parse_mode': 'HTML'
+                }
+                response = requests.post(url, files=files, data=data, timeout=30)
+                return response.status_code == 200
+        except Exception as e:
+            print(f"Ошибка при отправке документа накладной: {e}")
+            return False
 
 
 # Глобальный экземпляр для использования
