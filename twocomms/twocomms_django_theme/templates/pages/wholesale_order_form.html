@@ -3888,6 +3888,20 @@ document.addEventListener('DOMContentLoaded', function() {
     const toggleBtn = document.getElementById('toggleCompanySection');
     const body = document.getElementById('companySectionBody');
     if (toggleBtn && body) {
+        // Apply saved state on load
+        try {
+            const saved = localStorage.getItem('companySectionCollapsed');
+            const shouldCollapse = saved === '1';
+            if (shouldCollapse) {
+                body.classList.add('is-collapsed');
+                toggleBtn.classList.add('is-collapsed');
+                const text = toggleBtn.querySelector('.toggle-text');
+                if (text) text.textContent = 'Розгорнути';
+            }
+        } catch (e) {
+            // ignore storage errors
+        }
+
         toggleBtn.addEventListener('click', function() {
             const collapsed = body.classList.toggle('is-collapsed');
             toggleBtn.classList.toggle('is-collapsed', collapsed);
@@ -3895,6 +3909,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (text) {
                 text.textContent = collapsed ? 'Розгорнути' : 'Згорнути';
             }
+            // Persist state
+            try {
+                localStorage.setItem('companySectionCollapsed', collapsed ? '1' : '0');
+            } catch (e) {}
         });
     }
 });
