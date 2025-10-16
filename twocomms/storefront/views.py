@@ -1929,9 +1929,15 @@ def admin_panel(request):
             'total_orders': total_orders,
             'status_filter': status_filter,
             'payment_filter': payment_filter,
-            'user_id_filter': user_id_filter,
             'user_filter_info': user_filter_info
         })
+    elif section == 'collaboration':
+        try:
+            from orders.models import WholesaleInvoice
+            invoices = WholesaleInvoice.objects.all().order_by('-created_at')[:100]
+        except Exception:
+            invoices = []
+        ctx.update({'invoices': invoices})
     else:
         # stats — основная статистика с фильтрами по времени
         try:
