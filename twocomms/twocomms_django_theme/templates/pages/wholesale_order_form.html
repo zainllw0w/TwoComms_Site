@@ -3681,11 +3681,12 @@ function loadInvoicesFromLocalStorage() {
         }
         return { ...inv, _ts: ts };
     });
-    normalized
-        .sort((a, b) => b._ts - a._ts)
-        .forEach(invoice => {
-            addInvoiceToList(invoice);
-        });
+    const sorted = normalized.sort((a, b) => b._ts - a._ts);
+    // ВАЖНО: addInvoiceToList вставляет в начало, поэтому итерируем С КОНЦА,
+    // чтобы в итогеNewest остался сверху
+    for (let i = sorted.length - 1; i >= 0; i--) {
+        addInvoiceToList(sorted[i]);
+    }
 }
 
 // Функция для очистки старых накладных из localStorage
