@@ -1992,11 +1992,11 @@
 }
 
 /* Telegram CTA button with subtle waves */
-.tg-cta { position: relative; display:inline-flex; align-items:center; gap:8px; padding:10px 14px; background: linear-gradient(135deg, rgba(20,20,24,.9), rgba(10,10,12,.9)); border:1px solid rgba(255,255,255,.12); color:#e5e7eb; border-radius:10px; text-decoration:none; font-weight:700; transition: transform .2s ease, box-shadow .3s ease, border-color .3s ease; overflow:hidden; }
-.tg-cta:hover { transform: translateY(-2px); border-color: rgba(139,92,246,.4); box-shadow: 0 10px 30px rgba(139,92,246,.2); }
-.tg-cta .waves { position:absolute; inset:0; pointer-events:none; opacity:.15; background: radial-gradient(200px 60px at 0% 120%, #8b5cf6, transparent 70%), radial-gradient(180px 60px at 100% -20%, #3b82f6, transparent 70%); animation: tgWaves 6s ease-in-out infinite; }
+.tg-cta { position: relative; display:inline-flex; align-items:center; gap:8px; padding:10px 14px; background: linear-gradient(135deg, #0f172a, #0b1220); border:1px solid rgba(99,102,241,.35); color:#e5e7eb; border-radius:10px; text-decoration:none; font-weight:700; transition: transform .2s ease, box-shadow .3s ease, border-color .3s ease; overflow:hidden; }
+.tg-cta:hover { transform: translateY(-2px); border-color: rgba(99,102,241,.6); box-shadow: 0 10px 30px rgba(99,102,241,.25); }
+.tg-cta .waves { position:absolute; inset:0; pointer-events:none; opacity:.18; background: radial-gradient(220px 60px at 0% 120%, rgba(99,102,241,.8), transparent 70%), radial-gradient(180px 60px at 100% -20%, rgba(59,130,246,.8), transparent 70%); animation: tgWaves 6s ease-in-out infinite; }
 @keyframes tgWaves { 0%,100%{ transform: translateX(0);} 50%{ transform: translateX(-12px);} }
-.tg-cta svg { width:16px; height:16px; }
+.tg-cta svg { width:16px; height:16px; filter: drop-shadow(0 2px 6px rgba(59,130,246,.35)); }
 
 /* Gold animated hint */
 .gold-hint { font-weight:800; background: linear-gradient(135deg,#fbbf24,#f59e0b,#fbbf24); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; text-shadow:0 0 12px rgba(251,191,36,.25); animation: goldPulse 2.5s ease-in-out infinite; font-size:.9rem; }
@@ -2006,6 +2006,9 @@
 .company-validate { margin:.5rem 0 .75rem; font-weight:700; font-size:.9rem; }
 .company-validate.error { color:#f87171; text-shadow:0 0 10px rgba(248,113,113,.25); }
 .company-validate.ok { color:#34d399; text-shadow:0 0 10px rgba(52,211,153,.25); }
+
+/* Section header layout tweaks */
+.section-header-left { display:flex; align-items:center; gap:12px; }
 
 .invoices-list {
     display: flex;
@@ -2212,7 +2215,10 @@
     <!-- Company Information Form - Pricing Cards Style -->
     <div class="company-form-section">
         <div class="section-header">
-            <h2 class="section-title" style="margin: 0;">Інформація про компанію</h2>
+            <div class="section-header-left">
+                <h2 class="section-title" style="margin: 0;">Інформація про компанію</h2>
+                <div id="companyValidateInline" class="company-validate"></div>
+            </div>
             <button type="button" id="toggleCompanySection" class="collapse-toggle">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M7 10l5 5 5-5H7z"/>
@@ -2223,7 +2229,6 @@
         
         <form id="company-form">
             <div class="compact-form-container company-section-body" id="companySectionBody">
-                <div id="companyValidateSummary" class="company-validate"></div>
                 <!-- Top Row - Main Info -->
                 <div class="compact-form-row">
                     <!-- Company Name -->
@@ -2712,18 +2717,18 @@ function initializeCompanyForm() {
         const name = (document.getElementById('company-name')?.value || '').trim();
         const phone = (document.getElementById('phone-number')?.value || '').trim();
         const address = (document.getElementById('delivery-address')?.value || '').trim();
-        const el = document.getElementById('companyValidateSummary');
-        if (!el) return;
+        const elInline = document.getElementById('companyValidateInline');
+        if (!elInline) return;
         const requiredMissing = [];
         if (!name) requiredMissing.push('назва компанії/ФОП');
         if (!phone) requiredMissing.push('номер телефону');
         if (!address) requiredMissing.push('адреса доставки');
         if (requiredMissing.length) {
-            el.className = 'company-validate error';
-            el.textContent = `Потрібно заповнити: ${requiredMissing.join(', ')}`;
+            elInline.className = 'company-validate error';
+            elInline.textContent = `Потрібно заповнити: ${requiredMissing.join(', ')}`;
         } else {
-            el.className = 'company-validate ok';
-            el.textContent = 'Інформація про компанію заповнена успішно';
+            elInline.className = 'company-validate ok';
+            elInline.textContent = 'Інформація про компанію заповнена успішно';
         }
     };
     ['company-name','phone-number','delivery-address'].forEach(id => {
