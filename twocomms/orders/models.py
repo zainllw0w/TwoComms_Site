@@ -227,6 +227,9 @@ class WholesaleInvoice(models.Model):
     # Путь к файлу накладной
     file_path = models.CharField(max_length=500, blank=True, null=True, verbose_name="Шлях до файлу")
     
+    # Поле для одобрения накладной (доступна для оплаты)
+    is_approved = models.BooleanField(default=False, verbose_name="Одобрена для оплаты")
+    
     class Meta:
         verbose_name = "Оптова накладна"
         verbose_name_plural = "Оптові накладні"

@@ -7395,3 +7395,43 @@ def reset_all_invoices_status(request):
         })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+@require_POST
+@staff_member_required
+def toggle_invoice_approval(request, invoice_id):
+    """Переключение одобрения накладной для оплаты"""
+    from orders.models import WholesaleInvoice
+    import json
+    try:
+        invoice = WholesaleInvoice.objects.get(id=invoice_id)
+        data = json.loads(request.body or '{}')
+        is_approved = data.get('is_approved', False)
+        
+        invoice.is_approved = is_approved
+        invoice.save(update_fields=['is_approved'])
+        
+        status_text = "одобрена" if is_approved else "отклонена"
+        return JsonResponse({
+            'success': True, 
+            'message': f'Накладна {status_text} для оплаты',
+            'is_approved': is_approved
+        })
+    except WholesaleInvoice.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Накладна не знайдена'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+def check_invoice_approval_status(request, invoice_id):
+    """Проверка статуса одобрения накладной"""
+    from orders.models import WholesaleInvoice
+    try:
+        invoice = WholesaleInvoice.objects.get(id=invoice_id)
+        return JsonResponse({
+            'success': True,
+            'is_approved': invoice.is_approved,
+            'invoice_number': invoice.invoice_number
+        })
+    except WholesaleInvoice.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Накладна не знайдена'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)

@@ -3912,6 +3912,20 @@ function addInvoiceToList(invoice) {
             <div class="invoice-total">${totalAmount}</div>
         </div>
         <div class="invoice-actions">
+            <!-- Описание для кнопки оплаты -->
+            <div class="payment-info" style="display: none; margin-bottom: 8px; padding: 8px 12px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; font-size: 0.85rem; color: #fbbf24;" data-invoice-id="${invoice.id}">
+                <i class="fas fa-info-circle" style="margin-right: 6px;"></i>
+                Оплатити накладну можна тільки після відправки та одобрення в адмін панелі
+            </div>
+            
+            <!-- Кнопка оплаты (показывается только для одобренных накладных) -->
+            <button class="action-btn pay-btn" onclick="payInvoice('${invoice.id}')" title="Оплатити накладну" style="background: #f59e0b; display: none;" data-invoice-id="${invoice.id}">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M7,15H9C9,16.08 10.37,17 12,17C13.63,17 15,16.08 15,15C15,13.9 13.96,13.5 11.76,12.97C9.64,12.44 7,11.78 7,9C7,7.21 8.47,5.69 10.5,5.18V3H13.5V5.18C15.53,5.69 17,7.21 17,9H15C15,7.92 13.63,7 12,7C10.37,7 9,7.92 9,9C9,10.1 10.04,10.5 12.24,11.03C14.36,11.56 17,12.22 17,15C17,16.79 15.53,18.31 13.5,18.82V21H10.5V18.82C8.47,18.31 7,16.79 7,15Z"/>
+                </svg>
+                Оплатити
+            </button>
+            
             <button class="action-btn" onclick="downloadInvoice('${invoice.id}')" title="Скачати">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z"/>
@@ -3935,6 +3949,11 @@ function addInvoiceToList(invoice) {
     
     // Добавляем новую накладную в начало списка (сверху)
     invoicesList.insertBefore(invoiceItem, invoicesList.firstChild);
+    
+    // Проверяем статус одобрения для новой накладной
+    setTimeout(() => {
+        checkInvoiceApprovalStatus(invoice.id);
+    }, 100);
 }
 
 // Global function for downloading invoices
@@ -3950,6 +3969,37 @@ function downloadInvoice(invoiceId) {
     document.body.removeChild(link);
     
     showNotification('Накладна завантажується...', 'success');
+}
+
+// Function to check invoice approval status
+async function checkInvoiceApprovalStatus(invoiceId) {
+    try {
+        const response = await fetch(`/wholesale/check-approval/${invoiceId}/`);
+        const result = await response.json();
+        
+        if (result.success) {
+            const payBtn = document.querySelector(`.pay-btn[data-invoice-id="${invoiceId}"]`);
+            const paymentInfo = document.querySelector(`.payment-info[data-invoice-id="${invoiceId}"]`);
+            
+            if (result.is_approved) {
+                // Показываем кнопку оплаты
+                if (payBtn) payBtn.style.display = 'inline-flex';
+                if (paymentInfo) paymentInfo.style.display = 'none';
+            } else {
+                // Показываем информацию о том, что нужно одобрение
+                if (payBtn) payBtn.style.display = 'none';
+                if (paymentInfo) paymentInfo.style.display = 'block';
+            }
+        }
+    } catch (error) {
+        console.error('Error checking approval status:', error);
+    }
+}
+
+// Function to pay invoice
+function payInvoice(invoiceId) {
+    // Здесь будет логика оплаты
+    showNotification('Функція оплати буде додана найближчим часом', 'info');
 }
 
 // Global function for deleting invoices
@@ -4213,6 +4263,9 @@ function restoreSentButtonStates() {
                     console.log('Button not found for invoice', invoice.id);
                 }
             }
+            
+            // Проверяем статус одобрения для каждой накладной
+            checkInvoiceApprovalStatus(invoice.id);
         });
     }, 500);
 }
