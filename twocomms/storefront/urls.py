@@ -124,4 +124,7 @@ urlpatterns=[
     path('wholesale/download-invoice/<int:invoice_id>/', views.download_invoice_file, name='download_invoice_file'),
     path('wholesale/delete-invoice/<int:invoice_id>/', views.delete_wholesale_invoice, name='delete_wholesale_invoice'),
     path('wholesale/invoices/', views.get_user_invoices, name='get_user_invoices'),
+    # Collaboration admin (staff-only)
+    path('admin-panel/collaboration/', views.collaboration_admin, name='collaboration_admin'),
+    path('admin-panel/invoices/update-status/<int:invoice_id>/', views.update_invoice_status, name='update_invoice_status'),
 ]

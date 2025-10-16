@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Співпраця — адмін{% endblock %}
+{% block content %}
+<div class="container py-4">
+    <h1 class="mb-3">Співпраця</h1>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="p-3 rounded" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)">
+                <h3>Дропшипери</h3>
+                <div style="opacity:.7">Блок у розробці</div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="p-3 rounded" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)">
+                <h3>Оптовики — накладні</h3>
+                {% if invoices %}
+                <div class="list-group">
+                    {% for inv in invoices %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center" style="background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.08)">
+                        <div>
+                            <div><strong>{{ inv.invoice_number }}</strong> · {{ inv.company_name }}</div>
+                            <div class="small text-muted">Статус: {{ inv.get_status_display }}</div>
+                            {% if inv.file_path %}
+                                <div class="small"><a href="{% url 'download_invoice_file' inv.id %}" class="link-primary">Скачати файл</a></div>
+                            {% endif %}
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-outline-warning" onclick="updateInvoiceStatus({{ inv.id }}, 'processing')">В обробку</button>
+                            <button class="btn btn-sm btn-outline-success" onclick="updateInvoiceStatus({{ inv.id }}, 'shipped')">Відправлено</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-muted">Накладних поки немає</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+async function updateInvoiceStatus(id, status){
+  const res = await fetch(`/admin-panel/invoices/update-status/${id}/`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')},body:JSON.stringify({status})});
+  if(res.ok){ location.reload(); } else { alert('Помилка оновлення статусу'); }
+}
+function getCookie(name){const v=`; ${document.cookie}`.split(`; ${name}=`);if(v.length===2) return v.pop().split(';').shift();}
+</script>
+{% endblock %}
