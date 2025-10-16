@@ -2143,6 +2143,13 @@
 /* Modal styles - Clean Bootstrap implementation */
 .send-modal {
     z-index: 1055 !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 /* Force modal to be positioned relative to viewport, not document */
@@ -2157,6 +2164,7 @@
     max-height: 90vh !important;
     overflow-y: auto !important;
     z-index: 1056 !important;
+    pointer-events: auto !important;
 }
 
 .send-modal .modal-content {
@@ -4061,148 +4069,71 @@ function openSendModal(invoiceId){
         return;
     }
     
-    // Check if Bootstrap is available
-    if (typeof bootstrap === 'undefined') {
-        console.error('Bootstrap is not loaded!');
-        // Fallback: show modal manually
-        modalElement.style.display = 'block';
-        modalElement.style.position = 'fixed';
-        modalElement.style.top = '0';
-        modalElement.style.left = '0';
-        modalElement.style.width = '100vw';
-        modalElement.style.height = '100vh';
-        modalElement.style.zIndex = '1055';
-        modalElement.classList.add('show');
-        modalElement.setAttribute('aria-hidden', 'false');
-        document.body.classList.add('modal-open');
-        
-        // Position dialog in center
-        const dialog = modalElement.querySelector('.modal-dialog');
-        if (dialog) {
-            dialog.style.position = 'fixed';
-            dialog.style.top = '50vh';
-            dialog.style.left = '50vw';
-            dialog.style.transform = 'translate(-50%, -50%)';
-            dialog.style.margin = '0';
-            dialog.style.maxWidth = '500px';
-            dialog.style.width = '90vw';
-            dialog.style.maxHeight = '90vh';
-            dialog.style.overflowY = 'auto';
-            dialog.style.zIndex = '1056';
-        }
-        
-        // Add backdrop with click handler
-        const backdrop = document.createElement('div');
-        backdrop.className = 'modal-backdrop fade show';
-        backdrop.id = 'sendModalBackdrop';
-        backdrop.style.position = 'fixed';
-        backdrop.style.top = '0';
-        backdrop.style.left = '0';
-        backdrop.style.width = '100vw';
-        backdrop.style.height = '100vh';
-        backdrop.style.zIndex = '1050';
-        backdrop.style.cursor = 'pointer';
-        
-        // Add click handler to close modal when clicking backdrop
-        backdrop.addEventListener('click', function() {
-            closeSendModal();
-        });
-        
-        // Add escape key handler
-        const escapeHandler = function(event) {
-            if (event.key === 'Escape') {
-                closeSendModal();
-                document.removeEventListener('keydown', escapeHandler);
-            }
-        };
-        document.addEventListener('keydown', escapeHandler);
-        
-        document.body.appendChild(backdrop);
-        return;
+    // Always use manual positioning to ensure it works
+    modalElement.style.display = 'block';
+    modalElement.style.position = 'fixed';
+    modalElement.style.top = '0';
+    modalElement.style.left = '0';
+    modalElement.style.width = '100vw';
+    modalElement.style.height = '100vh';
+    modalElement.style.zIndex = '1055';
+    modalElement.style.padding = '0';
+    modalElement.style.margin = '0';
+    modalElement.classList.add('show');
+    modalElement.setAttribute('aria-hidden', 'false');
+    
+    // Prevent body scroll
+    document.body.style.overflow = 'hidden';
+    
+    // Position dialog in center of viewport
+    const dialog = modalElement.querySelector('.modal-dialog');
+    if (dialog) {
+        dialog.style.position = 'fixed';
+        dialog.style.top = '50vh';
+        dialog.style.left = '50vw';
+        dialog.style.transform = 'translate(-50%, -50%)';
+        dialog.style.margin = '0';
+        dialog.style.maxWidth = '500px';
+        dialog.style.width = '90vw';
+        dialog.style.maxHeight = '90vh';
+        dialog.style.overflowY = 'auto';
+        dialog.style.zIndex = '1056';
+        dialog.style.pointerEvents = 'auto';
     }
     
-    try {
-        // Use Bootstrap modal API
-        const modal = new bootstrap.Modal(modalElement, {
-            backdrop: true,
-            keyboard: true,
-            focus: true
-        });
-        modal.show();
-        console.log('Bootstrap modal shown');
-        
-        // Force positioning after Bootstrap shows the modal
-        setTimeout(() => {
-            const dialog = modalElement.querySelector('.modal-dialog');
-            if (dialog) {
-                dialog.style.position = 'fixed';
-                dialog.style.top = '50%';
-                dialog.style.left = '50%';
-                dialog.style.transform = 'translate(-50%, -50%)';
-                dialog.style.margin = '0';
-                dialog.style.maxWidth = '500px';
-                dialog.style.width = '90vw';
-                dialog.style.zIndex = '1056';
-            }
-        }, 100);
-        
-    } catch (error) {
-        console.error('Error showing Bootstrap modal:', error);
-        // Fallback: show modal manually
-        modalElement.style.display = 'block';
-        modalElement.style.position = 'fixed';
-        modalElement.style.top = '0';
-        modalElement.style.left = '0';
-        modalElement.style.width = '100vw';
-        modalElement.style.height = '100vh';
-        modalElement.style.zIndex = '1055';
-        modalElement.classList.add('show');
-        modalElement.setAttribute('aria-hidden', 'false');
-        document.body.classList.add('modal-open');
-        
-        // Position dialog in center
-        const dialog = modalElement.querySelector('.modal-dialog');
-        if (dialog) {
-            dialog.style.position = 'fixed';
-            dialog.style.top = '50vh';
-            dialog.style.left = '50vw';
-            dialog.style.transform = 'translate(-50%, -50%)';
-            dialog.style.margin = '0';
-            dialog.style.maxWidth = '500px';
-            dialog.style.width = '90vw';
-            dialog.style.maxHeight = '90vh';
-            dialog.style.overflowY = 'auto';
-            dialog.style.zIndex = '1056';
-        }
-        
-        // Add backdrop with click handler
-        const backdrop = document.createElement('div');
-        backdrop.className = 'modal-backdrop fade show';
-        backdrop.id = 'sendModalBackdrop';
-        backdrop.style.position = 'fixed';
-        backdrop.style.top = '0';
-        backdrop.style.left = '0';
-        backdrop.style.width = '100vw';
-        backdrop.style.height = '100vh';
-        backdrop.style.zIndex = '1050';
-        backdrop.style.cursor = 'pointer';
-        
-        // Add click handler to close modal when clicking backdrop
-        backdrop.addEventListener('click', function() {
+    // Add backdrop
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop fade show';
+    backdrop.id = 'sendModalBackdrop';
+    backdrop.style.position = 'fixed';
+    backdrop.style.top = '0';
+    backdrop.style.left = '0';
+    backdrop.style.width = '100vw';
+    backdrop.style.height = '100vh';
+    backdrop.style.zIndex = '1050';
+    backdrop.style.cursor = 'pointer';
+    backdrop.style.pointerEvents = 'auto';
+    
+    // Add click handler to close modal when clicking backdrop
+    backdrop.addEventListener('click', function(event) {
+        event.stopPropagation();
+        closeSendModal();
+    });
+    
+    // Add escape key handler
+    const escapeHandler = function(event) {
+        if (event.key === 'Escape') {
             closeSendModal();
-        });
-        
-        // Add escape key handler
-        const escapeHandler = function(event) {
-            if (event.key === 'Escape') {
-                closeSendModal();
-                document.removeEventListener('keydown', escapeHandler);
-            }
-        };
-        document.addEventListener('keydown', escapeHandler);
-        
-        document.body.appendChild(backdrop);
-    }
+            document.removeEventListener('keydown', escapeHandler);
+        }
+    };
+    document.addEventListener('keydown', escapeHandler);
+    
+    // Store escape handler for cleanup
+    modalElement.escapeHandler = escapeHandler;
+    
+    document.body.appendChild(backdrop);
+    console.log('Modal shown manually');
 }
 function closeSendModal(){
     console.log('Closing modal');
@@ -4210,24 +4141,13 @@ function closeSendModal(){
     const modalElement = document.getElementById('sendModal');
     if (!modalElement) return;
     
-    // Try Bootstrap modal API first
-    if (typeof bootstrap !== 'undefined') {
-        try {
-            const modal = bootstrap.Modal.getInstance(modalElement);
-            if (modal) {
-                modal.hide();
-                return;
-            }
-        } catch (error) {
-            console.error('Error hiding Bootstrap modal:', error);
-        }
-    }
-    
-    // Fallback: hide modal manually
+    // Hide modal
     modalElement.style.display = 'none';
     modalElement.classList.remove('show');
     modalElement.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('modal-open');
+    
+    // Restore body scroll
+    document.body.style.overflow = '';
     
     // Remove backdrop
     const backdrop = document.getElementById('sendModalBackdrop');
@@ -4235,12 +4155,11 @@ function closeSendModal(){
         backdrop.remove();
     }
     
-    // Remove any escape key handlers
-    document.removeEventListener('keydown', function(event) {
-        if (event.key === 'Escape') {
-            closeSendModal();
-        }
-    });
+    // Remove escape key handler
+    if (modalElement.escapeHandler) {
+        document.removeEventListener('keydown', modalElement.escapeHandler);
+        modalElement.escapeHandler = null;
+    }
     
     console.log('Modal closed successfully');
 }
