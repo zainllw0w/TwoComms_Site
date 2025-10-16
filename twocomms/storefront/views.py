@@ -7337,3 +7337,21 @@ def update_invoice_status(request, invoice_id):
         return JsonResponse({'success': False, 'error': 'Накладна не знайдена'}, status=404)
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+@require_POST
+@staff_member_required
+def reset_all_invoices_status(request):
+    from orders.models import WholesaleInvoice
+    try:
+        # Reset all invoices to 'draft' status
+        updated_count = WholesaleInvoice.objects.filter(
+            status__in=['pending', 'processing', 'shipped', 'delivered']
+        ).update(status='draft')
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f'Статус {updated_count} накладних скинуто до "Чернетка"',
+            'updated_count': updated_count
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)

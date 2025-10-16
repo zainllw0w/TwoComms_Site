@@ -2670,6 +2670,9 @@
         <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:1rem; gap:1rem; flex-wrap:wrap;">
             <h2 class="section-title" style="margin:0;">Сформовані накладні</h2>
             <div style="display:flex; align-items:center; gap:12px;">
+                <button type="button" class="btn btn-outline-warning btn-sm" onclick="resetAllInvoicesStatus()" style="white-space: nowrap;">
+                    <i class="fas fa-undo me-1"></i>Скинути статус
+                </button>
                 <div class="gold-hint">Для швидшої обробки — звʼяжіться з нами в Telegram</div>
                 <a class="tg-cta" href="https://t.me/twocomms" target="_blank" rel="noopener noreferrer" aria-label="Звʼязатися в Telegram">
                     <div class="waves"></div>
@@ -4023,6 +4026,58 @@ function restoreSentButtonStates() {
             }
         });
     }, 500);
+}
+
+// Function to reset all invoices to "not sent" status
+async function resetAllInvoicesStatus() {
+    if (!confirm('Скинути статус всіх накладних? Всі накладні стануть доступними для відправки.')) {
+        return;
+    }
+    
+    try {
+        // Reset status in database
+        const response = await fetch('/admin-panel/invoices/reset-all-status/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Get all invoices from localStorage
+            const invoices = JSON.parse(localStorage.getItem('wholesaleInvoices') || '[]');
+            console.log('Resetting status for', invoices.length, 'invoices');
+            
+            // Reset all invoice statuses in localStorage
+            invoices.forEach(invoice => {
+                localStorage.removeItem(`invoice_${invoice.id}_sent`);
+            });
+            
+            // Reset all buttons in UI
+            const buttons = document.querySelectorAll('.action-btn[data-invoice-id]');
+            buttons.forEach(btn => {
+                btn.textContent = 'Відправити накладну';
+                btn.disabled = false;
+                btn.style.background = '';
+                btn.style.whiteSpace = '';
+                btn.style.overflow = '';
+                btn.style.textOverflow = '';
+                btn.style.maxWidth = '';
+            });
+            
+            showNotification(result.message || 'Статус всіх накладних скинуто!', 'success');
+            console.log('All invoice statuses reset successfully');
+        } else {
+            showNotification(result.error || 'Помилка при скиданні статусу накладних', 'error');
+        }
+        
+    } catch (error) {
+        console.error('Error resetting invoice statuses:', error);
+        showNotification('Помилка при скиданні статусу накладних', 'error');
+    }
 }
 
 // Notification system

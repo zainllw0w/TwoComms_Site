@@ -127,4 +127,5 @@ urlpatterns=[
     # Collaboration admin (staff-only)
     path('admin-panel/collaboration/', views.collaboration_admin, name='collaboration_admin'),
     path('admin-panel/invoices/update-status/<int:invoice_id>/', views.admin_update_invoice_status, name='admin_update_invoice_status'),
+    path('admin-panel/invoices/reset-all-status/', views.reset_all_invoices_status, name='reset_all_invoices_status'),
 ]
