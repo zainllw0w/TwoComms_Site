@@ -2140,7 +2140,7 @@
     color: white;
 }
 
-/* Modal styles */
+/* Modal styles - Fixed positioning and z-index issues */
 .modal-backdrop { 
     position: fixed !important; 
     top: 0 !important; 
@@ -2148,23 +2148,75 @@
     width: 100vw !important; 
     height: 100vh !important; 
     background: rgba(0,0,0,.6) !important; 
-    display: none !important; 
-    align-items: center !important; 
-    justify-content: center !important; 
-    z-index: 10000 !important; 
+    z-index: 1050 !important; 
     margin: 0 !important;
     padding: 0 !important;
 }
-.modal-backdrop.show { 
-    display: flex !important; 
+
+/* Ensure modal dialog is properly centered */
+.modal-dialog {
+    position: relative !important;
+    width: auto !important;
+    margin: 1.75rem auto !important;
+    max-width: 500px !important;
+    z-index: 1055 !important;
 }
-.modal-card { background: linear-gradient(135deg, rgba(20,22,27,.95), rgba(14,16,22,.95)); border:1px solid rgba(255,255,255,.1); border-radius: 14px; padding: 20px; width: min(520px, 92vw); box-shadow: 0 20px 60px rgba(0,0,0,.5); }
-.modal-title { margin:0 0 8px; font-weight:800; color:#e5e7eb; font-size: 1.1rem; }
-.modal-text { color: rgba(229,231,235,.8); margin-bottom: 14px; }
-.modal-actions { display:flex; gap:10px; justify-content:flex-end; }
-.btn-outline { background: transparent; border:1px solid rgba(255,255,255,.2); color:#e5e7eb; border-radius: 8px; padding:8px 12px; font-weight:700; }
-.btn-tg { position:relative; display:inline-flex; align-items:center; gap:8px; padding:8px 12px; background: linear-gradient(135deg, #0f172a, #0b1220); border:1px solid rgba(99,102,241,.35); color:#e5e7eb; border-radius:8px; font-weight:700; text-decoration:none; }
-.btn-tg:hover { border-color: rgba(99,102,241,.6); }
+
+.modal-content {
+    background: linear-gradient(135deg, rgba(20,22,27,.95), rgba(14,16,22,.95)) !important;
+    border: 1px solid rgba(255,255,255,.1) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5) !important;
+}
+
+.modal-header {
+    border-bottom: 1px solid rgba(255,255,255,.1) !important;
+}
+
+.modal-title { 
+    margin: 0 0 8px !important; 
+    font-weight: 800 !important; 
+    color: #e5e7eb !important; 
+    font-size: 1.1rem !important; 
+}
+
+.modal-text { 
+    color: rgba(229,231,235,.8) !important; 
+    margin-bottom: 14px !important; 
+}
+
+.modal-actions { 
+    display: flex !important; 
+    gap: 10px !important; 
+    justify-content: flex-end !important; 
+}
+
+.btn-outline { 
+    background: transparent !important; 
+    border: 1px solid rgba(255,255,255,.2) !important; 
+    color: #e5e7eb !important; 
+    border-radius: 8px !important; 
+    padding: 8px 12px !important; 
+    font-weight: 700 !important; 
+}
+
+.btn-tg { 
+    position: relative !important; 
+    display: inline-flex !important; 
+    align-items: center !important; 
+    gap: 8px !important; 
+    padding: 8px 12px !important; 
+    background: linear-gradient(135deg, #0f172a, #0b1220) !important; 
+    border: 1px solid rgba(99,102,241,.35) !important; 
+    color: #e5e7eb !important; 
+    border-radius: 8px !important; 
+    font-weight: 700 !important; 
+    text-decoration: none !important; 
+}
+
+.btn-tg:hover { 
+    border-color: rgba(99,102,241,.6) !important; 
+}
 
 /* Responsive Design */
 @media (max-width: 768px) {
@@ -3984,8 +4036,21 @@ function openSendModal(invoiceId){
         t.textContent = `Накладна #${invoiceId} відправлена. Для швидшої обробки — звʼяжіться з нами в Telegram.`;
     }
     
-    // Используем Bootstrap modal API
-    const modal = new bootstrap.Modal(document.getElementById('sendModal'));
+    // Убеждаемся что модальное окно существует
+    const modalElement = document.getElementById('sendModal');
+    if (!modalElement) {
+        console.error('Modal element not found');
+        return;
+    }
+    
+    // Используем Bootstrap modal API с правильной инициализацией
+    const modal = new bootstrap.Modal(modalElement, {
+        backdrop: true,
+        keyboard: true,
+        focus: true
+    });
+    
+    // Показываем модальное окно
     modal.show();
     
     console.log('Bootstrap modal should be visible now');
@@ -4002,7 +4067,8 @@ function closeSendModal(){
 function restoreSentButtonStates() {
     // Ждем немного чтобы DOM обновился
     setTimeout(() => {
-        const invoices = JSON.parse(localStorage.getItem('wholesale_invoices') || '[]');
+        // Используем правильный ключ localStorage
+        const invoices = JSON.parse(localStorage.getItem('wholesaleInvoices') || '[]');
         console.log('Restoring button states for', invoices.length, 'invoices');
         
         invoices.forEach(invoice => {
