@@ -2140,6 +2140,16 @@
     color: white;
 }
 
+/* Modal styles */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index: 10000; }
+.modal-card { background: linear-gradient(135deg, rgba(20,22,27,.95), rgba(14,16,22,.95)); border:1px solid rgba(255,255,255,.1); border-radius: 14px; padding: 20px; width: min(520px, 92vw); box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+.modal-title { margin:0 0 8px; font-weight:800; color:#e5e7eb; font-size: 1.1rem; }
+.modal-text { color: rgba(229,231,235,.8); margin-bottom: 14px; }
+.modal-actions { display:flex; gap:10px; justify-content:flex-end; }
+.btn-outline { background: transparent; border:1px solid rgba(255,255,255,.2); color:#e5e7eb; border-radius: 8px; padding:8px 12px; font-weight:700; }
+.btn-tg { position:relative; display:inline-flex; align-items:center; gap:8px; padding:8px 12px; background: linear-gradient(135deg, #0f172a, #0b1220); border:1px solid rgba(99,102,241,.35); color:#e5e7eb; border-radius:8px; font-weight:700; text-decoration:none; }
+.btn-tg:hover { border-color: rgba(99,102,241,.6); }
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .order-form-container {
@@ -2656,6 +2666,17 @@
             <!-- Invoices will be dynamically added here -->
             <div style="color: rgba(255, 255, 255, 0.6); text-align: center; padding: 2rem;">
                 Поки що немає сформованих накладних
+            </div>
+        </div>
+    </div>
+    <!-- Modal -->
+    <div id="sendModal" class="modal-backdrop">
+        <div class="modal-card">
+            <div class="modal-title">Накладна відправлена</div>
+            <div class="modal-text" id="sendModalText">Для швидшої обробки — звʼяжіться з нами в Telegram.</div>
+            <div class="modal-actions">
+                <button class="btn-outline" onclick="closeSendModal()">Закрити</button>
+                <a class="btn-tg" href="https://t.me/twocomms" target="_blank" rel="noopener">Відкрити Telegram</a>
             </div>
         </div>
     </div>
@@ -3899,10 +3920,33 @@ function deleteInvoice(invoiceId) {
 }
 
 // Global function for sending invoices to work
-function sendToWork(invoiceId) {
-    if (confirm('Відправити накладну в роботу? Очікуйте дзвінка для підтвердження.')) {
-        showNotification('Накладна відправлена на перевірку. Очікуйте дзвінка!', 'success');
+async function sendToWork(invoiceId) {
+    if (!confirm('Відправити накладну на перевірку?')) return;
+    try {
+        const res = await fetch(`/admin-panel/invoices/update-status/${invoiceId}/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ status: 'pending' })
+        });
+        if (!res.ok) throw new Error('Помилка сервера');
+        const btn = document.querySelector(`[data-invoice-id="${invoiceId}"] .action-btn[onclick^="sendToWork"]`);
+        if (btn) { btn.textContent = 'Накладна відправлена'; btn.disabled = true; btn.style.background = '#6b7280'; }
+        openSendModal(invoiceId);
+    } catch (e) {
+        showNotification('Не вдалося відправити накладну', 'error');
     }
+}
+
+function openSendModal(invoiceId){
+    const m = document.getElementById('sendModal');
+    if (!m) return;
+    const t = document.getElementById('sendModalText');
+    if (t) t.textContent = `Накладна #${invoiceId} відправлена. Для швидшої обробки — звʼяжіться з нами в Telegram.`;
+    m.style.display = 'flex';
+}
+function closeSendModal(){
+    const m = document.getElementById('sendModal');
+    if (m) m.style.display = 'none';
 }
 
 // Notification system
