@@ -2690,8 +2690,10 @@
         position: fixed !important; 
         top: 0 !important; 
         left: 0 !important; 
-        width: 100vw !important; 
-        height: 100vh !important; 
+        right: 0 !important; 
+        bottom: 0 !important; 
+        width: 100% !important; 
+        height: 100% !important; 
         background: rgba(0,0,0,0.8) !important; 
         display: none !important; 
         align-items: center !important; 
@@ -2700,6 +2702,7 @@
         margin: 0 !important; 
         padding: 0 !important;
         font-family: Arial, sans-serif !important;
+        overflow: hidden !important;
     ">
         <div style="
             background: linear-gradient(135deg, rgba(20,22,27,0.98), rgba(14,16,22,0.98)) !important; 
@@ -2776,11 +2779,11 @@ document.addEventListener('DOMContentLoaded', function() {
         initializeDragAndDrop();
         initializeColorDots();
         initializeCategoryFilter();
-        restoreSentButtonStates();
         initializeProductClick();
         initializeOrderForm();
         loadOrderData(); // Load saved data
         loadInvoicesFromLocalStorage(); // Load saved invoices
+        restoreSentButtonStates(); // Restore button states after loading invoices
         updateOrderStatistics(); // Initialize statistics on page load
     } catch (error) {
         console.error('Error during initialization:', error);
@@ -4025,44 +4028,61 @@ function openSendModal(invoiceId){
         t.textContent = `Накладна #${invoiceId} відправлена. Для швидшої обробки — звʼяжіться з нами в Telegram.`;
     }
     
-    // Принудительно показываем модальное окно
+    // Принудительно показываем модальное окно по центру экрана
     m.style.display = 'flex';
     m.style.position = 'fixed';
     m.style.top = '0';
     m.style.left = '0';
-    m.style.width = '100vw';
-    m.style.height = '100vh';
+    m.style.right = '0';
+    m.style.bottom = '0';
+    m.style.width = '100%';
+    m.style.height = '100%';
     m.style.zIndex = '99999';
     m.style.background = 'rgba(0,0,0,0.8)';
     m.style.alignItems = 'center';
     m.style.justifyContent = 'center';
+    m.style.overflow = 'hidden';
+    
+    // Блокируем скролл страницы
+    document.body.style.overflow = 'hidden';
     
     console.log('Modal should be visible now');
 }
 function closeSendModal(){
     const m = document.getElementById('sendModal');
     if (m) {
-        m.classList.remove('show');
         m.style.display = 'none';
+        // Восстанавливаем скролл страницы
+        document.body.style.overflow = '';
     }
 }
 
 // Restore sent button states from localStorage
 function restoreSentButtonStates() {
-    const invoices = JSON.parse(localStorage.getItem('wholesale_invoices') || '[]');
-    invoices.forEach(invoice => {
-        if (localStorage.getItem(`invoice_${invoice.id}_sent`) === 'true') {
-            const btn = document.querySelector(`[data-invoice-id="${invoice.id}"] .action-btn[onclick^="sendToWork"]`);
-            if (btn) {
-                btn.textContent = 'Накладна відправлена';
-                btn.disabled = true;
-                btn.style.background = '#6b7280';
-                btn.style.whiteSpace = 'nowrap';
-                btn.style.overflow = 'hidden';
-                btn.style.textOverflow = 'ellipsis';
+    // Ждем немного чтобы DOM обновился
+    setTimeout(() => {
+        const invoices = JSON.parse(localStorage.getItem('wholesale_invoices') || '[]');
+        console.log('Restoring button states for', invoices.length, 'invoices');
+        
+        invoices.forEach(invoice => {
+            if (localStorage.getItem(`invoice_${invoice.id}_sent`) === 'true') {
+                console.log('Restoring button for invoice', invoice.id);
+                const btn = document.querySelector(`[data-invoice-id="${invoice.id}"] .action-btn[onclick^="sendToWork"]`);
+                if (btn) {
+                    btn.textContent = 'Накладна відправлена';
+                    btn.disabled = true;
+                    btn.style.background = '#6b7280';
+                    btn.style.whiteSpace = 'nowrap';
+                    btn.style.overflow = 'hidden';
+                    btn.style.textOverflow = 'ellipsis';
+                    btn.style.maxWidth = '200px';
+                    console.log('Button restored for invoice', invoice.id);
+                } else {
+                    console.log('Button not found for invoice', invoice.id);
+                }
             }
-        }
-    });
+        });
+    }, 500);
 }
 
 // Notification system
