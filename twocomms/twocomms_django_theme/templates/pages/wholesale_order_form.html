@@ -2686,60 +2686,22 @@
         </div>
     </div>
     <!-- Modal -->
-    <div id="sendModal" style="
-        position: fixed !important; 
-        top: 0 !important; 
-        left: 0 !important; 
-        right: 0 !important; 
-        bottom: 0 !important; 
-        width: 100% !important; 
-        height: 100% !important; 
-        background: rgba(0,0,0,0.8) !important; 
-        display: none !important; 
-        align-items: center !important; 
-        justify-content: center !important; 
-        z-index: 99999 !important; 
-        margin: 0 !important; 
-        padding: 0 !important;
-        font-family: Arial, sans-serif !important;
-        overflow: hidden !important;
-    ">
-        <div style="
-            background: linear-gradient(135deg, rgba(20,22,27,0.98), rgba(14,16,22,0.98)) !important; 
-            border: 2px solid rgba(255,255,255,0.2) !important; 
-            border-radius: 16px !important; 
-            padding: 30px !important; 
-            width: min(500px, 90vw) !important; 
-            max-width: 500px !important;
-            box-shadow: 0 25px 80px rgba(0,0,0,0.8) !important;
-            backdrop-filter: blur(10px) !important;
-        ">
-            <div style="margin: 0 0 15px 0; font-weight: 800; color: #e5e7eb; font-size: 1.3rem; text-align: center;">Накладна відправлена</div>
-            <div id="sendModalText" style="color: rgba(229,231,235,0.9); margin-bottom: 20px; text-align: center; line-height: 1.5;">Для швидшої обробки — звʼяжіться з нами в Telegram.</div>
-            <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
-                <button onclick="closeSendModal()" style="
-                    background: transparent !important; 
-                    border: 2px solid rgba(255,255,255,0.3) !important; 
-                    color: #e5e7eb !important; 
-                    border-radius: 10px !important; 
-                    padding: 12px 20px !important; 
-                    font-weight: 700 !important;
-                    cursor: pointer !important;
-                    transition: all 0.3s ease !important;
-                " onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">Закрити</button>
-                <a href="https://t.me/twocomms" target="_blank" rel="noopener" style="
-                    display: inline-flex !important;
-                    align-items: center !important;
-                    gap: 8px !important;
-                    padding: 12px 20px !important;
-                    background: linear-gradient(135deg, #1e40af, #3b82f6) !important;
-                    border: 2px solid rgba(59, 130, 246, 0.5) !important;
-                    color: white !important;
-                    border-radius: 10px !important;
-                    font-weight: 700 !important;
-                    text-decoration: none !important;
-                    transition: all 0.3s ease !important;
-                " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">Відкрити Telegram</a>
+    <div class="modal fade" id="sendModal" tabindex="-1" aria-labelledby="sendModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark border-0">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold text-white" id="sendModalLabel">Накладна відправлена</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <div id="sendModalText" class="text-light mb-3">Для швидшої обробки — звʼяжіться з нами в Telegram.</div>
+                    <div class="d-flex gap-3 justify-content-center flex-wrap">
+                        <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Закрити</button>
+                        <a href="https://t.me/twocomms" target="_blank" rel="noopener" class="btn btn-primary">
+                            <i class="fab fa-telegram me-2"></i>Відкрити Telegram
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -3885,7 +3847,7 @@ function addInvoiceToList(invoice) {
                 </svg>
                 Видалити
             </button>
-            <button class="action-btn" onclick="sendToWork('${invoice.id}')" title="Відправити в роботу" style="background: #10b981;">
+            <button class="action-btn" onclick="sendToWork('${invoice.id}')" title="Відправити в роботу" style="background: #10b981;" data-invoice-id="${invoice.id}">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M2,21L23,12L2,3V10L17,12L2,14V21Z"/>
                 </svg>
@@ -3996,7 +3958,7 @@ async function sendToWork(invoiceId) {
         if (!res.ok) throw new Error('Помилка сервера');
         
         // Обновляем кнопку
-        const btn = document.querySelector(`[data-invoice-id="${invoiceId}"] .action-btn[onclick^="sendToWork"]`);
+        const btn = document.querySelector(`.action-btn[data-invoice-id="${invoiceId}"]`);
         if (btn) { 
             btn.textContent = 'Накладна відправлена'; 
             btn.disabled = true; 
@@ -4017,43 +3979,22 @@ async function sendToWork(invoiceId) {
 }
 
 function openSendModal(invoiceId){
-    const m = document.getElementById('sendModal');
-    if (!m) {
-        console.error('Modal element not found');
-        return;
-    }
-    
     const t = document.getElementById('sendModalText');
     if (t) {
         t.textContent = `Накладна #${invoiceId} відправлена. Для швидшої обробки — звʼяжіться з нами в Telegram.`;
     }
     
-    // Принудительно показываем модальное окно по центру экрана
-    m.style.display = 'flex';
-    m.style.position = 'fixed';
-    m.style.top = '0';
-    m.style.left = '0';
-    m.style.right = '0';
-    m.style.bottom = '0';
-    m.style.width = '100%';
-    m.style.height = '100%';
-    m.style.zIndex = '99999';
-    m.style.background = 'rgba(0,0,0,0.8)';
-    m.style.alignItems = 'center';
-    m.style.justifyContent = 'center';
-    m.style.overflow = 'hidden';
+    // Используем Bootstrap modal API
+    const modal = new bootstrap.Modal(document.getElementById('sendModal'));
+    modal.show();
     
-    // Блокируем скролл страницы
-    document.body.style.overflow = 'hidden';
-    
-    console.log('Modal should be visible now');
+    console.log('Bootstrap modal should be visible now');
 }
 function closeSendModal(){
-    const m = document.getElementById('sendModal');
-    if (m) {
-        m.style.display = 'none';
-        // Восстанавливаем скролл страницы
-        document.body.style.overflow = '';
+    // Используем Bootstrap modal API
+    const modal = bootstrap.Modal.getInstance(document.getElementById('sendModal'));
+    if (modal) {
+        modal.hide();
     }
 }
 
@@ -4067,7 +4008,7 @@ function restoreSentButtonStates() {
         invoices.forEach(invoice => {
             if (localStorage.getItem(`invoice_${invoice.id}_sent`) === 'true') {
                 console.log('Restoring button for invoice', invoice.id);
-                const btn = document.querySelector(`[data-invoice-id="${invoice.id}"] .action-btn[onclick^="sendToWork"]`);
+                const btn = document.querySelector(`.action-btn[data-invoice-id="${invoice.id}"]`);
                 if (btn) {
                     btn.textContent = 'Накладна відправлена';
                     btn.disabled = true;
