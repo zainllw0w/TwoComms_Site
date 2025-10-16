@@ -1938,6 +1938,8 @@ def admin_panel(request):
             invoices = WholesaleInvoice.objects.filter(
                 status__in=['pending', 'processing', 'shipped', 'delivered', 'cancelled']
             ).order_by('-created_at')[:100]
+            # Отладочная информация
+            print(f"DEBUG: Found {invoices.count()} invoices with statuses: {[inv.status for inv in invoices]}")
         except Exception:
             invoices = []
         ctx.update({'invoices': invoices})

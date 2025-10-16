@@ -2142,16 +2142,18 @@
 
 /* Modal styles */
 .modal-backdrop { 
-    position: fixed; 
-    top: 0; 
-    left: 0; 
-    width: 100vw; 
-    height: 100vh; 
-    background: rgba(0,0,0,.6); 
-    display: none; 
-    align-items: center; 
-    justify-content: center; 
-    z-index: 10000; 
+    position: fixed !important; 
+    top: 0 !important; 
+    left: 0 !important; 
+    width: 100vw !important; 
+    height: 100vh !important; 
+    background: rgba(0,0,0,.6) !important; 
+    display: none !important; 
+    align-items: center !important; 
+    justify-content: center !important; 
+    z-index: 10000 !important; 
+    margin: 0 !important;
+    padding: 0 !important;
 }
 .modal-backdrop.show { 
     display: flex !important; 
