@@ -2142,6 +2142,7 @@
 
 /* Modal styles */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index: 10000; }
+.modal-backdrop.show { display: flex !important; }
 .modal-card { background: linear-gradient(135deg, rgba(20,22,27,.95), rgba(14,16,22,.95)); border:1px solid rgba(255,255,255,.1); border-radius: 14px; padding: 20px; width: min(520px, 92vw); box-shadow: 0 20px 60px rgba(0,0,0,.5); }
 .modal-title { margin:0 0 8px; font-weight:800; color:#e5e7eb; font-size: 1.1rem; }
 .modal-text { color: rgba(229,231,235,.8); margin-bottom: 14px; }
@@ -3942,11 +3943,15 @@ function openSendModal(invoiceId){
     if (!m) return;
     const t = document.getElementById('sendModalText');
     if (t) t.textContent = `Накладна #${invoiceId} відправлена. Для швидшої обробки — звʼяжіться з нами в Telegram.`;
+    m.classList.add('show');
     m.style.display = 'flex';
 }
 function closeSendModal(){
     const m = document.getElementById('sendModal');
-    if (m) m.style.display = 'none';
+    if (m) {
+        m.classList.remove('show');
+        m.style.display = 'none';
+    }
 }
 
 // Notification system
