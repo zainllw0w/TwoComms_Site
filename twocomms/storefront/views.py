@@ -1934,7 +1934,10 @@ def admin_panel(request):
     elif section == 'collaboration':
         try:
             from orders.models import WholesaleInvoice
-            invoices = WholesaleInvoice.objects.all().order_by('-created_at')[:100]
+            # Показываем только отправленные накладные (статус pending и выше, исключаем draft)
+            invoices = WholesaleInvoice.objects.filter(
+                status__in=['pending', 'processing', 'shipped', 'delivered', 'cancelled']
+            ).order_by('-created_at')[:100]
         except Exception:
             invoices = []
         ctx.update({'invoices': invoices})

@@ -198,11 +198,11 @@ class OrderItem(models.Model):
 class WholesaleInvoice(models.Model):
     """Модель для оптовых накладных"""
     STATUS_CHOICES = [
-        ('pending', 'Очікує обробки'),
-        ('approved', 'Підтверджено'),
-        ('processing', 'В обробці'),
-        ('shipped', 'Відправлено'),
-        ('delivered', 'Доставлено'),
+        ('draft', 'Чернетка'),
+        ('pending', 'Очікує перевірки'),
+        ('processing', 'Прийнято в обробку'),
+        ('shipped', 'Готується до відправки'),
+        ('delivered', 'Товари відправлені'),
         ('cancelled', 'Скасовано'),
     ]
     
@@ -217,7 +217,7 @@ class WholesaleInvoice(models.Model):
     total_hoodies = models.IntegerField(default=0, verbose_name="Кількість худі")
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Загальна сума")
     
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name="Статус")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name="Статус")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата створення")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата оновлення")
     
