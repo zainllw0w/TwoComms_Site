@@ -2219,6 +2219,11 @@
     height: 100vh !important;
     background: rgba(0,0,0,.6) !important;
     z-index: 1050 !important;
+    cursor: pointer !important;
+}
+
+.modal-backdrop {
+    cursor: pointer !important;
 }
 
 .modal-open {
@@ -4086,7 +4091,7 @@ function openSendModal(invoiceId){
             dialog.style.zIndex = '1056';
         }
         
-        // Add backdrop
+        // Add backdrop with click handler
         const backdrop = document.createElement('div');
         backdrop.className = 'modal-backdrop fade show';
         backdrop.id = 'sendModalBackdrop';
@@ -4096,6 +4101,22 @@ function openSendModal(invoiceId){
         backdrop.style.width = '100vw';
         backdrop.style.height = '100vh';
         backdrop.style.zIndex = '1050';
+        backdrop.style.cursor = 'pointer';
+        
+        // Add click handler to close modal when clicking backdrop
+        backdrop.addEventListener('click', function() {
+            closeSendModal();
+        });
+        
+        // Add escape key handler
+        const escapeHandler = function(event) {
+            if (event.key === 'Escape') {
+                closeSendModal();
+                document.removeEventListener('keydown', escapeHandler);
+            }
+        };
+        document.addEventListener('keydown', escapeHandler);
+        
         document.body.appendChild(backdrop);
         return;
     }
@@ -4154,7 +4175,7 @@ function openSendModal(invoiceId){
             dialog.style.zIndex = '1056';
         }
         
-        // Add backdrop
+        // Add backdrop with click handler
         const backdrop = document.createElement('div');
         backdrop.className = 'modal-backdrop fade show';
         backdrop.id = 'sendModalBackdrop';
@@ -4164,6 +4185,22 @@ function openSendModal(invoiceId){
         backdrop.style.width = '100vw';
         backdrop.style.height = '100vh';
         backdrop.style.zIndex = '1050';
+        backdrop.style.cursor = 'pointer';
+        
+        // Add click handler to close modal when clicking backdrop
+        backdrop.addEventListener('click', function() {
+            closeSendModal();
+        });
+        
+        // Add escape key handler
+        const escapeHandler = function(event) {
+            if (event.key === 'Escape') {
+                closeSendModal();
+                document.removeEventListener('keydown', escapeHandler);
+            }
+        };
+        document.addEventListener('keydown', escapeHandler);
+        
         document.body.appendChild(backdrop);
     }
 }
@@ -4197,6 +4234,15 @@ function closeSendModal(){
     if (backdrop) {
         backdrop.remove();
     }
+    
+    // Remove any escape key handlers
+    document.removeEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeSendModal();
+        }
+    });
+    
+    console.log('Modal closed successfully');
 }
 
 // Restore sent button states from localStorage
