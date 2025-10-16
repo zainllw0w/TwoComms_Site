@@ -7267,3 +7267,35 @@ def get_user_invoices(request):
         
     except Exception as e:
         return JsonResponse({'success': False, 'error': f'Помилка: {str(e)}'}, status=500)
+
+
+from django.contrib.admin.views.decorators import staff_member_required
+
+@staff_member_required
+def collaboration_admin(request):
+    """Simple collaboration admin page with dropshippers placeholder and wholesalers invoices list."""
+    from django.shortcuts import render
+    from orders.models import WholesaleInvoice
+    invoices = WholesaleInvoice.objects.all().order_by('-created_at')[:100]
+    return render(request, 'pages/admin_collaboration.html', { 'invoices': invoices })
+
+
+@require_POST
+@staff_member_required
+def update_invoice_status(request, invoice_id):
+    from orders.models import WholesaleInvoice
+    import json
+    try:
+        invoice = WholesaleInvoice.objects.get(id=invoice_id)
+        data = json.loads(request.body or '{}')
+        new_status = data.get('status')
+        allowed = {'processing','approved','shipped','delivered','cancelled','pending'}
+        if new_status not in allowed:
+            return JsonResponse({'success': False, 'error': 'Невірний статус'}, status=400)
+        invoice.status = new_status
+        invoice.save(update_fields=['status'])
+        return JsonResponse({'success': True})
+    except WholesaleInvoice.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Накладна не знайдена'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
