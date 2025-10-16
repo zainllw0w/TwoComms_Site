@@ -311,6 +311,53 @@
     transition: all 0.3s ease;
 }
 
+/* Company section header with toggle */
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.collapse-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.collapse-toggle:hover {
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(139, 92, 246, 0.35);
+    box-shadow: 0 6px 18px rgba(139, 92, 246, 0.18);
+}
+
+.collapse-toggle svg { transition: transform 0.25s ease; }
+.collapse-toggle.is-collapsed svg { transform: rotate(180deg); }
+
+.company-section-body {
+    overflow: hidden;
+    transition: max-height 0.35s ease, opacity 0.25s ease, transform 0.25s ease;
+    max-height: 2000px;
+    opacity: 1;
+}
+
+.company-section-body.is-collapsed {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-6px);
+}
+
 .compact-form-container::before {
     content: '';
     position: absolute;
@@ -2139,10 +2186,18 @@
 
     <!-- Company Information Form - Pricing Cards Style -->
     <div class="company-form-section">
-        <h2 class="section-title">Інформація про компанію</h2>
+        <div class="section-header">
+            <h2 class="section-title" style="margin: 0;">Інформація про компанію</h2>
+            <button type="button" id="toggleCompanySection" class="collapse-toggle">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M7 10l5 5 5-5H7z"/>
+                </svg>
+                <span class="toggle-text">Згорнути</span>
+            </button>
+        </div>
         
         <form id="company-form">
-            <div class="compact-form-container">
+            <div class="compact-form-container company-section-body" id="companySectionBody">
                 <!-- Top Row - Main Info -->
                 <div class="compact-form-row">
                     <!-- Company Name -->
@@ -2251,16 +2306,16 @@
                 <div class="stat-label">Товарів</div>
             </div>
             <div class="stat-card">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="#f59e0b">
-                    <path d="M16 7H8c-1.1 0-2 .9-2 2v6h12V9c0-1.1-.9-2-2-2zM8 5h8l1 2H7l1-2z"/>
-                </svg>
+                <span class="stat-icon" style="width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;">
+                    <img src="{% static 'img/icons/tshirt.svg' %}" alt="tshirt" width="18" height="18">
+                </span>
                 <div class="stat-value">{{ user_invoice_stats.tshirt_count|default:0 }}</div>
                 <div class="stat-label">Футболок</div>
             </div>
             <div class="stat-card">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="#ef4444">
-                    <path d="M12 2C8.7 2 6 4.7 6 8v2H4v10h16V10h-2V8c0-3.3-2.7-6-6-6zm0 2c2.2 0 4 1.8 4 4v2H8V8c0-2.2 1.8-4 4-4z"/>
-                </svg>
+                <span class="stat-icon" style="width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;">
+                    <img src="{% static 'img/icons/hoodie.svg' %}" alt="hoodie" width="18" height="18">
+                </span>
                 <div class="stat-value">{{ user_invoice_stats.hoodie_count|default:0 }}</div>
                 <div class="stat-label">Худі</div>
             </div>
@@ -3825,5 +3880,23 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+</script>
+
+<script>
+// Toggle company section collapse
+document.addEventListener('DOMContentLoaded', function() {
+    const toggleBtn = document.getElementById('toggleCompanySection');
+    const body = document.getElementById('companySectionBody');
+    if (toggleBtn && body) {
+        toggleBtn.addEventListener('click', function() {
+            const collapsed = body.classList.toggle('is-collapsed');
+            toggleBtn.classList.toggle('is-collapsed', collapsed);
+            const text = toggleBtn.querySelector('.toggle-text');
+            if (text) {
+                text.textContent = collapsed ? 'Розгорнути' : 'Згорнути';
+            }
+        });
+    }
+});
 </script>
 {% endblock %}
