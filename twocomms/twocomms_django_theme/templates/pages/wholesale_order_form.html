@@ -3799,7 +3799,7 @@ function deleteInvoice(invoiceId) {
                 
                 // Удаляем из localStorage
                 let invoices = JSON.parse(localStorage.getItem('wholesaleInvoices') || '[]');
-                invoices = invoices.filter(inv => inv.id !== invoiceId);
+                invoices = invoices.filter(inv => String(inv.id) !== String(invoiceId));
                 localStorage.setItem('wholesaleInvoices', JSON.stringify(invoices));
                 
                 showNotification('Накладна видалена зі списку (не знайдена в базі даних)', 'success');
@@ -3817,10 +3817,15 @@ function deleteInvoice(invoiceId) {
                 
                 // Удаляем из localStorage
                 let invoices = JSON.parse(localStorage.getItem('wholesaleInvoices') || '[]');
-                invoices = invoices.filter(inv => inv.id !== invoiceId);
+                invoices = invoices.filter(inv => String(inv.id) !== String(invoiceId));
                 localStorage.setItem('wholesaleInvoices', JSON.stringify(invoices));
                 
                 showNotification('Накладна видалена', 'success');
+                // Если список стал пустым — покажем пустое состояние
+                const invoicesList = document.getElementById('invoices-list');
+                if (invoicesList && invoicesList.children.length === 0) {
+                    invoicesList.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">Немає збережених накладних</div>';
+                }
             } else if (data) {
                 showNotification(data.error || 'Помилка при видаленні накладної', 'error');
             }
@@ -3834,7 +3839,7 @@ function deleteInvoice(invoiceId) {
             
             // Удаляем из localStorage
             let invoices = JSON.parse(localStorage.getItem('wholesaleInvoices') || '[]');
-            invoices = invoices.filter(inv => inv.id !== invoiceId);
+            invoices = invoices.filter(inv => String(inv.id) !== String(invoiceId));
             localStorage.setItem('wholesaleInvoices', JSON.stringify(invoices));
             
             showNotification('Накладна видалена зі списку (файл може бути недоступний)', 'success');
