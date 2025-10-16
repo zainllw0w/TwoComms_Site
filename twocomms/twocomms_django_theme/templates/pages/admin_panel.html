@@ -2152,9 +2152,19 @@
                     <div class="small"><a href="{% url 'download_invoice_file' inv.id %}" class="link-primary">Скачати файл</a></div>
                   {% endif %}
                 </div>
-                <div class="d-flex gap-2">
-                  <form onsubmit="return updateInvoiceStatus(event, {{ inv.id }}, 'processing')"><button class="btn btn-sm btn-outline-warning" type="submit">Прийнято в обробку</button></form>
-                  <form onsubmit="return updateInvoiceStatus(event, {{ inv.id }}, 'shipped')"><button class="btn btn-sm btn-outline-success" type="submit">Відправлено</button></form>
+                <div class="d-flex gap-2 flex-wrap">
+                  {% if inv.status == 'pending' %}
+                    <form onsubmit="return updateInvoiceStatus(event, {{ inv.id }}, 'processing')"><button class="btn btn-sm btn-outline-warning" type="submit">Прийнято в обробку</button></form>
+                  {% endif %}
+                  {% if inv.status == 'processing' %}
+                    <form onsubmit="return updateInvoiceStatus(event, {{ inv.id }}, 'shipped')"><button class="btn btn-sm btn-outline-success" type="submit">Готується до відправки</button></form>
+                  {% endif %}
+                  {% if inv.status == 'shipped' %}
+                    <form onsubmit="return updateInvoiceStatus(event, {{ inv.id }}, 'delivered')"><button class="btn btn-sm btn-outline-primary" type="submit">Товари відправлені</button></form>
+                  {% endif %}
+                  {% if inv.status in 'pending,processing,shipped' %}
+                    <form onsubmit="return updateInvoiceStatus(event, {{ inv.id }}, 'cancelled')"><button class="btn btn-sm btn-outline-danger" type="submit">Скасувати</button></form>
+                  {% endif %}
                 </div>
               </div>
               {% endfor %}
