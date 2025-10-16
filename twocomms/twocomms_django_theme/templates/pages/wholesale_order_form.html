@@ -2174,20 +2174,38 @@
 .send-modal.show {
     display: block !important;
     z-index: 1055 !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.send-modal .modal-dialog {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    margin: 0 !important;
+    max-width: 500px !important;
+    width: 90vw !important;
+    z-index: 1056 !important;
 }
 
 .send-modal-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0,0,0,.6);
-    z-index: 1050;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(0,0,0,.6) !important;
+    z-index: 1050 !important;
 }
 
 .modal-open {
-    overflow: hidden;
+    overflow: hidden !important;
 }
 
 /* Responsive Design */
@@ -4026,14 +4044,39 @@ function openSendModal(invoiceId){
         console.error('Bootstrap is not loaded!');
         // Fallback: show modal manually
         modalElement.style.display = 'block';
+        modalElement.style.position = 'fixed';
+        modalElement.style.top = '0';
+        modalElement.style.left = '0';
+        modalElement.style.width = '100vw';
+        modalElement.style.height = '100vh';
+        modalElement.style.zIndex = '1055';
         modalElement.classList.add('show');
         modalElement.setAttribute('aria-hidden', 'false');
         document.body.classList.add('modal-open');
+        
+        // Position dialog in center
+        const dialog = modalElement.querySelector('.modal-dialog');
+        if (dialog) {
+            dialog.style.position = 'fixed';
+            dialog.style.top = '50%';
+            dialog.style.left = '50%';
+            dialog.style.transform = 'translate(-50%, -50%)';
+            dialog.style.margin = '0';
+            dialog.style.maxWidth = '500px';
+            dialog.style.width = '90vw';
+            dialog.style.zIndex = '1056';
+        }
         
         // Add backdrop
         const backdrop = document.createElement('div');
         backdrop.className = 'modal-backdrop fade show';
         backdrop.id = 'sendModalBackdrop';
+        backdrop.style.position = 'fixed';
+        backdrop.style.top = '0';
+        backdrop.style.left = '0';
+        backdrop.style.width = '100vw';
+        backdrop.style.height = '100vh';
+        backdrop.style.zIndex = '1050';
         document.body.appendChild(backdrop);
         return;
     }
@@ -4047,18 +4090,59 @@ function openSendModal(invoiceId){
         });
         modal.show();
         console.log('Bootstrap modal shown');
+        
+        // Force positioning after Bootstrap shows the modal
+        setTimeout(() => {
+            const dialog = modalElement.querySelector('.modal-dialog');
+            if (dialog) {
+                dialog.style.position = 'fixed';
+                dialog.style.top = '50%';
+                dialog.style.left = '50%';
+                dialog.style.transform = 'translate(-50%, -50%)';
+                dialog.style.margin = '0';
+                dialog.style.maxWidth = '500px';
+                dialog.style.width = '90vw';
+                dialog.style.zIndex = '1056';
+            }
+        }, 100);
+        
     } catch (error) {
         console.error('Error showing Bootstrap modal:', error);
         // Fallback: show modal manually
         modalElement.style.display = 'block';
+        modalElement.style.position = 'fixed';
+        modalElement.style.top = '0';
+        modalElement.style.left = '0';
+        modalElement.style.width = '100vw';
+        modalElement.style.height = '100vh';
+        modalElement.style.zIndex = '1055';
         modalElement.classList.add('show');
         modalElement.setAttribute('aria-hidden', 'false');
         document.body.classList.add('modal-open');
+        
+        // Position dialog in center
+        const dialog = modalElement.querySelector('.modal-dialog');
+        if (dialog) {
+            dialog.style.position = 'fixed';
+            dialog.style.top = '50%';
+            dialog.style.left = '50%';
+            dialog.style.transform = 'translate(-50%, -50%)';
+            dialog.style.margin = '0';
+            dialog.style.maxWidth = '500px';
+            dialog.style.width = '90vw';
+            dialog.style.zIndex = '1056';
+        }
         
         // Add backdrop
         const backdrop = document.createElement('div');
         backdrop.className = 'modal-backdrop fade show';
         backdrop.id = 'sendModalBackdrop';
+        backdrop.style.position = 'fixed';
+        backdrop.style.top = '0';
+        backdrop.style.left = '0';
+        backdrop.style.width = '100vw';
+        backdrop.style.height = '100vh';
+        backdrop.style.zIndex = '1050';
         document.body.appendChild(backdrop);
     }
 }
