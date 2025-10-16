@@ -2742,9 +2742,11 @@
         <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:1rem; gap:1rem; flex-wrap:wrap;">
             <h2 class="section-title" style="margin:0;">Сформовані накладні</h2>
             <div style="display:flex; align-items:center; gap:12px;">
+                <!-- Кнопка "Скинути статус" временно скрыта
                 <button type="button" class="btn btn-outline-warning btn-sm" onclick="resetAllInvoicesStatus()" style="white-space: nowrap;">
                     <i class="fas fa-undo me-1"></i>Скинути статус
                 </button>
+                -->
                 <div class="gold-hint">Для швидшої обробки — звʼяжіться з нами в Telegram</div>
                 <a class="tg-cta" href="https://t.me/twocomms" target="_blank" rel="noopener noreferrer" aria-label="Звʼязатися в Telegram">
                     <div class="waves"></div>
@@ -4215,7 +4217,8 @@ function restoreSentButtonStates() {
     }, 500);
 }
 
-// Function to reset all invoices to "not sent" status
+// Function to reset all invoices to "not sent" status - временно отключена
+/*
 async function resetAllInvoicesStatus() {
     if (!confirm('Скинути статус всіх накладних? Всі накладні стануть доступними для відправки.')) {
         return;
@@ -4266,6 +4269,7 @@ async function resetAllInvoicesStatus() {
         showNotification('Помилка при скиданні статусу накладних', 'error');
     }
 }
+*/
 
 // Notification system
 function showNotification(message, type) {
