@@ -2141,8 +2141,21 @@
 }
 
 /* Modal styles */
-.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index: 10000; }
-.modal-backdrop.show { display: flex !important; }
+.modal-backdrop { 
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    width: 100vw; 
+    height: 100vh; 
+    background: rgba(0,0,0,.6); 
+    display: none; 
+    align-items: center; 
+    justify-content: center; 
+    z-index: 10000; 
+}
+.modal-backdrop.show { 
+    display: flex !important; 
+}
 .modal-card { background: linear-gradient(135deg, rgba(20,22,27,.95), rgba(14,16,22,.95)); border:1px solid rgba(255,255,255,.1); border-radius: 14px; padding: 20px; width: min(520px, 92vw); box-shadow: 0 20px 60px rgba(0,0,0,.5); }
 .modal-title { margin:0 0 8px; font-weight:800; color:#e5e7eb; font-size: 1.1rem; }
 .modal-text { color: rgba(229,231,235,.8); margin-bottom: 14px; }
@@ -2717,6 +2730,7 @@ document.addEventListener('DOMContentLoaded', function() {
         initializeDragAndDrop();
         initializeColorDots();
         initializeCategoryFilter();
+        restoreSentButtonStates();
         initializeProductClick();
         initializeOrderForm();
         loadOrderData(); // Load saved data
@@ -3931,7 +3945,16 @@ async function sendToWork(invoiceId) {
         });
         if (!res.ok) throw new Error('Помилка сервера');
         const btn = document.querySelector(`[data-invoice-id="${invoiceId}"] .action-btn[onclick^="sendToWork"]`);
-        if (btn) { btn.textContent = 'Накладна відправлена'; btn.disabled = true; btn.style.background = '#6b7280'; }
+        if (btn) { 
+            btn.textContent = 'Накладна відправлена'; 
+            btn.disabled = true; 
+            btn.style.background = '#6b7280'; 
+            btn.style.whiteSpace = 'nowrap';
+            btn.style.overflow = 'hidden';
+            btn.style.textOverflow = 'ellipsis';
+            // Сохраняем состояние в localStorage
+            localStorage.setItem(`invoice_${invoiceId}_sent`, 'true');
+        }
         openSendModal(invoiceId);
     } catch (e) {
         showNotification('Не вдалося відправити накладну', 'error');
@@ -3952,6 +3975,24 @@ function closeSendModal(){
         m.classList.remove('show');
         m.style.display = 'none';
     }
+}
+
+// Restore sent button states from localStorage
+function restoreSentButtonStates() {
+    const invoices = JSON.parse(localStorage.getItem('wholesale_invoices') || '[]');
+    invoices.forEach(invoice => {
+        if (localStorage.getItem(`invoice_${invoice.id}_sent`) === 'true') {
+            const btn = document.querySelector(`[data-invoice-id="${invoice.id}"] .action-btn[onclick^="sendToWork"]`);
+            if (btn) {
+                btn.textContent = 'Накладна відправлена';
+                btn.disabled = true;
+                btn.style.background = '#6b7280';
+                btn.style.whiteSpace = 'nowrap';
+                btn.style.overflow = 'hidden';
+                btn.style.textOverflow = 'ellipsis';
+            }
+        }
+    });
 }
 
 // Notification system
