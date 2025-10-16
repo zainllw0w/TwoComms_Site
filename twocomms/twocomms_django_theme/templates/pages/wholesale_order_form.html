@@ -2141,6 +2141,10 @@
 }
 
 /* Modal styles - Clean Bootstrap implementation */
+.send-modal {
+    z-index: 1055 !important;
+}
+
 .send-modal .modal-content {
     background: linear-gradient(135deg, rgba(20,22,27,.95), rgba(14,16,22,.95));
     border: 1px solid rgba(255,255,255,.1);
@@ -2164,6 +2168,26 @@
 
 .send-modal .btn-close {
     filter: invert(1);
+}
+
+/* Fallback styles for manual modal display */
+.send-modal.show {
+    display: block !important;
+    z-index: 1055 !important;
+}
+
+.send-modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,.6);
+    z-index: 1050;
+}
+
+.modal-open {
+    overflow: hidden;
 }
 
 /* Responsive Design */
@@ -2694,12 +2718,12 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="sendModalLabel">Накладна відправлена</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" onclick="closeSendModal()" aria-label="Close"></button>
                 </div>
                 <div class="modal-body text-center">
                     <div id="sendModalText" class="mb-3">Для швидшої обробки — звʼяжіться з нами в Telegram.</div>
                     <div class="d-flex gap-3 justify-content-center flex-wrap">
-                        <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Закрити</button>
+                        <button type="button" class="btn btn-outline-light" onclick="closeSendModal()">Закрити</button>
                         <a href="https://t.me/twocomms" target="_blank" rel="noopener" class="btn btn-primary">
                             <i class="fab fa-telegram me-2"></i>Відкрити Telegram
                         </a>
@@ -3982,20 +4006,91 @@ async function sendToWork(invoiceId) {
 }
 
 function openSendModal(invoiceId){
+    console.log('Opening modal for invoice:', invoiceId);
+    
     const t = document.getElementById('sendModalText');
     if (t) {
         t.textContent = `Накладна #${invoiceId} відправлена. Для швидшої обробки — звʼяжіться з нами в Telegram.`;
     }
     
-    // Простое использование Bootstrap modal API
-    const modal = new bootstrap.Modal(document.getElementById('sendModal'));
-    modal.show();
+    const modalElement = document.getElementById('sendModal');
+    console.log('Modal element found:', modalElement);
+    
+    if (!modalElement) {
+        console.error('Modal element not found!');
+        return;
+    }
+    
+    // Check if Bootstrap is available
+    if (typeof bootstrap === 'undefined') {
+        console.error('Bootstrap is not loaded!');
+        // Fallback: show modal manually
+        modalElement.style.display = 'block';
+        modalElement.classList.add('show');
+        modalElement.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+        
+        // Add backdrop
+        const backdrop = document.createElement('div');
+        backdrop.className = 'modal-backdrop fade show';
+        backdrop.id = 'sendModalBackdrop';
+        document.body.appendChild(backdrop);
+        return;
+    }
+    
+    try {
+        // Use Bootstrap modal API
+        const modal = new bootstrap.Modal(modalElement, {
+            backdrop: true,
+            keyboard: true,
+            focus: true
+        });
+        modal.show();
+        console.log('Bootstrap modal shown');
+    } catch (error) {
+        console.error('Error showing Bootstrap modal:', error);
+        // Fallback: show modal manually
+        modalElement.style.display = 'block';
+        modalElement.classList.add('show');
+        modalElement.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+        
+        // Add backdrop
+        const backdrop = document.createElement('div');
+        backdrop.className = 'modal-backdrop fade show';
+        backdrop.id = 'sendModalBackdrop';
+        document.body.appendChild(backdrop);
+    }
 }
 function closeSendModal(){
-    // Используем Bootstrap modal API
-    const modal = bootstrap.Modal.getInstance(document.getElementById('sendModal'));
-    if (modal) {
-        modal.hide();
+    console.log('Closing modal');
+    
+    const modalElement = document.getElementById('sendModal');
+    if (!modalElement) return;
+    
+    // Try Bootstrap modal API first
+    if (typeof bootstrap !== 'undefined') {
+        try {
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) {
+                modal.hide();
+                return;
+            }
+        } catch (error) {
+            console.error('Error hiding Bootstrap modal:', error);
+        }
+    }
+    
+    // Fallback: hide modal manually
+    modalElement.style.display = 'none';
+    modalElement.classList.remove('show');
+    modalElement.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    
+    // Remove backdrop
+    const backdrop = document.getElementById('sendModalBackdrop');
+    if (backdrop) {
+        backdrop.remove();
     }
 }
 
