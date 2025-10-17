@@ -1976,7 +1976,7 @@
         <div class="category-filter">
             <a href="#" class="category-btn active" onclick="filterProducts('all')">Всі товари</a>
             {% for category in categories %}
-            <a href="#" class="category-btn" onclick="filterProducts({{ category.id }})">{{ category.name }}</a>
+            <a href="#" class="category-btn" onclick="filterProducts('{{ category.id }}')">{{ category.name }}</a>
             {% endfor %}
         </div>
         
