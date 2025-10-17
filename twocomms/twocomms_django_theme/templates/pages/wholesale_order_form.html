@@ -4029,12 +4029,30 @@ function handleMainAction(invoiceId) {
 
 // Function to pay invoice
 function payInvoice(invoiceId) {
+    console.log('payInvoice called with invoiceId:', invoiceId, 'type:', typeof invoiceId);
+    
     // Получаем данные накладной из localStorage
     const invoices = JSON.parse(localStorage.getItem('wholesaleInvoices') || '[]');
+    console.log('All invoices in localStorage:', invoices);
+    
     const invoice = invoices.find(inv => String(inv.id) === String(invoiceId));
+    console.log('Found invoice:', invoice);
     
     if (!invoice) {
         showNotification('Накладна не знайдена', 'error');
+        return;
+    }
+    
+    // Проверяем, что у нас есть все необходимые данные
+    if (!invoice.totalAmount || invoice.totalAmount <= 0) {
+        console.error('Invalid totalAmount:', invoice.totalAmount);
+        showNotification('Невірна сума накладної', 'error');
+        return;
+    }
+    
+    if (!invoice.name) {
+        console.error('Missing invoice name');
+        showNotification('Відсутня назва накладної', 'error');
         return;
     }
     
