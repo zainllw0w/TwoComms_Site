@@ -54,6 +54,10 @@ def dropshipper_products(request):
         is_dropship_available=True
     ).select_related('category').prefetch_related('color_variants__images')
     
+    # Фильтрация по категории
+    if category_id:
+        products = products.filter(category_id=category_id)
+    
     # Дополнительная фильтрация по доступности для дропшипа
     available_products = []
     for product in products:
@@ -62,16 +66,11 @@ def dropshipper_products(request):
     
     products = available_products
     
-    # Фильтрация по категории
-    if category_id:
-        products = products.filter(category_id=category_id)
-    
     # Поиск
     if search_query:
-        products = products.filter(
-            Q(title__icontains=search_query) |
-            Q(description__icontains=search_query)
-        )
+        products = [p for p in products if 
+                   search_query.lower() in p.title.lower() or 
+                   search_query.lower() in p.description.lower()]
     
     # Пагинация
     paginator = Paginator(products, 12)
