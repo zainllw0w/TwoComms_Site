@@ -7648,3 +7648,26 @@ def check_payment_status(request, invoice_id):
         return JsonResponse({'success': False, 'error': 'Накладна не знайдена'}, status=404)
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+def debug_invoices(request):
+    """Debug endpoint для проверки накладных"""
+    from orders.models import WholesaleInvoice
+    try:
+        invoices = WholesaleInvoice.objects.all()[:10]
+        invoice_data = []
+        for inv in invoices:
+            invoice_data.append({
+                'id': inv.id,
+                'invoice_number': inv.invoice_number,
+                'is_approved': inv.is_approved,
+                'payment_status': inv.payment_status,
+                'total_amount': inv.total_amount
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'count': invoices.count(),
+            'invoices': invoice_data
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
