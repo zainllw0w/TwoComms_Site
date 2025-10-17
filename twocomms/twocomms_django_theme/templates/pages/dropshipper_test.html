@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Тест дропшип системы - TwoComms{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/dropshipper.css' %}">
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="dropshipper-container">
+    <!-- Header -->
+    <div class="dropshipper-header">
+        <div class="dropshipper-header-content">
+            <h1 class="dropshipper-title">Тест дропшип системы</h1>
+            <p class="dropshipper-subtitle">Проверка функциональности дропшип панели</p>
+        </div>
+    </div>
+
+    <!-- Navigation Links -->
+    <div class="tabs-container">
+        <div class="tabs-nav">
+            <a href="/orders/dropshipper/" class="tab-button">
+                <i class="fas fa-tachometer-alt"></i>
+                Главная панель
+            </a>
+            <a href="/orders/dropshipper/products/" class="tab-button">
+                <i class="fas fa-box"></i>
+                Товары
+            </a>
+            <a href="/orders/dropshipper/orders/" class="tab-button">
+                <i class="fas fa-shopping-cart"></i>
+                Заказы
+            </a>
+            <a href="/orders/dropshipper/statistics/" class="tab-button">
+                <i class="fas fa-chart-line"></i>
+                Статистика
+            </a>
+            <a href="/orders/dropshipper/payouts/" class="tab-button">
+                <i class="fas fa-money-bill-wave"></i>
+                Выплаты
+            </a>
+        </div>
+    </div>
+
+    <!-- Test Information -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <div class="stat-icon orders">
+                    <i class="fas fa-info-circle"></i>
+                </div>
+                <div>
+                    <h3 class="stat-title">Статус системы</h3>
+                    <p class="stat-value">Готова</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <div class="stat-icon revenue">
+                    <i class="fas fa-database"></i>
+                </div>
+                <div>
+                    <h3 class="stat-title">Модели созданы</h3>
+                    <p class="stat-value">4</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <div class="stat-icon profit">
+                    <i class="fas fa-code"></i>
+                </div>
+                <div>
+                    <h3 class="stat-title">Views созданы</h3>
+                    <p class="stat-value">8</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <div class="stat-icon items">
+                    <i class="fas fa-file-code"></i>
+                </div>
+                <div>
+                    <h3 class="stat-title">Шаблоны созданы</h3>
+                    <p class="stat-value">5</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features List -->
+    <div class="filters-container">
+        <h3 style="color: var(--tc-text); margin-bottom: 1.5rem; text-align: center;">Функциональность системы</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+            <div style="padding: 1rem; background: rgba(255, 255, 255, 0.05); border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1);">
+                <h4 style="color: var(--tc-text); margin-bottom: 0.5rem;">
+                    <i class="fas fa-check-circle" style="color: #10b981; margin-right: 0.5rem;"></i>
+                    Управление товарами
+                </h4>
+                <p style="color: var(--tc-text); opacity: 0.7; font-size: 0.9rem; margin: 0;">
+                    Просмотр товаров с ценами дропа и рекомендованными ценами, фильтрация по категориям
+                </p>
+            </div>
+            
+            <div style="padding: 1rem; background: rgba(255, 255, 255, 0.05); border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1);">
+                <h4 style="color: var(--tc-text); margin-bottom: 0.5rem;">
+                    <i class="fas fa-check-circle" style="color: #10b981; margin-right: 0.5rem;"></i>
+                    Создание заказов
+                </h4>
+                <p style="color: var(--tc-text); opacity: 0.7; font-size: 0.9rem; margin: 0;">
+                    Создание заказов с выбором товаров, размеров, цветов и цен продажи
+                </p>
+            </div>
+            
+            <div style="padding: 1rem; background: rgba(255, 255, 255, 0.05); border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1);">
+                <h4 style="color: var(--tc-text); margin-bottom: 0.5rem;">
+                    <i class="fas fa-check-circle" style="color: #10b981; margin-right: 0.5rem;"></i>
+                    Управление заказами
+                </h4>
+                <p style="color: var(--tc-text); opacity: 0.7; font-size: 0.9rem; margin: 0;">
+                    Просмотр, редактирование и отслеживание статуса заказов
+                </p>
+            </div>
+            
+            <div style="padding: 1rem; background: rgba(255, 255, 255, 0.05); border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1);">
+                <h4 style="color: var(--tc-text); margin-bottom: 0.5rem;">
+                    <i class="fas fa-check-circle" style="color: #10b981; margin-right: 0.5rem;"></i>
+                    Статистика
+                </h4>
+                <p style="color: var(--tc-text); opacity: 0.7; font-size: 0.9rem; margin: 0;">
+                    Детальная статистика по заказам, доходам и прибыли
+                </p>
+            </div>
+            
+            <div style="padding: 1rem; background: rgba(255, 255, 255, 0.05); border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1);">
+                <h4 style="color: var(--tc-text); margin-bottom: 0.5rem;">
+                    <i class="fas fa-check-circle" style="color: #10b981; margin-right: 0.5rem;"></i>
+                    Система выплат
+                </h4>
+                <p style="color: var(--tc-text); opacity: 0.7; font-size: 0.9rem; margin: 0;">
+                    Запрос выплат и отслеживание их статуса
+                </p>
+            </div>
+            
+            <div style="padding: 1rem; background: rgba(255, 255, 255, 0.05); border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1);">
+                <h4 style="color: var(--tc-text); margin-bottom: 0.5rem;">
+                    <i class="fas fa-check-circle" style="color: #10b981; margin-right: 0.5rem;"></i>
+                    Современный дизайн
+                </h4>
+                <p style="color: var(--tc-text); opacity: 0.7; font-size: 0.9rem; margin: 0;">
+                    Адаптивный дизайн с анимациями и градиентами
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Instructions -->
+    <div class="filters-container">
+        <h3 style="color: var(--tc-text); margin-bottom: 1.5rem; text-align: center;">Инструкции по использованию</h3>
+        <div style="color: var(--tc-text); opacity: 0.8; line-height: 1.6;">
+            <ol style="padding-left: 2rem;">
+                <li style="margin-bottom: 1rem;">
+                    <strong>Добавьте дропшип цены в товары:</strong> В админке Django добавьте поля drop_price и recommended_price в модель Product
+                </li>
+                <li style="margin-bottom: 1rem;">
+                    <strong>Создайте пользователя-дропшипера:</strong> Зарегистрируйте пользователя и назначьте ему права доступа
+                </li>
+                <li style="margin-bottom: 1rem;">
+                    <strong>Примените миграции:</strong> Выполните python manage.py migrate для создания таблиц в базе данных
+                </li>
+                <li style="margin-bottom: 1rem;">
+                    <strong>Настройте URL маршруты:</strong> Убедитесь, что маршруты orders/ включены в основной urls.py
+                </li>
+                <li style="margin-bottom: 1rem;">
+                    <strong>Протестируйте функциональность:</strong> Перейдите по ссылкам выше для тестирования каждой части системы
+                </li>
+            </ol>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+console.log('Dropshipper test page loaded successfully!');
+</script>
+{% endblock %}
