@@ -4089,9 +4089,28 @@ function payInvoice(invoiceId) {
     .then(data => {
         console.log('Payment response data:', data);
         if (data.success && data.payment_url) {
+            // Обновляем кнопку на "Очікує оплати"
+            const btn = document.querySelector(`.main-action-btn[data-invoice-id="${invoiceId}"]`);
+            if (btn) {
+                btn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M11,16.5L18,9.5L16.5,8L11,13.5L7.5,10L6,11.5L11,16.5Z"/>
+                    </svg>
+                    Очікує оплати
+                `;
+                btn.disabled = true;
+                btn.style.background = '#f59e0b';
+                btn.style.whiteSpace = 'nowrap';
+                btn.style.overflow = 'hidden';
+                btn.style.textOverflow = 'ellipsis';
+            }
+            
             // Перенаправляем на страницу оплаты Monobank
             window.open(data.payment_url, '_blank');
             showNotification('Перенаправлення на сторінку оплати...', 'success');
+            
+            // Проверяем статус оплаты каждые 5 секунд
+            checkPaymentStatus(invoiceId);
         } else {
             console.error('Payment creation failed:', data);
             showNotification(data.error || 'Помилка створення платежу', 'error');
@@ -4101,6 +4120,65 @@ function payInvoice(invoiceId) {
         console.error('Payment error:', error);
         showNotification('Помилка при створенні платежу: ' + error.message, 'error');
     });
+}
+
+// Function to check payment status
+function checkPaymentStatus(invoiceId) {
+    const checkInterval = setInterval(async () => {
+        try {
+            const response = await fetch(`/wholesale/check-payment-status/${invoiceId}/`);
+            const data = await response.json();
+            
+            if (data.success) {
+                const btn = document.querySelector(`.main-action-btn[data-invoice-id="${invoiceId}"]`);
+                
+                if (data.payment_status === 'paid') {
+                    // Платеж успешен
+                    if (btn) {
+                        btn.innerHTML = `
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M9,20.42L2.79,14.21L5.62,11.38L9,14.77L18.88,4.88L21.71,7.71L9,20.42Z"/>
+                            </svg>
+                            Оплачено
+                        `;
+                        btn.disabled = true;
+                        btn.style.background = '#10b981';
+                        btn.style.whiteSpace = 'nowrap';
+                        btn.style.overflow = 'hidden';
+                        btn.style.textOverflow = 'ellipsis';
+                    }
+                    
+                    showNotification('Накладна успішно оплачена!', 'success');
+                    clearInterval(checkInterval);
+                } else if (data.payment_status === 'failed') {
+                    // Платеж неуспешен
+                    if (btn) {
+                        btn.innerHTML = `
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
+                            </svg>
+                            Помилка оплати
+                        `;
+                        btn.disabled = false;
+                        btn.style.background = '#ef4444';
+                        btn.style.whiteSpace = 'nowrap';
+                        btn.style.overflow = 'hidden';
+                        btn.style.textOverflow = 'ellipsis';
+                    }
+                    
+                    showNotification('Помилка оплати накладної', 'error');
+                    clearInterval(checkInterval);
+                }
+            }
+        } catch (error) {
+            console.error('Error checking payment status:', error);
+        }
+    }, 5000); // Проверяем каждые 5 секунд
+    
+    // Останавливаем проверку через 5 минут
+    setTimeout(() => {
+        clearInterval(checkInterval);
+    }, 300000);
 }
 
 // Global function for deleting invoices
