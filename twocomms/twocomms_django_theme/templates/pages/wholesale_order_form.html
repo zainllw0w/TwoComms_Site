@@ -4044,8 +4044,10 @@ function payInvoice(invoiceId) {
     }
     
     // Проверяем, что у нас есть все необходимые данные
-    if (!invoice.totalAmount || invoice.totalAmount <= 0) {
-        console.error('Invalid totalAmount:', invoice.totalAmount);
+    // Используем total_amount (snake_case) как в localStorage
+    const totalAmount = invoice.total_amount || invoice.totalAmount;
+    if (!totalAmount || totalAmount <= 0) {
+        console.error('Invalid totalAmount:', totalAmount, 'invoice:', invoice);
         showNotification('Невірна сума накладної', 'error');
         return;
     }
@@ -4059,7 +4061,7 @@ function payInvoice(invoiceId) {
     // Формируем данные для оплаты
     const paymentData = {
         invoice_id: invoiceId,
-        amount: invoice.totalAmount,
+        amount: totalAmount, // Используем уже проверенную сумму
         description: `Оплата накладної ${invoice.name}`,
         invoice_number: invoice.name
     };
