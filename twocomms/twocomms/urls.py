@@ -26,6 +26,9 @@ urlpatterns = [
     # Accounts
     path("accounts/", include("accounts.urls")),
     
+    # Orders (включая дропшип)
+    path("orders/", include("orders.urls")),
+    
     # Sitemap
     path('sitemap.xml', storefront_views.static_sitemap, name='django.contrib.sitemaps.views.sitemap'),
     

@@ -61,6 +61,11 @@ class Product(models.Model):
     main_image=models.ImageField(upload_to='products/', blank=True, null=True)
     main_image_alt=models.CharField(max_length=200, blank=True, null=True, verbose_name='Alt-текст головного зображення')
     points_reward=models.PositiveIntegerField(default=0, verbose_name='Бали за покупку')
+    
+    # Дропшип цены
+    drop_price=models.PositiveIntegerField(default=0, verbose_name='Ціна дропа (грн)')
+    recommended_price=models.PositiveIntegerField(default=0, verbose_name='Рекомендована ціна (грн)')
+    
     # AI-generated content fields
     ai_keywords=models.TextField(blank=True, null=True, verbose_name='AI-ключові слова')
     ai_description=models.TextField(blank=True, null=True, verbose_name='AI-опис')

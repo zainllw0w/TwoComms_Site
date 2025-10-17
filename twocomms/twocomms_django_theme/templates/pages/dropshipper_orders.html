@@ -1,0 +1,622 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Замовлення дропшипера - TwoComms{% endblock %}
+
+{% block extra_css %}
+<style>
+:root {
+    --tc-text: rgba(255, 255, 255, 0.95);
+}
+
+.dropshipper-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+    background: var(--tc-bg);
+    min-height: 100vh;
+    position: relative;
+}
+
+.dropshipper-container::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: 
+        radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.2) 0%, transparent 60%),
+        radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.2) 0%, transparent 60%),
+        radial-gradient(circle at 40% 40%, rgba(236, 72, 153, 0.15) 0%, transparent 60%),
+        radial-gradient(circle at 60% 60%, rgba(16, 185, 129, 0.1) 0%, transparent 50%);
+    animation: gradientShift 25s ease infinite;
+}
+
+@keyframes gradientShift {
+    0%, 100% { 
+        opacity: 1; 
+        transform: scale(1) rotate(0deg);
+    }
+    33% { 
+        opacity: 0.8; 
+        transform: scale(1.05) rotate(1deg);
+    }
+    66% { 
+        opacity: 0.9; 
+        transform: scale(0.95) rotate(-1deg);
+    }
+}
+
+/* Header */
+.dropshipper-header {
+    position: relative;
+    background: linear-gradient(135deg, rgba(0,0,0,0.8), rgba(0,0,0,0.6));
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 2.5rem;
+    margin-bottom: 2rem;
+    backdrop-filter: blur(20px);
+    overflow: hidden;
+}
+
+.dropshipper-header-content {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+}
+
+.dropshipper-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6, #ec4899);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradientShift 3s ease infinite;
+    margin-bottom: 1rem;
+}
+
+/* Filters */
+.filters-container {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    backdrop-filter: blur(10px);
+}
+
+.filters-row {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.filter-label {
+    font-size: 0.9rem;
+    color: var(--tc-text);
+    opacity: 0.8;
+}
+
+.filter-select {
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    color: var(--tc-text);
+    font-size: 1rem;
+    min-width: 200px;
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+/* Orders List */
+.orders-container {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 2rem;
+    backdrop-filter: blur(10px);
+}
+
+.orders-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.orders-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--tc-text);
+    margin: 0;
+}
+
+.create-order-btn {
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.create-order-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(139, 92, 246, 0.3);
+}
+
+/* Order Card */
+.order-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    transition: all 0.3s ease;
+}
+
+.order-card:hover {
+    border-color: rgba(139, 92, 246, 0.3);
+    box-shadow: 0 5px 20px rgba(139, 92, 246, 0.1);
+}
+
+.order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.order-info {
+    flex: 1;
+}
+
+.order-number {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--tc-text);
+    margin-bottom: 0.5rem;
+}
+
+.order-client {
+    color: var(--tc-text);
+    opacity: 0.8;
+    margin-bottom: 0.25rem;
+}
+
+.order-date {
+    color: var(--tc-text);
+    opacity: 0.6;
+    font-size: 0.9rem;
+}
+
+.order-status {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+}
+
+.status-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-draft { background: rgba(107, 114, 128, 0.2); color: #9ca3af; }
+.status-pending { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+.status-confirmed { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+.status-processing { background: rgba(139, 92, 246, 0.2); color: #8b5cf6; }
+.status-shipped { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+.status-delivered { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+.status-cancelled { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+
+.order-amount {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--tc-text);
+}
+
+.order-items {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.order-items-title {
+    font-size: 0.9rem;
+    color: var(--tc-text);
+    opacity: 0.7;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.order-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.order-item:last-child {
+    border-bottom: none;
+}
+
+.item-info {
+    flex: 1;
+}
+
+.item-name {
+    color: var(--tc-text);
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+
+.item-details {
+    color: var(--tc-text);
+    opacity: 0.7;
+    font-size: 0.9rem;
+}
+
+.item-price {
+    color: var(--tc-text);
+    font-weight: 600;
+}
+
+.order-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.action-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--tc-text);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.action-btn:hover {
+    background: rgba(139, 92, 246, 0.2);
+    border-color: rgba(139, 92, 246, 0.5);
+}
+
+.action-btn.primary {
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    border-color: #8b5cf6;
+    color: white;
+}
+
+.action-btn.primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(139, 92, 246, 0.3);
+}
+
+/* Pagination */
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 2rem;
+}
+
+.pagination a, .pagination span {
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: var(--tc-text);
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.pagination a:hover {
+    background: rgba(139, 92, 246, 0.2);
+    border-color: rgba(139, 92, 246, 0.5);
+}
+
+.pagination .current {
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    border-color: #8b5cf6;
+    color: white;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--tc-text);
+    opacity: 0.7;
+}
+
+.empty-state i {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.empty-state h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.empty-state p {
+    font-size: 1rem;
+    line-height: 1.6;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .dropshipper-container {
+        padding: 10px;
+    }
+    
+    .dropshipper-title {
+        font-size: 2rem;
+    }
+    
+    .filters-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .filter-select {
+        min-width: auto;
+    }
+    
+    .order-header {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .order-status {
+        align-items: flex-start;
+    }
+    
+    .order-actions {
+        flex-direction: column;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="dropshipper-container">
+    <!-- Header -->
+    <div class="dropshipper-header">
+        <div class="dropshipper-header-content">
+            <h1 class="dropshipper-title">Мої замовлення</h1>
+            <p style="color: var(--tc-text); opacity: 0.8; font-size: 1.1rem;">Управляйте замовленнями та відстежуйте їх статус</p>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-container">
+        <form method="get" id="filterForm">
+            <div class="filters-row">
+                <div class="filter-group">
+                    <label class="filter-label">Статус замовлення</label>
+                    <select name="status" class="filter-select" onchange="this.form.submit()">
+                        <option value="">Всі статуси</option>
+                        {% for status_code, status_name in status_choices %}
+                        <option value="{{ status_code }}" {% if selected_status == status_code %}selected{% endif %}>
+                            {{ status_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Orders -->
+    <div class="orders-container">
+        <div class="orders-header">
+            <h2 class="orders-title">Список замовлень</h2>
+            <a href="/orders/dropshipper/products/" class="create-order-btn">
+                <i class="fas fa-plus"></i>
+                Створити замовлення
+            </a>
+        </div>
+
+        {% if page_obj %}
+        <div class="orders-list">
+            {% for order in page_obj %}
+            <div class="order-card">
+                <div class="order-header">
+                    <div class="order-info">
+                        <div class="order-number">#{{ order.order_number }}</div>
+                        <div class="order-client">{{ order.client_name }}</div>
+                        <div class="order-date">{{ order.created_at|date:"d.m.Y H:i" }}</div>
+                    </div>
+                    <div class="order-status">
+                        <span class="status-badge status-{{ order.status }}">{{ order.get_status_display }}</span>
+                        <div class="order-amount">{{ order.total_selling_price|floatformat:0 }} грн</div>
+                    </div>
+                </div>
+
+                {% if order.items.exists %}
+                <div class="order-items">
+                    <div class="order-items-title">Товари в замовленні</div>
+                    {% for item in order.items.all %}
+                    <div class="order-item">
+                        <div class="item-info">
+                            <div class="item-name">{{ item.product.title }}</div>
+                            <div class="item-details">
+                                Розмір: {{ item.size }} | Кількість: {{ item.quantity }}
+                                {% if item.color_variant %}
+                                | Колір: {{ item.color_variant.color.name }}
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="item-price">{{ item.total_selling_price|floatformat:0 }} грн</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="order-actions">
+                    {% if order.status == 'draft' %}
+                    <button class="action-btn primary" onclick="updateOrderStatus({{ order.id }}, 'pending')">
+                        <i class="fas fa-paper-plane"></i>
+                        Підтвердити
+                    </button>
+                    <button class="action-btn" onclick="editOrder({{ order.id }})">
+                        <i class="fas fa-edit"></i>
+                        Редагувати
+                    </button>
+                    {% elif order.status == 'pending' %}
+                    <button class="action-btn" onclick="viewOrderDetails({{ order.id }})">
+                        <i class="fas fa-eye"></i>
+                        Деталі
+                    </button>
+                    {% elif order.status == 'confirmed' %}
+                    <button class="action-btn" onclick="viewOrderDetails({{ order.id }})">
+                        <i class="fas fa-eye"></i>
+                        Деталі
+                    </button>
+                    {% elif order.status == 'processing' %}
+                    <button class="action-btn" onclick="viewOrderDetails({{ order.id }})">
+                        <i class="fas fa-eye"></i>
+                        Деталі
+                    </button>
+                    {% elif order.status == 'shipped' %}
+                    <button class="action-btn" onclick="viewOrderDetails({{ order.id }})">
+                        <i class="fas fa-eye"></i>
+                        Деталі
+                    </button>
+                    {% elif order.status == 'delivered' %}
+                    <button class="action-btn" onclick="viewOrderDetails({{ order.id }})">
+                        <i class="fas fa-eye"></i>
+                        Деталі
+                    </button>
+                    {% endif %}
+                    
+                    {% if order.tracking_number %}
+                    <button class="action-btn" onclick="trackOrder('{{ order.tracking_number }}')">
+                        <i class="fas fa-truck"></i>
+                        Відстежити
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="pagination">
+            {% if page_obj.has_previous %}
+                <a href="?page=1{% if selected_status %}&status={{ selected_status }}{% endif %}">&laquo; Перша</a>
+                <a href="?page={{ page_obj.previous_page_number }}{% if selected_status %}&status={{ selected_status }}{% endif %}">Попередня</a>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <span class="current">{{ num }}</span>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <a href="?page={{ num }}{% if selected_status %}&status={{ selected_status }}{% endif %}">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if selected_status %}&status={{ selected_status }}{% endif %}">Наступна</a>
+                <a href="?page={{ page_obj.paginator.num_pages }}{% if selected_status %}&status={{ selected_status }}{% endif %}">Остання &raquo;</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-shopping-cart"></i>
+            <h3>Замовлень не знайдено</h3>
+            <p>Створіть своє перше замовлення, обравши товари з каталогу</p>
+            <a href="/orders/dropshipper/products/" class="create-order-btn" style="margin-top: 1rem;">
+                <i class="fas fa-plus"></i>
+                Створити замовлення
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function updateOrderStatus(orderId, newStatus) {
+    if (!confirm('Ви впевнені, що хочете змінити статус замовлення?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/orders/dropshipper/api/update-order-status/${orderId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({ status: newStatus })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            location.reload();
+        } else {
+            alert(result.message);
+        }
+    } catch (error) {
+        console.error('Error updating order status:', error);
+        alert('Помилка при оновленні статусу замовлення');
+    }
+}
+
+function viewOrderDetails(orderId) {
+    // Redirect to order details page or show modal
+    window.location.href = `/orders/dropshipper/orders/${orderId}/`;
+}
+
+function editOrder(orderId) {
+    // Redirect to order edit page
+    window.location.href = `/orders/dropshipper/orders/${orderId}/edit/`;
+}
+
+function trackOrder(trackingNumber) {
+    // Open tracking in new tab
+    window.open(`https://tracking.novaposhta.ua/#/tracking/${trackingNumber}`, '_blank');
+}
+</script>
+{% endblock %}
