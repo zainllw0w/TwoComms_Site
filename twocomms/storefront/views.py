@@ -7436,6 +7436,7 @@ def check_invoice_approval_status(request, invoice_id):
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
+@csrf_exempt
 def create_wholesale_payment(request):
     """Создание платежа для накладной через Monobank"""
     from orders.models import WholesaleInvoice
