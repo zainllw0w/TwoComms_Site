@@ -367,9 +367,9 @@
                     <p class="stat-value">{{ stats.completed_orders }}</p>
                     <p class="stat-subtitle">
                         {% if stats.total_orders > 0 %}
-                            {{ stats.completed_orders|mul:100|div:stats.total_orders|floatformat:1 }}% від загальної кількості
+                            {{ stats.completed_orders }} з {{ stats.total_orders }}
                         {% else %}
-                            0%
+                            0 замовлень
                         {% endif %}
                     </p>
                 </div>
@@ -423,7 +423,7 @@
                     <h3 class="stat-title">Середній прибуток</h3>
                     <p class="stat-value">
                         {% if stats.completed_orders > 0 %}
-                            {{ stats.total_profit|div:stats.completed_orders|floatformat:0 }}
+                            {{ stats.total_profit|floatformat:0 }}
                         {% else %}
                             0
                         {% endif %}
