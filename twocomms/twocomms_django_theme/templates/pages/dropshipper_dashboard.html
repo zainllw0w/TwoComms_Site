@@ -612,7 +612,7 @@
                         <h3 class="stat-title">Середній прибуток</h3>
                         <p class="stat-value">
                             {% if stats.completed_orders > 0 %}
-                                {{ stats.total_profit|div:stats.completed_orders|floatformat:0 }} грн
+                                {{ stats.total_profit|floatformat:0 }} грн
                             {% else %}
                                 0 грн
                             {% endif %}
