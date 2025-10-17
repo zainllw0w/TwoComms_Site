@@ -1,0 +1,727 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Виплати дропшипера - TwoComms{% endblock %}
+
+{% block extra_css %}
+<style>
+:root {
+    --tc-text: rgba(255, 255, 255, 0.95);
+}
+
+.dropshipper-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+    background: var(--tc-bg);
+    min-height: 100vh;
+    position: relative;
+}
+
+.dropshipper-container::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: 
+        radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.2) 0%, transparent 60%),
+        radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.2) 0%, transparent 60%),
+        radial-gradient(circle at 40% 40%, rgba(236, 72, 153, 0.15) 0%, transparent 60%),
+        radial-gradient(circle at 60% 60%, rgba(16, 185, 129, 0.1) 0%, transparent 50%);
+    animation: gradientShift 25s ease infinite;
+}
+
+@keyframes gradientShift {
+    0%, 100% { 
+        opacity: 1; 
+        transform: scale(1) rotate(0deg);
+    }
+    33% { 
+        opacity: 0.8; 
+        transform: scale(1.05) rotate(1deg);
+    }
+    66% { 
+        opacity: 0.9; 
+        transform: scale(0.95) rotate(-1deg);
+    }
+}
+
+/* Header */
+.dropshipper-header {
+    position: relative;
+    background: linear-gradient(135deg, rgba(0,0,0,0.8), rgba(0,0,0,0.6));
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 2.5rem;
+    margin-bottom: 2rem;
+    backdrop-filter: blur(20px);
+    overflow: hidden;
+}
+
+.dropshipper-header-content {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+}
+
+.dropshipper-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6, #ec4899);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradientShift 3s ease infinite;
+    margin-bottom: 1rem;
+}
+
+/* Available Amount Card */
+.available-amount-card {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    backdrop-filter: blur(10px);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.available-amount-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #10b981, #059669);
+}
+
+.available-amount-title {
+    font-size: 1.2rem;
+    color: var(--tc-text);
+    opacity: 0.8;
+    margin-bottom: 1rem;
+}
+
+.available-amount-value {
+    font-size: 3rem;
+    font-weight: 700;
+    color: #10b981;
+    margin-bottom: 1rem;
+}
+
+.available-amount-subtitle {
+    color: var(--tc-text);
+    opacity: 0.6;
+    margin-bottom: 2rem;
+}
+
+.request-payout-btn {
+    padding: 1rem 2rem;
+    background: linear-gradient(135deg, #10b981, #059669);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-weight: 600;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.request-payout-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+}
+
+.request-payout-btn:disabled {
+    background: rgba(107, 114, 128, 0.3);
+    color: rgba(255, 255, 255, 0.5);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Payouts List */
+.payouts-container {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 2rem;
+    backdrop-filter: blur(10px);
+}
+
+.payouts-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.payouts-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--tc-text);
+    margin: 0;
+}
+
+/* Payout Card */
+.payout-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    transition: all 0.3s ease;
+}
+
+.payout-card:hover {
+    border-color: rgba(139, 92, 246, 0.3);
+    box-shadow: 0 5px 20px rgba(139, 92, 246, 0.1);
+}
+
+.payout-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.payout-info {
+    flex: 1;
+}
+
+.payout-number {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--tc-text);
+    margin-bottom: 0.5rem;
+}
+
+.payout-date {
+    color: var(--tc-text);
+    opacity: 0.7;
+    font-size: 0.9rem;
+}
+
+.payout-status {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+}
+
+.status-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-pending { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+.status-processing { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+.status-completed { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+.status-cancelled { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+
+.payout-amount {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--tc-text);
+}
+
+.payout-details {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.payout-detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.payout-detail-label {
+    color: var(--tc-text);
+    opacity: 0.7;
+    font-size: 0.9rem;
+}
+
+.payout-detail-value {
+    color: var(--tc-text);
+    font-weight: 500;
+}
+
+.payout-orders {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.payout-orders-title {
+    color: var(--tc-text);
+    opacity: 0.7;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.payout-order-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.payout-order-item:last-child {
+    border-bottom: none;
+}
+
+.order-number {
+    color: var(--tc-text);
+    font-weight: 500;
+}
+
+.order-profit {
+    color: #10b981;
+    font-weight: 600;
+}
+
+/* Pagination */
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 2rem;
+}
+
+.pagination a, .pagination span {
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: var(--tc-text);
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.pagination a:hover {
+    background: rgba(139, 92, 246, 0.2);
+    border-color: rgba(139, 92, 246, 0.5);
+}
+
+.pagination .current {
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    border-color: #8b5cf6;
+    color: white;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--tc-text);
+    opacity: 0.7;
+}
+
+.empty-state i {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.empty-state h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.empty-state p {
+    font-size: 1rem;
+    line-height: 1.6;
+}
+
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(5px);
+}
+
+.modal-content {
+    background: rgba(0, 0, 0, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    margin: 5% auto;
+    padding: 2rem;
+    width: 90%;
+    max-width: 500px;
+    backdrop-filter: blur(20px);
+    animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+    from { opacity: 0; transform: translateY(-50px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.modal-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--tc-text);
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: var(--tc-text);
+    font-size: 1.5rem;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.3s ease;
+}
+
+.close-btn:hover {
+    opacity: 1;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--tc-text);
+    margin-bottom: 0.5rem;
+}
+
+.form-input, .form-select, .form-textarea {
+    width: 100%;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    color: var(--tc-text);
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+    outline: none;
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.form-textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 2rem;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(139, 92, 246, 0.3);
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--tc-text);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .dropshipper-container {
+        padding: 10px;
+    }
+    
+    .dropshipper-title {
+        font-size: 2rem;
+    }
+    
+    .payout-header {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .payout-status {
+        align-items: flex-start;
+    }
+    
+    .modal-content {
+        margin: 10% auto;
+        padding: 1.5rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="dropshipper-container">
+    <!-- Header -->
+    <div class="dropshipper-header">
+        <div class="dropshipper-header-content">
+            <h1 class="dropshipper-title">Виплати</h1>
+            <p style="color: var(--tc-text); opacity: 0.8; font-size: 1.1rem;">Управляйте виплатами та відстежуйте їх статус</p>
+        </div>
+    </div>
+
+    <!-- Available Amount -->
+    <div class="available-amount-card">
+        <h3 class="available-amount-title">Доступно для виплати</h3>
+        <div class="available-amount-value">{{ available_amount|floatformat:0 }} грн</div>
+        <p class="available-amount-subtitle">Сума прибутку з виконаних замовлень</p>
+        <button class="request-payout-btn" onclick="showPayoutModal()" {% if available_amount <= 0 %}disabled{% endif %}>
+            <i class="fas fa-money-bill-wave"></i>
+            Запросити виплату
+        </button>
+    </div>
+
+    <!-- Payouts List -->
+    <div class="payouts-container">
+        <div class="payouts-header">
+            <h2 class="payouts-title">Історія виплат</h2>
+        </div>
+
+        {% if page_obj %}
+        <div class="payouts-list">
+            {% for payout in page_obj %}
+            <div class="payout-card">
+                <div class="payout-header">
+                    <div class="payout-info">
+                        <div class="payout-number">#{{ payout.payout_number }}</div>
+                        <div class="payout-date">{{ payout.requested_at|date:"d.m.Y H:i" }}</div>
+                    </div>
+                    <div class="payout-status">
+                        <span class="status-badge status-{{ payout.status }}">{{ payout.get_status_display }}</span>
+                        <div class="payout-amount">{{ payout.amount|floatformat:0 }} грн</div>
+                    </div>
+                </div>
+
+                <div class="payout-details">
+                    <div class="payout-detail-row">
+                        <span class="payout-detail-label">Спосіб виплати:</span>
+                        <span class="payout-detail-value">{{ payout.get_payment_method_display }}</span>
+                    </div>
+                    <div class="payout-detail-row">
+                        <span class="payout-detail-label">Деталі виплати:</span>
+                        <span class="payout-detail-value">{{ payout.payment_details }}</span>
+                    </div>
+                    {% if payout.processed_at %}
+                    <div class="payout-detail-row">
+                        <span class="payout-detail-label">Дата обробки:</span>
+                        <span class="payout-detail-value">{{ payout.processed_at|date:"d.m.Y H:i" }}</span>
+                    </div>
+                    {% endif %}
+                    {% if payout.completed_at %}
+                    <div class="payout-detail-row">
+                        <span class="payout-detail-label">Дата виплати:</span>
+                        <span class="payout-detail-value">{{ payout.completed_at|date:"d.m.Y H:i" }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if payout.included_orders.exists %}
+                <div class="payout-orders">
+                    <div class="payout-orders-title">Включені замовлення</div>
+                    {% for order in payout.included_orders.all %}
+                    <div class="payout-order-item">
+                        <span class="order-number">#{{ order.order_number }}</span>
+                        <span class="order-profit">+{{ order.profit|floatformat:0 }} грн</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% if payout.notes %}
+                <div class="payout-details" style="margin-top: 1rem;">
+                    <div class="payout-detail-row">
+                        <span class="payout-detail-label">Примітки:</span>
+                        <span class="payout-detail-value">{{ payout.notes }}</span>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="pagination">
+            {% if page_obj.has_previous %}
+                <a href="?page=1">&laquo; Перша</a>
+                <a href="?page={{ page_obj.previous_page_number }}">Попередня</a>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <span class="current">{{ num }}</span>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <a href="?page={{ num }}">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}">Наступна</a>
+                <a href="?page={{ page_obj.paginator.num_pages }}">Остання &raquo;</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-money-bill-wave"></i>
+            <h3>Виплат поки немає</h3>
+            <p>Після виконання замовлень ви зможете запросити виплату прибутку</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Payout Request Modal -->
+<div id="payoutModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title">Запросити виплату</h2>
+            <button class="close-btn" onclick="closePayoutModal()">&times;</button>
+        </div>
+        
+        <form id="payoutForm">
+            <div class="form-group">
+                <label class="form-label">Спосіб виплати</label>
+                <select class="form-select" name="payment_method" required>
+                    <option value="">Оберіть спосіб виплати</option>
+                    {% for method_code, method_name in payment_method_choices %}
+                    <option value="{{ method_code }}">{{ method_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Деталі виплати</label>
+                <input type="text" class="form-input" name="payment_details" placeholder="Номер картки, рахунку або інші деталі" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Примітки (необов'язково)</label>
+                <textarea class="form-textarea" name="notes" placeholder="Додаткові примітки до запиту на виплату..."></textarea>
+            </div>
+            
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closePayoutModal()">Скасувати</button>
+                <button type="submit" class="btn btn-primary">Запросити виплату</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showPayoutModal() {
+    document.getElementById('payoutModal').style.display = 'block';
+}
+
+function closePayoutModal() {
+    document.getElementById('payoutModal').style.display = 'none';
+}
+
+// Payout form submission
+document.getElementById('payoutForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const payoutData = {
+        payment_method: formData.get('payment_method'),
+        payment_details: formData.get('payment_details'),
+        notes: formData.get('notes')
+    };
+    
+    try {
+        const response = await fetch('/orders/dropshipper/api/request-payout/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify(payoutData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            closePayoutModal();
+            location.reload();
+        } else {
+            alert(result.message);
+        }
+    } catch (error) {
+        console.error('Error requesting payout:', error);
+        alert('Помилка при створенні запиту на виплату');
+    }
+});
+
+// Close modal when clicking outside
+window.addEventListener('click', (e) => {
+    const modal = document.getElementById('payoutModal');
+    if (e.target === modal) {
+        closePayoutModal();
+    }
+});
+</script>
+{% endblock %}

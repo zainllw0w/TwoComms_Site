@@ -1,0 +1,556 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Товари для дропшипера - TwoComms{% endblock %}
+
+{% block extra_css %}
+<style>
+:root {
+    --tc-text: rgba(255, 255, 255, 0.95);
+}
+
+.dropshipper-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+    background: var(--tc-bg);
+    min-height: 100vh;
+    position: relative;
+}
+
+.dropshipper-container::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: 
+        radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.2) 0%, transparent 60%),
+        radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.2) 0%, transparent 60%),
+        radial-gradient(circle at 40% 40%, rgba(236, 72, 153, 0.15) 0%, transparent 60%),
+        radial-gradient(circle at 60% 60%, rgba(16, 185, 129, 0.1) 0%, transparent 50%);
+    animation: gradientShift 25s ease infinite;
+}
+
+@keyframes gradientShift {
+    0%, 100% { 
+        opacity: 1; 
+        transform: scale(1) rotate(0deg);
+    }
+    33% { 
+        opacity: 0.8; 
+        transform: scale(1.05) rotate(1deg);
+    }
+    66% { 
+        opacity: 0.9; 
+        transform: scale(0.95) rotate(-1deg);
+    }
+}
+
+/* Header */
+.dropshipper-header {
+    position: relative;
+    background: linear-gradient(135deg, rgba(0,0,0,0.8), rgba(0,0,0,0.6));
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 2.5rem;
+    margin-bottom: 2rem;
+    backdrop-filter: blur(20px);
+    overflow: hidden;
+}
+
+.dropshipper-header-content {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+}
+
+.dropshipper-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6, #ec4899);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradientShift 3s ease infinite;
+    margin-bottom: 1rem;
+}
+
+/* Filters */
+.filters-container {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    backdrop-filter: blur(10px);
+}
+
+.filters-row {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.filter-label {
+    font-size: 0.9rem;
+    color: var(--tc-text);
+    opacity: 0.8;
+}
+
+.filter-select, .filter-input {
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    color: var(--tc-text);
+    font-size: 1rem;
+    min-width: 200px;
+}
+
+.filter-select:focus, .filter-input:focus {
+    outline: none;
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+/* Products Grid */
+.products-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.product-card {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+}
+
+.product-card:hover {
+    transform: translateY(-10px);
+    border-color: rgba(139, 92, 246, 0.3);
+    box-shadow: 0 20px 40px rgba(139, 92, 246, 0.1);
+}
+
+.product-image {
+    width: 100%;
+    height: 250px;
+    object-fit: cover;
+    background: linear-gradient(135deg, #374151, #1f2937);
+}
+
+.product-info {
+    padding: 1.5rem;
+}
+
+.product-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--tc-text);
+    margin-bottom: 1rem;
+    line-height: 1.4;
+}
+
+.product-description {
+    color: var(--tc-text);
+    opacity: 0.7;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.product-prices {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.price-item {
+    text-align: center;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.price-label {
+    font-size: 0.8rem;
+    color: var(--tc-text);
+    opacity: 0.7;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.price-value {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--tc-text);
+}
+
+.drop-price { color: #10b981; }
+.recommended-price { color: #f59e0b; }
+
+.add-to-order-btn {
+    width: 100%;
+    padding: 1rem;
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.add-to-order-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(139, 92, 246, 0.3);
+}
+
+.add-to-order-btn:active {
+    transform: translateY(0);
+}
+
+/* Pagination */
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 2rem;
+}
+
+.pagination a, .pagination span {
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: var(--tc-text);
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.pagination a:hover {
+    background: rgba(139, 92, 246, 0.2);
+    border-color: rgba(139, 92, 246, 0.5);
+}
+
+.pagination .current {
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    border-color: #8b5cf6;
+    color: white;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--tc-text);
+    opacity: 0.7;
+}
+
+.empty-state i {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.empty-state h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.empty-state p {
+    font-size: 1rem;
+    line-height: 1.6;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .dropshipper-container {
+        padding: 10px;
+    }
+    
+    .dropshipper-title {
+        font-size: 2rem;
+    }
+    
+    .filters-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .filter-select, .filter-input {
+        min-width: auto;
+    }
+    
+    .products-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .product-prices {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dropshipper-container">
+    <!-- Header -->
+    <div class="dropshipper-header">
+        <div class="dropshipper-header-content">
+            <h1 class="dropshipper-title">Товари для дропшипера</h1>
+            <p style="color: var(--tc-text); opacity: 0.8; font-size: 1.1rem;">Оберіть товари та створіть замовлення для своїх клієнтів</p>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-container">
+        <form method="get" id="filterForm">
+            <div class="filters-row">
+                <div class="filter-group">
+                    <label class="filter-label">Категорія</label>
+                    <select name="category" class="filter-select" onchange="this.form.submit()">
+                        <option value="">Всі категорії</option>
+                        {% for category in categories %}
+                        <option value="{{ category.id }}" {% if selected_category == category.id|stringformat:"s" %}selected{% endif %}>
+                            {{ category.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label class="filter-label">Пошук</label>
+                    <input type="text" name="search" class="filter-input" placeholder="Назва товару..." value="{{ search_query }}">
+                </div>
+                
+                <div class="filter-group" style="align-self: flex-end;">
+                    <button type="submit" class="add-to-order-btn" style="width: auto; padding: 0.75rem 1.5rem;">
+                        <i class="fas fa-search"></i>
+                        Пошук
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Products Grid -->
+    {% if page_obj %}
+    <div class="products-grid">
+        {% for product in page_obj %}
+        <div class="product-card" data-product-id="{{ product.id }}" onclick="showProductModal({{ product.id }})">
+            <img src="{{ product.display_image.url }}" alt="{{ product.title }}" class="product-image" onerror="this.src='/static/img/placeholder.jpg'">
+            <div class="product-info">
+                <h3 class="product-title">{{ product.title }}</h3>
+                <p class="product-description">{{ product.description|truncatewords:20 }}</p>
+                
+                <div class="product-prices">
+                    <div class="price-item">
+                        <div class="price-label">Ціна дропа</div>
+                        <div class="price-value drop-price">{{ product.drop_price }} грн</div>
+                    </div>
+                    <div class="price-item">
+                        <div class="price-label">Рекомендована</div>
+                        <div class="price-value recommended-price">{{ product.recommended_price }} грн</div>
+                    </div>
+                </div>
+                
+                <button class="add-to-order-btn">
+                    <i class="fas fa-plus"></i>
+                    Додати до замовлення
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page=1{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">&laquo; Перша</a>
+            <a href="?page={{ page_obj.previous_page_number }}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Попередня</a>
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+                <span class="current">{{ num }}</span>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <a href="?page={{ num }}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Наступна</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Остання &raquo;</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-box-open"></i>
+        <h3>Товари не знайдено</h3>
+        <p>Спробуйте змінити фільтри пошуку або оберіть іншу категорію</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Product Details Modal -->
+<div id="productModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.8); backdrop-filter: blur(5px);">
+    <div class="modal-content" style="background: rgba(0, 0, 0, 0.9); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; margin: 5% auto; padding: 2rem; width: 90%; max-width: 600px; backdrop-filter: blur(20px);">
+        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+            <h2 class="modal-title" style="font-size: 1.5rem; font-weight: 600; color: var(--tc-text);">Додати товар до замовлення</h2>
+            <button class="close-btn" onclick="closeProductModal()" style="background: none; border: none; color: var(--tc-text); font-size: 1.5rem; cursor: pointer; opacity: 0.7;">&times;</button>
+        </div>
+        
+        <div id="product-details">
+            <!-- Product details will be loaded here -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentProduct = null;
+
+async function showProductModal(productId) {
+    try {
+        const response = await fetch(`/orders/dropshipper/api/product/${productId}/`);
+        const product = await response.json();
+        
+        currentProduct = product;
+        
+        const modal = document.getElementById('productModal');
+        const details = document.getElementById('product-details');
+        
+        details.innerHTML = `
+            <div style="display: flex; gap: 2rem; margin-bottom: 2rem;">
+                <img src="${product.main_image || '/static/img/placeholder.jpg'}" alt="${product.title}" style="width: 200px; height: 200px; object-fit: cover; border-radius: 10px;">
+                <div style="flex: 1;">
+                    <h3 style="color: var(--tc-text); margin-bottom: 1rem;">${product.title}</h3>
+                    <p style="color: var(--tc-text); opacity: 0.8; margin-bottom: 1rem;">${product.description || 'Опис відсутній'}</p>
+                    <div style="display: flex; gap: 2rem; margin-bottom: 1rem;">
+                        <div>
+                            <span style="color: var(--tc-text); opacity: 0.7;">Ціна дропа:</span>
+                            <span style="color: #10b981; font-weight: 600; margin-left: 0.5rem;">${product.drop_price} грн</span>
+                        </div>
+                        <div>
+                            <span style="color: var(--tc-text); opacity: 0.7;">Рекомендована:</span>
+                            <span style="color: #f59e0b; font-weight: 600; margin-left: 0.5rem;">${product.recommended_price} грн</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <form id="productForm">
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label class="form-label" style="display: block; font-size: 0.9rem; font-weight: 500; color: var(--tc-text); margin-bottom: 0.5rem;">Кількість</label>
+                    <input type="number" class="form-input" name="quantity" value="1" min="1" required style="width: 100%; padding: 0.75rem; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 10px; color: var(--tc-text); font-size: 1rem;">
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label class="form-label" style="display: block; font-size: 0.9rem; font-weight: 500; color: var(--tc-text); margin-bottom: 0.5rem;">Розмір</label>
+                    <select class="form-select" name="size" required style="width: 100%; padding: 0.75rem; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 10px; color: var(--tc-text); font-size: 1rem;">
+                        <option value="">Оберіть розмір</option>
+                        ${product.sizes.map(size => `<option value="${size}">${size}</option>`).join('')}
+                    </select>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label class="form-label" style="display: block; font-size: 0.9rem; font-weight: 500; color: var(--tc-text); margin-bottom: 0.5rem;">Колір</label>
+                    <select class="form-select" name="color_variant_id" style="width: 100%; padding: 0.75rem; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 10px; color: var(--tc-text); font-size: 1rem;">
+                        <option value="">Без кольору</option>
+                        ${product.color_variants.map(variant => `<option value="${variant.id}">${variant.color_name}</option>`).join('')}
+                    </select>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label class="form-label" style="display: block; font-size: 0.9rem; font-weight: 500; color: var(--tc-text); margin-bottom: 0.5rem;">Ціна продажу (грн)</label>
+                    <input type="number" class="form-input" name="selling_price" value="${product.recommended_price}" min="${product.drop_price}" step="0.01" required style="width: 100%; padding: 0.75rem; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 10px; color: var(--tc-text); font-size: 1rem;">
+                </div>
+                
+                <div class="modal-actions" style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeProductModal()" style="padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.1); color: var(--tc-text); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 10px; font-weight: 600; cursor: pointer;">Скасувати</button>
+                    <button type="submit" class="btn btn-primary" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #8b5cf6, #3b82f6); color: white; border: none; border-radius: 10px; font-weight: 600; cursor: pointer;">Додати до замовлення</button>
+                </div>
+            </form>
+        `;
+        
+        modal.style.display = 'block';
+        
+        // Add form submit handler
+        document.getElementById('productForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            addToOrder();
+        });
+        
+    } catch (error) {
+        console.error('Error loading product details:', error);
+        alert('Помилка при завантаженні товару');
+    }
+}
+
+function addToOrder() {
+    const form = document.getElementById('productForm');
+    const formData = new FormData(form);
+    
+    const item = {
+        product_id: currentProduct.id,
+        quantity: parseInt(formData.get('quantity')),
+        size: formData.get('size'),
+        color_variant_id: formData.get('color_variant_id') || null,
+        drop_price: currentProduct.drop_price,
+        selling_price: parseFloat(formData.get('selling_price')),
+        recommended_price: currentProduct.recommended_price
+    };
+    
+    // Store in sessionStorage for the order form
+    let orderItems = JSON.parse(sessionStorage.getItem('dropshipperOrderItems') || '[]');
+    orderItems.push(item);
+    sessionStorage.setItem('dropshipperOrderItems', JSON.stringify(orderItems));
+    
+    closeProductModal();
+    
+    // Show success message
+    alert('Товар додано до замовлення! Перейдіть до вкладки "Замовлення" для оформлення.');
+}
+
+function closeProductModal() {
+    document.getElementById('productModal').style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.addEventListener('click', (e) => {
+    const modal = document.getElementById('productModal');
+    if (e.target === modal) {
+        closeProductModal();
+    }
+});
+</script>
+{% endblock %}
