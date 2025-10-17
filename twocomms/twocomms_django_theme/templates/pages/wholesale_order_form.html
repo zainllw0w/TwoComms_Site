@@ -3912,6 +3912,12 @@ function addInvoiceToList(invoice) {
             <div class="invoice-total">${totalAmount}</div>
         </div>
         <div class="invoice-actions">
+            <!-- Описание для неотправленных накладных -->
+            <div class="payment-info" style="display: block; margin-bottom: 8px; padding: 8px 12px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; font-size: 0.85rem; color: #fbbf24;" data-invoice-id="${invoice.id}">
+                <i class="fas fa-info-circle" style="margin-right: 6px;"></i>
+                Оплатити накладну можна тільки після відправки та одобрення
+            </div>
+            
             <button class="action-btn" onclick="downloadInvoice('${invoice.id}')" title="Скачати">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z"/>
@@ -4111,6 +4117,8 @@ async function sendToWork(invoiceId) {
         
         // Обновляем универсальную кнопку
         const btn = document.querySelector(`.main-action-btn[data-invoice-id="${invoiceId}"]`);
+        const paymentInfo = document.querySelector(`.payment-info[data-invoice-id="${invoiceId}"]`);
+        
         if (btn) { 
             btn.innerHTML = `
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -4125,6 +4133,11 @@ async function sendToWork(invoiceId) {
             btn.style.textOverflow = 'ellipsis';
             // Сохраняем состояние в localStorage
             localStorage.setItem(`invoice_${invoiceId}_sent`, 'true');
+        }
+        
+        // Скрываем описание после отправки
+        if (paymentInfo) {
+            paymentInfo.style.display = 'none';
         }
         
         // Показываем модальное окно
@@ -4277,6 +4290,8 @@ function restoreSentButtonStates() {
         console.log('Restoring button states for', invoices.length, 'invoices');
         
         invoices.forEach(invoice => {
+            const paymentInfo = document.querySelector(`.payment-info[data-invoice-id="${invoice.id}"]`);
+            
             if (localStorage.getItem(`invoice_${invoice.id}_sent`) === 'true') {
                 console.log('Restoring button for invoice', invoice.id);
                 const btn = document.querySelector(`.main-action-btn[data-invoice-id="${invoice.id}"]`);
@@ -4296,6 +4311,16 @@ function restoreSentButtonStates() {
                     console.log('Button restored for invoice', invoice.id);
                 } else {
                     console.log('Button not found for invoice', invoice.id);
+                }
+                
+                // Скрываем описание для отправленных накладных
+                if (paymentInfo) {
+                    paymentInfo.style.display = 'none';
+                }
+            } else {
+                // Показываем описание для неотправленных накладных
+                if (paymentInfo) {
+                    paymentInfo.style.display = 'block';
                 }
             }
             
