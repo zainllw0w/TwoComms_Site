@@ -738,6 +738,748 @@
     gap: 1.5rem;
     margin-top: 2rem;
 }
+
+/* Hero Section */
+.hero-section {
+    padding: 4rem 0;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.1));
+    border-radius: 30px;
+    margin-bottom: 4rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 20% 20%, rgba(139, 92, 246, 0.2) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.2) 0%, transparent 50%);
+    animation: heroGlow 8s ease-in-out infinite alternate;
+}
+
+@keyframes heroGlow {
+    0% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.hero-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+}
+
+.hero-title {
+    font-size: 3.5rem;
+    font-weight: 900;
+    line-height: 1.1;
+    margin-bottom: 2rem;
+}
+
+.title-line {
+    display: block;
+    animation: slideInUp 1s ease-out forwards;
+    opacity: 0;
+    transform: translateY(50px);
+}
+
+.title-line:nth-child(1) { animation-delay: 0.2s; }
+.title-line:nth-child(2) { animation-delay: 0.4s; }
+.title-line:nth-child(3) { animation-delay: 0.6s; }
+
+@keyframes slideInUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.gradient-text {
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6, #10b981);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradientShift 3s ease-in-out infinite;
+}
+
+@keyframes gradientShift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+.hero-subtitle {
+    font-size: 1.3rem;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 3rem;
+    animation: fadeInUp 1s ease-out 0.8s forwards;
+    opacity: 0;
+}
+
+@keyframes fadeInUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.hero-stats {
+    display: flex;
+    gap: 2rem;
+    animation: fadeInUp 1s ease-out 1s forwards;
+    opacity: 0;
+}
+
+.stat-item {
+    text-align: center;
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.hero-visual {
+    position: relative;
+    height: 400px;
+}
+
+.floating-cards {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.floating-card {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    animation: float 6s ease-in-out infinite;
+}
+
+.floating-card i {
+    font-size: 2rem;
+    color: #8b5cf6;
+}
+
+.floating-card span {
+    color: var(--tc-text);
+    font-weight: 600;
+    text-align: center;
+}
+
+.card-1 {
+    top: 20%;
+    left: 10%;
+    animation-delay: 0s;
+}
+
+.card-2 {
+    top: 50%;
+    right: 20%;
+    animation-delay: 2s;
+}
+
+.card-3 {
+    bottom: 20%;
+    left: 30%;
+    animation-delay: 4s;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    33% { transform: translateY(-20px) rotate(1deg); }
+    66% { transform: translateY(-10px) rotate(-1deg); }
+}
+
+/* Section Headers */
+.section-header {
+    text-align: center;
+    margin-bottom: 4rem;
+}
+
+.section-title {
+    font-size: 2.8rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 1rem;
+}
+
+.section-subtitle {
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.8);
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+/* Enhanced Advantages */
+.advantages-section {
+    margin: 6rem 0;
+}
+
+.advantages-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 2rem;
+}
+
+.advantage-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 25px;
+    padding: 2.5rem;
+    text-align: center;
+    transition: all 0.4s ease;
+    backdrop-filter: blur(20px);
+    position: relative;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(50px);
+    animation: slideInUp 0.8s ease-out forwards;
+}
+
+.advantage-card[data-delay="0"] { animation-delay: 0.1s; }
+.advantage-card[data-delay="100"] { animation-delay: 0.2s; }
+.advantage-card[data-delay="200"] { animation-delay: 0.3s; }
+.advantage-card[data-delay="300"] { animation-delay: 0.4s; }
+.advantage-card[data-delay="400"] { animation-delay: 0.5s; }
+.advantage-card[data-delay="500"] { animation-delay: 0.6s; }
+
+.advantage-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #8b5cf6, #3b82f6, #10b981);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.advantage-card:hover {
+    transform: translateY(-15px);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+    border-color: rgba(139, 92, 246, 0.5);
+}
+
+.advantage-card:hover::before {
+    opacity: 1;
+}
+
+.advantage-icon {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    margin: 0 auto 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.advantage-icon i {
+    font-size: 2.5rem;
+    color: #8b5cf6;
+    z-index: 2;
+    position: relative;
+}
+
+.icon-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.2));
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 0.7; }
+    50% { transform: scale(1.1); opacity: 1; }
+}
+
+.advantage-card h3 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--tc-text);
+    margin-bottom: 1rem;
+}
+
+.advantage-card p {
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+}
+
+.advantage-number {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.3);
+}
+
+/* Enhanced Loyalty Section */
+.loyalty-section {
+    margin: 6rem 0;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 30px;
+    padding: 4rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    position: relative;
+    overflow: hidden;
+}
+
+.loyalty-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 30% 30%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 70% 70%, rgba(59, 130, 246, 0.1) 0%, transparent 50%);
+    animation: loyaltyGlow 10s ease-in-out infinite alternate;
+}
+
+@keyframes loyaltyGlow {
+    0% { opacity: 0.3; }
+    100% { opacity: 0.7; }
+}
+
+.loyalty-content {
+    position: relative;
+    z-index: 2;
+}
+
+.loyalty-title {
+    font-size: 3rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6, #10b981);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.loyalty-subtitle {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 1.3rem;
+    margin-bottom: 4rem;
+}
+
+.loyalty-progress {
+    margin-bottom: 4rem;
+}
+
+.progress-track {
+    position: relative;
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.progress-line {
+    position: absolute;
+    top: 50%;
+    left: 10%;
+    right: 10%;
+    height: 4px;
+    background: linear-gradient(90deg, #8b5cf6, #3b82f6, #10b981);
+    border-radius: 2px;
+    animation: progressFlow 3s ease-in-out infinite;
+}
+
+@keyframes progressFlow {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
+.progress-dots {
+    display: flex;
+    justify-content: space-between;
+    width: 80%;
+    position: relative;
+    z-index: 2;
+}
+
+.progress-dot {
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.progress-dot:hover {
+    transform: scale(1.2);
+}
+
+.dot-inner {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    border: 3px solid rgba(255, 255, 255, 0.5);
+    transition: all 0.3s ease;
+}
+
+.progress-dot.active .dot-inner {
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    border-color: #8b5cf6;
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+    animation: dotPulse 2s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+.dot-label {
+    position: absolute;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+    white-space: nowrap;
+}
+
+.loyalty-levels {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+}
+
+.loyalty-level {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 2rem;
+    text-align: center;
+    transition: all 0.4s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.loyalty-level:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    border-color: rgba(139, 92, 246, 0.3);
+}
+
+.level-visual {
+    position: relative;
+    margin-bottom: 1.5rem;
+}
+
+.level-badge {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    font-size: 2rem;
+    color: white;
+    position: relative;
+    z-index: 2;
+}
+
+.level-badge.start {
+    background: linear-gradient(135deg, #6b7280, #9ca3af);
+}
+
+.level-badge.silver {
+    background: linear-gradient(135deg, #c0c0c0, #e5e7eb);
+    color: #374151;
+}
+
+.level-badge.gold {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+}
+
+.level-badge.diamond {
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+}
+
+.level-glow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: inherit;
+    opacity: 0.3;
+    animation: levelGlow 3s ease-in-out infinite;
+}
+
+@keyframes levelGlow {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.3; }
+    50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.6; }
+}
+
+.level-content h4 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--tc-text);
+    margin-bottom: 0.5rem;
+}
+
+.level-range {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 1rem;
+}
+
+.level-content p {
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 1.5rem;
+}
+
+.discount {
+    color: #10b981;
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.level-benefits {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.benefit {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.6);
+    padding: 0.25rem 0.75rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* How It Works Section */
+.how-it-works-section {
+    margin: 6rem 0;
+}
+
+.steps-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+    position: relative;
+}
+
+.step-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 2rem;
+    text-align: center;
+    transition: all 0.4s ease;
+    position: relative;
+    backdrop-filter: blur(20px);
+}
+
+.step-item:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    border-color: rgba(139, 92, 246, 0.3);
+}
+
+.step-number {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin: 0 auto 1.5rem;
+    position: relative;
+    z-index: 2;
+}
+
+.step-number::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: -5px;
+    right: -5px;
+    bottom: -5px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    opacity: 0.3;
+    animation: stepPulse 2s ease-in-out infinite;
+}
+
+@keyframes stepPulse {
+    0%, 100% { transform: scale(1); opacity: 0.3; }
+    50% { transform: scale(1.1); opacity: 0.6; }
+}
+
+.step-content h3 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--tc-text);
+    margin-bottom: 1rem;
+}
+
+.step-content p {
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.6;
+}
+
+.step-arrow {
+    position: absolute;
+    right: -1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #8b5cf6;
+    font-size: 1.5rem;
+    animation: arrowBounce 2s ease-in-out infinite;
+}
+
+@keyframes arrowBounce {
+    0%, 100% { transform: translateY(-50%) translateX(0); }
+    50% { transform: translateY(-50%) translateX(5px); }
+}
+
+/* CTA Section */
+.cta-section {
+    margin: 6rem 0;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.1));
+    border-radius: 30px;
+    padding: 4rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.cta-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 20% 20%, rgba(139, 92, 246, 0.2) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.2) 0%, transparent 50%);
+    animation: ctaGlow 8s ease-in-out infinite alternate;
+}
+
+@keyframes ctaGlow {
+    0% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.cta-content {
+    position: relative;
+    z-index: 2;
+}
+
+.cta-content h2 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 1rem;
+}
+
+.cta-content p {
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 3rem;
+}
+
+.cta-buttons {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.cta-btn {
+    padding: 1rem 2rem;
+    border-radius: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+    font-size: 1.1rem;
+}
+
+.cta-btn.primary {
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    color: white;
+    box-shadow: 0 10px 30px rgba(139, 92, 246, 0.3);
+}
+
+.cta-btn.primary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 40px rgba(139, 92, 246, 0.4);
+}
+
+.cta-btn.secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--tc-text);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(20px);
+}
+
+.cta-btn.secondary:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-3px);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+}
 </style>
 {% endblock %}
 
@@ -797,63 +1539,116 @@
         <div class="dropshipper-container">
     <!-- Main Content Tabs -->
     <div id="main-content" class="tab-content active">
-        <!-- Header -->
-        <div class="dropshipper-header">
-            <div class="dropshipper-header-content">
-                <h1 class="dropshipper-title">ПЕРЕВАГИ РОБОТИ З НАМИ ПО ДРОПШИППІНГУ</h1>
-                <p class="dropshipper-subtitle">Створюйте свій бізнес без вкладень у склад та логістику</p>
+        <!-- Hero Section -->
+        <div class="hero-section">
+            <div class="hero-content">
+                <div class="hero-text">
+                    <h1 class="hero-title">
+                        <span class="title-line">ПОЧНИ СВІЙ</span>
+                        <span class="title-line gradient-text">ДРОПШИП БІЗНЕС</span>
+                        <span class="title-line">З НАМИ</span>
+                    </h1>
+                    <p class="hero-subtitle">Створюйте прибуток без вкладень у склад та логістику. Ми займаємося всім, ви - заробляєте!</p>
+                    <div class="hero-stats">
+                        <div class="stat-item">
+                            <div class="stat-number" data-count="1000">0</div>
+                            <div class="stat-label">Активних дропшиперів</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" data-count="50000">0</div>
+                            <div class="stat-label">Відправлених замовлень</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" data-count="98">0</div>
+                            <div class="stat-label">% Задоволених клієнтів</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="hero-visual">
+                    <div class="floating-cards">
+                        <div class="floating-card card-1">
+                            <i class="fas fa-rocket"></i>
+                            <span>Швидкий старт</span>
+                        </div>
+                        <div class="floating-card card-2">
+                            <i class="fas fa-chart-line"></i>
+                            <span>Зростання прибутку</span>
+                        </div>
+                        <div class="floating-card card-3">
+                            <i class="fas fa-shield-alt"></i>
+                            <span>Надійність</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
         <!-- Advantages Section -->
         <div class="advantages-section">
+            <div class="section-header">
+                <h2 class="section-title">Чому обирають нас?</h2>
+                <p class="section-subtitle">6 ключових переваг для успішного дропшип бізнесу</p>
+            </div>
+            
             <div class="advantages-grid">
-                <div class="advantage-card">
+                <div class="advantage-card" data-delay="0">
                     <div class="advantage-icon">
                         <i class="fas fa-wallet"></i>
+                        <div class="icon-bg"></div>
                     </div>
                     <h3>Без вкладень у склад</h3>
                     <p>Не потрібно вкладати гроші у свій склад - ми маємо все необхідне</p>
+                    <div class="advantage-number">01</div>
                 </div>
                 
-                <div class="advantage-card">
+                <div class="advantage-card" data-delay="100">
                     <div class="advantage-icon">
                         <i class="fas fa-truck"></i>
+                        <div class="icon-bg"></div>
                     </div>
                     <h3>Ми займаємося доставкою</h3>
                     <p>Ви не займаєтеся доставкою товару - ми відправляємо замовлення</p>
+                    <div class="advantage-number">02</div>
                 </div>
                 
-                <div class="advantage-card">
+                <div class="advantage-card" data-delay="200">
                     <div class="advantage-icon">
                         <i class="fas fa-shipping-fast"></i>
+                        <div class="icon-bg"></div>
                     </div>
                     <h3>Щоденне відправлення</h3>
                     <p>Щоденне відправлення замовлень Новою Поштою по всій Україні</p>
+                    <div class="advantage-number">03</div>
                 </div>
                 
-                <div class="advantage-card">
+                <div class="advantage-card" data-delay="300">
                     <div class="advantage-icon">
                         <i class="fas fa-users"></i>
+                        <div class="icon-bg"></div>
                     </div>
                     <h3>Ваші клієнти залишаються вашими</h3>
                     <p>Всі комунікації з клієнтом здійснюєте ви, тому він залишається вашим клієнтом</p>
+                    <div class="advantage-number">04</div>
                 </div>
                 
-                <div class="advantage-card">
+                <div class="advantage-card" data-delay="400">
                     <div class="advantage-icon">
                         <i class="fas fa-info-circle"></i>
+                        <div class="icon-bg"></div>
                     </div>
                     <h3>Повна інформація про товар</h3>
                     <p>Надання повної інформації про товар на сайті</p>
+                    <div class="advantage-number">05</div>
                 </div>
                 
-                <div class="advantage-card">
+                <div class="advantage-card" data-delay="500">
                     <div class="advantage-icon">
                         <i class="fas fa-shopping-cart"></i>
+                        <div class="icon-bg"></div>
                     </div>
                     <h3>Зручне оформлення замовлень</h3>
                     <p>Можливість оформлення замовлень в особистому кабінеті на сайті, а також у месенджерах</p>
+                    <div class="advantage-number">06</div>
                 </div>
             </div>
         </div>
@@ -861,33 +1656,176 @@
         <!-- Loyalty Section -->
         <div class="loyalty-section">
             <div class="loyalty-content">
-                <h2 class="loyalty-title">Система лояльності</h2>
-                <p class="loyalty-subtitle">Чим більше ви продаєте, тим менше ціна на дроп</p>
+                <div class="section-header">
+                    <h2 class="loyalty-title">Програма лояльності</h2>
+                    <p class="loyalty-subtitle">Чим більше ви продаєте, тим менше ціна на дроп. Розвивайтеся разом з нами!</p>
+                </div>
+                
+                <div class="loyalty-progress">
+                    <div class="progress-track">
+                        <div class="progress-line"></div>
+                        <div class="progress-dots">
+                            <div class="progress-dot active" data-level="start">
+                                <div class="dot-inner"></div>
+                                <div class="dot-label">Старт</div>
+                            </div>
+                            <div class="progress-dot" data-level="silver">
+                                <div class="dot-inner"></div>
+                                <div class="dot-label">Срібло</div>
+                            </div>
+                            <div class="progress-dot" data-level="gold">
+                                <div class="dot-inner"></div>
+                                <div class="dot-label">Золото</div>
+                            </div>
+                            <div class="progress-dot" data-level="diamond">
+                                <div class="dot-inner"></div>
+                                <div class="dot-label">Діамант</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 
                 <div class="loyalty-levels">
-                    <div class="loyalty-level">
-                        <div class="level-badge">Старт</div>
-                        <h4>0-10 замовлень</h4>
-                        <p>Стандартні ціни дропа</p>
+                    <div class="loyalty-level" data-level="start">
+                        <div class="level-visual">
+                            <div class="level-badge start">
+                                <i class="fas fa-play"></i>
+                            </div>
+                            <div class="level-glow"></div>
+                        </div>
+                        <div class="level-content">
+                            <h4>Старт</h4>
+                            <div class="level-range">0-10 замовлень</div>
+                            <p>Стандартні ціни дропа</p>
+                            <div class="level-benefits">
+                                <span class="benefit">Доступ до каталогу</span>
+                                <span class="benefit">Підтримка 24/7</span>
+                            </div>
+                        </div>
                     </div>
                     
-                    <div class="loyalty-level">
-                        <div class="level-badge silver">Срібло</div>
-                        <h4>11-50 замовлень</h4>
-                        <p>Знижка 5% на всі товари</p>
+                    <div class="loyalty-level" data-level="silver">
+                        <div class="level-visual">
+                            <div class="level-badge silver">
+                                <i class="fas fa-medal"></i>
+                            </div>
+                            <div class="level-glow"></div>
+                        </div>
+                        <div class="level-content">
+                            <h4>Срібло</h4>
+                            <div class="level-range">11-50 замовлень</div>
+                            <p>Знижка <span class="discount">5%</span> на всі товари</p>
+                            <div class="level-benefits">
+                                <span class="benefit">Пріоритетна підтримка</span>
+                                <span class="benefit">Ексклюзивні товари</span>
+                            </div>
+                        </div>
                     </div>
                     
-                    <div class="loyalty-level">
-                        <div class="level-badge gold">Золото</div>
-                        <h4>51-100 замовлень</h4>
-                        <p>Знижка 10% на всі товари</p>
+                    <div class="loyalty-level" data-level="gold">
+                        <div class="level-visual">
+                            <div class="level-badge gold">
+                                <i class="fas fa-crown"></i>
+                            </div>
+                            <div class="level-glow"></div>
+                        </div>
+                        <div class="level-content">
+                            <h4>Золото</h4>
+                            <div class="level-range">51-100 замовлень</div>
+                            <p>Знижка <span class="discount">10%</span> на всі товари</p>
+                            <div class="level-benefits">
+                                <span class="benefit">Персональний менеджер</span>
+                                <span class="benefit">Швидша доставка</span>
+                            </div>
+                        </div>
                     </div>
                     
-                    <div class="loyalty-level">
-                        <div class="level-badge diamond">Діамант</div>
-                        <h4>100+ замовлень</h4>
-                        <p>Знижка 15% на всі товари</p>
+                    <div class="loyalty-level" data-level="diamond">
+                        <div class="level-visual">
+                            <div class="level-badge diamond">
+                                <i class="fas fa-gem"></i>
+                            </div>
+                            <div class="level-glow"></div>
+                        </div>
+                        <div class="level-content">
+                            <h4>Діамант</h4>
+                            <div class="level-range">100+ замовлень</div>
+                            <p>Знижка <span class="discount">15%</span> на всі товари</p>
+                            <div class="level-benefits">
+                                <span class="benefit">VIP підтримка</span>
+                                <span class="benefit">Ексклюзивні умови</span>
+                            </div>
+                        </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- How It Works Section -->
+        <div class="how-it-works-section">
+            <div class="section-header">
+                <h2 class="section-title">Як це працює?</h2>
+                <p class="section-subtitle">Простий алгоритм успіху в 4 кроки</p>
+            </div>
+            
+            <div class="steps-container">
+                <div class="step-item" data-step="1">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>Реєстрація</h3>
+                        <p>Створіть акаунт та отримайте доступ до каталогу товарів</p>
+                    </div>
+                    <div class="step-arrow">
+                        <i class="fas fa-arrow-right"></i>
+                    </div>
+                </div>
+                
+                <div class="step-item" data-step="2">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>Вибір товарів</h3>
+                        <p>Оберіть товари з каталогу та встановіть свою ціну</p>
+                    </div>
+                    <div class="step-arrow">
+                        <i class="fas fa-arrow-right"></i>
+                    </div>
+                </div>
+                
+                <div class="step-item" data-step="3">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>Продаж клієнтам</h3>
+                        <p>Рекламуйте товари та приймайте замовлення від клієнтів</p>
+                    </div>
+                    <div class="step-arrow">
+                        <i class="fas fa-arrow-right"></i>
+                    </div>
+                </div>
+                
+                <div class="step-item" data-step="4">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h3>Отримання прибутку</h3>
+                        <p>Ми відправляємо товар, ви отримуєте прибуток</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CTA Section -->
+        <div class="cta-section">
+            <div class="cta-content">
+                <h2>Готові почати заробляти?</h2>
+                <p>Приєднуйтесь до тисяч успішних дропшиперів вже сьогодні!</p>
+                <div class="cta-buttons">
+                    <button class="cta-btn primary" onclick="switchTab('products')">
+                        <i class="fas fa-rocket"></i>
+                        Почати зараз
+                    </button>
+                    <a href="https://t.me/twocomms_support" target="_blank" class="cta-btn secondary">
+                        <i class="fab fa-telegram"></i>
+                        Запитати в Telegram
+                    </a>
                 </div>
             </div>
         </div>
@@ -1287,5 +2225,196 @@ function filterProducts(categoryId) {
         })
         .catch(error => console.error('Error filtering products:', error));
 }
+
+// Animated counter for hero stats
+function animateCounters() {
+    const counters = document.querySelectorAll('.stat-number');
+    
+    counters.forEach(counter => {
+        const target = parseInt(counter.getAttribute('data-count'));
+        const duration = 2000; // 2 seconds
+        const increment = target / (duration / 16); // 60fps
+        let current = 0;
+        
+        const timer = setInterval(() => {
+            current += increment;
+            if (current >= target) {
+                current = target;
+                clearInterval(timer);
+            }
+            counter.textContent = Math.floor(current).toLocaleString();
+        }, 16);
+    });
+}
+
+// Intersection Observer for animations
+function setupScrollAnimations() {
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+    
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('animate-in');
+                
+                // Trigger counter animation for hero stats
+                if (entry.target.classList.contains('hero-section')) {
+                    setTimeout(animateCounters, 500);
+                }
+            }
+        });
+    }, observerOptions);
+    
+    // Observe sections for animation
+    document.querySelectorAll('.hero-section, .advantages-section, .loyalty-section, .how-it-works-section, .cta-section').forEach(section => {
+        observer.observe(section);
+    });
+}
+
+// Loyalty level interaction
+function setupLoyaltyInteraction() {
+    const progressDots = document.querySelectorAll('.progress-dot');
+    const loyaltyLevels = document.querySelectorAll('.loyalty-level');
+    
+    progressDots.forEach(dot => {
+        dot.addEventListener('click', () => {
+            const level = dot.getAttribute('data-level');
+            
+            // Update active dot
+            progressDots.forEach(d => d.classList.remove('active'));
+            dot.classList.add('active');
+            
+            // Highlight corresponding level
+            loyaltyLevels.forEach(levelEl => {
+                levelEl.classList.remove('highlighted');
+                if (levelEl.getAttribute('data-level') === level) {
+                    levelEl.classList.add('highlighted');
+                }
+            });
+        });
+    });
+}
+
+// Parallax effect for floating cards
+function setupParallaxEffect() {
+    const floatingCards = document.querySelectorAll('.floating-card');
+    
+    window.addEventListener('mousemove', (e) => {
+        const mouseX = e.clientX / window.innerWidth;
+        const mouseY = e.clientY / window.innerHeight;
+        
+        floatingCards.forEach((card, index) => {
+            const speed = (index + 1) * 0.5;
+            const x = (mouseX - 0.5) * speed * 20;
+            const y = (mouseY - 0.5) * speed * 20;
+            
+            card.style.transform = `translate(${x}px, ${y}px)`;
+        });
+    });
+}
+
+// Smooth scroll for internal links
+function setupSmoothScroll() {
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+        });
+    });
+}
+
+// Initialize all animations and interactions
+document.addEventListener('DOMContentLoaded', () => {
+    setupScrollAnimations();
+    setupLoyaltyInteraction();
+    setupParallaxEffect();
+    setupSmoothScroll();
+    
+    // Add loading animation
+    document.body.classList.add('loaded');
+});
+
+// Add CSS for additional animations
+const additionalStyles = `
+    .loaded .hero-section {
+        animation: fadeInUp 1s ease-out;
+    }
+    
+    .loaded .advantages-section {
+        animation: fadeInUp 1s ease-out 0.2s both;
+    }
+    
+    .loaded .loyalty-section {
+        animation: fadeInUp 1s ease-out 0.4s both;
+    }
+    
+    .loaded .how-it-works-section {
+        animation: fadeInUp 1s ease-out 0.6s both;
+    }
+    
+    .loaded .cta-section {
+        animation: fadeInUp 1s ease-out 0.8s both;
+    }
+    
+    .loyalty-level.highlighted {
+        transform: scale(1.05);
+        border-color: rgba(139, 92, 246, 0.5);
+        box-shadow: 0 20px 40px rgba(139, 92, 246, 0.2);
+    }
+    
+    .floating-card {
+        transition: transform 0.1s ease-out;
+    }
+    
+    @media (max-width: 768px) {
+        .hero-content {
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+        
+        .hero-title {
+            font-size: 2.5rem;
+        }
+        
+        .hero-stats {
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .advantages-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .loyalty-levels {
+            grid-template-columns: 1fr;
+        }
+        
+        .steps-container {
+            grid-template-columns: 1fr;
+        }
+        
+        .step-arrow {
+            display: none;
+        }
+        
+        .cta-buttons {
+            flex-direction: column;
+            align-items: center;
+        }
+    }
+`;
+
+// Inject additional styles
+const styleSheet = document.createElement('style');
+styleSheet.textContent = additionalStyles;
+document.head.appendChild(styleSheet);
 </script>
 {% endblock %}
