@@ -7435,3 +7435,84 @@ def check_invoice_approval_status(request, invoice_id):
         return JsonResponse({'success': False, 'error': 'Накладна не знайдена'}, status=404)
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+@require_POST
+@csrf_exempt
+def create_wholesale_payment(request):
+    """Создание платежа для накладной через Monobank"""
+    from orders.models import WholesaleInvoice
+    import json
+    from decimal import Decimal
+    
+    try:
+        data = json.loads(request.body)
+        invoice_id = data.get('invoice_id')
+        amount = data.get('amount')
+        description = data.get('description', '')
+        invoice_number = data.get('invoice_number', '')
+        
+        if not invoice_id or not amount:
+            return JsonResponse({'success': False, 'error': 'Недостатньо даних для створення платежу'}, status=400)
+        
+        # Получаем накладную
+        try:
+            invoice = WholesaleInvoice.objects.get(id=invoice_id)
+        except WholesaleInvoice.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Накладна не знайдена'}, status=404)
+        
+        # Проверяем, что накладная одобрена
+        if not invoice.is_approved:
+            return JsonResponse({'success': False, 'error': 'Накладна не одобрена для оплаты'}, status=400)
+        
+        # Конвертируем сумму в копейки для Monobank
+        amount_decimal = Decimal(str(amount))
+        amount_kopecks = int(amount_decimal * 100)
+        
+        # Создаем payload для Monobank
+        payload = {
+            'amount': amount_kopecks,
+            'ccy': 980,  # UAH
+            'merchantPaymInfo': {
+                'reference': f'INV-{invoice_id}',
+                'destination': description or f'Оплата накладної {invoice_number}',
+                'basketOrder': [
+                    {
+                        'name': f'Накладна {invoice_number}',
+                        'qty': 1,
+                        'sum': amount_kopecks,
+                        'icon': '',
+                        'unit': 'шт'
+                    }
+                ]
+            },
+            'redirectUrl': request.build_absolute_uri('/payments/monobank/return/'),
+            'webHookUrl': request.build_absolute_uri('/payments/monobank/webhook/'),
+        }
+        
+        # Отправляем запрос в Monobank
+        try:
+            creation_data = _monobank_api_request('POST', '/api/merchant/invoice/create', json_payload=payload)
+        except MonobankAPIError as exc:
+            monobank_logger.warning('Monobank invoice creation failed for wholesale invoice %s: %s', invoice_id, exc)
+            return JsonResponse({'success': False, 'error': 'Помилка створення платежу'}, status=500)
+        
+        # Получаем URL для оплаты
+        invoice_url = creation_data.get('invoiceUrl')
+        if not invoice_url:
+            return JsonResponse({'success': False, 'error': 'Не отримано URL для оплати'}, status=500)
+        
+        # Сохраняем информацию о платеже в сессии
+        request.session['wholesale_payment_invoice_id'] = invoice_id
+        request.session['wholesale_payment_amount'] = str(amount)
+        
+        return JsonResponse({
+            'success': True,
+            'payment_url': invoice_url,
+            'invoice_id': invoice_id
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Невірний формат даних'}, status=400)
+    except Exception as e:
+        monobank_logger.exception('Failed to create wholesale payment: %s', e)
+        return JsonResponse({'success': False, 'error': 'Помилка створення платежу'}, status=500)
