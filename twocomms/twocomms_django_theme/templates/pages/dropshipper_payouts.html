@@ -511,7 +511,58 @@
 
 {% block content %}
 {% csrf_token %}
-<div class="dropshipper-container">
+<div class="dropshipper-layout">
+    <!-- Sidebar -->
+    <div class="dropshipper-sidebar">
+        <div class="sidebar-header">
+            <h1 class="sidebar-title">Дропшип панель</h1>
+            <p class="sidebar-subtitle">Управляйте заказами и статистикой</p>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <div class="nav-item">
+                <a href="{% url 'orders:dropshipper_dashboard' %}" class="nav-link">
+                    <i class="fas fa-home"></i>
+                    Главная
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="{% url 'orders:dropshipper_products' %}" class="nav-link">
+                    <i class="fas fa-box"></i>
+                    Товары
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="{% url 'orders:dropshipper_orders' %}" class="nav-link">
+                    <i class="fas fa-shopping-cart"></i>
+                    Замовлення
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="{% url 'orders:dropshipper_statistics' %}" class="nav-link">
+                    <i class="fas fa-chart-line"></i>
+                    Статистика
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="{% url 'orders:dropshipper_payouts' %}" class="nav-link active">
+                    <i class="fas fa-money-bill-wave"></i>
+                    Выплаты
+                </a>
+            </div>
+        </nav>
+        
+        <div class="telegram-section">
+            <a href="https://t.me/twocomms_support" target="_blank" class="telegram-btn">
+                <i class="fab fa-telegram"></i>
+                Связаться с нами
+            </a>
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="dropshipper-main">
+        <div class="dropshipper-container">
     <!-- Header -->
     <div class="dropshipper-header">
         <div class="dropshipper-header-content">
@@ -666,6 +717,7 @@
                 <button type="submit" class="btn btn-primary">Запросити виплату</button>
             </div>
         </form>
+        </div>
     </div>
 </div>
 {% endblock %}
