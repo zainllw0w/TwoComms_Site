@@ -29,6 +29,9 @@ urlpatterns = [
     # Orders (включая дропшип)
     path("orders/", include("orders.urls")),
     
+    # Дропшип редирект
+    path("dropshipper/", RedirectView.as_view(url="/orders/dropshipper/", permanent=False), name="dropshipper_redirect"),
+    
     # Sitemap
     path('sitemap.xml', storefront_views.static_sitemap, name='django.contrib.sitemaps.views.sitemap'),
     
