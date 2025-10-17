@@ -7464,9 +7464,15 @@ def create_wholesale_payment(request):
         monobank_logger.info('Creating wholesale payment: invoice_id=%s, amount=%s, description=%s', 
                            invoice_id, amount, description)
         
-        if not invoice_id or not amount:
-            monobank_logger.error('Missing required data: invoice_id=%s, amount=%s', invoice_id, amount)
-            return JsonResponse({'success': False, 'error': 'Недостатньо даних для створення платежу'}, status=400)
+        # Проверяем invoice_id
+        if not invoice_id:
+            monobank_logger.error('Missing invoice_id')
+            return JsonResponse({'success': False, 'error': 'Відсутній ID накладної'}, status=400)
+        
+        # Проверяем amount
+        if amount is None or amount == '' or amount == 0:
+            monobank_logger.error('Invalid amount: %s (type: %s)', amount, type(amount))
+            return JsonResponse({'success': False, 'error': 'Невірна сума накладної'}, status=400)
         
         # Получаем накладную
         try:
@@ -7519,10 +7525,10 @@ def create_wholesale_payment(request):
             monobank_logger.warning('Monobank invoice creation failed for wholesale invoice %s: %s', invoice_id, exc)
             return JsonResponse({'success': False, 'error': f'Помилка створення платежу: {str(exc)}'}, status=500)
         
-        # Получаем URL для оплаты
-        invoice_url = creation_data.get('invoiceUrl')
+        # Получаем URL для оплаты (Monobank может возвращать pageUrl или invoiceUrl)
+        invoice_url = creation_data.get('invoiceUrl') or creation_data.get('pageUrl')
         if not invoice_url:
-            monobank_logger.error('No invoiceUrl in Monobank response: %s', creation_data)
+            monobank_logger.error('No payment URL in Monobank response: %s', creation_data)
             return JsonResponse({'success': False, 'error': 'Не отримано URL для оплати'}, status=500)
         
         monobank_logger.info('Payment URL created: %s', invoice_url)
