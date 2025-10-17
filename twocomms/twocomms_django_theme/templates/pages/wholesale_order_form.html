@@ -4048,6 +4048,7 @@ function payInvoice(invoiceId) {
     
     console.log('Sending payment data:', paymentData);
     console.log('Invoice data:', invoice);
+    console.log('CSRF Token:', getCookie('csrftoken'));
     
     // Отправляем запрос на создание платежа
     fetch('/wholesale/create-payment/', {
@@ -4060,6 +4061,9 @@ function payInvoice(invoiceId) {
     })
     .then(response => {
         console.log('Payment response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
         return response.json();
     })
     .then(data => {
