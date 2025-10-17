@@ -741,12 +741,15 @@
 
 /* Hero Section */
 .hero-section {
-    padding: 4rem 0;
+    padding: 3rem 2rem;
     background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.1));
-    border-radius: 30px;
-    margin-bottom: 4rem;
+    border-radius: 25px;
+    margin-bottom: 3rem;
     position: relative;
     overflow: hidden;
+    min-height: 500px;
+    display: flex;
+    align-items: center;
 }
 
 .hero-section::before {
@@ -769,18 +772,21 @@
 
 .hero-content {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 4rem;
+    grid-template-columns: 1.2fr 0.8fr;
+    gap: 3rem;
     align-items: center;
     position: relative;
     z-index: 2;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
 .hero-title {
-    font-size: 3.5rem;
+    font-size: 3rem;
     font-weight: 900;
     line-height: 1.1;
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
 }
 
 .title-line {
@@ -815,11 +821,12 @@
 }
 
 .hero-subtitle {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
     color: rgba(255, 255, 255, 0.8);
-    margin-bottom: 3rem;
+    margin-bottom: 2rem;
     animation: fadeInUp 1s ease-out 0.8s forwards;
     opacity: 0;
+    line-height: 1.6;
 }
 
 @keyframes fadeInUp {
@@ -831,9 +838,10 @@
 
 .hero-stats {
     display: flex;
-    gap: 2rem;
+    gap: 1.5rem;
     animation: fadeInUp 1s ease-out 1s forwards;
     opacity: 0;
+    flex-wrap: wrap;
 }
 
 .stat-item {
@@ -841,7 +849,7 @@
 }
 
 .stat-number {
-    font-size: 2.5rem;
+    font-size: 2rem;
     font-weight: 800;
     background: linear-gradient(135deg, #8b5cf6, #3b82f6);
     -webkit-background-clip: text;
@@ -859,7 +867,10 @@
 
 .hero-visual {
     position: relative;
-    height: 400px;
+    height: 350px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .floating-cards {
@@ -942,20 +953,23 @@
 
 /* Enhanced Advantages */
 .advantages-section {
-    margin: 6rem 0;
+    margin: 4rem 0;
+    padding: 0 1rem;
 }
 
 .advantages-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-    gap: 2rem;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
 .advantage-card {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 25px;
-    padding: 2.5rem;
+    border-radius: 20px;
+    padding: 2rem;
     text-align: center;
     transition: all 0.4s ease;
     backdrop-filter: blur(20px);
@@ -964,6 +978,10 @@
     opacity: 0;
     transform: translateY(50px);
     animation: slideInUp 0.8s ease-out forwards;
+    min-height: 280px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 }
 
 .advantage-card[data-delay="0"] { animation-delay: 0.1s; }
@@ -997,16 +1015,16 @@
 
 .advantage-icon {
     position: relative;
-    width: 100px;
-    height: 100px;
-    margin: 0 auto 2rem;
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 1.5rem;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
 .advantage-icon i {
-    font-size: 2.5rem;
+    font-size: 2rem;
     color: #8b5cf6;
     z-index: 2;
     position: relative;
@@ -1029,16 +1047,17 @@
 }
 
 .advantage-card h3 {
-    font-size: 1.4rem;
+    font-size: 1.2rem;
     font-weight: 700;
     color: var(--tc-text);
-    margin-bottom: 1rem;
+    margin-bottom: 0.8rem;
 }
 
 .advantage-card p {
     color: rgba(255, 255, 255, 0.8);
-    line-height: 1.6;
-    margin-bottom: 1.5rem;
+    line-height: 1.5;
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
 }
 
 .advantage-number {
@@ -1052,14 +1071,17 @@
 
 /* Enhanced Loyalty Section */
 .loyalty-section {
-    margin: 6rem 0;
+    margin: 4rem 0;
     background: rgba(255, 255, 255, 0.03);
-    border-radius: 30px;
-    padding: 4rem;
+    border-radius: 25px;
+    padding: 3rem 2rem;
     border: 1px solid rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(20px);
     position: relative;
     overflow: hidden;
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .loyalty-section::before {
@@ -1086,7 +1108,7 @@
 }
 
 .loyalty-title {
-    font-size: 3rem;
+    font-size: 2.5rem;
     font-weight: 800;
     background: linear-gradient(135deg, #8b5cf6, #3b82f6, #10b981);
     -webkit-background-clip: text;
@@ -1099,12 +1121,12 @@
 .loyalty-subtitle {
     text-align: center;
     color: rgba(255, 255, 255, 0.8);
-    font-size: 1.3rem;
-    margin-bottom: 4rem;
+    font-size: 1.1rem;
+    margin-bottom: 3rem;
 }
 
 .loyalty-progress {
-    margin-bottom: 4rem;
+    margin-bottom: 3rem;
 }
 
 .progress-track {
@@ -1182,19 +1204,23 @@
 
 .loyalty-levels {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 2rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
 }
 
 .loyalty-level {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 20px;
-    padding: 2rem;
+    border-radius: 18px;
+    padding: 1.5rem;
     text-align: center;
     transition: all 0.4s ease;
     position: relative;
     overflow: hidden;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 }
 
 .loyalty-level:hover {
@@ -1209,14 +1235,14 @@
 }
 
 .level-badge {
-    width: 80px;
-    height: 80px;
+    width: 60px;
+    height: 60px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     margin: 0 auto;
-    font-size: 2rem;
+    font-size: 1.5rem;
     color: white;
     position: relative;
     z-index: 2;
@@ -1298,25 +1324,32 @@
 
 /* How It Works Section */
 .how-it-works-section {
-    margin: 6rem 0;
+    margin: 4rem 0;
+    padding: 0 1rem;
 }
 
 .steps-container {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 2rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
     position: relative;
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
 .step-item {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 20px;
-    padding: 2rem;
+    border-radius: 18px;
+    padding: 1.5rem;
     text-align: center;
     transition: all 0.4s ease;
     position: relative;
     backdrop-filter: blur(20px);
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 }
 
 .step-item:hover {
@@ -1326,17 +1359,17 @@
 }
 
 .step-number {
-    width: 60px;
-    height: 60px;
+    width: 50px;
+    height: 50px;
     border-radius: 50%;
     background: linear-gradient(135deg, #8b5cf6, #3b82f6);
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.5rem;
+    font-size: 1.3rem;
     font-weight: 800;
-    margin: 0 auto 1.5rem;
+    margin: 0 auto 1rem;
     position: relative;
     z-index: 2;
 }
@@ -1360,15 +1393,16 @@
 }
 
 .step-content h3 {
-    font-size: 1.3rem;
+    font-size: 1.1rem;
     font-weight: 700;
     color: var(--tc-text);
-    margin-bottom: 1rem;
+    margin-bottom: 0.8rem;
 }
 
 .step-content p {
     color: rgba(255, 255, 255, 0.8);
-    line-height: 1.6;
+    line-height: 1.5;
+    font-size: 0.9rem;
 }
 
 .step-arrow {
@@ -1388,13 +1422,16 @@
 
 /* CTA Section */
 .cta-section {
-    margin: 6rem 0;
+    margin: 4rem 0;
     background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.1));
-    border-radius: 30px;
-    padding: 4rem;
+    border-radius: 25px;
+    padding: 3rem 2rem;
     text-align: center;
     position: relative;
     overflow: hidden;
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .cta-section::before {
@@ -1421,7 +1458,7 @@
 }
 
 .cta-content h2 {
-    font-size: 2.5rem;
+    font-size: 2rem;
     font-weight: 800;
     background: linear-gradient(135deg, #8b5cf6, #3b82f6);
     -webkit-background-clip: text;
@@ -1431,9 +1468,9 @@
 }
 
 .cta-content p {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     color: rgba(255, 255, 255, 0.8);
-    margin-bottom: 3rem;
+    margin-bottom: 2rem;
 }
 
 .cta-buttons {
@@ -1479,6 +1516,229 @@
     background: rgba(255, 255, 255, 0.2);
     transform: translateY(-3px);
     box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+}
+
+/* Features Section */
+.features-section {
+    margin: 4rem 0;
+    padding: 0 1rem;
+}
+
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.feature-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 18px;
+    padding: 2rem;
+    text-align: center;
+    transition: all 0.4s ease;
+    backdrop-filter: blur(20px);
+    position: relative;
+    overflow: hidden;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.feature-item:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    border-color: rgba(139, 92, 246, 0.3);
+}
+
+.feature-icon {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+    font-size: 1.8rem;
+    color: white;
+    position: relative;
+    animation: featurePulse 3s ease-in-out infinite;
+}
+
+@keyframes featurePulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+.feature-item h3 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--tc-text);
+    margin-bottom: 1rem;
+}
+
+.feature-item p {
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.5;
+    font-size: 0.95rem;
+}
+
+/* Testimonials Section */
+.testimonials-section {
+    margin: 4rem 0;
+    padding: 0 1rem;
+}
+
+.testimonials-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.testimonial-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 2rem;
+    transition: all 0.4s ease;
+    backdrop-filter: blur(20px);
+    position: relative;
+    overflow: hidden;
+}
+
+.testimonial-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    border-color: rgba(139, 92, 246, 0.3);
+}
+
+.testimonial-content {
+    margin-bottom: 1.5rem;
+}
+
+.stars {
+    display: flex;
+    gap: 0.25rem;
+    margin-bottom: 1rem;
+    color: #fbbf24;
+    font-size: 1.1rem;
+}
+
+.testimonial-content p {
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.6;
+    font-style: italic;
+    font-size: 1rem;
+}
+
+.testimonial-author {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.author-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 700;
+    font-size: 1.2rem;
+}
+
+.author-info h4 {
+    color: var(--tc-text);
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.author-info span {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+}
+
+/* FAQ Section */
+.faq-section {
+    margin: 4rem 0;
+    padding: 0 1rem;
+}
+
+.faq-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.faq-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(20px);
+}
+
+.faq-item:hover {
+    border-color: rgba(139, 92, 246, 0.3);
+}
+
+.faq-question {
+    padding: 1.5rem;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.3s ease;
+}
+
+.faq-question:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.faq-question h3 {
+    color: var(--tc-text);
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.faq-question i {
+    color: #8b5cf6;
+    font-size: 1.2rem;
+    transition: transform 0.3s ease;
+}
+
+.faq-item.active .faq-question i {
+    transform: rotate(180deg);
+}
+
+.faq-answer {
+    padding: 0 1.5rem;
+    max-height: 0;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.faq-item.active .faq-answer {
+    padding: 0 1.5rem 1.5rem;
+    max-height: 200px;
+}
+
+.faq-answer p {
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.6;
+    margin: 0;
 }
 </style>
 {% endblock %}
@@ -1807,6 +2067,168 @@
                     <div class="step-content">
                         <h3>Отримання прибутку</h3>
                         <p>Ми відправляємо товар, ви отримуєте прибуток</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Features Section -->
+        <div class="features-section">
+            <div class="section-header">
+                <h2 class="section-title">Наші можливості</h2>
+                <p class="section-subtitle">Все необхідне для успішного дропшип бізнесу в одному місці</p>
+            </div>
+            
+            <div class="features-grid">
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class="fas fa-mobile-alt"></i>
+                    </div>
+                    <h3>Мобільний додаток</h3>
+                    <p>Управляйте замовленнями з будь-якого місця через зручний мобільний інтерфейс</p>
+                </div>
+                
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                    <h3>Детальна аналітика</h3>
+                    <p>Отримуйте повну статистику продажів та прибутку в реальному часі</p>
+                </div>
+                
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class="fas fa-headset"></i>
+                    </div>
+                    <h3>24/7 Підтримка</h3>
+                    <p>Наша команда завжди готова допомогти вам з будь-якими питаннями</p>
+                </div>
+                
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h3>Гарантії якості</h3>
+                    <p>Ми гарантуємо якість товарів та своєчасну доставку всіх замовлень</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Testimonials Section -->
+        <div class="testimonials-section">
+            <div class="section-header">
+                <h2 class="section-title">Відгуки наших дропшиперів</h2>
+                <p class="section-subtitle">Реальні історії успіху від наших партнерів</p>
+            </div>
+            
+            <div class="testimonials-grid">
+                <div class="testimonial-card">
+                    <div class="testimonial-content">
+                        <div class="stars">
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <p>"За 3 місяці роботи з TwoComms я заробив більше, ніж за рік на попередній роботі. Дуже рекомендую!"</p>
+                    </div>
+                    <div class="testimonial-author">
+                        <div class="author-avatar">А</div>
+                        <div class="author-info">
+                            <h4>Андрій К.</h4>
+                            <span>Дропшипер з Києва</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="testimonial-card">
+                    <div class="testimonial-content">
+                        <div class="stars">
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <p>"Відмінна підтримка та швидка доставка. Клієнти завжди задоволені, а я отримую стабільний прибуток."</p>
+                    </div>
+                    <div class="testimonial-author">
+                        <div class="author-avatar">М</div>
+                        <div class="author-info">
+                            <h4>Марія С.</h4>
+                            <span>Дропшипер з Львова</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="testimonial-card">
+                    <div class="testimonial-content">
+                        <div class="stars">
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <p>"Простий старт, зрозуміла система та чесні умови. Тепер це мій основний джерело доходу."</p>
+                    </div>
+                    <div class="testimonial-author">
+                        <div class="author-avatar">О</div>
+                        <div class="author-info">
+                            <h4>Олексій П.</h4>
+                            <span>Дропшипер з Харкова</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FAQ Section -->
+        <div class="faq-section">
+            <div class="section-header">
+                <h2 class="section-title">Часті питання</h2>
+                <p class="section-subtitle">Відповіді на найпопулярніші питання про дропшип</p>
+            </div>
+            
+            <div class="faq-container">
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <h3>Скільки потрібно вкласти для початку?</h3>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Для початку роботи не потрібно жодних вкладень! Ви платите тільки за товари після отримання замовлення від клієнта.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <h3>Як швидко відправляються замовлення?</h3>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Ми відправляємо замовлення щодня. Доставка по Україні займає 1-3 дні через Нову Пошту.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <h3>Чи можна повернути товар?</h3>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Так, ми надаємо повну гарантію на всі товари. Повернення можливе протягом 14 днів.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <h3>Як отримати виплату прибутку?</h3>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Виплати здійснюються щотижня на вашу картку або банківський рахунок. Мінімальна сума виплати - 500 грн.</p>
                     </div>
                 </div>
             </div>
@@ -2331,12 +2753,75 @@ function setupSmoothScroll() {
     });
 }
 
+// FAQ interaction
+function setupFAQInteraction() {
+    const faqItems = document.querySelectorAll('.faq-item');
+    
+    faqItems.forEach(item => {
+        const question = item.querySelector('.faq-question');
+        
+        question.addEventListener('click', () => {
+            const isActive = item.classList.contains('active');
+            
+            // Close all FAQ items
+            faqItems.forEach(faqItem => {
+                faqItem.classList.remove('active');
+            });
+            
+            // Open clicked item if it wasn't active
+            if (!isActive) {
+                item.classList.add('active');
+            }
+        });
+    });
+}
+
+// Enhanced scroll animations with stagger effect
+function setupEnhancedScrollAnimations() {
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+    
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('animate-in');
+                
+                // Trigger counter animation for hero stats
+                if (entry.target.classList.contains('hero-section')) {
+                    setTimeout(animateCounters, 500);
+                }
+                
+                // Stagger animation for grid items
+                if (entry.target.classList.contains('advantages-grid') || 
+                    entry.target.classList.contains('features-grid') ||
+                    entry.target.classList.contains('testimonials-grid')) {
+                    const items = entry.target.querySelectorAll('.advantage-card, .feature-item, .testimonial-card');
+                    items.forEach((item, index) => {
+                        setTimeout(() => {
+                            item.style.opacity = '1';
+                            item.style.transform = 'translateY(0)';
+                        }, index * 100);
+                    });
+                }
+            }
+        });
+    }, observerOptions);
+    
+    // Observe sections for animation
+    document.querySelectorAll('.hero-section, .advantages-section, .loyalty-section, .how-it-works-section, .features-section, .testimonials-section, .faq-section, .cta-section').forEach(section => {
+        observer.observe(section);
+    });
+}
+
 // Initialize all animations and interactions
 document.addEventListener('DOMContentLoaded', () => {
-    setupScrollAnimations();
+    setupEnhancedScrollAnimations();
     setupLoyaltyInteraction();
     setupParallaxEffect();
     setupSmoothScroll();
+    setupFAQInteraction();
     
     // Add loading animation
     document.body.classList.add('loaded');
@@ -2374,31 +2859,105 @@ const additionalStyles = `
         transition: transform 0.1s ease-out;
     }
     
-    @media (max-width: 768px) {
+    /* Enhanced Responsive Design */
+    @media (max-width: 1200px) {
         .hero-content {
             grid-template-columns: 1fr;
             gap: 2rem;
+            text-align: center;
+        }
+        
+        .hero-visual {
+            height: 300px;
+        }
+        
+        .advantages-grid {
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        }
+        
+        .loyalty-levels {
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        }
+        
+        .steps-container {
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .hero-section {
+            padding: 2rem 1rem;
+            min-height: 400px;
         }
         
         .hero-title {
-            font-size: 2.5rem;
+            font-size: 2.2rem;
+        }
+        
+        .hero-subtitle {
+            font-size: 1rem;
         }
         
         .hero-stats {
             flex-direction: column;
             gap: 1rem;
+            align-items: center;
         }
         
-        .advantages-grid {
+        .stat-number {
+            font-size: 1.8rem;
+        }
+        
+        .advantages-section,
+        .loyalty-section,
+        .how-it-works-section,
+        .features-section,
+        .testimonials-section,
+        .faq-section,
+        .cta-section {
+            margin: 3rem 0;
+            padding: 2rem 1rem;
+        }
+        
+        .advantages-grid,
+        .features-grid {
             grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        
+        .advantage-card,
+        .feature-item {
+            padding: 1.5rem;
+            min-height: 250px;
+        }
+        
+        .testimonials-grid {
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+        
+        .testimonial-card {
+            padding: 1.5rem;
         }
         
         .loyalty-levels {
             grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        
+        .loyalty-level {
+            padding: 1.2rem;
+            min-height: 180px;
         }
         
         .steps-container {
             grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        
+        .step-item {
+            padding: 1.2rem;
+            min-height: 180px;
         }
         
         .step-arrow {
@@ -2408,6 +2967,119 @@ const additionalStyles = `
         .cta-buttons {
             flex-direction: column;
             align-items: center;
+            gap: 1rem;
+        }
+        
+        .cta-btn {
+            width: 100%;
+            max-width: 300px;
+            justify-content: center;
+        }
+        
+        .section-title {
+            font-size: 2.2rem;
+        }
+        
+        .loyalty-title {
+            font-size: 2rem;
+        }
+        
+        .cta-content h2 {
+            font-size: 1.8rem;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .hero-section {
+            padding: 1.5rem 0.8rem;
+            min-height: 350px;
+        }
+        
+        .hero-title {
+            font-size: 1.8rem;
+        }
+        
+        .hero-subtitle {
+            font-size: 0.9rem;
+        }
+        
+        .stat-number {
+            font-size: 1.5rem;
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+        }
+        
+        .advantages-section,
+        .loyalty-section,
+        .how-it-works-section,
+        .features-section,
+        .testimonials-section,
+        .faq-section,
+        .cta-section {
+            margin: 2rem 0;
+            padding: 1.5rem 0.8rem;
+        }
+        
+        .advantage-card,
+        .loyalty-level,
+        .step-item,
+        .feature-item,
+        .testimonial-card {
+            padding: 1rem;
+            min-height: 160px;
+        }
+        
+        .faq-question {
+            padding: 1rem;
+        }
+        
+        .faq-answer {
+            padding: 0 1rem;
+        }
+        
+        .faq-item.active .faq-answer {
+            padding: 0 1rem 1rem;
+        }
+        
+        .advantage-icon,
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+        }
+        
+        .advantage-icon i,
+        .feature-icon i {
+            font-size: 1.5rem;
+        }
+        
+        .level-badge {
+            width: 50px;
+            height: 50px;
+            font-size: 1.2rem;
+        }
+        
+        .step-number {
+            width: 40px;
+            height: 40px;
+            font-size: 1.1rem;
+        }
+        
+        .section-title {
+            font-size: 1.8rem;
+        }
+        
+        .loyalty-title {
+            font-size: 1.6rem;
+        }
+        
+        .cta-content h2 {
+            font-size: 1.5rem;
+        }
+        
+        .cta-content p {
+            font-size: 1rem;
         }
     }
 `;
