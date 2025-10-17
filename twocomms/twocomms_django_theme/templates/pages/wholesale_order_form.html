@@ -4046,6 +4046,9 @@ function payInvoice(invoiceId) {
         invoice_number: invoice.name
     };
     
+    console.log('Sending payment data:', paymentData);
+    console.log('Invoice data:', invoice);
+    
     // Отправляем запрос на создание платежа
     fetch('/wholesale/create-payment/', {
         method: 'POST',
@@ -4055,19 +4058,24 @@ function payInvoice(invoiceId) {
         },
         body: JSON.stringify(paymentData)
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Payment response status:', response.status);
+        return response.json();
+    })
     .then(data => {
+        console.log('Payment response data:', data);
         if (data.success && data.payment_url) {
             // Перенаправляем на страницу оплаты Monobank
             window.open(data.payment_url, '_blank');
             showNotification('Перенаправлення на сторінку оплати...', 'success');
         } else {
+            console.error('Payment creation failed:', data);
             showNotification(data.error || 'Помилка створення платежу', 'error');
         }
     })
     .catch(error => {
         console.error('Payment error:', error);
-        showNotification('Помилка при створенні платежу', 'error');
+        showNotification('Помилка при створенні платежу: ' + error.message, 'error');
     });
 }
 
