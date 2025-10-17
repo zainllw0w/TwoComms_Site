@@ -16,9 +16,12 @@ from storefront.models import Product, Category
 from productcolors.models import ProductColorVariant
 
 
-@login_required
 def dropshipper_dashboard(request):
     """Главная страница дропшипера с вкладками"""
+    # Если пользователь не авторизован, показываем приветственную страницу
+    if not request.user.is_authenticated:
+        return render(request, 'pages/dropshipper_welcome.html')
+    
     # Получаем или создаем статистику дропшипера
     stats, created = DropshipperStats.objects.get_or_create(dropshipper=request.user)
     if not created:

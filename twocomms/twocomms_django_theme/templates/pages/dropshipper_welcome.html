@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Дропшип співпраця - TwoComms{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/dropshipper.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="dropshipper-container">
+    <!-- Header -->
+    <div class="dropshipper-header">
+        <div class="dropshipper-header-content">
+            <h1 class="dropshipper-title">Дропшип співпраця з TwoComms</h1>
+            <p class="dropshipper-subtitle">Продавайте наші товари без вкладень у склад. Ми відправляємо замовлення вашим клієнтам.</p>
+        </div>
+    </div>
+
+    <!-- Benefits Section -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <div class="stat-icon orders">
+                    <i class="fas fa-box"></i>
+                </div>
+                <div>
+                    <h3 class="stat-title">Без вкладень</h3>
+                    <p class="stat-value">0 грн</p>
+                    <p class="stat-subtitle">стартовий капітал</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <div class="stat-icon revenue">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div>
+                    <h3 class="stat-title">Висока маржа</h3>
+                    <p class="stat-value">5-20%</p>
+                    <p class="stat-subtitle">комісія з продажів</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <div class="stat-icon profit">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div>
+                    <h3 class="stat-title">Автоматизація</h3>
+                    <p class="stat-value">24/7</p>
+                    <p class="stat-subtitle">обробка замовлень</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <div class="stat-icon items">
+                    <i class="fas fa-headset"></i>
+                </div>
+                <div>
+                    <h3 class="stat-title">Підтримка</h3>
+                    <p class="stat-value">24/7</p>
+                    <p class="stat-subtitle">консультації</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- How it works -->
+    <div class="filters-container">
+        <h3 style="color: var(--tc-text); margin-bottom: 2rem; text-align: center;">Як це працює?</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem;">
+            <div style="text-align: center; padding: 1.5rem;">
+                <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #8b5cf6, #3b82f6); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; font-size: 2rem; color: white;">
+                    <i class="fas fa-user-plus"></i>
+                </div>
+                <h4 style="color: var(--tc-text); margin-bottom: 1rem;">1. Реєстрація</h4>
+                <p style="color: var(--tc-text); opacity: 0.8;">Створіть акаунт та отримайте доступ до дропшип панелі</p>
+            </div>
+            
+            <div style="text-align: center; padding: 1.5rem;">
+                <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; font-size: 2rem; color: white;">
+                    <i class="fas fa-shopping-cart"></i>
+                </div>
+                <h4 style="color: var(--tc-text); margin-bottom: 1rem;">2. Вибирайте товари</h4>
+                <p style="color: var(--tc-text); opacity: 0.8;">Оберіть товари з каталогу та встановіть свої ціни</p>
+            </div>
+            
+            <div style="text-align: center; padding: 1.5rem;">
+                <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #f59e0b, #d97706); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; font-size: 2rem; color: white;">
+                    <i class="fas fa-truck"></i>
+                </div>
+                <h4 style="color: var(--tc-text); margin-bottom: 1rem;">3. Ми відправляємо</h4>
+                <p style="color: var(--tc-text); opacity: 0.8;">Ми обробляємо та відправляємо замовлення вашим клієнтам</p>
+            </div>
+            
+            <div style="text-align: center; padding: 1.5rem;">
+                <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #ec4899, #be185d); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; font-size: 2rem; color: white;">
+                    <i class="fas fa-money-bill-wave"></i>
+                </div>
+                <h4 style="color: var(--tc-text); margin-bottom: 1rem;">4. Отримуйте прибуток</h4>
+                <p style="color: var(--tc-text); opacity: 0.8;">Отримуйте виплати за кожен успішний продаж</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features -->
+    <div class="filters-container">
+        <h3 style="color: var(--tc-text); margin-bottom: 2rem; text-align: center;">Переваги дропшип співпраці</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+            <div style="padding: 1.5rem; background: rgba(255, 255, 255, 0.05); border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.1);">
+                <h4 style="color: var(--tc-text); margin-bottom: 1rem;">
+                    <i class="fas fa-check-circle" style="color: #10b981; margin-right: 0.5rem;"></i>
+                    Без вкладень у товар
+                </h4>
+                <p style="color: var(--tc-text); opacity: 0.8; margin: 0;">
+                    Не потрібно купувати товари заздалегідь. Ви платите тільки після отримання замовлення від клієнта.
+                </p>
+            </div>
+            
+            <div style="padding: 1.5rem; background: rgba(255, 255, 255, 0.05); border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.1);">
+                <h4 style="color: var(--tc-text); margin-bottom: 1rem;">
+                    <i class="fas fa-check-circle" style="color: #10b981; margin-right: 0.5rem;"></i>
+                    Автоматична обробка
+                </h4>
+                <p style="color: var(--tc-text); opacity: 0.8; margin: 0;">
+                    Система автоматично обробляє замовлення та відправляє їх клієнтам без вашого втручання.
+                </p>
+            </div>
+            
+            <div style="padding: 1.5rem; background: rgba(255, 255, 255, 0.05); border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.1);">
+                <h4 style="color: var(--tc-text); margin-bottom: 1rem;">
+                    <i class="fas fa-check-circle" style="color: #10b981; margin-right: 0.5rem;"></i>
+                    Висока маржинальність
+                </h4>
+                <p style="color: var(--tc-text); opacity: 0.8; margin: 0;">
+                    Встановлюйте свої ціни та отримуйте прибуток від 5% до 20% з кожного продажу.
+                </p>
+            </div>
+            
+            <div style="padding: 1.5rem; background: rgba(255, 255, 255, 0.05); border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.1);">
+                <h4 style="color: var(--tc-text); margin-bottom: 1rem;">
+                    <i class="fas fa-check-circle" style="color: #10b981; margin-right: 0.5rem;"></i>
+                    Підтримка 24/7
+                </h4>
+                <p style="color: var(--tc-text); opacity: 0.8; margin: 0;">
+                    Наша команда завжди готова допомогти з будь-якими питаннями та проблемами.
+                </p>
+            </div>
+            
+            <div style="padding: 1.5rem; background: rgba(255, 255, 255, 0.05); border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.1);">
+                <h4 style="color: var(--tc-text); margin-bottom: 1rem;">
+                    <i class="fas fa-check-circle" style="color: #10b981; margin-right: 0.5rem;"></i>
+                    Фіксовані ціни
+                </h4>
+                <p style="color: var(--tc-text); opacity: 0.8; margin: 0;">
+                    Стабільні ціни на футболки та худі за договором без несподіваних змін.
+                </p>
+            </div>
+            
+            <div style="padding: 1.5rem; background: rgba(255, 255, 255, 0.05); border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.1);">
+                <h4 style="color: var(--tc-text); margin-bottom: 1rem;">
+                    <i class="fas fa-check-circle" style="color: #10b981; margin-right: 0.5rem;"></i>
+                    Готові матеріали
+                </h4>
+                <p style="color: var(--tc-text); opacity: 0.8; margin: 0;">
+                    Отримуйте готові фото товарів та описи для вашого магазину.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- CTA Section -->
+    <div class="filters-container" style="text-align: center;">
+        <h3 style="color: var(--tc-text); margin-bottom: 1.5rem;">Готові почати заробляти?</h3>
+        <p style="color: var(--tc-text); opacity: 0.8; margin-bottom: 2rem; font-size: 1.1rem;">
+            Зареєструйтесь зараз та отримайте доступ до дропшип панелі
+        </p>
+        
+        <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+            <a href="{% url 'login' %}" class="btn btn-primary" style="padding: 1rem 2rem; font-size: 1.1rem;">
+                <i class="fas fa-sign-in-alt"></i>
+                Увійти в акаунт
+            </a>
+            <a href="{% url 'register' %}" class="btn btn-secondary" style="padding: 1rem 2rem; font-size: 1.1rem;">
+                <i class="fas fa-user-plus"></i>
+                Зареєструватись
+            </a>
+        </div>
+        
+        <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+            <p style="color: var(--tc-text); opacity: 0.7; margin-bottom: 1rem;">
+                Маєте питання? Зв'яжіться з нами:
+            </p>
+            <a href="https://t.me/twocomms" class="btn btn-success" style="padding: 0.75rem 1.5rem;" target="_blank">
+                <i class="fab fa-telegram"></i>
+                Telegram
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+console.log('Dropshipper welcome page loaded');
+</script>
+{% endblock %}
