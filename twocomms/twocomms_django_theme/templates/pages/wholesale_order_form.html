@@ -3967,57 +3967,80 @@ function downloadInvoice(invoiceId) {
 // Function to check invoice approval status
 async function checkInvoiceApprovalStatus(invoiceId) {
     try {
-        // Сначала проверяем статус оплаты
-        const paymentResponse = await fetch(`/wholesale/check-payment-status/${invoiceId}/`);
-        const paymentResult = await paymentResponse.json();
+        const mainBtn = document.querySelector(`.main-action-btn[data-invoice-id="${invoiceId}"]`);
+        if (!mainBtn) return;
         
+        // Показываем индикатор загрузки
+        mainBtn.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="animation: spin 1s linear infinite;">
+                <path d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z"/>
+            </svg>
+            Перевірка...
+        `;
+        mainBtn.disabled = true;
+        mainBtn.style.background = '#6b7280';
+        
+        // Параллельно проверяем статус оплаты и одобрения
+        const [paymentResponse, approvalResponse] = await Promise.all([
+            fetch(`/wholesale/check-payment-status/${invoiceId}/`),
+            fetch(`/wholesale/check-approval/${invoiceId}/`)
+        ]);
+        
+        const [paymentResult, approvalResult] = await Promise.all([
+            paymentResponse.json(),
+            approvalResponse.json()
+        ]);
+        
+        // Сначала проверяем статус оплаты
         if (paymentResult.success && paymentResult.payment_status === 'paid') {
             // Накладна уже оплачена - показываем "Оплачено"
-            const mainBtn = document.querySelector(`.main-action-btn[data-invoice-id="${invoiceId}"]`);
-            if (mainBtn) {
-                mainBtn.innerHTML = `
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M9,20.42L2.79,14.21L5.62,11.38L9,14.77L18.88,4.88L21.71,7.71L9,20.42Z"/>
-                    </svg>
-                    Оплачено
-                `;
-                mainBtn.disabled = true;
-                mainBtn.style.background = '#10b981';
-                mainBtn.style.whiteSpace = 'nowrap';
-                mainBtn.style.overflow = 'hidden';
-                mainBtn.style.textOverflow = 'ellipsis';
-            }
-            return; // Выходим, так как накладная уже оплачена
+            mainBtn.innerHTML = `
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M9,20.42L2.79,14.21L5.62,11.38L9,14.77L18.88,4.88L21.71,7.71L9,20.42Z"/>
+                </svg>
+                Оплачено
+            `;
+            mainBtn.disabled = true;
+            mainBtn.style.background = '#10b981';
+            mainBtn.style.whiteSpace = 'nowrap';
+            mainBtn.style.overflow = 'hidden';
+            mainBtn.style.textOverflow = 'ellipsis';
+            return;
         }
         
         // Если не оплачена, проверяем статус одобрения
-        const response = await fetch(`/wholesale/check-approval/${invoiceId}/`);
-        const result = await response.json();
-        
-        if (result.success) {
-            const mainBtn = document.querySelector(`.main-action-btn[data-invoice-id="${invoiceId}"]`);
-            
-            if (result.is_approved) {
+        if (approvalResult.success) {
+            if (approvalResult.is_approved) {
                 // Обновляем кнопку на "Оплатити"
-                if (mainBtn) {
+                mainBtn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M7,15H9C9,16.08 10.37,17 12,17C13.63,17 15,16.08 15,15C15,13.9 13.96,13.5 11.76,12.97C9.64,12.44 7,11.78 7,9C7,7.21 8.47,5.69 10.5,5.18V3H13.5V5.18C15.53,5.69 17,7.21 17,9H15C15,7.92 13.63,7 12,7C10.37,7 9,7.92 9,9C9,10.1 10.04,10.5 12.24,11.03C14.36,11.56 17,12.22 17,15C17,16.79 15.53,18.31 13.5,18.82V21H10.5V18.82C8.47,18.31 7,16.79 7,15Z"/>
+                    </svg>
+                    Оплатити
+                `;
+                mainBtn.disabled = false;
+                mainBtn.style.background = '#f59e0b';
+                mainBtn.style.whiteSpace = 'nowrap';
+                mainBtn.style.overflow = 'hidden';
+                mainBtn.style.textOverflow = 'ellipsis';
+            } else {
+                // Проверяем, была ли отправлена накладная
+                const isSent = localStorage.getItem(`invoice_${invoiceId}_sent`) === 'true';
+                if (isSent) {
+                    // Показываем "Очікує одобрення"
                     mainBtn.innerHTML = `
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M7,15H9C9,16.08 10.37,17 12,17C13.63,17 15,16.08 15,15C15,13.9 13.96,13.5 11.76,12.97C9.64,12.44 7,11.78 7,9C7,7.21 8.47,5.69 10.5,5.18V3H13.5V5.18C15.53,5.69 17,7.21 17,9H15C15,7.92 13.63,7 12,7C10.37,7 9,7.92 9,9C9,10.1 10.04,10.5 12.24,11.03C14.36,11.56 17,12.22 17,15C17,16.79 15.53,18.31 13.5,18.82V21H10.5V18.82C8.47,18.31 7,16.79 7,15Z"/>
+                            <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M11,16.5L18,9.5L16.5,8L11,13.5L7.5,10L6,11.5L11,16.5Z"/>
                         </svg>
-                        Оплатити
+                        Очікує одобрення
                     `;
-                    mainBtn.disabled = false;
+                    mainBtn.disabled = true;
                     mainBtn.style.background = '#f59e0b';
                     mainBtn.style.whiteSpace = 'nowrap';
                     mainBtn.style.overflow = 'hidden';
                     mainBtn.style.textOverflow = 'ellipsis';
-                }
-            } else {
-                // Кнопка остается в состоянии "Очікує одобрення" или "Відправити"
-                // (в зависимости от того, была ли отправлена накладная)
-                const isSent = localStorage.getItem(`invoice_${invoiceId}_sent`) === 'true';
-                if (mainBtn && !isSent) {
-                    // Если не отправлена, показываем "Відправити"
+                } else {
+                    // Показываем "Відправити"
                     mainBtn.innerHTML = `
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M2,21L23,12L2,3V10L17,12L2,14V21Z"/>
@@ -4031,6 +4054,30 @@ async function checkInvoiceApprovalStatus(invoiceId) {
         }
     } catch (error) {
         console.error('Error checking approval status:', error);
+        // В случае ошибки показываем базовое состояние
+        const mainBtn = document.querySelector(`.main-action-btn[data-invoice-id="${invoiceId}"]`);
+        if (mainBtn) {
+            const isSent = localStorage.getItem(`invoice_${invoiceId}_sent`) === 'true';
+            if (isSent) {
+                mainBtn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M11,16.5L18,9.5L16.5,8L11,13.5L7.5,10L6,11.5L11,16.5Z"/>
+                    </svg>
+                    Очікує одобрення
+                `;
+                mainBtn.disabled = true;
+                mainBtn.style.background = '#f59e0b';
+            } else {
+                mainBtn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M2,21L23,12L2,3V10L17,12L2,14V21Z"/>
+                    </svg>
+                    Відправити
+                `;
+                mainBtn.disabled = false;
+                mainBtn.style.background = '#10b981';
+            }
+        }
     }
 }
 
@@ -4469,27 +4516,11 @@ function restoreSentButtonStates() {
         invoices.forEach(invoice => {
             const paymentInfo = document.querySelector(`.payment-info[data-invoice-id="${invoice.id}"]`);
             
+            // Сразу проверяем статус одобрения и оплаты для каждой накладной
+            checkInvoiceApprovalStatus(invoice.id);
+            
+            // Управляем отображением описания оплаты
             if (localStorage.getItem(`invoice_${invoice.id}_sent`) === 'true') {
-                console.log('Restoring button for invoice', invoice.id);
-                const btn = document.querySelector(`.main-action-btn[data-invoice-id="${invoice.id}"]`);
-                if (btn) {
-                    btn.innerHTML = `
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M11,16.5L18,9.5L16.5,8L11,13.5L7.5,10L6,11.5L11,16.5Z"/>
-                        </svg>
-                        Очікує одобрення
-                    `;
-                    btn.disabled = true;
-                    btn.style.background = '#f59e0b';
-                    btn.style.whiteSpace = 'nowrap';
-                    btn.style.overflow = 'hidden';
-                    btn.style.textOverflow = 'ellipsis';
-                    btn.style.maxWidth = '200px';
-                    console.log('Button restored for invoice', invoice.id);
-                } else {
-                    console.log('Button not found for invoice', invoice.id);
-                }
-                
                 // Скрываем описание для отправленных накладных
                 if (paymentInfo) {
                     paymentInfo.style.display = 'none';
@@ -4500,11 +4531,8 @@ function restoreSentButtonStates() {
                     paymentInfo.style.display = 'block';
                 }
             }
-            
-            // Проверяем статус одобрения для каждой накладной
-            checkInvoiceApprovalStatus(invoice.id);
         });
-    }, 500);
+    }, 100); // Уменьшили задержку до 100ms
 }
 
 // Function to reset all invoices to "not sent" status - временно отключена
