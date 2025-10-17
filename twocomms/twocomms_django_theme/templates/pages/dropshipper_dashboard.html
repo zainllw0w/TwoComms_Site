@@ -907,7 +907,6 @@
     display: flex;
     gap: 1rem;
     justify-content: center;
-    margin-bottom: 3rem;
     animation: fadeInUp 1s ease-out 1s forwards;
     opacity: 0;
 }
@@ -963,28 +962,6 @@
     box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
 }
 
-.hero-trust {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    animation: fadeInUp 1s ease-out 1.2s forwards;
-    opacity: 0;
-}
-
-.trust-text {
-    font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.6);
-}
-
-.trust-number {
-    font-size: 1.5rem;
-    font-weight: 800;
-    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-}
 
 @keyframes fadeInUp {
     to {
@@ -1016,123 +993,6 @@
     margin: 0 auto;
 }
 
-/* Enhanced Advantages */
-.advantages-section {
-    margin: 4rem 0;
-    padding: 0 1rem;
-}
-
-.advantages-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1.5rem;
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
-.advantage-card {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 20px;
-    padding: 2rem;
-    text-align: center;
-    transition: all 0.4s ease;
-    backdrop-filter: blur(20px);
-    position: relative;
-    overflow: hidden;
-    opacity: 0;
-    transform: translateY(50px);
-    animation: slideInUp 0.8s ease-out forwards;
-    min-height: 280px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-}
-
-.advantage-card[data-delay="0"] { animation-delay: 0.1s; }
-.advantage-card[data-delay="100"] { animation-delay: 0.2s; }
-.advantage-card[data-delay="200"] { animation-delay: 0.3s; }
-.advantage-card[data-delay="300"] { animation-delay: 0.4s; }
-.advantage-card[data-delay="400"] { animation-delay: 0.5s; }
-.advantage-card[data-delay="500"] { animation-delay: 0.6s; }
-
-.advantage-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, #8b5cf6, #3b82f6, #10b981);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.advantage-card:hover {
-    transform: translateY(-15px);
-    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
-    border-color: rgba(139, 92, 246, 0.5);
-}
-
-.advantage-card:hover::before {
-    opacity: 1;
-}
-
-.advantage-icon {
-    position: relative;
-    width: 80px;
-    height: 80px;
-    margin: 0 auto 1.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.advantage-icon i {
-    font-size: 2rem;
-    color: #8b5cf6;
-    z-index: 2;
-    position: relative;
-}
-
-.icon-bg {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.2));
-    border-radius: 50%;
-    animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { transform: scale(1); opacity: 0.7; }
-    50% { transform: scale(1.1); opacity: 1; }
-}
-
-.advantage-card h3 {
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: var(--tc-text);
-    margin-bottom: 0.8rem;
-}
-
-.advantage-card p {
-    color: rgba(255, 255, 255, 0.8);
-    line-height: 1.5;
-    margin-bottom: 1rem;
-    font-size: 0.95rem;
-}
-
-.advantage-number {
-    position: absolute;
-    top: 1.5rem;
-    right: 1.5rem;
-    font-size: 1.2rem;
-    font-weight: 800;
-    color: rgba(255, 255, 255, 0.3);
-}
 
 /* Enhanced Loyalty Section */
 .loyalty-section {
@@ -1828,83 +1688,9 @@
                         <span>Як це працює</span>
                     </button>
                 </div>
-                <div class="hero-trust">
-                    <div class="trust-text">Довіряють понад</div>
-                    <div class="trust-number">1000+</div>
-                    <div class="trust-text">дропшиперів</div>
-                </div>
             </div>
         </div>
 
-        <!-- Advantages Section -->
-        <div class="advantages-section">
-            <div class="section-header">
-                <h2 class="section-title">Чому обирають нас?</h2>
-                <p class="section-subtitle">6 ключових переваг для успішного дропшип бізнесу</p>
-            </div>
-            
-            <div class="advantages-grid">
-                <div class="advantage-card" data-delay="0">
-                    <div class="advantage-icon">
-                        <i class="fas fa-wallet"></i>
-                        <div class="icon-bg"></div>
-                    </div>
-                    <h3>Без вкладень у склад</h3>
-                    <p>Не потрібно вкладати гроші у свій склад - ми маємо все необхідне</p>
-                    <div class="advantage-number">01</div>
-                </div>
-                
-                <div class="advantage-card" data-delay="100">
-                    <div class="advantage-icon">
-                        <i class="fas fa-truck"></i>
-                        <div class="icon-bg"></div>
-                    </div>
-                    <h3>Ми займаємося доставкою</h3>
-                    <p>Ви не займаєтеся доставкою товару - ми відправляємо замовлення</p>
-                    <div class="advantage-number">02</div>
-                </div>
-                
-                <div class="advantage-card" data-delay="200">
-                    <div class="advantage-icon">
-                        <i class="fas fa-shipping-fast"></i>
-                        <div class="icon-bg"></div>
-                    </div>
-                    <h3>Щоденне відправлення</h3>
-                    <p>Щоденне відправлення замовлень Новою Поштою по всій Україні</p>
-                    <div class="advantage-number">03</div>
-                </div>
-                
-                <div class="advantage-card" data-delay="300">
-                    <div class="advantage-icon">
-                        <i class="fas fa-users"></i>
-                        <div class="icon-bg"></div>
-                    </div>
-                    <h3>Ваші клієнти залишаються вашими</h3>
-                    <p>Всі комунікації з клієнтом здійснюєте ви, тому він залишається вашим клієнтом</p>
-                    <div class="advantage-number">04</div>
-                </div>
-                
-                <div class="advantage-card" data-delay="400">
-                    <div class="advantage-icon">
-                        <i class="fas fa-info-circle"></i>
-                        <div class="icon-bg"></div>
-                    </div>
-                    <h3>Повна інформація про товар</h3>
-                    <p>Надання повної інформації про товар на сайті</p>
-                    <div class="advantage-number">05</div>
-                </div>
-                
-                <div class="advantage-card" data-delay="500">
-                    <div class="advantage-icon">
-                        <i class="fas fa-shopping-cart"></i>
-                        <div class="icon-bg"></div>
-                    </div>
-                    <h3>Зручне оформлення замовлень</h3>
-                    <p>Можливість оформлення замовлень в особистому кабінеті на сайті, а також у месенджерах</p>
-                    <div class="advantage-number">06</div>
-                </div>
-            </div>
-        </div>
 
         <!-- Loyalty Section -->
         <div class="loyalty-section">
@@ -2605,7 +2391,7 @@ function setupScrollAnimations() {
     }, observerOptions);
     
     // Observe sections for animation
-    document.querySelectorAll('.hero-section, .advantages-section, .loyalty-section, .how-it-works-section, .cta-section').forEach(section => {
+    document.querySelectorAll('.hero-section, .loyalty-section, .how-it-works-section, .cta-section').forEach(section => {
         observer.observe(section);
     });
 }
@@ -2709,9 +2495,8 @@ function setupEnhancedScrollAnimations() {
                 }
                 
                 // Stagger animation for grid items
-                if (entry.target.classList.contains('advantages-grid') || 
-                    entry.target.classList.contains('features-grid')) {
-                    const items = entry.target.querySelectorAll('.advantage-card, .feature-item');
+                if (entry.target.classList.contains('features-grid')) {
+                    const items = entry.target.querySelectorAll('.feature-item');
                     items.forEach((item, index) => {
                         setTimeout(() => {
                             item.style.opacity = '1';
@@ -2724,7 +2509,7 @@ function setupEnhancedScrollAnimations() {
     }, observerOptions);
     
     // Observe sections for animation
-    document.querySelectorAll('.hero-section, .advantages-section, .loyalty-section, .how-it-works-section, .features-section, .faq-section, .cta-section').forEach(section => {
+    document.querySelectorAll('.hero-section, .loyalty-section, .how-it-works-section, .features-section, .faq-section, .cta-section').forEach(section => {
         observer.observe(section);
     });
 }
@@ -2788,9 +2573,6 @@ const additionalStyles = `
             gap: 1.5rem;
         }
         
-        .advantages-grid {
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        }
         
         .loyalty-levels {
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -2815,11 +2597,6 @@ const additionalStyles = `
             font-size: 1.1rem;
         }
         
-        .hero-stats-mini {
-            flex-direction: column;
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
         
         .hero-actions {
             flex-direction: column;
@@ -2833,7 +2610,6 @@ const additionalStyles = `
             justify-content: center;
         }
         
-        .advantages-section,
         .loyalty-section,
         .how-it-works-section,
         .features-section,
@@ -2843,13 +2619,11 @@ const additionalStyles = `
             padding: 2rem 1rem;
         }
         
-        .advantages-grid,
         .features-grid {
             grid-template-columns: 1fr;
             gap: 1rem;
         }
         
-        .advantage-card,
         .feature-item {
             padding: 1.5rem;
             min-height: 250px;
@@ -2938,7 +2712,6 @@ const additionalStyles = `
             font-size: 1rem;
         }
         
-        .advantages-section,
         .loyalty-section,
         .how-it-works-section,
         .features-section,
@@ -2948,7 +2721,6 @@ const additionalStyles = `
             padding: 1.5rem 0.8rem;
         }
         
-        .advantage-card,
         .loyalty-level,
         .step-item,
         .feature-item {
@@ -2968,13 +2740,11 @@ const additionalStyles = `
             padding: 0 1rem 1rem;
         }
         
-        .advantage-icon,
         .feature-icon {
             width: 60px;
             height: 60px;
         }
         
-        .advantage-icon i,
         .feature-icon i {
             font-size: 1.5rem;
         }
