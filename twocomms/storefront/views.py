@@ -7443,13 +7443,6 @@ def create_wholesale_payment(request):
     import json
     from decimal import Decimal
     
-    monobank_logger.info('create_wholesale_payment called with method: %s', request.method)
-    monobank_logger.info('Request body: %s', request.body)
-    
-    # Для тестирования - разрешаем GET запросы
-    if request.method == 'GET':
-        return JsonResponse({'success': True, 'message': 'Payment endpoint is working', 'method': 'GET'})
-    
     # Для POST запросов
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Only POST method allowed'}, status=405)
@@ -7461,38 +7454,31 @@ def create_wholesale_payment(request):
         description = data.get('description', '')
         invoice_number = data.get('invoice_number', '')
         
-        monobank_logger.info('Creating wholesale payment: invoice_id=%s, amount=%s, description=%s', 
-                           invoice_id, amount, description)
-        
         # Проверяем invoice_id
         if not invoice_id:
-            monobank_logger.error('Missing invoice_id')
             return JsonResponse({'success': False, 'error': 'Відсутній ID накладної'}, status=400)
         
         # Проверяем amount
         if amount is None or amount == '' or amount == 0:
-            monobank_logger.error('Invalid amount: %s (type: %s)', amount, type(amount))
             return JsonResponse({'success': False, 'error': 'Невірна сума накладної'}, status=400)
         
         # Получаем накладную
         try:
             invoice = WholesaleInvoice.objects.get(id=invoice_id)
-            monobank_logger.info('Found invoice: %s, approved: %s, amount: %s', 
-                               invoice.invoice_number, invoice.is_approved, invoice.total_amount)
         except WholesaleInvoice.DoesNotExist:
-            monobank_logger.error('Invoice not found: %s', invoice_id)
             return JsonResponse({'success': False, 'error': 'Накладна не знайдена'}, status=404)
         
         # Проверяем, что накладная одобрена
         if not invoice.is_approved:
-            monobank_logger.warning('Invoice not approved: %s', invoice_id)
             return JsonResponse({'success': False, 'error': 'Накладна не одобрена для оплаты'}, status=400)
+        
+        # Проверяем, что накладная еще не оплачена
+        if invoice.payment_status == 'paid':
+            return JsonResponse({'success': False, 'error': 'Накладна уже оплачена'}, status=400)
         
         # Конвертируем сумму в копейки для Monobank
         amount_decimal = Decimal(str(amount))
         amount_kopecks = int(amount_decimal * 100)
-        
-        monobank_logger.info('Converting amount: %s -> %s kopecks', amount, amount_kopecks)
         
         # Создаем payload для Monobank
         payload = {
@@ -7531,7 +7517,9 @@ def create_wholesale_payment(request):
             monobank_logger.error('No payment URL in Monobank response: %s', creation_data)
             return JsonResponse({'success': False, 'error': 'Не отримано URL для оплати'}, status=500)
         
-        monobank_logger.info('Payment URL created: %s', invoice_url)
+        # Устанавливаем статус "ожидает оплаты"
+        invoice.payment_status = 'pending'
+        invoice.save(update_fields=['payment_status'])
         
         # Сохраняем информацию о платеже в сессии
         request.session['wholesale_payment_invoice_id'] = invoice_id
@@ -7548,3 +7536,111 @@ def create_wholesale_payment(request):
     except Exception as e:
         monobank_logger.exception('Failed to create wholesale payment: %s', e)
         return JsonResponse({'success': False, 'error': 'Помилка створення платежу'}, status=500)
+
+@csrf_exempt
+def wholesale_payment_webhook(request):
+    """Webhook для обработки уведомлений о платежах накладных от Monobank"""
+    from orders.models import WholesaleInvoice
+    import json
+    
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST allowed'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        invoice_id = request.session.get('wholesale_payment_invoice_id')
+        
+        if not invoice_id:
+            return JsonResponse({'error': 'No invoice ID in session'}, status=400)
+        
+        # Получаем накладную
+        try:
+            invoice = WholesaleInvoice.objects.get(id=invoice_id)
+        except WholesaleInvoice.DoesNotExist:
+            return JsonResponse({'error': 'Invoice not found'}, status=404)
+        
+        # Проверяем статус платежа
+        status = data.get('status', '').lower()
+        
+        if status in ['success', 'hold']:
+            # Платеж успешен
+            invoice.payment_status = 'paid'
+            invoice.save(update_fields=['payment_status'])
+            
+            # Отправляем уведомление в Telegram
+            try:
+                from orders.telegram_notifications import telegram_notifier
+                if telegram_notifier.is_configured():
+                    telegram_notifier.send_invoice_payment_notification(invoice)
+            except Exception as e:
+                pass  # Игнорируем ошибки Telegram
+            
+            return JsonResponse({'success': True, 'status': 'paid'})
+        
+        elif status in ['failure', 'expired', 'rejected', 'canceled', 'cancelled', 'reversed']:
+            # Платеж неуспешен
+            invoice.payment_status = 'failed'
+            invoice.save(update_fields=['payment_status'])
+            return JsonResponse({'success': True, 'status': 'failed'})
+        
+        else:
+            # Неизвестный статус
+            return JsonResponse({'success': True, 'status': 'unknown'})
+            
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@require_POST
+@staff_member_required
+def toggle_invoice_payment_status(request, invoice_id):
+    """Переключение статуса оплаты накладной администратором"""
+    from orders.models import WholesaleInvoice
+    import json
+    
+    try:
+        invoice = WholesaleInvoice.objects.get(id=invoice_id)
+        data = json.loads(request.body or '{}')
+        new_status = data.get('payment_status', 'not_paid')
+        
+        # Проверяем валидность статуса
+        valid_statuses = ['not_paid', 'paid', 'pending', 'failed']
+        if new_status not in valid_statuses:
+            return JsonResponse({'success': False, 'error': 'Невірний статус оплати'}, status=400)
+        
+        invoice.payment_status = new_status
+        invoice.save(update_fields=['payment_status'])
+        
+        status_text = {
+            'not_paid': 'не оплачена',
+            'paid': 'оплачена',
+            'pending': 'очікує оплати',
+            'failed': 'помилка оплати'
+        }.get(new_status, new_status)
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Статус оплати змінено на "{status_text}"',
+            'payment_status': new_status
+        })
+        
+    except WholesaleInvoice.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Накладна не знайдена'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+def check_payment_status(request, invoice_id):
+    """Проверка статуса оплаты накладной"""
+    from orders.models import WholesaleInvoice
+    try:
+        invoice = WholesaleInvoice.objects.get(id=invoice_id)
+        return JsonResponse({
+            'success': True,
+            'payment_status': invoice.payment_status,
+            'invoice_number': invoice.invoice_number
+        })
+    except WholesaleInvoice.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Накладна не знайдена'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)

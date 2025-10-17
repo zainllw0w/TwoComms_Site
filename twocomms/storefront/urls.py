@@ -124,11 +124,14 @@ urlpatterns=[
     path('wholesale/download-invoice/<int:invoice_id>/', views.download_invoice_file, name='download_invoice_file'),
     path('wholesale/delete-invoice/<int:invoice_id>/', views.delete_wholesale_invoice, name='delete_wholesale_invoice'),
     path('wholesale/check-approval/<int:invoice_id>/', views.check_invoice_approval_status, name='check_invoice_approval_status'),
+    path('wholesale/check-payment-status/<int:invoice_id>/', views.check_payment_status, name='check_payment_status'),
     path('wholesale/create-payment/', views.create_wholesale_payment, name='create_wholesale_payment'),
+    path('wholesale/payment-webhook/', views.wholesale_payment_webhook, name='wholesale_payment_webhook'),
     path('wholesale/invoices/', views.get_user_invoices, name='get_user_invoices'),
     # Collaboration admin (staff-only)
     path('admin-panel/collaboration/', views.collaboration_admin, name='collaboration_admin'),
     path('admin-panel/invoices/update-status/<int:invoice_id>/', views.admin_update_invoice_status, name='admin_update_invoice_status'),
     path('admin-panel/invoices/toggle-approval/<int:invoice_id>/', views.toggle_invoice_approval, name='toggle_invoice_approval'),
+    path('admin-panel/invoices/toggle-payment/<int:invoice_id>/', views.toggle_invoice_payment_status, name='toggle_invoice_payment_status'),
     path('admin-panel/invoices/reset-all-status/', views.reset_all_invoices_status, name='reset_all_invoices_status'),
 ]

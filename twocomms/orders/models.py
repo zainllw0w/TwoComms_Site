@@ -229,6 +229,17 @@ class WholesaleInvoice(models.Model):
     
     # Поле для одобрения накладной (доступна для оплаты)
     is_approved = models.BooleanField(default=False, verbose_name="Одобрена для оплаты")
+    payment_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('not_paid', 'Не оплачена'),
+            ('paid', 'Оплачена'),
+            ('pending', 'Ожидает оплаты'),
+            ('failed', 'Ошибка оплаты'),
+        ],
+        default='not_paid',
+        verbose_name="Статус оплаты"
+    )
     
     class Meta:
         verbose_name = "Оптова накладна"

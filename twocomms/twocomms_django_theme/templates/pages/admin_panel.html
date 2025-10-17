@@ -2148,6 +2148,20 @@
                 <div>
                   <div><strong>{{ inv.invoice_number }}</strong> · {{ inv.company_name }}</div>
                   <div class="small text-muted">Статус: {{ inv.get_status_display }}</div>
+                  <div class="small text-muted">Оплата: 
+                    <span class="badge 
+                      {% if inv.payment_status == 'not_paid' %}bg-secondary
+                      {% elif inv.payment_status == 'pending' %}bg-warning
+                      {% elif inv.payment_status == 'paid' %}bg-success
+                      {% elif inv.payment_status == 'failed' %}bg-danger
+                      {% else %}bg-dark{% endif %}">
+                      {% if inv.payment_status == 'not_paid' %}Не оплачена
+                      {% elif inv.payment_status == 'pending' %}Очікує оплати
+                      {% elif inv.payment_status == 'paid' %}Оплачена
+                      {% elif inv.payment_status == 'failed' %}Помилка оплати
+                      {% else %}{{ inv.payment_status }}{% endif %}
+                    </span>
+                  </div>
                   {% if inv.file_path %}
                     <div class="small"><a href="{% url 'download_invoice_file' inv.id %}" class="link-primary">Скачати файл</a></div>
                   {% endif %}
@@ -2158,6 +2172,14 @@
                     <form onsubmit="return toggleInvoiceApproval(event, {{ inv.id }}, true)"><button class="btn btn-sm btn-outline-success" type="submit">Одобрити для оплаты</button></form>
                   {% else %}
                     <form onsubmit="return toggleInvoiceApproval(event, {{ inv.id }}, false)"><button class="btn btn-sm btn-outline-warning" type="submit">Отменить одобрение</button></form>
+                  {% endif %}
+                  
+                  <!-- Кнопки статуса оплаты -->
+                  {% if inv.payment_status != 'paid' %}
+                    <form onsubmit="return toggleInvoicePayment(event, {{ inv.id }}, 'paid')"><button class="btn btn-sm btn-outline-success" type="submit">Відмітити як оплачену</button></form>
+                  {% endif %}
+                  {% if inv.payment_status != 'not_paid' %}
+                    <form onsubmit="return toggleInvoicePayment(event, {{ inv.id }}, 'not_paid')"><button class="btn btn-sm btn-outline-secondary" type="submit">Скинути оплату</button></form>
                   {% endif %}
                   
                   {% if inv.status == 'pending' %}
@@ -2185,6 +2207,8 @@
       <script>
       async function updateInvoiceStatus(e,id,status){ e.preventDefault(); const res = await fetch(`/admin-panel/invoices/update-status/${id}/`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')},body:JSON.stringify({status})}); if(res.ok){ location.reload(); } else { alert('Помилка оновлення статусу'); } return false; }
       async function toggleInvoiceApproval(e,id,approved){ e.preventDefault(); const res = await fetch(`/admin-panel/invoices/toggle-approval/${id}/`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')},body:JSON.stringify({is_approved:approved})}); if(res.ok){ location.reload(); } else { alert('Помилка оновлення одобрения'); } return false; }
+
+async function toggleInvoicePayment(e,id,status){ e.preventDefault(); const res = await fetch(`/admin-panel/invoices/toggle-payment/${id}/`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')},body:JSON.stringify({payment_status:status})}); if(res.ok){ location.reload(); } else { alert('Помилка оновлення статусу оплати'); } return false; }
       function getCookie(name){const v=`; ${document.cookie}`.split(`; ${name}=`);if(v.length===2) return v.pop().split(';').shift();}
       </script>
     {% endif %}
