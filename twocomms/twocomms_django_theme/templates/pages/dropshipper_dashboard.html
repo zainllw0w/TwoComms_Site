@@ -10,10 +10,125 @@
     --tc-text: rgba(255, 255, 255, 0.95);
 }
 
+.dropshipper-layout {
+    display: flex;
+    min-height: 100vh;
+    background: var(--tc-bg);
+}
+
+/* Sidebar */
+.dropshipper-sidebar {
+    width: 280px;
+    background: rgba(0, 0, 0, 0.9);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 2rem 0;
+    position: fixed;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: 100;
+    backdrop-filter: blur(20px);
+}
+
+.sidebar-header {
+    padding: 0 2rem 2rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 2rem;
+}
+
+.sidebar-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.5rem;
+}
+
+.sidebar-subtitle {
+    color: var(--tc-text);
+    opacity: 0.7;
+    font-size: 0.9rem;
+}
+
+.sidebar-nav {
+    padding: 0 1rem;
+}
+
+.nav-item {
+    margin-bottom: 0.5rem;
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    color: var(--tc-text);
+    text-decoration: none;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    border: 1px solid transparent;
+}
+
+.nav-link:hover {
+    background: rgba(139, 92, 246, 0.1);
+    border-color: rgba(139, 92, 246, 0.3);
+    transform: translateX(5px);
+}
+
+.nav-link.active {
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    border-color: #8b5cf6;
+    color: white;
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+}
+
+.nav-link i {
+    width: 20px;
+    text-align: center;
+}
+
+.telegram-section {
+    margin-top: 2rem;
+    padding: 0 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 2rem;
+}
+
+.telegram-btn {
+    width: 100%;
+    padding: 1rem;
+    background: linear-gradient(135deg, #0088cc, #006699);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-weight: 600;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.telegram-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 136, 204, 0.3);
+    color: white;
+}
+
+/* Main Content */
+.dropshipper-main {
+    flex: 1;
+    margin-left: 280px;
+    padding: 2rem;
+    min-height: 100vh;
+}
+
 .dropshipper-container {
-    max-width: 1400px;
+    max-width: 1200px;
     margin: 0 auto;
-    padding: 20px;
     background: var(--tc-bg);
     min-height: 100vh;
     position: relative;
@@ -469,7 +584,58 @@
 
 {% block content %}
 {% csrf_token %}
-<div class="dropshipper-container">
+<div class="dropshipper-layout">
+    <!-- Sidebar -->
+    <div class="dropshipper-sidebar">
+        <div class="sidebar-header">
+            <h1 class="sidebar-title">Дропшип панель</h1>
+            <p class="sidebar-subtitle">Управляйте заказами и статистикой</p>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <div class="nav-item">
+                <a href="{% url 'orders:dropshipper_dashboard' %}" class="nav-link active">
+                    <i class="fas fa-home"></i>
+                    Главная
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="{% url 'orders:dropshipper_products' %}" class="nav-link">
+                    <i class="fas fa-box"></i>
+                    Товары
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="{% url 'orders:dropshipper_orders' %}" class="nav-link">
+                    <i class="fas fa-shopping-cart"></i>
+                    Замовлення
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="{% url 'orders:dropshipper_statistics' %}" class="nav-link">
+                    <i class="fas fa-chart-line"></i>
+                    Статистика
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="{% url 'orders:dropshipper_payouts' %}" class="nav-link">
+                    <i class="fas fa-money-bill-wave"></i>
+                    Выплаты
+                </a>
+            </div>
+        </nav>
+        
+        <div class="telegram-section">
+            <a href="https://t.me/twocomms_support" target="_blank" class="telegram-btn">
+                <i class="fab fa-telegram"></i>
+                Связаться с нами
+            </a>
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="dropshipper-main">
+        <div class="dropshipper-container">
     <!-- Header -->
     <div class="dropshipper-header">
         <div class="dropshipper-header-content">
@@ -691,6 +857,7 @@
         
         <div id="product-details">
             <!-- Product details will be loaded here -->
+        </div>
         </div>
     </div>
 </div>

@@ -66,6 +66,13 @@ class Product(models.Model):
     drop_price=models.PositiveIntegerField(default=0, verbose_name='Ціна дропа (грн)')
     recommended_price=models.PositiveIntegerField(default=0, verbose_name='Рекомендована ціна (грн)')
     
+    # Оптовые цены для дропшипа
+    wholesale_price=models.PositiveIntegerField(default=0, verbose_name='Оптова ціна (грн)')
+    
+    # Поля для определения участия в дропшипе
+    is_dropship_available=models.BooleanField(default=True, verbose_name='Доступний для дропшипа')
+    dropship_note=models.CharField(max_length=200, blank=True, null=True, verbose_name='Примітка для дропшипа')
+    
     # AI-generated content fields
     ai_keywords=models.TextField(blank=True, null=True, verbose_name='AI-ключові слова')
     ai_description=models.TextField(blank=True, null=True, verbose_name='AI-опис')
@@ -97,6 +104,39 @@ class Product(models.Model):
         return None
     
     def __str__(self): return self.title
+    
+    def get_drop_price(self):
+        """Получить цену дропа (оптовая цена)"""
+        if self.wholesale_price > 0:
+            return self.wholesale_price
+        return self.drop_price
+    
+    def get_recommended_price(self):
+        """Получить рекомендованную цену (цена со скидкой +-10%)"""
+        if self.has_discount and self.discount_percent:
+            discounted_price = self.price * (100 - self.discount_percent) / 100
+            # Добавляем +-10% к цене со скидкой
+            min_price = int(discounted_price * 0.9)
+            max_price = int(discounted_price * 1.1)
+            return {
+                'min': min_price,
+                'max': max_price,
+                'base': int(discounted_price)
+            }
+        return {
+            'min': int(self.price * 0.9),
+            'max': int(self.price * 1.1),
+            'base': self.price
+        }
+    
+    def is_available_for_dropship(self):
+        """Проверить доступность для дропшипа"""
+        if not self.is_dropship_available:
+            return False
+        # Проверяем, что это не лонгслив
+        if 'лонгслив' in self.title.lower() or 'longsleeve' in self.title.lower():
+            return False
+        return True
 
 class ProductImage(models.Model):
     product=models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')

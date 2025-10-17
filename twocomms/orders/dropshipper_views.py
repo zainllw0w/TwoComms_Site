@@ -48,10 +48,19 @@ def dropshipper_products(request):
     category_id = request.GET.get('category')
     search_query = request.GET.get('search', '')
     
-    # Базовый queryset
+    # Базовый queryset - только товары доступные для дропшипа
     products = Product.objects.filter(
-        category__is_active=True
+        category__is_active=True,
+        is_dropship_available=True
     ).select_related('category').prefetch_related('color_variants__images')
+    
+    # Дополнительная фильтрация по доступности для дропшипа
+    available_products = []
+    for product in products:
+        if product.is_available_for_dropship():
+            available_products.append(product)
+    
+    products = available_products
     
     # Фильтрация по категории
     if category_id:
