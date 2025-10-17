@@ -4029,8 +4029,46 @@ function handleMainAction(invoiceId) {
 
 // Function to pay invoice
 function payInvoice(invoiceId) {
-    // Здесь будет логика оплаты
-    showNotification('Функція оплати буде додана найближчим часом', 'info');
+    // Получаем данные накладной из localStorage
+    const invoices = JSON.parse(localStorage.getItem('wholesaleInvoices') || '[]');
+    const invoice = invoices.find(inv => String(inv.id) === String(invoiceId));
+    
+    if (!invoice) {
+        showNotification('Накладна не знайдена', 'error');
+        return;
+    }
+    
+    // Формируем данные для оплаты
+    const paymentData = {
+        invoice_id: invoiceId,
+        amount: invoice.totalAmount,
+        description: `Оплата накладної ${invoice.name}`,
+        invoice_number: invoice.name
+    };
+    
+    // Отправляем запрос на создание платежа
+    fetch('/wholesale/create-payment/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(paymentData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.payment_url) {
+            // Перенаправляем на страницу оплаты Monobank
+            window.open(data.payment_url, '_blank');
+            showNotification('Перенаправлення на сторінку оплати...', 'success');
+        } else {
+            showNotification(data.error || 'Помилка створення платежу', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Payment error:', error);
+        showNotification('Помилка при створенні платежу', 'error');
+    });
 }
 
 // Global function for deleting invoices
