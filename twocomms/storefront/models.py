@@ -107,7 +107,12 @@ class Product(models.Model):
     
     def get_drop_price(self):
         """Получить цену дропа (оптовая цена)"""
-        if self.wholesale_price > 0:
+        # Определяем цену дропа по категории
+        if 'футболка' in self.title.lower() or 't-shirt' in self.title.lower():
+            return 650
+        elif 'худи' in self.title.lower() or 'hoodie' in self.title.lower() or 'флис' in self.title.lower():
+            return 1450
+        elif self.wholesale_price > 0:
             return self.wholesale_price
         return self.drop_price
     
