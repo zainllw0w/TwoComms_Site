@@ -579,6 +579,213 @@
         padding: 1.5rem;
     }
 }
+
+/* Tab Content */
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Advantages Section */
+.advantages-section {
+    margin: 3rem 0;
+}
+
+.advantages-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.advantage-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
+}
+
+.advantage-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #8b5cf6, #3b82f6);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.advantage-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    border-color: rgba(139, 92, 246, 0.5);
+}
+
+.advantage-card:hover::before {
+    opacity: 1;
+}
+
+.advantage-icon {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+    font-size: 2rem;
+    color: white;
+    box-shadow: 0 10px 30px rgba(139, 92, 246, 0.3);
+}
+
+.advantage-card h3 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--tc-text);
+    margin-bottom: 1rem;
+}
+
+.advantage-card p {
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.6;
+    font-size: 1rem;
+}
+
+/* Loyalty Section */
+.loyalty-section {
+    margin: 4rem 0;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 25px;
+    padding: 3rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+}
+
+.loyalty-title {
+    font-size: 2.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6, #10b981);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.loyalty-subtitle {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 1.2rem;
+    margin-bottom: 3rem;
+}
+
+.loyalty-levels {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 2rem;
+}
+
+.loyalty-level {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.loyalty-level:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+}
+
+.level-badge {
+    display: inline-block;
+    padding: 0.5rem 1.5rem;
+    border-radius: 25px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+    background: linear-gradient(135deg, #6b7280, #9ca3af);
+    color: white;
+}
+
+.level-badge.silver {
+    background: linear-gradient(135deg, #c0c0c0, #e5e7eb);
+    color: #374151;
+}
+
+.level-badge.gold {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: white;
+}
+
+.level-badge.diamond {
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    color: white;
+}
+
+.loyalty-level h4 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--tc-text);
+    margin-bottom: 0.5rem;
+}
+
+.loyalty-level p {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+}
+
+/* Category Filter */
+.category-filter {
+    display: flex;
+    gap: 1rem;
+    margin: 2rem 0;
+    flex-wrap: wrap;
+}
+
+.category-btn {
+    padding: 0.75rem 1.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 25px;
+    color: var(--tc-text);
+    text-decoration: none;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.category-btn:hover,
+.category-btn.active {
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    border-color: #8b5cf6;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(139, 92, 246, 0.3);
+}
+
+/* Products Grid */
+.products-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
 </style>
 {% endblock %}
 
@@ -594,31 +801,31 @@
         
         <nav class="sidebar-nav">
             <div class="nav-item">
-                <a href="{% url 'orders:dropshipper_dashboard' %}" class="nav-link active">
+                <a href="#" class="nav-link active" onclick="switchTab('main')">
                     <i class="fas fa-home"></i>
                     Главная
                 </a>
             </div>
             <div class="nav-item">
-                <a href="{% url 'orders:dropshipper_products' %}" class="nav-link">
+                <a href="#" class="nav-link" onclick="switchTab('products')">
                     <i class="fas fa-box"></i>
                     Товары
                 </a>
             </div>
             <div class="nav-item">
-                <a href="{% url 'orders:dropshipper_orders' %}" class="nav-link">
+                <a href="#" class="nav-link" onclick="switchTab('orders')">
                     <i class="fas fa-shopping-cart"></i>
                     Замовлення
                 </a>
             </div>
             <div class="nav-item">
-                <a href="{% url 'orders:dropshipper_statistics' %}" class="nav-link">
+                <a href="#" class="nav-link" onclick="switchTab('statistics')">
                     <i class="fas fa-chart-line"></i>
                     Статистика
                 </a>
             </div>
             <div class="nav-item">
-                <a href="{% url 'orders:dropshipper_payouts' %}" class="nav-link">
+                <a href="#" class="nav-link" onclick="switchTab('payouts')">
                     <i class="fas fa-money-bill-wave"></i>
                     Выплаты
                 </a>
@@ -636,11 +843,166 @@
     <!-- Main Content -->
     <div class="dropshipper-main">
         <div class="dropshipper-container">
-    <!-- Header -->
-    <div class="dropshipper-header">
-        <div class="dropshipper-header-content">
-            <h1 class="dropshipper-title">Дропшип панель</h1>
-            <p class="dropshipper-subtitle">Управляйте своими заказами, отслеживайте статистику и получайте выплаты</p>
+    <!-- Main Content Tabs -->
+    <div id="main-content" class="tab-content active">
+        <!-- Header -->
+        <div class="dropshipper-header">
+            <div class="dropshipper-header-content">
+                <h1 class="dropshipper-title">ПЕРЕВАГИ РОБОТИ З НАМИ ПО ДРОПШИППІНГУ</h1>
+                <p class="dropshipper-subtitle">Створюйте свій бізнес без вкладень у склад та логістику</p>
+            </div>
+        </div>
+
+        <!-- Advantages Section -->
+        <div class="advantages-section">
+            <div class="advantages-grid">
+                <div class="advantage-card">
+                    <div class="advantage-icon">
+                        <i class="fas fa-wallet"></i>
+                    </div>
+                    <h3>Без вкладень у склад</h3>
+                    <p>Не потрібно вкладати гроші у свій склад - ми маємо все необхідне</p>
+                </div>
+                
+                <div class="advantage-card">
+                    <div class="advantage-icon">
+                        <i class="fas fa-truck"></i>
+                    </div>
+                    <h3>Ми займаємося доставкою</h3>
+                    <p>Ви не займаєтеся доставкою товару - ми відправляємо замовлення</p>
+                </div>
+                
+                <div class="advantage-card">
+                    <div class="advantage-icon">
+                        <i class="fas fa-shipping-fast"></i>
+                    </div>
+                    <h3>Щоденне відправлення</h3>
+                    <p>Щоденне відправлення замовлень Новою Поштою по всій Україні</p>
+                </div>
+                
+                <div class="advantage-card">
+                    <div class="advantage-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <h3>Ваші клієнти залишаються вашими</h3>
+                    <p>Всі комунікації з клієнтом здійснюєте ви, тому він залишається вашим клієнтом</p>
+                </div>
+                
+                <div class="advantage-card">
+                    <div class="advantage-icon">
+                        <i class="fas fa-info-circle"></i>
+                    </div>
+                    <h3>Повна інформація про товар</h3>
+                    <p>Надання повної інформації про товар на сайті</p>
+                </div>
+                
+                <div class="advantage-card">
+                    <div class="advantage-icon">
+                        <i class="fas fa-shopping-cart"></i>
+                    </div>
+                    <h3>Зручне оформлення замовлень</h3>
+                    <p>Можливість оформлення замовлень в особистому кабінеті на сайті, а також у месенджерах</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loyalty Section -->
+        <div class="loyalty-section">
+            <div class="loyalty-content">
+                <h2 class="loyalty-title">Система лояльності</h2>
+                <p class="loyalty-subtitle">Чим більше ви продаєте, тим менше ціна на дроп</p>
+                
+                <div class="loyalty-levels">
+                    <div class="loyalty-level">
+                        <div class="level-badge">Старт</div>
+                        <h4>0-10 замовлень</h4>
+                        <p>Стандартні ціни дропа</p>
+                    </div>
+                    
+                    <div class="loyalty-level">
+                        <div class="level-badge silver">Срібло</div>
+                        <h4>11-50 замовлень</h4>
+                        <p>Знижка 5% на всі товари</p>
+                    </div>
+                    
+                    <div class="loyalty-level">
+                        <div class="level-badge gold">Золото</div>
+                        <h4>51-100 замовлень</h4>
+                        <p>Знижка 10% на всі товари</p>
+                    </div>
+                    
+                    <div class="loyalty-level">
+                        <div class="level-badge diamond">Діамант</div>
+                        <h4>100+ замовлень</h4>
+                        <p>Знижка 15% на всі товари</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Products Tab -->
+    <div id="products-content" class="tab-content">
+        <div class="dropshipper-header">
+            <div class="dropshipper-header-content">
+                <h1 class="dropshipper-title">Товари для дропшипа</h1>
+                <p class="dropshipper-subtitle">Оберіть товари та створіть замовлення для своїх клієнтів</p>
+            </div>
+        </div>
+        
+        <!-- Category Filter -->
+        <div class="category-filter">
+            <a href="#" class="category-btn active" onclick="filterProducts('all')">Всі товари</a>
+            {% for category in categories %}
+            <a href="#" class="category-btn" onclick="filterProducts({{ category.id }})">{{ category.name }}</a>
+            {% endfor %}
+        </div>
+        
+        <!-- Products Grid -->
+        <div id="products-grid" class="products-grid">
+            <!-- Products will be loaded here via AJAX -->
+        </div>
+    </div>
+
+    <!-- Orders Tab -->
+    <div id="orders-content" class="tab-content">
+        <div class="dropshipper-header">
+            <div class="dropshipper-header-content">
+                <h1 class="dropshipper-title">Мої замовлення</h1>
+                <p class="dropshipper-subtitle">Управляйте замовленнями та відстежуйте їх статус</p>
+            </div>
+        </div>
+        
+        <div id="orders-list">
+            <!-- Orders will be loaded here via AJAX -->
+        </div>
+    </div>
+
+    <!-- Statistics Tab -->
+    <div id="statistics-content" class="tab-content">
+        <div class="dropshipper-header">
+            <div class="dropshipper-header-content">
+                <h1 class="dropshipper-title">Статистика</h1>
+                <p class="dropshipper-subtitle">Аналіз вашої дропшип діяльності та досягнень</p>
+            </div>
+        </div>
+        
+        <div id="statistics-content">
+            <!-- Statistics will be loaded here via AJAX -->
+        </div>
+    </div>
+
+    <!-- Payouts Tab -->
+    <div id="payouts-content" class="tab-content">
+        <div class="dropshipper-header">
+            <div class="dropshipper-header-content">
+                <h1 class="dropshipper-title">Виплати</h1>
+                <p class="dropshipper-subtitle">Управляйте виплатами та відстежуйте їх статус</p>
+            </div>
+        </div>
+        
+        <div id="payouts-list">
+            <!-- Payouts will be loaded here via AJAX -->
         </div>
     </div>
 
@@ -866,7 +1228,131 @@
 {% block extra_js %}
 <script>
 // Global variables
-let currentTab = 'products';
+let currentTab = 'main';
+
+// Tab switching function
+function switchTab(tabName) {
+    // Hide all tab contents
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Remove active class from all nav links
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.remove('active');
+    });
+    
+    // Show selected tab content
+    const targetTab = document.getElementById(tabName + '-content');
+    if (targetTab) {
+        targetTab.classList.add('active');
+    }
+    
+    // Add active class to clicked nav link
+    event.target.classList.add('active');
+    
+    currentTab = tabName;
+    
+    // Load content for the tab if needed
+    if (tabName === 'products') {
+        loadProducts();
+    } else if (tabName === 'orders') {
+        loadOrders();
+    } else if (tabName === 'statistics') {
+        loadStatistics();
+    } else if (tabName === 'payouts') {
+        loadPayouts();
+    }
+}
+
+// Load products via AJAX
+function loadProducts() {
+    fetch('/orders/dropshipper/products/')
+        .then(response => response.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const productsGrid = doc.querySelector('.products-grid');
+            if (productsGrid) {
+                document.getElementById('products-grid').innerHTML = productsGrid.innerHTML;
+            }
+        })
+        .catch(error => console.error('Error loading products:', error));
+}
+
+// Load orders via AJAX
+function loadOrders() {
+    fetch('/orders/dropshipper/orders/')
+        .then(response => response.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const ordersContent = doc.querySelector('.orders-content');
+            if (ordersContent) {
+                document.getElementById('orders-list').innerHTML = ordersContent.innerHTML;
+            }
+        })
+        .catch(error => console.error('Error loading orders:', error));
+}
+
+// Load statistics via AJAX
+function loadStatistics() {
+    fetch('/orders/dropshipper/statistics/')
+        .then(response => response.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const statsContent = doc.querySelector('.statistics-content');
+            if (statsContent) {
+                document.getElementById('statistics-content').innerHTML = statsContent.innerHTML;
+            }
+        })
+        .catch(error => console.error('Error loading statistics:', error));
+}
+
+// Load payouts via AJAX
+function loadPayouts() {
+    fetch('/orders/dropshipper/payouts/')
+        .then(response => response.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const payoutsContent = doc.querySelector('.payouts-content');
+            if (payoutsContent) {
+                document.getElementById('payouts-list').innerHTML = payoutsContent.innerHTML;
+            }
+        })
+        .catch(error => console.error('Error loading payouts:', error));
+}
+
+// Filter products by category
+function filterProducts(categoryId) {
+    // Remove active class from all category buttons
+    document.querySelectorAll('.category-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Add active class to clicked button
+    event.target.classList.add('active');
+    
+    // Load products with category filter
+    let url = '/orders/dropshipper/products/';
+    if (categoryId !== 'all') {
+        url += '?category=' + categoryId;
+    }
+    
+    fetch(url)
+        .then(response => response.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const productsGrid = doc.querySelector('.products-grid');
+            if (productsGrid) {
+                document.getElementById('products-grid').innerHTML = productsGrid.innerHTML;
+            }
+        })
+        .catch(error => console.error('Error filtering products:', error));
+}
 let selectedCategory = '';
 let currentProduct = null;
 let orderItems = [];
