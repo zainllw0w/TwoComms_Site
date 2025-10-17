@@ -4082,6 +4082,11 @@ function payInvoice(invoiceId) {
     .then(response => {
         console.log('Payment response status:', response.status);
         if (!response.ok) {
+            if (response.status === 400) {
+                return response.json().then(data => {
+                    throw new Error(data.error || 'Помилка запиту');
+                });
+            }
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         return response.json();

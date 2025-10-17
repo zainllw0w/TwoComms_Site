@@ -7470,11 +7470,15 @@ def create_wholesale_payment(request):
         
         # Проверяем, что накладная одобрена
         if not invoice.is_approved:
-            return JsonResponse({'success': False, 'error': 'Накладна не одобрена для оплаты'}, status=400)
+            return JsonResponse({'success': False, 'error': 'Накладна не одобрена для оплаты. Обратитесь к администратору.'}, status=400)
         
         # Проверяем, что накладная еще не оплачена
         if invoice.payment_status == 'paid':
             return JsonResponse({'success': False, 'error': 'Накладна уже оплачена'}, status=400)
+        
+        # Проверяем, что накладная не в процессе оплаты
+        if invoice.payment_status == 'pending':
+            return JsonResponse({'success': False, 'error': 'Накладна уже в процессе оплаты'}, status=400)
         
         # Конвертируем сумму в копейки для Monobank
         amount_decimal = Decimal(str(amount))
