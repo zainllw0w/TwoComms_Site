@@ -3967,6 +3967,30 @@ function downloadInvoice(invoiceId) {
 // Function to check invoice approval status
 async function checkInvoiceApprovalStatus(invoiceId) {
     try {
+        // Сначала проверяем статус оплаты
+        const paymentResponse = await fetch(`/wholesale/check-payment-status/${invoiceId}/`);
+        const paymentResult = await paymentResponse.json();
+        
+        if (paymentResult.success && paymentResult.payment_status === 'paid') {
+            // Накладна уже оплачена - показываем "Оплачено"
+            const mainBtn = document.querySelector(`.main-action-btn[data-invoice-id="${invoiceId}"]`);
+            if (mainBtn) {
+                mainBtn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M9,20.42L2.79,14.21L5.62,11.38L9,14.77L18.88,4.88L21.71,7.71L9,20.42Z"/>
+                    </svg>
+                    Оплачено
+                `;
+                mainBtn.disabled = true;
+                mainBtn.style.background = '#10b981';
+                mainBtn.style.whiteSpace = 'nowrap';
+                mainBtn.style.overflow = 'hidden';
+                mainBtn.style.textOverflow = 'ellipsis';
+            }
+            return; // Выходим, так как накладная уже оплачена
+        }
+        
+        // Если не оплачена, проверяем статус одобрения
         const response = await fetch(`/wholesale/check-approval/${invoiceId}/`);
         const result = await response.json();
         
