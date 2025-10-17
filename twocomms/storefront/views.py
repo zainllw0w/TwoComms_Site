@@ -7436,13 +7436,22 @@ def check_invoice_approval_status(request, invoice_id):
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
-@require_POST
-@csrf_exempt
 def create_wholesale_payment(request):
     """Создание платежа для накладной через Monobank"""
     from orders.models import WholesaleInvoice
     import json
     from decimal import Decimal
+    
+    monobank_logger.info('create_wholesale_payment called with method: %s', request.method)
+    monobank_logger.info('Request body: %s', request.body)
+    
+    # Для тестирования - разрешаем GET запросы
+    if request.method == 'GET':
+        return JsonResponse({'success': True, 'message': 'Payment endpoint is working', 'method': 'GET'})
+    
+    # Для POST запросов
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Only POST method allowed'}, status=405)
     
     try:
         data = json.loads(request.body)
