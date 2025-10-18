@@ -35,36 +35,14 @@ echo -e "${GREEN}✓ Сервер доступен${NC}"
 
 # 2. Установка Docker и Docker Compose (если еще не установлены)
 echo -e "${YELLOW}[2/7] Проверка и установка Docker...${NC}"
-run_ssh_cmd "
-    if ! command -v docker &> /dev/null; then
-        echo 'Установка Docker...'
-        curl -fsSL https://get.docker.com -o get-docker.sh
-        sh get-docker.sh
-        sudo usermod -aG docker ${SSH_USER}
-        rm get-docker.sh
-    else
-        echo 'Docker уже установлен'
-    fi
-"
+run_ssh_cmd "if ! command -v docker &> /dev/null; then echo 'Установка Docker...'; curl -fsSL https://get.docker.com -o get-docker.sh; sh get-docker.sh; sudo usermod -aG docker ${SSH_USER}; rm get-docker.sh; else echo 'Docker уже установлен'; fi"
 
-run_ssh_cmd "
-    if ! command -v docker-compose &> /dev/null; then
-        echo 'Установка Docker Compose...'
-        sudo curl -L \"https://github.com/docker/compose/releases/latest/download/docker-compose-\$(uname -s)-\$(uname -m)\" -o /usr/local/bin/docker-compose
-        sudo chmod +x /usr/local/bin/docker-compose
-    else
-        echo 'Docker Compose уже установлен'
-    fi
-"
+run_ssh_cmd "if ! command -v docker-compose &> /dev/null; then echo 'Установка Docker Compose...'; sudo curl -L 'https://github.com/docker/compose/releases/latest/download/docker-compose-\$(uname -s)-\$(uname -m)' -o /usr/local/bin/docker-compose; sudo chmod +x /usr/local/bin/docker-compose; else echo 'Docker Compose уже установлен'; fi"
 echo -e "${GREEN}✓ Docker установлен${NC}"
 
 # 3. Обновление кода из git
 echo -e "${YELLOW}[3/7] Обновление кода из git...${NC}"
-run_ssh_cmd "
-    source ${VENV_PATH} && \
-    cd ${PROJECT_PATH} && \
-    git pull origin main
-"
+run_ssh_cmd "source ${VENV_PATH} && cd ${PROJECT_PATH} && git pull origin main"
 echo -e "${GREEN}✓ Код обновлен${NC}"
 
 # 4. Копирование docker-compose.yml на сервер
@@ -74,32 +52,17 @@ echo -e "${GREEN}✓ docker-compose.yml скопирован${NC}"
 
 # 5. Обновление зависимостей Python
 echo -e "${YELLOW}[5/7] Обновление зависимостей Python...${NC}"
-run_ssh_cmd "
-    source ${VENV_PATH} && \
-    cd ${PROJECT_PATH} && \
-    pip install --upgrade pip && \
-    pip install -r requirements.txt
-"
+run_ssh_cmd "source ${VENV_PATH} && cd ${PROJECT_PATH} && pip install --upgrade pip && pip install -r requirements.txt"
 echo -e "${GREEN}✓ Зависимости обновлены${NC}"
 
 # 6. Запуск Redis в Docker
 echo -e "${YELLOW}[6/7] Запуск Redis контейнера...${NC}"
-run_ssh_cmd "
-    cd ${PROJECT_PATH} && \
-    docker-compose down || true && \
-    docker-compose up -d
-"
+run_ssh_cmd "cd ${PROJECT_PATH} && docker-compose down || true && docker-compose up -d"
 echo -e "${GREEN}✓ Redis запущен${NC}"
 
 # 7. Перезапуск Django приложения
 echo -e "${YELLOW}[7/7] Перезапуск Django приложения...${NC}"
-run_ssh_cmd "
-    source ${VENV_PATH} && \
-    cd ${PROJECT_PATH} && \
-    python manage.py migrate && \
-    python manage.py collectstatic --noinput && \
-    touch ${PROJECT_PATH}/passenger_wsgi.py
-"
+run_ssh_cmd "source ${VENV_PATH} && cd ${PROJECT_PATH} && python manage.py migrate && python manage.py collectstatic --noinput && touch ${PROJECT_PATH}/passenger_wsgi.py"
 echo -e "${GREEN}✓ Django приложение перезапущено${NC}"
 
 # 8. Проверка статуса
