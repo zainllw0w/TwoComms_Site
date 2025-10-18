@@ -27,7 +27,10 @@ django-compressor==4.5.1
 rcssmin==1.1.2
 rjsmin==1.2.2
 
-# Кэширование: используем только локальный LocMemCache
+# Кэширование - Redis
+django-redis==5.4.0
+redis==5.2.1
+hiredis==3.0.0
 
 # Загрузка конфигурации из файла .env/.env.production
 python-dotenv==1.0.1
