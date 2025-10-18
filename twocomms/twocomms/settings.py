@@ -55,7 +55,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-!t*_^p60d-88kvjs%*&!czbes-q8-#$r!-d_0%o495rfed6i*+')
+SECRET_KEY = os.environ.get('SECRET_KEY', 'a_5xi!3wbf(m*j%!dn7#6r0tlhu(z(-qq&@s&kmot6v+kr#y')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
@@ -67,7 +67,7 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') if os.environ.get
     'www.twocomms.shop',
     'localhost',
     '127.0.0.1',
-    '*',  # Для разработки
+    'mail.twocomms.shop',  # Added for mail subdomain
 ]
 
 # Security settings (только для продакшена)

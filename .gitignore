@@ -169,3 +169,18 @@ server.log
 
 # Django framework (external)
 django/
+
+# Optimization Reports (temporary)
+*_REPORT.md
+*_ANALYSIS*.md
+*_PLAN.md
+*_STRATEGY.md
+*_GUIDE.md
+ULTIMATE_*.md
+COMPREHENSIVE_*.md
+CRITICAL_*.md
+DETAILED_*.md
+DEEP_*.md
+FINAL_*.md
+PHASE_*.md
+REDIS_*.md
