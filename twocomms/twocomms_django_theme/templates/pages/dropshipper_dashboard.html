@@ -4,7 +4,18 @@
 {% block title %}Дропшип панель — Головна • TwoComms{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/dropshipper.css' %}">
+<link rel="stylesheet" href="{% static 'css/dropshipper.css' %}?v=3" media="all">
+<style>
+/* Принудительное применение стилей дропшиппинга */
+.ds-shell {
+  background: var(--ds-bg) !important;
+  color: var(--ds-text) !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}
+.ds-shell * {
+  box-sizing: border-box;
+}
+</style>
 {% endblock %}
 
 {% block content %}
@@ -21,7 +32,7 @@
         </div>
 
         <div class="ds-hero__content">
-          <div class="ds-hero__intro">
+          <div class="ds-hero__intro ds-hero__content-inner">
             <span class="ds-eyebrow">TwoComms Dropship</span>
             <h1 class="ds-hero__title">Почніть заробляти без складів і зайвих витрат</h1>
             <p class="ds-hero__lead">
@@ -56,7 +67,7 @@
             </ul>
           </div>
 
-          <aside class="ds-hero__summary" aria-label="Огляд прогресу">
+          <aside class="ds-hero__summary ds-hero__content-inner" aria-label="Огляд прогресу">
             <div class="ds-summary-card">
               <span class="ds-summary-card__label">За поточний місяць</span>
               <strong class="ds-summary-card__value">{{ stats.total_revenue|floatformat:0 }} грн</strong>
