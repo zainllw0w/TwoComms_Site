@@ -1,0 +1,77 @@
+{% load static %}
+<aside class="ds-sidebar" aria-label="Навігація розділу дропшиппінгу">
+  <div class="ds-sidebar__inner">
+    <header class="ds-sidebar__brand">
+      <div class="ds-sidebar__logo">
+        <img src="{% static 'img/logo.svg' %}" alt="TwoComms" loading="lazy">
+      </div>
+      <div class="ds-sidebar__brand-meta">
+        <span class="ds-sidebar__title">Дропшип панель</span>
+        <span class="ds-sidebar__subtitle">Керуйте усім в одному місці</span>
+      </div>
+    </header>
+
+    <nav class="ds-sidebar__nav" role="tablist">
+      <a class="ds-sidebar__link {% if active_tab == 'dashboard' %}is-active{% endif %}"
+         href="{% url 'orders:dropshipper_dashboard' %}"
+         data-tab-target="main">
+        <span class="ds-sidebar__icon">
+          <i class="fas fa-home" aria-hidden="true"></i>
+        </span>
+        <span class="ds-sidebar__label">Головна</span>
+      </a>
+
+      <a class="ds-sidebar__link {% if active_tab == 'products' %}is-active{% endif %}"
+         href="{% url 'orders:dropshipper_products' %}"
+         data-tab-target="products">
+        <span class="ds-sidebar__icon">
+          <i class="fas fa-box-open" aria-hidden="true"></i>
+        </span>
+        <span class="ds-sidebar__label">Товари</span>
+      </a>
+
+      <a class="ds-sidebar__link {% if active_tab == 'orders' %}is-active{% endif %}"
+         href="{% url 'orders:dropshipper_orders' %}"
+         data-tab-target="orders">
+        <span class="ds-sidebar__icon">
+          <i class="fas fa-shopping-cart" aria-hidden="true"></i>
+        </span>
+        <span class="ds-sidebar__label">Замовлення</span>
+      </a>
+
+      <a class="ds-sidebar__link {% if active_tab == 'statistics' %}is-active{% endif %}"
+         href="{% url 'orders:dropshipper_statistics' %}"
+         data-tab-target="statistics">
+        <span class="ds-sidebar__icon">
+          <i class="fas fa-chart-line" aria-hidden="true"></i>
+        </span>
+        <span class="ds-sidebar__label">Статистика</span>
+      </a>
+
+      <a class="ds-sidebar__link {% if active_tab == 'payouts' %}is-active{% endif %}"
+         href="{% url 'orders:dropshipper_payouts' %}"
+         data-tab-target="payouts">
+        <span class="ds-sidebar__icon">
+          <i class="fas fa-money-bill-wave" aria-hidden="true"></i>
+        </span>
+        <span class="ds-sidebar__label">Виплати</span>
+      </a>
+    </nav>
+
+    <div class="ds-sidebar__support">
+      <a href="https://t.me/twocomms_support"
+         class="ds-telegram-btn"
+         target="_blank"
+         rel="noopener"
+         aria-label="Зв'язатися з нами у Telegram">
+        <span class="ds-telegram-btn__icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M22.162 2.276c.299-.137.64-.146.947-.025.31.122.545.36.64.662.019.06.028.123.028.186v.092c-.004.352-.122.694-.334.976-.222.296-.518.52-.86.65L4.78 11.696c-.26.107-.525.238-.648.484-.2.392.141.66.508.823 1.12.484 2.246.957 3.368 1.44.246.1.515.2.753.095.304-.138.515-.414.695-.685.43-.636.85-1.277 1.28-1.912.119-.171.346-.34.547-.24.257.124.46.345.722.47 1.203.593 2.41 1.18 3.615 1.767.247.114.533.169.757-.002.318-.265.43-.69.541-1.078.524-1.914 1.045-3.83 1.569-5.744.123-.462.245-.93.367-1.393.047-.206.038-.432-.113-.588-.357-.44-.919-.587-1.454-.737-.157-.05-.25-.199-.207-.343.05-.211.213-.37.384-.495.667-.47 1.345-.927 2.018-1.39z"
+                  fill="currentColor" />
+          </svg>
+        </span>
+        <span class="ds-telegram-btn__label">Зв'язатися з нами</span>
+      </a>
+    </div>
+  </div>
+</aside>

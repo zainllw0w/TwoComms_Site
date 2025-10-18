@@ -1,943 +1,222 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Товари для дропшипера - TwoComms{% endblock %}
+{% block title %}Каталог для дропшиперів • TwoComms{% endblock %}
 
 {% block extra_css %}
-<style>
-:root {
-    --tc-text: rgba(255, 255, 255, 0.95);
-}
-
-.dropshipper-layout {
-    display: flex;
-    min-height: 100vh;
-    background: var(--tc-bg);
-}
-
-/* Sidebar */
-.dropshipper-sidebar {
-    width: 280px;
-    background: rgba(0, 0, 0, 0.9);
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 2rem 0;
-    position: fixed;
-    height: 100vh;
-    overflow-y: auto;
-    z-index: 100;
-    backdrop-filter: blur(20px);
-}
-
-.sidebar-header {
-    padding: 0 2rem 2rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    margin-bottom: 2rem;
-}
-
-.sidebar-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: 0.5rem;
-}
-
-.sidebar-subtitle {
-    color: var(--tc-text);
-    opacity: 0.7;
-    font-size: 0.9rem;
-}
-
-.sidebar-nav {
-    padding: 0 1rem;
-}
-
-.nav-item {
-    margin-bottom: 0.5rem;
-}
-
-.nav-link {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1rem 1.5rem;
-    color: var(--tc-text);
-    text-decoration: none;
-    border-radius: 12px;
-    transition: all 0.3s ease;
-    border: 1px solid transparent;
-}
-
-.nav-link:hover {
-    background: rgba(139, 92, 246, 0.1);
-    border-color: rgba(139, 92, 246, 0.3);
-    transform: translateX(5px);
-}
-
-.nav-link.active {
-    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
-    border-color: #8b5cf6;
-    color: white;
-    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
-}
-
-.nav-link i {
-    width: 20px;
-    text-align: center;
-}
-
-.telegram-section {
-    margin-top: 2rem;
-    padding: 0 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    padding-top: 2rem;
-}
-
-.telegram-btn {
-    width: 100%;
-    padding: 1rem;
-    background: linear-gradient(135deg, #0088cc, #006699);
-    border: none;
-    border-radius: 12px;
-    color: white;
-    font-weight: 600;
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    transition: all 0.3s ease;
-}
-
-.telegram-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 136, 204, 0.3);
-    color: white;
-}
-
-/* Main Content */
-.dropshipper-main {
-    flex: 1;
-    margin-left: 280px;
-    padding: 2rem;
-    min-height: 100vh;
-}
-
-.dropshipper-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    background: var(--tc-bg);
-    min-height: 100vh;
-    position: relative;
-}
-
-/* Compact Product Cards */
-.products-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1.5rem;
-    margin-top: 2rem;
-}
-
-.product-card {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 16px;
-    padding: 1.5rem;
-    transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
-    position: relative;
-    overflow: hidden;
-}
-
-.product-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-    border-color: rgba(139, 92, 246, 0.5);
-}
-
-.product-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, #8b5cf6, #3b82f6);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.product-card:hover::before {
-    opacity: 1;
-}
-
-.product-image {
-    width: 100%;
-    height: 200px;
-    object-fit: cover;
-    border-radius: 12px;
-    margin-bottom: 1rem;
-}
-
-.product-title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--tc-text);
-    margin-bottom: 0.5rem;
-    line-height: 1.3;
-}
-
-.product-category {
-    font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.6);
-    margin-bottom: 1rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.pricing-section {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-    padding: 1rem;
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.price-item {
-    text-align: center;
-    flex: 1;
-}
-
-.price-label {
-    font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.7);
-    margin-bottom: 0.25rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.price-value {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--tc-text);
-}
-
-.drop-price {
-    color: #10b981;
-}
-
-.recommended-price {
-    color: #f59e0b;
-}
-
-.not-available {
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    color: #ef4444;
-    text-align: center;
-    padding: 0.75rem;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    font-weight: 500;
-}
-
-.product-actions {
-    display: flex;
-    gap: 0.75rem;
-}
-
-.btn-primary {
-    flex: 1;
-    padding: 0.75rem 1rem;
-    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
-    border: none;
-    border-radius: 10px;
-    color: white;
-    font-weight: 600;
-    text-decoration: none;
-    text-align: center;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-}
-
-.btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(139, 92, 246, 0.3);
-    color: white;
-}
-
-.btn-secondary {
-    padding: 0.75rem;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 10px;
-    color: var(--tc-text);
-    text-decoration: none;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.2);
-    color: var(--tc-text);
-}
-
-/* Category Filter */
-.category-filter {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 2rem;
-    flex-wrap: wrap;
-}
-
-.category-btn {
-    padding: 0.75rem 1.5rem;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 25px;
-    color: var(--tc-text);
-    text-decoration: none;
-    transition: all 0.3s ease;
-    font-weight: 500;
-}
-
-.category-btn:hover,
-.category-btn.active {
-    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
-    border-color: #8b5cf6;
-    color: white;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(139, 92, 246, 0.3);
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .dropshipper-sidebar {
-        transform: translateX(-100%);
-        transition: transform 0.3s ease;
-    }
-    
-    .dropshipper-main {
-        margin-left: 0;
-    }
-    
-    .products-grid {
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-        gap: 1rem;
-    }
-}
-
-.dropshipper-container::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    background: 
-        radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.2) 0%, transparent 60%),
-        radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.2) 0%, transparent 60%),
-        radial-gradient(circle at 40% 40%, rgba(236, 72, 153, 0.15) 0%, transparent 60%),
-        radial-gradient(circle at 60% 60%, rgba(16, 185, 129, 0.1) 0%, transparent 50%);
-    animation: gradientShift 25s ease infinite;
-}
-
-@keyframes gradientShift {
-    0%, 100% { 
-        opacity: 1; 
-        transform: scale(1) rotate(0deg);
-    }
-    33% { 
-        opacity: 0.8; 
-        transform: scale(1.05) rotate(1deg);
-    }
-    66% { 
-        opacity: 0.9; 
-        transform: scale(0.95) rotate(-1deg);
-    }
-}
-
-/* Header */
-.dropshipper-header {
-    position: relative;
-    background: linear-gradient(135deg, rgba(0,0,0,0.8), rgba(0,0,0,0.6));
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 20px;
-    padding: 2.5rem;
-    margin-bottom: 2rem;
-    backdrop-filter: blur(20px);
-    overflow: hidden;
-}
-
-.dropshipper-header-content {
-    position: relative;
-    z-index: 2;
-    text-align: center;
-}
-
-.dropshipper-title {
-    font-size: 2.5rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, #8b5cf6, #3b82f6, #ec4899);
-    background-size: 200% 200%;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    animation: gradientShift 3s ease infinite;
-    margin-bottom: 1rem;
-}
-
-/* Filters */
-.filters-container {
-    background: rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 15px;
-    padding: 1.5rem;
-    margin-bottom: 2rem;
-    backdrop-filter: blur(10px);
-}
-
-.filters-row {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.filter-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-.filter-label {
-    font-size: 0.9rem;
-    color: var(--tc-text);
-    opacity: 0.8;
-}
-
-.filter-select, .filter-input {
-    padding: 0.75rem;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 10px;
-    color: var(--tc-text);
-    font-size: 1rem;
-    min-width: 200px;
-}
-
-.filter-select:focus, .filter-input:focus {
-    outline: none;
-    border-color: #8b5cf6;
-    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
-}
-
-/* Products Grid */
-.products-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 2rem;
-    margin-bottom: 2rem;
-}
-
-.product-card {
-    background: rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 20px;
-    overflow: hidden;
-    backdrop-filter: blur(10px);
-    transition: all 0.3s ease;
-    cursor: pointer;
-    position: relative;
-}
-
-.product-card:hover {
-    transform: translateY(-10px);
-    border-color: rgba(139, 92, 246, 0.3);
-    box-shadow: 0 20px 40px rgba(139, 92, 246, 0.1);
-}
-
-.product-image {
-    width: 100%;
-    height: 250px;
-    object-fit: cover;
-    background: linear-gradient(135deg, #374151, #1f2937);
-}
-
-.product-info {
-    padding: 1.5rem;
-}
-
-.product-title {
-    font-size: 1.2rem;
-    font-weight: 600;
-    color: var(--tc-text);
-    margin-bottom: 1rem;
-    line-height: 1.4;
-}
-
-.product-description {
-    color: var(--tc-text);
-    opacity: 0.7;
-    margin-bottom: 1.5rem;
-    font-size: 0.9rem;
-    line-height: 1.5;
-}
-
-.product-prices {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-}
-
-.price-item {
-    text-align: center;
-    padding: 1rem;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.price-label {
-    font-size: 0.8rem;
-    color: var(--tc-text);
-    opacity: 0.7;
-    margin-bottom: 0.5rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.price-value {
-    font-size: 1.3rem;
-    font-weight: 700;
-    color: var(--tc-text);
-}
-
-.drop-price { color: #10b981; }
-.recommended-price { color: #f59e0b; }
-
-.add-to-order-btn {
-    width: 100%;
-    padding: 1rem;
-    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
-    border: none;
-    border-radius: 12px;
-    color: white;
-    font-weight: 600;
-    font-size: 1rem;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-}
-
-.add-to-order-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 25px rgba(139, 92, 246, 0.3);
-}
-
-.add-to-order-btn:active {
-    transform: translateY(0);
-}
-
-/* Pagination */
-.pagination {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 0.5rem;
-    margin-top: 2rem;
-}
-
-.pagination a, .pagination span {
-    padding: 0.75rem 1rem;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 8px;
-    color: var(--tc-text);
-    text-decoration: none;
-    transition: all 0.3s ease;
-}
-
-.pagination a:hover {
-    background: rgba(139, 92, 246, 0.2);
-    border-color: rgba(139, 92, 246, 0.5);
-}
-
-.pagination .current {
-    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
-    border-color: #8b5cf6;
-    color: white;
-}
-
-/* Empty State */
-.empty-state {
-    text-align: center;
-    padding: 4rem 2rem;
-    color: var(--tc-text);
-    opacity: 0.7;
-}
-
-.empty-state i {
-    font-size: 4rem;
-    margin-bottom: 1rem;
-    opacity: 0.5;
-}
-
-.empty-state h3 {
-    font-size: 1.5rem;
-    margin-bottom: 1rem;
-}
-
-.empty-state p {
-    font-size: 1rem;
-    line-height: 1.6;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .dropshipper-container {
-        padding: 10px;
-    }
-    
-    .dropshipper-title {
-        font-size: 2rem;
-    }
-    
-    .filters-row {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    
-    .filter-select, .filter-input {
-        min-width: auto;
-    }
-    
-    .products-grid {
-        grid-template-columns: 1fr;
-        gap: 1.5rem;
-    }
-    
-    .product-prices {
-        grid-template-columns: 1fr;
-    }
-}
-</style>
+<link rel="stylesheet" href="{% static 'css/dropshipper.css' %}">
 {% endblock %}
 
 {% block content %}
-<div class="dropshipper-layout">
-    <!-- Sidebar -->
-    <div class="dropshipper-sidebar">
-        <div class="sidebar-header">
-            <h1 class="sidebar-title">Дропшип панель</h1>
-            <p class="sidebar-subtitle">Управляйте заказами и статистикой</p>
-        </div>
-        
-        <nav class="sidebar-nav">
-            <div class="nav-item">
-                <a href="{% url 'orders:dropshipper_dashboard' %}" class="nav-link">
-                    <i class="fas fa-home"></i>
-                    Главная
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="{% url 'orders:dropshipper_products' %}" class="nav-link active">
-                    <i class="fas fa-box"></i>
-                    Товары
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="{% url 'orders:dropshipper_orders' %}" class="nav-link">
-                    <i class="fas fa-shopping-cart"></i>
-                    Замовлення
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="{% url 'orders:dropshipper_statistics' %}" class="nav-link">
-                    <i class="fas fa-chart-line"></i>
-                    Статистика
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="{% url 'orders:dropshipper_payouts' %}" class="nav-link">
-                    <i class="fas fa-money-bill-wave"></i>
-                    Выплаты
-                </a>
-            </div>
-        </nav>
-        
-        <div class="telegram-section">
-            <a href="https://t.me/twocomms_support" target="_blank" class="telegram-btn">
-                <i class="fab fa-telegram"></i>
-                Связаться с нами
+<div class="ds-shell">
+  {% include "partials/dropshipper_sidebar.html" with active_tab="products" %}
+
+  <main class="ds-main">
+    <div class="ds-container">
+      <section class="ds-section ds-products-hero" data-animate>
+        <header class="ds-section__header">
+          <div>
+            <h1 class="ds-section__title">Каталог TwoComms для ваших продажів</h1>
+            <p class="ds-section__subtitle">
+              Обирайте найгарячіші позиції, формуйте власні колекції і додавайте товари до замовлень напряму з панелі.
+            </p>
+          </div>
+          <div class="ds-actions">
+            <button type="button" class="ds-btn ds-btn--primary js-open-order-modal">
+              <i class="fas fa-plus" aria-hidden="true"></i>
+              <span>Створити замовлення</span>
+            </button>
+            <a href="{% url 'orders:dropshipper_dashboard' %}" class="ds-btn ds-btn--ghost">
+              <i class="fas fa-home" aria-hidden="true"></i>
+              <span>На головну панель</span>
             </a>
-        </div>
-    </div>
-    
-    <!-- Main Content -->
-    <div class="dropshipper-main">
-        <div class="dropshipper-container">
-    <!-- Header -->
-    <div class="dropshipper-header">
-        <div class="dropshipper-header-content">
-            <h1 class="dropshipper-title">Товари для дропшипера</h1>
-            <p style="color: var(--tc-text); opacity: 0.8; font-size: 1.1rem;">Оберіть товари та створіть замовлення для своїх клієнтів</p>
-        </div>
-    </div>
+          </div>
+        </header>
 
-    <!-- Filters -->
-    <div class="filters-container">
-        <form method="get" id="filterForm">
-            <div class="filters-row">
-                <div class="filter-group">
-                    <label class="filter-label">Категорія</label>
-                    <select name="category" class="filter-select" onchange="this.form.submit()">
-                        <option value="">Всі категорії</option>
-                        {% for category in categories %}
-                        <option value="{{ category.id }}" {% if selected_category == category.id|stringformat:"s" %}selected{% endif %}>
-                            {{ category.name }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="filter-group">
-                    <label class="filter-label">Пошук</label>
-                    <input type="text" name="search" class="filter-input" placeholder="Назва товару..." value="{{ search_query }}">
-                </div>
-                
-                <div class="filter-group" style="align-self: flex-end;">
-                    <button type="submit" class="add-to-order-btn" style="width: auto; padding: 0.75rem 1.5rem;">
-                        <i class="fas fa-search"></i>
-                        Пошук
-                    </button>
-                </div>
+        <div class="ds-product-stats">
+          <div class="ds-product-stats__item">
+            <span class="ds-product-stats__label">Доступні категорії</span>
+            <span class="ds-product-stats__value">{{ categories|length }}</span>
+          </div>
+          <div class="ds-product-stats__item">
+            <span class="ds-product-stats__label">Товарів у видачі</span>
+            <span class="ds-product-stats__value">{{ page_obj.paginator.count }}</span>
+          </div>
+          <div class="ds-product-stats__item">
+            <span class="ds-product-stats__label">На сторінці</span>
+            <span class="ds-product-stats__value">{{ page_obj|length }}</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="ds-section ds-products-filters" data-animate>
+        <form method="get" id="ds-product-filters" class="ds-filters">
+          <div class="ds-filters__group">
+            <label for="filter-category" class="ds-input__label">Категорія</label>
+            <div class="ds-select">
+              <select id="filter-category" name="category">
+                <option value="">Всі категорії</option>
+                {% for category in categories %}
+                  <option value="{{ category.id }}" {% if selected_category == category.id|stringformat:"s" %}selected{% endif %}>
+                    {{ category.name }}
+                  </option>
+                {% endfor %}
+              </select>
             </div>
+          </div>
+
+          <div class="ds-filters__group ds-filters__group--grow">
+            <label for="filter-search" class="ds-input__label">Пошук</label>
+            <div class="ds-input ds-input--search">
+              <i class="fas fa-search" aria-hidden="true"></i>
+              <input id="filter-search" type="search" name="search" value="{{ search_query }}" placeholder="Назва, опис, артикул">
+            </div>
+          </div>
+
+          <div class="ds-filters__actions">
+            <button type="submit" class="ds-btn ds-btn--primary">
+              <i class="fas fa-filter" aria-hidden="true"></i>
+              <span>Застосувати</span>
+            </button>
+            <a href="{% url 'orders:dropshipper_products' %}" class="ds-btn ds-btn--ghost">
+              <i class="fas fa-undo" aria-hidden="true"></i>
+              <span>Скинути</span>
+            </a>
+          </div>
         </form>
-    </div>
 
-    <!-- Products Grid -->
-    {% if page_obj %}
-    <div class="products-grid">
-        {% for product in page_obj %}
-        <div class="product-card" data-product-id="{{ product.id }}" onclick="showProductModal({{ product.id }})">
-            <img src="{{ product.display_image.url }}" alt="{{ product.title }}" class="product-image" onerror="this.src='/static/img/placeholder.jpg'">
-            <div class="product-info">
-                <h3 class="product-title">{{ product.title }}</h3>
-                <p class="product-description">{{ product.description|truncatewords:20 }}</p>
-                
-                {% if product.is_available_for_dropship %}
-                    <div class="product-prices">
-                        <div class="price-item">
-                            <div class="price-label">Ціна дропа</div>
-                            <div class="price-value drop-price">{{ product.get_drop_price }} грн</div>
-                        </div>
-                        <div class="price-item">
-                            <div class="price-label">Рекомендована</div>
-                            <div class="price-value recommended-price">
-                                {{ product.get_recommended_price.min }}-{{ product.get_recommended_price.max }} грн
-                                <small style="display: block; font-size: 0.7rem; opacity: 0.7;">±10%</small>
-                            </div>
-                        </div>
+        {% if categories %}
+          <div class="ds-chip-cloud">
+            {% for category in categories|slice:":8" %}
+              <a class="ds-chip {% if selected_category == category.id|stringformat:'s' %}is-active{% endif %}"
+                 href="?category={{ category.id }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                <i class="fas fa-tag" aria-hidden="true"></i>
+                {{ category.name }}
+              </a>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </section>
+
+      <section class="ds-section ds-products-grid-wrapper" data-animate>
+        {% if page_obj %}
+          <div class="ds-products-grid">
+            {% for product in page_obj %}
+              <article class="product-card ds-product-card" data-product-id="{{ product.id }}">
+                <div class="ds-product-card__media">
+                  <img class="product-image"
+                       src="{{ product.display_image.url }}"
+                       alt="{{ product.title }}"
+                       loading="lazy"
+                       onerror="this.src='{% static 'img/placeholder.jpg' %}'">
+                  <span class="ds-product-card__badge">
+                    <i class="fas fa-box" aria-hidden="true"></i>
+                    {{ product.category.name|default:"Категорія" }}
+                  </span>
+                </div>
+
+                <div class="ds-product-card__body">
+                  <h2 class="product-title">{{ product.title }}</h2>
+                  <p class="ds-product-card__description">
+                    {{ product.description|default:"" |truncatewords:24 }}
+                  </p>
+
+                  <div class="ds-product-pricing">
+                    <div class="ds-product-price">
+                      <span class="ds-product-price__label">Ціна дропа</span>
+                      <span class="ds-product-price__value drop-price">{{ product.get_drop_price }} грн</span>
                     </div>
-                    
-                    <button class="add-to-order-btn">
-                        <i class="fas fa-plus"></i>
-                        Додати до замовлення
+                    <div class="ds-product-price">
+                      <span class="ds-product-price__label">Рекомендована</span>
+                      <span class="ds-product-price__value recommended-price">{{ product.recommended_price|floatformat:0 }} грн</span>
+                    </div>
+                  </div>
+
+                  <div class="ds-product-meta">
+                    <span class="ds-pill">
+                      <i class="fas fa-palette" aria-hidden="true"></i>
+                      {{ product.color_variants.count|default:0 }} кольорів
+                    </span>
+                    <span class="ds-pill">
+                      <i class="fas fa-ruler-horizontal" aria-hidden="true"></i>
+                      Розміри уточнюйте у менеджера
+                    </span>
+                  </div>
+                </div>
+
+                <footer class="ds-product-card__footer">
+                  <div class="ds-actions">
+                    <button type="button"
+                            class="ds-btn ds-btn--primary js-product-quick-add"
+                            data-product-name="{{ product.title }}">
+                      <i class="fas fa-cart-plus" aria-hidden="true"></i>
+                      <span>Додати до замовлення</span>
                     </button>
-                {% else %}
-                    <div class="not-available">
-                        <i class="fas fa-times-circle"></i>
-                        Не участвует в дропшипе
-                    </div>
-                    {% if product.dropship_note %}
-                        <div style="margin-top: 0.5rem; font-size: 0.8rem; color: rgba(255,255,255,0.6); text-align: center;">
-                            {{ product.dropship_note }}
-                        </div>
-                    {% endif %}
-                {% endif %}
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-
-    <!-- Pagination -->
-    {% if page_obj.has_other_pages %}
-    <div class="pagination">
-        {% if page_obj.has_previous %}
-            <a href="?page=1{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">&laquo; Перша</a>
-            <a href="?page={{ page_obj.previous_page_number }}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Попередня</a>
+                    <a href="{% url 'product' product.slug %}" class="ds-btn ds-btn--ghost" target="_blank" rel="noopener">
+                      <i class="fas fa-external-link-alt" aria-hidden="true"></i>
+                      <span>Переглянути на сайті</span>
+                    </a>
+                  </div>
+                </footer>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="ds-empty">
+            <i class="fas fa-box-open" aria-hidden="true"></i>
+            <h3 class="ds-empty__title">Поки що немає товарів</h3>
+            <p class="ds-empty__text">
+              Спробуйте змінити фільтри або зверніться до менеджера — він підкаже, коли з’являться нові позиції.
+            </p>
+            <a href="https://t.me/twocomms_support" target="_blank" rel="noopener" class="ds-btn ds-btn--primary">
+              <i class="fab fa-telegram" aria-hidden="true"></i>
+              <span>Написати менеджеру</span>
+            </a>
+          </div>
         {% endif %}
+      </section>
 
-        {% for num in page_obj.paginator.page_range %}
-            {% if page_obj.number == num %}
-                <span class="current">{{ num }}</span>
-            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                <a href="?page={{ num }}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
-            {% endif %}
-        {% endfor %}
+      {% if page_obj.paginator.num_pages > 1 %}
+        <nav class="ds-pagination" aria-label="Пагінація каталогу">
+          {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}"
+               class="ds-pagination__link">
+              <i class="fas fa-chevron-left" aria-hidden="true"></i>
+              Попередня
+            </a>
+          {% else %}
+            <span class="ds-pagination__link ds-pagination__link--disabled">
+              <i class="fas fa-chevron-left" aria-hidden="true"></i>
+              Попередня
+            </span>
+          {% endif %}
 
-        {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Наступна</a>
-            <a href="?page={{ page_obj.paginator.num_pages }}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Остання &raquo;</a>
-        {% endif %}
+          <span class="ds-pagination__current">
+            Сторінка {{ page_obj.number }} з {{ page_obj.paginator.num_pages }}
+          </span>
+
+          {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}"
+               class="ds-pagination__link">
+              Наступна
+              <i class="fas fa-chevron-right" aria-hidden="true"></i>
+            </a>
+          {% else %}
+            <span class="ds-pagination__link ds-pagination__link--disabled">
+              Наступна
+              <i class="fas fa-chevron-right" aria-hidden="true"></i>
+            </span>
+          {% endif %}
+        </nav>
+      {% endif %}
     </div>
-    {% endif %}
-
-    {% else %}
-    <div class="empty-state">
-        <i class="fas fa-box-open"></i>
-        <h3>Товари не знайдено</h3>
-        <p>Спробуйте змінити фільтри пошуку або оберіть іншу категорію</p>
-    </div>
-    {% endif %}
+  </main>
 </div>
 
-<!-- Product Details Modal -->
-<div id="productModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.8); backdrop-filter: blur(5px);">
-    <div class="modal-content" style="background: rgba(0, 0, 0, 0.9); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; margin: 5% auto; padding: 2rem; width: 90%; max-width: 600px; backdrop-filter: blur(20px);">
-        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-            <h2 class="modal-title" style="font-size: 1.5rem; font-weight: 600; color: var(--tc-text);">Додати товар до замовлення</h2>
-            <button class="close-btn" onclick="closeProductModal()" style="background: none; border: none; color: var(--tc-text); font-size: 1.5rem; cursor: pointer; opacity: 0.7;">&times;</button>
-        </div>
-        
-        <div id="product-details">
-            <!-- Product details will be loaded here -->
-        </div>
-        </div>
-    </div>
-</div>
+{% include "partials/dropshipper_modals.html" %}
 {% endblock %}
 
 {% block extra_js %}
-<script>
-let currentProduct = null;
-
-async function showProductModal(productId) {
-    try {
-        const response = await fetch(`/orders/dropshipper/api/product/${productId}/`);
-        const product = await response.json();
-        
-        currentProduct = product;
-        
-        const modal = document.getElementById('productModal');
-        const details = document.getElementById('product-details');
-        
-        details.innerHTML = `
-            <div style="display: flex; gap: 2rem; margin-bottom: 2rem;">
-                <img src="${product.main_image || '/static/img/placeholder.jpg'}" alt="${product.title}" style="width: 200px; height: 200px; object-fit: cover; border-radius: 10px;">
-                <div style="flex: 1;">
-                    <h3 style="color: var(--tc-text); margin-bottom: 1rem;">${product.title}</h3>
-                    <p style="color: var(--tc-text); opacity: 0.8; margin-bottom: 1rem;">${product.description || 'Опис відсутній'}</p>
-                    <div style="display: flex; gap: 2rem; margin-bottom: 1rem;">
-                        <div>
-                            <span style="color: var(--tc-text); opacity: 0.7;">Ціна дропа:</span>
-                            <span style="color: #10b981; font-weight: 600; margin-left: 0.5rem;">${product.drop_price} грн</span>
-                        </div>
-                        <div>
-                            <span style="color: var(--tc-text); opacity: 0.7;">Рекомендована:</span>
-                            <span style="color: #f59e0b; font-weight: 600; margin-left: 0.5rem;">${product.recommended_price} грн</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <form id="productForm">
-                <div class="form-group" style="margin-bottom: 1.5rem;">
-                    <label class="form-label" style="display: block; font-size: 0.9rem; font-weight: 500; color: var(--tc-text); margin-bottom: 0.5rem;">Кількість</label>
-                    <input type="number" class="form-input" name="quantity" value="1" min="1" required style="width: 100%; padding: 0.75rem; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 10px; color: var(--tc-text); font-size: 1rem;">
-                </div>
-                
-                <div class="form-group" style="margin-bottom: 1.5rem;">
-                    <label class="form-label" style="display: block; font-size: 0.9rem; font-weight: 500; color: var(--tc-text); margin-bottom: 0.5rem;">Розмір</label>
-                    <select class="form-select" name="size" required style="width: 100%; padding: 0.75rem; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 10px; color: var(--tc-text); font-size: 1rem;">
-                        <option value="">Оберіть розмір</option>
-                        ${product.sizes.map(size => `<option value="${size}">${size}</option>`).join('')}
-                    </select>
-                </div>
-                
-                <div class="form-group" style="margin-bottom: 1.5rem;">
-                    <label class="form-label" style="display: block; font-size: 0.9rem; font-weight: 500; color: var(--tc-text); margin-bottom: 0.5rem;">Колір</label>
-                    <select class="form-select" name="color_variant_id" style="width: 100%; padding: 0.75rem; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 10px; color: var(--tc-text); font-size: 1rem;">
-                        <option value="">Без кольору</option>
-                        ${product.color_variants.map(variant => `<option value="${variant.id}">${variant.color_name}</option>`).join('')}
-                    </select>
-                </div>
-                
-                <div class="form-group" style="margin-bottom: 1.5rem;">
-                    <label class="form-label" style="display: block; font-size: 0.9rem; font-weight: 500; color: var(--tc-text); margin-bottom: 0.5rem;">Ціна продажу (грн)</label>
-                    <input type="number" class="form-input" name="selling_price" value="${product.recommended_price}" min="${product.drop_price}" step="0.01" required style="width: 100%; padding: 0.75rem; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 10px; color: var(--tc-text); font-size: 1rem;">
-                </div>
-                
-                <div class="modal-actions" style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
-                    <button type="button" class="btn btn-secondary" onclick="closeProductModal()" style="padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.1); color: var(--tc-text); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 10px; font-weight: 600; cursor: pointer;">Скасувати</button>
-                    <button type="submit" class="btn btn-primary" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #8b5cf6, #3b82f6); color: white; border: none; border-radius: 10px; font-weight: 600; cursor: pointer;">Додати до замовлення</button>
-                </div>
-            </form>
-        `;
-        
-        modal.style.display = 'block';
-        
-        // Add form submit handler
-        document.getElementById('productForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            addToOrder();
-        });
-        
-    } catch (error) {
-        console.error('Error loading product details:', error);
-        alert('Помилка при завантаженні товару');
-    }
-}
-
-function addToOrder() {
-    const form = document.getElementById('productForm');
-    const formData = new FormData(form);
-    
-    const item = {
-        product_id: currentProduct.id,
-        quantity: parseInt(formData.get('quantity')),
-        size: formData.get('size'),
-        color_variant_id: formData.get('color_variant_id') || null,
-        drop_price: currentProduct.drop_price,
-        selling_price: parseFloat(formData.get('selling_price')),
-        recommended_price: currentProduct.recommended_price
-    };
-    
-    // Store in sessionStorage for the order form
-    let orderItems = JSON.parse(sessionStorage.getItem('dropshipperOrderItems') || '[]');
-    orderItems.push(item);
-    sessionStorage.setItem('dropshipperOrderItems', JSON.stringify(orderItems));
-    
-    closeProductModal();
-    
-    // Show success message
-    alert('Товар додано до замовлення! Перейдіть до вкладки "Замовлення" для оформлення.');
-}
-
-function closeProductModal() {
-    document.getElementById('productModal').style.display = 'none';
-}
-
-// Close modal when clicking outside
-window.addEventListener('click', (e) => {
-    const modal = document.getElementById('productModal');
-    if (e.target === modal) {
-        closeProductModal();
-    }
-});
-</script>
+<script src="{% static 'js/dropshipper.js' %}"></script>
+<script src="{% static 'js/dropshipper.dashboard.js' %}"></script>
 {% endblock %}
