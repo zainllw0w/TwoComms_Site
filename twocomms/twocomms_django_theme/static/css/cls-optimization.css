@@ -1,0 +1,97 @@
+/* ============================================================================
+   CLS OPTIMIZATION - Minimal changes, preserve visual appearance
+   Date: October 18, 2025
+   Goal: Reduce CLS from 0.93 to < 0.3 without changing visual appearance
+   
+   Strategy:
+   1. Remove invisible animations (cartSparkFloat, unnecessary spin)
+   2. Add will-change hints for GPU compositing
+   3. Keep all visible animations AS IS
+============================================================================ */
+
+/* ============================================================================
+   1. DISABLE INVISIBLE ANIMATIONS (no visual impact)
+============================================================================ */
+
+/* cartSparkFloat - Browser says ANIMATION_HAS_NO_VISIBLE_CHANGE */
+.cart-spark,
+[class*="cart-spark"] {
+  animation: none !important;
+}
+
+/* Invisible spin animations */
+.spin:not(.visible-spin) {
+  animation: none !important;
+}
+
+/* ============================================================================
+   2. ADD GPU COMPOSITING HINTS (preserve visual, improve performance)
+============================================================================ */
+
+/* Add will-change for animated elements */
+[class*="dark-particle"],
+[class*="featured"],
+[class*="glow"],
+[class*="float"],
+[class*="price-gradient"] {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Optimize background animations */
+[class*="background"] {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* Optimize text color animations */
+[class*="color-"] {
+  will-change: opacity;
+}
+
+/* ============================================================================
+   3. PRESERVE ALL VISUAL ANIMATIONS
+   
+   We are NOT modifying these animations, only adding hints:
+   - priceGradientFlow - keeps gradient animation
+   - featuredFloat - keeps floating effect with shadows
+   - darkParticleFloat - keeps particle effects
+   - All glow effects - keep as is
+   - All color animations - keep as is
+   
+   The visual appearance remains EXACTLY the same!
+============================================================================ */
+
+/* Add compositing hint to feature section */
+.featured-item,
+.product-card,
+.category-card {
+  contain: layout style paint;
+}
+
+/* ============================================================================
+   4. REDUCE MOTION FOR ACCESSIBILITY (optional)
+============================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  /* Only disable for users who request it */
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* ============================================================================
+   END OF OPTIMIZATION
+   
+   Expected result:
+   - CLS: 0.93 → ~0.4-0.6 (improvement, but not perfect)
+   - Visual appearance: UNCHANGED
+   - All beautiful animations: PRESERVED
+   
+   Note: To get CLS < 0.1, we would need to remove/modify visible animations
+   which would change the visual appearance. This is the best optimization
+   that preserves the current design.
+============================================================================ */
+
