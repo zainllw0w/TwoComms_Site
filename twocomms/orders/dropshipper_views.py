@@ -68,13 +68,32 @@ def dropshipper_products(request):
         if product.is_available_for_dropship():
             available_products.append(product)
     
-    products = available_products
+    enhanced_products = []
+    for product in available_products:
+        recommended = product.get_recommended_price()
+        base_price = recommended.get('base', product.recommended_price or product.price)
+        drop_price = product.get_drop_price()
+
+        # Сохраняем дополнительные вычисления для шаблона
+        product.recommended_price_info = recommended
+        product.dropship_margin = max(int(base_price) - int(drop_price), 0)
+        image = product.display_image
+        product.primary_image = image
+        product.drop_price_value = int(drop_price)
+        product.recommended_base_price = int(base_price)
+
+        enhanced_products.append(product)
+
+    products = enhanced_products
     
     # Поиск
     if search_query:
-        products = [p for p in products if 
-                   search_query.lower() in p.title.lower() or 
-                   search_query.lower() in p.description.lower()]
+        lowered = search_query.lower()
+        products = [
+            p for p in products
+            if lowered in p.title.lower()
+            or (p.description and lowered in p.description.lower())
+        ]
     
     # Пагинация
     paginator = Paginator(products, 12)
