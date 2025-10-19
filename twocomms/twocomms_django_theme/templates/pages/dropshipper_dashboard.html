@@ -22,519 +22,539 @@
 <div class="ds-shell">
   {% include "partials/dropshipper_sidebar.html" with active_tab="dashboard" %}
 
-  <main class="ds-main">
-    <div class="ds-container">
-      {# Hero #}
-      <section class="ds-hero" id="ds-hero" data-animate>
-        <div class="ds-hero__decor" aria-hidden="true">
-          <span class="ds-hero__orb ds-hero__orb--violet"></span>
-          <span class="ds-hero__orb ds-hero__orb--orange"></span>
-        </div>
+  <main class="ds-main" data-tab-container>
+    <section class="ds-tab-panel is-active" data-tab-panel="main">
+      <div class="ds-container">
+        <section class="ds-hero" id="ds-hero" data-animate>
+          <div class="ds-hero__background" aria-hidden="true">
+            <span class="ds-hero__blur ds-hero__blur--left"></span>
+            <span class="ds-hero__blur ds-hero__blur--right"></span>
+            <span class="ds-hero__glow"></span>
+            <span class="ds-hero__ring ds-hero__ring--one"></span>
+            <span class="ds-hero__ring ds-hero__ring--two"></span>
+          </div>
+          <div class="ds-hero__body">
+            <div class="ds-hero__main">
+              <span class="ds-eyebrow ds-eyebrow--accent">
+                <i class="fas fa-star" aria-hidden="true"></i>
+                TwoComms Dropship
+              </span>
+              <h1 class="ds-hero__title">Створюйте продажі, а ми беремо на себе виробництво та логістику</h1>
+              <p class="ds-hero__lead">
+                Передаєте дані клієнта — ми відшиваємо, пакуємо та відправляємо замовлення з турботою про бренд.
+                Усе працює під вашим ім’ям, без зайвого операційного навантаження.
+              </p>
+              <div class="ds-hero__chips">
+                <span class="ds-chip ds-chip--light">
+                  <i class="fas fa-industry" aria-hidden="true"></i>
+                  Власне виробництво
+                </span>
+                <span class="ds-chip ds-chip--light">
+                  <i class="fas fa-bolt" aria-hidden="true"></i>
+                  Відправлення щодня
+                </span>
+                <span class="ds-chip ds-chip--light">
+                  <i class="fas fa-headset" aria-hidden="true"></i>
+                  Підтримка 24/7
+                </span>
+              </div>
+              <div class="ds-actions">
+                <button type="button" class="ds-btn ds-btn--primary js-open-order-modal">
+                  <i class="fas fa-plus" aria-hidden="true"></i>
+                  <span>Створити замовлення</span>
+                </button>
+                <a href="{% url 'orders:dropshipper_products' %}" class="ds-btn ds-btn--ghost" data-tab-link="products">
+                  <i class="fas fa-store" aria-hidden="true"></i>
+                  <span>Каталог для дропшипа</span>
+                </a>
+              </div>
+            </div>
 
-        <div class="ds-hero__content">
-          <div class="ds-hero__intro ds-hero__content-inner">
-            <span class="ds-eyebrow">TwoComms Dropship</span>
-            <h1 class="ds-hero__title">Почніть заробляти без складів і зайвих витрат</h1>
-            <p class="ds-hero__lead">
-              Передаєте нам клієнтські дані — ми відшиваємо, пакуємо та відправляємо замовлення. Ви зберігаєте клієнта у своїй базі
-              та отримуєте прибуток без операційного навантаження.
-            </p>
+            <div class="ds-hero__feature-canvas">
+              <div class="ds-hero__feature-grid">
+                <article class="ds-feature-card" data-fade>
+                  <span class="ds-feature-card__icon">
+                    <i class="fas fa-warehouse" aria-hidden="true"></i>
+                  </span>
+                  <h3 class="ds-feature-card__title">Контроль якості</h3>
+                  <p class="ds-feature-card__text">Від крою до пакування — усе робимо всередині TwoComms, тому ви отримуєте стабільну якість кожного дропу.</p>
+                </article>
+                <article class="ds-feature-card" data-fade data-delay="80">
+                  <span class="ds-feature-card__icon">
+                    <i class="fas fa-truck-fast" aria-hidden="true"></i>
+                  </span>
+                  <h3 class="ds-feature-card__title">Щоденна логістика</h3>
+                  <p class="ds-feature-card__text">Передані замовлення автоматично відправляємо Новою Поштою того ж дня.</p>
+                </article>
+                <article class="ds-feature-card" data-fade data-delay="160">
+                  <span class="ds-feature-card__icon">
+                    <i class="fas fa-chart-line" aria-hidden="true"></i>
+                  </span>
+                  <h3 class="ds-feature-card__title">Прозора аналітика</h3>
+                  <p class="ds-feature-card__text">Відстежуйте маржу, статуси та виплати в режимі реального часу в одній панелі.</p>
+                </article>
+                <article class="ds-feature-card" data-fade data-delay="240">
+                  <span class="ds-feature-card__icon">
+                    <i class="fas fa-handshake" aria-hidden="true"></i>
+                  </span>
+                  <h3 class="ds-feature-card__title">Командна підтримка</h3>
+                  <p class="ds-feature-card__text">Персональний менеджер, сценарії комунікації та шаблони для вашого маркетингу.</p>
+                </article>
+              </div>
 
+              <div class="ds-hero__floating-card" aria-hidden="true">
+                <span class="ds-hero__floating-label">
+                  <i class="fas fa-magic" aria-hidden="true"></i>
+                  Автоматизована панель
+                </span>
+                <p>Отримуйте сповіщення про статуси та готові матеріали для продажів без додаткових чатів.</p>
+                <div class="ds-hero__floating-cta">
+                  <span class="ds-status-bubble">
+                    <span class="ds-status-bubble__dot"></span>
+                    Live
+                  </span>
+                  <span>Оновлення миттєво</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="ds-section ds-how-it-works" id="ds-how" data-animate>
+          <header class="ds-section__header ds-section__header--center">
+            <div>
+              <h2 class="ds-section__title">Як це працює</h2>
+              <p class="ds-section__subtitle">Чотири кроки до стабільних продажів без турбот про склад та логістику.</p>
+            </div>
+          </header>
+          <div class="ds-flow">
+            <article class="ds-flow__item" data-fade>
+              <span class="ds-flow__step">1</span>
+              <div class="ds-flow__icon">
+                <i class="fas fa-plug" aria-hidden="true"></i>
+              </div>
+              <h3 class="ds-flow__title">Підключення</h3>
+              <p class="ds-flow__text">Заповнюєте дані компанії, обираєте канали комунікації та отримуєте менеджера.</p>
+            </article>
+            <article class="ds-flow__item" data-fade data-delay="80">
+              <span class="ds-flow__step">2</span>
+              <div class="ds-flow__icon">
+                <i class="fas fa-layer-group" aria-hidden="true"></i>
+              </div>
+              <h3 class="ds-flow__title">Добірка товарів</h3>
+              <p class="ds-flow__text">Формуєте власний каталог, налаштовуєте націнку та отримуєте готові матеріали.</p>
+            </article>
+            <article class="ds-flow__item" data-fade data-delay="160">
+              <span class="ds-flow__step">3</span>
+              <div class="ds-flow__icon">
+                <i class="fas fa-file-signature" aria-hidden="true"></i>
+              </div>
+              <h3 class="ds-flow__title">Передача замовлення</h3>
+              <p class="ds-flow__text">Передаєте дані клієнта — ми відшиваємо, пакуємо та відправляємо Новою Поштою.</p>
+            </article>
+            <article class="ds-flow__item" data-fade data-delay="240">
+              <span class="ds-flow__step">4</span>
+              <div class="ds-flow__icon">
+                <i class="fas fa-wallet" aria-hidden="true"></i>
+              </div>
+              <h3 class="ds-flow__title">Виплати</h3>
+              <p class="ds-flow__text">Підтверджуєте статуси, формуєте запит і отримуєте кошти на зручні реквізити.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="ds-section ds-company-callout" id="ds-company" data-animate>
+          <div class="ds-company-callout__inner">
+            <div class="ds-company-callout__intro">
+              <span class="ds-company-callout__badge">
+                <i class="fas fa-building" aria-hidden="true"></i>
+                Налаштування компанії
+              </span>
+              <h2 class="ds-company-callout__title">Тримайте реквізити актуальними</h2>
+              <p class="ds-company-callout__text">
+                Актуальні дані компанії допомагають менеджерам швидше підтверджувати заявки,
+                формувати документи та підтримувати єдиний стиль комунікації з вашими клієнтами.
+              </p>
+              <ul class="ds-company-callout__list">
+                <li><i class="fas fa-check-circle" aria-hidden="true"></i> Реквізити для накладних і актів</li>
+                <li><i class="fas fa-check-circle" aria-hidden="true"></i> Контакти для оперативної підтримки</li>
+                <li><i class="fas fa-check-circle" aria-hidden="true"></i> Посилання на ваші вітрини та соцмережі</li>
+              </ul>
+            </div>
+            {% with profile=request.user.userprofile %}
+            <details class="ds-company-summary" data-animate>
+              <summary class="ds-company-summary__header">
+                <div class="ds-company-summary__title">
+                  <span class="ds-company-summary__name">{{ profile.company_name|default:"Компанія ще не заповнена" }}</span>
+                  {% if profile.company_name %}
+                    <span class="ds-badge ds-badge--success">
+                      <i class="fas fa-circle-check" aria-hidden="true"></i>
+                      Актуально
+                    </span>
+                  {% else %}
+                    <span class="ds-badge ds-badge--warning">
+                      <i class="fas fa-pen" aria-hidden="true"></i>
+                      Потрібно заповнити
+                    </span>
+                  {% endif %}
+                </div>
+                <button type="button" class="ds-link-button" data-company-edit>
+                  <i class="fas fa-pen-to-square" aria-hidden="true"></i>
+                  <span>Редагувати компанію</span>
+                </button>
+              </summary>
+
+              <div class="ds-company-summary__body">
+                <dl class="ds-company-grid">
+                  <div class="ds-company-grid__item">
+                    <dt>Назва / ФОП</dt>
+                    <dd>{{ profile.company_name|default:"—" }}</dd>
+                  </div>
+                  <div class="ds-company-grid__item">
+                    <dt>ЄДРПОУ / ІПН</dt>
+                    <dd>{{ profile.company_number|default:"—" }}</dd>
+                  </div>
+                  <div class="ds-company-grid__item">
+                    <dt>Телефон</dt>
+                    <dd>{{ profile.phone|default:request.user.username }}</dd>
+                  </div>
+                  <div class="ds-company-grid__item">
+                    <dt>E-mail</dt>
+                    <dd>{{ request.user.email|default:"—" }}</dd>
+                  </div>
+                  <div class="ds-company-grid__item">
+                    <dt>Сайт / проект</dt>
+                    <dd>
+                      {% if profile.website %}
+                        <a href="{{ profile.website }}" target="_blank" rel="noopener" class="ds-link">
+                          {{ profile.website }}
+                        </a>
+                      {% else %}
+                        —
+                      {% endif %}
+                    </dd>
+                  </div>
+                  <div class="ds-company-grid__item">
+                    <dt>Instagram / соцмережі</dt>
+                    <dd>
+                      {% if profile.instagram %}
+                        <a href="{{ profile.instagram }}" target="_blank" rel="noopener" class="ds-link">
+                          {{ profile.instagram }}
+                        </a>
+                      {% else %}
+                        —
+                      {% endif %}
+                    </dd>
+                  </div>
+                  <div class="ds-company-grid__item ds-company-grid__item--wide">
+                    <dt>Адреса доставки</dt>
+                    <dd>{{ profile.delivery_address|default:"—" }}</dd>
+                  </div>
+                </dl>
+              </div>
+            </details>
+            {% endwith %}
+          </div>
+        </section>
+
+        <section class="ds-section" id="ds-products-preview" data-animate>
+          <header class="ds-section__header">
+            <div>
+              <h2 class="ds-section__title">Категорії TwoComms</h2>
+              <p class="ds-section__subtitle">
+                Обирайте позиції, які підкреслять стиль вашого бренду. Ми готуємо фотографії і описи у єдиному візуальному стилі.
+              </p>
+            </div>
             <div class="ds-actions">
+              <button type="button" class="ds-btn ds-btn--ghost" data-tab-link="products">
+                <i class="fas fa-layer-group" aria-hidden="true"></i>
+                <span>До каталогу</span>
+              </button>
+            </div>
+          </header>
+
+          <div class="ds-category-grid">
+            {% if categories %}
+              {% for category in categories|slice:":6" %}
+                <article class="ds-category-card" data-fade>
+                  <div class="ds-category-card__icon">
+                    <span class="ds-category-card__shape"></span>
+                    <i class="fas fa-circle-notch" aria-hidden="true"></i>
+                  </div>
+                  <h3 class="ds-category-card__name">{{ category.name }}</h3>
+                  <p class="ds-category-card__description">
+                    Категорія стильного одягу TwoComms. Додавайте до власного каталогу за кілька кліків.
+                  </p>
+                  <a href="{% url 'orders:dropshipper_products' %}?category={{ category.id }}" class="ds-link">
+                    Переглянути товари
+                    <i class="fas fa-external-link-alt" aria-hidden="true"></i>
+                  </a>
+                </article>
+              {% endfor %}
+            {% else %}
+              <div class="ds-empty">
+                <i class="fas fa-box-open" aria-hidden="true"></i>
+                <h3 class="ds-empty__title">Категорії поки не додані</h3>
+                <p class="ds-empty__text">Напишіть менеджеру TwoComms — він підготує для вас стартовий каталог.</p>
+                <a href="https://t.me/twocomms_support" target="_blank" rel="noopener" class="ds-btn ds-btn--primary">
+                  <i class="fab fa-telegram" aria-hidden="true"></i>
+                  <span>Зв'язатися</span>
+                </a>
+              </div>
+            {% endif %}
+          </div>
+        </section>
+
+        <section class="ds-section" id="ds-benefits" data-animate>
+          <header class="ds-section__header">
+            <div>
+              <h2 class="ds-section__title">6 переваг TwoComms для дропшипера</h2>
+              <p class="ds-section__subtitle">Ми подбали про виробництво, логістику та підтримку, щоб ви зосередилися на продажах.</p>
+            </div>
+          </header>
+
+          <div class="ds-benefits-grid ds-benefits-grid--enhanced">
+            <article class="ds-benefit-card ds-benefit-card--enhanced" data-fade>
+              <span class="ds-benefit-card__icon">
+                <i class="fas fa-warehouse" aria-hidden="true"></i>
+              </span>
+              <h3 class="ds-benefit-card__title">Не потрібен склад</h3>
+              <p class="ds-benefit-card__text">Зберігаємо готовий асортимент, тож ви не витрачаєтесь на оренду та залишки.</p>
+              <ul class="ds-benefit-card__bullets">
+                <li>Гнучке поповнення розмірів</li>
+                <li>Без ризику заморожених коштів</li>
+              </ul>
+            </article>
+
+            <article class="ds-benefit-card ds-benefit-card--enhanced" data-fade data-delay="80">
+              <span class="ds-benefit-card__icon">
+                <i class="fas fa-truck" aria-hidden="true"></i>
+              </span>
+              <h3 class="ds-benefit-card__title">Логістика під ключ</h3>
+              <p class="ds-benefit-card__text">Комплектація, упаковка, документи і передача Новій Пошті за вас.</p>
+              <ul class="ds-benefit-card__bullets">
+                <li>Відправлення день-в-день</li>
+                <li>Відстеження в особистому кабінеті</li>
+              </ul>
+            </article>
+
+            <article class="ds-benefit-card ds-benefit-card--enhanced" data-fade data-delay="160">
+              <span class="ds-benefit-card__icon">
+                <i class="fas fa-headset" aria-hidden="true"></i>
+              </span>
+              <h3 class="ds-benefit-card__title">Постійна підтримка</h3>
+              <p class="ds-benefit-card__text">Персональний менеджер супроводжує кожний етап та відповідає 24/7.</p>
+              <ul class="ds-benefit-card__bullets">
+                <li>Швидкі консультації</li>
+                <li>Допомога з продажами</li>
+              </ul>
+            </article>
+
+            <article class="ds-benefit-card ds-benefit-card--enhanced" data-fade data-delay="240">
+              <span class="ds-benefit-card__icon">
+                <i class="fas fa-file-alt" aria-hidden="true"></i>
+              </span>
+              <h3 class="ds-benefit-card__title">Готові матеріали</h3>
+              <p class="ds-benefit-card__text">Фото, описи, таблиці розмірів і рекомендації з ціноутворення вже зібрані.</p>
+              <ul class="ds-benefit-card__bullets">
+                <li>Єдині стандарти контенту</li>
+                <li>SEO-опис для вітрин</li>
+              </ul>
+            </article>
+
+            <article class="ds-benefit-card ds-benefit-card--enhanced" data-fade data-delay="320">
+              <span class="ds-benefit-card__icon">
+                <i class="fas fa-chart-line" aria-hidden="true"></i>
+              </span>
+              <h3 class="ds-benefit-card__title">Аналітика на панелі</h3>
+              <p class="ds-benefit-card__text">Стежте за прибутком, статусами та ефективністю товарів без таблиць.</p>
+              <ul class="ds-benefit-card__bullets">
+                <li>Оновлення в реальному часі</li>
+                <li>Експорт у фінансові звіти</li>
+              </ul>
+            </article>
+
+            <article class="ds-benefit-card ds-benefit-card--enhanced" data-fade data-delay="400">
+              <span class="ds-benefit-card__icon">
+                <i class="fas fa-shield-alt" aria-hidden="true"></i>
+              </span>
+              <h3 class="ds-benefit-card__title">Надійність бренду</h3>
+              <p class="ds-benefit-card__text">Виконуємо замовлення під вашим ім’ям, зберігаючи довіру клієнтів.</p>
+              <ul class="ds-benefit-card__bullets">
+                <li>Фірмове пакування TwoComms</li>
+                <li>Контроль якості перед відправленням</li>
+              </ul>
+            </article>
+          </div>
+        </section>
+
+        <section class="ds-section" id="ds-orders" data-animate>
+          <header class="ds-section__header">
+            <div>
+              <h2 class="ds-section__title">Останні замовлення</h2>
+              <p class="ds-section__subtitle">
+                Контролюйте статуси й суми прямо з головної. Повний список — у вкладці «Замовлення».
+              </p>
+            </div>
+            <div class="ds-actions">
+              <button type="button" class="ds-btn ds-btn--ghost" data-tab-link="orders">
+                <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                <span>До всіх замовлень</span>
+              </button>
+            </div>
+          </header>
+
+          {% if recent_orders %}
+            <div class="ds-order-feed">
+              {% for order in recent_orders %}
+                <article class="ds-order-card" data-fade>
+                  <div class="ds-order-card__header">
+                    <span class="ds-pill">
+                      <i class="fas fa-hashtag" aria-hidden="true"></i>
+                      {{ order.order_number }}
+                    </span>
+                    <span class="ds-status {% if order.status == 'delivered' %}ds-status--success{% elif order.status == 'cancelled' %}ds-status--danger{% else %}ds-status--info{% endif %}">
+                      {{ order.get_status_display }}
+                    </span>
+                  </div>
+                  <div class="ds-order-card__body">
+                    <div class="ds-order-card__client">
+                      <i class="fas fa-user" aria-hidden="true"></i>
+                      <div>
+                        <strong>{{ order.client_name|default:"Не вказано" }}</strong>
+                        <span>{{ order.client_phone|default:"—" }}</span>
+                      </div>
+                    </div>
+                    <div class="ds-order-card__amount">
+                      <span class="ds-order-card__label">Сума продажу</span>
+                      <span class="ds-order-card__value">{{ order.total_selling_price|floatformat:0 }} грн</span>
+                    </div>
+                  </div>
+                </article>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="ds-empty">
+              <i class="fas fa-inbox" aria-hidden="true"></i>
+              <h3 class="ds-empty__title">Замовлень поки немає</h3>
+              <p class="ds-empty__text">Створіть перше замовлення — і ми одразу покажемо його прогрес.</p>
               <button type="button" class="ds-btn ds-btn--primary js-open-order-modal">
                 <i class="fas fa-plus" aria-hidden="true"></i>
                 <span>Створити замовлення</span>
               </button>
-              <a href="{% url 'orders:dropshipper_products' %}" class="ds-btn ds-btn--ghost">
-                <i class="fas fa-box-open" aria-hidden="true"></i>
-                <span>Каталог для дропшипа</span>
-              </a>
-            </div>
-
-            <ul class="ds-hero__highlights">
-              <li>
-                <strong>{{ stats.total_orders }}</strong>
-                <span>успішних замовлень</span>
-              </li>
-              <li>
-                <strong>{{ stats.total_profit|floatformat:0 }} грн</strong>
-                <span>чистого прибутку</span>
-              </li>
-              <li>
-                <strong>{{ stats.total_items_sold }}</strong>
-                <span>товарів доставлено</span>
-              </li>
-            </ul>
-          </div>
-
-          <aside class="ds-hero__summary ds-hero__content-inner" aria-label="Огляд прогресу">
-            <div class="ds-summary-card">
-              <span class="ds-summary-card__label">За поточний місяць</span>
-              <strong class="ds-summary-card__value">{{ stats.total_revenue|floatformat:0 }} грн</strong>
-              <p class="ds-summary-card__meta">Виконано {{ stats.total_orders }} замовлень</p>
-            </div>
-            <div class="ds-summary-list">
-              <article class="ds-summary-item">
-                <div class="ds-summary-item__icon">
-                  <i class="fas fa-industry" aria-hidden="true"></i>
-                </div>
-                <div>
-                  <h3>Власне виробництво</h3>
-                  <p>Контролюємо якість та залишки — ви продаєте без ризиків.</p>
-                </div>
-              </article>
-              <article class="ds-summary-item">
-                <div class="ds-summary-item__icon">
-                  <i class="fas fa-truck-fast" aria-hidden="true"></i>
-                </div>
-                <div>
-                  <h3>Щоденні відправлення</h3>
-                  <p>Передаємо Новій Пошті кожне замовлення в день оформлення.</p>
-                </div>
-              </article>
-              <article class="ds-summary-item">
-                <div class="ds-summary-item__icon">
-                  <i class="fas fa-headset" aria-hidden="true"></i>
-                </div>
-                <div>
-                  <h3>Підтримка 24/7</h3>
-                  <p>Персональний менеджер допоможе з будь-яким питанням.</p>
-                </div>
-              </article>
-            </div>
-          </aside>
-        </div>
-      </section>
-
-      {# Quick nav + stats cards #}
-      <section class="ds-section" data-animate>
-        <header class="ds-section__header">
-          <div>
-            <h2 class="ds-section__title">Короткий огляд</h2>
-            <p class="ds-section__subtitle">
-              Найважливіші показники вже тут. За деталями переходьте до відповідного розділу.
-            </p>
-          </div>
-          <div class="ds-tablist">
-            <a class="ds-tab is-active"
-               data-scroll-target="ds-products-preview"
-               href="#ds-products-preview">Товари</a>
-            <a class="ds-tab"
-               data-scroll-target="ds-orders"
-               href="#ds-orders">Замовлення</a>
-            <a class="ds-tab"
-               data-scroll-target="ds-analytics"
-               href="#ds-analytics">Статистика</a>
-            <a class="ds-tab"
-               data-scroll-target="ds-payouts"
-               href="#ds-payouts">Виплати</a>
-          </div>
-        </header>
-
-        <div class="ds-grid ds-grid--stats">
-          <article class="ds-card">
-            <div class="ds-card__meta">
-              <span class="ds-card__icon" style="background: rgba(129, 140, 248, 0.16); color: #a5b4fc;">
-                <i class="fas fa-shopping-bag" aria-hidden="true"></i>
-              </span>
-              <span class="ds-card__title">Активні товари</span>
-            </div>
-            <div class="ds-card__value">{{ categories|length }}</div>
-            <p class="ds-card__hint">Категорій доступно для продажу вже сьогодні</p>
-          </article>
-
-          <article class="ds-card">
-            <div class="ds-card__meta">
-              <span class="ds-card__icon" style="background: rgba(45, 212, 191, 0.16); color: #5eead4;">
-                <i class="fas fa-receipt" aria-hidden="true"></i>
-              </span>
-              <span class="ds-card__title">Виконано замовлень</span>
-            </div>
-            <div class="ds-card__value">{{ stats.completed_orders }}</div>
-            <p class="ds-card__hint">Статус “доставлено” по вашим клієнтам</p>
-          </article>
-
-          <article class="ds-card">
-            <div class="ds-card__meta">
-              <span class="ds-card__icon" style="background: rgba(251, 191, 36, 0.15); color: #fbbf24;">
-                <i class="fas fa-coins" aria-hidden="true"></i>
-              </span>
-              <span class="ds-card__title">Зароблений прибуток</span>
-            </div>
-            <div class="ds-card__value">{{ stats.total_profit|floatformat:0 }} грн</div>
-            <p class="ds-card__hint">Гроші, які вже зароблені разом з TwoComms</p>
-          </article>
-
-          <article class="ds-card">
-            <div class="ds-card__meta">
-              <span class="ds-card__icon" style="background: rgba(248, 113, 113, 0.16); color: #fca5a5;">
-                <i class="fas fa-clock" aria-hidden="true"></i>
-              </span>
-              <span class="ds-card__title">Останнє оновлення</span>
-            </div>
-            <div class="ds-card__value">
-              {% if stats.last_order_date %}
-                {{ stats.last_order_date|date:"d.m.Y" }}
-              {% else %}
-                Ще немає
-              {% endif %}
-            </div>
-            <p class="ds-card__hint">Дата останнього замовлення у вашій панелі</p>
-          </article>
-        </div>
-      </section>
-
-      {# Company settings highlight #}
-      <section class="ds-section" id="ds-company" data-animate>
-        <div class="ds-highlight ds-company">
-          <div class="ds-company__badge">
-            <i class="fas fa-building" aria-hidden="true"></i>
-            Налаштування компанії
-          </div>
-          <div class="ds-company__header">
-            <h2 class="ds-highlight__title">Тримайте дані компанії актуальними</h2>
-            <p class="ds-highlight__text">
-              Саме ці дані потрапляють у документи та сповіщення. Актуальність контактів допомагає менеджерам швидко опрацьовувати
-              ваші замовлення.
-            </p>
-          </div>
-
-          {% with profile=request.user.userprofile %}
-          <details class="ds-company-card" data-animate>
-            <summary class="ds-company-card__summary">
-              <div class="ds-company-card__meta">
-                <span class="ds-company-card__name">{{ profile.company_name|default:"Компанія ще не заповнена" }}</span>
-                <span class="ds-company-card__status">
-                  {% if profile.company_name %}
-                    <span class="ds-badge ds-badge--success"><i class="fas fa-check-circle" aria-hidden="true"></i> Заповнено</span>
-                  {% else %}
-                    <span class="ds-badge ds-badge--warning"><i class="fas fa-pen" aria-hidden="true"></i> Потрібно заповнити</span>
-                  {% endif %}
-                </span>
-              </div>
-              <div class="ds-actions">
-                <a href="{% url 'profile_setup' %}" class="ds-btn ds-btn--primary">
-                  <i class="fas fa-pen-to-square" aria-hidden="true"></i>
-                  <span>Редагувати</span>
-                </a>
-              </div>
-            </summary>
-
-            <div class="ds-company-card__content">
-              <dl class="ds-company-grid">
-                <div class="ds-company-grid__item">
-                  <dt>Назва / ФОП</dt>
-                  <dd>{{ profile.company_name|default:"—" }}</dd>
-                </div>
-                <div class="ds-company-grid__item">
-                  <dt>ЄДРПОУ / ІПН</dt>
-                  <dd>{{ profile.company_number|default:"—" }}</dd>
-                </div>
-                <div class="ds-company-grid__item">
-                  <dt>Телефон</dt>
-                  <dd>{{ profile.phone|default:request.user.username }}</dd>
-                </div>
-                <div class="ds-company-grid__item">
-                  <dt>E-mail</dt>
-                  <dd>{{ request.user.email|default:"—" }}</dd>
-                </div>
-                <div class="ds-company-grid__item">
-                  <dt>Сайт / маркетплейс</dt>
-                  <dd>
-                    {% if profile.website %}
-                      <a href="{{ profile.website }}" target="_blank" rel="noopener" class="ds-link">
-                        {{ profile.website }}
-                      </a>
-                    {% else %}
-                      —
-                    {% endif %}
-                  </dd>
-                </div>
-                <div class="ds-company-grid__item ds-company-grid__item--wide">
-                  <dt>Адреса доставки</dt>
-                  <dd>{{ profile.delivery_address|default:"—" }}</dd>
-                </div>
-              </dl>
-            </div>
-          </details>
-          {% endwith %}
-        </div>
-      </section>
-
-      {# Category preview #}
-      <section class="ds-section" id="ds-products-preview" data-animate>
-        <header class="ds-section__header">
-          <div>
-            <h2 class="ds-section__title">Категорії TwoComms</h2>
-            <p class="ds-section__subtitle">
-              Вибирайте те, що пасує вашому бренду: ми підтримуємо сталі пропорції фотографій, щоб вони гармонійно виглядали в будь-якому каталозі.
-            </p>
-          </div>
-          <div class="ds-actions">
-            <a href="{% url 'orders:dropshipper_products' %}" class="ds-btn ds-btn--primary">
-              <i class="fas fa-store" aria-hidden="true"></i>
-              <span>Увесь каталог</span>
-            </a>
-          </div>
-        </header>
-
-        <div class="ds-category-grid">
-          {% if categories %}
-            {% for category in categories|slice:":6" %}
-              <article class="ds-category-card">
-                <div class="ds-category-card__icon">
-                  <span class="ds-category-card__shape"></span>
-                  <i class="fas fa-circle-notch" aria-hidden="true"></i>
-                </div>
-                <h3 class="ds-category-card__name">{{ category.name }}</h3>
-                <p class="ds-category-card__description">
-                  Категорія улюбленого вуличного одягу TwoComms. Доступна для моментального додавання до вашого каталогу.
-                </p>
-                <a href="{% url 'orders:dropshipper_products' %}?category={{ category.id }}" class="ds-link">
-                  Переглянути товари
-                  <i class="fas fa-external-link-alt" aria-hidden="true"></i>
-                </a>
-              </article>
-            {% endfor %}
-          {% else %}
-            <div class="ds-empty">
-              <i class="fas fa-box-open" aria-hidden="true"></i>
-              <h3 class="ds-empty__title">Категорії поки не додані</h3>
-              <p class="ds-empty__text">Зверніться до менеджера TwoComms — він підкаже, як швидко активувати товари у вашому кабінеті.</p>
             </div>
           {% endif %}
-        </div>
-      </section>
+        </section>
 
-      {# How it works & benefits #}
-      <section class="ds-section" id="ds-journey" data-animate>
-        <header class="ds-section__header">
-          <div>
-            <h2 class="ds-section__title">Як це працює</h2>
-            <p class="ds-section__subtitle">
-              Від першого звернення до регулярних виплат — усе налаштовано під дропшипера. Кроки однаково зручні на десктопі й мобільних пристроях.
-            </p>
-          </div>
-        </header>
-
-        <div class="ds-stepper">
-          <article class="ds-step">
-            <span class="ds-step__badge">1</span>
-            <h3 class="ds-step__title">Підключення</h3>
-            <p class="ds-step__text">Створюєте акаунт, вказуєте дані компанії та отримуєте доступ до каталогу з wholesale-цінами.</p>
-          </article>
-          <article class="ds-step">
-            <span class="ds-step__badge">2</span>
-            <h3 class="ds-step__title">Актуальні товари</h3>
-            <p class="ds-step__text">Відбираєте позиції та суми націнки. Ми підкажемо рекомендовану роздрібну ціну для комфортного прибутку.</p>
-          </article>
-          <article class="ds-step">
-            <span class="ds-step__badge">3</span>
-            <h3 class="ds-step__title">Замовлення</h3>
-            <p class="ds-step__text">Передаєте дані клієнта, ми відправляємо посилку й оновлюємо статуси у вашій панелі.</p>
-          </article>
-          <article class="ds-step">
-            <span class="ds-step__badge">4</span>
-            <h3 class="ds-step__title">Виплати</h3>
-            <p class="ds-step__text">Підтверджуєте виконані замовлення, формуєте запит — і отримуєте видимий контроль за фінансами.</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="ds-section" id="ds-benefits" data-animate>
-        <header class="ds-section__header">
-          <div>
-            <h2 class="ds-section__title">6 переваг TwoComms для дропшипера</h2>
-            <p class="ds-section__subtitle">
-              Ми сфокусувались на логістиці, якості та зручності. Ви — на своїх продажах та маркетингу.
-            </p>
-          </div>
-        </header>
-
-        <div class="ds-benefits-grid">
-          <article class="ds-benefit-card">
-            <div class="ds-benefit-card__icon">
-              <i class="fas fa-warehouse" aria-hidden="true"></i>
+        <section class="ds-section ds-section--split" id="ds-analytics" data-animate>
+          <div class="ds-panel">
+            <div class="ds-panel__header">
+              <h3 class="ds-panel__title">Ваш прогрес</h3>
+              <p class="ds-panel__subtitle">Детальні графіки, топ-товари та маржинальність — у вкладці «Статистика».</p>
             </div>
-            <h3 class="ds-benefit-card__title">Не потрібно вкладати у склад</h3>
-            <p class="ds-benefit-card__text">Ми тримаємо весь асортимент у себе, тож ви не витрачаєтеся на оренду та залишки.</p>
-          </article>
-
-          <article class="ds-benefit-card">
-            <div class="ds-benefit-card__icon">
-              <i class="fas fa-truck" aria-hidden="true"></i>
-            </div>
-            <h3 class="ds-benefit-card__title">Доставку виконуємо ми</h3>
-            <p class="ds-benefit-card__text">Комплектація, упаковка і логістика лежать на TwoComms — ви зосереджені лише на продажах.</p>
-          </article>
-
-          <article class="ds-benefit-card">
-            <div class="ds-benefit-card__icon">
-              <i class="fas fa-shipping-fast" aria-hidden="true"></i>
-            </div>
-            <h3 class="ds-benefit-card__title">Щоденні відправлення НП</h3>
-            <p class="ds-benefit-card__text">Відправляємо Новою Поштою по всій Україні кожного дня, аби замовлення приходили швидко.</p>
-          </article>
-
-          <article class="ds-benefit-card">
-            <div class="ds-benefit-card__icon">
-              <i class="fas fa-comments" aria-hidden="true"></i>
-            </div>
-            <h3 class="ds-benefit-card__title">Клієнт залишається вашим</h3>
-            <p class="ds-benefit-card__text">Усі комунікації ведете ви: покупець повертається саме до вашого бренду.</p>
-          </article>
-
-          <article class="ds-benefit-card">
-            <div class="ds-benefit-card__icon">
-              <i class="fas fa-file-alt" aria-hidden="true"></i>
-            </div>
-            <h3 class="ds-benefit-card__title">Вся інформація на сайті</h3>
-            <p class="ds-benefit-card__text">Даємо повні описи, фото та характеристики, щоб ви моментально могли виставити товар.</p>
-          </article>
-
-          <article class="ds-benefit-card">
-            <div class="ds-benefit-card__icon">
-              <i class="fas fa-mobile-alt" aria-hidden="true"></i>
-            </div>
-            <h3 class="ds-benefit-card__title">Замовлення де вам зручно</h3>
-            <p class="ds-benefit-card__text">Формуйте заявки в особистому кабінеті або надсилайте менеджеру у месенджерах — однаково швидко.</p>
-          </article>
-        </div>
-      </section>
-
-      {# Orders preview #}
-      <section class="ds-section" id="ds-orders" data-animate>
-        <header class="ds-section__header">
-          <div>
-            <h2 class="ds-section__title">Останні замовлення</h2>
-            <p class="ds-section__subtitle">
-              Кейсова стрічка останніх замовлень допомагає контролювати статуси. Перейдіть до повного списку для дій з кожним замовленням.
-            </p>
-          </div>
-          <div class="ds-actions">
-            <a href="{% url 'orders:dropshipper_orders' %}" class="ds-btn ds-btn--ghost">
-              <i class="fas fa-arrow-right" aria-hidden="true"></i>
-              <span>Усі замовлення</span>
-            </a>
-          </div>
-        </header>
-
-        {% if recent_orders %}
-          <div class="ds-order-feed">
-            {% for order in recent_orders %}
-              <article class="ds-order-card">
-                <div class="ds-order-card__header">
-                  <span class="ds-pill">
-                    <i class="fas fa-hashtag" aria-hidden="true"></i>
-                    {{ order.order_number }}
-                  </span>
-                  <span class="ds-status {% if order.status == 'delivered' %}ds-status--success{% elif order.status == 'cancelled' %}ds-status--danger{% else %}ds-status--info{% endif %}">
-                    {{ order.get_status_display }}
-                  </span>
-                </div>
-                <div class="ds-order-card__body">
-                  <div class="ds-order-card__client">
-                    <i class="fas fa-user" aria-hidden="true"></i>
-                    <div>
-                      <strong>{{ order.client_name|default:"Не вказано" }}</strong>
-                      <span>{{ order.client_phone|default:"—" }}</span>
-                    </div>
-                  </div>
-                  <div class="ds-order-card__amount">
-                    <span class="ds-order-card__label">Сума продажу</span>
-                    <span class="ds-order-card__value">{{ order.total_selling_price|floatformat:0 }} грн</span>
-                  </div>
-                </div>
-              </article>
-            {% endfor %}
-          </div>
-        {% else %}
-          <div class="ds-empty">
-            <i class="fas fa-inbox" aria-hidden="true"></i>
-            <h3 class="ds-empty__title">Замовлень поки немає</h3>
-            <p class="ds-empty__text">Створіть перше замовлення — ми одразу покажемо його прогрес і нарахуємо прибуток.</p>
-            <button type="button" class="ds-btn ds-btn--primary js-open-order-modal">
-              <i class="fas fa-plus" aria-hidden="true"></i>
-              <span>Створити замовлення</span>
+            <ul class="ds-progress-list">
+              <li>
+                <span>Виконано замовлень</span>
+                <span>{{ stats.completed_orders }}</span>
+              </li>
+              <li>
+                <span>Скасовано замовлень</span>
+                <span>{{ stats.cancelled_orders }}</span>
+              </li>
+              <li>
+                <span>Собівартість виконаних замовлень</span>
+                <span>{{ stats.total_drop_cost|floatformat:0 }} грн</span>
+              </li>
+            </ul>
+            <button type="button" class="ds-link ds-link--arrow" data-tab-link="statistics">
+              Перейти до аналітики
+              <i class="fas fa-external-link-alt" aria-hidden="true"></i>
             </button>
           </div>
-        {% endif %}
-      </section>
 
-      {# Analytics & payouts #}
-      <section class="ds-section ds-section--split" id="ds-analytics" data-animate>
-        <div class="ds-panel">
-          <div class="ds-panel__header">
-            <h3 class="ds-panel__title">Ваш прогрес</h3>
-            <p class="ds-panel__subtitle">Деталізовані графіки й топ-товари доступні у вкладці «Статистика».</p>
-          </div>
-          <ul class="ds-progress-list">
-            <li>
-              <span>Виконано замовлень</span>
-              <span>{{ stats.completed_orders }}</span>
-            </li>
-            <li>
-              <span>Скасовано замовлень</span>
-              <span>{{ stats.cancelled_orders }}</span>
-            </li>
-            <li>
-              <span>Собівартість виконаних замовлень</span>
-              <span>{{ stats.total_drop_cost|floatformat:0 }} грн</span>
-            </li>
-          </ul>
-          <a href="{% url 'orders:dropshipper_statistics' %}" class="ds-link ds-link--arrow">
-            Перейти до аналітики
-            <i class="fas fa-external-link-alt" aria-hidden="true"></i>
-          </a>
-        </div>
-
-        <div class="ds-panel" id="ds-payouts">
-          <div class="ds-panel__header">
-            <h3 class="ds-panel__title">Виплати</h3>
-            <p class="ds-panel__subtitle">Запитуйте виплати одним кліком, контролюйте статуси й історію переказів.</p>
-          </div>
-          <div class="ds-payout-overview">
-            <div class="ds-payout-overview__item">
-              <span class="ds-payout-overview__label">Очікує підтвердження</span>
-              <span class="ds-payout-overview__value">—</span>
+          <div class="ds-panel" id="ds-payouts">
+            <div class="ds-panel__header">
+              <h3 class="ds-panel__title">Виплати</h3>
+              <p class="ds-panel__subtitle">Запитуйте виплати одним кліком та відстежуйте статуси без очікування.</p>
             </div>
-            <div class="ds-payout-overview__item">
-              <span class="ds-payout-overview__label">Виплачено цього місяця</span>
-              <span class="ds-payout-overview__value">—</span>
+            <div class="ds-payout-overview">
+              <div class="ds-payout-overview__item">
+                <span class="ds-payout-overview__label">Очікує підтвердження</span>
+                <span class="ds-payout-overview__value">—</span>
+              </div>
+              <div class="ds-payout-overview__item">
+                <span class="ds-payout-overview__label">Виплачено цього місяця</span>
+                <span class="ds-payout-overview__value">—</span>
+              </div>
             </div>
-          </div>
-          <div class="ds-actions">
-            <a href="{% url 'orders:dropshipper_payouts' %}" class="ds-btn ds-btn--primary">
+            <button type="button" class="ds-btn ds-btn--primary" data-tab-link="payouts">
               <i class="fas fa-money-bill-wave" aria-hidden="true"></i>
               <span>Керувати виплатами</span>
-            </a>
+            </button>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {# Final CTA #}
-      <section class="ds-section ds-final" data-animate>
-        <div class="ds-highlight ds-highlight--cta">
-          <div>
-            <h2 class="ds-highlight__title">Потрібна допомога або хочете індивідуальні умови?</h2>
-            <p class="ds-highlight__text">
-              Напишіть менеджеру в Telegram — підберемо колекцію під вашу аудиторію, допоможемо з цінами та маркетингом.
-            </p>
+        <section class="ds-section ds-final" data-animate>
+          <div class="ds-highlight ds-highlight--cta">
+            <div>
+              <h2 class="ds-highlight__title">Потрібна допомога або індивідуальні умови?</h2>
+              <p class="ds-highlight__text">
+                Напишіть менеджеру в Telegram — підберемо колекцію під вашу аудиторію, допоможемо з цінами та маркетингом.
+              </p>
+            </div>
+            <div class="ds-actions">
+              <a href="https://t.me/twocomms_support" class="ds-btn ds-btn--primary" target="_blank" rel="noopener">
+                <i class="fab fa-telegram" aria-hidden="true"></i>
+                <span>Зв'язатися в Telegram</span>
+              </a>
+              <button type="button" class="ds-btn ds-btn--ghost" data-tab-link="orders">
+                <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                <span>Перейти до замовлень</span>
+              </button>
+            </div>
           </div>
-          <div class="ds-actions">
-            <a href="https://t.me/twocomms_support" class="ds-btn ds-btn--primary" target="_blank" rel="noopener">
-              <i class="fab fa-telegram" aria-hidden="true"></i>
-              <span>Зв'язатися в Telegram</span>
-            </a>
-            <a href="{% url 'orders:dropshipper_orders' %}" class="ds-btn ds-btn--ghost">
-              <i class="fas fa-arrow-right" aria-hidden="true"></i>
-              <span>Перейти до замовлень</span>
-            </a>
-          </div>
-        </div>
-      </section>
-    </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="ds-tab-panel" data-tab-panel="products" data-tab-autoload="{% url 'orders:dropshipper_products' %}?partial=1">
+      {% include "partials/dropshipper_panel_placeholder.html" %}
+    </section>
+
+    <section class="ds-tab-panel" data-tab-panel="orders" data-tab-autoload="{% url 'orders:dropshipper_orders' %}?partial=1">
+      {% include "partials/dropshipper_panel_placeholder.html" %}
+    </section>
+
+    <section class="ds-tab-panel" data-tab-panel="statistics" data-tab-autoload="{% url 'orders:dropshipper_statistics' %}?partial=1">
+      {% include "partials/dropshipper_panel_placeholder.html" %}
+    </section>
+
+    <section class="ds-tab-panel" data-tab-panel="payouts" data-tab-autoload="{% url 'orders:dropshipper_payouts' %}?partial=1">
+      {% include "partials/dropshipper_panel_placeholder.html" %}
+    </section>
   </main>
+</div>
+
+<div class="ds-drawer" id="ds-company-drawer" aria-hidden="true" data-company-drawer-url="{% url 'profile_setup' %}">
+  <div class="ds-drawer__overlay" data-company-drawer-close></div>
+  <aside class="ds-drawer__panel" role="dialog" aria-modal="true" aria-labelledby="company-drawer-title">
+    <header class="ds-drawer__header">
+      <div>
+        <h2 class="ds-drawer__title" id="company-drawer-title">Редагування компанії</h2>
+        <p class="ds-drawer__subtitle">Заповніть дані, щоб документи та сповіщення були коректними.</p>
+      </div>
+      <button type="button" class="ds-drawer__close" data-company-drawer-close aria-label="Закрити">
+        <i class="fas fa-xmark" aria-hidden="true"></i>
+      </button>
+    </header>
+    <div class="ds-drawer__body">
+      <div class="ds-drawer__loader" data-company-drawer-loader>
+        <span class="ds-spinner"></span>
+        <p>Завантажуємо форму…</p>
+      </div>
+      <iframe src="about:blank" title="Налаштування компанії" data-company-drawer-frame></iframe>
+    </div>
+  </aside>
 </div>
 
 {% include "partials/dropshipper_modals.html" %}
