@@ -38,7 +38,12 @@
   </section>
 
   <section class="ds-section ds-products-filters" data-animate>
-    <form method="get" id="ds-product-filters" class="ds-filters">
+    <form method="get"
+          id="ds-product-filters"
+          class="ds-filters"
+          action="{% url 'orders:dropshipper_products' %}"
+          data-products-filters>
+      <input type="hidden" name="tab" value="products">
       <div class="ds-filters__group">
         <label for="filter-category" class="ds-input__label">Категорія</label>
         <div class="ds-select">
@@ -66,7 +71,9 @@
           <i class="fas fa-filter" aria-hidden="true"></i>
           <span>Застосувати</span>
         </button>
-        <a href="{% url 'orders:dropshipper_products' %}" class="ds-btn ds-btn--ghost">
+        <a href="{% url 'orders:dropshipper_products' %}?tab=products"
+           class="ds-btn ds-btn--ghost"
+           data-products-link>
           <i class="fas fa-undo" aria-hidden="true"></i>
           <span>Скинути</span>
         </a>
@@ -77,7 +84,8 @@
       <div class="ds-chip-cloud">
         {% for category in categories|slice:":8" %}
           <a class="ds-chip {% if selected_category == category.id|stringformat:'s' %}is-active{% endif %}"
-             href="?category={{ category.id }}{% if search_query %}&search={{ search_query }}{% endif %}">
+             data-products-link
+             href="{% url 'orders:dropshipper_products' %}?tab=products&category={{ category.id }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}">
             <i class="fas fa-tag" aria-hidden="true"></i>
             {{ category.name }}
           </a>
@@ -175,8 +183,9 @@
   {% if page_obj.paginator.num_pages > 1 %}
     <nav class="ds-pagination" aria-label="Пагінація каталогу">
       {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}"
-           class="ds-pagination__link">
+        <a href="{% url 'orders:dropshipper_products' %}?tab=products&page={{ page_obj.previous_page_number }}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}"
+           class="ds-pagination__link"
+           data-products-link>
           <i class="fas fa-chevron-left" aria-hidden="true"></i>
           Попередня
         </a>
@@ -192,8 +201,9 @@
       </span>
 
       {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}"
-           class="ds-pagination__link">
+        <a href="{% url 'orders:dropshipper_products' %}?tab=products&page={{ page_obj.next_page_number }}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}"
+           class="ds-pagination__link"
+           data-products-link>
           <i class="fas fa-chevron-right" aria-hidden="true"></i>
           Наступна
         </a>

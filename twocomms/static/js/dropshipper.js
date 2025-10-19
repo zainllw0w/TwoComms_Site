@@ -9,6 +9,7 @@
     setupAutoAnimateSections();
     setupCompanyTab();
     setupPayoutRequest();
+    setupProductsPanel(document.querySelector('[data-tab-panel="products"]'));
 
     function setupTabNavigation() {
       const tabPanels = Array.from(document.querySelectorAll('[data-tab-panel]'));
@@ -127,6 +128,7 @@
           panel.dataset.tabLoaded = 'true';
           panel.classList.remove('is-loading');
           setupAutoAnimateSections();
+          setupProductsPanel(panel);
           document.dispatchEvent(new CustomEvent('ds:tabloaded', { detail: { target } }));
         })
         .catch((error) => {
@@ -196,6 +198,122 @@
       );
 
       animatedBlocks.forEach((block) => observer.observe(block));
+    }
+
+    function setupProductsPanel(panel) {
+      if (!panel) {
+        return;
+      }
+
+      const baseUrl = panel.dataset.productsUrl || panel.dataset.tabAutoload?.split('?')[0];
+      if (!baseUrl) {
+        return;
+      }
+
+      panel.dataset.productsUrl = baseUrl;
+      if (panel.dataset.productsBound === 'true') {
+        return;
+      }
+
+      const updateHistory = (sourceUrl) => {
+        try {
+          const historyUrl = new URL(window.location.pathname, window.location.origin);
+          const params = new URLSearchParams();
+          params.set('tab', 'products');
+
+          sourceUrl.searchParams.forEach((value, key) => {
+            if (key === 'partial') {
+              return;
+            }
+            if (value) {
+              params.set(key, value);
+            } else {
+              params.delete(key);
+            }
+          });
+
+          const query = params.toString();
+          const relative = `${historyUrl.pathname}${query ? `?${query}` : ''}`;
+          window.history.replaceState({}, '', relative);
+        } catch (error) {
+          console.error('Не вдалося оновити історію:', error);
+        }
+      };
+
+      const fetchAndRender = (sourceUrl) => {
+        try {
+          const requestUrl = new URL(sourceUrl.toString(), window.location.origin);
+          requestUrl.searchParams.set('partial', '1');
+
+          panel.classList.add('is-loading');
+
+          fetch(requestUrl.toString(), {
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+          })
+            .then((response) => {
+              if (!response.ok) {
+                throw new Error(response.statusText || 'Network error');
+              }
+              return response.text();
+            })
+            .then((html) => {
+              panel.innerHTML = html;
+              panel.classList.remove('is-loading');
+              setupAutoAnimateSections();
+              document.dispatchEvent(new CustomEvent('ds:products-updated'));
+            })
+            .catch((error) => {
+              console.error('Не вдалося завантажити товари:', error);
+              panel.classList.remove('is-loading');
+            });
+        } catch (error) {
+          console.error('Не вдалося оновити панель товарів:', error);
+        }
+      };
+
+      panel.addEventListener('submit', (event) => {
+        const form = event.target.closest('[data-products-filters]');
+        if (!form) {
+          return;
+        }
+
+        event.preventDefault();
+
+        const formData = new FormData(form);
+        const url = new URL(baseUrl, window.location.origin);
+
+        formData.forEach((value, key) => {
+          if (value) {
+            url.searchParams.set(key, value);
+          } else {
+            url.searchParams.delete(key);
+          }
+        });
+
+        updateHistory(url);
+        fetchAndRender(url);
+      });
+
+      panel.addEventListener('click', (event) => {
+        const link = event.target.closest('[data-products-link]');
+        if (!link) {
+          return;
+        }
+
+        event.preventDefault();
+
+        try {
+          const url = new URL(link.getAttribute('href'), window.location.origin);
+          updateHistory(url);
+          fetchAndRender(url);
+        } catch (error) {
+          console.error('Некоректне посилання каталогу:', error);
+        }
+      });
+
+      panel.dataset.productsBound = 'true';
     }
 
     function setupCompanyTab() {
