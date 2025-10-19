@@ -7,7 +7,7 @@
     setupTabNavigation();
     setupScrollLinks();
     setupAutoAnimateSections();
-    setupCompanyDrawer();
+    setupCompanyTab();
     setupPayoutRequest();
 
     function setupTabNavigation() {
@@ -198,62 +198,95 @@
       animatedBlocks.forEach((block) => observer.observe(block));
     }
 
-    function setupCompanyDrawer() {
-      const drawer = document.getElementById('ds-company-drawer');
-      if (!drawer) {
-        return;
-      }
-
-      const frame = drawer.querySelector('[data-company-drawer-frame]');
-      const loader = drawer.querySelector('[data-company-drawer-loader]');
-      const url = drawer.dataset.companyDrawerUrl;
-
-      if (!url) {
-        return;
-      }
-
-      document.addEventListener('click', (event) => {
-        const trigger = event.target.closest('[data-company-edit]');
-        if (trigger) {
-          event.preventDefault();
-          openDrawer();
+    function setupCompanyTab() {
+      const bindPanel = (panel) => {
+        if (!panel) {
           return;
         }
 
-        if (event.target.closest('[data-company-drawer-close]')) {
+        const form = panel.querySelector('[data-company-form]');
+        if (!form || form.dataset.bound === 'true') {
+          return;
+        }
+
+        form.dataset.bound = 'true';
+
+        const submitButton = form.querySelector('[data-company-submit]');
+        const successBadge = panel.querySelector('[data-company-success]');
+
+        const showErrors = (errors = {}) => {
+          form.querySelectorAll('[data-field-error]').forEach((node) => {
+            const fieldName = node.dataset.fieldError;
+            const messages = errors[fieldName];
+            node.textContent = messages ? messages.join(' ') : '';
+            if (messages && messages.length) {
+              node.removeAttribute('hidden');
+            } else {
+              node.setAttribute('hidden', 'hidden');
+            }
+          });
+        };
+
+        form.addEventListener('submit', (event) => {
           event.preventDefault();
-          closeDrawer();
-        }
-      });
+          const formData = new FormData(form);
 
-      drawer.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') {
-          closeDrawer();
-        }
-      });
+          if (submitButton) {
+            submitButton.setAttribute('disabled', 'disabled');
+          }
+          showErrors();
 
-      frame?.addEventListener('load', () => {
-        loader?.setAttribute('hidden', 'hidden');
-        frame.classList.add('is-ready');
-      });
+          fetch(form.action, {
+            method: 'POST',
+            headers: {
+              'X-CSRFToken': csrfToken,
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: formData,
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              if (!data.success) {
+                showErrors(data.errors);
+                throw new Error('validation');
+              }
 
-      function openDrawer() {
-        drawer.classList.add('is-visible');
-        drawer.classList.add('is-open');
-        drawer.removeAttribute('aria-hidden');
-        loader?.removeAttribute('hidden');
-        if (frame && frame.src !== url) {
-          frame.src = url;
-        }
+              if (successBadge) {
+                successBadge.removeAttribute('hidden');
+                successBadge.classList.add('is-visible');
+                window.setTimeout(() => {
+                  successBadge?.classList.remove('is-visible');
+                  successBadge?.setAttribute('hidden', 'hidden');
+                }, 3200);
+              }
+
+              updateCompanyWidgets(data.profile || {});
+              showToast(data.message || 'Дані компанії оновлено');
+            })
+            .catch((error) => {
+              if (error.message !== 'validation') {
+                console.error(error);
+                showToast('Не вдалося зберегти дані компанії', 'error');
+              }
+            })
+            .finally(() => {
+              if (submitButton) {
+                submitButton.removeAttribute('disabled');
+              }
+            });
+        });
+      };
+
+      const companyPanel = document.querySelector('[data-tab-panel="company"]');
+      if (companyPanel && companyPanel.dataset.tabLoaded === 'true') {
+        bindPanel(companyPanel);
       }
 
-      function closeDrawer() {
-        drawer.classList.remove('is-open');
-        setTimeout(() => {
-          drawer.classList.remove('is-visible');
-          drawer.setAttribute('aria-hidden', 'true');
-        }, 220);
-      }
+      document.addEventListener('ds:tabloaded', (event) => {
+        if (event.detail?.target === 'company') {
+          bindPanel(document.querySelector('[data-tab-panel="company"]'));
+        }
+      });
     }
 
     function setupPayoutRequest() {
@@ -321,6 +354,83 @@
             payoutForm.classList.remove('is-loading');
           });
       });
+    }
+
+    function updateCompanyWidgets(profile) {
+      const summaryHeader = document.querySelector('[data-company-summary]');
+      if (summaryHeader) {
+        const nameEl = summaryHeader.querySelector('[data-company-summary-name]');
+        if (nameEl) {
+          nameEl.textContent = profile.company_name || 'Компанія ще не заповнена';
+        }
+
+        const statusEl = summaryHeader.querySelector('[data-company-summary-status]');
+        if (statusEl) {
+          const isFilled = Boolean(profile.company_name);
+          statusEl.classList.toggle('ds-badge--success', isFilled);
+          statusEl.classList.toggle('ds-badge--warning', !isFilled);
+          statusEl.innerHTML = isFilled
+            ? '<i class="fas fa-circle-check" aria-hidden="true"></i> Актуально'
+            : '<i class="fas fa-pen" aria-hidden="true"></i> Потрібно заповнити';
+        }
+
+        summaryHeader.querySelectorAll('[data-company-summary-field]').forEach((node) => {
+          const key = node.dataset.companySummaryField;
+          let value = profile[key] || '—';
+
+          if (key === 'website' && profile.website) {
+            value = `<a href="${profile.website}" target="_blank" rel="noopener" class="ds-link">${profile.website}</a>`;
+          }
+
+          if (key === 'instagram' && profile.instagram) {
+            const href = profile.instagram.startsWith('http') ? profile.instagram : `https://instagram.com/${profile.instagram.replace('@', '')}`;
+            value = `<a href="${href}" target="_blank" rel="noopener" class="ds-link">${profile.instagram}</a>`;
+          }
+
+          if (key === 'email' && profile.email) {
+            value = `<a href="mailto:${profile.email}" class="ds-link">${profile.email}</a>`;
+          }
+
+          node.innerHTML = value || '—';
+        });
+      }
+
+      const sidebar = document.querySelector('[data-company-sidebar]');
+      if (sidebar) {
+        const name = sidebar.querySelector('[data-company-sidebar-name]');
+        if (name) {
+          name.textContent = profile.company_name || 'Створіть компанію';
+        }
+
+        const status = sidebar.querySelector('[data-company-sidebar-status]');
+        if (status) {
+          const isFilled = Boolean(profile.company_name);
+          status.classList.toggle('ds-sidebar__company-status--ok', isFilled);
+          status.classList.toggle('ds-sidebar__company-status--warn', !isFilled);
+          status.innerHTML = isFilled
+            ? '<i class="fas fa-circle-check" aria-hidden="true"></i> Актуально'
+            : '<i class="fas fa-pen" aria-hidden="true"></i> Заповніть дані';
+        }
+
+        const phonePill = sidebar.querySelector('[data-company-sidebar-phone]');
+        if (phonePill) {
+          phonePill.innerHTML = `<i class="fas fa-phone" aria-hidden="true"></i>${profile.phone || ''}`;
+        }
+
+        const tags = sidebar.querySelector('[data-company-sidebar-tags]');
+        const linkPill = sidebar.querySelector('[data-company-sidebar-link]');
+        if (tags && linkPill) {
+          if (profile.website) {
+            linkPill.innerHTML = `<i class="fas fa-globe" aria-hidden="true"></i>${profile.website}`;
+            linkPill.removeAttribute('hidden');
+          } else if (profile.instagram) {
+            linkPill.innerHTML = `<i class="fab fa-instagram" aria-hidden="true"></i>${profile.instagram}`;
+            linkPill.removeAttribute('hidden');
+          } else {
+            linkPill.setAttribute('hidden', 'hidden');
+          }
+        }
+      }
     }
 
     function showToast(message, type = 'success') {
