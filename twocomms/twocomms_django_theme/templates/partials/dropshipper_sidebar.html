@@ -12,50 +12,61 @@
     </header>
 
     {% with profile=request.user.userprofile %}
-    <div class="ds-sidebar__company" data-company-sidebar>
-      <div class="ds-sidebar__company-header">
-        <span class="ds-sidebar__company-icon">
-          <i class="fas fa-building-columns" aria-hidden="true"></i>
+    <div class="ds-sidebar__company ds-sidebar__company--featured" data-company-sidebar>
+      <div class="ds-sidebar__company-bg" aria-hidden="true">
+        <span class="ds-sidebar__company-glow ds-sidebar__company-glow--one"></span>
+        <span class="ds-sidebar__company-glow ds-sidebar__company-glow--two"></span>
+        <span class="ds-sidebar__company-logos">
+          <span class="ds-sidebar__company-logo ds-sidebar__company-logo--one"></span>
+          <span class="ds-sidebar__company-logo ds-sidebar__company-logo--two"></span>
+          <span class="ds-sidebar__company-logo ds-sidebar__company-logo--three"></span>
         </span>
-        <div class="ds-sidebar__company-info">
-          <span class="ds-sidebar__company-label">Ваша компанія</span>
-          <strong class="ds-sidebar__company-name" data-company-sidebar-name>{{ profile.company_name|default:"Створіть компанію" }}</strong>
-          {% if profile.company_name %}
-            <span class="ds-sidebar__company-status ds-sidebar__company-status--ok" data-company-sidebar-status>
-              <i class="fas fa-circle-check" aria-hidden="true"></i> Актуально
+      </div>
+      <div class="ds-sidebar__company-content">
+        <div class="ds-sidebar__company-header">
+          <span class="ds-sidebar__company-icon">
+            <i class="fas fa-building-columns" aria-hidden="true"></i>
+          </span>
+          <div class="ds-sidebar__company-info">
+            <span class="ds-sidebar__company-label">Ваша компанія</span>
+            <strong class="ds-sidebar__company-name" data-company-sidebar-name>{{ profile.company_name|default:"Створіть компанію" }}</strong>
+            {% if profile.company_name %}
+              <span class="ds-sidebar__company-status ds-sidebar__company-status--ok" data-company-sidebar-status>
+                <i class="fas fa-circle-check" aria-hidden="true"></i> Актуально
+              </span>
+            {% else %}
+              <span class="ds-sidebar__company-status ds-sidebar__company-status--warn" data-company-sidebar-status>
+                <i class="fas fa-pen" aria-hidden="true"></i> Заповніть дані
+              </span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="ds-sidebar__company-tags" data-company-sidebar-tags>
+          <span class="ds-sidebar__company-pill" data-company-sidebar-phone>
+            <i class="fas fa-phone" aria-hidden="true"></i>
+            {{ profile.phone|default:request.user.username }}
+          </span>
+          {% if profile.website %}
+            <span class="ds-sidebar__company-pill" data-company-sidebar-link>
+              <i class="fas fa-globe" aria-hidden="true"></i>
+              {{ profile.website }}
+            </span>
+          {% elif profile.instagram %}
+            <span class="ds-sidebar__company-pill" data-company-sidebar-link>
+              <i class="fab fa-instagram" aria-hidden="true"></i>
+              {{ profile.instagram }}
             </span>
           {% else %}
-            <span class="ds-sidebar__company-status ds-sidebar__company-status--warn" data-company-sidebar-status>
-              <i class="fas fa-pen" aria-hidden="true"></i> Заповніть дані
+            <span class="ds-sidebar__company-pill" data-company-sidebar-link hidden>
+              —
             </span>
           {% endif %}
         </div>
+        <button type="button" class="ds-sidebar__company-action" data-company-edit data-tab-link="company">
+          <span>{% if profile.company_name %}Редагувати компанію{% else %}Створити компанію{% endif %}</span>
+          <i class="fas fa-chevron-right" aria-hidden="true"></i>
+        </button>
       </div>
-      <div class="ds-sidebar__company-tags" data-company-sidebar-tags>
-        <span class="ds-sidebar__company-pill" data-company-sidebar-phone>
-          <i class="fas fa-phone" aria-hidden="true"></i>
-          {{ profile.phone|default:request.user.username }}
-        </span>
-        {% if profile.website %}
-          <span class="ds-sidebar__company-pill" data-company-sidebar-link>
-            <i class="fas fa-globe" aria-hidden="true"></i>
-            {{ profile.website }}
-          </span>
-        {% elif profile.instagram %}
-          <span class="ds-sidebar__company-pill" data-company-sidebar-link>
-            <i class="fab fa-instagram" aria-hidden="true"></i>
-            {{ profile.instagram }}
-          </span>
-        {% else %}
-          <span class="ds-sidebar__company-pill" data-company-sidebar-link hidden>
-            —
-          </span>
-        {% endif %}
-      </div>
-      <button type="button" class="ds-sidebar__company-action" data-company-edit data-tab-link="company">
-        <span>{% if profile.company_name %}Редагувати компанію{% else %}Створити компанію{% endif %}</span>
-        <i class="fas fa-chevron-right" aria-hidden="true"></i>
-      </button>
     </div>
     {% endwith %}
 
@@ -107,7 +118,7 @@
     </nav>
 
     <div class="ds-sidebar__support">
-      <a href="https://t.me/twocomms_support"
+      <a href="https://t.me/twocomms"
          class="ds-support-btn"
          target="_blank"
          rel="noopener"
@@ -126,7 +137,7 @@
         </span>
         <span class="ds-support-btn__meta">
           <span class="ds-support-btn__title">Зв'язок 24/7</span>
-          <span class="ds-support-btn__subtitle">@twocomms_support</span>
+          <span class="ds-support-btn__subtitle">@twocomms</span>
         </span>
       </a>
     </div>

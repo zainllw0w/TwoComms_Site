@@ -42,7 +42,14 @@ class CompanyProfileForm(forms.Form):
     payment_details = forms.CharField(
         label="Реквізити для виплат",
         required=False,
-        widget=forms.Textarea(attrs={"placeholder": "IBAN або номер картки"})
+        widget=forms.Textarea(
+            attrs={
+                "placeholder": "IBAN або номер картки",
+                "rows": 4,
+                "maxlength": 180,
+                "class": "ds-textarea ds-textarea--payment",
+            }
+        )
     )
     avatar = forms.ImageField(
         label="Логотип",
