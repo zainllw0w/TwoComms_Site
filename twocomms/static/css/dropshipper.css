@@ -192,41 +192,53 @@ body {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.ds-telegram-btn {
-  position: relative;
+.ds-support-btn {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 10px;
+  grid-template-columns: 42px 1fr;
+  gap: 12px;
   align-items: center;
   padding: 14px 16px;
-  border-radius: var(--ds-radius-sm);
-  color: #fff;
-  background: linear-gradient(130deg, #2aabee, #229ed9);
-  box-shadow: 0 18px 30px rgba(34, 158, 217, 0.35);
+  border-radius: var(--ds-radius-md);
+  background: rgba(25, 32, 46, 0.88);
+  border: 1px solid rgba(80, 170, 255, 0.28);
   text-decoration: none;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  transition: transform var(--ds-transition), box-shadow var(--ds-transition);
+  box-shadow: 0 18px 32px rgba(19, 84, 142, 0.35);
+  transition: transform var(--ds-transition), box-shadow var(--ds-transition), border-color var(--ds-transition);
 }
 
-.ds-telegram-btn:hover,
-.ds-telegram-btn:focus-visible {
+.ds-support-btn:hover,
+.ds-support-btn:focus-visible {
   transform: translateY(-2px);
-  box-shadow: 0 20px 36px rgba(34, 158, 217, 0.45);
+  box-shadow: 0 22px 38px rgba(19, 84, 142, 0.45);
+  border-color: rgba(132, 206, 255, 0.45);
   outline: none;
 }
 
-.ds-telegram-btn__icon {
-  width: 32px;
-  height: 32px;
+.ds-support-btn__icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
   display: grid;
   place-items: center;
-  background: rgba(255, 255, 255, 0.18);
-  border-radius: 10px;
+  background: rgba(37, 114, 188, 0.28);
 }
 
-.ds-telegram-btn__label {
-  font-size: 0.92rem;
+.ds-support-btn__meta {
+  display: grid;
+  gap: 2px;
+}
+
+.ds-support-btn__title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f5fbff;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.ds-support-btn__subtitle {
+  font-size: 0.82rem;
+  color: rgba(195, 228, 255, 0.85);
 }
 
 /* Main column */
@@ -3192,8 +3204,8 @@ body {
 .ds-hero__confidence {
   display: grid;
   gap: clamp(14px, 2.4vw, 20px);
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  margin-top: clamp(12px, 2.4vw, 20px);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: clamp(14px, 2.6vw, 24px);
 }
 
 .ds-feature-card {
@@ -4234,13 +4246,13 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 10px 16px;
+  gap: 10px;
+  padding: 8px 12px;
   border-radius: 999px;
   border: 1px solid rgba(139, 92, 246, 0.24);
   background: rgba(139, 92, 246, 0.12);
   color: rgba(221, 214, 254, 0.9);
-  font-size: 0.88rem;
+  font-size: 0.78rem;
   font-weight: 600;
   transition: transform 0.3s ease, background 0.3s ease;
 }
@@ -4281,6 +4293,10 @@ body {
     grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   }
 
+  .ds-hero__confidence {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+
   .ds-sidebar {
     position: relative !important;
     width: 100% !important;
@@ -4310,6 +4326,6 @@ body {
 
 @media (min-width: 1280px) {
   .ds-hero__confidence {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
