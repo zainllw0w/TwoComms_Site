@@ -91,11 +91,17 @@
         {% for product in page_obj %}
           <article class="product-card ds-product-card" data-product-id="{{ product.id }}">
             <div class="ds-product-card__media">
-              <img class="product-image"
-                   src="{{ product.display_image.url }}"
-                   alt="{{ product.title }}"
-                   loading="lazy"
-                   onerror="this.src='{% static 'img/placeholder.jpg' %}'">
+              {% if product.primary_image %}
+                <img class="product-image"
+                     src="{{ product.primary_image.url }}"
+                     alt="{{ product.title }}"
+                     loading="lazy">
+              {% else %}
+                <img class="product-image"
+                     src="{% static 'img/placeholder.jpg' %}"
+                     alt="{{ product.title }}"
+                     loading="lazy">
+              {% endif %}
               <span class="ds-product-card__badge">
                 <i class="fas fa-box" aria-hidden="true"></i>
                 {{ product.category.name|default:"Категорія" }}
@@ -105,18 +111,27 @@
             <div class="ds-product-card__body">
               <h2 class="product-title">{{ product.title }}</h2>
               <p class="ds-product-card__description">
-                {{ product.description|default:"" |truncatewords:24 }}
+                {{ product.description|default:"Готові матеріали, фото та опис додамо за запитом менеджеру."|truncatewords:24 }}
               </p>
 
               <div class="ds-product-pricing">
                 <div class="ds-product-price">
                   <span class="ds-product-price__label">Ціна дропа</span>
-                  <span class="ds-product-price__value drop-price">{{ product.get_drop_price }} грн</span>
+                  <span class="ds-product-price__value drop-price">{{ product.drop_price_value }} грн</span>
+                  <span class="ds-product-price__hint">Закупівельна вартість з виробництва</span>
                 </div>
-                <div class="ds-product-price">
+                <div class="ds-product-price ds-product-price--recommended">
                   <span class="ds-product-price__label">Рекомендована</span>
-                  <span class="ds-product-price__value recommended-price">{{ product.recommended_price|floatformat:0 }} грн</span>
+                  <span class="ds-product-price__value recommended-price">{{ product.recommended_base_price }} грн</span>
+                  <span class="ds-product-price__hint">
+                    Діапазон {{ product.recommended_price_info.min }}–{{ product.recommended_price_info.max }} грн
+                  </span>
                 </div>
+              </div>
+
+              <div class="ds-product-margin">
+                <span class="ds-product-margin__value">+{{ product.dropship_margin }} грн</span>
+                <span class="ds-product-margin__label">Орієнтовна маржа з базової ціни</span>
               </div>
 
               <div class="ds-product-meta">
