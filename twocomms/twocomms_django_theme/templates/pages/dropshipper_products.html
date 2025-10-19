@@ -12,7 +12,7 @@
   {% include "partials/dropshipper_sidebar.html" with active_tab="products" %}
 
   <main class="ds-main" data-tab-container>
-    <section class="ds-tab-panel is-active" data-tab-panel="products">
+    <section class="ds-tab-panel is-active" data-tab-panel="products" data-products-url="{% url 'orders:dropshipper_products' %}">
       {% include "partials/dropshipper_products_panel.html" %}
     </section>
   </main>

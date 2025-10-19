@@ -143,6 +143,10 @@
     const input = productSearchForm?.querySelector('input[name="search"]');
 
     quickButtons.forEach((btn) => {
+      if (btn.dataset.quickAddBound === 'true') {
+        return;
+      }
+      btn.dataset.quickAddBound = 'true';
       btn.addEventListener('click', () => {
         openModal(productModal);
         orderModal.setAttribute('aria-hidden', 'true');
@@ -156,6 +160,14 @@
       });
     });
   }
+
+  document.addEventListener('ds:tabloaded', (event) => {
+    if (event.detail?.target === 'products') {
+      bindQuickAddButtons();
+    }
+  });
+
+  document.addEventListener('ds:products-updated', bindQuickAddButtons);
 
   function performSearch(query) {
     if (!query) {
