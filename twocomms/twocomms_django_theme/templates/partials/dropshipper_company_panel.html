@@ -18,53 +18,97 @@
         data-company-form
         action="{% url 'orders:dropshipper_company' %}">
     {% csrf_token %}
-    <div class="ds-company-form__grid">
-      <label class="ds-input">
-        <span class="ds-input__label">Назва компанії / ФОП *</span>
-        {{ form.company_name }}
-        <span class="ds-field-error" data-field-error="company_name" hidden></span>
-      </label>
-      <label class="ds-input">
-        <span class="ds-input__label">ЄДРПОУ / ІПН</span>
-        {{ form.company_number }}
-        <span class="ds-field-error" data-field-error="company_number" hidden></span>
-      </label>
-      <label class="ds-input">
-        <span class="ds-input__label">Офіційний e-mail</span>
-        {{ form.email }}
-        <span class="ds-field-error" data-field-error="email" hidden></span>
-      </label>
-      <label class="ds-input">
-        <span class="ds-input__label">Телефон для відправлень *</span>
-        {{ form.phone }}
-        <span class="ds-field-error" data-field-error="phone" hidden></span>
-      </label>
-      <label class="ds-input">
-        <span class="ds-input__label">Сайт / маркетплейс</span>
-        {{ form.website }}
-        <span class="ds-field-error" data-field-error="website" hidden></span>
-      </label>
-      <label class="ds-input">
-        <span class="ds-input__label">Instagram</span>
-        {{ form.instagram }}
-        <span class="ds-field-error" data-field-error="instagram" hidden></span>
-      </label>
-      <label class="ds-input">
-        <span class="ds-input__label">Telegram</span>
-        {{ form.telegram }}
-        <span class="ds-field-error" data-field-error="telegram" hidden></span>
-      </label>
-      <label class="ds-input ds-input--file">
-        <span class="ds-input__label">Логотип / зображення бренду</span>
-        {{ form.avatar }}
-        <span class="ds-field-hint">Формати: JPG, PNG до 5 МБ</span>
-        <span class="ds-field-error" data-field-error="avatar" hidden></span>
-      </label>
-      <label class="ds-input ds-input--full">
-        <span class="ds-input__label">Реквізити для виплат</span>
-        {{ form.payment_details }}
-        <span class="ds-field-error" data-field-error="payment_details" hidden></span>
-      </label>
+    <div class="ds-company-form__layout">
+      <section class="ds-company-form__section">
+        <header class="ds-company-form__section-header">
+          <span class="ds-company-form__section-badge">
+            <i class="fas fa-id-card" aria-hidden="true"></i>
+            Основні дані
+          </span>
+          <h2 class="ds-company-form__section-title">Представте бренд партнерам</h2>
+          <p class="ds-company-form__section-text">
+            Назва та реєстраційні дані потрібні для документів та ідентифікації під час відвантаження.
+          </p>
+        </header>
+        <div class="ds-company-form__grid">
+          <label class="ds-input">
+            <span class="ds-input__label">Назва компанії / ФОП *</span>
+            {{ form.company_name }}
+            <span class="ds-field-error" data-field-error="company_name" hidden></span>
+          </label>
+          <label class="ds-input">
+            <span class="ds-input__label">ЄДРПОУ / ІПН</span>
+            {{ form.company_number }}
+            <span class="ds-field-error" data-field-error="company_number" hidden></span>
+          </label>
+          <label class="ds-input ds-input--file">
+            <span class="ds-input__label">Логотип / зображення бренду</span>
+            {{ form.avatar }}
+            <span class="ds-field-hint">Формати: JPG, PNG до 5 МБ</span>
+            <span class="ds-field-error" data-field-error="avatar" hidden></span>
+          </label>
+        </div>
+      </section>
+
+      <section class="ds-company-form__section">
+        <header class="ds-company-form__section-header">
+          <span class="ds-company-form__section-badge">
+            <i class="fas fa-headset" aria-hidden="true"></i>
+            Контакти
+          </span>
+          <h2 class="ds-company-form__section-title">Як з вами зв’язатися</h2>
+          <p class="ds-company-form__section-text">
+            Актуальні контакти допомагають менеджерам координувати відправлення та відповідати вашим клієнтам швидше.
+          </p>
+        </header>
+        <div class="ds-company-form__grid">
+          <label class="ds-input">
+            <span class="ds-input__label">Офіційний e-mail</span>
+            {{ form.email }}
+            <span class="ds-field-error" data-field-error="email" hidden></span>
+          </label>
+          <label class="ds-input">
+            <span class="ds-input__label">Телефон для відправлень *</span>
+            {{ form.phone }}
+            <span class="ds-field-error" data-field-error="phone" hidden></span>
+          </label>
+          <label class="ds-input">
+            <span class="ds-input__label">Сайт / маркетплейс</span>
+            {{ form.website }}
+            <span class="ds-field-error" data-field-error="website" hidden></span>
+          </label>
+          <label class="ds-input">
+            <span class="ds-input__label">Instagram</span>
+            {{ form.instagram }}
+            <span class="ds-field-error" data-field-error="instagram" hidden></span>
+          </label>
+          <label class="ds-input">
+            <span class="ds-input__label">Telegram</span>
+            {{ form.telegram }}
+            <span class="ds-field-error" data-field-error="telegram" hidden></span>
+          </label>
+        </div>
+      </section>
+
+      <section class="ds-company-form__section ds-company-form__section--accent">
+        <header class="ds-company-form__section-header">
+          <span class="ds-company-form__section-badge">
+            <i class="fas fa-credit-card" aria-hidden="true"></i>
+            Виплати
+          </span>
+          <h2 class="ds-company-form__section-title">Реквізити для переказів</h2>
+          <p class="ds-company-form__section-text">
+            Вкажіть IBAN або карту банку, який використовуєте для отримання виплат. Ми збережемо реквізити у шифрованому вигляді.
+          </p>
+        </header>
+        <div class="ds-company-form__grid ds-company-form__grid--single">
+          <label class="ds-input ds-input--full">
+            <span class="ds-input__label">Реквізити для виплат</span>
+            {{ form.payment_details }}
+            <span class="ds-field-error" data-field-error="payment_details" hidden></span>
+          </label>
+        </div>
+      </section>
     </div>
 
     <div class="ds-company-form__footer">
