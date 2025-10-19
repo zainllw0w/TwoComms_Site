@@ -347,6 +347,7 @@ FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o755
 # Убедимся, что STATICFILES_DIRS настроен правильно
 STATICFILES_DIRS = [
     BASE_DIR / "twocomms_django_theme" / "static",
+    BASE_DIR / "static",
 ]
 
 # Настройки безопасности
