@@ -172,7 +172,12 @@
     productResults.dataset.emptyText = 'Завантажуємо товари…';
     productResults.innerHTML = '';
 
-    fetch(`/orders/dropshipper/products/?search=${encodeURIComponent(query)}`, {
+    const searchParams = new URLSearchParams({
+      search: query,
+      partial: '1',
+    });
+
+    fetch(`/orders/dropshipper/products/?${searchParams.toString()}`, {
       signal: searchAbortController.signal,
     })
       .then((response) => response.text())
