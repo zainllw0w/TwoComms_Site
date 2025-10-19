@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.core.paginator import Paginator
 from django.db.models import Q, Sum, Count
 from django.db.models.functions import TruncMonth
+from decimal import Decimal, ROUND_HALF_UP
 import json
 
 from .models import DropshipperOrder, DropshipperOrderItem, DropshipperStats, DropshipperPayout
@@ -37,6 +38,7 @@ def dropshipper_dashboard(request):
         'stats': stats,
         'recent_orders': recent_orders,
         'categories': categories,
+        'payout_methods': DropshipperPayout.PAYMENT_METHOD_CHOICES,
     }
     
     return render(request, 'pages/dropshipper_dashboard.html', context)
@@ -85,9 +87,14 @@ def dropshipper_products(request):
         'categories': categories,
         'selected_category': category_id,
         'search_query': search_query,
+        'payout_methods': DropshipperPayout.PAYMENT_METHOD_CHOICES,
     }
+
+    template_name = 'pages/dropshipper_products.html'
+    if request.GET.get('partial'):
+        template_name = 'partials/dropshipper_products_panel.html'
     
-    return render(request, 'pages/dropshipper_products.html', context)
+    return render(request, template_name, context)
 
 
 @login_required
@@ -111,9 +118,14 @@ def dropshipper_orders(request):
         'page_obj': page_obj,
         'status_choices': DropshipperOrder.STATUS_CHOICES,
         'selected_status': status_filter,
+        'payout_methods': DropshipperPayout.PAYMENT_METHOD_CHOICES,
     }
+
+    template_name = 'pages/dropshipper_orders.html'
+    if request.GET.get('partial'):
+        template_name = 'partials/dropshipper_orders_panel.html'
     
-    return render(request, 'pages/dropshipper_orders.html', context)
+    return render(request, template_name, context)
 
 
 @login_required
@@ -145,13 +157,28 @@ def dropshipper_statistics(request):
         total_revenue=Sum('total_selling_price')
     ).order_by('-total_sold')[:10]
     
+    average_order_value = Decimal('0')
+    if stats.completed_orders:
+        average_order_value = (stats.total_revenue / stats.completed_orders).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    delivery_rate = Decimal('0')
+    if stats.total_orders:
+        delivery_rate = (Decimal(stats.completed_orders) / Decimal(stats.total_orders) * Decimal('100')).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
+
     context = {
         'stats': stats,
         'monthly_stats': monthly_stats,
         'top_products': top_products,
+        'average_order_value': average_order_value,
+        'delivery_rate': delivery_rate,
+        'payout_methods': DropshipperPayout.PAYMENT_METHOD_CHOICES,
     }
+
+    template_name = 'pages/dropshipper_statistics.html'
+    if request.GET.get('partial'):
+        template_name = 'partials/dropshipper_statistics_panel.html'
     
-    return render(request, 'pages/dropshipper_statistics.html', context)
+    return render(request, template_name, context)
 
 
 @login_required
@@ -178,9 +205,14 @@ def dropshipper_payouts(request):
         'available_amount': available_amount,
         'status_choices': DropshipperPayout.STATUS_CHOICES,
         'payment_method_choices': DropshipperPayout.PAYMENT_METHOD_CHOICES,
+        'payout_methods': DropshipperPayout.PAYMENT_METHOD_CHOICES,
     }
+
+    template_name = 'pages/dropshipper_payouts.html'
+    if request.GET.get('partial'):
+        template_name = 'partials/dropshipper_payouts_panel.html'
     
-    return render(request, 'pages/dropshipper_payouts.html', context)
+    return render(request, template_name, context)
 
 
 @login_required
