@@ -39,6 +39,7 @@ def dropshipper_dashboard(request):
         'recent_orders': recent_orders,
         'categories': categories,
         'payout_methods': DropshipperPayout.PAYMENT_METHOD_CHOICES,
+        'payment_method_choices': DropshipperPayout.PAYMENT_METHOD_CHOICES,
     }
     
     return render(request, 'pages/dropshipper_dashboard.html', context)
@@ -88,6 +89,7 @@ def dropshipper_products(request):
         'selected_category': category_id,
         'search_query': search_query,
         'payout_methods': DropshipperPayout.PAYMENT_METHOD_CHOICES,
+        'payment_method_choices': DropshipperPayout.PAYMENT_METHOD_CHOICES,
     }
 
     template_name = 'pages/dropshipper_products.html'
@@ -119,6 +121,7 @@ def dropshipper_orders(request):
         'status_choices': DropshipperOrder.STATUS_CHOICES,
         'selected_status': status_filter,
         'payout_methods': DropshipperPayout.PAYMENT_METHOD_CHOICES,
+        'payment_method_choices': DropshipperPayout.PAYMENT_METHOD_CHOICES,
     }
 
     template_name = 'pages/dropshipper_orders.html'
@@ -172,6 +175,7 @@ def dropshipper_statistics(request):
         'average_order_value': average_order_value,
         'delivery_rate': delivery_rate,
         'payout_methods': DropshipperPayout.PAYMENT_METHOD_CHOICES,
+        'payment_method_choices': DropshipperPayout.PAYMENT_METHOD_CHOICES,
     }
 
     template_name = 'pages/dropshipper_statistics.html'
