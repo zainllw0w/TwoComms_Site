@@ -77,3 +77,47 @@
     </div>
   </div>
 </div>
+
+{% with methods=payout_methods|default:payment_method_choices %}
+<div class="ds-modal" id="ds-payout-modal" role="dialog" aria-modal="true" aria-labelledby="ds-payout-modal-title" hidden>
+  <div class="ds-modal__overlay" data-dismiss-modal></div>
+  <div class="ds-modal__dialog">
+    <header class="ds-modal__header">
+      <h2 class="ds-modal__title" id="ds-payout-modal-title">Запит на виплату</h2>
+      <button type="button" class="ds-modal__close" data-dismiss-modal aria-label="Закрити">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </header>
+
+    <form id="ds-payout-form" class="ds-form">
+      {% csrf_token %}
+      <div class="ds-form__grid">
+        <label class="ds-input">
+          <span class="ds-input__label">Спосіб виплати</span>
+          <select name="payment_method" required>
+            {% for value, label in methods %}
+              <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="ds-input ds-input--full">
+          <span class="ds-input__label">Реквізити для виплати</span>
+          <input type="text" name="payment_details" required placeholder="Номер картки, рахунку чи гаманець">
+        </label>
+        <label class="ds-input ds-input--full">
+          <span class="ds-input__label">Примітки для менеджера</span>
+          <textarea name="notes" rows="3" placeholder="Додаткові побажання чи коментарі"></textarea>
+        </label>
+      </div>
+
+      <footer class="ds-modal__footer">
+        <button type="button" class="ds-btn ds-btn--ghost" data-dismiss-modal>Скасувати</button>
+        <button type="submit" class="ds-btn ds-btn--primary">
+          <i class="fas fa-paper-plane" aria-hidden="true"></i>
+          <span>Надіслати запит</span>
+        </button>
+      </footer>
+    </form>
+  </div>
+</div>
+{% endwith %}

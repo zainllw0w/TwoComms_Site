@@ -455,4 +455,6 @@
       toast.classList.remove('is-visible');
     }, 4000);
   }
+
+  window.dsShowToast = showToast;
 })();

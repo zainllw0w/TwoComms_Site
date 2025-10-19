@@ -1,0 +1,132 @@
+<div class="ds-container">
+  <section class="ds-section ds-statistics-hero" data-animate>
+    <header class="ds-section__header">
+      <div>
+        <h1 class="ds-section__title">Аналітика продажів</h1>
+        <p class="ds-section__subtitle">
+          Відстежуйте динаміку замовлень, виручки та прибутку. Дані оновлюються автоматично при зміні статусів.
+        </p>
+      </div>
+      <div class="ds-actions">
+        <a href="{% url 'orders:dropshipper_dashboard' %}" class="ds-btn ds-btn--ghost" data-tab-link="main">
+          <i class="fas fa-home" aria-hidden="true"></i>
+          <span>На головну</span>
+        </a>
+      </div>
+    </header>
+
+    <div class="ds-stat-cards">
+      <article class="ds-stat-card" data-fade>
+        <span class="ds-stat-card__icon ds-stat-card__icon--orders">
+          <i class="fas fa-clipboard-check" aria-hidden="true"></i>
+        </span>
+        <div>
+          <span class="ds-stat-card__label">Усього замовлень</span>
+          <strong class="ds-stat-card__value">{{ stats.total_orders }}</strong>
+        </div>
+      </article>
+      <article class="ds-stat-card" data-fade data-delay="80">
+        <span class="ds-stat-card__icon ds-stat-card__icon--revenue">
+          <i class="fas fa-coins" aria-hidden="true"></i>
+        </span>
+        <div>
+          <span class="ds-stat-card__label">Виручка</span>
+          <strong class="ds-stat-card__value">{{ stats.total_revenue|floatformat:0 }} грн</strong>
+        </div>
+      </article>
+      <article class="ds-stat-card" data-fade data-delay="160">
+        <span class="ds-stat-card__icon ds-stat-card__icon--profit">
+          <i class="fas fa-chart-line" aria-hidden="true"></i>
+        </span>
+        <div>
+          <span class="ds-stat-card__label">Чистий прибуток</span>
+          <strong class="ds-stat-card__value">{{ stats.total_profit|floatformat:0 }} грн</strong>
+        </div>
+      </article>
+      <article class="ds-stat-card" data-fade data-delay="240">
+        <span class="ds-stat-card__icon ds-stat-card__icon--avg">
+          <i class="fas fa-percentage" aria-hidden="true"></i>
+        </span>
+        <div>
+          <span class="ds-stat-card__label">Середній чек</span>
+          <strong class="ds-stat-card__value">{{ average_order_value|floatformat:0 }} грн</strong>
+        </div>
+      </article>
+      <article class="ds-stat-card" data-fade data-delay="320">
+        <span class="ds-stat-card__icon ds-stat-card__icon--items">
+          <i class="fas fa-box-open" aria-hidden="true"></i>
+        </span>
+        <div>
+          <span class="ds-stat-card__label">Товарів доставлено</span>
+          <strong class="ds-stat-card__value">{{ stats.total_items_sold }}</strong>
+        </div>
+      </article>
+      <article class="ds-stat-card" data-fade data-delay="400">
+        <span class="ds-stat-card__icon ds-stat-card__icon--rate">
+          <i class="fas fa-bolt" aria-hidden="true"></i>
+        </span>
+        <div>
+          <span class="ds-stat-card__label">Конверсія у доставку</span>
+          <strong class="ds-stat-card__value">{{ delivery_rate|floatformat:0 }}%</strong>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="ds-section ds-statistics-body" data-animate>
+    <div class="ds-statistics-columns">
+      <div class="ds-statistics-card" data-fade>
+        <header class="ds-statistics-card__header">
+          <h2>Динаміка по місяцях</h2>
+          <p>Контролюйте активність дропу та прогнозуйте вивантаження.</p>
+        </header>
+        {% if monthly_stats %}
+          <ul class="ds-statistics-timeline">
+            {% for item in monthly_stats %}
+              <li>
+                <span class="ds-statistics-timeline__date">{{ item.month|date:"F Y" }}</span>
+                <div class="ds-statistics-timeline__values">
+                  <span><strong>{{ item.orders_count }}</strong> зам.</span>
+                  <span><strong>{{ item.total_revenue|floatformat:0 }}</strong> грн</span>
+                  <span><strong>{{ item.total_profit|floatformat:0 }}</strong> грн прибутку</span>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="ds-empty ds-empty--inline">
+            <i class="fas fa-chart-area" aria-hidden="true"></i>
+            <h3 class="ds-empty__title">Поки немає даних</h3>
+            <p class="ds-empty__text">Коли з’являться доставлені замовлення, статистика відобразиться автоматично.</p>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="ds-statistics-card" data-fade data-delay="120">
+        <header class="ds-statistics-card__header">
+          <h2>Топ-товари</h2>
+          <p>Дивіться, що продається найкраще, і використовуйте ці позиції в промо.</p>
+        </header>
+        {% if top_products %}
+          <ol class="ds-statistics-top-products">
+            {% for product in top_products %}
+              <li>
+                <div>
+                  <span class="ds-statistics-top-products__name">{{ product.product__title }}</span>
+                  <span class="ds-statistics-top-products__meta">{{ product.total_sold }} шт.</span>
+                </div>
+                <span class="ds-statistics-top-products__value">{{ product.total_revenue|floatformat:0 }} грн</span>
+              </li>
+            {% endfor %}
+          </ol>
+        {% else %}
+          <div class="ds-empty ds-empty--inline">
+            <i class="fas fa-boxes-stacked" aria-hidden="true"></i>
+            <h3 class="ds-empty__title">Ще немає топів</h3>
+            <p class="ds-empty__text">Збираємо дані після перших доставлених замовлень.</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+</div>

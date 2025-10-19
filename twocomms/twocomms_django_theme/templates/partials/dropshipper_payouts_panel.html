@@ -1,0 +1,146 @@
+<div class="ds-container">
+  <section class="ds-section ds-payouts-hero" data-animate>
+    <header class="ds-section__header">
+      <div>
+        <h1 class="ds-section__title">Виплати</h1>
+        <p class="ds-section__subtitle">Контролюйте суми, статуси та включені замовлення. Подайте запит на виплату, коли готові.</p>
+      </div>
+      <div class="ds-actions">
+        <a href="{% url 'orders:dropshipper_dashboard' %}" class="ds-btn ds-btn--ghost" data-tab-link="main">
+          <i class="fas fa-home" aria-hidden="true"></i>
+          <span>На головну</span>
+        </a>
+      </div>
+    </header>
+
+    <div class="ds-payouts-overview">
+      <div class="ds-payouts-overview__card" data-fade>
+        <span class="ds-payouts-overview__label">Доступно до виплати</span>
+        <strong class="ds-payouts-overview__value">{{ available_amount|floatformat:0 }} грн</strong>
+        <p>Підтверджені доставлені замовлення без запиту на виплату.</p>
+        <button type="button" class="ds-btn ds-btn--primary" data-request-payout {% if available_amount <= 0 %}disabled{% endif %}>
+          <i class="fas fa-wallet" aria-hidden="true"></i>
+          <span>Запросити виплату</span>
+        </button>
+      </div>
+      <div class="ds-payouts-overview__hint" data-fade data-delay="120">
+        <i class="fas fa-info-circle" aria-hidden="true"></i>
+        <div>
+          <strong>Нова виплата</strong>
+          <p>Після запиту менеджер зв’яжеться з вами для підтвердження деталей та узгодження дати переказу.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ds-section ds-payouts-list" data-animate>
+    {% if page_obj %}
+      <div class="ds-payouts-table">
+        {% for payout in page_obj %}
+          <article class="ds-payout-card" data-fade>
+            <header class="ds-payout-card__header">
+              <div>
+                <span class="ds-pill ds-pill--ghost">
+                  <i class="fas fa-receipt" aria-hidden="true"></i>
+                  {{ payout.payout_number }}
+                </span>
+                <h2 class="ds-payout-card__title">{{ payout.amount|floatformat:0 }} грн</h2>
+                <p class="ds-payout-card__meta">Запитано {{ payout.requested_at|date:"d.m.Y" }}</p>
+              </div>
+              <div class="ds-payout-card__status">
+                <span class="ds-status {% if payout.status == 'completed' %}ds-status--success{% elif payout.status == 'cancelled' %}ds-status--danger{% else %}ds-status--info{% endif %}">
+                  {{ payout.get_status_display }}
+                </span>
+                <span class="ds-tag">
+                  <i class="fas fa-money-check" aria-hidden="true"></i>
+                  {{ payout.get_payment_method_display }}
+                </span>
+              </div>
+            </header>
+
+            <div class="ds-payout-card__body">
+              <div class="ds-payout-card__col">
+                <span class="ds-payout-card__label">Реквізити</span>
+                <p class="ds-payout-card__value">{{ payout.payment_details }}</p>
+                {% if payout.notes %}
+                  <p class="ds-payout-card__note">{{ payout.notes }}</p>
+                {% endif %}
+              </div>
+              <div class="ds-payout-card__col">
+                <span class="ds-payout-card__label">Статус дій</span>
+                <ul class="ds-payout-card__timeline">
+                  <li class="{% if payout.requested_at %}is-done{% endif %}">
+                    <i class="fas fa-check-circle" aria-hidden="true"></i>
+                    Запит створено {{ payout.requested_at|date:"d.m.Y H:i" }}
+                  </li>
+                  <li class="{% if payout.processed_at %}is-done{% endif %}">
+                    <i class="fas fa-clipboard-list" aria-hidden="true"></i>
+                    Обробка {% if payout.processed_at %}{{ payout.processed_at|date:"d.m.Y H:i" }}{% else %}очікує{% endif %}
+                  </li>
+                  <li class="{% if payout.completed_at %}is-done{% endif %}">
+                    <i class="fas fa-circle-check" aria-hidden="true"></i>
+                    Виплачено {% if payout.completed_at %}{{ payout.completed_at|date:"d.m.Y H:i" }}{% else %}очікує{% endif %}
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <details class="ds-payout-card__orders">
+              <summary>
+                <span>
+                  <i class="fas fa-boxes-stacked" aria-hidden="true"></i>
+                  Замовлення у виплаті ({{ payout.included_orders.count }})
+                </span>
+                <i class="fas fa-chevron-down" aria-hidden="true"></i>
+              </summary>
+              <ul>
+                {% for order in payout.included_orders.all %}
+                  <li>
+                    <span>{{ order.order_number }} · {{ order.client_name|default:"Без назви" }}</span>
+                    <span class="ds-payout-card__orders-price">{{ order.total_selling_price|floatformat:0 }} грн</span>
+                  </li>
+                {% endfor %}
+              </ul>
+            </details>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="ds-empty">
+        <i class="fas fa-wallet" aria-hidden="true"></i>
+        <h3 class="ds-empty__title">Виплат поки немає</h3>
+        <p class="ds-empty__text">Коли ви підтвердите кілька доставлених замовлень, сформуйте перший запит на виплату.</p>
+      </div>
+    {% endif %}
+  </section>
+
+  {% if page_obj.paginator.num_pages > 1 %}
+    <nav class="ds-pagination" aria-label="Пагінація виплат">
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}" class="ds-pagination__link">
+          <i class="fas fa-chevron-left" aria-hidden="true"></i>
+          Попередня
+        </a>
+      {% else %}
+        <span class="ds-pagination__link ds-pagination__link--disabled">
+          <i class="fas fa-chevron-left" aria-hidden="true"></i>
+          Попередня
+        </span>
+      {% endif %}
+
+      <span class="ds-pagination__current">Сторінка {{ page_obj.number }} з {{ page_obj.paginator.num_pages }}</span>
+
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}" class="ds-pagination__link">
+          <i class="fas fa-chevron-right" aria-hidden="true"></i>
+          Наступна
+        </a>
+      {% else %}
+        <span class="ds-pagination__link ds-pagination__link--disabled">
+          <i class="fas fa-chevron-right" aria-hidden="true"></i>
+          Наступна
+        </span>
+      {% endif %}
+    </nav>
+  {% endif %}
+</div>

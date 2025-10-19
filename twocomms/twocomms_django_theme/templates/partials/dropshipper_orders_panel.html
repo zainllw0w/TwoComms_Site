@@ -1,0 +1,179 @@
+<div class="ds-container">
+  <section class="ds-section ds-orders-hero" data-animate>
+    <header class="ds-section__header">
+      <div>
+        <h1 class="ds-section__title">Замовлення ваших клієнтів</h1>
+        <p class="ds-section__subtitle">
+          Контролюйте статуси, оплату та склад замовлення. Усе необхідне для роботи з клієнтами — в одній таблиці.
+        </p>
+      </div>
+      <div class="ds-actions">
+        <button type="button" class="ds-btn ds-btn--primary js-open-order-modal">
+          <i class="fas fa-plus" aria-hidden="true"></i>
+          <span>Нове замовлення</span>
+        </button>
+        <a href="{% url 'orders:dropshipper_dashboard' %}" class="ds-btn ds-btn--ghost" data-tab-link="main">
+          <i class="fas fa-home" aria-hidden="true"></i>
+          <span>На головну</span>
+        </a>
+      </div>
+    </header>
+
+    <form method="get" class="ds-orders-filter">
+      <label class="ds-orders-filter__label" for="order-status">Статус</label>
+      <div class="ds-select">
+        <select id="order-status" name="status" onchange="this.form.submit()">
+          <option value="">Усі замовлення</option>
+          {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% if selected_status %}
+        <a href="{% url 'orders:dropshipper_orders' %}" class="ds-link ds-link--reset">Скинути</a>
+      {% endif %}
+    </form>
+  </section>
+
+  <section class="ds-section ds-orders-list" data-animate>
+    {% if page_obj %}
+      <div class="ds-orders-table">
+        {% for order in page_obj %}
+          <article class="ds-order-entry" data-fade>
+            <header class="ds-order-entry__header">
+              <div>
+                <span class="ds-pill ds-pill--ghost">
+                  <i class="fas fa-hashtag" aria-hidden="true"></i>
+                  {{ order.order_number }}
+                </span>
+                <h2 class="ds-order-entry__title">{{ order.client_name|default:"Без назви" }}</h2>
+                <p class="ds-order-entry__meta">
+                  {{ order.created_at|date:"d.m.Y" }} · {{ order.get_status_display }}
+                </p>
+              </div>
+              <div class="ds-order-entry__status">
+                <span class="ds-status {% if order.status == 'delivered' %}ds-status--success{% elif order.status == 'cancelled' %}ds-status--danger{% else %}ds-status--info{% endif %}">
+                  {{ order.get_status_display }}
+                </span>
+                <span class="ds-payment-status {% if order.payment_status == 'paid' %}is-paid{% endif %}">
+                  <i class="fas fa-credit-card" aria-hidden="true"></i>
+                  {{ order.get_payment_status_display }}
+                </span>
+              </div>
+            </header>
+
+            <div class="ds-order-entry__body">
+              <div class="ds-order-entry__col">
+                <span class="ds-order-entry__label">Контакти клієнта</span>
+                <div class="ds-order-entry__value">
+                  <i class="fas fa-phone" aria-hidden="true"></i>
+                  <span>{{ order.client_phone|default:"—" }}</span>
+                </div>
+                {% if order.client_np_address %}
+                  <div class="ds-order-entry__value">
+                    <i class="fas fa-location-dot" aria-hidden="true"></i>
+                    <span>{{ order.client_np_address }}</span>
+                  </div>
+                {% endif %}
+              </div>
+
+              <div class="ds-order-entry__col">
+                <span class="ds-order-entry__label">Фінанси</span>
+                <div class="ds-order-entry__metrics">
+                  <div>
+                    <small>Сума продажу</small>
+                    <strong>{{ order.total_selling_price|floatformat:0 }} грн</strong>
+                  </div>
+                  <div>
+                    <small>Собівартість</small>
+                    <strong>{{ order.total_drop_price|floatformat:0 }} грн</strong>
+                  </div>
+                  <div>
+                    <small>Прибуток</small>
+                    <strong>{{ order.profit|floatformat:0 }} грн</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div class="ds-order-entry__col">
+                <span class="ds-order-entry__label">Дії</span>
+                <div class="ds-order-entry__actions">
+                  <a href="{% url 'orders:dropshipper_statistics' %}?order={{ order.id }}" class="ds-link ds-link--arrow" data-tab-link="statistics">
+                    До статистики
+                    <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                  </a>
+                  {% if order.status == 'delivered' and order.payment_status != 'paid' %}
+                    <span class="ds-tag ds-tag--warning">Очікує виплати</span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+
+            {% if order.items.all %}
+              <details class="ds-order-entry__items">
+                <summary>
+                  <span>
+                    <i class="fas fa-box-open" aria-hidden="true"></i>
+                    {{ order.items.count }} позицій у замовленні
+                  </span>
+                  <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                </summary>
+                <ul>
+                  {% for item in order.items.all %}
+                    <li>
+                      <span>{{ item.product.title }}</span>
+                      <span class="ds-order-entry__item-qty">×{{ item.quantity }}</span>
+                      <span class="ds-order-entry__item-price">{{ item.total_selling_price|floatformat:0 }} грн</span>
+                    </li>
+                  {% endfor %}
+                </ul>
+              </details>
+            {% endif %}
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="ds-empty">
+        <i class="fas fa-inbox" aria-hidden="true"></i>
+        <h3 class="ds-empty__title">Замовлень поки немає</h3>
+        <p class="ds-empty__text">Створіть перше замовлення — система проведе вас крок за кроком.</p>
+        <button type="button" class="ds-btn ds-btn--primary js-open-order-modal">
+          <i class="fas fa-plus" aria-hidden="true"></i>
+          <span>Створити замовлення</span>
+        </button>
+      </div>
+    {% endif %}
+  </section>
+
+  {% if page_obj.paginator.num_pages > 1 %}
+    <nav class="ds-pagination" aria-label="Пагінація замовлень">
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}{% if selected_status %}&status={{ selected_status }}{% endif %}"
+           class="ds-pagination__link">
+          <i class="fas fa-chevron-left" aria-hidden="true"></i>
+          Попередня
+        </a>
+      {% else %}
+        <span class="ds-pagination__link ds-pagination__link--disabled">
+          <i class="fas fa-chevron-left" aria-hidden="true"></i>
+          Попередня
+        </span>
+      {% endif %}
+
+      <span class="ds-pagination__current">Сторінка {{ page_obj.number }} з {{ page_obj.paginator.num_pages }}</span>
+
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if selected_status %}&status={{ selected_status }}{% endif %}"
+           class="ds-pagination__link">
+          <i class="fas fa-chevron-right" aria-hidden="true"></i>
+          Наступна
+        </a>
+      {% else %}
+        <span class="ds-pagination__link ds-pagination__link--disabled">
+          <i class="fas fa-chevron-right" aria-hidden="true"></i>
+          Наступна
+        </span>
+      {% endif %}
+    </nav>
+  {% endif %}
+</div>

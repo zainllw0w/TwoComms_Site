@@ -1,0 +1,198 @@
+<div class="ds-container">
+  <section class="ds-section ds-products-hero" data-animate>
+    <header class="ds-section__header">
+      <div>
+        <h1 class="ds-section__title">Каталог TwoComms для ваших продажів</h1>
+        <p class="ds-section__subtitle">
+          Обирайте найгарячіші позиції, формуйте власні колекції і додавайте товари до замовлень напряму з панелі.
+        </p>
+      </div>
+      <div class="ds-actions">
+        <button type="button" class="ds-btn ds-btn--primary js-open-order-modal">
+          <i class="fas fa-plus" aria-hidden="true"></i>
+          <span>Створити замовлення</span>
+        </button>
+        <a href="{% url 'orders:dropshipper_dashboard' %}" class="ds-btn ds-btn--ghost" data-tab-link="main">
+          <i class="fas fa-home" aria-hidden="true"></i>
+          <span>На головну панель</span>
+        </a>
+      </div>
+    </header>
+
+    <div class="ds-product-stats">
+      <div class="ds-product-stats__item">
+        <span class="ds-product-stats__label">Доступні категорії</span>
+        <span class="ds-product-stats__value">{{ categories|length }}</span>
+      </div>
+      <div class="ds-product-stats__item">
+        <span class="ds-product-stats__label">Товарів у видачі</span>
+        <span class="ds-product-stats__value">{{ page_obj.paginator.count }}</span>
+      </div>
+      <div class="ds-product-stats__item">
+        <span class="ds-product-stats__label">На сторінці</span>
+        <span class="ds-product-stats__value">{{ page_obj|length }}</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="ds-section ds-products-filters" data-animate>
+    <form method="get" id="ds-product-filters" class="ds-filters">
+      <div class="ds-filters__group">
+        <label for="filter-category" class="ds-input__label">Категорія</label>
+        <div class="ds-select">
+          <select id="filter-category" name="category">
+            <option value="">Всі категорії</option>
+            {% for category in categories %}
+              <option value="{{ category.id }}" {% if selected_category == category.id|stringformat:"s" %}selected{% endif %}>
+                {{ category.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="ds-filters__group ds-filters__group--grow">
+        <label for="filter-search" class="ds-input__label">Пошук</label>
+        <div class="ds-input ds-input--search">
+          <i class="fas fa-search" aria-hidden="true"></i>
+          <input id="filter-search" type="search" name="search" value="{{ search_query }}" placeholder="Назва, опис, артикул">
+        </div>
+      </div>
+
+      <div class="ds-filters__actions">
+        <button type="submit" class="ds-btn ds-btn--primary">
+          <i class="fas fa-filter" aria-hidden="true"></i>
+          <span>Застосувати</span>
+        </button>
+        <a href="{% url 'orders:dropshipper_products' %}" class="ds-btn ds-btn--ghost">
+          <i class="fas fa-undo" aria-hidden="true"></i>
+          <span>Скинути</span>
+        </a>
+      </div>
+    </form>
+
+    {% if categories %}
+      <div class="ds-chip-cloud">
+        {% for category in categories|slice:":8" %}
+          <a class="ds-chip {% if selected_category == category.id|stringformat:'s' %}is-active{% endif %}"
+             href="?category={{ category.id }}{% if search_query %}&search={{ search_query }}{% endif %}">
+            <i class="fas fa-tag" aria-hidden="true"></i>
+            {{ category.name }}
+          </a>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </section>
+
+  <section class="ds-section ds-products-grid-wrapper" data-animate>
+    {% if page_obj %}
+      <div class="ds-products-grid">
+        {% for product in page_obj %}
+          <article class="product-card ds-product-card" data-product-id="{{ product.id }}">
+            <div class="ds-product-card__media">
+              <img class="product-image"
+                   src="{{ product.display_image.url }}"
+                   alt="{{ product.title }}"
+                   loading="lazy"
+                   onerror="this.src='{% static 'img/placeholder.jpg' %}'">
+              <span class="ds-product-card__badge">
+                <i class="fas fa-box" aria-hidden="true"></i>
+                {{ product.category.name|default:"Категорія" }}
+              </span>
+            </div>
+
+            <div class="ds-product-card__body">
+              <h2 class="product-title">{{ product.title }}</h2>
+              <p class="ds-product-card__description">
+                {{ product.description|default:"" |truncatewords:24 }}
+              </p>
+
+              <div class="ds-product-pricing">
+                <div class="ds-product-price">
+                  <span class="ds-product-price__label">Ціна дропа</span>
+                  <span class="ds-product-price__value drop-price">{{ product.get_drop_price }} грн</span>
+                </div>
+                <div class="ds-product-price">
+                  <span class="ds-product-price__label">Рекомендована</span>
+                  <span class="ds-product-price__value recommended-price">{{ product.recommended_price|floatformat:0 }} грн</span>
+                </div>
+              </div>
+
+              <div class="ds-product-meta">
+                <span class="ds-pill">
+                  <i class="fas fa-palette" aria-hidden="true"></i>
+                  {{ product.color_variants.count|default:0 }} кольорів
+                </span>
+                <span class="ds-pill">
+                  <i class="fas fa-ruler-horizontal" aria-hidden="true"></i>
+                  Розміри уточнюйте у менеджера
+                </span>
+              </div>
+            </div>
+
+            <footer class="ds-product-card__footer">
+              <div class="ds-actions">
+                <button type="button"
+                        class="ds-btn ds-btn--primary js-product-quick-add"
+                        data-product-name="{{ product.title }}">
+                  <i class="fas fa-cart-plus" aria-hidden="true"></i>
+                  <span>Додати до замовлення</span>
+                </button>
+                <a href="{% url 'product' product.slug %}" class="ds-btn ds-btn--ghost" target="_blank" rel="noopener">
+                  <i class="fas fa-external-link-alt" aria-hidden="true"></i>
+                  <span>Переглянути на сайті</span>
+                </a>
+              </div>
+            </footer>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="ds-empty">
+        <i class="fas fa-box-open" aria-hidden="true"></i>
+        <h3 class="ds-empty__title">Поки що немає товарів</h3>
+        <p class="ds-empty__text">
+          Спробуйте змінити фільтри або зверніться до менеджера — він підкаже, коли з’являться нові позиції.
+        </p>
+        <a href="https://t.me/twocomms_support" target="_blank" rel="noopener" class="ds-btn ds-btn--primary">
+          <i class="fab fa-telegram" aria-hidden="true"></i>
+          <span>Написати менеджеру</span>
+        </a>
+      </div>
+    {% endif %}
+  </section>
+
+  {% if page_obj.paginator.num_pages > 1 %}
+    <nav class="ds-pagination" aria-label="Пагінація каталогу">
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}"
+           class="ds-pagination__link">
+          <i class="fas fa-chevron-left" aria-hidden="true"></i>
+          Попередня
+        </a>
+      {% else %}
+        <span class="ds-pagination__link ds-pagination__link--disabled">
+          <i class="fas fa-chevron-left" aria-hidden="true"></i>
+          Попередня
+        </span>
+      {% endif %}
+
+      <span class="ds-pagination__current">
+        Сторінка {{ page_obj.number }} з {{ page_obj.paginator.num_pages }}
+      </span>
+
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}"
+           class="ds-pagination__link">
+          <i class="fas fa-chevron-right" aria-hidden="true"></i>
+          Наступна
+        </a>
+      {% else %}
+        <span class="ds-pagination__link ds-pagination__link--disabled">
+          <i class="fas fa-chevron-right" aria-hidden="true"></i>
+          Наступна
+        </span>
+      {% endif %}
+    </nav>
+  {% endif %}
+</div>
