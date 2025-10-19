@@ -15,6 +15,8 @@ import json
 from .models import DropshipperOrder, DropshipperOrderItem, DropshipperStats, DropshipperPayout
 from storefront.models import Product, Category
 from productcolors.models import ProductColorVariant
+from .forms import CompanyProfileForm
+from accounts.models import UserProfile
 
 
 def dropshipper_dashboard(request):
@@ -31,15 +33,14 @@ def dropshipper_dashboard(request):
     # Получаем последние заказы
     recent_orders = DropshipperOrder.objects.filter(dropshipper=request.user).order_by('-created_at')[:5]
     
-    # Получаем категории для фильтрации
-    categories = Category.objects.filter(is_active=True).order_by('order', 'name')
-    
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+
     context = {
         'stats': stats,
         'recent_orders': recent_orders,
-        'categories': categories,
         'payout_methods': DropshipperPayout.PAYMENT_METHOD_CHOICES,
         'payment_method_choices': DropshipperPayout.PAYMENT_METHOD_CHOICES,
+        'profile': profile,
     }
     
     return render(request, 'pages/dropshipper_dashboard.html', context)
@@ -217,6 +218,78 @@ def dropshipper_payouts(request):
         template_name = 'partials/dropshipper_payouts_panel.html'
     
     return render(request, template_name, context)
+
+
+@login_required
+def dropshipper_company_settings(request):
+    """Вкладка для редагування компанії"""
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+
+    initial = {
+        'company_name': profile.company_name or '',
+        'company_number': profile.company_number or '',
+        'phone': profile.phone or request.user.username,
+        'email': profile.email or request.user.email or '',
+        'website': profile.website or '',
+        'instagram': profile.instagram or '',
+        'telegram': profile.telegram or '',
+        'delivery_address': profile.delivery_address or '',
+    }
+
+    form = CompanyProfileForm(request.POST or None, request.FILES or None, initial=initial)
+
+    if request.method == 'POST':
+        if form.is_valid():
+            profile.company_name = form.cleaned_data.get('company_name', '').strip()
+            profile.company_number = form.cleaned_data.get('company_number', '').strip()
+            profile.phone = form.cleaned_data.get('phone', '').strip()
+            profile.email = form.cleaned_data.get('email', '').strip()
+            profile.website = form.cleaned_data.get('website', '').strip()
+            profile.instagram = form.cleaned_data.get('instagram', '').strip()
+            profile.telegram = form.cleaned_data.get('telegram', '').strip()
+            profile.delivery_address = form.cleaned_data.get('delivery_address', '').strip()
+
+            avatar = form.cleaned_data.get('avatar')
+            if avatar:
+                profile.avatar = avatar
+
+            profile.save()
+
+            # Синхронізуємо email у User
+            email = form.cleaned_data.get('email')
+            if email and email != request.user.email:
+                request.user.email = email
+                request.user.save(update_fields=['email'])
+
+            summary = {
+                'company_name': profile.company_name or '',
+                'company_number': profile.company_number or '',
+                'phone': profile.phone or request.user.username,
+                'email': profile.email or request.user.email or '',
+                'website': profile.website or '',
+                'instagram': profile.instagram or '',
+                'telegram': profile.telegram or '',
+                'delivery_address': profile.delivery_address or '',
+                'has_company': bool(profile.company_name),
+            }
+
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Дані компанії оновлено',
+                    'profile': summary,
+                })
+
+            messages.success(request, 'Дані компанії оновлено')
+            return redirect('orders:dropshipper_dashboard')
+
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'errors': form.errors}, status=422)
+
+    if request.GET.get('partial') or request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return render(request, 'partials/dropshipper_company_panel.html', {'form': form, 'profile': profile})
+
+    return redirect('orders:dropshipper_dashboard')
 
 
 @login_required

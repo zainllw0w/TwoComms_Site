@@ -11,6 +11,7 @@ urlpatterns = [
     path('dropshipper/orders/', dropshipper_views.dropshipper_orders, name='dropshipper_orders'),
     path('dropshipper/statistics/', dropshipper_views.dropshipper_statistics, name='dropshipper_statistics'),
     path('dropshipper/payouts/', dropshipper_views.dropshipper_payouts, name='dropshipper_payouts'),
+    path('dropshipper/company/', dropshipper_views.dropshipper_company_settings, name='dropshipper_company'),
     path('dropshipper/test/', lambda request: render(request, 'pages/dropshipper_test.html'), name='dropshipper_test'),
     
     # API маршруты
