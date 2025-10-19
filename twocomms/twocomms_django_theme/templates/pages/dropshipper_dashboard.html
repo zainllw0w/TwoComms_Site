@@ -482,7 +482,7 @@
       </div>
     </section>
 
-    <section class="ds-tab-panel" data-tab-panel="products" data-tab-autoload="{% url 'orders:dropshipper_products' %}?partial=1">
+    <section class="ds-tab-panel" data-tab-panel="products" data-products-url="{% url 'orders:dropshipper_products' %}" data-tab-autoload="{% url 'orders:dropshipper_products' %}?partial=1">
       {% include "partials/dropshipper_panel_placeholder.html" %}
     </section>
 
