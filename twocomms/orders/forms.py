@@ -39,10 +39,10 @@ class CompanyProfileForm(forms.Form):
         required=False,
         widget=forms.TextInput(attrs={"placeholder": "@manager"})
     )
-    delivery_address = forms.CharField(
-        label="Адреса відвантаження",
+    payment_details = forms.CharField(
+        label="Реквізити для виплат",
         required=False,
-        widget=forms.Textarea(attrs={"placeholder": "Місто, вулиця, відділення"})
+        widget=forms.Textarea(attrs={"placeholder": "IBAN або номер картки"})
     )
     avatar = forms.ImageField(
         label="Логотип",
@@ -70,3 +70,6 @@ class CompanyProfileForm(forms.Form):
         if instagram and not instagram.startswith('@') and 'http' not in instagram:
             instagram = f'@{instagram}'
         return instagram
+
+    def clean_payment_details(self):
+        return self.cleaned_data.get('payment_details', '').strip()

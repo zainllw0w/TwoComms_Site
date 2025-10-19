@@ -233,7 +233,7 @@ def dropshipper_company_settings(request):
         'website': profile.website or '',
         'instagram': profile.instagram or '',
         'telegram': profile.telegram or '',
-        'delivery_address': profile.delivery_address or '',
+        'payment_details': profile.payment_details or '',
     }
 
     form = CompanyProfileForm(request.POST or None, request.FILES or None, initial=initial)
@@ -247,7 +247,7 @@ def dropshipper_company_settings(request):
             profile.website = form.cleaned_data.get('website', '').strip()
             profile.instagram = form.cleaned_data.get('instagram', '').strip()
             profile.telegram = form.cleaned_data.get('telegram', '').strip()
-            profile.delivery_address = form.cleaned_data.get('delivery_address', '').strip()
+            profile.payment_details = form.cleaned_data.get('payment_details', '').strip()
 
             avatar = form.cleaned_data.get('avatar')
             if avatar:
@@ -269,7 +269,7 @@ def dropshipper_company_settings(request):
                 'website': profile.website or '',
                 'instagram': profile.instagram or '',
                 'telegram': profile.telegram or '',
-                'delivery_address': profile.delivery_address or '',
+                'payment_details': profile.payment_details or '',
                 'has_company': bool(profile.company_name),
             }
 

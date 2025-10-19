@@ -97,7 +97,14 @@
                   <h3 class="ds-feature-card__title">Командна підтримка</h3>
                   <p class="ds-feature-card__text">Персональний менеджер, сценарії комунікації та шаблони для вашого маркетингу.</p>
                 </article>
-                <article class="ds-feature-card ds-feature-card--highlight" data-fade data-delay="320">
+                <article class="ds-feature-card" data-fade data-delay="320">
+                  <span class="ds-feature-card__icon">
+                    <i class="fas fa-gem" aria-hidden="true"></i>
+                  </span>
+                  <h3 class="ds-feature-card__title">Преміальний контент</h3>
+                  <p class="ds-feature-card__text">Готові рекламні матеріали, фотосети та опис товарів під ваш бренд.</p>
+                </article>
+                <article class="ds-feature-card ds-feature-card--highlight" data-fade data-delay="400">
                   <span class="ds-feature-card__icon">
                     <i class="fas fa-magic" aria-hidden="true"></i>
                   </span>
@@ -330,8 +337,8 @@
                     </dd>
                   </div>
                   <div class="ds-company-grid__item ds-company-grid__item--wide">
-                    <dt>Адреса доставки</dt>
-                    <dd data-company-summary-field="delivery_address">{{ profile.delivery_address|default:"—" }}</dd>
+                    <dt>Реквізити для виплат</dt>
+                    <dd data-company-summary-field="payment_details">{{ profile.payment_details|default:"—" }}</dd>
                   </div>
                 </dl>
               </div>
