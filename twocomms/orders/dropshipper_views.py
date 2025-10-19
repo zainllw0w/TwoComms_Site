@@ -76,11 +76,13 @@ def dropshipper_products(request):
 
         # Сохраняем дополнительные вычисления для шаблона
         product.recommended_price_info = recommended
+        product.recommended_base_price = int(base_price)
         product.dropship_margin = max(int(base_price) - int(drop_price), 0)
+        product.drop_price_value = int(drop_price)
+
         image = product.display_image
         product.primary_image = image
-        product.drop_price_value = int(drop_price)
-        product.recommended_base_price = int(base_price)
+        product.primary_image_url = getattr(image, 'url', None)
 
         enhanced_products.append(product)
 
