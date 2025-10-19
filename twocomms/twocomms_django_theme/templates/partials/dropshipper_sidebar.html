@@ -12,35 +12,47 @@
     </header>
 
     {% with profile=request.user.userprofile %}
-    <div class="ds-sidebar__company">
+    <div class="ds-sidebar__company" data-company-sidebar>
       <div class="ds-sidebar__company-header">
         <span class="ds-sidebar__company-icon">
-          <i class="fas fa-building" aria-hidden="true"></i>
+          <i class="fas fa-building-columns" aria-hidden="true"></i>
         </span>
-        <div>
+        <div class="ds-sidebar__company-info">
           <span class="ds-sidebar__company-label">Ваша компанія</span>
-          <strong class="ds-sidebar__company-name">{{ profile.company_name|default:"Створіть компанію" }}</strong>
+          <strong class="ds-sidebar__company-name" data-company-sidebar-name>{{ profile.company_name|default:"Створіть компанію" }}</strong>
+          {% if profile.company_name %}
+            <span class="ds-sidebar__company-status ds-sidebar__company-status--ok" data-company-sidebar-status>
+              <i class="fas fa-circle-check" aria-hidden="true"></i> Актуально
+            </span>
+          {% else %}
+            <span class="ds-sidebar__company-status ds-sidebar__company-status--warn" data-company-sidebar-status>
+              <i class="fas fa-pen" aria-hidden="true"></i> Заповніть дані
+            </span>
+          {% endif %}
         </div>
       </div>
-      <ul class="ds-sidebar__company-meta">
-        <li>
+      <div class="ds-sidebar__company-tags" data-company-sidebar-tags>
+        <span class="ds-sidebar__company-pill" data-company-sidebar-phone>
           <i class="fas fa-phone" aria-hidden="true"></i>
-          <span>{{ profile.phone|default:request.user.username }}</span>
-        </li>
-        <li>
-          <i class="fas fa-globe" aria-hidden="true"></i>
-          <span>
-            {% if profile.website %}
-              {{ profile.website }}
-            {% elif profile.instagram %}
-              {{ profile.instagram }}
-            {% else %}
-              —
-            {% endif %}
+          {{ profile.phone|default:request.user.username }}
+        </span>
+        {% if profile.website %}
+          <span class="ds-sidebar__company-pill" data-company-sidebar-link>
+            <i class="fas fa-globe" aria-hidden="true"></i>
+            {{ profile.website }}
           </span>
-        </li>
-      </ul>
-      <button type="button" class="ds-sidebar__company-action" data-company-edit>
+        {% elif profile.instagram %}
+          <span class="ds-sidebar__company-pill" data-company-sidebar-link>
+            <i class="fab fa-instagram" aria-hidden="true"></i>
+            {{ profile.instagram }}
+          </span>
+        {% else %}
+          <span class="ds-sidebar__company-pill" data-company-sidebar-link hidden>
+            —
+          </span>
+        {% endif %}
+      </div>
+      <button type="button" class="ds-sidebar__company-action" data-company-edit data-tab-link="company">
         <span>{% if profile.company_name %}Редагувати компанію{% else %}Створити компанію{% endif %}</span>
         <i class="fas fa-chevron-right" aria-hidden="true"></i>
       </button>

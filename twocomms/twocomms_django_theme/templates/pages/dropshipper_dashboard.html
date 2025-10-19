@@ -4,7 +4,7 @@
 {% block title %}Дропшип панель — Головна • TwoComms{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/dropshipper.css' %}?v=4" media="all">
+<link rel="stylesheet" href="{% static 'css/dropshipper.css' %}?v=5" media="all">
 <style>
 /* Принудительное применение стилей дропшиппинга */
 .ds-shell {
@@ -58,7 +58,7 @@
                   Підтримка 24/7
                 </span>
               </div>
-              <div class="ds-actions">
+              <div class="ds-actions ds-actions--hero">
                 <button type="button" class="ds-btn ds-btn--primary js-open-order-modal">
                   <i class="fas fa-plus" aria-hidden="true"></i>
                   <span>Створити замовлення</span>
@@ -68,10 +68,7 @@
                   <span>Каталог для дропшипа</span>
                 </a>
               </div>
-            </div>
-
-            <div class="ds-hero__feature-canvas">
-              <div class="ds-hero__feature-grid">
+              <div class="ds-hero__confidence">
                 <article class="ds-feature-card" data-fade>
                   <span class="ds-feature-card__icon">
                     <i class="fas fa-warehouse" aria-hidden="true"></i>
@@ -100,21 +97,20 @@
                   <h3 class="ds-feature-card__title">Командна підтримка</h3>
                   <p class="ds-feature-card__text">Персональний менеджер, сценарії комунікації та шаблони для вашого маркетингу.</p>
                 </article>
-              </div>
-
-              <div class="ds-hero__floating-card" aria-hidden="true">
-                <span class="ds-hero__floating-label">
-                  <i class="fas fa-magic" aria-hidden="true"></i>
-                  Автоматизована панель
-                </span>
-                <p>Отримуйте сповіщення про статуси та готові матеріали для продажів без додаткових чатів.</p>
-                <div class="ds-hero__floating-cta">
-                  <span class="ds-status-bubble">
-                    <span class="ds-status-bubble__dot"></span>
-                    Live
+                <article class="ds-feature-card ds-feature-card--highlight" data-fade data-delay="320">
+                  <span class="ds-feature-card__icon">
+                    <i class="fas fa-magic" aria-hidden="true"></i>
                   </span>
-                  <span>Оновлення миттєво</span>
-                </div>
+                  <h3 class="ds-feature-card__title">Автоматизована панель</h3>
+                  <p class="ds-feature-card__text">Миттєві оновлення статусів, готові матеріали та push-сповіщення для команди.</p>
+                  <div class="ds-feature-card__status">
+                    <span class="ds-status-bubble">
+                      <span class="ds-status-bubble__dot"></span>
+                      Live
+                    </span>
+                    <span>Оновлення миттєво</span>
+                  </div>
+                </article>
               </div>
             </div>
           </div>
@@ -160,148 +156,6 @@
               <h3 class="ds-flow__title">Виплати</h3>
               <p class="ds-flow__text">Підтверджуєте статуси, формуєте запит і отримуєте кошти на зручні реквізити.</p>
             </article>
-          </div>
-        </section>
-
-        <section class="ds-section ds-company-callout" id="ds-company" data-animate>
-          <div class="ds-company-callout__inner">
-            <div class="ds-company-callout__intro">
-              <span class="ds-company-callout__badge">
-                <i class="fas fa-building" aria-hidden="true"></i>
-                Налаштування компанії
-              </span>
-              <h2 class="ds-company-callout__title">Тримайте реквізити актуальними</h2>
-              <p class="ds-company-callout__text">
-                Актуальні дані компанії допомагають менеджерам швидше підтверджувати заявки,
-                формувати документи та підтримувати єдиний стиль комунікації з вашими клієнтами.
-              </p>
-              <ul class="ds-company-callout__list">
-                <li><i class="fas fa-check-circle" aria-hidden="true"></i> Реквізити для накладних і актів</li>
-                <li><i class="fas fa-check-circle" aria-hidden="true"></i> Контакти для оперативної підтримки</li>
-                <li><i class="fas fa-check-circle" aria-hidden="true"></i> Посилання на ваші вітрини та соцмережі</li>
-              </ul>
-            </div>
-            {% with profile=request.user.userprofile %}
-            <details class="ds-company-summary" data-animate>
-              <summary class="ds-company-summary__header">
-                <div class="ds-company-summary__title">
-                  <span class="ds-company-summary__name">{{ profile.company_name|default:"Компанія ще не заповнена" }}</span>
-                  {% if profile.company_name %}
-                    <span class="ds-badge ds-badge--success">
-                      <i class="fas fa-circle-check" aria-hidden="true"></i>
-                      Актуально
-                    </span>
-                  {% else %}
-                    <span class="ds-badge ds-badge--warning">
-                      <i class="fas fa-pen" aria-hidden="true"></i>
-                      Потрібно заповнити
-                    </span>
-                  {% endif %}
-                </div>
-                <button type="button" class="ds-link-button" data-company-edit>
-                  <i class="fas fa-pen-to-square" aria-hidden="true"></i>
-                  <span>Редагувати компанію</span>
-                </button>
-              </summary>
-
-              <div class="ds-company-summary__body">
-                <dl class="ds-company-grid">
-                  <div class="ds-company-grid__item">
-                    <dt>Назва / ФОП</dt>
-                    <dd>{{ profile.company_name|default:"—" }}</dd>
-                  </div>
-                  <div class="ds-company-grid__item">
-                    <dt>ЄДРПОУ / ІПН</dt>
-                    <dd>{{ profile.company_number|default:"—" }}</dd>
-                  </div>
-                  <div class="ds-company-grid__item">
-                    <dt>Телефон</dt>
-                    <dd>{{ profile.phone|default:request.user.username }}</dd>
-                  </div>
-                  <div class="ds-company-grid__item">
-                    <dt>E-mail</dt>
-                    <dd>{{ request.user.email|default:"—" }}</dd>
-                  </div>
-                  <div class="ds-company-grid__item">
-                    <dt>Сайт / проект</dt>
-                    <dd>
-                      {% if profile.website %}
-                        <a href="{{ profile.website }}" target="_blank" rel="noopener" class="ds-link">
-                          {{ profile.website }}
-                        </a>
-                      {% else %}
-                        —
-                      {% endif %}
-                    </dd>
-                  </div>
-                  <div class="ds-company-grid__item">
-                    <dt>Instagram / соцмережі</dt>
-                    <dd>
-                      {% if profile.instagram %}
-                        <a href="{{ profile.instagram }}" target="_blank" rel="noopener" class="ds-link">
-                          {{ profile.instagram }}
-                        </a>
-                      {% else %}
-                        —
-                      {% endif %}
-                    </dd>
-                  </div>
-                  <div class="ds-company-grid__item ds-company-grid__item--wide">
-                    <dt>Адреса доставки</dt>
-                    <dd>{{ profile.delivery_address|default:"—" }}</dd>
-                  </div>
-                </dl>
-              </div>
-            </details>
-            {% endwith %}
-          </div>
-        </section>
-
-        <section class="ds-section" id="ds-products-preview" data-animate>
-          <header class="ds-section__header">
-            <div>
-              <h2 class="ds-section__title">Категорії TwoComms</h2>
-              <p class="ds-section__subtitle">
-                Обирайте позиції, які підкреслять стиль вашого бренду. Ми готуємо фотографії і описи у єдиному візуальному стилі.
-              </p>
-            </div>
-            <div class="ds-actions">
-              <button type="button" class="ds-btn ds-btn--ghost" data-tab-link="products">
-                <i class="fas fa-layer-group" aria-hidden="true"></i>
-                <span>До каталогу</span>
-              </button>
-            </div>
-          </header>
-
-          <div class="ds-category-grid">
-            {% if categories %}
-              {% for category in categories|slice:":6" %}
-                <article class="ds-category-card" data-fade>
-                  <div class="ds-category-card__icon">
-                    <span class="ds-category-card__shape"></span>
-                    <i class="fas fa-circle-notch" aria-hidden="true"></i>
-                  </div>
-                  <h3 class="ds-category-card__name">{{ category.name }}</h3>
-                  <p class="ds-category-card__description">
-                    Категорія стильного одягу TwoComms. Додавайте до власного каталогу за кілька кліків.
-                  </p>
-                  <a href="{% url 'orders:dropshipper_products' %}?category={{ category.id }}" class="ds-link">
-                    Переглянути товари
-                    <i class="fas fa-external-link-alt" aria-hidden="true"></i>
-                  </a>
-                </article>
-              {% endfor %}
-            {% else %}
-              <div class="ds-empty">
-                <i class="fas fa-box-open" aria-hidden="true"></i>
-                <h3 class="ds-empty__title">Категорії поки не додані</h3>
-                <p class="ds-empty__text">Напишіть менеджеру TwoComms — він підготує для вас стартовий каталог.</p>
-                <a href="https://t.me/twocomms_support" target="_blank" rel="noopener" class="ds-btn ds-btn--primary">
-                  <i class="fab fa-telegram" aria-hidden="true"></i>
-                  <span>Зв'язатися</span>
-                </a>
-              </div>
-            {% endif %}
           </div>
         </section>
 
@@ -387,6 +241,105 @@
             </article>
           </div>
         </section>
+
+        <section class="ds-section ds-company-callout" id="ds-company" data-animate>
+          <div class="ds-company-callout__inner">
+            <div class="ds-company-callout__intro">
+              <span class="ds-company-callout__badge">
+                <i class="fas fa-building" aria-hidden="true"></i>
+                Налаштування компанії
+              </span>
+              <h2 class="ds-company-callout__title">Тримайте реквізити актуальними</h2>
+              <p class="ds-company-callout__text">
+                Актуальні дані компанії допомагають менеджерам швидше підтверджувати заявки,
+                формувати документи та підтримувати єдиний стиль комунікації з вашими клієнтами.
+              </p>
+              <ul class="ds-company-callout__list">
+                <li><i class="fas fa-check-circle" aria-hidden="true"></i> Реквізити для накладних і актів</li>
+                <li><i class="fas fa-check-circle" aria-hidden="true"></i> Контакти для оперативної підтримки</li>
+                <li><i class="fas fa-check-circle" aria-hidden="true"></i> Посилання на ваші вітрини та соцмережі</li>
+              </ul>
+            </div>
+            {% with profile=profile %}
+            <details class="ds-company-summary" data-animate data-company-summary>
+              <summary class="ds-company-summary__header">
+                <div class="ds-company-summary__title">
+                  <span class="ds-company-summary__name" data-company-summary-name>{{ profile.company_name|default:"Компанія ще не заповнена" }}</span>
+                  {% if profile.company_name %}
+                    <span class="ds-badge ds-badge--success" data-company-summary-status>
+                      <i class="fas fa-circle-check" aria-hidden="true"></i>
+                      Актуально
+                    </span>
+                  {% else %}
+                    <span class="ds-badge ds-badge--warning" data-company-summary-status>
+                      <i class="fas fa-pen" aria-hidden="true"></i>
+                      Потрібно заповнити
+                    </span>
+                  {% endif %}
+                </div>
+                <button type="button" class="ds-link-button" data-company-edit data-tab-link="company">
+                  <i class="fas fa-pen-to-square" aria-hidden="true"></i>
+                  <span>Редагувати компанію</span>
+                </button>
+              </summary>
+
+              <div class="ds-company-summary__body">
+                <dl class="ds-company-grid">
+                  <div class="ds-company-grid__item">
+                    <dt>Назва / ФОП</dt>
+                    <dd data-company-summary-field="company_name">{{ profile.company_name|default:"—" }}</dd>
+                  </div>
+                  <div class="ds-company-grid__item">
+                    <dt>ЄДРПОУ / ІПН</dt>
+                    <dd data-company-summary-field="company_number">{{ profile.company_number|default:"—" }}</dd>
+                  </div>
+                  <div class="ds-company-grid__item">
+                    <dt>Телефон</dt>
+                    <dd data-company-summary-field="phone">{{ profile.phone|default:request.user.username }}</dd>
+                  </div>
+                  <div class="ds-company-grid__item">
+                    <dt>E-mail</dt>
+                    <dd data-company-summary-field="email">{{ request.user.email|default:"—" }}</dd>
+                  </div>
+                  <div class="ds-company-grid__item">
+                    <dt>Сайт / проект</dt>
+                    <dd>
+                      <span data-company-summary-field="website">
+                        {% if profile.website %}
+                          <a href="{{ profile.website }}" target="_blank" rel="noopener" class="ds-link">
+                            {{ profile.website }}
+                          </a>
+                        {% else %}
+                          —
+                        {% endif %}
+                      </span>
+                    </dd>
+                  </div>
+                  <div class="ds-company-grid__item">
+                    <dt>Instagram / соцмережі</dt>
+                    <dd>
+                      <span data-company-summary-field="instagram">
+                        {% if profile.instagram %}
+                          <a href="{{ profile.instagram }}" target="_blank" rel="noopener" class="ds-link">
+                            {{ profile.instagram }}
+                          </a>
+                        {% else %}
+                          —
+                        {% endif %}
+                      </span>
+                    </dd>
+                  </div>
+                  <div class="ds-company-grid__item ds-company-grid__item--wide">
+                    <dt>Адреса доставки</dt>
+                    <dd data-company-summary-field="delivery_address">{{ profile.delivery_address|default:"—" }}</dd>
+                  </div>
+                </dl>
+              </div>
+            </details>
+            {% endwith %}
+          </div>
+        </section>
+
 
         <section class="ds-section" id="ds-orders" data-animate>
           <header class="ds-section__header">
@@ -532,35 +485,17 @@
     <section class="ds-tab-panel" data-tab-panel="payouts" data-tab-autoload="{% url 'orders:dropshipper_payouts' %}?partial=1">
       {% include "partials/dropshipper_panel_placeholder.html" %}
     </section>
-  </main>
-</div>
 
-<div class="ds-drawer" id="ds-company-drawer" aria-hidden="true" data-company-drawer-url="{% url 'profile_setup' %}">
-  <div class="ds-drawer__overlay" data-company-drawer-close></div>
-  <aside class="ds-drawer__panel" role="dialog" aria-modal="true" aria-labelledby="company-drawer-title">
-    <header class="ds-drawer__header">
-      <div>
-        <h2 class="ds-drawer__title" id="company-drawer-title">Редагування компанії</h2>
-        <p class="ds-drawer__subtitle">Заповніть дані, щоб документи та сповіщення були коректними.</p>
-      </div>
-      <button type="button" class="ds-drawer__close" data-company-drawer-close aria-label="Закрити">
-        <i class="fas fa-xmark" aria-hidden="true"></i>
-      </button>
-    </header>
-    <div class="ds-drawer__body">
-      <div class="ds-drawer__loader" data-company-drawer-loader>
-        <span class="ds-spinner"></span>
-        <p>Завантажуємо форму…</p>
-      </div>
-      <iframe src="about:blank" title="Налаштування компанії" data-company-drawer-frame></iframe>
-    </div>
-  </aside>
+    <section class="ds-tab-panel" data-tab-panel="company" data-tab-autoload="{% url 'orders:dropshipper_company' %}?partial=1">
+      {% include "partials/dropshipper_panel_placeholder.html" %}
+    </section>
+  </main>
 </div>
 
 {% include "partials/dropshipper_modals.html" %}
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/dropshipper.js' %}?v=2"></script>
-<script src="{% static 'js/dropshipper.dashboard.js' %}?v=2"></script>
+<script src="{% static 'js/dropshipper.js' %}?v=3"></script>
+<script src="{% static 'js/dropshipper.dashboard.js' %}?v=3"></script>
 {% endblock %}
