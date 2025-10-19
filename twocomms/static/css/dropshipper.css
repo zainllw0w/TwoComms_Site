@@ -56,7 +56,8 @@ main.container-xxl.py-4.py-md-5 {
   position: relative !important;
   width: 100% !important;
   margin: 0 !important;
-  padding: 0 !important;
+  padding: clamp(20px, 3vw, 32px) 0 clamp(24px, 4vw, 40px) 0 !important;
+  box-sizing: border-box !important;
 }
 
 .ds-shell::before,
@@ -84,11 +85,11 @@ main.container-xxl.py-4.py-md-5 {
 /* Sidebar */
 .ds-sidebar {
   position: sticky !important;
-  top: 0 !important;
+  top: 88px !important;
   align-self: flex-start !important;
   width: clamp(220px, 18vw, 260px) !important;
-  min-height: 100vh !important;
-  padding: 26px 20px !important;
+  min-height: calc(100vh - 88px) !important;
+  padding: 26px 20px 28px !important;
   background: linear-gradient(180deg, rgba(12, 12, 17, 0.95) 0%, rgba(12, 12, 20, 0.75) 100%) !important;
   backdrop-filter: blur(28px) !important;
   border-right: 1px solid var(--ds-border) !important;
@@ -1645,6 +1646,40 @@ main.container-xxl.py-4.py-md-5 {
   color: #fbbf24 !important;
 }
 
+.ds-product-price__hint {
+  font-size: 0.75rem !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  line-height: 1.4 !important;
+}
+
+.ds-product-price--recommended {
+  background: linear-gradient(160deg, rgba(139, 92, 246, 0.16), rgba(59, 130, 246, 0.16)) !important;
+  border-color: rgba(139, 92, 246, 0.28) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+.ds-product-margin {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  padding: 12px 18px !important;
+  border-radius: 14px !important;
+  background: rgba(34, 197, 94, 0.12) !important;
+  border: 1px solid rgba(34, 197, 94, 0.28) !important;
+  color: rgba(209, 250, 229, 0.9) !important;
+}
+
+.ds-product-margin__value {
+  font-size: 1.05rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em !important;
+}
+
+.ds-product-margin__label {
+  font-size: 0.78rem !important;
+  color: rgba(209, 250, 229, 0.78) !important;
+}
+
 .ds-product-meta {
   display: flex !important;
   flex-wrap: wrap !important;
@@ -3152,53 +3187,44 @@ main.container-xxl.py-4.py-md-5 {
   animation-delay: -4s;
 }
 
-.ds-hero__floating-grid {
-  position: absolute;
-  right: clamp(24px, 6vw, 64px);
-  top: clamp(36px, 6vw, 64px);
-  bottom: clamp(36px, 6vw, 64px);
-  width: min(440px, 48%);
+.ds-hero__confidence {
+  position: relative;
+  z-index: 2;
+  margin-top: clamp(26px, 4vw, 34px);
   display: grid;
-  grid-template-columns: repeat(2, minmax(160px, 1fr));
-  gap: clamp(14px, 2vw, 22px);
-  pointer-events: none;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: clamp(14px, 2.6vw, 24px);
 }
 
-.ds-hero__floating-grid .ds-feature-card {
-  background: rgba(18, 18, 28, 0.72);
+.ds-hero__confidence::before {
+  content: "";
+  position: absolute;
+  inset: -28px -32px;
+  background: linear-gradient(180deg, rgba(15, 15, 24, 0.78) 0%, rgba(12, 12, 20, 0.32) 100%);
+  border-radius: calc(var(--ds-radius-lg) * 1.1);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  filter: blur(18px);
+  opacity: 0.65;
+  z-index: -1;
+}
+
+.ds-hero__confidence .ds-feature-card {
+  background: rgba(18, 18, 28, 0.83);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 22px 40px rgba(12, 12, 18, 0.55);
-  backdrop-filter: blur(16px);
-  pointer-events: none;
-  opacity: 0.9;
-  transform: translate3d(0, 0, 0);
+  box-shadow: 0 22px 44px rgba(8, 8, 16, 0.5);
 }
 
-.ds-hero__floating-grid .ds-feature-card:nth-child(odd) {
-  transform: translateY(-18px);
+.ds-hero__confidence .ds-feature-card__text {
+  color: rgba(221, 222, 238, 0.8);
 }
 
-.ds-hero__floating-grid .ds-feature-card:nth-child(3),
-.ds-hero__floating-grid .ds-feature-card:nth-child(4) {
-  transform: translateY(12px);
+.ds-hero__confidence .ds-status-bubble {
+  background: rgba(139, 92, 246, 0.2);
+  color: rgba(221, 214, 254, 0.9);
 }
 
-.ds-hero__floating-grid .ds-feature-card:nth-child(5),
-.ds-hero__floating-grid .ds-feature-card:nth-child(6) {
-  transform: translateY(32px);
-}
-
-.ds-hero__floating-grid .ds-feature-card__text {
-  color: rgba(221, 222, 238, 0.82);
-}
-
-.ds-hero__floating-grid .ds-status-bubble {
-  background: rgba(139, 92, 246, 0.18);
-  color: rgba(221, 214, 254, 0.88);
-}
-
-.ds-hero__floating-grid .ds-status-bubble__dot {
-  background: rgba(139, 92, 246, 0.9);
+.ds-hero__confidence .ds-status-bubble__dot {
+  background: rgba(139, 92, 246, 0.92);
   box-shadow: 0 0 12px rgba(139, 92, 246, 0.55);
 }
 
@@ -4503,28 +4529,20 @@ main.container-xxl.py-4.py-md-5 {
     grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   }
 
-  .ds-hero__floating-grid {
-    position: static;
-    width: 100%;
-    margin-top: 12px;
-    padding: 0;
+  .ds-hero__confidence {
+    margin-top: clamp(18px, 4vw, 28px);
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 16px;
-    pointer-events: auto;
-  }
-
-  .ds-hero__floating-grid .ds-feature-card {
-    opacity: 1;
-    transform: none !important;
-    pointer-events: auto;
-    background: rgba(18, 18, 28, 0.9);
   }
 
   .ds-sidebar {
     position: relative !important;
+    top: auto !important;
     width: 100% !important;
+    min-height: auto !important;
     border-right: none !important;
     margin-bottom: 24px;
+    padding: 24px 20px !important;
   }
 
   .ds-sidebar__company {
@@ -4537,6 +4555,10 @@ main.container-xxl.py-4.py-md-5 {
 }
 
 @media (max-width: 640px) {
+  .ds-shell {
+    padding: clamp(16px, 6vw, 24px) 0 clamp(20px, 6vw, 32px) 0 !important;
+  }
+
   main.container-xxl.py-4.py-md-5 {
     padding-left: clamp(12px, 6vw, 20px) !important;
     padding-right: clamp(12px, 6vw, 20px) !important;
