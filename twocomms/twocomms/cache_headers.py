@@ -46,7 +46,7 @@ def add_cache_headers(headers, path, url):
     # Добавляем заголовки для оптимизации
     headers['Vary'] = 'Accept-Encoding'
     headers['X-Content-Type-Options'] = 'nosniff'
-    headers['X-Frame-Options'] = 'DENY'
+    headers['X-Frame-Options'] = 'SAMEORIGIN'
     
     return headers
 
