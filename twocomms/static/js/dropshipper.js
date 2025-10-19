@@ -97,10 +97,10 @@
           return;
         }
 
-        delete panel.dataset.tabLoaded;
-        if (panel.classList.contains('is-active')) {
-          activateTab(target, { updateHistory: false });
-        }
+       delete panel.dataset.tabLoaded;
+       if (panel.classList.contains('is-active')) {
+         activateTab(target, { updateHistory: false });
+       }
       });
 
       if (initialTarget) {
@@ -389,6 +389,10 @@
 
           if (key === 'email' && profile.email) {
             value = `<a href="mailto:${profile.email}" class="ds-link">${profile.email}</a>`;
+          }
+
+          if (key === 'payment_details' && profile.payment_details) {
+            value = profile.payment_details.replace(/\n/g, '<br>');
           }
 
           node.innerHTML = value || '—';
