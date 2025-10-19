@@ -20,8 +20,10 @@
       const tabLinks = Array.from(document.querySelectorAll('[data-tab-target]'));
       const searchParams = new URLSearchParams(window.location.search);
       const initialParam = searchParams.get('tab');
-      const explicitActive = document.querySelector('[data-tab-panel].is-active')?.dataset.tabPanel;
-      const initialTarget = initialParam || explicitActive || tabLinks[0]?.dataset.tabTarget || tabPanels[0].dataset.tabPanel;
+      const activePanel = document.querySelector('[data-tab-panel].is-active');
+      const explicitActive = activePanel ? activePanel.dataset.tabPanel : null;
+      const firstTabLink = tabLinks[0];
+      const initialTarget = initialParam || explicitActive || (firstTabLink ? firstTabLink.dataset.tabTarget : null) || tabPanels[0].dataset.tabPanel;
 
       const activateTab = (target, { updateHistory = true } = {}) => {
         if (!target) {
@@ -88,7 +90,7 @@
       });
 
       document.addEventListener('ds:reload-tab', (event) => {
-        const target = event.detail?.target;
+        const target = event.detail ? event.detail.target : null;
         if (!target) {
           return;
         }
@@ -140,10 +142,13 @@
             </div>
           `;
           panel.classList.remove('is-loading');
-          panel.querySelector('[data-tab-retry]')?.addEventListener('click', () => {
-            delete panel.dataset.tabLoaded;
-            loadPanel(panel, target);
-          });
+          const retryButton = panel.querySelector('[data-tab-retry]');
+          if (retryButton) {
+            retryButton.addEventListener('click', () => {
+              delete panel.dataset.tabLoaded;
+              loadPanel(panel, target);
+            });
+          }
         });
     }
 
@@ -205,7 +210,8 @@
         return;
       }
 
-      const baseUrl = panel.dataset.productsUrl || panel.dataset.tabAutoload?.split('?')[0];
+      const autoloadSource = panel.dataset.tabAutoload;
+      const baseUrl = panel.dataset.productsUrl || (autoloadSource ? autoloadSource.split('?')[0] : null);
       if (!baseUrl) {
         return;
       }
@@ -373,8 +379,10 @@
                 successBadge.removeAttribute('hidden');
                 successBadge.classList.add('is-visible');
                 window.setTimeout(() => {
-                  successBadge?.classList.remove('is-visible');
-                  successBadge?.setAttribute('hidden', 'hidden');
+                  if (successBadge) {
+                    successBadge.classList.remove('is-visible');
+                    successBadge.setAttribute('hidden', 'hidden');
+                  }
                 }, 3200);
               }
 
@@ -401,7 +409,7 @@
       }
 
       document.addEventListener('ds:tabloaded', (event) => {
-        if (event.detail?.target === 'company') {
+        if (event.detail && event.detail.target === 'company') {
           bindPanel(document.querySelector('[data-tab-panel="company"]'));
         }
       });
@@ -422,7 +430,8 @@
 
         event.preventDefault();
         payoutForm.reset();
-        payoutForm.dataset.reloadTarget = trigger.closest('[data-tab-panel]')?.dataset.tabPanel || 'payouts';
+        const parentPanel = trigger.closest('[data-tab-panel]');
+        payoutForm.dataset.reloadTarget = parentPanel && parentPanel.dataset.tabPanel ? parentPanel.dataset.tabPanel : 'payouts';
         payoutModal.hidden = false;
         payoutModal.setAttribute('aria-hidden', 'false');
         payoutModal.classList.add('is-open');
@@ -433,7 +442,9 @@
         event.preventDefault();
 
         const submitButton = payoutForm.querySelector('button[type="submit"]');
-        submitButton?.setAttribute('disabled', 'disabled');
+        if (submitButton) {
+          submitButton.setAttribute('disabled', 'disabled');
+        }
         payoutForm.classList.add('is-loading');
 
         const formData = new FormData(payoutForm);
@@ -458,7 +469,10 @@
               throw new Error(data.message || 'Не вдалося створити запит на виплату');
             }
             showToast(data.message || 'Запит на виплату створено');
-            payoutModal.querySelector('[data-dismiss-modal]')?.click();
+            const dismissTrigger = payoutModal.querySelector('[data-dismiss-modal]');
+            if (dismissTrigger) {
+              dismissTrigger.click();
+            }
             document.dispatchEvent(new CustomEvent('ds:reload-tab', {
               detail: { target: payoutForm.dataset.reloadTarget || 'payouts' },
             }));
@@ -468,7 +482,9 @@
             showToast(error.message || 'Не вдалося створити запит на виплату', 'error');
           })
           .finally(() => {
-            submitButton?.removeAttribute('disabled');
+            if (submitButton) {
+              submitButton.removeAttribute('disabled');
+            }
             payoutForm.classList.remove('is-loading');
           });
       });

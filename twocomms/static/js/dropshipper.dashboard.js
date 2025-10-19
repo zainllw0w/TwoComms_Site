@@ -140,7 +140,7 @@
       return;
     }
 
-    const input = productSearchForm?.querySelector('input[name="search"]');
+    const input = productSearchForm ? productSearchForm.querySelector('input[name="search"]') : null;
 
     quickButtons.forEach((btn) => {
       if (btn.dataset.quickAddBound === 'true') {
@@ -162,7 +162,7 @@
   }
 
   document.addEventListener('ds:tabloaded', (event) => {
-    if (event.detail?.target === 'products') {
+    if (event.detail && event.detail.target === 'products') {
       bindQuickAddButtons();
     }
   });
@@ -209,10 +209,16 @@
 
         productCards.slice(0, 8).forEach((card) => {
           const productId = Number(card.dataset.productId);
-          const title = card.querySelector('.product-title')?.textContent?.trim() || 'Товар без назви';
-          const dropPrice = parseCurrency(card.querySelector('.drop-price')?.textContent);
-          const recommendedPrice = parseCurrency(card.querySelector('.recommended-price')?.textContent);
-          const image = card.querySelector('.product-image')?.getAttribute('src');
+          const titleNode = card.querySelector('.product-title');
+          const dropPriceNode = card.querySelector('.drop-price');
+          const recommendedNode = card.querySelector('.recommended-price');
+          const imageNode = card.querySelector('.product-image');
+
+          const titleText = titleNode && titleNode.textContent ? titleNode.textContent.trim() : '';
+          const title = titleText || 'Товар без назви';
+          const dropPrice = parseCurrency(dropPriceNode ? dropPriceNode.textContent : null);
+          const recommendedPrice = parseCurrency(recommendedNode ? recommendedNode.textContent : null);
+          const image = imageNode ? imageNode.getAttribute('src') : null;
 
           const item = document.createElement('article');
           item.className = 'ds-product-card';
@@ -236,9 +242,12 @@
             </div>
           `;
 
-          item.querySelector('button')?.addEventListener('click', () => {
-            renderProductDetail({ productId, title, dropPrice, recommendedPrice, image });
-          });
+          const chooseButton = item.querySelector('button');
+          if (chooseButton) {
+            chooseButton.addEventListener('click', () => {
+              renderProductDetail({ productId, title, dropPrice, recommendedPrice, image });
+            });
+          }
 
           productResults.appendChild(item);
         });
@@ -332,10 +341,13 @@
       </div>
     `;
 
-    wrapper.querySelector('[data-product-back]')?.addEventListener('click', () => {
-      productResults.innerHTML = '';
-      productResults.dataset.emptyText = 'Введіть пошуковий запит, щоб побачити товари.';
-    });
+    const backBtn = wrapper.querySelector('[data-product-back]');
+    if (backBtn) {
+      backBtn.addEventListener('click', () => {
+        productResults.innerHTML = '';
+        productResults.dataset.emptyText = 'Введіть пошуковий запит, щоб побачити товари.';
+      });
+    }
 
     productResults.appendChild(wrapper);
     populateProductDetails(productId, wrapper);
@@ -356,7 +368,9 @@
               const option = document.createElement('option');
               option.value = size.trim();
               option.textContent = size.trim();
-              sizeSelect?.appendChild(option);
+              if (sizeSelect) {
+                sizeSelect.appendChild(option);
+              }
             });
         }
 
@@ -366,16 +380,21 @@
             option.value = variant.id;
             option.textContent = variant.color_name;
             option.dataset.colorName = variant.color_name;
-            colorSelect?.appendChild(option);
-          });
-
-          colorSelect?.addEventListener('change', (event) => {
-            const selectedOption = event.target.selectedOptions[0];
-            const hiddenField = form.querySelector('input[name="color_name"]');
-            if (hiddenField) {
-              hiddenField.value = selectedOption?.dataset.colorName || '';
+            if (colorSelect) {
+              colorSelect.appendChild(option);
             }
           });
+
+          if (colorSelect) {
+            colorSelect.addEventListener('change', (event) => {
+              const selectEl = event.target;
+              const selectedOption = selectEl && selectEl.selectedOptions ? selectEl.selectedOptions[0] : null;
+              const hiddenField = form.querySelector('input[name="color_name"]');
+              if (hiddenField) {
+                hiddenField.value = selectedOption && selectedOption.dataset ? selectedOption.dataset.colorName || '' : '';
+              }
+            });
+          }
         }
 
         if (!form.querySelector('input[name="color_name"]')) {
@@ -418,11 +437,15 @@
         </div>
       `;
 
-      row.querySelector('[data-remove-index]')?.addEventListener('click', (event) => {
-        const removeIndex = Number(event.currentTarget.dataset.removeIndex);
-        orderItems = orderItems.filter((_, idx) => idx !== removeIndex);
-        renderOrderItems();
-      });
+      const removeBtn = row.querySelector('[data-remove-index]');
+      if (removeBtn) {
+        removeBtn.addEventListener('click', (event) => {
+          const targetBtn = event.currentTarget;
+          const removeIndex = Number(targetBtn.dataset.removeIndex);
+          orderItems = orderItems.filter((_, idx) => idx !== removeIndex);
+          renderOrderItems();
+        });
+      }
 
       orderItemsContainer.appendChild(row);
     });
