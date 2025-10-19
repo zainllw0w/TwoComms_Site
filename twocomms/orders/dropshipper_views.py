@@ -53,23 +53,27 @@ def dropshipper_products(request):
     search_query = request.GET.get('search', '')
     
     # Базовый queryset - только товары доступные для дропшипа
-    products = Product.objects.filter(
+    products_qs = Product.objects.filter(
         category__is_active=True,
         is_dropship_available=True
     ).select_related('category').prefetch_related('color_variants__images')
     
     # Фильтрация по категории
     if category_id:
-        products = products.filter(category_id=category_id)
-    
-    # Дополнительная фильтрация по доступности для дропшипа
-    available_products = []
-    for product in products:
-        if product.is_available_for_dropship():
-            available_products.append(product)
-    
+        products_qs = products_qs.filter(category_id=category_id)
+
+    # Поиск (выполняем на уровне БД)
+    if search_query:
+        lowered = search_query.strip()
+        if lowered:
+            products_qs = products_qs.filter(
+                Q(title__icontains=lowered) |
+                Q(description__icontains=lowered) |
+                Q(category__name__icontains=lowered)
+            )
+
     enhanced_products = []
-    for product in available_products:
+    for product in products_qs:
         recommended = product.get_recommended_price()
         base_price = recommended.get('base', product.recommended_price or product.price)
         drop_price = product.get_drop_price()
@@ -86,19 +90,8 @@ def dropshipper_products(request):
 
         enhanced_products.append(product)
 
-    products = enhanced_products
-    
-    # Поиск
-    if search_query:
-        lowered = search_query.lower()
-        products = [
-            p for p in products
-            if lowered in p.title.lower()
-            or (p.description and lowered in p.description.lower())
-        ]
-    
     # Пагинация
-    paginator = Paginator(products, 12)
+    paginator = Paginator(enhanced_products, 12)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
