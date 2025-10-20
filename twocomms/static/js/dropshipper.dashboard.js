@@ -29,10 +29,7 @@
 
   function bindOpeners() {
     document.querySelectorAll('.js-open-order-modal').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        openModal(orderModal);
-        loadCart(); // Загружаем корзину при открытии модального окна заказа
-      });
+      btn.addEventListener('click', () => openModal(orderModal));
     });
 
     document.querySelectorAll('.js-open-product-modal').forEach((btn) => {
@@ -872,6 +869,11 @@ function renderOrderItems() {
   function openModal(modal) {
     modal.hidden = false;
     modal.focus();
+    
+    // Загружаем корзину при открытии модального окна заказа
+    if (modal === orderModal) {
+      loadCart();
+    }
   }
 
   function closeModal(modal) {
