@@ -369,11 +369,147 @@ def dropshipper_company_settings(request):
 
 @login_required
 @require_http_methods(["POST"])
+def add_to_cart(request):
+    """Добавление товара в корзину"""
+    try:
+        data = json.loads(request.body)
+        product_id = data.get('product_id')
+        color_variant_id = data.get('color_variant_id')
+        size = data.get('size', '')
+        quantity = int(data.get('quantity', 1))
+        selling_price = data.get('selling_price')
+        
+        if not product_id:
+            return JsonResponse({
+                'success': False,
+                'message': 'ID товара обязателен'
+            })
+        
+        product = get_object_or_404(Product, id=product_id)
+        color_variant = None
+        
+        if color_variant_id:
+            color_variant = get_object_or_404(ProductColorVariant, id=color_variant_id)
+        
+        # Получаем актуальную цену дропа
+        actual_drop_price = product.get_drop_price(request.user)
+        
+        # Сохраняем в сессии
+        cart = request.session.get('dropshipper_cart', [])
+        
+        # Проверяем, есть ли уже такой товар в корзине
+        existing_item = None
+        for item in cart:
+            if (item.get('product_id') == product_id and 
+                item.get('color_variant_id') == color_variant_id and 
+                item.get('size') == size):
+                existing_item = item
+                break
+        
+        if existing_item:
+            existing_item['quantity'] += quantity
+        else:
+            cart.append({
+                'product_id': product_id,
+                'color_variant_id': color_variant_id,
+                'size': size,
+                'quantity': quantity,
+                'drop_price': actual_drop_price,
+                'selling_price': selling_price or product.recommended_price,
+                'product_title': product.title,
+                'color_name': color_variant.name if color_variant else 'Базовий колір'
+            })
+        
+        request.session['dropshipper_cart'] = cart
+        request.session.modified = True
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Товар додано до корзини',
+            'cart_count': len(cart)
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Помилка при додаванні товару: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["GET"])
+def get_cart(request):
+    """Получение содержимого корзины"""
+    cart = request.session.get('dropshipper_cart', [])
+    return JsonResponse({
+        'success': True,
+        'cart': cart,
+        'cart_count': len(cart)
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def remove_from_cart(request):
+    """Удаление товара из корзины"""
+    try:
+        data = json.loads(request.body)
+        product_id = data.get('product_id')
+        color_variant_id = data.get('color_variant_id')
+        size = data.get('size', '')
+        
+        cart = request.session.get('dropshipper_cart', [])
+        cart = [item for item in cart if not (
+            item.get('product_id') == product_id and 
+            item.get('color_variant_id') == color_variant_id and 
+            item.get('size') == size
+        )]
+        
+        request.session['dropshipper_cart'] = cart
+        request.session.modified = True
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Товар видалено з корзини',
+            'cart_count': len(cart)
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Помилка при видаленні товару: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["POST"])
+def clear_cart(request):
+    """Очистка корзины"""
+    request.session['dropshipper_cart'] = []
+    request.session.modified = True
+    
+    return JsonResponse({
+        'success': True,
+        'message': 'Корзина очищена'
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
 def create_dropshipper_order(request):
-    """Создание нового заказа дропшипера"""
+    """Создание нового заказа дропшипера из корзины"""
     try:
         data = json.loads(request.body)
         print(f"Создаем заказ для пользователя {request.user.id}: {data}")
+        
+        # Получаем корзину из сессии
+        cart = request.session.get('dropshipper_cart', [])
+        
+        if not cart:
+            return JsonResponse({
+                'success': False,
+                'message': 'Корзина пуста. Добавьте товары перед созданием заказа.'
+            })
         
         with transaction.atomic():
             # Создаем заказ
@@ -386,19 +522,16 @@ def create_dropshipper_order(request):
                 status='pending'  # Изменяем статус на pending для отображения
             )
             
-            # Добавляем товары
+            # Добавляем товары из корзины
             total_drop_price = 0
             total_selling_price = 0
             
-            for item_data in data.get('items', []):
+            for item_data in cart:
                 product = get_object_or_404(Product, id=item_data['product_id'])
                 color_variant = None
                 
                 if item_data.get('color_variant_id'):
                     color_variant = get_object_or_404(ProductColorVariant, id=item_data['color_variant_id'])
-                
-                # Получаем актуальную цену дропа с учетом скидки
-                actual_drop_price = product.get_drop_price(request.user)
                 
                 order_item = DropshipperOrderItem.objects.create(
                     order=order,
@@ -406,8 +539,8 @@ def create_dropshipper_order(request):
                     color_variant=color_variant,
                     size=item_data.get('size', ''),
                     quantity=item_data.get('quantity', 1),
-                    drop_price=item_data.get('drop_price', actual_drop_price),
-                    selling_price=item_data.get('selling_price', product.recommended_price),
+                    drop_price=item_data.get('drop_price', 0),
+                    selling_price=item_data.get('selling_price', 0),
                     recommended_price=product.recommended_price
                 )
                 
@@ -421,6 +554,10 @@ def create_dropshipper_order(request):
             order.total_selling_price = total_selling_price
             order.profit = total_selling_price - total_drop_price
             order.save()
+            
+            # Очищаем корзину после создания заказа
+            request.session['dropshipper_cart'] = []
+            request.session.modified = True
             
             print(f"Заказ создан: ID={order.id}, номер={order.order_number}")
             
