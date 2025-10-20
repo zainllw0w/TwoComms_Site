@@ -679,69 +679,6 @@ def request_payout(request):
         })
 
 
-@login_required
-def get_product_details(request, product_id):
-    """Получение детальной информации о товаре"""
-    try:
-        product = get_object_or_404(Product.objects.select_related('category'), id=product_id)
-        color_variants = ProductColorVariant.objects.filter(product=product).prefetch_related('images', 'color')
-
-        sizes = []
-        for variant in color_variants:
-            variant_sizes = getattr(variant, 'sizes', '') or ''
-            if variant_sizes:
-                sizes.extend([size.strip() for size in variant_sizes.split(',') if size.strip()])
-
-        unique_sizes = sorted(set(sizes))
-
-        recommended = product.get_recommended_price()
-        drop_price = product.get_drop_price()
-
-        base_images = []
-        if product.main_image:
-            base_images.append(product.main_image.url)
-
-        color_variants_payload = []
-        for variant in color_variants:
-            variant_images = [img.image.url for img in variant.images.all()]
-            if variant_images:
-                base_images.extend(variant_images)
-
-            color_variants_payload.append({
-                'id': variant.id,
-                'color_name': variant.color.name if variant.color else 'Без кольору',
-                'primary_hex': variant.color.primary_hex if variant.color and variant.color.primary_hex else '#000000',
-                'images': variant_images,
-            })
-
-        gallery = []
-        seen = set()
-        for url in base_images:
-            if url and url not in seen:
-                gallery.append(url)
-                seen.add(url)
-
-        data = {
-            'id': product.id,
-            'title': product.title,
-            'description': product.description or '',
-            'drop_price': float(drop_price),
-            'recommended_price': float(recommended.get('base', product.recommended_price or 0)),
-            'recommended_min': float(recommended.get('min', product.recommended_price or 0)),
-            'recommended_max': float(recommended.get('max', product.recommended_price or 0)),
-            'main_image': gallery[0] if gallery else None,
-            'gallery': gallery,
-            'color_variants': color_variants_payload,
-            'sizes': unique_sizes,
-            'available_for_order': product.is_available_for_dropship(),
-        }
-
-        return JsonResponse(data)
-
-    except Exception as e:
-        return JsonResponse({
-            'error': f'Помилка при отриманні інформації про товар: {str(e)}'
-        }, status=400)
 
 
 @login_required
@@ -763,12 +700,22 @@ def get_product_details(request, product_id):
                 'color_code': variant.color_code
             })
         
+        # Получаем основное изображение товара
+        main_image_url = None
+        if product.main_image:
+            main_image_url = product.main_image.url
+        elif product.color_variants.exists():
+            # Если нет основного изображения, берем первое из вариантов цветов
+            first_variant = product.color_variants.first()
+            if first_variant and hasattr(first_variant, 'images') and first_variant.images.exists():
+                main_image_url = first_variant.images.first().image.url
+        
         # Формируем ответ
         product_data = {
             'id': product.id,
             'title': product.title,
-            'description': product.description,
-            'primary_image_url': product.primary_image_url,
+            'description': product.description or '',
+            'primary_image_url': main_image_url,
             'drop_price': float(drop_price),
             'recommended_price': float(product.recommended_price),
             'color_variants': color_variants,
