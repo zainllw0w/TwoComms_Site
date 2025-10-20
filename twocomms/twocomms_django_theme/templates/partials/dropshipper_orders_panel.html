@@ -98,10 +98,53 @@
               <div class="ds-order-entry__col">
                 <span class="ds-order-entry__label">Дії</span>
                 <div class="ds-order-entry__actions">
+                  <div class="ds-order-status-actions">
+                    {% if order.status == 'draft' %}
+                      <button type="button" class="ds-btn ds-btn--sm ds-btn--primary" 
+                              data-order-status-update data-order-id="{{ order.id }}" data-new-status="pending">
+                        <i class="fas fa-paper-plane" aria-hidden="true"></i>
+                        Підтвердити
+                      </button>
+                    {% elif order.status == 'pending' %}
+                      <button type="button" class="ds-btn ds-btn--sm ds-btn--success" 
+                              data-order-status-update data-order-id="{{ order.id }}" data-new-status="confirmed">
+                        <i class="fas fa-check" aria-hidden="true"></i>
+                        Підтвердити
+                      </button>
+                    {% elif order.status == 'confirmed' %}
+                      <button type="button" class="ds-btn ds-btn--sm ds-btn--info" 
+                              data-order-status-update data-order-id="{{ order.id }}" data-new-status="processing">
+                        <i class="fas fa-cog" aria-hidden="true"></i>
+                        В обробку
+                      </button>
+                    {% elif order.status == 'processing' %}
+                      <button type="button" class="ds-btn ds-btn--sm ds-btn--warning" 
+                              data-order-status-update data-order-id="{{ order.id }}" data-new-status="shipped">
+                        <i class="fas fa-truck" aria-hidden="true"></i>
+                        Відправити
+                      </button>
+                    {% elif order.status == 'shipped' %}
+                      <button type="button" class="ds-btn ds-btn--sm ds-btn--success" 
+                              data-order-status-update data-order-id="{{ order.id }}" data-new-status="delivered">
+                        <i class="fas fa-check-circle" aria-hidden="true"></i>
+                        Доставлено
+                      </button>
+                    {% endif %}
+                    
+                    {% if order.status != 'delivered' and order.status != 'cancelled' %}
+                      <button type="button" class="ds-btn ds-btn--sm ds-btn--danger" 
+                              data-order-status-update data-order-id="{{ order.id }}" data-new-status="cancelled">
+                        <i class="fas fa-times" aria-hidden="true"></i>
+                        Скасувати
+                      </button>
+                    {% endif %}
+                  </div>
+                  
                   <a href="{% url 'orders:dropshipper_statistics' %}?order={{ order.id }}" class="ds-link ds-link--arrow" data-tab-link="statistics">
                     До статистики
                     <i class="fas fa-arrow-right" aria-hidden="true"></i>
                   </a>
+                  
                   {% if order.status == 'delivered' and order.payment_status != 'paid' %}
                     <span class="ds-tag ds-tag--warning">Очікує виплати</span>
                   {% endif %}
