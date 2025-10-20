@@ -24,6 +24,7 @@
   bindProductSearch();
   bindQuickAddButtons();
   bindProductPreviewButtons();
+  loadExistingOrders();
 
   function bindOpeners() {
     document.querySelectorAll('.js-open-order-modal').forEach((btn) => {
@@ -91,6 +92,7 @@
         headers: {
           'Content-Type': 'application/json',
           'X-CSRFToken': csrfToken,
+          'X-Requested-With': 'XMLHttpRequest',
         },
         body: JSON.stringify(payload),
       })
@@ -167,6 +169,8 @@
     if (event.detail && event.detail.target === 'products') {
       bindQuickAddButtons();
       bindProductPreviewButtons();
+    } else if (event.detail && event.detail.target === 'orders') {
+      bindOrderStatusUpdates();
     }
   });
 
@@ -657,6 +661,89 @@ function renderOrderItems() {
         ordersBadge.closest('.ds-sidebar__link').classList.remove('has-orders');
       }
     }
+  }
+  
+  function loadExistingOrders() {
+    // Загружаем количество активных заказов для отображения в бейдже
+    fetch('/orders/dropshipper/orders/?partial=1', {
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    })
+      .then(response => response.text())
+      .then(html => {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const orderCards = doc.querySelectorAll('.ds-order-card');
+        
+        if (orderCards.length > 0) {
+          const ordersBadge = document.querySelector('[data-orders-badge]');
+          if (ordersBadge) {
+            ordersBadge.textContent = orderCards.length;
+            ordersBadge.removeAttribute('hidden');
+            ordersBadge.closest('.ds-sidebar__link').classList.add('has-orders');
+          }
+        }
+      })
+      .catch(error => {
+        console.log('Не удалось загрузить заказы:', error);
+      });
+  }
+  
+  function bindOrderStatusUpdates() {
+    const statusButtons = document.querySelectorAll('[data-order-status-update]');
+    statusButtons.forEach(button => {
+      if (button.dataset.statusBound === 'true') {
+        return;
+      }
+      button.dataset.statusBound = 'true';
+      
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        const orderId = button.dataset.orderId;
+        const newStatus = button.dataset.newStatus;
+        
+        if (!orderId || !newStatus) {
+          return;
+        }
+        
+        updateOrderStatus(orderId, newStatus, button);
+      });
+    });
+  }
+  
+  function updateOrderStatus(orderId, newStatus, button) {
+    const originalText = button.textContent;
+    button.textContent = 'Оновлення...';
+    button.disabled = true;
+    
+    fetch(`/orders/dropshipper/api/update-order-status/${orderId}/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken,
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      body: JSON.stringify({ status: newStatus }),
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          showToast(data.message || 'Статус замовлення оновлено!');
+          // Перезагружаем панель заказов
+          document.dispatchEvent(new CustomEvent('ds:reload-tab', {
+            detail: { target: 'orders' }
+          }));
+        } else {
+          throw new Error(data.message || 'Не вдалося оновити статус');
+        }
+      })
+      .catch(error => {
+        console.error(error);
+        showToast(error.message || 'Помилка при оновленні статусу', 'error');
+        button.textContent = originalText;
+        button.disabled = false;
+      });
   }
 
   function openModal(modal) {
