@@ -293,7 +293,14 @@
     .then(data => {
       if (data.success) {
         console.log('Детали товара загружены:', data);
-        renderProductDetail(data.product, body);
+        console.log('Вызываем renderProductDetail...');
+        console.log('renderProductDetail доступна:', typeof renderProductDetail);
+        if (typeof renderProductDetail === 'function') {
+          renderProductDetail(data.product, body);
+        } else {
+          console.error('renderProductDetail не является функцией!');
+          body.innerHTML = '<div class="ds-error">Помилка рендеринга товару</div>';
+        }
       } else {
         console.error('Ошибка загрузки товара:', data.message);
         body.innerHTML = '<div class="ds-error">Помилка завантаження товару</div>';
