@@ -105,21 +105,49 @@ class Product(models.Model):
     
     def __str__(self): return self.title
     
-    def get_drop_price(self):
-        """Получить цену дропа (оптовая цена)"""
+    def get_drop_price(self, dropshipper=None):
+        """Получить цену дропа (оптовая цена) с учетом скидки за успешные дропы"""
+        base_price = 0
+        
         if self.category and self.category.slug == 'hoodie':
-            return 1450
-        if self.category and self.category.slug == 'long-sleeve':
+            base_price = 1350
+        elif self.category and self.category.slug == 'long-sleeve':
             return 0
-
-        title_lower = self.title.lower()
-        if 'футболка' in title_lower or 't-shirt' in title_lower:
-            return 650
-        if 'худи' in title_lower or 'hoodie' in title_lower or 'флис' in title_lower:
-            return 1450
-        if self.wholesale_price > 0:
-            return self.wholesale_price
-        return self.drop_price
+        else:
+            title_lower = self.title.lower()
+            if 'футболка' in title_lower or 't-shirt' in title_lower:
+                base_price = 570
+            elif 'худи' in title_lower or 'hoodie' in title_lower or 'флис' in title_lower:
+                base_price = 1350
+            elif self.wholesale_price > 0:
+                return self.wholesale_price
+            else:
+                return self.drop_price
+        
+        # Если не указан дропшипер, возвращаем базовую цену
+        if not dropshipper:
+            return base_price
+        
+        # Рассчитываем скидку за успешные дропы
+        from orders.models import DropshipperOrder
+        successful_orders = DropshipperOrder.objects.filter(
+            dropshipper=dropshipper,
+            status='delivered'
+        ).count()
+        
+        # Скидка 10 грн за каждый успешный дроп
+        discount = successful_orders * 10
+        
+        # Минимальные цены
+        if base_price == 1350:  # худи
+            min_price = 1200
+        elif base_price == 570:  # футболки
+            min_price = 500
+        else:
+            min_price = base_price
+        
+        final_price = max(min_price, base_price - discount)
+        return final_price
     
     def get_recommended_price(self):
         """Получить рекомендованную цену (цена со скидкой +-10%)"""
