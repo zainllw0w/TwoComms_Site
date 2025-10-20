@@ -483,41 +483,37 @@
     </section>
 
     <section class="ds-tab-panel" data-tab-panel="products">
-      <div class="ds-container">
-        <section class="ds-section ds-products-hero is-animated">
-          <header class="ds-section__header">
-            <div>
-              <h1 class="ds-section__title">Каталог TwoComms для ваших продажів</h1>
-              <p class="ds-section__subtitle">
-                Обирайте готові моделі, додавайте їх у замовлення та відправляйте клієнтам із виробництва TwoComms.
-              </p>
-            </div>
-            <div class="ds-actions">
-              <a href="{% url 'orders:dropshipper_products' %}" class="ds-btn ds-btn--primary">
-                <i class="fas fa-store" aria-hidden="true"></i>
-                <span>Перейти до каталогу</span>
-              </a>
-            </div>
-          </header>
-
-          <div class="ds-product-stats ds-product-stats--inline">
-            <div class="ds-product-stats__item">
-              <span class="ds-product-stats__label">Товарів у підбірці</span>
-              <span class="ds-product-stats__value">{{ dropship_products_preview|length }}</span>
-            </div>
-            <div class="ds-product-stats__item">
-              <span class="ds-product-stats__label">Активних категорій</span>
-              <span class="ds-product-stats__value">{{ dropship_products_categories_count }}</span>
-            </div>
-            <div class="ds-product-stats__item">
-              <span class="ds-product-stats__label">Оновлення асортименту</span>
-              <span class="ds-product-stats__value">щотижня</span>
-            </div>
+      <div class="ds-container ds-products-container">
+        <header class="ds-products-header">
+          <div>
+            <h1 class="ds-products-header__title">Каталог TwoComms для ваших продажів</h1>
+            <p class="ds-products-header__lead">Невелика підбірка топових позицій. Повний асортимент — у розділі «Каталог».</p>
           </div>
-        </section>
+          <div class="ds-products-header__actions">
+            <a href="{% url 'orders:dropshipper_products' %}" class="ds-btn ds-btn--primary">
+              <i class="fas fa-store" aria-hidden="true"></i>
+              <span>Повний каталог</span>
+            </a>
+          </div>
+        </header>
 
-        <section class="ds-section is-animated">
-          {% static 'img/placeholder.jpg' as ds_product_placeholder %}
+        <div class="ds-product-stats ds-product-stats--subtle ds-product-stats--inline">
+          <div class="ds-product-stats__item">
+            <span class="ds-product-stats__label">У добірці</span>
+            <span class="ds-product-stats__value">{{ dropship_products_preview|length }}</span>
+          </div>
+          <div class="ds-product-stats__item">
+            <span class="ds-product-stats__label">Активних категорій</span>
+            <span class="ds-product-stats__value">{{ dropship_products_categories_count }}</span>
+          </div>
+          <div class="ds-product-stats__item">
+            <span class="ds-product-stats__label">Оновлення</span>
+            <span class="ds-product-stats__value">щотижня</span>
+          </div>
+        </div>
+
+        {% static 'img/placeholder.jpg' as ds_product_placeholder %}
+        <div class="ds-products-grid-wrapper">
           {% if dropship_products_preview %}
             <div class="ds-products-grid">
               {% for product in dropship_products_preview %}
@@ -534,16 +530,14 @@
             <div class="ds-empty">
               <i class="fas fa-box-open" aria-hidden="true"></i>
               <h3 class="ds-empty__title">Поки що каталог порожній</h3>
-              <p class="ds-empty__text">
-                Ми оновлюємо асортимент. Зазирніть трохи пізніше або напишіть менеджеру, щоб отримати індивідуальну добірку.
-              </p>
+              <p class="ds-empty__text">Ми оновлюємо асортимент. Зверніться до менеджера або завітайте трохи пізніше.</p>
               <a href="https://t.me/twocomms" target="_blank" rel="noopener" class="ds-btn ds-btn--primary">
                 <i class="fab fa-telegram" aria-hidden="true"></i>
                 <span>Звʼязатися в Telegram</span>
               </a>
             </div>
           {% endif %}
-        </section>
+        </div>
       </div>
     </section>
 
