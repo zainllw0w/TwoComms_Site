@@ -190,6 +190,34 @@ main.container-xxl.py-4.py-md-5 {
   font-size: 0.9rem;
 }
 
+.ds-sidebar__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ds-sidebar__link.has-orders:not(.is-active) {
+  border-color: rgba(34, 197, 94, 0.35);
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--ds-text);
+  box-shadow: 0 12px 24px rgba(34, 197, 94, 0.18);
+}
+
+.ds-sidebar__badge {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: linear-gradient(120deg, rgba(34, 197, 94, 0.9) 0%, rgba(16, 185, 129, 0.9) 100%);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
 .ds-sidebar__link.is-active .ds-sidebar__icon {
   background: rgba(255, 255, 255, 0.16);
   color: #fff;
@@ -1817,6 +1845,15 @@ main.container-xxl.py-4.py-md-5 {
   color: var(--ds-text) !important;
 }
 
+.ds-modal__dialog--wide {
+  width: min(960px, 100%) !important;
+  max-height: min(90vh, 820px) !important;
+}
+
+.ds-modal__dialog--wide .ds-product-modal {
+  max-height: calc(90vh - 120px) !important;
+}
+
 .ds-modal__header {
   display: flex !important;
   justify-content: space-between !important;
@@ -1979,12 +2016,19 @@ main.container-xxl.py-4.py-md-5 {
   display: block !important;
 }
 
+.ds-product-modal {
+  display: grid !important;
+  grid-template-rows: auto 1fr !important;
+  overflow: hidden !important;
+}
+
 .ds-product-results {
-  max-height: clamp(320px, 50vh, 420px) !important;
+  max-height: clamp(360px, 65vh, 720px) !important;
   overflow-y: auto !important;
   display: grid !important;
   gap: 12px !important;
   padding: 18px 24px !important;
+  margin: 0 !important;
 }
 
 .ds-product-results::before {
@@ -4715,6 +4759,79 @@ main.container-xxl.py-4.py-md-5 {
   margin-top: 2px !important;
 }
 
+.ds-product-detail__options {
+  display: grid !important;
+  gap: 18px !important;
+}
+
+.ds-product-option {
+  display: grid !important;
+  gap: 10px !important;
+}
+
+.ds-product-option__label {
+  font-size: 0.88rem !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.ds-option-chips {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+}
+
+.ds-option-chip {
+  position: relative !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: var(--ds-text) !important;
+  font-size: 0.92rem !important;
+  font-weight: 600 !important;
+  padding: 10px 16px !important;
+  cursor: pointer !important;
+  transition: transform var(--ds-transition), border-color var(--ds-transition), background-color var(--ds-transition), box-shadow var(--ds-transition) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.ds-option-chip:hover,
+.ds-option-chip:focus-visible {
+  border-color: rgba(139, 92, 246, 0.45) !important;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.25) !important;
+  outline: none !important;
+}
+
+.ds-option-chip.is-active {
+  border-color: rgba(139, 92, 246, 0.75) !important;
+  background: linear-gradient(120deg, rgba(139, 92, 246, 0.25) 0%, rgba(59, 130, 246, 0.35) 100%) !important;
+  box-shadow: 0 12px 28px rgba(64, 76, 255, 0.35) !important;
+}
+
+.ds-option-chip__label {
+  white-space: nowrap !important;
+}
+
+.ds-option-chip--color {
+  padding: 8px 14px !important;
+}
+
+.ds-option-chip__swatch {
+  width: 20px !important;
+  height: 20px !important;
+  border-radius: 50% !important;
+  border: 1px solid rgba(0, 0, 0, 0.2) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35) !important;
+}
+
+.ds-option-chip__swatch.is-empty {
+  background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.25) 0, rgba(255, 255, 255, 0.25) 6px, rgba(0, 0, 0, 0.25) 6px, rgba(0, 0, 0, 0.25) 12px) !important;
+}
+
 .ds-product-detail {
   display: grid !important;
   gap: clamp(18px, 3vw, 28px) !important;
@@ -4815,6 +4932,10 @@ main.container-xxl.py-4.py-md-5 {
 }
 
 .ds-product-detail .ds-form__grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) !important;
+}
+
+.ds-form__grid--compact {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) !important;
 }
 

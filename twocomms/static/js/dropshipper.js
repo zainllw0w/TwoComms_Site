@@ -26,12 +26,12 @@
 
       const activateTab = (target, { updateHistory = true } = {}) => {
         if (!target) {
-          return;
+          return false;
         }
 
         const targetPanel = document.querySelector(`[data-tab-panel="${target}"]`);
         if (!targetPanel) {
-          return;
+          return false;
         }
 
         tabLinks.forEach((link) => {
@@ -59,6 +59,8 @@
         } else {
           setupAutoAnimateSections();
         }
+
+        return true;
       };
 
       tabLinks.forEach((link) => {
@@ -68,8 +70,10 @@
             return;
           }
 
-          event.preventDefault();
-          activateTab(target);
+          const handled = activateTab(target);
+          if (handled) {
+            event.preventDefault();
+          }
         });
       });
 
@@ -84,8 +88,10 @@
           return;
         }
 
-        event.preventDefault();
-        activateTab(target);
+        const handled = activateTab(target);
+        if (handled) {
+          event.preventDefault();
+        }
       });
 
       document.addEventListener('ds:reload-tab', (event) => {
@@ -99,14 +105,20 @@
           return;
         }
 
-       delete panel.dataset.tabLoaded;
-       if (panel.classList.contains('is-active')) {
-         activateTab(target, { updateHistory: false });
-       }
+        delete panel.dataset.tabLoaded;
+        if (panel.classList.contains('is-active')) {
+          activateTab(target, { updateHistory: false });
+        }
       });
 
       if (initialTarget) {
-        activateTab(initialTarget, { updateHistory: false });
+        const handled = activateTab(initialTarget, { updateHistory: false });
+        if (!handled) {
+          const fallback = tabPanels[0];
+          if (fallback) {
+            activateTab(fallback.dataset.tabPanel, { updateHistory: false });
+          }
+        }
       }
     }
 
