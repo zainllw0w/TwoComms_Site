@@ -701,8 +701,9 @@ function renderOrderItems() {
         console.log('HTML заказов получен, длина:', html.length);
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
-        const orderEntries = doc.querySelectorAll('.ds-order-entry');
+        const orderEntries = doc.querySelectorAll('.ds-order-entry, .ds-order-card, [class*="order"]');
         console.log('Найдено заказов в HTML:', orderEntries.length);
+        console.log('Найденные элементы:', Array.from(orderEntries).map(el => el.className));
         
         const ordersBadge = document.querySelector('[data-orders-badge]');
         if (ordersBadge) {
