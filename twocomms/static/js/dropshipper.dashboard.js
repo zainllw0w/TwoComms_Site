@@ -87,6 +87,8 @@
         })),
       };
 
+      console.log('Отправляем заказ:', payload);
+      
       fetch('/orders/dropshipper/api/create-order/', {
         method: 'POST',
         headers: {
@@ -96,14 +98,29 @@
         },
         body: JSON.stringify(payload),
       })
-        .then((response) => response.json())
+        .then((response) => {
+          console.log('Ответ сервера:', response.status);
+          return response.json();
+        })
         .then((data) => {
+          console.log('Данные ответа:', data);
           if (data.success) {
             showToast(data.message || 'Замовлення створено!');
             orderForm.reset();
             orderItems = [];
             renderOrderItems();
             closeModal(orderModal);
+            
+            // Обновляем бейдж в боковой панели
+            updateOrderBadge();
+            
+            // Перезагружаем панель заказов если она открыта
+            const ordersPanel = document.querySelector('[data-tab-panel="orders"]');
+            if (ordersPanel && ordersPanel.classList.contains('is-active')) {
+              document.dispatchEvent(new CustomEvent('ds:reload-tab', {
+                detail: { target: 'orders' }
+              }));
+            }
           } else {
             throw new Error(data.message || 'Не вдалося створити замовлення');
           }
@@ -650,39 +667,57 @@ function renderOrderItems() {
   }
   
   function updateOrderBadge() {
+    console.log('Обновляем бейдж заказов, текущие товары в корзине:', orderItems.length);
     const ordersBadge = document.querySelector('[data-orders-badge]');
     if (ordersBadge) {
       if (orderItems.length > 0) {
         ordersBadge.textContent = orderItems.length;
         ordersBadge.removeAttribute('hidden');
         ordersBadge.closest('.ds-sidebar__link').classList.add('has-orders');
+        console.log('Бейдж обновлен для корзины:', orderItems.length);
       } else {
         ordersBadge.setAttribute('hidden', 'hidden');
         ordersBadge.closest('.ds-sidebar__link').classList.remove('has-orders');
+        console.log('Бейдж скрыт, корзина пуста');
       }
+    } else {
+      console.log('Бейдж не найден в DOM');
     }
   }
   
   function loadExistingOrders() {
+    console.log('Загружаем существующие заказы...');
     // Загружаем количество активных заказов для отображения в бейдже
     fetch('/orders/dropshipper/orders/?partial=1', {
       headers: {
         'X-Requested-With': 'XMLHttpRequest',
       },
     })
-      .then(response => response.text())
+      .then(response => {
+        console.log('Ответ от сервера заказов:', response.status);
+        return response.text();
+      })
       .then(html => {
+        console.log('HTML заказов получен, длина:', html.length);
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
-        const orderCards = doc.querySelectorAll('.ds-order-card');
+        const orderEntries = doc.querySelectorAll('.ds-order-entry');
+        console.log('Найдено заказов в HTML:', orderEntries.length);
         
-        if (orderCards.length > 0) {
-          const ordersBadge = document.querySelector('[data-orders-badge]');
-          if (ordersBadge) {
-            ordersBadge.textContent = orderCards.length;
+        const ordersBadge = document.querySelector('[data-orders-badge]');
+        if (ordersBadge) {
+          if (orderEntries.length > 0) {
+            ordersBadge.textContent = orderEntries.length;
             ordersBadge.removeAttribute('hidden');
             ordersBadge.closest('.ds-sidebar__link').classList.add('has-orders');
+            console.log('Бейдж обновлен для существующих заказов:', orderEntries.length);
+          } else {
+            ordersBadge.setAttribute('hidden', 'hidden');
+            ordersBadge.closest('.ds-sidebar__link').classList.remove('has-orders');
+            console.log('Бейдж скрыт, заказов нет');
           }
+        } else {
+          console.log('Бейдж не найден в DOM при загрузке заказов');
         }
       })
       .catch(error => {
