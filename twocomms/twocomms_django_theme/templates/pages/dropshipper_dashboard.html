@@ -512,7 +512,20 @@
           </div>
         </div>
 
+        {% if dropship_inactive_categories %}
+          <div class="ds-products-note">
+            <i class="fas fa-hourglass-half" aria-hidden="true"></i>
+            <div>
+              <strong>Лонгсливи готуємо до повернення.</strong>
+              <div>Категорія відключена для замовлень, але вже невдовзі можна буде додавати оновлену лінійку.</div>
+            </div>
+          </div>
+        {% endif %}
+
         {% static 'img/placeholder.jpg' as ds_product_placeholder %}
+        <script>
+          window.__dsPlaceholder = window.__dsPlaceholder || '{{ ds_product_placeholder }}';
+        </script>
         <div class="ds-products-grid-wrapper">
           {% if dropship_products_preview %}
             <div class="ds-products-grid">

@@ -19,12 +19,40 @@ from .forms import CompanyProfileForm
 from accounts.models import UserProfile
 
 
+LONG_SLEEVE_SLUG = 'long-sleeve'
+HOODIE_SLUG = 'hoodie'
+
+
+def _get_dropship_categories():
+    categories_data = []
+    for category in Category.objects.filter(is_active=True).order_by('order', 'name'):
+        is_disabled = category.slug == LONG_SLEEVE_SLUG
+        categories_data.append({
+            'id': category.id,
+            'name': category.name,
+            'slug': category.slug,
+            'disabled': is_disabled,
+        })
+    return categories_data
+
+
+def _format_color_count(count):
+    if not count:
+        return '1 колір (чорний)'
+    if count == 1:
+        return '1 колір'
+    if 2 <= count <= 4:
+        return f'{count} кольори'
+    return f'{count} кольорів'
+
+
 def _dropshipper_products_queryset():
     return (
         Product.objects.filter(
             category__is_active=True,
             is_dropship_available=True,
         )
+        .exclude(category__slug=LONG_SLEEVE_SLUG)
         .select_related('category')
         .prefetch_related('color_variants__images')
     )
@@ -43,6 +71,9 @@ def _enrich_product(product):
     image = product.display_image
     product.primary_image = image
     product.primary_image_url = getattr(image, 'url', None)
+
+    color_count = product.color_variants.count()
+    product.color_count_label = _format_color_count(color_count)
     return product
 
 
@@ -71,13 +102,15 @@ def _build_products_context(request, *, per_page=12):
     enriched = [_enrich_product(product) for product in page_obj.object_list]
     page_obj.object_list = enriched
 
-    categories = Category.objects.filter(is_active=True).order_by('order', 'name')
+    categories = _get_dropship_categories()
+    inactive_categories = [category for category in categories if category['disabled']]
 
     return {
         'page_obj': page_obj,
         'categories': categories,
         'selected_category': category_id,
         'search_query': search_query,
+        'inactive_categories': inactive_categories,
     }
 
 
@@ -102,7 +135,9 @@ def dropshipper_dashboard(request):
         for product in _dropshipper_products_queryset().order_by('-id')[:8]
     ]
 
-    categories_count = Category.objects.filter(is_active=True).count()
+    categories_info = _get_dropship_categories()
+    active_categories_count = sum(1 for category in categories_info if not category['disabled'])
+    inactive_categories = [category for category in categories_info if category['disabled']]
 
     context = {
         'stats': stats,
@@ -111,7 +146,8 @@ def dropshipper_dashboard(request):
         'payment_method_choices': DropshipperPayout.PAYMENT_METHOD_CHOICES,
         'profile': profile,
         'dropship_products_preview': products_preview,
-        'dropship_products_categories_count': categories_count,
+        'dropship_products_categories_count': active_categories_count,
+        'dropship_inactive_categories': inactive_categories,
     }
     
     return render(request, 'pages/dropshipper_dashboard.html', context)
@@ -482,38 +518,61 @@ def request_payout(request):
 def get_product_details(request, product_id):
     """Получение детальной информации о товаре"""
     try:
-        product = get_object_or_404(Product, id=product_id)
-        color_variants = ProductColorVariant.objects.filter(product=product).prefetch_related('images')
-        
-        # Получаем доступные размеры
+        product = get_object_or_404(Product.objects.select_related('category'), id=product_id)
+        color_variants = ProductColorVariant.objects.filter(product=product).prefetch_related('images', 'color')
+
         sizes = []
         for variant in color_variants:
-            if hasattr(variant, 'sizes') and variant.sizes:
-                sizes.extend(variant.sizes.split(','))
-        
-        sizes = list(set(sizes))  # Убираем дубликаты
-        
+            variant_sizes = getattr(variant, 'sizes', '') or ''
+            if variant_sizes:
+                sizes.extend([size.strip() for size in variant_sizes.split(',') if size.strip()])
+
+        unique_sizes = sorted(set(sizes))
+
+        recommended = product.get_recommended_price()
+        drop_price = product.get_drop_price()
+
+        base_images = []
+        if product.main_image:
+            base_images.append(product.main_image.url)
+
+        color_variants_payload = []
+        for variant in color_variants:
+            variant_images = [img.image.url for img in variant.images.all()]
+            if variant_images:
+                base_images.extend(variant_images)
+
+            color_variants_payload.append({
+                'id': variant.id,
+                'color_name': variant.color.name if variant.color else 'Без кольору',
+                'primary_hex': variant.color.primary_hex if variant.color and variant.color.primary_hex else '#000000',
+                'images': variant_images,
+            })
+
+        gallery = []
+        seen = set()
+        for url in base_images:
+            if url and url not in seen:
+                gallery.append(url)
+                seen.add(url)
+
         data = {
             'id': product.id,
             'title': product.title,
-            'description': product.description,
-            'drop_price': float(product.drop_price),
-            'recommended_price': float(product.recommended_price),
-            'main_image': product.main_image.url if product.main_image else None,
-            'color_variants': [
-                {
-                    'id': variant.id,
-                    'color_name': variant.color.name if variant.color else 'Без кольору',
-                    'primary_hex': variant.color.primary_hex if variant.color else '#000000',
-                    'images': [img.image.url for img in variant.images.all()] if variant.images.exists() else []
-                }
-                for variant in color_variants
-            ],
-            'sizes': sizes
+            'description': product.description or '',
+            'drop_price': float(drop_price),
+            'recommended_price': float(recommended.get('base', product.recommended_price or 0)),
+            'recommended_min': float(recommended.get('min', product.recommended_price or 0)),
+            'recommended_max': float(recommended.get('max', product.recommended_price or 0)),
+            'main_image': gallery[0] if gallery else None,
+            'gallery': gallery,
+            'color_variants': color_variants_payload,
+            'sizes': unique_sizes,
+            'available_for_order': product.is_available_for_dropship(),
         }
-        
+
         return JsonResponse(data)
-        
+
     except Exception as e:
         return JsonResponse({
             'error': f'Помилка при отриманні інформації про товар: {str(e)}'
