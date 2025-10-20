@@ -19,4 +19,10 @@ urlpatterns = [
     path('dropshipper/api/update-order-status/<int:order_id>/', dropshipper_views.update_order_status, name='update_order_status'),
     path('dropshipper/api/request-payout/', dropshipper_views.request_payout, name='request_payout'),
     path('dropshipper/api/product/<int:product_id>/', dropshipper_views.get_product_details, name='get_product_details'),
+    
+    # API маршруты для корзины
+    path('dropshipper/api/cart/add/', dropshipper_views.add_to_cart, name='add_to_cart'),
+    path('dropshipper/api/cart/get/', dropshipper_views.get_cart, name='get_cart'),
+    path('dropshipper/api/cart/remove/', dropshipper_views.remove_from_cart, name='remove_from_cart'),
+    path('dropshipper/api/cart/clear/', dropshipper_views.clear_cart, name='clear_cart'),
 ]
