@@ -91,11 +91,15 @@
 
       <a class="ds-sidebar__link {% if active_tab == 'orders' %}is-active{% endif %}"
          href="{% url 'orders:dropshipper_orders' %}"
-         data-tab-target="orders">
+         data-tab-target="orders"
+         data-orders-link>
         <span class="ds-sidebar__icon">
           <i class="fas fa-shopping-cart" aria-hidden="true"></i>
         </span>
-        <span class="ds-sidebar__label">Замовлення</span>
+        <span class="ds-sidebar__label">
+          Замовлення
+          <span class="ds-sidebar__badge" data-orders-badge hidden>0</span>
+        </span>
       </a>
 
       <a class="ds-sidebar__link {% if active_tab == 'statistics' %}is-active{% endif %}"
