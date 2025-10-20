@@ -6672,9 +6672,8 @@ def test_pricelist(request):
 
 
 def pricelist_redirect(request):
-    """Redirect to static pricelist file."""
-    from django.shortcuts import redirect
-    return redirect('/media/pricelist_opt.xlsx')
+    """Generate and serve wholesale prices XLSX file."""
+    return wholesale_prices_xlsx(request)
 
 
 def pricelist_page(request):
