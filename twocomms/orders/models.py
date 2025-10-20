@@ -294,6 +294,7 @@ class DropshipperOrder(models.Model):
     
     # Дополнительная информация
     notes = models.TextField(blank=True, null=True, verbose_name="Примітки")
+    order_source = models.CharField(max_length=500, blank=True, null=True, verbose_name="Джерело замовлення")
     tracking_number = models.CharField(max_length=50, blank=True, null=True, verbose_name="Номер ТТН")
     
     # Временные метки
