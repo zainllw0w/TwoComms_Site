@@ -188,6 +188,8 @@ def dropshipper_orders(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
+    print(f"Пагинация: страница {page_number}, всего страниц: {paginator.num_pages}, заказов на странице: {len(page_obj)}")
+    
     context = {
         'page_obj': page_obj,
         'status_choices': DropshipperOrder.STATUS_CHOICES,
@@ -195,6 +197,8 @@ def dropshipper_orders(request):
         'payout_methods': DropshipperPayout.PAYMENT_METHOD_CHOICES,
         'payment_method_choices': DropshipperPayout.PAYMENT_METHOD_CHOICES,
     }
+    
+    print(f"Контекст: page_obj содержит {len(page_obj)} заказов")
 
     template_name = 'pages/dropshipper_orders.html'
     if request.GET.get('partial'):
@@ -379,7 +383,7 @@ def create_dropshipper_order(request):
                 client_phone=data.get('client_phone', ''),
                 client_np_address=data.get('client_np_address', ''),
                 notes=data.get('notes', ''),
-                status='draft'
+                status='pending'  # Изменяем статус на pending для отображения
             )
             
             # Добавляем товары
