@@ -29,7 +29,10 @@
 
   function bindOpeners() {
     document.querySelectorAll('.js-open-order-modal').forEach((btn) => {
-      btn.addEventListener('click', () => openModal(orderModal));
+      btn.addEventListener('click', () => {
+        openModal(orderModal);
+        loadCart(); // Загружаем корзину при открытии модального окна заказа
+      });
     });
 
     document.querySelectorAll('.js-open-product-modal').forEach((btn) => {
