@@ -1,6 +1,10 @@
 {% load static %}
 {% static 'img/placeholder.jpg' as ds_product_placeholder %}
 
+<script>
+  window.__dsPlaceholder = window.__dsPlaceholder || '{{ ds_product_placeholder }}';
+</script>
+
 <div class="ds-container ds-products-container">
   <header class="ds-products-header">
     <div>
@@ -44,7 +48,9 @@
         <select name="category">
           <option value="">Всі категорії</option>
           {% for category in categories %}
-            <option value="{{ category.id }}" {% if selected_category == category.id|stringformat:"s" %}selected{% endif %}>{{ category.name }}</option>
+            <option value="{{ category.id }}" {% if selected_category == category.id|stringformat:"s" %}selected{% endif %} {% if category.disabled %}disabled{% endif %}>
+              {{ category.name }}{% if category.disabled %} (скоро){% endif %}
+            </option>
           {% endfor %}
         </select>
       </div>
@@ -73,12 +79,25 @@
   {% if categories %}
     <div class="ds-chip-cloud ds-chip-cloud--compact">
       {% for category in categories|slice:":10" %}
-        <a class="ds-chip {% if selected_category == category.id|stringformat:'s' %}is-active{% endif %}"
-           href="{% url 'orders:dropshipper_products' %}?category={{ category.id }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}">
+        <a class="ds-chip {% if selected_category == category.id|stringformat:'s' %}is-active{% endif %} {% if category.disabled %}is-disabled{% endif %}"
+           {% if not category.disabled %}
+             href="{% url 'orders:dropshipper_products' %}?category={{ category.id }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}"
+           {% endif %}
+           {% if category.disabled %}aria-disabled="true"{% endif %}>
           <i class="fas fa-tag" aria-hidden="true"></i>
-          {{ category.name }}
+          {{ category.name }}{% if category.disabled %} · скоро{% endif %}
         </a>
       {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if inactive_categories %}
+    <div class="ds-products-note">
+      <i class="fas fa-hourglass-half" aria-hidden="true"></i>
+      <div>
+        <strong>Лонгсливи тимчасово недоступні для дропшипа.</strong>
+        <div>Ми оновлюємо колекцію та повідомимо, щойно продажі знову відкриються.</div>
+      </div>
     </div>
   {% endif %}
 

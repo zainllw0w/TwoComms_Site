@@ -7,6 +7,7 @@
   const productSearchForm = document.getElementById('ds-product-search');
   const csrfTokenMeta = document.querySelector('meta[name="csrf-token"]');
   const csrfToken = csrfTokenMeta ? csrfTokenMeta.getAttribute('content') : '';
+  const placeholderImage = window.__dsPlaceholder || '/static/img/placeholder.jpg';
 
   const toast = createToast();
   let orderItems = [];
@@ -22,6 +23,7 @@
   bindOrderForm();
   bindProductSearch();
   bindQuickAddButtons();
+  bindProductPreviewButtons();
 
   function bindOpeners() {
     document.querySelectorAll('.js-open-order-modal').forEach((btn) => {
@@ -164,8 +166,69 @@
   document.addEventListener('ds:tabloaded', (event) => {
     if (event.detail && event.detail.target === 'products') {
       bindQuickAddButtons();
+      bindProductPreviewButtons();
     }
   });
+
+  function bindProductPreviewButtons() {
+    const previews = document.querySelectorAll('[data-product-preview]');
+    previews.forEach((btn) => {
+      if (btn.dataset.previewBound === 'true') {
+        return;
+      }
+      btn.dataset.previewBound = 'true';
+      btn.addEventListener('click', () => {
+        const productId = Number(btn.dataset.productPreview);
+        if (!productId) {
+          return;
+        }
+        openProductDetail(productId);
+      });
+    });
+  }
+
+  function openProductDetail(productId) {
+    if (!productId) {
+      return;
+    }
+
+    openModal(productModal);
+    orderModal.setAttribute('aria-hidden', 'true');
+    productResults.dataset.emptyText = 'Завантажуємо товар…';
+    productResults.innerHTML = '';
+
+    fetch(`/orders/dropshipper/api/product/${productId}/`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Не вдалося завантажити товар');
+        }
+        return response.json();
+      })
+      .then((data) => {
+        if (data.error) {
+          throw new Error(data.error);
+        }
+        renderProductDetail({
+          productId: data.id,
+          title: data.title,
+          description: data.description || '',
+          dropPrice: data.drop_price || 0,
+          recommendedPrice: data.recommended_price || 0,
+          recommendedMin: data.recommended_min || null,
+          recommendedMax: data.recommended_max || null,
+          image: data.main_image || (Array.isArray(data.gallery) && data.gallery.length ? data.gallery[0] : null),
+          gallery: Array.isArray(data.gallery) ? data.gallery : [],
+          colorVariants: Array.isArray(data.color_variants) ? data.color_variants : [],
+          sizes: Array.isArray(data.sizes) ? data.sizes : [],
+        });
+      })
+      .catch((error) => {
+        console.error(error);
+        productResults.dataset.emptyText = error.message || 'Не вдалося завантажити товар.';
+        productResults.innerHTML = '';
+        showToast(error.message || 'Не вдалося завантажити товар', 'error');
+      });
+  }
 
   function performSearch(query) {
     if (!query) {
@@ -240,12 +303,10 @@
             </div>
           `;
 
-          const chooseButton = item.querySelector('button');
-          if (chooseButton) {
-            chooseButton.addEventListener('click', () => {
-              renderProductDetail({ productId, title, dropPrice, recommendedPrice, image });
-            });
-          }
+        const chooseButton = item.querySelector('button');
+        if (chooseButton) {
+          chooseButton.addEventListener('click', () => openProductDetail(productId));
+        }
 
           productResults.appendChild(item);
         });
@@ -259,17 +320,101 @@
       });
   }
 
-  function renderProductDetail({ productId, title, dropPrice, recommendedPrice, image }) {
+  function renderProductDetail({
+    productId,
+    title,
+    description,
+    dropPrice,
+    recommendedPrice,
+    recommendedMin,
+    recommendedMax,
+    image,
+    gallery,
+    colorVariants,
+    sizes,
+  }) {
+    const productPlaceholder = placeholderImage || '/static/img/placeholder.jpg';
     productResults.dataset.emptyText = '';
     productResults.innerHTML = '';
 
+    const fallbackImage = placeholderImage || '';
+    const previewImages = Array.isArray(gallery) && gallery.length
+      ? gallery.filter(Boolean)
+      : (image ? [image] : [productPlaceholder]);
+    if (!previewImages.length && fallbackImage) {
+      previewImages.push(fallbackImage);
+    }
+
     const wrapper = document.createElement('form');
-    wrapper.className = 'ds-form';
+    wrapper.className = 'ds-product-detail';
+    wrapper.innerHTML = `
+      <div class="ds-product-modal__layout">
+        <div class="ds-product-modal__media">
+          <div class="ds-product-modal__media-main">
+            <img src="${previewImages[0] || fallbackImage}" alt="${escapeHtml(title)}" loading="lazy" data-product-main>
+          </div>
+          <div class="ds-product-modal__thumbs" data-product-thumbs></div>
+        </div>
+        <div class="ds-product-modal__info">
+          <div>
+            <h3 class="ds-product-modal__title">${escapeHtml(title)}</h3>
+            ${description ? `<p class="ds-product-modal__description">${escapeHtml(description).replace(/\n+/g, '<br>')}</p>` : ''}
+          </div>
+          <div class="ds-product-modal__meta">
+            <span>Ціна дропа: <strong>${formatCurrency(dropPrice || 0)}</strong></span>
+            <span>
+              Рекомендовано: <strong>${recommendedPrice ? formatCurrency(recommendedPrice) : '—'}</strong>
+              ${recommendedMin && recommendedMax ? `<small> (${formatCurrency(recommendedMin)} – ${formatCurrency(recommendedMax)})</small>` : ''}
+            </span>
+          </div>
+          <div class="ds-form__grid">
+            <label class="ds-input">
+              <span class="ds-input__label">Кількість</span>
+              <input type="number" name="quantity" value="1" min="1" required>
+            </label>
+            <label class="ds-input">
+              <span class="ds-input__label">Розмір</span>
+              <select name="size" data-size-select></select>
+            </label>
+            <label class="ds-input">
+              <span class="ds-input__label">Колір</span>
+              <select name="color_variant_id" data-color-select></select>
+            </label>
+            <label class="ds-input">
+              <span class="ds-input__label">Ціна продажу, грн</span>
+              <input type="number" name="selling_price" value="${Number(recommendedPrice || dropPrice || 0)}" min="${Number(dropPrice || 0)}" step="1" required>
+            </label>
+          </div>
+          <input type="hidden" name="color_name">
+          <div class="ds-product-detail__actions">
+            <button type="button" class="ds-btn ds-btn--ghost" data-product-close>
+              <i class="fas fa-times" aria-hidden="true"></i>
+              <span>Закрити</span>
+            </button>
+            <button type="submit" class="ds-btn ds-btn--primary">
+              <i class="fas fa-plus" aria-hidden="true"></i>
+              <span>Додати до замовлення</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const formState = {
+      productId,
+      title,
+      dropPrice: Number(dropPrice || 0),
+      recommendedPrice: Number(recommendedPrice || 0),
+      baseImages: previewImages.slice(),
+    };
+
+    setupProductDetailForm(wrapper, colorVariants, sizes, formState);
+
     wrapper.addEventListener('submit', (event) => {
       event.preventDefault();
       const formData = new FormData(wrapper);
       const quantity = Number(formData.get('quantity')) || 1;
-      const sellingPrice = Number(formData.get('selling_price')) || recommendedPrice || dropPrice || 0;
+      const sellingPrice = Number(formData.get('selling_price')) || formState.recommendedPrice || formState.dropPrice;
       const size = formData.get('size') || '';
       const colorVariantId = formData.get('color_variant_id') || '';
       const colorName = formData.get('color_name') || '';
@@ -277,8 +422,8 @@
       orderItems.push({
         productId,
         title,
-        dropPrice: dropPrice || 0,
-        recommendedPrice: recommendedPrice || 0,
+        dropPrice: formState.dropPrice,
+        recommendedPrice: formState.recommendedPrice,
         sellingPrice,
         quantity,
         size,
@@ -292,123 +437,151 @@
       orderModal.removeAttribute('aria-hidden');
     });
 
-    wrapper.innerHTML = `
-      <div style="display:grid;gap:18px;">
-        <div style="display:flex;gap:16px;align-items:center;">
-          ${image ? `<img src="${image}" alt="" loading="lazy" style="width:80px;height:80px;border-radius:14px;object-fit:cover;">` : ''}
-          <div>
-            <h3 style="margin:0;font-size:1.1rem;">${title}</h3>
-            <div style="display:flex;gap:12px;color:var(--ds-text-soft);font-size:0.9rem;">
-              <span>Дроп: <strong>${dropPrice ? `${dropPrice} грн` : '—'}</strong></span>
-              <span>Рекомендована: <strong>${recommendedPrice ? `${recommendedPrice} грн` : '—'}</strong></span>
-            </div>
-          </div>
-        </div>
-        <div class="ds-form__grid">
-          <label class="ds-input">
-            <span class="ds-input__label">Кількість</span>
-            <input type="number" name="quantity" value="1" min="1" required>
-          </label>
-          <label class="ds-input">
-            <span class="ds-input__label">Розмір</span>
-            <select name="size">
-              <option value="">— Обрати —</option>
-            </select>
-          </label>
-          <label class="ds-input">
-            <span class="ds-input__label">Варіант кольору</span>
-            <select name="color_variant_id">
-              <option value="">— Без кольору —</option>
-            </select>
-          </label>
-          <label class="ds-input">
-            <span class="ds-input__label">Ціна продажу, грн</span>
-            <input type="number" name="selling_price" value="${recommendedPrice || dropPrice || 0}" min="${dropPrice || 0}" step="0.01" required>
-          </label>
-        </div>
-        <div class="ds-actions" style="justify-content:flex-end;">
-          <button type="button" class="ds-btn ds-btn--ghost" data-product-back>
-            <i class="fas fa-arrow-left" aria-hidden="true"></i>
-            <span>Назад до пошуку</span>
-          </button>
-          <button type="submit" class="ds-btn ds-btn--primary">
-            <i class="fas fa-plus" aria-hidden="true"></i>
-            <span>Додати до замовлення</span>
-          </button>
-        </div>
-      </div>
-    `;
-
-    const backBtn = wrapper.querySelector('[data-product-back]');
-    if (backBtn) {
-      backBtn.addEventListener('click', () => {
-        productResults.innerHTML = '';
-        productResults.dataset.emptyText = 'Введіть пошуковий запит, щоб побачити товари.';
+    const closeBtn = wrapper.querySelector('[data-product-close]');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        closeModal(productModal);
+        orderModal.removeAttribute('aria-hidden');
       });
     }
 
     productResults.appendChild(wrapper);
-    populateProductDetails(productId, wrapper);
   }
 
-  function populateProductDetails(productId, form) {
-    fetch(`/orders/dropshipper/api/product/${productId}/`)
-      .then((response) => response.json())
-      .then((data) => {
-        const sizeSelect = form.querySelector('select[name="size"]');
-        const colorSelect = form.querySelector('select[name="color_variant_id"]');
+  
+  function setupProductDetailForm(wrapper, colorVariants, sizes, state) {
+    const mainImage = wrapper.querySelector('[data-product-main]');
+    const thumbsContainer = wrapper.querySelector('[data-product-thumbs]');
+    const sizeSelect = wrapper.querySelector('[data-size-select]');
+    const colorSelect = wrapper.querySelector('[data-color-select]');
+    const hiddenColor = wrapper.querySelector('input[name="color_name"]');
 
-        if (Array.isArray(data.sizes)) {
-          data.sizes
-            .filter((size) => size)
-            .sort()
-            .forEach((size) => {
-              const option = document.createElement('option');
-              option.value = size.trim();
-              option.textContent = size.trim();
-              if (sizeSelect) {
-                sizeSelect.appendChild(option);
-              }
-            });
-        }
+    const baseImages = state.baseImages.length ? state.baseImages : [placeholderImage];
 
-        if (Array.isArray(data.color_variants)) {
-          data.color_variants.forEach((variant) => {
-            const option = document.createElement('option');
-            option.value = variant.id;
-            option.textContent = variant.color_name;
-            option.dataset.colorName = variant.color_name;
-            if (colorSelect) {
-              colorSelect.appendChild(option);
-            }
-          });
+    const uniqueSizes = Array.from(new Set((sizes || []).map((size) => (size || '').trim()).filter(Boolean)));
+    if (sizeSelect) {
+      sizeSelect.innerHTML = '';
+      if (!uniqueSizes.length) {
+        const singleOption = document.createElement('option');
+        singleOption.value = '';
+        singleOption.textContent = 'Єдиний розмір';
+        sizeSelect.appendChild(singleOption);
+      } else {
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = '— Обрати —';
+        sizeSelect.appendChild(defaultOption);
+        uniqueSizes.forEach((size) => {
+          const option = document.createElement('option');
+          option.value = size;
+          option.textContent = size;
+          sizeSelect.appendChild(option);
+        });
+      }
+    }
 
-          if (colorSelect) {
-            colorSelect.addEventListener('change', (event) => {
-              const selectEl = event.target;
-              const selectedOption = selectEl && selectEl.selectedOptions ? selectEl.selectedOptions[0] : null;
-              const hiddenField = form.querySelector('input[name="color_name"]');
-              if (hiddenField) {
-                hiddenField.value = selectedOption && selectedOption.dataset ? selectedOption.dataset.colorName || '' : '';
-              }
-            });
-          }
-        }
+    const normalizedVariants = Array.isArray(colorVariants)
+      ? colorVariants.filter((variant) => variant && (variant.id || variant.id === 0))
+      : [];
 
-        if (!form.querySelector('input[name="color_name"]')) {
-          const hidden = document.createElement('input');
-          hidden.type = 'hidden';
-          hidden.name = 'color_name';
-          form.appendChild(hidden);
-        }
-      })
-      .catch((error) => {
-        console.error(error);
-        showToast('Не вдалося завантажити деталі товару', 'error');
+    if (colorSelect) {
+      colorSelect.innerHTML = '';
+      const baseOption = document.createElement('option');
+      baseOption.value = '';
+      baseOption.textContent = normalizedVariants.length ? 'Базовий колір' : 'Єдиний колір';
+      colorSelect.appendChild(baseOption);
+
+      normalizedVariants.forEach((variant) => {
+        const option = document.createElement('option');
+        option.value = variant.id;
+        option.textContent = variant.color_name || 'Колір без назви';
+        option.dataset.colorName = variant.color_name || '';
+        colorSelect.appendChild(option);
       });
+
+      colorSelect.addEventListener('change', (event) => {
+        const selectEl = event.target;
+        const selectedOption = selectEl.selectedOptions ? selectEl.selectedOptions[0] : null;
+        const variant = normalizedVariants.find((item) => String(item.id) === String(selectEl.value));
+        if (hiddenColor) {
+          hiddenColor.value = selectedOption ? (selectedOption.dataset.colorName || selectedOption.textContent || '') : '';
+        }
+        const variantImages = variant && Array.isArray(variant.images) && variant.images.length ? variant.images : baseImages;
+        renderThumbs(variantImages);
+      });
+
+      if (normalizedVariants.length) {
+        colorSelect.value = String(normalizedVariants[0].id);
+        colorSelect.dispatchEvent(new Event('change'));
+      } else {
+        if (hiddenColor) {
+          hiddenColor.value = 'Базовий колір';
+        }
+        renderThumbs(baseImages);
+      }
+    } else {
+      if (hiddenColor) {
+        hiddenColor.value = 'Базовий колір';
+      }
+      renderThumbs(baseImages);
+    }
+
+    function renderThumbs(images) {
+      if (!thumbsContainer || !mainImage) {
+        return;
+      }
+
+      const unique = [];
+      (images || []).forEach((url) => {
+        if (url && !unique.includes(url)) {
+          unique.push(url);
+        }
+      });
+
+      if (!unique.length) {
+        unique.push(placeholderImage);
+      }
+
+      thumbsContainer.innerHTML = '';
+      unique.forEach((url, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'ds-product-modal__thumb' + (index === 0 ? ' is-active' : '');
+        button.innerHTML = `<img src="${url}" alt="">`;
+        button.addEventListener('click', () => {
+          setMainImage(url);
+          thumbsContainer.querySelectorAll('.ds-product-modal__thumb').forEach((thumb) => thumb.classList.remove('is-active'));
+          button.classList.add('is-active');
+        });
+        thumbsContainer.appendChild(button);
+      });
+
+      setMainImage(unique[0]);
+    }
+
+    function setMainImage(url) {
+      if (mainImage) {
+        mainImage.src = url || placeholderImage;
+      }
+    }
   }
 
-  function renderOrderItems() {
+  function escapeHtml(value) {
+    if (typeof value !== 'string') {
+      return '';
+    }
+    return value.replace(/[&<>"']/g, (char) => {
+      const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      };
+      return map[char] || char;
+    });
+  }
+function renderOrderItems() {
     orderItemsContainer.innerHTML = '';
     if (!orderItems.length) {
       return;
