@@ -15,6 +15,35 @@
     <section class="ds-tab-panel is-active" data-tab-panel="products" data-products-url="{% url 'orders:dropshipper_products' %}">
       {% include "partials/dropshipper_products_panel.html" %}
     </section>
+    
+    <!-- Другие панели для переключения -->
+    <section class="ds-tab-panel" data-tab-panel="orders" data-tab-autoload="{% url 'orders:dropshipper_orders' %}?partial=1">
+      <div class="ds-panel-loading">
+        <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+        <span>Завантажуємо замовлення...</span>
+      </div>
+    </section>
+    
+    <section class="ds-tab-panel" data-tab-panel="statistics" data-tab-autoload="{% url 'orders:dropshipper_statistics' %}?partial=1">
+      <div class="ds-panel-loading">
+        <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+        <span>Завантажуємо статистику...</span>
+      </div>
+    </section>
+    
+    <section class="ds-tab-panel" data-tab-panel="payouts" data-tab-autoload="{% url 'orders:dropshipper_payouts' %}?partial=1">
+      <div class="ds-panel-loading">
+        <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+        <span>Завантажуємо виплати...</span>
+      </div>
+    </section>
+    
+    <section class="ds-tab-panel" data-tab-panel="company" data-tab-autoload="{% url 'orders:dropshipper_company' %}?partial=1">
+      <div class="ds-panel-loading">
+        <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+        <span>Завантажуємо налаштування...</span>
+      </div>
+    </section>
   </main>
 </div>
 
