@@ -294,7 +294,7 @@
   function renderProductDetail(product, container) {
     console.log('Отображаем детали товара:', product);
     
-    // Создаем HTML для детальной формы товара
+    // Создаем HTML для детальной формы товара с полным функционалом
     const html = `
       <div class="ds-product-detail" data-product-id="${product.id}">
         <div class="ds-product-detail__layout">
@@ -319,7 +319,7 @@
               </div>
             </div>
             
-            <form class="ds-product-detail__form">
+            <form class="ds-product-detail__form" id="product-detail-form">
               <div class="ds-product-detail__form-grid">
                 <label class="ds-input">
                   <span class="ds-input__label">Кількість</span>
@@ -360,7 +360,7 @@
                   <i class="fas fa-times"></i>
                   Скасувати
                 </button>
-                <button type="submit" class="ds-btn ds-btn--primary">
+                <button type="submit" class="ds-btn ds-btn--primary" id="add-to-order-btn">
                   <i class="fas fa-cart-plus"></i>
                   Додати до замовлення
                 </button>
@@ -374,7 +374,7 @@
     container.innerHTML = html;
     
     // Привязываем обработчик формы
-    const form = container.querySelector('.ds-product-detail__form');
+    const form = container.querySelector('#product-detail-form');
     if (form) {
       form.addEventListener('submit', (event) => {
         event.preventDefault();
