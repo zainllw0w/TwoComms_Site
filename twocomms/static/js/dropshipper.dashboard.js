@@ -221,12 +221,12 @@
       existingModal.remove();
     }
     
-    // Создаем новое модальное окно
+    // Создаем новое модальное окно с правильной структурой
     const modal = document.createElement('div');
     modal.id = 'ds-product-detail-modal';
     modal.className = 'ds-product-detail-modal';
     modal.innerHTML = `
-      <div class="ds-product-detail-modal__content">
+      <div class="ds-product-detail-modal__dialog">
         <div class="ds-product-detail-modal__header">
           <h2 class="ds-product-detail-modal__title">Додати товар до замовлення</h2>
           <button type="button" class="ds-product-detail-modal__close" data-dismiss-modal>
@@ -962,7 +962,9 @@ function renderOrderItems() {
             ordersBadge.closest('.ds-sidebar__link').classList.add('has-orders');
             console.log('Бейдж заказов обновлен:', orderEntries.length);
           } else {
+            // Полностью скрываем бейдж и убираем текст
             ordersBadge.setAttribute('hidden', 'hidden');
+            ordersBadge.textContent = '';
             ordersBadge.closest('.ds-sidebar__link').classList.remove('has-orders');
             console.log('Бейдж заказов скрыт, заказов нет');
           }
