@@ -6548,8 +6548,8 @@ def wholesale_prices_xlsx(request):
                 ws.cell(row=row, column=2, value=product_title)
                 ws.cell(row=row, column=3, value=_translate_color_to_ukrainian('чорний'))  # Для худи завжди чорний
                 
-                # Добавляем дроп цену (фиксированная 1450)
-                ws.cell(row=row, column=4, value=1450)
+                # Добавляем дроп цену (фиксированная 1350)
+                ws.cell(row=row, column=4, value=1350)
                 ws.cell(row=row, column=4).alignment = center_alignment
                 
                 # Добавляем оптовые цены
@@ -6604,8 +6604,8 @@ def wholesale_prices_xlsx(request):
                 ws.cell(row=row, column=2, value=product_title)
                 ws.cell(row=row, column=3, value=_translate_color_to_ukrainian(color if color else 'чорний'))
                 
-                # Добавляем дроп цену (фиксированная 650 для футболок)
-                ws.cell(row=row, column=4, value=650)
+                # Добавляем дроп цену (фиксированная 570 для футболок)
+                ws.cell(row=row, column=4, value=570)
                 ws.cell(row=row, column=4).alignment = center_alignment
                 
                 # Добавляем оптовые цены
@@ -6718,14 +6718,14 @@ def wholesale_page(request):
     
     # Цены для категорий
     tshirt_prices = {
-        'drop': 650,
-        'wholesale': [600, 570, 540, 510, 450],
+        'drop': 570,
+        'wholesale': [540, 520, 500, 490, 480],
         'ranges': ['8–15 шт.', '16–31 шт.', '32–63 шт.', '64–99 шт.', '100+ шт.']
     }
     
     hoodie_prices = {
-        'drop': 1450,
-        'wholesale': [1350, 1300, 1250, 1200, 1150],
+        'drop': 1350,
+        'wholesale': [1300, 1250, 1200, 1175, 1150],
         'ranges': ['8–15 шт.', '16–31 шт.', '32–63 шт.', '64–99 шт.', '100+ шт.']
     }
     
@@ -6775,14 +6775,14 @@ def wholesale_order_form(request):
     
     # Цены для категорий
     tshirt_prices = {
-        'drop': 650,
-        'wholesale': [600, 570, 540, 510, 450],
+        'drop': 570,
+        'wholesale': [540, 520, 500, 490, 480],
         'ranges': ['8–15 шт.', '16–31 шт.', '32–63 шт.', '64–99 шт.', '100+ шт.']
     }
     
     hoodie_prices = {
-        'drop': 1450,
-        'wholesale': [1350, 1300, 1250, 1200, 1150],
+        'drop': 1350,
+        'wholesale': [1300, 1250, 1200, 1175, 1150],
         'ranges': ['8–15 шт.', '16–31 шт.', '32–63 шт.', '64–99 шт.', '100+ шт.']
     }
     

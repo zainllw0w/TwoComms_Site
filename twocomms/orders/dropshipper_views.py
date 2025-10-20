@@ -57,10 +57,10 @@ def _dropshipper_products_queryset():
     )
 
 
-def _enrich_product(product):
+def _enrich_product(product, dropshipper=None):
     recommended = product.get_recommended_price()
     base_price = recommended.get('base', product.recommended_price or product.price)
-    drop_price = product.get_drop_price()
+    drop_price = product.get_drop_price(dropshipper)
 
     product.recommended_price_info = recommended
     product.recommended_base_price = int(base_price)
@@ -98,7 +98,7 @@ def _build_products_context(request, *, per_page=12):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    enriched = [_enrich_product(product) for product in page_obj.object_list]
+    enriched = [_enrich_product(product, request.user) for product in page_obj.object_list]
     page_obj.object_list = enriched
 
     categories = _get_dropship_categories()
@@ -130,7 +130,7 @@ def dropshipper_dashboard(request):
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
 
     products_preview = [
-        _enrich_product(product)
+        _enrich_product(product, request.user)
         for product in _dropshipper_products_queryset().order_by('-id')[:8]
     ]
 
@@ -391,13 +391,16 @@ def create_dropshipper_order(request):
                 if item_data.get('color_variant_id'):
                     color_variant = get_object_or_404(ProductColorVariant, id=item_data['color_variant_id'])
                 
+                # Получаем актуальную цену дропа с учетом скидки
+                actual_drop_price = product.get_drop_price(request.user)
+                
                 order_item = DropshipperOrderItem.objects.create(
                     order=order,
                     product=product,
                     color_variant=color_variant,
                     size=item_data.get('size', ''),
                     quantity=item_data.get('quantity', 1),
-                    drop_price=item_data.get('drop_price', product.drop_price),
+                    drop_price=item_data.get('drop_price', actual_drop_price),
                     selling_price=item_data.get('selling_price', product.recommended_price),
                     recommended_price=product.recommended_price
                 )
