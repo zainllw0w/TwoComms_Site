@@ -534,6 +534,7 @@ def create_dropshipper_order(request):
                 client_name=data.get('client_name', ''),
                 client_phone=data.get('client_phone', ''),
                 client_np_address=data.get('client_np_address', ''),
+                order_source=data.get('order_source', ''),
                 notes=data.get('notes', ''),
                 status='pending'  # Изменяем статус на pending для отображения
             )

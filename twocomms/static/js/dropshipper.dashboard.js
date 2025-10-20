@@ -121,10 +121,15 @@
       }
 
       const formData = new FormData(orderForm);
+      const client_city = formData.get('client_city') || '';
+      const client_np_office = formData.get('client_np_office') || '';
+      const client_np_address = `${client_city}, ${client_np_office}`.trim();
+      
       const payload = {
         client_name: formData.get('client_name'),
         client_phone: formData.get('client_phone'),
-        client_np_address: formData.get('client_np_address'),
+        client_np_address: client_np_address,
+        order_source: formData.get('order_source') || '',
         notes: formData.get('notes'),
         items: orderItems.map((item) => ({
           product_id: item.productId,
@@ -221,10 +226,20 @@
       existingModal.remove();
     }
     
-    // Создаем новое модальное окно с правильной структурой
+    // Создаем новое модальное окно с правильной структурой и overlay
     const modal = document.createElement('div');
     modal.id = 'ds-product-detail-modal';
     modal.className = 'ds-product-detail-modal';
+    modal.style.position = 'fixed';
+    modal.style.inset = '0';
+    modal.style.zIndex = '999';
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.style.padding = '24px';
+    modal.style.background = 'rgba(0, 0, 0, 0.8)';
+    modal.style.backdropFilter = 'blur(5px)';
+    
     modal.innerHTML = `
       <div class="ds-product-detail-modal__dialog">
         <div class="ds-product-detail-modal__header">
@@ -245,30 +260,37 @@
     // Добавляем в DOM
     document.body.appendChild(modal);
     
+    // Блокируем скролл страницы
+    document.body.style.overflow = 'hidden';
+    
     // Привязываем обработчики
     bindProductDetailModalEvents(modal);
   }
 
   function bindProductDetailModalEvents(modal) {
+    const closeModalFn = () => {
+      modal.remove();
+      // Восстанавливаем скролл страницы
+      document.body.style.overflow = '';
+    };
+    
     // Обработчик закрытия
     const closeBtn = modal.querySelector('[data-dismiss-modal]');
     if (closeBtn) {
-      closeBtn.addEventListener('click', () => {
-        modal.remove();
-      });
+      closeBtn.addEventListener('click', closeModalFn);
     }
     
     // Обработчик клика по фону
     modal.addEventListener('click', (event) => {
       if (event.target === modal) {
-        modal.remove();
+        closeModalFn();
       }
     });
     
     // Обработчик ESC
     const handleEsc = (event) => {
       if (event.key === 'Escape') {
-        modal.remove();
+        closeModalFn();
         document.removeEventListener('keydown', handleEsc);
       }
     };
@@ -447,10 +469,11 @@
         console.log('Товар добавлен в заказ:', data);
         showToast('Товар додано до замовлення!');
         
-        // Закрываем модальное окно
+        // Закрываем модальное окно и восстанавливаем скролл
         const modal = document.getElementById('ds-product-detail-modal');
         if (modal) {
           modal.remove();
+          document.body.style.overflow = '';
         }
         
         // Обновляем корзину
