@@ -458,10 +458,17 @@
 
     const baseImages = state.baseImages.length ? state.baseImages : [placeholderImage];
 
+    // Стандартные размеры для одежды
+    const standardSizes = ['S', 'M', 'L', 'XL'];
     const uniqueSizes = Array.from(new Set((sizes || []).map((size) => (size || '').trim()).filter(Boolean)));
+    
     if (sizeSelect) {
       sizeSelect.innerHTML = '';
-      if (!uniqueSizes.length) {
+      
+      // Если нет размеров от товара, используем стандартные
+      const availableSizes = uniqueSizes.length > 0 ? uniqueSizes : standardSizes;
+      
+      if (availableSizes.length === 0) {
         const singleOption = document.createElement('option');
         singleOption.value = '';
         singleOption.textContent = 'Єдиний розмір';
@@ -469,9 +476,10 @@
       } else {
         const defaultOption = document.createElement('option');
         defaultOption.value = '';
-        defaultOption.textContent = '— Обрати —';
+        defaultOption.textContent = '— Обрати розмір —';
         sizeSelect.appendChild(defaultOption);
-        uniqueSizes.forEach((size) => {
+        
+        availableSizes.forEach((size) => {
           const option = document.createElement('option');
           option.value = size;
           option.textContent = size;
@@ -591,18 +599,30 @@ function renderOrderItems() {
       const row = document.createElement('div');
       row.className = 'ds-order-item';
       row.innerHTML = `
-        <div style="display:flex;justify-content:space-between;gap:16px;align-items:center;">
-          <div style="display:grid;gap:6px;">
-            <strong>${item.title}</strong>
-            <span style="color:var(--ds-text-soft);font-size:0.9rem;">
-              ${item.size ? `Розмір: ${item.size}` : 'Розмір не обрано'} ·
-              ${item.colorName ? `Колір: ${item.colorName}` : 'Колір: базовий'}
-            </span>
-            <span style="color:var(--ds-text-soft);font-size:0.9rem;">
-              ${item.quantity} шт · Дроп: ${formatCurrency(item.dropPrice)} · Продаж: ${formatCurrency(item.sellingPrice)}
-            </span>
+        <div class="ds-order-item__content">
+          <div class="ds-order-item__info">
+            <h4 class="ds-order-item__title">${item.title}</h4>
+            <div class="ds-order-item__details">
+              <span class="ds-order-item__detail">
+                <i class="fas fa-ruler" aria-hidden="true"></i>
+                ${item.size ? `Розмір: ${item.size}` : 'Розмір не обрано'}
+              </span>
+              <span class="ds-order-item__detail">
+                <i class="fas fa-palette" aria-hidden="true"></i>
+                ${item.colorName ? `Колір: ${item.colorName}` : 'Колір: базовий'}
+              </span>
+            </div>
+            <div class="ds-order-item__pricing">
+              <span class="ds-order-item__quantity">${item.quantity} шт</span>
+              <span class="ds-order-item__price">
+                Дроп: <strong>${formatCurrency(item.dropPrice)}</strong>
+              </span>
+              <span class="ds-order-item__price">
+                Продаж: <strong>${formatCurrency(item.sellingPrice)}</strong>
+              </span>
+            </div>
           </div>
-          <button type="button" class="ds-modal__close" data-remove-index="${index}" aria-label="Видалити товар">
+          <button type="button" class="ds-order-item__remove" data-remove-index="${index}" aria-label="Видалити товар">
             <i class="fas fa-trash" aria-hidden="true"></i>
           </button>
         </div>
@@ -615,11 +635,28 @@ function renderOrderItems() {
           const removeIndex = Number(targetBtn.dataset.removeIndex);
           orderItems = orderItems.filter((_, idx) => idx !== removeIndex);
           renderOrderItems();
+          updateOrderBadge();
         });
       }
 
       orderItemsContainer.appendChild(row);
     });
+    
+    updateOrderBadge();
+  }
+  
+  function updateOrderBadge() {
+    const ordersBadge = document.querySelector('[data-orders-badge]');
+    if (ordersBadge) {
+      if (orderItems.length > 0) {
+        ordersBadge.textContent = orderItems.length;
+        ordersBadge.removeAttribute('hidden');
+        ordersBadge.closest('.ds-sidebar__link').classList.add('has-orders');
+      } else {
+        ordersBadge.setAttribute('hidden', 'hidden');
+        ordersBadge.closest('.ds-sidebar__link').classList.remove('has-orders');
+      }
+    }
   }
 
   function openModal(modal) {

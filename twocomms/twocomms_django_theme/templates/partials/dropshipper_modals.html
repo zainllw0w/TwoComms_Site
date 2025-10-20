@@ -1,6 +1,6 @@
 <div class="ds-modal" id="ds-order-modal" role="dialog" aria-modal="true" aria-labelledby="ds-order-modal-title" hidden>
   <div class="ds-modal__overlay" data-dismiss-modal></div>
-  <div class="ds-modal__dialog">
+  <div class="ds-modal__dialog ds-modal__dialog--wide">
     <header class="ds-modal__header">
       <h2 class="ds-modal__title" id="ds-order-modal-title">Створити замовлення</h2>
       <button type="button" class="ds-modal__close" data-dismiss-modal aria-label="Закрити">
@@ -10,38 +10,41 @@
 
     <form id="ds-order-form" class="ds-form">
       {% csrf_token %}
-      <div class="ds-form__grid">
-        <label class="ds-input">
-          <span class="ds-input__label">ПІБ клієнта</span>
-          <input type="text" name="client_name" required autocomplete="name" placeholder="Ім'я та прізвище клієнта">
-        </label>
-        <label class="ds-input">
-          <span class="ds-input__label">Телефон клієнта</span>
-          <input type="tel" name="client_phone" required autocomplete="tel" placeholder="+38 (0__) ___ __ __">
-        </label>
-        <label class="ds-input ds-input--full">
-          <span class="ds-input__label">Адреса доставки (Нова Пошта)</span>
-          <input type="text" name="client_np_address" required placeholder="Місто, відділення / поштомат">
-        </label>
-        <label class="ds-input ds-input--full">
-          <span class="ds-input__label">Примітки</span>
-          <textarea name="notes" rows="3" placeholder="Коментарі до замовлення, побажання, додаткові деталі"></textarea>
-        </label>
+      <div class="ds-order-form__layout">
+        <div class="ds-order-form__section">
+          <h3 class="ds-order-form__section-title">Дані клієнта</h3>
+          <div class="ds-form__grid">
+            <label class="ds-input">
+              <span class="ds-input__label">ПІБ клієнта</span>
+              <input type="text" name="client_name" required autocomplete="name" placeholder="Ім'я та прізвище клієнта">
+            </label>
+            <label class="ds-input">
+              <span class="ds-input__label">Телефон клієнта</span>
+              <input type="tel" name="client_phone" required autocomplete="tel" placeholder="+38 (0__) ___ __ __">
+            </label>
+            <label class="ds-input ds-input--full">
+              <span class="ds-input__label">Адреса доставки (Нова Пошта)</span>
+              <input type="text" name="client_np_address" required placeholder="Місто, відділення / поштомат">
+            </label>
+            <label class="ds-input ds-input--full">
+              <span class="ds-input__label">Примітки</span>
+              <textarea name="notes" rows="3" placeholder="Коментарі до замовлення, побажання, додаткові деталі"></textarea>
+            </label>
+          </div>
+        </div>
+
+        <div class="ds-order-form__section">
+          <div class="ds-order-form__section-header">
+            <h3 class="ds-order-form__section-title">Товари у замовленні</h3>
+            <button type="button" class="ds-btn ds-btn--primary ds-btn--sm js-open-product-modal">
+              <i class="fas fa-plus" aria-hidden="true"></i>
+              <span>Додати товар</span>
+            </button>
+          </div>
+          
+          <div id="ds-order-items" class="ds-order-items" data-empty-text="Поки що немає товарів. Натисніть 'Додати товар' щоб почати формування замовлення."></div>
+        </div>
       </div>
-
-      <section class="ds-form__section">
-        <header>
-          <h3>Товари у замовленні</h3>
-          <p>Додайте хоча б один товар з каталогу для формування замовлення</p>
-        </header>
-
-        <div id="ds-order-items" class="ds-order-items" data-empty-text="Поки що немає товарів"></div>
-
-        <button type="button" class="ds-btn ds-btn--ghost js-open-product-modal">
-          <i class="fas fa-plus" aria-hidden="true"></i>
-          <span>Додати товар</span>
-        </button>
-      </section>
 
       <footer class="ds-modal__footer">
         <button type="button" class="ds-btn ds-btn--ghost" data-dismiss-modal>Скасувати</button>
