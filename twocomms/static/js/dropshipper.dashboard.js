@@ -54,12 +54,26 @@
   function bindOpeners() {
     document.querySelectorAll('.js-open-order-modal').forEach((btn) => {
       btn.addEventListener('click', (event) => {
+        event.preventDefault();
         console.log('Кнопка создания заказа нажата - переключаем на вкладку Товары!');
+        
         // Переключаем на вкладку "Товари" вместо открытия модального окна
         const productsTab = document.querySelector('[data-tab-link="products"]');
         if (productsTab) {
           productsTab.click();
           console.log('Переключились на вкладку Товары');
+          
+          // Дополнительно переключаем панель
+          const productsPanel = document.querySelector('[data-tab-panel="products"]');
+          if (productsPanel) {
+            // Убираем активный класс с других панелей
+            document.querySelectorAll('[data-tab-panel]').forEach(panel => {
+              panel.classList.remove('is-active');
+            });
+            // Добавляем активный класс к панели товаров
+            productsPanel.classList.add('is-active');
+            console.log('Панель товаров активирована');
+          }
         } else {
           console.log('Вкладка Товары не найдена');
         }
