@@ -1464,9 +1464,53 @@ main.container-xxl.py-4.py-md-5 {
   margin-top: 18px !important;
 }
 
+.ds-product-stats--subtle {
+  margin-top: 0 !important;
+  gap: 10px !important;
+}
+
+.ds-product-stats--subtle .ds-product-stats__item {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  padding: 14px !important;
+}
+
 .ds-product-stats--inline {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
 }
+
+.ds-products-container {
+  display: grid !important;
+  gap: clamp(18px, 3vw, 28px) !important;
+}
+
+.ds-products-header {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: clamp(16px, 3vw, 24px) !important;
+}
+
+.ds-products-header__title {
+  margin: 0 !important;
+  font-size: clamp(1.5rem, 3vw, 1.9rem) !important;
+  color: #fff !important;
+}
+
+.ds-products-header__lead {
+  margin: 8px 0 0 0 !important;
+  max-width: 620px !important;
+  color: var(--ds-text-soft) !important;
+  line-height: 1.6 !important;
+}
+
+.ds-products-header__actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 12px !important;
+}
+
 
 .ds-product-stats__item {
   padding: 16px !important;
@@ -4603,4 +4647,49 @@ main.container-xxl.py-4.py-md-5 {
 .ds-flow__item {
   min-height: auto;
 }
+}
+.ds-products-filters {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+  gap: 16px !important;
+  align-items: end !important;
+}
+
+.ds-products-filters__control {
+  display: grid !important;
+  gap: 8px !important;
+}
+
+.ds-products-filters__control--grow {
+  grid-column: span 2 !important;
+}
+
+.ds-products-filters__actions {
+  display: flex !important;
+  gap: 12px !important;
+  justify-content: flex-end !important;
+  flex-wrap: wrap !important;
+}
+
+.ds-chip-cloud--compact {
+  gap: 8px !important;
+}
+
+.ds-products-grid-wrapper {
+  min-height: 320px !important;
+}
+
+.ds-products-grid-wrapper .ds-empty {
+  margin-top: clamp(40px, 6vw, 56px) !important;
+}
+
+@media (max-width: 768px) {
+  .ds-products-filters__control--grow {
+    grid-column: span 1 !important;
+  }
+
+  .ds-products-header__actions {
+    width: 100% !important;
+    justify-content: flex-start !important;
+  }
 }
