@@ -24,7 +24,6 @@
   bindProductSearch();
   bindQuickAddButtons();
   bindProductPreviewButtons();
-  loadExistingOrders();
   loadCart();
 
   function bindOpeners() {
@@ -728,21 +727,21 @@ function renderOrderItems() {
   }
   
   function updateOrderBadge() {
-    console.log('Обновляем бейдж заказов, текущие товары в корзине:', orderItems.length);
+    console.log('Обновляем бейдж корзины, текущие товары в корзине:', orderItems.length);
     const ordersBadge = document.querySelector('[data-orders-badge]');
     if (ordersBadge) {
       if (orderItems.length > 0) {
         ordersBadge.textContent = orderItems.length;
         ordersBadge.removeAttribute('hidden');
         ordersBadge.closest('.ds-sidebar__link').classList.add('has-orders');
-        console.log('Бейдж обновлен для корзины:', orderItems.length);
+        console.log('Бейдж корзины обновлен:', orderItems.length);
       } else {
         ordersBadge.setAttribute('hidden', 'hidden');
         ordersBadge.closest('.ds-sidebar__link').classList.remove('has-orders');
-        console.log('Бейдж скрыт, корзина пуста');
+        console.log('Бейдж корзины скрыт, корзина пуста');
       }
     } else {
-      console.log('Бейдж не найден в DOM');
+      console.log('Бейдж корзины не найден в DOM');
     }
   }
   
@@ -756,7 +755,7 @@ function renderOrderItems() {
       .then(response => response.json())
       .then(data => {
         if (data.success) {
-          console.log('Корзина загружена:', data.cart);
+          console.log('Корзина загружена с сервера:', data.cart);
           // Обновляем локальную корзину
           orderItems = data.cart.map(item => ({
             productId: item.product_id,
@@ -772,17 +771,25 @@ function renderOrderItems() {
           
           renderOrderItems();
           updateOrderBadge();
-          console.log('Корзина обновлена, товаров:', orderItems.length);
+          console.log('Корзина обновлена, товаров в корзине:', orderItems.length);
+        } else {
+          console.log('Ошибка загрузки корзины:', data.message);
+          orderItems = [];
+          renderOrderItems();
+          updateOrderBadge();
         }
       })
       .catch(error => {
         console.log('Не удалось загрузить корзину:', error);
+        orderItems = [];
+        renderOrderItems();
+        updateOrderBadge();
       });
   }
 
   function loadExistingOrders() {
     console.log('Загружаем существующие заказы...');
-    // Загружаем количество активных заказов для отображения в бейдже
+    // Эта функция больше не управляет бейджем - бейдж управляется только корзиной
     fetch('/orders/dropshipper/orders/?partial=1', {
       headers: {
         'X-Requested-With': 'XMLHttpRequest',
@@ -799,22 +806,7 @@ function renderOrderItems() {
         const orderEntries = doc.querySelectorAll('.ds-order-entry, .ds-order-card, [class*="order"]');
         console.log('Найдено заказов в HTML:', orderEntries.length);
         console.log('Найденные элементы:', Array.from(orderEntries).map(el => el.className));
-        
-        const ordersBadge = document.querySelector('[data-orders-badge]');
-        if (ordersBadge) {
-          if (orderEntries.length > 0) {
-            ordersBadge.textContent = orderEntries.length;
-            ordersBadge.removeAttribute('hidden');
-            ordersBadge.closest('.ds-sidebar__link').classList.add('has-orders');
-            console.log('Бейдж обновлен для существующих заказов:', orderEntries.length);
-          } else {
-            ordersBadge.setAttribute('hidden', 'hidden');
-            ordersBadge.closest('.ds-sidebar__link').classList.remove('has-orders');
-            console.log('Бейдж скрыт, заказов нет');
-          }
-        } else {
-          console.log('Бейдж не найден в DOM при загрузке заказов');
-        }
+        console.log('Заказы загружены, но бейдж управляется корзиной');
       })
       .catch(error => {
         console.log('Не удалось загрузить заказы:', error);

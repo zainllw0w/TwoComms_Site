@@ -36,20 +36,6 @@
   </section>
 
   <section class="ds-section ds-orders-list" data-animate>
-    <!-- Отладочная информация -->
-    <div style="background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; font-family: monospace;">
-      <strong>Отладка:</strong> page_obj = {{ page_obj|length }} заказов<br>
-      <strong>Всего заказов в БД:</strong> {{ page_obj.paginator.count }}<br>
-      <strong>Страница:</strong> {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}<br>
-      {% if page_obj %}
-        {% for order in page_obj %}
-          Заказ #{{ order.order_number }} - {{ order.client_name }} ({{ order.status }})<br>
-        {% endfor %}
-      {% else %}
-        Заказов нет
-      {% endif %}
-    </div>
-    
     {% if page_obj %}
       <div class="ds-orders-table">
         {% for order in page_obj %}
