@@ -29,6 +29,27 @@
   
   // Глобальный обработчик для загрузки корзины при открытии модального окна заказа
   setupOrderModalWatcher();
+  
+  // ПРИНУДИТЕЛЬНАЯ ЗАГРУЗКА КОРЗИНЫ ПРИ ОТКРЫТИИ МОДАЛЬНОГО ОКНА
+  // Добавляем обработчик клика на кнопку открытия модального окна заказа
+  document.addEventListener('click', function(event) {
+    if (event.target.classList.contains('js-open-order-modal')) {
+      console.log('=== КНОПКА ОТКРЫТИЯ ЗАКАЗА НАЖАТА ===');
+      // Небольшая задержка, чтобы модальное окно успело открыться
+      setTimeout(() => {
+        console.log('=== ПРИНУДИТЕЛЬНАЯ ЗАГРУЗКА КОРЗИНЫ ===');
+        loadCart();
+      }, 100);
+    }
+  });
+  
+  // Также проверяем каждые 500ms, открыто ли модальное окно заказа
+  setInterval(() => {
+    if (orderModal && !orderModal.hidden) {
+      console.log('=== ПРОВЕРКА: МОДАЛЬНОЕ ОКНО ЗАКАЗА ОТКРЫТО ===');
+      loadCart();
+    }
+  }, 500);
 
   function bindOpeners() {
     document.querySelectorAll('.js-open-order-modal').forEach((btn) => {
