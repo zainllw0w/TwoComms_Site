@@ -1464,6 +1464,10 @@ main.container-xxl.py-4.py-md-5 {
   margin-top: 18px !important;
 }
 
+.ds-product-stats--inline {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+}
+
 .ds-product-stats__item {
   padding: 16px !important;
   border-radius: 14px !important;

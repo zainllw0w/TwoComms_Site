@@ -19,6 +19,68 @@ from .forms import CompanyProfileForm
 from accounts.models import UserProfile
 
 
+def _dropshipper_products_queryset():
+    return (
+        Product.objects.filter(
+            category__is_active=True,
+            is_dropship_available=True,
+        )
+        .select_related('category')
+        .prefetch_related('color_variants__images')
+    )
+
+
+def _enrich_product(product):
+    recommended = product.get_recommended_price()
+    base_price = recommended.get('base', product.recommended_price or product.price)
+    drop_price = product.get_drop_price()
+
+    product.recommended_price_info = recommended
+    product.recommended_base_price = int(base_price)
+    product.dropship_margin = max(int(base_price) - int(drop_price), 0)
+    product.drop_price_value = int(drop_price)
+
+    image = product.display_image
+    product.primary_image = image
+    product.primary_image_url = getattr(image, 'url', None)
+    return product
+
+
+def _build_products_context(request, *, per_page=12):
+    category_id = request.GET.get('category') or None
+    search_query = (request.GET.get('search') or '').strip()
+
+    products_qs = _dropshipper_products_queryset()
+
+    if category_id:
+        products_qs = products_qs.filter(category_id=category_id)
+
+    if search_query:
+        products_qs = products_qs.filter(
+            Q(title__icontains=search_query)
+            | Q(description__icontains=search_query)
+            | Q(category__name__icontains=search_query)
+        )
+
+    products_qs = products_qs.order_by('-id')
+
+    paginator = Paginator(products_qs, per_page)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    enriched = [_enrich_product(product) for product in page_obj.object_list]
+    page_obj.object_list = enriched
+
+    categories = Category.objects.filter(is_active=True).order_by('order', 'name')
+
+    return {
+        'page_obj': page_obj,
+        'categories': categories,
+        'selected_category': category_id,
+        'search_query': search_query,
+    }
+
+
 def dropshipper_dashboard(request):
     """Главная страница дропшипера с вкладками"""
     # Если пользователь не авторизован, показываем приветственную страницу
@@ -35,12 +97,21 @@ def dropshipper_dashboard(request):
     
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
 
+    products_preview = [
+        _enrich_product(product)
+        for product in _dropshipper_products_queryset().order_by('-id')[:8]
+    ]
+
+    categories_count = Category.objects.filter(is_active=True).count()
+
     context = {
         'stats': stats,
         'recent_orders': recent_orders,
         'payout_methods': DropshipperPayout.PAYMENT_METHOD_CHOICES,
         'payment_method_choices': DropshipperPayout.PAYMENT_METHOD_CHOICES,
         'profile': profile,
+        'dropship_products_preview': products_preview,
+        'dropship_products_categories_count': categories_count,
     }
     
     return render(request, 'pages/dropshipper_dashboard.html', context)
@@ -49,60 +120,10 @@ def dropshipper_dashboard(request):
 @login_required
 def dropshipper_products(request):
     """Страница с товарами для дропшиперов"""
-    category_id = request.GET.get('category')
-    search_query = request.GET.get('search', '')
-    
-    # Базовый queryset - только товары доступные для дропшипа
-    products_qs = Product.objects.filter(
-        category__is_active=True,
-        is_dropship_available=True
-    ).select_related('category').prefetch_related('color_variants__images')
-    
-    # Фильтрация по категории
-    if category_id:
-        products_qs = products_qs.filter(category_id=category_id)
-
-    # Поиск (выполняем на уровне БД)
-    if search_query:
-        lowered = search_query.strip()
-        if lowered:
-            products_qs = products_qs.filter(
-                Q(title__icontains=lowered) |
-                Q(description__icontains=lowered) |
-                Q(category__name__icontains=lowered)
-            )
-
-    enhanced_products = []
-    for product in products_qs:
-        recommended = product.get_recommended_price()
-        base_price = recommended.get('base', product.recommended_price or product.price)
-        drop_price = product.get_drop_price()
-
-        # Сохраняем дополнительные вычисления для шаблона
-        product.recommended_price_info = recommended
-        product.recommended_base_price = int(base_price)
-        product.dropship_margin = max(int(base_price) - int(drop_price), 0)
-        product.drop_price_value = int(drop_price)
-
-        image = product.display_image
-        product.primary_image = image
-        product.primary_image_url = getattr(image, 'url', None)
-
-        enhanced_products.append(product)
-
-    # Пагинация
-    paginator = Paginator(enhanced_products, 12)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
-    # Получаем категории для фильтра
-    categories = Category.objects.filter(is_active=True).order_by('order', 'name')
+    products_context = _build_products_context(request, per_page=12)
     
     context = {
-        'page_obj': page_obj,
-        'categories': categories,
-        'selected_category': category_id,
-        'search_query': search_query,
+        **products_context,
         'payout_methods': DropshipperPayout.PAYMENT_METHOD_CHOICES,
         'payment_method_choices': DropshipperPayout.PAYMENT_METHOD_CHOICES,
     }
