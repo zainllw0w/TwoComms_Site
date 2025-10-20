@@ -29,7 +29,12 @@
 
   function bindOpeners() {
     document.querySelectorAll('.js-open-order-modal').forEach((btn) => {
-      btn.addEventListener('click', () => openModal(orderModal));
+      btn.addEventListener('click', (event) => {
+        console.log('Кнопка открытия заказа нажата!');
+        console.log('Модальное окно до открытия:', orderModal.hidden);
+        openModal(orderModal);
+        console.log('Модальное окно после открытия:', orderModal.hidden);
+      });
     });
 
     document.querySelectorAll('.js-open-product-modal').forEach((btn) => {
@@ -867,15 +872,19 @@ function renderOrderItems() {
   }
 
   function openModal(modal) {
+    console.log('=== ФУНКЦИЯ openModal ВЫЗВАНА ===');
     console.log('Открываем модальное окно:', modal.id);
+    console.log('Модальное окно до изменения:', modal.hidden);
     modal.hidden = false;
+    console.log('Модальное окно после изменения:', modal.hidden);
     modal.focus();
     
     // Загружаем корзину при открытии модального окна заказа
     if (modal === orderModal) {
-      console.log('Загружаем корзину для модального окна заказа');
+      console.log('=== ЗАГРУЖАЕМ КОРЗИНУ ===');
       loadCart();
     }
+    console.log('=== ФУНКЦИЯ openModal ЗАВЕРШЕНА ===');
   }
 
   function closeModal(modal) {
