@@ -867,11 +867,13 @@ function renderOrderItems() {
   }
 
   function openModal(modal) {
+    console.log('Открываем модальное окно:', modal.id);
     modal.hidden = false;
     modal.focus();
     
     // Загружаем корзину при открытии модального окна заказа
     if (modal === orderModal) {
+      console.log('Загружаем корзину для модального окна заказа');
       loadCart();
     }
   }
