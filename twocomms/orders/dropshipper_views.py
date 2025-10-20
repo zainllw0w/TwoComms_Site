@@ -177,11 +177,18 @@ def dropshipper_orders(request):
     
     # Базовый queryset
     orders = DropshipperOrder.objects.filter(dropshipper=request.user).prefetch_related('items__product')
-    print(f"Заказы для пользователя {request.user.id}: {orders.count()} заказов")
+    print(f"=== ОТЛАДКА ЗАКАЗОВ ===")
+    print(f"Пользователь: {request.user.username} (ID: {request.user.id})")
+    print(f"Всего заказов в БД: {orders.count()}")
+    
+    # Выводим все заказы для отладки
+    for order in orders:
+        print(f"Заказ {order.id}: {order.order_number}, статус: {order.status}, клиент: {order.client_name}")
     
     # Фильтрация по статусу
     if status_filter:
         orders = orders.filter(status=status_filter)
+        print(f"После фильтрации по статусу '{status_filter}': {orders.count()} заказов")
     
     # Пагинация
     paginator = Paginator(orders, 10)
@@ -189,6 +196,11 @@ def dropshipper_orders(request):
     page_obj = paginator.get_page(page_number)
     
     print(f"Пагинация: страница {page_number}, всего страниц: {paginator.num_pages}, заказов на странице: {len(page_obj)}")
+    print(f"page_obj.object_list содержит: {len(page_obj.object_list)} заказов")
+    
+    # Проверяем каждый заказ в page_obj
+    for i, order in enumerate(page_obj.object_list):
+        print(f"page_obj[{i}]: {order.order_number} (статус: {order.status})")
     
     context = {
         'page_obj': page_obj,
@@ -199,6 +211,10 @@ def dropshipper_orders(request):
     }
     
     print(f"Контекст: page_obj содержит {len(page_obj)} заказов")
+    print(f"page_obj.has_other_pages: {page_obj.has_other_pages()}")
+    print(f"page_obj.number: {page_obj.number}")
+    print(f"page_obj.paginator.count: {page_obj.paginator.count}")
+    print("=== КОНЕЦ ОТЛАДКИ ===")
 
     template_name = 'pages/dropshipper_orders.html'
     if request.GET.get('partial'):
