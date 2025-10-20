@@ -14,21 +14,29 @@
         <div class="ds-order-form__section">
           <h3 class="ds-order-form__section-title">Дані клієнта</h3>
           <div class="ds-form__grid">
-            <label class="ds-input">
-              <span class="ds-input__label">ПІБ клієнта</span>
-              <input type="text" name="client_name" required autocomplete="name" placeholder="Ім'я та прізвище клієнта">
+            <label class="ds-input ds-input--full">
+              <span class="ds-input__label">ПІБ клієнта (прізвище, ім'я, по батькові)</span>
+              <input type="text" name="client_name" required autocomplete="name" placeholder="Введіть повне ПІБ клієнта">
             </label>
             <label class="ds-input">
               <span class="ds-input__label">Телефон клієнта</span>
-              <input type="tel" name="client_phone" required autocomplete="tel" placeholder="+38 (0__) ___ __ __">
+              <input type="tel" name="client_phone" required autocomplete="tel" placeholder="+380 __ ___ __ __">
+            </label>
+            <label class="ds-input">
+              <span class="ds-input__label">Місто (Нова Пошта)</span>
+              <input type="text" name="client_city" required placeholder="Місто доставки">
             </label>
             <label class="ds-input ds-input--full">
-              <span class="ds-input__label">Адреса доставки (Нова Пошта)</span>
-              <input type="text" name="client_np_address" required placeholder="Місто, відділення / поштомат">
+              <span class="ds-input__label">Відділення Нової Пошти</span>
+              <input type="text" name="client_np_office" required placeholder="Номер або адреса відділення / поштомату">
             </label>
             <label class="ds-input ds-input--full">
-              <span class="ds-input__label">Примітки</span>
-              <textarea name="notes" rows="3" placeholder="Коментарі до замовлення, побажання, додаткові деталі"></textarea>
+              <span class="ds-input__label">Джерело замовлення (необов'язково)</span>
+              <input type="text" name="order_source" placeholder="Посилання на сторінку або джерело">
+            </label>
+            <label class="ds-input ds-input--full">
+              <span class="ds-input__label">Примітки до замовлення</span>
+              <textarea name="notes" rows="3" placeholder="Коментарі, побажання клієнта, додаткові деталі"></textarea>
             </label>
           </div>
         </div>
