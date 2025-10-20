@@ -177,6 +177,7 @@ def dropshipper_orders(request):
     
     # Базовый queryset
     orders = DropshipperOrder.objects.filter(dropshipper=request.user).prefetch_related('items__product')
+    print(f"Заказы для пользователя {request.user.id}: {orders.count()} заказов")
     
     # Фильтрация по статусу
     if status_filter:
@@ -368,6 +369,7 @@ def create_dropshipper_order(request):
     """Создание нового заказа дропшипера"""
     try:
         data = json.loads(request.body)
+        print(f"Создаем заказ для пользователя {request.user.id}: {data}")
         
         with transaction.atomic():
             # Создаем заказ
@@ -405,6 +407,8 @@ def create_dropshipper_order(request):
                     recommended_price=product.recommended_price
                 )
                 
+                print(f"Создан элемент заказа: {order_item.product.title}, количество: {order_item.quantity}, цена дропа: {order_item.drop_price}, цена продажи: {order_item.selling_price}")
+                
                 total_drop_price += order_item.total_drop_price
                 total_selling_price += order_item.total_selling_price
             
@@ -413,6 +417,8 @@ def create_dropshipper_order(request):
             order.total_selling_price = total_selling_price
             order.profit = total_selling_price - total_drop_price
             order.save()
+            
+            print(f"Заказ создан: ID={order.id}, номер={order.order_number}")
             
             return JsonResponse({
                 'success': True,
