@@ -20,7 +20,6 @@ from accounts.models import UserProfile
 
 
 LONG_SLEEVE_SLUG = 'long-sleeve'
-HOODIE_SLUG = 'hoodie'
 
 
 def _get_dropship_categories():
