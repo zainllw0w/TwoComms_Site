@@ -742,3 +742,49 @@ def get_product_details(request, product_id):
         return JsonResponse({
             'error': f'Помилка при отриманні інформації про товар: {str(e)}'
         }, status=400)
+
+
+@login_required
+@require_http_methods(["GET"])
+def get_product_details(request, product_id):
+    """Получение детальной информации о товаре для модального окна"""
+    try:
+        product = get_object_or_404(Product, id=product_id)
+        
+        # Получаем актуальную цену дропа
+        drop_price = product.get_drop_price(request.user)
+        
+        # Получаем варианты цветов
+        color_variants = []
+        for variant in product.color_variants.all():
+            color_variants.append({
+                'id': variant.id,
+                'name': variant.name,
+                'color_code': variant.color_code
+            })
+        
+        # Формируем ответ
+        product_data = {
+            'id': product.id,
+            'title': product.title,
+            'description': product.description,
+            'primary_image_url': product.primary_image_url,
+            'drop_price': float(drop_price),
+            'recommended_price': float(product.recommended_price),
+            'color_variants': color_variants,
+            'category': {
+                'id': product.category.id,
+                'name': product.category.name
+            }
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'product': product_data
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Помилка при завантаженні товару: {str(e)}'
+        })
