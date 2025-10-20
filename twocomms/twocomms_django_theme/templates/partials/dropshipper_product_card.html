@@ -1,6 +1,6 @@
 {% load static %}
-{% static 'img/placeholder.jpg' as _default_product_placeholder %}
-{% with placeholder=ds_product_placeholder|default:_default_product_placeholder %}
+{% static 'img/placeholder.jpg' as default_product_placeholder %}
+{% with placeholder=ds_product_placeholder|default:default_product_placeholder %}
 <article class="product-card ds-product-card" data-product-id="{{ product.id }}">
   <div class="ds-product-card__media">
     <img class="product-image"
