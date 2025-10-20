@@ -25,6 +25,7 @@
   bindQuickAddButtons();
   bindProductPreviewButtons();
   loadExistingOrders();
+  loadCart();
 
   function bindOpeners() {
     document.querySelectorAll('.js-open-order-modal').forEach((btn) => {
@@ -440,22 +441,51 @@
       const colorVariantId = formData.get('color_variant_id') || '';
       const colorName = formData.get('color_name') || '';
 
-      orderItems.push({
-        productId,
-        title,
-        dropPrice: formState.dropPrice,
-        recommendedPrice: formState.recommendedPrice,
-        sellingPrice,
-        quantity,
-        size,
-        colorVariantId: colorVariantId ? Number(colorVariantId) : null,
-        colorName,
-      });
+      // Отправляем товар на сервер для сохранения в корзине
+      fetch('/orders/dropshipper/api/cart/add/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken,
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify({
+          product_id: productId,
+          color_variant_id: colorVariantId ? Number(colorVariantId) : null,
+          size: size,
+          quantity: quantity,
+          selling_price: sellingPrice
+        }),
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            // Обновляем локальную корзину
+            orderItems.push({
+              productId,
+              title,
+              dropPrice: formState.dropPrice,
+              recommendedPrice: formState.recommendedPrice,
+              sellingPrice,
+              quantity,
+              size,
+              colorVariantId: colorVariantId ? Number(colorVariantId) : null,
+              colorName,
+            });
 
-      renderOrderItems();
-      showToast('Товар додано до замовлення');
-      closeModal(productModal);
-      orderModal.removeAttribute('aria-hidden');
+            renderOrderItems();
+            updateOrderBadge();
+            showToast(data.message || 'Товар додано до замовлення');
+            closeModal(productModal);
+            orderModal.removeAttribute('aria-hidden');
+          } else {
+            throw new Error(data.message || 'Не вдалося додати товар');
+          }
+        })
+        .catch(error => {
+          console.error(error);
+          showToast(error.message || 'Помилка при додаванні товару', 'error');
+        });
     });
 
     const closeBtn = wrapper.querySelector('[data-product-close]');
@@ -654,9 +684,40 @@ function renderOrderItems() {
         removeBtn.addEventListener('click', (event) => {
           const targetBtn = event.currentTarget;
           const removeIndex = Number(targetBtn.dataset.removeIndex);
-          orderItems = orderItems.filter((_, idx) => idx !== removeIndex);
-          renderOrderItems();
-          updateOrderBadge();
+          const itemToRemove = orderItems[removeIndex];
+          
+          if (itemToRemove) {
+            // Удаляем товар с сервера
+            fetch('/orders/dropshipper/api/cart/remove/', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+              },
+              body: JSON.stringify({
+                product_id: itemToRemove.productId,
+                color_variant_id: itemToRemove.colorVariantId,
+                size: itemToRemove.size
+              }),
+            })
+              .then(response => response.json())
+              .then(data => {
+                if (data.success) {
+                  // Удаляем из локальной корзины
+                  orderItems = orderItems.filter((_, idx) => idx !== removeIndex);
+                  renderOrderItems();
+                  updateOrderBadge();
+                  showToast('Товар видалено з корзини');
+                } else {
+                  throw new Error(data.message || 'Не вдалося видалити товар');
+                }
+              })
+              .catch(error => {
+                console.error(error);
+                showToast(error.message || 'Помилка при видаленні товару', 'error');
+              });
+          }
         });
       }
 
@@ -685,6 +746,40 @@ function renderOrderItems() {
     }
   }
   
+  function loadCart() {
+    console.log('Загружаем корзину...');
+    fetch('/orders/dropshipper/api/cart/get/', {
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          console.log('Корзина загружена:', data.cart);
+          // Обновляем локальную корзину
+          orderItems = data.cart.map(item => ({
+            productId: item.product_id,
+            title: item.product_title,
+            dropPrice: item.drop_price,
+            recommendedPrice: item.selling_price,
+            sellingPrice: item.selling_price,
+            quantity: item.quantity,
+            size: item.size,
+            colorVariantId: item.color_variant_id,
+            colorName: item.color_name,
+          }));
+          
+          renderOrderItems();
+          updateOrderBadge();
+          console.log('Корзина обновлена, товаров:', orderItems.length);
+        }
+      })
+      .catch(error => {
+        console.log('Не удалось загрузить корзину:', error);
+      });
+  }
+
   function loadExistingOrders() {
     console.log('Загружаем существующие заказы...');
     // Загружаем количество активных заказов для отображения в бейдже
