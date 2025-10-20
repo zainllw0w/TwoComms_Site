@@ -1,7 +1,7 @@
 {% load static %}
 {% static 'img/placeholder.jpg' as ds_product_placeholder %}
 <div class="ds-container">
-  <section class="ds-section ds-products-hero" data-animate>
+  <section class="ds-section ds-products-hero is-animated">
     <header class="ds-section__header">
       <div>
         <h1 class="ds-section__title">Каталог TwoComms для ваших продажів</h1>
@@ -37,7 +37,7 @@
     </div>
   </section>
 
-  <section class="ds-section ds-products-filters" data-animate>
+  <section class="ds-section ds-products-filters is-animated">
     <form method="get"
           id="ds-product-filters"
           class="ds-filters"
@@ -90,7 +90,7 @@
     {% endif %}
   </section>
 
-  <section class="ds-section ds-products-grid-wrapper" data-animate>
+  <section class="ds-section ds-products-grid-wrapper is-animated">
     {% if page_obj %}
       <div class="ds-products-grid">
         {% for product in page_obj %}
