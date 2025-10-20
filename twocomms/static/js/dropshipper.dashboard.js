@@ -26,6 +26,9 @@
   bindProductPreviewButtons();
   loadCart();
   loadExistingOrders();
+  
+  // Глобальный обработчик для загрузки корзины при открытии модального окна заказа
+  setupOrderModalWatcher();
 
   function bindOpeners() {
     document.querySelectorAll('.js-open-order-modal').forEach((btn) => {
@@ -889,6 +892,34 @@ function renderOrderItems() {
 
   function closeModal(modal) {
     modal.hidden = true;
+  }
+  
+  function setupOrderModalWatcher() {
+    console.log('Настраиваем наблюдатель за модальным окном заказа...');
+    
+    // Создаем наблюдатель за изменениями атрибута hidden
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'hidden') {
+          const modal = mutation.target;
+          if (modal === orderModal) {
+            console.log('Модальное окно заказа изменилось:', modal.hidden);
+            if (!modal.hidden) {
+              console.log('Модальное окно заказа открыто - загружаем корзину!');
+              loadCart();
+            }
+          }
+        }
+      });
+    });
+    
+    // Начинаем наблюдение за изменениями атрибута hidden
+    observer.observe(orderModal, {
+      attributes: true,
+      attributeFilter: ['hidden']
+    });
+    
+    console.log('Наблюдатель за модальным окном заказа настроен');
   }
 
   function parseCurrency(value) {
