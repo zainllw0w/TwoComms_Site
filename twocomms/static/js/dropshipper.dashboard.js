@@ -904,6 +904,7 @@ function renderOrderItems() {
           const modal = mutation.target;
           if (modal === orderModal) {
             console.log('Модальное окно заказа изменилось:', modal.hidden);
+            console.log('Атрибут hidden:', modal.getAttribute('hidden'));
             if (!modal.hidden) {
               console.log('Модальное окно заказа открыто - загружаем корзину!');
               loadCart();
@@ -918,6 +919,20 @@ function renderOrderItems() {
       attributes: true,
       attributeFilter: ['hidden']
     });
+    
+    // Также проверяем каждые 100ms, открыто ли модальное окно
+    let lastModalState = orderModal.hidden;
+    setInterval(() => {
+      const currentModalState = orderModal.hidden;
+      if (currentModalState !== lastModalState) {
+        console.log('Состояние модального окна изменилось:', lastModalState, '->', currentModalState);
+        lastModalState = currentModalState;
+        if (!currentModalState) {
+          console.log('Модальное окно заказа открыто (через интервал) - загружаем корзину!');
+          loadCart();
+        }
+      }
+    }, 100);
     
     console.log('Наблюдатель за модальным окном заказа настроен');
   }
