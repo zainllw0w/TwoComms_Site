@@ -1826,6 +1826,14 @@ main.container-xxl.py-4.py-md-5 {
   padding: 24px !important;
 }
 
+/* Принудительное центрирование модального окна */
+.ds-modal:not([hidden]) {
+  display: grid !important;
+  place-items: center !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
 .ds-modal__overlay {
   position: absolute !important;
   inset: 0 !important;
