@@ -107,12 +107,17 @@ class Product(models.Model):
     
     def get_drop_price(self):
         """Получить цену дропа (оптовая цена)"""
-        # Определяем цену дропа по категории
-        if 'футболка' in self.title.lower() or 't-shirt' in self.title.lower():
-            return 650
-        elif 'худи' in self.title.lower() or 'hoodie' in self.title.lower() or 'флис' in self.title.lower():
+        if self.category and self.category.slug == 'hoodie':
             return 1450
-        elif self.wholesale_price > 0:
+        if self.category and self.category.slug == 'long-sleeve':
+            return 0
+
+        title_lower = self.title.lower()
+        if 'футболка' in title_lower or 't-shirt' in title_lower:
+            return 650
+        if 'худи' in title_lower or 'hoodie' in title_lower or 'флис' in title_lower:
+            return 1450
+        if self.wholesale_price > 0:
             return self.wholesale_price
         return self.drop_price
     
@@ -138,8 +143,7 @@ class Product(models.Model):
         """Проверить доступность для дропшипа"""
         if not self.is_dropship_available:
             return False
-        # Проверяем, что это не лонгслив
-        if 'лонгслив' in self.title.lower() or 'longsleeve' in self.title.lower():
+        if self.category and self.category.slug == 'long-sleeve':
             return False
         return True
 
