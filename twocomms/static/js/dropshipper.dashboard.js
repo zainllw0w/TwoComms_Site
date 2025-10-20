@@ -167,8 +167,6 @@
     }
   });
 
-  document.addEventListener('ds:products-updated', bindQuickAddButtons);
-
   function performSearch(query) {
     if (!query) {
       productResults.innerHTML = '';

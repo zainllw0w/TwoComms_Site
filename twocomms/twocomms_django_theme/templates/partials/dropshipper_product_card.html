@@ -1,0 +1,81 @@
+{% load static %}
+{% static 'img/placeholder.jpg' as _default_product_placeholder %}
+{% with placeholder=ds_product_placeholder|default:_default_product_placeholder %}
+<article class="product-card ds-product-card" data-product-id="{{ product.id }}">
+  <div class="ds-product-card__media">
+    <img class="product-image"
+         src="{{ product.primary_image_url|default:placeholder }}"
+         alt="{{ product.title }}"
+         loading="lazy">
+    <span class="ds-product-card__badge">
+      <i class="fas fa-box" aria-hidden="true"></i>
+      {{ product.category.name|default:"Категорія" }}
+    </span>
+  </div>
+
+  <div class="ds-product-card__body">
+    <h2 class="product-title">{{ product.title }}</h2>
+    {% if show_description|default:True %}
+      <p class="ds-product-card__description">
+        {{ product.description|default:"Готові матеріали, фото та опис додамо за запитом менеджеру."|truncatewords:24 }}
+      </p>
+    {% endif %}
+
+    {% if show_pricing|default:True %}
+      <div class="ds-product-pricing">
+        <div class="ds-product-price">
+          <span class="ds-product-price__label">Ціна дропа</span>
+          <span class="ds-product-price__value drop-price">{{ product.drop_price_value }} грн</span>
+          <span class="ds-product-price__hint">Закупівельна вартість з виробництва</span>
+        </div>
+        <div class="ds-product-price ds-product-price--recommended">
+          <span class="ds-product-price__label">Рекомендована</span>
+          <span class="ds-product-price__value recommended-price">{{ product.recommended_base_price }} грн</span>
+          <span class="ds-product-price__hint">
+            Діапазон {{ product.recommended_price_info.min }}–{{ product.recommended_price_info.max }} грн
+          </span>
+        </div>
+      </div>
+    {% endif %}
+
+    {% if show_margin|default:True %}
+      <div class="ds-product-margin">
+        <span class="ds-product-margin__value">+{{ product.dropship_margin }} грн</span>
+        <span class="ds-product-margin__label">Орієнтовна маржа з базової ціни</span>
+      </div>
+    {% endif %}
+
+    {% if show_meta|default:True %}
+      <div class="ds-product-meta">
+        <span class="ds-pill">
+          <i class="fas fa-palette" aria-hidden="true"></i>
+          {{ product.color_variants.count|default:0 }} кольорів
+        </span>
+        <span class="ds-pill">
+          <i class="fas fa-ruler-horizontal" aria-hidden="true"></i>
+          Розміри уточнюйте у менеджера
+        </span>
+      </div>
+    {% endif %}
+  </div>
+
+  {% if show_actions|default:True %}
+    <footer class="ds-product-card__footer">
+      <div class="ds-actions">
+        {% if show_quick_add|default:True %}
+          <button type="button"
+                  class="ds-btn ds-btn--primary js-product-quick-add"
+                  data-product-name="{{ product.title }}">
+            <i class="fas fa-cart-plus" aria-hidden="true"></i>
+            <span>Додати до замовлення</span>
+          </button>
+        {% endif %}
+        <a href="{% url 'product' product.slug %}" class="ds-btn ds-btn--ghost" target="_blank" rel="noopener">
+          <i class="fas fa-external-link-alt" aria-hidden="true"></i>
+          <span>Переглянути на сайті</span>
+        </a>
+      </div>
+    </footer>
+  {% endif %}
+</article>
+{% endwith %}
