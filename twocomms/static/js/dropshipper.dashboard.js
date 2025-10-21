@@ -226,19 +226,10 @@
       existingModal.remove();
     }
     
-    // Создаем новое модальное окно с правильной структурой и overlay
+    // Создаем новое модальное окно БЕЗ inline стилей - используем только CSS классы
     const modal = document.createElement('div');
     modal.id = 'ds-product-detail-modal';
     modal.className = 'ds-product-detail-modal';
-    modal.style.position = 'fixed';
-    modal.style.inset = '0';
-    modal.style.zIndex = '999';
-    modal.style.display = 'flex';
-    modal.style.alignItems = 'center';
-    modal.style.justifyContent = 'center';
-    modal.style.padding = '24px';
-    modal.style.background = 'rgba(0, 0, 0, 0.8)';
-    modal.style.backdropFilter = 'blur(5px)';
     
     modal.innerHTML = `
       <div class="ds-product-detail-modal__dialog">
@@ -972,18 +963,28 @@ function renderOrderItems() {
         console.log('HTML заказов получен, длина:', html.length);
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
-        const orderEntries = doc.querySelectorAll('.ds-order-entry, .ds-order-card, [class*="order"]');
-        console.log('Найдено заказов в HTML:', orderEntries.length);
-        console.log('Найденные элементы:', Array.from(orderEntries).map(el => el.className));
+        
+        // ИСПРАВЛЕНО: используем только конкретный класс .ds-order-entry
+        // и проверяем, что это не пустое состояние
+        const ordersContainer = doc.querySelector('.ds-orders-table');
+        let orderCount = 0;
+        
+        if (ordersContainer) {
+          const orderEntries = ordersContainer.querySelectorAll('.ds-order-entry');
+          orderCount = orderEntries.length;
+          console.log('Найдено заказов в .ds-orders-table:', orderCount);
+        } else {
+          console.log('Контейнер .ds-orders-table не найден - заказов нет');
+        }
         
         // Обновляем бейдж заказов (не корзины!)
         const ordersBadge = document.querySelector('[data-orders-badge]');
         if (ordersBadge) {
-          if (orderEntries.length > 0) {
-            ordersBadge.textContent = orderEntries.length;
+          if (orderCount > 0) {
+            ordersBadge.textContent = orderCount;
             ordersBadge.removeAttribute('hidden');
             ordersBadge.closest('.ds-sidebar__link').classList.add('has-orders');
-            console.log('Бейдж заказов обновлен:', orderEntries.length);
+            console.log('Бейдж заказов обновлен:', orderCount);
           } else {
             // Полностью скрываем бейдж и убираем текст
             ordersBadge.setAttribute('hidden', 'hidden');
