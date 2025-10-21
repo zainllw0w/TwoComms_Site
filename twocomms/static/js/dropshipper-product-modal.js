@@ -57,9 +57,13 @@ window.openAddProductModal = function(productId) {
   // ПРИНУДИТЕЛЬНОЕ ЦЕНТРИРОВАНИЕ - исправляем конфликты CSS
   const dialog = modal.querySelector('.add-product-modal__dialog');
   if (dialog) {
-    dialog.style.margin = 'auto';
-    dialog.style.padding = '0';
-    dialog.style.position = 'relative';
+    dialog.style.setProperty('margin', 'auto', 'important');
+    dialog.style.setProperty('margin-top', 'auto', 'important');
+    dialog.style.setProperty('margin-bottom', 'auto', 'important');
+    dialog.style.setProperty('margin-left', 'auto', 'important');
+    dialog.style.setProperty('margin-right', 'auto', 'important');
+    dialog.style.setProperty('padding', '0', 'important');
+    dialog.style.setProperty('position', 'relative', 'important');
   }
     
     // Показываем загрузку
