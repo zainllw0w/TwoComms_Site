@@ -723,10 +723,12 @@ def get_product_details(request, product_id):
         # Получаем варианты цветов
         color_variants = []
         for variant in product.color_variants.all():
+            color_name = variant.color.name if variant.color.name else str(variant.color)
             color_variants.append({
                 'id': variant.id,
-                'name': variant.name,
-                'color_code': variant.color_code
+                'name': color_name,
+                'color_code': variant.color.primary_hex,
+                'secondary_color_code': variant.color.secondary_hex if variant.color.secondary_hex else None
             })
         
         # Получаем основное изображение товара
