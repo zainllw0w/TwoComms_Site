@@ -1864,9 +1864,14 @@ main.container-xxl.py-4.py-md-5 {
   display: none !important;
 }
 
-#addProductModal.add-product-modal .add-product-modal__dialog {
+/* КРИТИЧЕСКИЙ CSS - МАКСИМАЛЬНАЯ СПЕЦИФИЧНОСТЬ ПРОТИВ BOOTSTRAP */
+body #addProductModal.add-product-modal .add-product-modal__dialog {
   position: relative !important;
   margin: auto !important;
+  margin-top: auto !important;
+  margin-bottom: auto !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
   max-width: 900px !important;
   width: 90vw !important;
   max-height: 90vh !important;
