@@ -1866,12 +1866,11 @@ main.container-xxl.py-4.py-md-5 {
 
 /* КРИТИЧЕСКИЙ CSS - МАКСИМАЛЬНАЯ СПЕЦИФИЧНОСТЬ ПРОТИВ BOOTSTRAP */
 html body #addProductModal.add-product-modal .add-product-modal__dialog {
-  position: relative !important;
-  margin: auto !important;
-  margin-top: auto !important;
-  margin-bottom: auto !important;
-  margin-left: auto !important;
-  margin-right: auto !important;
+  position: fixed !important; /* КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: используем fixed вместо relative */
+  top: 50% !important; /* Центрируем по вертикали */
+  left: 50% !important; /* Центрируем по горизонтали */
+  transform: translate(-50%, -50%) !important; /* Смещаем на половину собственных размеров */
+  margin: 0 !important; /* Убираем margin полностью */
   max-width: 900px !important;
   width: 90vw !important;
   max-height: 90vh !important;
@@ -1886,21 +1885,21 @@ html body #addProductModal.add-product-modal .add-product-modal__dialog {
 
 /* ДОПОЛНИТЕЛЬНЫЙ СЕЛЕКТОР С ЕЩЕ БОЛЬШЕЙ СПЕЦИФИЧНОСТЬЮ */
 html body #addProductModal.add-product-modal .add-product-modal__dialog.add-product-modal__dialog {
-  margin: auto !important;
-  margin-top: auto !important;
-  margin-bottom: auto !important;
-  margin-left: auto !important;
-  margin-right: auto !important;
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  margin: 0 !important;
 }
 
 @keyframes modalSlideIn {
   from {
     opacity: 0;
-    transform: scale(0.95) translateY(-20px);
+    transform: translate(-50%, -50%) scale(0.95); /* Анимация с учетом translate */
   }
   to {
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: translate(-50%, -50%) scale(1); /* Анимация с учетом translate */
   }
 }
 
