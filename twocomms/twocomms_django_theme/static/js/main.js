@@ -1138,15 +1138,18 @@ document.addEventListener('DOMContentLoaded',()=>{
     // Оптимизированная обработка скролла с использованием PerformanceOptimizer
     PerformanceOptimizer.onScrollChange = (currentY, lastY) => {
       const dy = currentY - lastY;
-      const scrollDownThreshold = 20; // Увеличен порог для скрытия меню
+      const threshold = 8;
       
-      // При скролле вниз (dy > 0) - скрыть только после значительного движения
-      if(dy > scrollDownThreshold) {
+      // Скролл вниз - скрыть меню
+      if(dy > threshold) {
         setHidden(true);
       } 
-      // При любом скролле вверх (dy < 0) - сразу показать меню
-      else if(dy < 0) {
-        setHidden(false);
+      // Скролл вверх - показать меню (но только если оно уже скрыто)
+      else if(dy < -threshold) {
+        // Если меню уже показано (hidden=false), не трогаем его
+        if(hidden) {
+          setHidden(false);
+        }
       }
     };
     
