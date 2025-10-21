@@ -72,8 +72,8 @@ img {
 .hero-logo-image {
   aspect-ratio: 1 / 1;
   width: 100%;
-  height: auto;
-  max-width: 200px;
+  height: 100%;
+  max-width: none;
   object-fit: contain;
   contain: layout;
 }
