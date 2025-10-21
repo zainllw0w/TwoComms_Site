@@ -51,7 +51,8 @@
 {% include "partials/dropshipper_add_product_modal.html" %}
 {% endblock %}
 
-<!-- JavaScript для дропшиппера -->
+{% block extra_js %}
 <script src="{% static 'js/dropshipper.js' %}?v=8"></script>
 <script src="{% static 'js/dropshipper.dashboard.js' %}?v=13"></script>
 <script src="{% static 'js/dropshipper-product-modal.js' %}?v=1"></script>
+{% endblock %}
