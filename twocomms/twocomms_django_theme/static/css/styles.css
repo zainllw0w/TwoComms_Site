@@ -10315,8 +10315,8 @@ body::after {
   border-radius: 18px;
   padding: 8px;
   z-index: 1030 !important;
-  transition: transform 0.28s ease, opacity 0.2s ease;
-  will-change: transform;
+  transition: opacity 0.2s ease;
+  will-change: auto; /* Changed from transform to prevent breaking position: fixed */
   display: flex !important; /* Override Bootstrap d-lg-none */
   box-sizing: border-box !important;
 }
@@ -10339,9 +10339,10 @@ body::after {
 }
 
 .bottom-nav.bottom-nav--hidden {
-  transform: translateX(-50%) translateY(110%) !important;
-  opacity: 0;
-  pointer-events: none;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  /* Removed transform to prevent breaking position: fixed */
 }
 
 .bottom-nav .btn {
