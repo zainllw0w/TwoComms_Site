@@ -76,7 +76,11 @@ def _enrich_product(product, dropshipper=None):
     return product
 
 
-def _build_products_context(request, *, per_page=12):
+def _build_products_context(request, *, per_page=None):
+    """
+    Строит контекст для каталога товаров дропшипера.
+    Если per_page=None, показываются все товары без пагинации.
+    """
     category_id = request.GET.get('category') or None
     search_query = (request.GET.get('search') or '').strip()
 
@@ -94,6 +98,24 @@ def _build_products_context(request, *, per_page=12):
 
     products_qs = products_qs.order_by('-id')
 
+    # Если per_page не указан, показываем все товары
+    if per_page is None:
+        all_products = list(products_qs)
+        enriched = [_enrich_product(product, request.user) for product in all_products]
+        
+        categories = _get_dropship_categories()
+        inactive_categories = [category for category in categories if category['disabled']]
+        
+        return {
+            'products': enriched,
+            'total_count': len(enriched),
+            'categories': categories,
+            'selected_category': category_id,
+            'search_query': search_query,
+            'inactive_categories': inactive_categories,
+        }
+    
+    # Старый код с пагинацией (для совместимости)
     paginator = Paginator(products_qs, per_page)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -154,8 +176,8 @@ def dropshipper_dashboard(request):
 
 @login_required
 def dropshipper_products(request):
-    """Страница с товарами для дропшиперов"""
-    products_context = _build_products_context(request, per_page=12)
+    """Страница с товарами для дропшиперов - показываем все товары без пагинации"""
+    products_context = _build_products_context(request, per_page=None)  # per_page=None показывает все товары
     
     context = {
         **products_context,

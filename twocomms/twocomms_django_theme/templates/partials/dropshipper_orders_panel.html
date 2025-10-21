@@ -519,7 +519,7 @@
           line-height: 1.6;
         ">Створіть перше замовлення — система проведе вас крок за кроком. Це займе всього кілька хвилин.</p>
         
-        <button type="button" class="js-open-order-modal" style="
+        <a href="{% url 'orders:dropshipper_products' %}" data-tab-link="products" style="
           background: linear-gradient(135deg, #8b5cf6, #6366f1);
           border: none;
           color: white;
@@ -533,10 +533,11 @@
           align-items: center;
           gap: 10px;
           box-shadow: 0 8px 20px rgba(139,92,246,.3);
+          text-decoration: none;
         " onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 12px 30px rgba(139,92,246,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 8px 20px rgba(139,92,246,.3)'">
           <i class="fas fa-plus-circle" aria-hidden="true" style="font-size: 1.2rem;"></i>
           <span>Створити перше замовлення</span>
-        </button>
+        </a>
       </div>
     {% endif %}
   </section>
