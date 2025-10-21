@@ -238,6 +238,33 @@ class TelegramNotifier:
         message = self._format_status_update_message(order, old_status, new_status)
         return self.send_personal_message(order.user.userprofile.telegram_id, message)
     
+    def send_ttn_notification(self, order):
+        """Отправляет уведомление дропшиперу о добавлении ТТН"""
+        if not order.dropshipper or not order.dropshipper.userprofile.telegram_id:
+            return False
+        
+        if not order.tracking_number:
+            return False
+        
+        message = f"""📦 <b>ТТН ДОДАНО ДО ВАШОГО ЗАМОВЛЕННЯ!</b>
+
+🆔 <b>Замовлення:</b> #{order.order_number}
+
+🚚 <b>Номер ТТН:</b> <code>{order.tracking_number}</code>
+
+📍 <b>Клієнт:</b> {order.client_name}
+📞 <b>Телефон:</b> {order.client_phone}
+🏢 <b>Адреса:</b> {order.client_np_address or '—'}
+
+💰 <b>Ваш прибуток:</b> {order.profit} грн
+
+🔗 <b>Відстежити посилку:</b>
+<a href="https://novaposhta.ua/tracking/?cargo_number={order.tracking_number}">Відкрити на сайті Нової Пошти</a>
+
+<i>Тепер ви можете відстежувати статус доставки!</i>"""
+        
+        return self.send_personal_message(order.dropshipper.userprofile.telegram_id, message)
+    
     def _format_status_update_message(self, order, old_status, new_status):
         """Форматирует сообщение об изменении статуса заказа"""
         message = f"""📋 <b>ОНОВЛЕННЯ СТАТУСУ ЗАМОВЛЕННЯ</b>
