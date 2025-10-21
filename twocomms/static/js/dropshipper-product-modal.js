@@ -48,11 +48,19 @@
   /**
    * Открыть модальное окно для товара
    */
-  window.openAddProductModal = function(productId) {
-    console.log('🎯 Открываем модальное окно для товара:', productId);
-    
-    // Показываем модальное окно
-    modal.removeAttribute('hidden');
+window.openAddProductModal = function(productId) {
+  console.log('🎯 Открываем модальное окно для товара:', productId);
+  
+  // Показываем модальное окно
+  modal.removeAttribute('hidden');
+  
+  // ПРИНУДИТЕЛЬНОЕ ЦЕНТРИРОВАНИЕ - исправляем конфликты CSS
+  const dialog = modal.querySelector('.add-product-modal__dialog');
+  if (dialog) {
+    dialog.style.margin = 'auto';
+    dialog.style.padding = '0';
+    dialog.style.position = 'relative';
+  }
     
     // Показываем загрузку
     productLoading.removeAttribute('hidden');
