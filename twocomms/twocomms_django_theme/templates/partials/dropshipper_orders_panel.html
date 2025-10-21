@@ -37,267 +37,600 @@
 
   <section class="ds-section ds-orders-list" data-animate>
     {% if page_obj and page_obj.object_list %}
-      <div class="ds-orders-table">
+      <div class="ds-orders-table" style="display: grid; gap: 20px;">
         {% for order in page_obj %}
-          <article class="ds-order-entry" data-fade style="
-            background: linear-gradient(135deg, rgba(20,22,27,.95), rgba(14,16,22,.95));
-            border: 1px solid rgba(255,255,255,.1);
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,.3);
-          ">
-            <header class="ds-order-entry__header" style="
-              display: flex;
-              justify-content: space-between;
-              align-items: flex-start;
-              margin-bottom: 20px;
-              padding-bottom: 20px;
-              border-bottom: 1px solid rgba(255,255,255,.08);
-            ">
-              <div style="flex: 1;">
-                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                  <span class="ds-pill ds-pill--ghost" style="
-                    background: rgba(139,92,246,.15);
-                    border: 1px solid rgba(139,92,246,.3);
-                    color: #a78bfa;
-                    padding: 6px 12px;
-                    border-radius: 8px;
-                    font-size: 0.85rem;
-                    font-weight: 600;
-                  ">
-                    <i class="fas fa-hashtag" aria-hidden="true"></i>
-                    {{ order.order_number }}
-                  </span>
-                  {% if order.status == 'draft' %}
+          <article class="ds-order-card" data-fade style="
+            background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98));
+            border: 1px solid rgba(139,92,246,.2);
+            border-radius: 20px;
+            padding: 0;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.05);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          " onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 20px 40px rgba(139,92,246,.2), 0 0 0 1px rgba(139,92,246,.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 10px 30px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.05)'">
+            
+            {# Верхняя полоса с градиентом статуса #}
+            <div style="
+              height: 5px;
+              background: {% if order.status == 'delivered' %}linear-gradient(90deg, #10b981, #059669){% elif order.status == 'cancelled' %}linear-gradient(90deg, #ef4444, #dc2626){% elif order.status == 'shipped' %}linear-gradient(90deg, #3b82f6, #2563eb){% else %}linear-gradient(90deg, #8b5cf6, #6366f1){% endif %};
+            "></div>
+            
+            {# Основной контент #}
+            <div style="padding: 24px;">
+              {# Заголовок заказа #}
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
+                <div style="flex: 1;">
+                  <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px;">
                     <span style="
-                      background: rgba(234,179,8,.15);
-                      border: 1px solid rgba(234,179,8,.3);
-                      color: #fbbf24;
-                      padding: 4px 10px;
-                      border-radius: 6px;
-                      font-size: 0.75rem;
-                      font-weight: 600;
+                      background: linear-gradient(135deg, rgba(139,92,246,.2), rgba(99,102,241,.2));
+                      border: 1px solid rgba(139,92,246,.4);
+                      color: #c4b5fd;
+                      padding: 8px 16px;
+                      border-radius: 10px;
+                      font-size: 0.9rem;
+                      font-weight: 700;
+                      display: inline-flex;
+                      align-items: center;
+                      gap: 6px;
                     ">
-                      <i class="fas fa-clock" aria-hidden="true"></i>
-                      Потребує підтвердження
+                      <i class="fas fa-receipt" aria-hidden="true"></i>
+                      {{ order.order_number }}
                     </span>
-                  {% endif %}
-                </div>
-                <h2 style="margin: 0 0 8px; font-size: 1.3rem; font-weight: 700; color: #e5e7eb;">
-                  {{ order.client_name|default:"Без назви" }}
-                </h2>
-                <p style="margin: 0; font-size: 0.9rem; color: rgba(229,231,235,.6);">
-                  <i class="fas fa-calendar" aria-hidden="true"></i>
-                  {{ order.created_at|date:"d.m.Y H:i" }}
-                  {% if order.tracking_number %}
-                    · <i class="fas fa-truck" aria-hidden="true"></i>
-                    TTN: <strong style="color: #10b981;">{{ order.tracking_number }}</strong>
-                  {% endif %}
-                </p>
-              </div>
-              <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
-                <span class="ds-status" style="
-                  {% if order.status == 'delivered' %}
-                    background: linear-gradient(135deg, rgba(16,185,129,.2), rgba(5,150,105,.2));
-                    border: 1px solid rgba(16,185,129,.4);
-                    color: #10b981;
-                  {% elif order.status == 'cancelled' %}
-                    background: linear-gradient(135deg, rgba(239,68,68,.2), rgba(220,38,38,.2));
-                    border: 1px solid rgba(239,68,68,.4);
-                    color: #ef4444;
-                  {% elif order.status == 'shipped' %}
-                    background: linear-gradient(135deg, rgba(59,130,246,.2), rgba(37,99,235,.2));
-                    border: 1px solid rgba(59,130,246,.4);
-                    color: #3b82f6;
-                  {% else %}
-                    background: linear-gradient(135deg, rgba(139,92,246,.2), rgba(124,58,237,.2));
-                    border: 1px solid rgba(139,92,246,.4);
-                    color: #8b5cf6;
-                  {% endif %}
-                  padding: 8px 16px;
-                  border-radius: 10px;
-                  font-size: 0.85rem;
-                  font-weight: 700;
-                  text-align: center;
-                ">
-                  <i class="fas {% if order.status == 'delivered' %}fa-check-circle{% elif order.status == 'cancelled' %}fa-times-circle{% elif order.status == 'shipped' %}fa-truck{% else %}fa-hourglass-half{% endif %}" aria-hidden="true"></i>
-                  {{ order.get_status_display }}
-                </span>
-                <span class="ds-payment-status" style="
-                  {% if order.payment_status == 'paid' %}
-                    background: rgba(16,185,129,.15);
-                    border: 1px solid rgba(16,185,129,.3);
-                    color: #10b981;
-                  {% else %}
-                    background: rgba(234,179,8,.15);
-                    border: 1px solid rgba(234,179,8,.3);
-                    color: #fbbf24;
-                  {% endif %}
-                  padding: 6px 12px;
-                  border-radius: 8px;
-                  font-size: 0.8rem;
-                  font-weight: 600;
-                ">
-                  <i class="fas fa-credit-card" aria-hidden="true"></i>
-                  {{ order.get_payment_status_display }}
-                </span>
-              </div>
-            </header>
-
-            <div class="ds-order-entry__body">
-              <div class="ds-order-entry__col">
-                <span class="ds-order-entry__label">Контакти клієнта</span>
-                <div class="ds-order-entry__value">
-                  <i class="fas fa-phone" aria-hidden="true"></i>
-                  <span>{{ order.client_phone|default:"—" }}</span>
-                </div>
-                {% if order.client_np_address %}
-                  <div class="ds-order-entry__value">
-                    <i class="fas fa-location-dot" aria-hidden="true"></i>
-                    <span>{{ order.client_np_address }}</span>
-                  </div>
-                {% endif %}
-              </div>
-
-              <div class="ds-order-entry__col">
-                <span class="ds-order-entry__label">Фінанси</span>
-                <div class="ds-order-entry__metrics">
-                  <div>
-                    <small>Сума продажу</small>
-                    <strong>{{ order.total_selling_price|floatformat:0 }} грн</strong>
-                  </div>
-                  <div>
-                    <small>Собівартість</small>
-                    <strong>{{ order.total_drop_price|floatformat:0 }} грн</strong>
-                  </div>
-                  <div>
-                    <small>Прибуток</small>
-                    <strong>{{ order.profit|floatformat:0 }} грн</strong>
-                  </div>
-                </div>
-              </div>
-
-              <div class="ds-order-entry__col">
-                <span class="ds-order-entry__label">Дії</span>
-                <div class="ds-order-entry__actions">
-                  <div class="ds-order-status-actions">
+                    
                     {% if order.status == 'draft' %}
-                      <button type="button" class="ds-btn ds-btn--sm ds-btn--primary" 
-                              data-order-status-update data-order-id="{{ order.id }}" data-new-status="pending">
-                        <i class="fas fa-paper-plane" aria-hidden="true"></i>
-                        Підтвердити
-                      </button>
-                    {% elif order.status == 'pending' %}
-                      <button type="button" class="ds-btn ds-btn--sm ds-btn--success" 
-                              data-order-status-update data-order-id="{{ order.id }}" data-new-status="confirmed">
-                        <i class="fas fa-check" aria-hidden="true"></i>
-                        Підтвердити
-                      </button>
-                    {% elif order.status == 'confirmed' %}
-                      <button type="button" class="ds-btn ds-btn--sm ds-btn--info" 
-                              data-order-status-update data-order-id="{{ order.id }}" data-new-status="processing">
-                        <i class="fas fa-cog" aria-hidden="true"></i>
-                        В обробку
-                      </button>
-                    {% elif order.status == 'processing' %}
-                      <button type="button" class="ds-btn ds-btn--sm ds-btn--warning" 
-                              data-order-status-update data-order-id="{{ order.id }}" data-new-status="shipped">
-                        <i class="fas fa-truck" aria-hidden="true"></i>
-                        Відправити
-                      </button>
-                    {% elif order.status == 'shipped' %}
-                      <button type="button" class="ds-btn ds-btn--sm ds-btn--success" 
-                              data-order-status-update data-order-id="{{ order.id }}" data-new-status="delivered">
-                        <i class="fas fa-check-circle" aria-hidden="true"></i>
-                        Доставлено
-                      </button>
+                      <span style="
+                        background: linear-gradient(135deg, rgba(245,158,11,.2), rgba(217,119,6,.2));
+                        border: 1px solid rgba(245,158,11,.4);
+                        color: #fbbf24;
+                        padding: 6px 12px;
+                        border-radius: 8px;
+                        font-size: 0.8rem;
+                        font-weight: 600;
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 6px;
+                      ">
+                        <i class="fas fa-exclamation-circle" aria-hidden="true"></i>
+                        Потребує підтвердження
+                      </span>
                     {% endif %}
                     
-                    {% if order.status != 'delivered' and order.status != 'cancelled' %}
-                      <button type="button" class="ds-btn ds-btn--sm ds-btn--danger" 
-                              data-order-status-update data-order-id="{{ order.id }}" data-new-status="cancelled">
-                        <i class="fas fa-times" aria-hidden="true"></i>
-                        Скасувати
-                      </button>
-                    {% endif %}
+                    <span style="
+                      background: rgba(255,255,255,.05);
+                      color: rgba(229,231,235,.5);
+                      padding: 6px 12px;
+                      border-radius: 8px;
+                      font-size: 0.8rem;
+                      font-weight: 500;
+                      display: inline-flex;
+                      align-items: center;
+                      gap: 6px;
+                    ">
+                      <i class="fas fa-clock" aria-hidden="true"></i>
+                      {{ order.created_at|date:"d.m.Y H:i" }}
+                    </span>
                   </div>
                   
-                  <a href="{% url 'orders:dropshipper_statistics' %}?order={{ order.id }}" class="ds-link ds-link--arrow" data-tab-link="statistics">
-                    До статистики
-                    <i class="fas fa-arrow-right" aria-hidden="true"></i>
-                  </a>
+                  <h2 style="margin: 0 0 8px; font-size: 1.4rem; font-weight: 800; color: #f3f4f6; letter-spacing: -0.02em;">
+                    {{ order.client_name|default:"Клієнт не вказаний" }}
+                  </h2>
                   
-                  {% if order.status == 'delivered' and order.payment_status != 'paid' %}
-                    <span class="ds-tag ds-tag--warning">Очікує виплати</span>
-                  {% endif %}
+                  <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                    {% if order.client_phone %}
+                      <a href="tel:{{ order.client_phone }}" style="
+                        color: #8b5cf6;
+                        text-decoration: none;
+                        font-size: 0.95rem;
+                        font-weight: 600;
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 6px;
+                        transition: color 0.2s;
+                      " onmouseover="this.style.color='#a78bfa'" onmouseout="this.style.color='#8b5cf6'">
+                        <i class="fas fa-phone" aria-hidden="true"></i>
+                        {{ order.client_phone }}
+                      </a>
+                    {% endif %}
+                    
+                    {% if order.tracking_number %}
+                      <span style="
+                        background: linear-gradient(135deg, rgba(16,185,129,.15), rgba(5,150,105,.15));
+                        border: 1px solid rgba(16,185,129,.3);
+                        color: #34d399;
+                        padding: 4px 10px;
+                        border-radius: 6px;
+                        font-size: 0.85rem;
+                        font-weight: 600;
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 6px;
+                      ">
+                        <i class="fas fa-truck-fast" aria-hidden="true"></i>
+                        TTN: {{ order.tracking_number }}
+                      </span>
+                    {% endif %}
+                  </div>
+                </div>
+                
+                {# Статус и оплата #}
+                <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-end;">
+                  <span style="
+                    {% if order.status == 'delivered' %}
+                      background: linear-gradient(135deg, rgba(16,185,129,.25), rgba(5,150,105,.25));
+                      border: 1px solid rgba(16,185,129,.5);
+                      color: #34d399;
+                      box-shadow: 0 4px 12px rgba(16,185,129,.2);
+                    {% elif order.status == 'cancelled' %}
+                      background: linear-gradient(135deg, rgba(239,68,68,.25), rgba(220,38,38,.25));
+                      border: 1px solid rgba(239,68,68,.5);
+                      color: #f87171;
+                      box-shadow: 0 4px 12px rgba(239,68,68,.2);
+                    {% elif order.status == 'shipped' %}
+                      background: linear-gradient(135deg, rgba(59,130,246,.25), rgba(37,99,235,.25));
+                      border: 1px solid rgba(59,130,246,.5);
+                      color: #60a5fa;
+                      box-shadow: 0 4px 12px rgba(59,130,246,.2);
+                    {% else %}
+                      background: linear-gradient(135deg, rgba(139,92,246,.25), rgba(124,58,237,.25));
+                      border: 1px solid rgba(139,92,246,.5);
+                      color: #a78bfa;
+                      box-shadow: 0 4px 12px rgba(139,92,246,.2);
+                    {% endif %}
+                    padding: 10px 20px;
+                    border-radius: 12px;
+                    font-size: 0.9rem;
+                    font-weight: 800;
+                    text-align: center;
+                    min-width: 140px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 8px;
+                  ">
+                    <i class="fas {% if order.status == 'delivered' %}fa-check-circle{% elif order.status == 'cancelled' %}fa-times-circle{% elif order.status == 'shipped' %}fa-shipping-fast{% else %}fa-spinner fa-pulse{% endif %}" aria-hidden="true"></i>
+                    {{ order.get_status_display }}
+                  </span>
+                  
+                  <span style="
+                    {% if order.payment_status == 'paid' %}
+                      background: rgba(16,185,129,.15);
+                      border: 1px solid rgba(16,185,129,.3);
+                      color: #6ee7b7;
+                    {% else %}
+                      background: rgba(245,158,11,.15);
+                      border: 1px solid rgba(245,158,11,.3);
+                      color: #fbbf24;
+                    {% endif %}
+                    padding: 8px 16px;
+                    border-radius: 10px;
+                    font-size: 0.85rem;
+                    font-weight: 700;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                  ">
+                    <i class="fas fa-{% if order.payment_status == 'paid' %}check-circle{% else %}clock{% endif %}" aria-hidden="true"></i>
+                    {{ order.get_payment_status_display }}
+                  </span>
                 </div>
               </div>
+              
+              {# Адрес доставки #}
+              {% if order.client_np_address %}
+                <div style="
+                  background: rgba(139,92,246,.08);
+                  border: 1px solid rgba(139,92,246,.2);
+                  border-radius: 12px;
+                  padding: 12px 16px;
+                  margin-bottom: 20px;
+                ">
+                  <div style="display: flex; align-items: center; gap: 10px; color: rgba(229,231,235,.8);">
+                    <i class="fas fa-map-marker-alt" aria-hidden="true" style="color: #8b5cf6; font-size: 1.1rem;"></i>
+                    <span style="font-size: 0.95rem; font-weight: 500;">{{ order.client_np_address }}</span>
+                  </div>
+                </div>
+              {% endif %}
+              
+              {# Финансы - grid layout #}
+              <div style="
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 12px;
+                margin-bottom: 20px;
+              ">
+                <div style="
+                  background: linear-gradient(135deg, rgba(59,130,246,.12), rgba(37,99,235,.08));
+                  border: 1px solid rgba(59,130,246,.25);
+                  border-radius: 12px;
+                  padding: 16px;
+                  text-align: center;
+                ">
+                  <div style="color: rgba(229,231,235,.6); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">
+                    Сума продажу
+                  </div>
+                  <div style="color: #60a5fa; font-size: 1.5rem; font-weight: 800;">
+                    {{ order.total_selling_price|floatformat:0 }} ₴
+                  </div>
+                </div>
+                
+                <div style="
+                  background: linear-gradient(135deg, rgba(245,158,11,.12), rgba(217,119,6,.08));
+                  border: 1px solid rgba(245,158,11,.25);
+                  border-radius: 12px;
+                  padding: 16px;
+                  text-align: center;
+                ">
+                  <div style="color: rgba(229,231,235,.6); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">
+                    Собівартість
+                  </div>
+                  <div style="color: #fbbf24; font-size: 1.5rem; font-weight: 800;">
+                    {{ order.total_drop_price|floatformat:0 }} ₴
+                  </div>
+                </div>
+                
+                <div style="
+                  background: linear-gradient(135deg, rgba(16,185,129,.12), rgba(5,150,105,.08));
+                  border: 1px solid rgba(16,185,129,.25);
+                  border-radius: 12px;
+                  padding: 16px;
+                  text-align: center;
+                ">
+                  <div style="color: rgba(229,231,235,.6); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">
+                    Ваш прибуток
+                  </div>
+                  <div style="color: #34d399; font-size: 1.5rem; font-weight: 800;">
+                    +{{ order.profit|floatformat:0 }} ₴
+                  </div>
+                </div>
+              </div>
+              
+              {# Список товаров (expandable) #}
+              {% if order.items.all %}
+                <details style="
+                  background: rgba(255,255,255,.03);
+                  border: 1px solid rgba(255,255,255,.08);
+                  border-radius: 12px;
+                  padding: 0;
+                  margin-bottom: 20px;
+                  overflow: hidden;
+                ">
+                  <summary style="
+                    padding: 14px 18px;
+                    cursor: pointer;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    color: rgba(229,231,235,.9);
+                    font-weight: 600;
+                    font-size: 0.95rem;
+                    transition: background 0.2s;
+                  " onmouseover="this.style.background='rgba(255,255,255,.05)'" onmouseout="this.style.background='transparent'">
+                    <span style="display: flex; align-items: center; gap: 10px;">
+                      <i class="fas fa-box-open" aria-hidden="true" style="color: #8b5cf6;"></i>
+                      Товари ({{ order.items.count }})
+                    </span>
+                    <i class="fas fa-chevron-down" aria-hidden="true" style="font-size: 0.8rem; color: rgba(229,231,235,.5);"></i>
+                  </summary>
+                  <div style="padding: 0 18px 14px;">
+                    {% for item in order.items.all %}
+                      <div style="
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        padding: 12px 0;
+                        {% if not forloop.last %}border-bottom: 1px solid rgba(255,255,255,.05);{% endif %}
+                      ">
+                        <div style="flex: 1; display: flex; align-items: center; gap: 12px;">
+                          <span style="
+                            background: rgba(139,92,246,.15);
+                            color: #a78bfa;
+                            padding: 4px 10px;
+                            border-radius: 6px;
+                            font-size: 0.85rem;
+                            font-weight: 700;
+                          ">×{{ item.quantity }}</span>
+                          <span style="color: rgba(229,231,235,.8); font-size: 0.95rem; font-weight: 500;">
+                            {{ item.product.title }}
+                            {% if item.size %} · {{ item.size }}{% endif %}
+                            {% if item.color_variant %} · {{ item.color_variant.color.name }}{% endif %}
+                          </span>
+                        </div>
+                        <span style="color: #60a5fa; font-size: 1.05rem; font-weight: 700; white-space: nowrap;">
+                          {{ item.total_selling_price|floatformat:0 }} ₴
+                        </span>
+                      </div>
+                    {% endfor %}
+                  </div>
+                </details>
+              {% endif %}
+              
+              {# Действия #}
+              <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: space-between; align-items: center;">
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                  {% if order.status == 'draft' %}
+                    <button type="button" class="ds-btn" data-order-status-update data-order-id="{{ order.id }}" data-new-status="pending" style="
+                      background: linear-gradient(135deg, #8b5cf6, #6366f1);
+                      border: none;
+                      color: white;
+                      border-radius: 10px;
+                      padding: 10px 18px;
+                      font-weight: 700;
+                      font-size: 0.9rem;
+                      cursor: pointer;
+                      transition: all 0.2s;
+                      display: inline-flex;
+                      align-items: center;
+                      gap: 8px;
+                    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(139,92,246,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                      <i class="fas fa-paper-plane" aria-hidden="true"></i>
+                      Підтвердити
+                    </button>
+                  {% elif order.status == 'pending' %}
+                    <button type="button" class="ds-btn" data-order-status-update data-order-id="{{ order.id }}" data-new-status="confirmed" style="
+                      background: linear-gradient(135deg, #10b981, #059669);
+                      border: none;
+                      color: white;
+                      border-radius: 10px;
+                      padding: 10px 18px;
+                      font-weight: 700;
+                      font-size: 0.9rem;
+                      cursor: pointer;
+                      transition: all 0.2s;
+                      display: inline-flex;
+                      align-items: center;
+                      gap: 8px;
+                    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(16,185,129,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                      <i class="fas fa-check-circle" aria-hidden="true"></i>
+                      Підтвердити
+                    </button>
+                  {% elif order.status == 'confirmed' %}
+                    <button type="button" class="ds-btn" data-order-status-update data-order-id="{{ order.id }}" data-new-status="processing" style="
+                      background: linear-gradient(135deg, #3b82f6, #2563eb);
+                      border: none;
+                      color: white;
+                      border-radius: 10px;
+                      padding: 10px 18px;
+                      font-weight: 700;
+                      font-size: 0.9rem;
+                      cursor: pointer;
+                      transition: all 0.2s;
+                      display: inline-flex;
+                      align-items: center;
+                      gap: 8px;
+                    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(59,130,246,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                      <i class="fas fa-cog fa-spin" aria-hidden="true"></i>
+                      В обробку
+                    </button>
+                  {% elif order.status == 'processing' %}
+                    <button type="button" class="ds-btn" data-order-status-update data-order-id="{{ order.id }}" data-new-status="shipped" style="
+                      background: linear-gradient(135deg, #f59e0b, #d97706);
+                      border: none;
+                      color: white;
+                      border-radius: 10px;
+                      padding: 10px 18px;
+                      font-weight: 700;
+                      font-size: 0.9rem;
+                      cursor: pointer;
+                      transition: all 0.2s;
+                      display: inline-flex;
+                      align-items: center;
+                      gap: 8px;
+                    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(245,158,11,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                      <i class="fas fa-shipping-fast" aria-hidden="true"></i>
+                      Відправити
+                    </button>
+                  {% elif order.status == 'shipped' %}
+                    <button type="button" class="ds-btn" data-order-status-update data-order-id="{{ order.id }}" data-new-status="delivered" style="
+                      background: linear-gradient(135deg, #10b981, #059669);
+                      border: none;
+                      color: white;
+                      border-radius: 10px;
+                      padding: 10px 18px;
+                      font-weight: 700;
+                      font-size: 0.9rem;
+                      cursor: pointer;
+                      transition: all 0.2s;
+                      display: inline-flex;
+                      align-items: center;
+                      gap: 8px;
+                    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(16,185,129,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                      <i class="fas fa-check-double" aria-hidden="true"></i>
+                      Доставлено
+                    </button>
+                  {% endif %}
+                  
+                  {% if order.status != 'delivered' and order.status != 'cancelled' %}
+                    <button type="button" class="ds-btn" data-order-status-update data-order-id="{{ order.id }}" data-new-status="cancelled" style="
+                      background: rgba(239,68,68,.15);
+                      border: 1px solid rgba(239,68,68,.3);
+                      color: #f87171;
+                      border-radius: 10px;
+                      padding: 10px 18px;
+                      font-weight: 700;
+                      font-size: 0.9rem;
+                      cursor: pointer;
+                      transition: all 0.2s;
+                      display: inline-flex;
+                      align-items: center;
+                      gap: 8px;
+                    " onmouseover="this.style.background='rgba(239,68,68,.25)'" onmouseout="this.style.background='rgba(239,68,68,.15)'">
+                      <i class="fas fa-times-circle" aria-hidden="true"></i>
+                      Скасувати
+                    </button>
+                  {% endif %}
+                </div>
+                
+                <a href="{% url 'orders:dropshipper_statistics' %}?order={{ order.id }}" data-tab-link="statistics" style="
+                  color: #8b5cf6;
+                  text-decoration: none;
+                  font-weight: 700;
+                  font-size: 0.9rem;
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 6px;
+                  transition: color 0.2s;
+                " onmouseover="this.style.color='#a78bfa'" onmouseout="this.style.color='#8b5cf6'">
+                  Статистика
+                  <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                </a>
+              </div>
             </div>
-
-            {% if order.items.all %}
-              <details class="ds-order-entry__items">
-                <summary>
-                  <span>
-                    <i class="fas fa-box-open" aria-hidden="true"></i>
-                    {{ order.items.count }} позицій у замовленні
-                  </span>
-                  <i class="fas fa-chevron-down" aria-hidden="true"></i>
-                </summary>
-                <ul>
-                  {% for item in order.items.all %}
-                    <li>
-                      <span>{{ item.product.title }}</span>
-                      <span class="ds-order-entry__item-qty">×{{ item.quantity }}</span>
-                      <span class="ds-order-entry__item-price">{{ item.total_selling_price|floatformat:0 }} грн</span>
-                    </li>
-                  {% endfor %}
-                </ul>
-              </details>
-            {% endif %}
           </article>
         {% endfor %}
       </div>
     {% else %}
-      <div class="ds-empty">
-        <i class="fas fa-inbox" aria-hidden="true"></i>
-        <h3 class="ds-empty__title">Замовлень поки немає</h3>
-        <p class="ds-empty__text">Створіть перше замовлення — система проведе вас крок за кроком.</p>
-        <button type="button" class="ds-btn ds-btn--primary js-open-order-modal">
-          <i class="fas fa-plus" aria-hidden="true"></i>
-          <span>Створити замовлення</span>
+      <div style="
+        text-align: center;
+        padding: 80px 40px;
+        background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98));
+        border: 1px solid rgba(139,92,246,.2);
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,.4);
+      ">
+        <div style="
+          width: 120px;
+          height: 120px;
+          margin: 0 auto 32px;
+          background: linear-gradient(135deg, rgba(139,92,246,.15), rgba(99,102,241,.15));
+          border: 2px solid rgba(139,92,246,.3);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        ">
+          <i class="fas fa-inbox" aria-hidden="true" style="font-size: 3.5rem; color: #8b5cf6;"></i>
+        </div>
+        
+        <h3 style="
+          font-size: 1.8rem;
+          font-weight: 800;
+          color: #f3f4f6;
+          margin: 0 0 12px;
+          letter-spacing: -0.02em;
+        ">Замовлень поки немає</h3>
+        
+        <p style="
+          font-size: 1.05rem;
+          color: rgba(229,231,235,.6);
+          margin: 0 0 32px;
+          max-width: 500px;
+          margin-left: auto;
+          margin-right: auto;
+          line-height: 1.6;
+        ">Створіть перше замовлення — система проведе вас крок за кроком. Це займе всього кілька хвилин.</p>
+        
+        <button type="button" class="js-open-order-modal" style="
+          background: linear-gradient(135deg, #8b5cf6, #6366f1);
+          border: none;
+          color: white;
+          border-radius: 12px;
+          padding: 16px 32px;
+          font-weight: 700;
+          font-size: 1.05rem;
+          cursor: pointer;
+          transition: all 0.3s;
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          box-shadow: 0 8px 20px rgba(139,92,246,.3);
+        " onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 12px 30px rgba(139,92,246,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 8px 20px rgba(139,92,246,.3)'">
+          <i class="fas fa-plus-circle" aria-hidden="true" style="font-size: 1.2rem;"></i>
+          <span>Створити перше замовлення</span>
         </button>
       </div>
     {% endif %}
   </section>
 
   {% if page_obj.paginator.num_pages > 1 %}
-    <nav class="ds-pagination" aria-label="Пагінація замовлень">
+    <nav aria-label="Пагінація замовлень" style="
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      margin-top: 40px;
+    ">
       {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}{% if selected_status %}&status={{ selected_status }}{% endif %}"
-           class="ds-pagination__link">
+        <a href="?page={{ page_obj.previous_page_number }}{% if selected_status %}&status={{ selected_status }}{% endif %}" style="
+          background: linear-gradient(135deg, rgba(139,92,246,.15), rgba(99,102,241,.15));
+          border: 1px solid rgba(139,92,246,.3);
+          color: #c4b5fd;
+          padding: 12px 24px;
+          border-radius: 12px;
+          text-decoration: none;
+          font-weight: 700;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          transition: all 0.2s;
+        " onmouseover="this.style.background='linear-gradient(135deg, rgba(139,92,246,.25), rgba(99,102,241,.25))'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='linear-gradient(135deg, rgba(139,92,246,.15), rgba(99,102,241,.15))'; this.style.transform='translateY(0)'">
           <i class="fas fa-chevron-left" aria-hidden="true"></i>
           Попередня
         </a>
       {% else %}
-        <span class="ds-pagination__link ds-pagination__link--disabled">
+        <span style="
+          background: rgba(255,255,255,.05);
+          border: 1px solid rgba(255,255,255,.08);
+          color: rgba(229,231,235,.3);
+          padding: 12px 24px;
+          border-radius: 12px;
+          font-weight: 700;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          cursor: not-allowed;
+        ">
           <i class="fas fa-chevron-left" aria-hidden="true"></i>
           Попередня
         </span>
       {% endif %}
 
-      <span class="ds-pagination__current">Сторінка {{ page_obj.number }} з {{ page_obj.paginator.num_pages }}</span>
+      <span style="
+        background: linear-gradient(135deg, rgba(139,92,246,.2), rgba(99,102,241,.2));
+        border: 1px solid rgba(139,92,246,.4);
+        color: #e5e7eb;
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      ">
+        <i class="fas fa-file-alt" aria-hidden="true" style="color: #8b5cf6;"></i>
+        {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+      </span>
 
       {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}{% if selected_status %}&status={{ selected_status }}{% endif %}"
-           class="ds-pagination__link">
-          <i class="fas fa-chevron-right" aria-hidden="true"></i>
+        <a href="?page={{ page_obj.next_page_number }}{% if selected_status %}&status={{ selected_status }}{% endif %}" style="
+          background: linear-gradient(135deg, rgba(139,92,246,.15), rgba(99,102,241,.15));
+          border: 1px solid rgba(139,92,246,.3);
+          color: #c4b5fd;
+          padding: 12px 24px;
+          border-radius: 12px;
+          text-decoration: none;
+          font-weight: 700;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          transition: all 0.2s;
+        " onmouseover="this.style.background='linear-gradient(135deg, rgba(139,92,246,.25), rgba(99,102,241,.25))'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='linear-gradient(135deg, rgba(139,92,246,.15), rgba(99,102,241,.15))'; this.style.transform='translateY(0)'">
           Наступна
+          <i class="fas fa-chevron-right" aria-hidden="true"></i>
         </a>
       {% else %}
-        <span class="ds-pagination__link ds-pagination__link--disabled">
-          <i class="fas fa-chevron-right" aria-hidden="true"></i>
+        <span style="
+          background: rgba(255,255,255,.05);
+          border: 1px solid rgba(255,255,255,.08);
+          color: rgba(229,231,235,.3);
+          padding: 12px 24px;
+          border-radius: 12px;
+          font-weight: 700;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          cursor: not-allowed;
+        ">
           Наступна
+          <i class="fas fa-chevron-right" aria-hidden="true"></i>
         </span>
       {% endif %}
     </nav>
