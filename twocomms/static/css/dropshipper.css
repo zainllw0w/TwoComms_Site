@@ -3098,55 +3098,6 @@ main.container-xxl.py-4.py-md-5 {
     margin-bottom: 2rem;
 }
 
-/* Tabs Navigation */
-.tabs-container {
-    background: rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 15px;
-    padding: 1rem;
-    margin-bottom: 2rem;
-    backdrop-filter: blur(10px);
-}
-
-.tabs-nav {
-    display: flex;
-    gap: 0.5rem;
-    justify-content: center;
-    flex-wrap: wrap;
-}
-
-.tab-button {
-    padding: 0.75rem 1.5rem;
-    background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 10px;
-    color: var(--tc-text);
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.tab-button:hover {
-    background: rgba(139, 92, 246, 0.2);
-    border-color: rgba(139, 92, 246, 0.5);
-    transform: translateY(-2px);
-}
-
-.tab-button.active {
-    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
-    border-color: #8b5cf6;
-    color: white;
-    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
-}
-
-.tab-button i {
-    font-size: 1.1rem;
-}
-
 /* Tab Content */
 .tab-content {
     display: none;
@@ -3810,10 +3761,6 @@ main.container-xxl.py-4.py-md-5 {
     
     .dropshipper-title {
         font-size: 2rem;
-    }
-    
-    .tabs-nav {
-        flex-direction: column;
     }
     
     .stats-grid {
