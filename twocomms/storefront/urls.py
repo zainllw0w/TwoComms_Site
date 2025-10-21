@@ -135,4 +135,6 @@ urlpatterns=[
     path('admin-panel/invoices/toggle-approval/<int:invoice_id>/', views.toggle_invoice_approval, name='toggle_invoice_approval'),
     path('admin-panel/invoices/toggle-payment/<int:invoice_id>/', views.toggle_invoice_payment_status, name='toggle_invoice_payment_status'),
     path('admin-panel/invoices/reset-all-status/', views.reset_all_invoices_status, name='reset_all_invoices_status'),
+    # Dropship orders admin
+    path('admin-panel/dropship/update-status/<int:order_id>/', views.admin_update_dropship_status, name='admin_update_dropship_status'),
 ]
