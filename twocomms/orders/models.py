@@ -370,7 +370,7 @@ class DropshipperOrder(models.Model):
         if self.payment_method == 'prepaid':
             return f"Оплачено передоплатою (дропшипер сплачує {self.total_drop_price} грн)"
         else:
-            return f"Накладний платіж (дропшипер сплачує передоплату 200 грн)"
+            return f"Накладний платіж (200 грн вираховується з суми при отриманні)"
 
 
 class DropshipperOrderItem(models.Model):
