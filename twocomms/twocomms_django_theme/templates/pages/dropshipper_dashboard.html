@@ -1,10 +1,13 @@
 {% extends "base.html" %}
 {% load static %}
+{% load compress %}
 
 {% block title %}Дропшип панель — Головна • TwoComms{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/dropshipper.css' %}?v=12" media="all">
+{% compress css %}
+<link rel="stylesheet" href="{% static 'css/dropshipper.css' %}" media="all">
+{% endcompress %}
 <style>
 /* Принудительное применение стилей дропшиппинга */
 .ds-shell {
@@ -580,7 +583,9 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/dropshipper.js' %}?v=8"></script>
+{% compress js %}
+<script src="{% static 'js/dropshipper.js' %}"></script>
+{% endcompress %}
 <script src="{% static 'js/dropshipper.dashboard.js' %}?v=15"></script>
 <script src="{% static 'js/dropshipper-product-modal.js' %}?v=113"></script>
 {% endblock %}

@@ -3,10 +3,12 @@
 Image Optimization Script для TwoComms
 Оптимизирует все изображения в media/products
 """
+import argparse
 import os
 import sys
-from PIL import Image
 from pathlib import Path
+
+from PIL import Image
 
 def get_image_size_kb(path):
     """Получить размер файла в KB"""
@@ -92,6 +94,26 @@ def format_size(kb):
 
 def main():
     """Основная функция"""
+    parser = argparse.ArgumentParser(description="Оптимизация JPEG изображений для TwoComms.")
+    parser.add_argument("--yes", action="store_true", help="Пропустить подтверждение и запустить сразу.")
+    parser.add_argument("--quality", type=int, default=85, help="Качество JPEG (0-100).")
+    parser.add_argument("--max-width", type=int, default=1920, help="Максимальная ширина изображения.")
+    parser.add_argument("--max-height", type=int, default=1920, help="Максимальная высота изображения.")
+    parser.add_argument(
+        "--min-size-kb",
+        type=float,
+        default=0,
+        help="Минимальный размер файла в KB для оптимизации (по умолчанию оптимизируем всё).",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=0,
+        help="Опционально ограничить количество файлов, которые будут обработаны (0 = без ограничений).",
+    )
+
+    args = parser.parse_args()
+
     print("🖼️  Image Optimization для TwoComms")
     print("=" * 60)
     
@@ -106,10 +128,23 @@ def main():
     print(f"📁 Папка: {media_dir}\n")
     
     # Найти все изображения
-    extensions = ['*.jpg', '*.jpeg', '*.JPG', '*.JPEG']
+    extensions = ('*.jpg', '*.jpeg', '*.JPG', '*.JPEG')
     images = []
     for ext in extensions:
         images.extend(media_dir.rglob(ext))
+
+    # Исключаем файлы меньше порогового значения, если задан
+    if args.min_size_kb > 0:
+        images = [
+            path for path in images
+            if get_image_size_kb(str(path)) >= args.min_size_kb
+        ]
+
+    # Сортируем по размеру (больше сначала), чтобы быстрее уменьшить LCP
+    images.sort(key=lambda p: get_image_size_kb(str(p)), reverse=True)
+
+    if args.limit:
+        images = images[:max(args.limit, 0)]
     
     if not images:
         print("ℹ️  Изображения не найдены")
@@ -118,10 +153,11 @@ def main():
     print(f"📊 Найдено изображений: {len(images)}\n")
     
     # Спросить подтверждение
-    response = input("Продолжить оптимизацию? (y/n): ").lower()
-    if response != 'y':
-        print("Отменено")
-        sys.exit(0)
+    if not args.yes:
+        response = input("Продолжить оптимизацию? (y/n): ").strip().lower()
+        if response not in ('y', 'yes'):
+            print("Отменено")
+            sys.exit(0)
     
     # Оптимизировать каждое изображение
     total_images = len(images)
@@ -133,7 +169,12 @@ def main():
         print(f"\n[{i}/{total_images}] {image_path.name}")
         print(f"  Размер: {format_size(get_image_size_kb(str(image_path)))}", end=" → ")
         
-        result = optimize_image(str(image_path), quality=85)
+        result = optimize_image(
+            str(image_path),
+            quality=max(1, min(args.quality, 100)),
+            max_width=max(1, args.max_width),
+            max_height=max(1, args.max_height),
+        )
         
         if result['success']:
             print(f"{format_size(result['new_size'])}")
@@ -168,4 +209,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

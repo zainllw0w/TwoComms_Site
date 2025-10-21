@@ -58,7 +58,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'a_5xi!3wbf(m*j%!dn7#6r0tlhu(z(-qq&@s&kmot6v+kr#y')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
+DEBUG = _env_bool('DEBUG', default=False)
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') if os.environ.get('ALLOWED_HOSTS') else [
     'test.com',
@@ -112,6 +112,7 @@ MIDDLEWARE = [
     "twocomms.middleware.ForceHTTPSMiddleware",  # Принудительный HTTPS
     "twocomms.middleware.WWWRedirectMiddleware",  # Редирект с www
     "django.middleware.security.SecurityMiddleware",
+    "twocomms.middleware.SecurityHeadersMiddleware",  # CSP и дополнительные заголовки
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "twocomms.image_middleware.ImageOptimizationMiddleware",  # Оптимизация изображений
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -234,24 +235,46 @@ LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'handlers': {
-        'file': {
-            'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'django.log',
-        },
         'console': {
             'level': 'INFO',
             'class': 'logging.StreamHandler',
         },
+        'app_file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': str(BASE_DIR / 'django.log'),
+            'maxBytes': 5 * 1024 * 1024,
+            'backupCount': 5,
+            'encoding': 'utf-8',
+            'delay': True,
+        },
+        'app_error_file': {
+            'level': 'ERROR',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': str(BASE_DIR / 'stderr.log'),
+            'maxBytes': 5 * 1024 * 1024,
+            'backupCount': 5,
+            'encoding': 'utf-8',
+            'delay': True,
+        },
     },
     'loggers': {
+        'django': {
+            'handlers': ['console', 'app_file'],
+            'level': os.environ.get('DJANGO_LOG_LEVEL', 'INFO'),
+        },
+        'django.request': {
+            'handlers': ['app_error_file'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
         'storefront.social_pipeline': {
-            'handlers': ['file', 'console'],
+            'handlers': ['console', 'app_file'],
             'level': 'INFO',
             'propagate': True,
         },
         'social_core': {
-            'handlers': ['file', 'console'],
+            'handlers': ['console', 'app_file'],
             'level': 'INFO',
             'propagate': True,
         },
@@ -466,6 +489,30 @@ SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'SAMEORIGIN'
 SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+
+_CSP_DEFAULT = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com "
+    "https://www.google-analytics.com https://www.gstatic.com https://connect.facebook.net "
+    "https://www.clarity.ms https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com "
+    "https://cdn.jsdelivr.net; "
+    "img-src 'self' data: blob: https://www.googletagmanager.com https://www.google-analytics.com "
+    "https://stats.g.doubleclick.net https://connect.facebook.net https://www.facebook.com "
+    "https://www.clarity.ms https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+    "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
+    "connect-src 'self' https://www.google-analytics.com https://region1.analytics.google.com "
+    "https://analytics.google.com https://www.facebook.com https://connect.facebook.net "
+    "https://graph.facebook.com https://www.clarity.ms https://*.clarity.ms; "
+    "frame-src 'self' https://www.facebook.com https://connect.facebook.net; "
+    "object-src 'none'; "
+    "base-uri 'self'; "
+    "form-action 'self'; "
+    "frame-ancestors 'self'; "
+    "upgrade-insecure-requests"
+)
+CONTENT_SECURITY_POLICY = os.environ.get('CONTENT_SECURITY_POLICY', _CSP_DEFAULT)
+X_XSS_PROTECTION = os.environ.get('X_XSS_PROTECTION', '1; mode=block')
 
 # Дополнительные настройки безопасности
 SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'

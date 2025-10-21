@@ -18,12 +18,16 @@ _explicit_env_file = os.environ.get('DJANGO_ENV_FILE')
 if _explicit_env_file:
     load_dotenv(_explicit_env_file)
 else:
-    _env_prod = BASE_DIR / '.env.production'
-    _env_default = BASE_DIR / '.env'
-    if _env_prod.exists():
-        load_dotenv(_env_prod)
-    elif _env_default.exists():
-        load_dotenv(_env_default)
+    _candidate_env_files = [
+        BASE_DIR.parent / '.env.production',
+        BASE_DIR / '.env.production',
+        BASE_DIR.parent / '.env',
+        BASE_DIR / '.env',
+    ]
+    for _env_path in _candidate_env_files:
+        if _env_path.exists():
+            load_dotenv(_env_path)
+            break
 
 from .settings import *
 
@@ -142,34 +146,7 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
     'https://www.googleapis.com/auth/userinfo.profile',
 ]
 
-# Логирование для отладки social-auth
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'file': {
-            'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'django.log',
-        },
-        'console': {
-            'level': 'INFO',
-            'class': 'logging.StreamHandler',
-        },
-    },
-    'loggers': {
-        'storefront.social_pipeline': {
-            'handlers': ['file', 'console'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-        'social_core': {
-            'handlers': ['file', 'console'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-    },
-}
+# Логирование наследуем из базовых настроек и используем ротацию файлов
 
 # База данных: выбираем по DB_ENGINE (mysql | postgresql), иначе SQLite как фолбэк
 DB_ENGINE = os.environ.get('DB_ENGINE', '').lower()
