@@ -136,4 +136,7 @@ urlpatterns=[
     path('admin-panel/invoices/reset-all-status/', views.reset_all_invoices_status, name='reset_all_invoices_status'),
     # Dropship orders admin
     path('admin-panel/dropship/update-status/<int:order_id>/', views.admin_update_dropship_status, name='admin_update_dropship_status'),
+    path('admin-panel/dropship/get-order/<int:order_id>/', views.admin_get_dropship_order, name='admin_get_dropship_order'),
+    path('admin-panel/dropship/update-order/<int:order_id>/', views.admin_update_dropship_order, name='admin_update_dropship_order'),
+    path('admin-panel/dropship/delete-order/<int:order_id>/', views.admin_delete_dropship_order, name='admin_delete_dropship_order'),
 ]
