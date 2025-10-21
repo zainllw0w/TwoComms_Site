@@ -1,0 +1,30 @@
+{
+  "url": "https://twocomms.shop",
+  "timestamp": "2025-10-21T00:00:00Z",
+  "total_requests": 48,
+  "requests": {
+    "css": 4,
+    "js": 11,
+    "images": 20,
+    "fonts": 4,
+    "other": 9
+  },
+  "third_party_scripts": [
+    "www.google-analytics.com",
+    "www.clarity.ms",
+    "connect.facebook.net",
+    "cdnjs.cloudflare.com",
+    "cdn.jsdelivr.net",
+    "fonts.googleapis.com",
+    "fonts.gstatic.com"
+  ],
+  "failed_requests": [
+    {
+      "url": "https://www.google-analytics.com/g/collect",
+      "error": "net::ERR_ABORTED"
+    }
+  ],
+  "console_warnings": [
+    "Data from this session is not being collected by Microsoft Clarity due to your configured project settings"
+  ]
+}

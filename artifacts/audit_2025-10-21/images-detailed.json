@@ -1,0 +1,7888 @@
+{
+  "total_count": 897,
+  "total_size_mb": 82.22446155548096,
+  "by_format": {
+    "JPEG": {
+      "count": 138,
+      "size_mb": 55.73599624633789
+    },
+    "PNG": {
+      "count": 12,
+      "size_mb": 0.18966388702392578
+    },
+    "AVIF": {
+      "count": 372,
+      "size_mb": 14.008085250854492
+    },
+    "WEBP": {
+      "count": 375,
+      "size_mb": 12.290716171264648
+    }
+  },
+  "unoptimized": [
+    {
+      "path": "media/category_covers/1080_1920_\u043a\u043e\u043f\u0438\u044f_2.jpg",
+      "size_mb": 0.73,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/category_covers/c1.jpg",
+      "size_mb": 0.53,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/7.2.jpg",
+      "size_mb": 0.6,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/19.2.jpg",
+      "size_mb": 0.71,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/7.1.jpg",
+      "size_mb": 0.6,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/19.1.jpg",
+      "size_mb": 0.72,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/5.3.jpg",
+      "size_mb": 0.6,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/5.2.jpg",
+      "size_mb": 0.6,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/8.jpg",
+      "size_mb": 0.59,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/3.3.jpg",
+      "size_mb": 0.73,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/3.2.jpg",
+      "size_mb": 0.71,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/9.jpg",
+      "size_mb": 0.58,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/18.1.jpg",
+      "size_mb": 0.63,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/4.3.jpg",
+      "size_mb": 0.61,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/2.4.jpg",
+      "size_mb": 0.86,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/4.2.jpg",
+      "size_mb": 0.61,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/15.jpg",
+      "size_mb": 0.74,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/17.jpg",
+      "size_mb": 0.78,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/6.2.jpg",
+      "size_mb": 0.59,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/6.3.jpg",
+      "size_mb": 0.58,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/18.3.jpg",
+      "size_mb": 0.78,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/12.jpg",
+      "size_mb": 0.66,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/0.1.jpg",
+      "size_mb": 0.85,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/2.2.jpg",
+      "size_mb": 0.76,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/13.jpg",
+      "size_mb": 0.74,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/0.2.jpg",
+      "size_mb": 0.85,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/10.jpg",
+      "size_mb": 0.57,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/12.2.jpg",
+      "size_mb": 0.67,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/10.2.jpg",
+      "size_mb": 0.59,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/12.1.jpg",
+      "size_mb": 0.69,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/8.1.jpg",
+      "size_mb": 0.61,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/18.jpg",
+      "size_mb": 0.61,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/8.2.jpg",
+      "size_mb": 0.6,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/10.4.jpg",
+      "size_mb": 0.77,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/19.jpg",
+      "size_mb": 0.72,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/4.jpg",
+      "size_mb": 0.57,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/c1.jpg",
+      "size_mb": 0.53,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/13.1.jpg",
+      "size_mb": 0.75,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/5.jpg",
+      "size_mb": 0.57,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/7.jpg",
+      "size_mb": 0.58,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/c2.jpg",
+      "size_mb": 0.55,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/13.3.jpg",
+      "size_mb": 0.77,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/c3.jpg",
+      "size_mb": 0.54,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/6.jpg",
+      "size_mb": 0.56,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/2.jpg",
+      "size_mb": 0.74,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/9.2.jpg",
+      "size_mb": 0.6,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/17.2.jpg",
+      "size_mb": 0.81,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/9.3.jpg",
+      "size_mb": 0.59,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/15.1.jpg",
+      "size_mb": 0.75,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/3.jpg",
+      "size_mb": 0.69,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/17.1.jpg",
+      "size_mb": 0.81,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/15.2.jpg",
+      "size_mb": 0.75,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/0.jpg",
+      "size_mb": 0.82,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/7.2.jpg",
+      "size_mb": 0.6,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/7.3.jpg",
+      "size_mb": 0.78,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/1.3.jpg",
+      "size_mb": 0.83,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/2.4.jpg",
+      "size_mb": 0.86,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/18.2.jpg",
+      "size_mb": 0.62,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/18.3.jpg",
+      "size_mb": 0.78,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/2.3.jpg",
+      "size_mb": 0.76,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/0.2.jpg",
+      "size_mb": 0.85,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/10.3.jpg",
+      "size_mb": 0.58,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/10.4.jpg",
+      "size_mb": 0.77,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/13.3.jpg",
+      "size_mb": 0.77,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/13.2.jpg",
+      "size_mb": 0.74,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/17.2.jpg",
+      "size_mb": 0.81,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/17.3.jpg",
+      "size_mb": 0.83,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    }
+  ],
+  "missing_webp": [
+    "media/category_covers/3.2.jpg",
+    "media/category_covers/1080_1920_\u043a\u043e\u043f\u0438\u044f_2.jpg",
+    "media/category_covers/c1.jpg",
+    "media/category_icons/free-icon-clothes-1720860.png",
+    "media/category_icons/free-icon-clothes-1720753.png",
+    "media/category_icons/free-icon-clothes-1720822.png",
+    "media/products/7.2.jpg",
+    "media/products/19.2.jpg",
+    "media/products/7.1.jpg",
+    "media/products/19.1.jpg",
+    "media/products/5.3.jpg",
+    "media/products/5.2.jpg",
+    "media/products/8.jpg",
+    "media/products/3.3.jpg",
+    "media/products/3.2.jpg",
+    "media/products/9.jpg",
+    "media/products/18.1.jpg",
+    "media/products/4.3.jpg",
+    "media/products/2.4.jpg",
+    "media/products/4.2.jpg",
+    "media/products/15.jpg",
+    "media/products/17.jpg",
+    "media/products/6.2.jpg",
+    "media/products/6.3.jpg",
+    "media/products/18.3.jpg",
+    "media/products/12.jpg",
+    "media/products/0.1.jpg",
+    "media/products/2.2.jpg",
+    "media/products/13.jpg",
+    "media/products/0.2.jpg",
+    "media/products/10.jpg",
+    "media/products/12.2.jpg",
+    "media/products/10.2.jpg",
+    "media/products/12.1.jpg",
+    "media/products/L_3.jpg",
+    "media/products/8.1.jpg",
+    "media/products/18.jpg",
+    "media/products/8.2.jpg",
+    "media/products/10.4.jpg",
+    "media/products/19.jpg",
+    "media/products/4.jpg",
+    "media/products/c1.jpg",
+    "media/products/13.1.jpg",
+    "media/products/5.jpg",
+    "media/products/7.jpg",
+    "media/products/c2.jpg",
+    "media/products/13.3.jpg",
+    "media/products/c3.jpg",
+    "media/products/6.jpg",
+    "media/products/2.jpg",
+    "media/products/9.2.jpg",
+    "media/products/17.2.jpg",
+    "media/products/9.3.jpg",
+    "media/products/15.1.jpg",
+    "media/products/3.jpg",
+    "media/products/17.1.jpg",
+    "media/products/15.2.jpg",
+    "media/products/0.jpg",
+    "media/product_colors/7.2.jpg",
+    "media/product_colors/7.3.jpg",
+    "media/product_colors/1.3.jpg",
+    "media/product_colors/2.4.jpg",
+    "media/product_colors/18.2.jpg",
+    "media/product_colors/18.3.jpg",
+    "media/product_colors/2.3.jpg",
+    "media/product_colors/0.2.jpg",
+    "media/product_colors/10.3.jpg",
+    "media/product_colors/L_3.jpg",
+    "media/product_colors/10.4.jpg",
+    "media/product_colors/13.3.jpg",
+    "media/product_colors/13.2.jpg",
+    "media/product_colors/17.2.jpg",
+    "media/product_colors/17.3.jpg",
+    "media/avatars/avatar_4_twocomms.store.jpg",
+    "media/avatars/avatar_3_pilimcenu270795.jpg",
+    "media/avatars/logoBase3.-white.png",
+    "media/avatars/logoBase3_8CiXiT9.-white.png",
+    "media/product_colors/optimized/7.2.jpg",
+    "media/product_colors/optimized/7.3.jpg",
+    "media/product_colors/optimized/1.3.jpg",
+    "media/product_colors/optimized/2.4.jpg",
+    "media/product_colors/optimized/18.2.jpg",
+    "media/product_colors/optimized/18.3.jpg",
+    "media/product_colors/optimized/2.3.jpg",
+    "media/product_colors/optimized/0.2.jpg",
+    "media/product_colors/optimized/10.3.jpg",
+    "media/product_colors/optimized/L_3.jpg",
+    "media/product_colors/optimized/10.4.jpg",
+    "media/product_colors/optimized/13.3.jpg",
+    "media/product_colors/optimized/13.2.jpg",
+    "media/product_colors/optimized/17.2.jpg",
+    "media/product_colors/optimized/17.3.jpg",
+    "media/products/optimized/19_optimized.jpg",
+    "media/products/optimized/4.2_optimized.jpg",
+    "media/products/optimized/13.1_optimized.jpg",
+    "media/products/optimized/8_optimized.jpg",
+    "media/products/optimized/3.2_optimized.jpg",
+    "media/products/optimized/9.3_optimized.jpg",
+    "media/products/optimized/6.3_optimized.jpg",
+    "media/products/optimized/10_optimized.jpg",
+    "media/products/optimized/15.1_optimized.jpg",
+    "media/products/optimized/2.2_optimized.jpg",
+    "media/products/optimized/12.2_optimized.jpg",
+    "media/products/optimized/18.3_optimized.jpg",
+    "media/products/optimized/c2_optimized.jpg",
+    "media/products/optimized/6_optimized.jpg",
+    "media/products/optimized/10.4_optimized.jpg",
+    "media/products/optimized/2_optimized.jpg",
+    "media/products/optimized/5_optimized.jpg",
+    "media/products/optimized/13_optimized.jpg",
+    "media/products/optimized/15.2_optimized.jpg",
+    "media/products/optimized/5.2_optimized.jpg",
+    "media/products/optimized/17_optimized.jpg",
+    "media/products/optimized/12.1_optimized.jpg",
+    "media/products/optimized/c1_optimized.jpg",
+    "media/products/optimized/10.2_optimized.jpg",
+    "media/products/optimized/0.2_optimized.jpg",
+    "media/products/optimized/0_optimized.jpg",
+    "media/products/optimized/17.1_optimized.jpg",
+    "media/products/optimized/7.1_optimized.jpg",
+    "media/products/optimized/4_optimized.jpg",
+    "media/products/optimized/8.1_optimized.jpg",
+    "media/products/optimized/18.1_optimized.jpg",
+    "media/products/optimized/5.3_optimized.jpg",
+    "media/products/optimized/12_optimized.jpg",
+    "media/products/optimized/2.4_optimized.jpg",
+    "media/products/optimized/c3_optimized.jpg",
+    "media/products/optimized/15_optimized.jpg",
+    "media/products/optimized/8.2_optimized.jpg",
+    "media/products/optimized/0.1_optimized.jpg",
+    "media/products/optimized/3_optimized.jpg",
+    "media/products/optimized/7_optimized.jpg",
+    "media/products/optimized/7.2_optimized.jpg",
+    "media/products/optimized/17.2_optimized.jpg",
+    "media/products/optimized/19.2_optimized.jpg",
+    "media/products/optimized/9.2_optimized.jpg",
+    "media/products/optimized/3.3_optimized.jpg",
+    "media/products/optimized/13.3_optimized.jpg",
+    "media/products/optimized/9_optimized.jpg",
+    "media/products/optimized/L_3_optimized.jpg",
+    "media/products/optimized/6.2_optimized.jpg",
+    "media/products/optimized/18_optimized.jpg",
+    "media/products/optimized/19.1_optimized.jpg",
+    "media/products/optimized/4.3_optimized.jpg",
+    "media/category_icons/optimized/free-icon-clothes-1720860_48x48.png",
+    "media/category_icons/optimized/free-icon-clothes-1720822_48x48.png",
+    "media/category_icons/optimized/free-icon-clothes-1720753_48x48.png"
+  ],
+  "oversized": [],
+  "details": [
+    {
+      "path": "media/category_covers/3.2.jpg",
+      "size_mb": 0.26,
+      "width": 1080,
+      "height": 1080,
+      "format": "JPEG",
+      "pixels": 1166400
+    },
+    {
+      "path": "media/category_covers/1080_1920_\u043a\u043e\u043f\u0438\u044f_2.jpg",
+      "size_mb": 0.73,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/category_covers/c1.jpg",
+      "size_mb": 0.53,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/category_icons/free-icon-clothes-1720860.png",
+      "size_mb": 0.02,
+      "width": 512,
+      "height": 512,
+      "format": "PNG",
+      "pixels": 262144
+    },
+    {
+      "path": "media/category_icons/free-icon-clothes-1720753.png",
+      "size_mb": 0.02,
+      "width": 512,
+      "height": 512,
+      "format": "PNG",
+      "pixels": 262144
+    },
+    {
+      "path": "media/category_icons/free-icon-clothes-1720822.png",
+      "size_mb": 0.03,
+      "width": 512,
+      "height": 512,
+      "format": "PNG",
+      "pixels": 262144
+    },
+    {
+      "path": "media/products/7.2.jpg",
+      "size_mb": 0.6,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/19.2.jpg",
+      "size_mb": 0.71,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/7.1.jpg",
+      "size_mb": 0.6,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/19.1.jpg",
+      "size_mb": 0.72,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/5.3.jpg",
+      "size_mb": 0.6,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/5.2.jpg",
+      "size_mb": 0.6,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/8.jpg",
+      "size_mb": 0.59,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/3.3.jpg",
+      "size_mb": 0.73,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/3.2.jpg",
+      "size_mb": 0.71,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/9.jpg",
+      "size_mb": 0.58,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/18.1.jpg",
+      "size_mb": 0.63,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/4.3.jpg",
+      "size_mb": 0.61,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/2.4.jpg",
+      "size_mb": 0.86,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/4.2.jpg",
+      "size_mb": 0.61,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/15.jpg",
+      "size_mb": 0.74,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/17.jpg",
+      "size_mb": 0.78,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/6.2.jpg",
+      "size_mb": 0.59,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/6.3.jpg",
+      "size_mb": 0.58,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/18.3.jpg",
+      "size_mb": 0.78,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/12.jpg",
+      "size_mb": 0.66,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/0.1.jpg",
+      "size_mb": 0.85,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/2.2.jpg",
+      "size_mb": 0.76,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/13.jpg",
+      "size_mb": 0.74,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/0.2.jpg",
+      "size_mb": 0.85,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/10.jpg",
+      "size_mb": 0.57,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/12.2.jpg",
+      "size_mb": 0.67,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/10.2.jpg",
+      "size_mb": 0.59,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/12.1.jpg",
+      "size_mb": 0.69,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/L_3.jpg",
+      "size_mb": 0.37,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/8.1.jpg",
+      "size_mb": 0.61,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/18.jpg",
+      "size_mb": 0.61,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/8.2.jpg",
+      "size_mb": 0.6,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/10.4.jpg",
+      "size_mb": 0.77,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/19.jpg",
+      "size_mb": 0.72,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/4.jpg",
+      "size_mb": 0.57,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/c1.jpg",
+      "size_mb": 0.53,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/13.1.jpg",
+      "size_mb": 0.75,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/5.jpg",
+      "size_mb": 0.57,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/7.jpg",
+      "size_mb": 0.58,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/c2.jpg",
+      "size_mb": 0.55,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/13.3.jpg",
+      "size_mb": 0.77,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/c3.jpg",
+      "size_mb": 0.54,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/6.jpg",
+      "size_mb": 0.56,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/2.jpg",
+      "size_mb": 0.74,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/9.2.jpg",
+      "size_mb": 0.6,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/17.2.jpg",
+      "size_mb": 0.81,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/9.3.jpg",
+      "size_mb": 0.59,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/15.1.jpg",
+      "size_mb": 0.75,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/3.jpg",
+      "size_mb": 0.69,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/17.1.jpg",
+      "size_mb": 0.81,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/15.2.jpg",
+      "size_mb": 0.75,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/0.jpg",
+      "size_mb": 0.82,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/7.2.jpg",
+      "size_mb": 0.6,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/7.3.jpg",
+      "size_mb": 0.78,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/1.3.jpg",
+      "size_mb": 0.83,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/2.4.jpg",
+      "size_mb": 0.86,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/18.2.jpg",
+      "size_mb": 0.62,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/18.3.jpg",
+      "size_mb": 0.78,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/2.3.jpg",
+      "size_mb": 0.76,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/0.2.jpg",
+      "size_mb": 0.85,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/10.3.jpg",
+      "size_mb": 0.58,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/L_3.jpg",
+      "size_mb": 0.37,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/10.4.jpg",
+      "size_mb": 0.77,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/13.3.jpg",
+      "size_mb": 0.77,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/13.2.jpg",
+      "size_mb": 0.74,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/17.2.jpg",
+      "size_mb": 0.81,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/product_colors/17.3.jpg",
+      "size_mb": 0.83,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/avatars/avatar_4_twocomms.store.jpg",
+      "size_mb": 0.0,
+      "width": 96,
+      "height": 96,
+      "format": "PNG",
+      "pixels": 9216
+    },
+    {
+      "path": "media/avatars/avatar_3_pilimcenu270795.jpg",
+      "size_mb": 0.0,
+      "width": 96,
+      "height": 96,
+      "format": "JPEG",
+      "pixels": 9216
+    },
+    {
+      "path": "media/avatars/logoBase3.-white.png",
+      "size_mb": 0.05,
+      "width": 2539,
+      "height": 1717,
+      "format": "PNG",
+      "pixels": 4359463
+    },
+    {
+      "path": "media/avatars/logoBase3_8CiXiT9.-white.png",
+      "size_mb": 0.05,
+      "width": 2539,
+      "height": 1717,
+      "format": "PNG",
+      "pixels": 4359463
+    },
+    {
+      "path": "media/product_colors/optimized/13.2_large.avif",
+      "size_mb": 0.08,
+      "width": 960,
+      "height": 1200,
+      "format": "AVIF",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/L_3_small.avif",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "AVIF",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/17.2_large.webp",
+      "size_mb": 0.09,
+      "width": 960,
+      "height": 1200,
+      "format": "WEBP",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/18.3_thumb.webp",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "WEBP",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/7.2.jpg",
+      "size_mb": 0.05,
+      "width": 480,
+      "height": 600,
+      "format": "JPEG",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/2.4_small.avif",
+      "size_mb": 0.02,
+      "width": 240,
+      "height": 300,
+      "format": "AVIF",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/10.3_medium.avif",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "AVIF",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/7.3.jpg",
+      "size_mb": 0.06,
+      "width": 480,
+      "height": 600,
+      "format": "JPEG",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/2.4_thumb.avif",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "AVIF",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/2.3_medium.avif",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "AVIF",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/18.2_medium.avif",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "AVIF",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/0.2_large.avif",
+      "size_mb": 0.09,
+      "width": 960,
+      "height": 1200,
+      "format": "AVIF",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/10.4_large.avif",
+      "size_mb": 0.07,
+      "width": 960,
+      "height": 1200,
+      "format": "AVIF",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/7.2_large.avif",
+      "size_mb": 0.07,
+      "width": 960,
+      "height": 1200,
+      "format": "AVIF",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/L_3_thumb.avif",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "AVIF",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/18.3_small.webp",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "WEBP",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/1.3_medium.avif",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "AVIF",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/17.2_small.webp",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "WEBP",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/13.2_small.avif",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "AVIF",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/L_3_large.avif",
+      "size_mb": 0.06,
+      "width": 960,
+      "height": 1200,
+      "format": "AVIF",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/2.4_large.avif",
+      "size_mb": 0.09,
+      "width": 960,
+      "height": 1200,
+      "format": "AVIF",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/1.3.jpg",
+      "size_mb": 0.06,
+      "width": 480,
+      "height": 600,
+      "format": "JPEG",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/7.2_thumb.avif",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "AVIF",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/2.4_medium.webp",
+      "size_mb": 0.04,
+      "width": 480,
+      "height": 600,
+      "format": "WEBP",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/10.4_thumb.avif",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "AVIF",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/L_3_medium.avif",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "AVIF",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/0.2_thumb.avif",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "AVIF",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/17.3_medium.avif",
+      "size_mb": 0.04,
+      "width": 480,
+      "height": 600,
+      "format": "AVIF",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/10.4_medium.webp",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "WEBP",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/7.2_small.avif",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "AVIF",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/0.2_small.avif",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "AVIF",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/10.4_small.avif",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "AVIF",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/18.3_large.webp",
+      "size_mb": 0.09,
+      "width": 960,
+      "height": 1200,
+      "format": "WEBP",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/17.2_thumb.webp",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "WEBP",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/13.2_thumb.avif",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "AVIF",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/13.3_medium.avif",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "AVIF",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/7.3_medium.webp",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "WEBP",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/7.3_thumb.webp",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "WEBP",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/17.2_medium.webp",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "WEBP",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/2.4.jpg",
+      "size_mb": 0.06,
+      "width": 480,
+      "height": 600,
+      "format": "JPEG",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/17.3_small.avif",
+      "size_mb": 0.02,
+      "width": 240,
+      "height": 300,
+      "format": "AVIF",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/10.3_small.avif",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "AVIF",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/13.3_small.webp",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "WEBP",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/13.2_medium.webp",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "WEBP",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/7.2_medium.avif",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "AVIF",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/17.3_thumb.avif",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "AVIF",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/18.2_large.avif",
+      "size_mb": 0.07,
+      "width": 960,
+      "height": 1200,
+      "format": "AVIF",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/18.2.jpg",
+      "size_mb": 0.05,
+      "width": 480,
+      "height": 600,
+      "format": "JPEG",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/10.3_thumb.avif",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "AVIF",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/13.3_thumb.webp",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "WEBP",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/2.3_large.avif",
+      "size_mb": 0.09,
+      "width": 960,
+      "height": 1200,
+      "format": "AVIF",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/1.3_large.webp",
+      "size_mb": 0.09,
+      "width": 960,
+      "height": 1200,
+      "format": "WEBP",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/7.3_small.webp",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "WEBP",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/18.3.jpg",
+      "size_mb": 0.06,
+      "width": 480,
+      "height": 600,
+      "format": "JPEG",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/18.3_medium.webp",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "WEBP",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/2.3.jpg",
+      "size_mb": 0.05,
+      "width": 480,
+      "height": 600,
+      "format": "JPEG",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/10.3_large.avif",
+      "size_mb": 0.06,
+      "width": 960,
+      "height": 1200,
+      "format": "AVIF",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/13.3_large.webp",
+      "size_mb": 0.08,
+      "width": 960,
+      "height": 1200,
+      "format": "WEBP",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/18.2_thumb.avif",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "AVIF",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/17.3_large.avif",
+      "size_mb": 0.09,
+      "width": 960,
+      "height": 1200,
+      "format": "AVIF",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/2.3_thumb.avif",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "AVIF",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/1.3_thumb.webp",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "WEBP",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/18.2_small.avif",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "AVIF",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/2.3_small.avif",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "AVIF",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/0.2_medium.avif",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "AVIF",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/0.2.jpg",
+      "size_mb": 0.05,
+      "width": 480,
+      "height": 600,
+      "format": "JPEG",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/1.3_small.webp",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "WEBP",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/7.3_large.webp",
+      "size_mb": 0.08,
+      "width": 960,
+      "height": 1200,
+      "format": "WEBP",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/7.2_medium.webp",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "WEBP",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/13.2_medium.avif",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "AVIF",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/17.3_small.webp",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "WEBP",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/13.3_small.avif",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "AVIF",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/10.3_small.webp",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "WEBP",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/7.3_thumb.avif",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "AVIF",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/17.2_medium.avif",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "AVIF",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/7.3_small.avif",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "AVIF",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/10.3.jpg",
+      "size_mb": 0.05,
+      "width": 480,
+      "height": 600,
+      "format": "JPEG",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/1.3_large.avif",
+      "size_mb": 0.09,
+      "width": 960,
+      "height": 1200,
+      "format": "AVIF",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/2.3_large.webp",
+      "size_mb": 0.08,
+      "width": 960,
+      "height": 1200,
+      "format": "WEBP",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/17.3_thumb.webp",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "WEBP",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/18.2_large.webp",
+      "size_mb": 0.07,
+      "width": 960,
+      "height": 1200,
+      "format": "WEBP",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/L_3.jpg",
+      "size_mb": 0.05,
+      "width": 480,
+      "height": 600,
+      "format": "JPEG",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/13.3_thumb.avif",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "AVIF",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/10.3_thumb.webp",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "WEBP",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/1.3_thumb.avif",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "AVIF",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/2.3_thumb.webp",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "WEBP",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/13.3_large.avif",
+      "size_mb": 0.08,
+      "width": 960,
+      "height": 1200,
+      "format": "AVIF",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/10.3_large.webp",
+      "size_mb": 0.06,
+      "width": 960,
+      "height": 1200,
+      "format": "WEBP",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/18.2_thumb.webp",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "WEBP",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/17.3_large.webp",
+      "size_mb": 0.09,
+      "width": 960,
+      "height": 1200,
+      "format": "WEBP",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/18.3_medium.avif",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "AVIF",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/7.3_large.avif",
+      "size_mb": 0.08,
+      "width": 960,
+      "height": 1200,
+      "format": "AVIF",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/10.4.jpg",
+      "size_mb": 0.06,
+      "width": 480,
+      "height": 600,
+      "format": "JPEG",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/1.3_small.avif",
+      "size_mb": 0.02,
+      "width": 240,
+      "height": 300,
+      "format": "AVIF",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/0.2_medium.webp",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "WEBP",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/2.3_small.webp",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "WEBP",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/18.2_small.webp",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "WEBP",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/10.3_medium.webp",
+      "size_mb": 0.02,
+      "width": 480,
+      "height": 600,
+      "format": "WEBP",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/2.4_small.webp",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "WEBP",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/L_3_small.webp",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "WEBP",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/13.2_large.webp",
+      "size_mb": 0.07,
+      "width": 960,
+      "height": 1200,
+      "format": "WEBP",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/17.2_large.avif",
+      "size_mb": 0.09,
+      "width": 960,
+      "height": 1200,
+      "format": "AVIF",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/18.3_thumb.avif",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "AVIF",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/13.3.jpg",
+      "size_mb": 0.06,
+      "width": 480,
+      "height": 600,
+      "format": "JPEG",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/L_3_thumb.webp",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "WEBP",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/18.3_small.avif",
+      "size_mb": 0.02,
+      "width": 240,
+      "height": 300,
+      "format": "AVIF",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/10.4_large.webp",
+      "size_mb": 0.08,
+      "width": 960,
+      "height": 1200,
+      "format": "WEBP",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/0.2_large.webp",
+      "size_mb": 0.09,
+      "width": 960,
+      "height": 1200,
+      "format": "WEBP",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/18.2_medium.webp",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "WEBP",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/7.2_large.webp",
+      "size_mb": 0.07,
+      "width": 960,
+      "height": 1200,
+      "format": "WEBP",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/2.4_thumb.webp",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "WEBP",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/13.2.jpg",
+      "size_mb": 0.05,
+      "width": 480,
+      "height": 600,
+      "format": "JPEG",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/2.3_medium.webp",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "WEBP",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/7.2_thumb.webp",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "WEBP",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/L_3_medium.webp",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "WEBP",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/0.2_thumb.webp",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "WEBP",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/2.4_medium.avif",
+      "size_mb": 0.04,
+      "width": 480,
+      "height": 600,
+      "format": "AVIF",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/10.4_thumb.webp",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "WEBP",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/17.2.jpg",
+      "size_mb": 0.05,
+      "width": 480,
+      "height": 600,
+      "format": "JPEG",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/2.4_large.webp",
+      "size_mb": 0.1,
+      "width": 960,
+      "height": 1200,
+      "format": "WEBP",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/17.3.jpg",
+      "size_mb": 0.06,
+      "width": 480,
+      "height": 600,
+      "format": "JPEG",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/17.2_small.avif",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "AVIF",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/1.3_medium.webp",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "WEBP",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/L_3_large.webp",
+      "size_mb": 0.07,
+      "width": 960,
+      "height": 1200,
+      "format": "WEBP",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/13.2_small.webp",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "WEBP",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/18.3_large.avif",
+      "size_mb": 0.08,
+      "width": 960,
+      "height": 1200,
+      "format": "AVIF",
+      "pixels": 1152000
+    },
+    {
+      "path": "media/product_colors/optimized/17.2_thumb.avif",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "AVIF",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/7.3_medium.avif",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "AVIF",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/13.3_medium.webp",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "WEBP",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/13.2_thumb.webp",
+      "size_mb": 0.0,
+      "width": 58,
+      "height": 72,
+      "format": "WEBP",
+      "pixels": 4176
+    },
+    {
+      "path": "media/product_colors/optimized/7.2_small.webp",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "WEBP",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/10.4_medium.avif",
+      "size_mb": 0.03,
+      "width": 480,
+      "height": 600,
+      "format": "AVIF",
+      "pixels": 288000
+    },
+    {
+      "path": "media/product_colors/optimized/10.4_small.webp",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "WEBP",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/0.2_small.webp",
+      "size_mb": 0.01,
+      "width": 240,
+      "height": 300,
+      "format": "WEBP",
+      "pixels": 72000
+    },
+    {
+      "path": "media/product_colors/optimized/17.3_medium.webp",
+      "size_mb": 0.04,
+      "width": 480,
+      "height": 600,
+      "format": "WEBP",
+      "pixels": 288000
+    },
+    {
+      "path": "media/products/optimized/17_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/17.2.webp",
+      "size_mb": 0.08,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/9.2_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/10_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/13_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/15.webp",
+      "size_mb": 0.08,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/8.2_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/8_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/4_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/12.1.webp",
+      "size_mb": 0.08,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/17.avif",
+      "size_mb": 0.09,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/13.3_1920w.webp",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/9.2_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/3.2_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/15.2_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/15.1_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/7.avif",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/17_1024w.webp",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/9.2_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/19_optimized.jpg",
+      "size_mb": 0.16,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/13.3_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/5.3_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/L_3.avif",
+      "size_mb": 0.05,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/c2.avif",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/5.webp",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/8_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/8.1_1920w.avif",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/15.1.avif",
+      "size_mb": 0.09,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/7_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/17.2_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/17.1_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/19.1.avif",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/10.2.avif",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/17_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/L_3_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/5.2.avif",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/4.3_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/2.2_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/4.3_640w.webp",
+      "size_mb": 0.01,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/19_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/2_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/19_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/18.3_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/12_1920w.webp",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/3.3_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/4.2_optimized.jpg",
+      "size_mb": 0.14,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/9_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/5.3_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/19.2_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/0.2_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/0.1_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/6.3_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/5_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/6_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/6.3_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/19.webp",
+      "size_mb": 0.08,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/c3_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/0.1.avif",
+      "size_mb": 0.1,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/9.2.avif",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/2_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/10.4_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/19.1_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/0.1_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/0.2_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/9.webp",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/6.3_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/6_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/5_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/7.1.webp",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/c3_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/c3_1920w.avif",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/2.2.webp",
+      "size_mb": 0.08,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/L_3_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/13.1_optimized.jpg",
+      "size_mb": 0.16,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/2.2_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/18.1_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/4.3_768w.avif",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/19_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/8.1_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/8.2_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/8_optimized.jpg",
+      "size_mb": 0.14,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/9_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/5.2_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/3.3_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/13.1_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/19.1_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/19.2_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/8.webp",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/12_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/7_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/8.1_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/7.2.avif",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/17_1920w.webp",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/7.2_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/7.1_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/9.3.avif",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/7.1_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/7.2_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/13.3_1024w.webp",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/18.webp",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/4_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/12_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/0.2.webp",
+      "size_mb": 0.08,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/15_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/8.2_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/5.2_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/13.1_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/3.3_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/9.3_320w.webp",
+      "size_mb": 0.0,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/3.2_optimized.jpg",
+      "size_mb": 0.15,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/9.3_optimized.jpg",
+      "size_mb": 0.13,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/5.3.avif",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/9.2_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/7_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/4_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/19.2.webp",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/6.2_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/10.2_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/18.1_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/0_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/3_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/c3_1024w.avif",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/18.1_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/2.4_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/6.3_optimized.jpg",
+      "size_mb": 0.15,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/c3.avif",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/4.webp",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/19.1_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/15.2.webp",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/6.avif",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/c1.webp",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/18.1_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/6.3_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/18_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/2.4_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/4.2_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/12.1_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/12.2_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/12.2.avif",
+      "size_mb": 0.09,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/5.3_1920w.avif",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/19.2_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/9_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/12_1024w.webp",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/3.3_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/17.1.avif",
+      "size_mb": 0.1,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/2_1920w.avif",
+      "size_mb": 0.07,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/c1_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/c2_320w.webp",
+      "size_mb": 0.0,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/19_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/3_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/0_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/4.3_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/9_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/15_1024w.webp",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/8.2.webp",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/10_optimized.jpg",
+      "size_mb": 0.14,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/10.2_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/9.3_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/19.2_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/19.1_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/3.3_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/5_1920w.avif",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/17.2_1024w.webp",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/12.2_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/2.4_1920w.avif",
+      "size_mb": 0.07,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/15_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/12_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/15.1_optimized.jpg",
+      "size_mb": 0.16,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/15.2_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/9.3_1024w.avif",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/4.2.webp",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/7.1_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/7.2_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/15.1_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/2.2_optimized.jpg",
+      "size_mb": 0.16,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/12.2_optimized.jpg",
+      "size_mb": 0.15,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/12.1_1024w.webp",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/18.3_optimized.jpg",
+      "size_mb": 0.16,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/15_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/3.2.avif",
+      "size_mb": 0.09,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/L_3_1920w.avif",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/19.1_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/19.2_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/9.3_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/6_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/5.2_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/13.1_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/17.1_1920w.avif",
+      "size_mb": 0.07,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/2.4.webp",
+      "size_mb": 0.1,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/9_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/13.1_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/c2_optimized.jpg",
+      "size_mb": 0.13,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/6.3.webp",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/2.2_1920w.webp",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/6_optimized.jpg",
+      "size_mb": 0.15,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/13.1.avif",
+      "size_mb": 0.09,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/c1_640w.webp",
+      "size_mb": 0.01,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/c2_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/6.2_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/10.2_768w.avif",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/4_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/7_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/5.2_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/13.3.webp",
+      "size_mb": 0.08,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/6.2_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/3.2_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/4.2_640w.webp",
+      "size_mb": 0.01,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/13.webp",
+      "size_mb": 0.08,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/12.1_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/12.2_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/13_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/18_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/10.4_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/8_1920w.avif",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/18.1_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/c1_1920w.avif",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/0.2_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/18.3_1920w.webp",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/10.4_optimized.jpg",
+      "size_mb": 0.16,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/4.2_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/18_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/7.2_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/3_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/18.3.avif",
+      "size_mb": 0.08,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/7.1_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/0_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/3.webp",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/4.2_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/12.2_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/12.1_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/10_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/18_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/2.4_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/2_optimized.jpg",
+      "size_mb": 0.16,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/18.1.webp",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/0.1_1920w.webp",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/c2_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/10.4.avif",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/0_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/3_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/c2_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/c1_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/6.2_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/10.2_640w.webp",
+      "size_mb": 0.01,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/7_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/4_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/13_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/10_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/13.1_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/6_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/17.1_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/L_3_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/5_optimized.jpg",
+      "size_mb": 0.14,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/17.2_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/17.1_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/12.1_1920w.webp",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/2.webp",
+      "size_mb": 0.08,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/8_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/3.2_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/13.3_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/15.1_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/15.2_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/5.3_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/15.1_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/0.avif",
+      "size_mb": 0.1,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/13.3_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/3.2_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/5.3_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/15.2_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/15.1_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/10.avif",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/15.2_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/9.3_1920w.avif",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/9.2_320w.webp",
+      "size_mb": 0.0,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/12.2_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/12.webp",
+      "size_mb": 0.08,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/2.4_1024w.avif",
+      "size_mb": 0.05,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/5_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/17.2_1920w.webp",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/17.1_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/17.2_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/10_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/13_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/10.2_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/17_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/15_1920w.webp",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/8.1_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/8.2_640w.webp",
+      "size_mb": 0.01,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/18.3_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/6.2.webp",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/L_3_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/2.2_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/13_optimized.jpg",
+      "size_mb": 0.16,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/3.3.avif",
+      "size_mb": 0.09,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/6_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/5_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/6.3_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/c2_1920w.webp",
+      "size_mb": 0.04,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/0.1_1024w.webp",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/10.4_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/2_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/10_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/15.2_optimized.jpg",
+      "size_mb": 0.16,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/5.2_optimized.jpg",
+      "size_mb": 0.14,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/7.1_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/0_1920w.avif",
+      "size_mb": 0.07,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/7.2_1920w.avif",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/3_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/17_optimized.jpg",
+      "size_mb": 0.16,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/18_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/18.3_1024w.webp",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/4.3.webp",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/4.2_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/12.1_optimized.jpg",
+      "size_mb": 0.16,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/10.4_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/8_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/0.2_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/0.1_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/0.2_1920w.avif",
+      "size_mb": 0.07,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/c1_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/c3_320w.webp",
+      "size_mb": 0.0,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/10.4_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/3.2_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/2_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/13_1920w.avif",
+      "size_mb": 0.07,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/6.2_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/c1_optimized.jpg",
+      "size_mb": 0.13,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/5.2_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/8.1.avif",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/18.3_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/8.2_768w.avif",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/8.1_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/19_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/2.2_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/4.3_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/2.4.avif",
+      "size_mb": 0.09,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/17.1_1920w.webp",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/6_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/10.2_optimized.jpg",
+      "size_mb": 0.14,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/0.2_optimized.jpg",
+      "size_mb": 0.16,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/13.1_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/5.2_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/19.2_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/19.1_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/9.3_768w.avif",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/L_3_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/6.3.avif",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/9_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/13.1_1920w.avif",
+      "size_mb": 0.07,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/15.1_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/0_optimized.jpg",
+      "size_mb": 0.17,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/3.2.webp",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/15_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/12.1_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/12_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/2.4_1920w.webp",
+      "size_mb": 0.07,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/15_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/12.2_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/7.2_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/7.1_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/9.3_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/15.2_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/4.2.avif",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/10.2_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/17.1_optimized.jpg",
+      "size_mb": 0.17,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/7.1_optimized.jpg",
+      "size_mb": 0.15,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/8.2.avif",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/9_768w.avif",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/15_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/4_optimized.jpg",
+      "size_mb": 0.14,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/17.2_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/3.3_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/5_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/9.3_640w.webp",
+      "size_mb": 0.01,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/19.1_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/19.2_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/10.4.webp",
+      "size_mb": 0.08,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/10.2_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/6.2_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/4_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/7_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/c1_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/c2_768w.avif",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/3_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/0_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/0_1024w.webp",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/7.1_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/18.3.webp",
+      "size_mb": 0.08,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/0.1_1920w.avif",
+      "size_mb": 0.07,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/c2_1024w.avif",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/2.4_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/18_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/18.1.avif",
+      "size_mb": 0.08,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/10_1920w.avif",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/8.1_optimized.jpg",
+      "size_mb": 0.14,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/3.avif",
+      "size_mb": 0.08,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/18.1_optimized.jpg",
+      "size_mb": 0.14,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/12.1_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/12.2_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/4.2_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/c1_1920w.webp",
+      "size_mb": 0.04,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/0.2_1024w.webp",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/18_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/18.1_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/8_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/10.4_1024w.webp",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/5.3_optimized.jpg",
+      "size_mb": 0.14,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/13_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/3.2_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/13.avif",
+      "size_mb": 0.09,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/12.2_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/12.1_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/4.2_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/3_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/7.2_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/4.2_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/18.3_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/18_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/12_optimized.jpg",
+      "size_mb": 0.16,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/10.2_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/6.2_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/7_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/4_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/c2_640w.webp",
+      "size_mb": 0.01,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/c1_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/13.1.webp",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/2.2_1920w.avif",
+      "size_mb": 0.07,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/6.2_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/2.4_optimized.jpg",
+      "size_mb": 0.18,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/13.3.avif",
+      "size_mb": 0.08,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/5.2_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/17.2_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/17.1_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/17.2_1920w.avif",
+      "size_mb": 0.07,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/5_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/c3_optimized.jpg",
+      "size_mb": 0.13,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/15_1920w.avif",
+      "size_mb": 0.07,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/17_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/10.2_1920w.avif",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/13_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/10_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/15_optimized.jpg",
+      "size_mb": 0.16,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/9.2_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/8.2_optimized.jpg",
+      "size_mb": 0.14,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/10.webp",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/9.3_1920w.webp",
+      "size_mb": 0.04,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/15.2_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/5.3_768w.avif",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/15.1_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/15.2_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/13.3_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/3.2_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/2.4_1024w.webp",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/12.avif",
+      "size_mb": 0.09,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/12.2_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/8_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/2.avif",
+      "size_mb": 0.09,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/12.1_1920w.avif",
+      "size_mb": 0.07,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/15.1_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/0.webp",
+      "size_mb": 0.09,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/15.2_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/15.1_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/5.3_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/3.2_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/13.3_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/13.1_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/10_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/13_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/L_3_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/17.1_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/17.2_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/17.1_1024w.webp",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/6_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/8.1.webp",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/5.2_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/6.2_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/4.3_320w.webp",
+      "size_mb": 0.0,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/2.2_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/0.1_optimized.jpg",
+      "size_mb": 0.17,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/18.3_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/8.1_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/8.2_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/19_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/18_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/4.2_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/4.3.avif",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/18.3_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/3_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/7.2_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/3_optimized.jpg",
+      "size_mb": 0.15,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/13_1920w.webp",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/10.4_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/2_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/3.2_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/0.2_1920w.webp",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/c1_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/c3_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/8_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/10.4_1920w.webp",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/0.1_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/0.2_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/10_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/10.4_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/2_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/c2_1920w.avif",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/0.1_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/5_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/6_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/3.3.webp",
+      "size_mb": 0.08,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/6.3_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/0_1920w.webp",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/7.1_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/2.2_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/L_3_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/8.2_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/8.1_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/18.3_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/6.2.avif",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/7_optimized.jpg",
+      "size_mb": 0.14,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/7.2_optimized.jpg",
+      "size_mb": 0.14,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/17.2_optimized.jpg",
+      "size_mb": 0.16,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/19.1.webp",
+      "size_mb": 0.08,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/10.2.webp",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/19.2_optimized.jpg",
+      "size_mb": 0.15,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/9.2_optimized.jpg",
+      "size_mb": 0.14,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/17.1_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/17.2_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/3.3_optimized.jpg",
+      "size_mb": 0.15,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/13.3_optimized.jpg",
+      "size_mb": 0.16,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/17_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/5.3_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/13.3_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/17_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/9.2_768w.avif",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/7.webp",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/7_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/15.1.webp",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/8_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/8.1_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/L_3.webp",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/5.avif",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/c2.webp",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/4_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/8_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/8.2_1024w.avif",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/15.avif",
+      "size_mb": 0.09,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/15.1_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/15.2_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/3.2_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/13.3_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/9.2_640w.webp",
+      "size_mb": 0.01,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/12.1.avif",
+      "size_mb": 0.1,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/17.webp",
+      "size_mb": 0.08,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/13_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/10_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/9.2_1920w.avif",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/17.2.avif",
+      "size_mb": 0.09,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/17_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/9_optimized.jpg",
+      "size_mb": 0.14,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/2.2.avif",
+      "size_mb": 0.1,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/c3_1920w.webp",
+      "size_mb": 0.04,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/19_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/8.2_320w.webp",
+      "size_mb": 0.0,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/8.1_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/L_3_optimized.jpg",
+      "size_mb": 0.14,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/4.3_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/18.1_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/2.2_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/L_3_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/c3_768w.avif",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/6.3_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/9.avif",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/0.2_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/0.1_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/7.1.avif",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/5_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/6_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/19.1_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/2_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/10.4_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/c3_640w.webp",
+      "size_mb": 0.01,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/6.3_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/0.1_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/0.2_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/19.avif",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/6.3_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/6_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/5_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/19.2_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/5.3_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/0.1.webp",
+      "size_mb": 0.08,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/6.2_optimized.jpg",
+      "size_mb": 0.15,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/9.2.webp",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/19_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/18.3_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/2_1024w.webp",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/4.3_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/5.2.webp",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/19_1920w.webp",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/4.3_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/2.2_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/L_3_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/9_1024w.avif",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/3.3_1920w.webp",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/12_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/9.3_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/13.1_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/3.3_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/5.2_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/5.3.webp",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/9.2_1024w.avif",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/13.3_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/7.2_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/7.1_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/9.3.webp",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/15_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/8.2_1920w.avif",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/0.2.avif",
+      "size_mb": 0.1,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/4_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/12_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/18.avif",
+      "size_mb": 0.08,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/18_optimized.jpg",
+      "size_mb": 0.14,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/8.1_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/7_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/12_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/8.avif",
+      "size_mb": 0.06,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/7.1_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/7.2_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/17_1920w.avif",
+      "size_mb": 0.07,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/7.2.webp",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/9_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/19.2_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/19.1_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/3.3_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/13.1_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/5.2_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/17.1.webp",
+      "size_mb": 0.08,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/3.3_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/12_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/9_1920w.avif",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/19_1024w.webp",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/0_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/3_768w.avif",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "AVIF",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/4.3_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/19.1_optimized.jpg",
+      "size_mb": 0.15,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/2_1920w.webp",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/c2_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/c1_320w.webp",
+      "size_mb": 0.0,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/19.2_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/5.3_1920w.webp",
+      "size_mb": 0.05,
+      "width": 864,
+      "height": 1080,
+      "format": "WEBP",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/12.2_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/12.1_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/4.2_320w.webp",
+      "size_mb": 0.0,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/12.2.webp",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/6.3_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/18.1_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/2.4_768w.webp",
+      "size_mb": 0.03,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/18_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/19.1_1920w.avif",
+      "size_mb": 0.06,
+      "width": 864,
+      "height": 1080,
+      "format": "AVIF",
+      "pixels": 933120
+    },
+    {
+      "path": "media/products/optimized/4.avif",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/c3.webp",
+      "size_mb": 0.05,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/18.1_768w.webp",
+      "size_mb": 0.02,
+      "width": 461,
+      "height": 576,
+      "format": "WEBP",
+      "pixels": 265536
+    },
+    {
+      "path": "media/products/optimized/2.4_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/c1.avif",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/6.webp",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "WEBP",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/15.2.avif",
+      "size_mb": 0.08,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/18.1_1024w.avif",
+      "size_mb": 0.04,
+      "width": 614,
+      "height": 768,
+      "format": "AVIF",
+      "pixels": 471552
+    },
+    {
+      "path": "media/products/optimized/3_640w.webp",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "WEBP",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/0_640w.avif",
+      "size_mb": 0.02,
+      "width": 384,
+      "height": 480,
+      "format": "AVIF",
+      "pixels": 184320
+    },
+    {
+      "path": "media/products/optimized/4.3_optimized.jpg",
+      "size_mb": 0.14,
+      "width": 1080,
+      "height": 1350,
+      "format": "JPEG",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/4_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/7_320w.webp",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/10.2_320w.webp",
+      "size_mb": 0.0,
+      "width": 192,
+      "height": 240,
+      "format": "WEBP",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/6.2_320w.avif",
+      "size_mb": 0.01,
+      "width": 192,
+      "height": 240,
+      "format": "AVIF",
+      "pixels": 46080
+    },
+    {
+      "path": "media/products/optimized/19.2.avif",
+      "size_mb": 0.07,
+      "width": 1080,
+      "height": 1350,
+      "format": "AVIF",
+      "pixels": 1458000
+    },
+    {
+      "path": "media/products/optimized/c3_1024w.webp",
+      "size_mb": 0.03,
+      "width": 614,
+      "height": 768,
+      "format": "WEBP",
+      "pixels": 471552
+    },
+    {
+      "path": "media/category_icons/optimized/free-icon-clothes-1720753_24x24.webp",
+      "size_mb": 0.0,
+      "width": 24,
+      "height": 24,
+      "format": "WEBP",
+      "pixels": 576
+    },
+    {
+      "path": "media/category_icons/optimized/free-icon-clothes-1720860_24x24.webp",
+      "size_mb": 0.0,
+      "width": 24,
+      "height": 24,
+      "format": "WEBP",
+      "pixels": 576
+    },
+    {
+      "path": "media/category_icons/optimized/free-icon-clothes-1720860_24x24.png",
+      "size_mb": 0.0,
+      "width": 24,
+      "height": 24,
+      "format": "PNG",
+      "pixels": 576
+    },
+    {
+      "path": "media/category_icons/optimized/free-icon-clothes-1720860_48x48.png",
+      "size_mb": 0.0,
+      "width": 48,
+      "height": 48,
+      "format": "PNG",
+      "pixels": 2304
+    },
+    {
+      "path": "media/category_icons/optimized/free-icon-clothes-1720822_48x48.png",
+      "size_mb": 0.0,
+      "width": 48,
+      "height": 48,
+      "format": "PNG",
+      "pixels": 2304
+    },
+    {
+      "path": "media/category_icons/optimized/free-icon-clothes-1720822_24x24.png",
+      "size_mb": 0.0,
+      "width": 24,
+      "height": 24,
+      "format": "PNG",
+      "pixels": 576
+    },
+    {
+      "path": "media/category_icons/optimized/free-icon-clothes-1720753_48x48.png",
+      "size_mb": 0.0,
+      "width": 48,
+      "height": 48,
+      "format": "PNG",
+      "pixels": 2304
+    },
+    {
+      "path": "media/category_icons/optimized/free-icon-clothes-1720753_24x24.png",
+      "size_mb": 0.0,
+      "width": 24,
+      "height": 24,
+      "format": "PNG",
+      "pixels": 576
+    },
+    {
+      "path": "media/category_icons/optimized/free-icon-clothes-1720822_24x24.webp",
+      "size_mb": 0.0,
+      "width": 24,
+      "height": 24,
+      "format": "WEBP",
+      "pixels": 576
+    }
+  ]
+}
