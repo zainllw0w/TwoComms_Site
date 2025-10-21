@@ -10316,7 +10316,7 @@ body::after {
   border-radius: 18px;
   padding: 8px;
   z-index: 1030 !important;
-  transition: opacity 0.2s ease;
+  transition: bottom 0.3s cubic-bezier(0.34, 1.26, 0.64, 1), opacity 0.3s ease;
   will-change: auto; /* Changed from transform to prevent breaking position: fixed */
   display: flex !important; /* Override Bootstrap d-lg-none */
   box-sizing: border-box !important;
@@ -10325,14 +10325,14 @@ body::after {
   animation: slideUpFromBottom 0.6s cubic-bezier(0.34, 1.26, 0.64, 1) forwards;
 }
 
-/* Keyframe для появления снизу (как в Chrome iOS) */
+/* Keyframe для появления снизу (как в Chrome iOS) - используем bottom вместо transform */
 @keyframes slideUpFromBottom {
   0% {
-    transform: translateX(-50%) translateY(calc(100% + 30px));
+    bottom: -100px;
     opacity: 0;
   }
   100% {
-    transform: translateX(-50%) translateY(0);
+    bottom: 10px;
     opacity: 1;
   }
 }
@@ -10359,14 +10359,14 @@ body::after {
   pointer-events: none !important;
 }
 
-/* Анимация скрытия вниз (как в Chrome iOS при скролле) */
+/* Анимация скрытия вниз (как в Chrome iOS при скролле) - используем bottom вместо transform */
 @keyframes slideDownToBottom {
   0% {
-    transform: translateX(-50%) translateY(0);
+    bottom: 10px;
     opacity: 1;
   }
   100% {
-    transform: translateX(-50%) translateY(calc(100% + 30px));
+    bottom: -100px;
     opacity: 0;
   }
 }
@@ -14596,15 +14596,15 @@ input[type="file"].form-control:hover {
 .bottom-nav-container > *:nth-child(4) { animation-delay: 0.25s; }
 .bottom-nav-container > *:nth-child(5) { animation-delay: 0.3s; }
 
-/* Анимация появления элементов меню */
+/* Анимация появления элементов меню - только opacity для избежания конфликтов */
 @keyframes fadeInUp {
   0% {
     opacity: 0;
-    transform: translateY(15px);
+    filter: blur(4px);
   }
   100% {
     opacity: 1;
-    transform: translateY(0);
+    filter: blur(0);
   }
 }
 
