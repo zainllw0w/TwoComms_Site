@@ -21977,7 +21977,11 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   box-shadow: 0 6px 22px rgba(0,0,0,0.2);
 }
 
-/* Mono Checkout Button Styles */
+/* ========================================
+   Monobank & Mono Checkout Styles
+   ======================================== */
+
+/* Mini Cart - Mono Checkout Button */
 .mono-checkout-mini {
   margin-top: 0.5rem;
 }
@@ -22097,4 +22101,268 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   border-color: rgba(139, 92, 246, 0.3);
   transform: none;
   box-shadow: none;
+}
+
+/* Cart Page - Monobank Payment Button */
+.cart-monobank-container {
+  margin-bottom: 1rem;
+}
+
+.cart-monobank-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  background: linear-gradient(135deg, 
+    rgba(20, 22, 27, 0.95) 0%, 
+    rgba(30, 32, 37, 0.98) 50%, 
+    rgba(20, 22, 27, 0.95) 100%);
+  border: 2px solid rgba(139, 92, 246, 0.4);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(139, 92, 246, 0.1) inset;
+}
+
+.cart-monobank-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, 
+    rgba(139, 92, 246, 0.08) 0%, 
+    rgba(99, 102, 241, 0.12) 50%,
+    rgba(139, 92, 246, 0.08) 100%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.cart-monobank-btn:hover {
+  border-color: rgba(139, 92, 246, 0.7);
+  transform: translateY(-3px);
+  box-shadow: 
+    0 8px 24px rgba(139, 92, 246, 0.3),
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(139, 92, 246, 0.2) inset;
+}
+
+.cart-monobank-btn:hover::before {
+  opacity: 1;
+}
+
+.cart-monobank-btn:active {
+  transform: translateY(-1px);
+}
+
+.cart-monobank-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  pointer-events: none;
+}
+
+.cart-monobank-logo {
+  display: flex;
+  align-items: baseline;
+  gap: 0.15rem;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  z-index: 1;
+  position: relative;
+}
+
+.cart-monobank-logo .mono {
+  background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
+}
+
+.cart-monobank-logo .dot {
+  color: rgba(139, 92, 246, 0.6);
+  font-size: 1.5rem;
+  margin: 0 -0.1rem;
+}
+
+.cart-monobank-logo .pay {
+  color: rgba(232, 233, 236, 0.95);
+  font-weight: 700;
+}
+
+.cart-monobank-btn:hover .cart-monobank-logo .mono {
+  background: linear-gradient(135deg, #a78bfa 0%, #c4b5fd 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.cart-monobank-details {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  z-index: 1;
+  position: relative;
+}
+
+.cart-monobank-text {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(232, 233, 236, 0.9);
+  letter-spacing: 0.3px;
+}
+
+.cart-monobank-badges {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.cart-monobank-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.cart-monobank-badge-gpay {
+  color: #4285f4;
+  border-color: rgba(66, 133, 244, 0.3);
+  background: linear-gradient(135deg, rgba(66, 133, 244, 0.1) 0%, rgba(66, 133, 244, 0.05) 100%);
+}
+
+.cart-monobank-badge-gpay .badge-symbol {
+  font-weight: 900;
+  font-size: 0.9em;
+}
+
+.cart-monobank-badge-apple {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
+}
+
+.cart-monobank-badge-apple .badge-symbol::before {
+  content: '';
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.cart-monobank-btn:hover .cart-monobank-badge-gpay {
+  background: linear-gradient(135deg, rgba(66, 133, 244, 0.2) 0%, rgba(66, 133, 244, 0.1) 100%);
+  border-color: rgba(66, 133, 244, 0.5);
+  box-shadow: 0 2px 8px rgba(66, 133, 244, 0.2);
+}
+
+.cart-monobank-btn:hover .cart-monobank-badge-apple {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
+}
+
+.cart-monobank-spinner {
+  display: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(139, 92, 246, 0.2);
+  border-top-color: #8b5cf6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  position: absolute;
+  right: 1.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.cart-monobank-btn.loading .cart-monobank-spinner {
+  display: block;
+}
+
+.cart-monobank-btn.loading .cart-monobank-details {
+  opacity: 0.3;
+}
+
+@keyframes spin {
+  to { transform: translateY(-50%) rotate(360deg); }
+}
+
+.cart-monobank-status {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  text-align: center;
+  min-height: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.cart-monobank-status:not(:empty) {
+  background: rgba(20, 22, 27, 0.6);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.cart-monobank-status.error {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.cart-monobank-status.success {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .cart-monobank-btn {
+    padding: 1rem 1.25rem;
+  }
+  
+  .cart-monobank-logo {
+    font-size: 1.5rem;
+  }
+  
+  .cart-monobank-text {
+    font-size: 0.85rem;
+  }
+  
+  .cart-monobank-badges {
+    gap: 0.4rem;
+  }
+  
+  .cart-monobank-badge {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .cart-monobank-btn {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .cart-monobank-details {
+    align-items: flex-start;
+    width: 100%;
+  }
+  
+  .cart-monobank-badges {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
