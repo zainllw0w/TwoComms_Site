@@ -172,13 +172,13 @@ class DropshipperOrderItemAdmin(admin.ModelAdmin):
 @admin.register(DropshipperStats)
 class DropshipperStatsAdmin(admin.ModelAdmin):
     """Административная панель для статистики дропшипера"""
-    list_display = ('dropshipper', 'total_orders', 'successful_orders', 'total_revenue', 
+    list_display = ('dropshipper', 'total_orders', 'completed_orders', 'total_revenue', 
                    'total_profit', 'last_order_date')
     list_filter = ('last_order_date',)
     search_fields = ('dropshipper__username', 'dropshipper__userprofile__company_name')
-    readonly_fields = ('dropshipper', 'total_orders', 'successful_orders', 'cancelled_orders',
-                      'total_revenue', 'total_profit', 'average_order_value', 
-                      'last_order_date', 'updated_at')
+    readonly_fields = ('dropshipper', 'total_orders', 'completed_orders', 'cancelled_orders',
+                      'total_revenue', 'total_profit', 'total_drop_cost', 'total_items_sold',
+                      'last_order_date', 'created_at', 'updated_at')
     
     def has_add_permission(self, request):
         return False
@@ -191,12 +191,12 @@ class DropshipperStatsAdmin(admin.ModelAdmin):
 class DropshipperPayoutAdmin(admin.ModelAdmin):
     """Административная панель для выплат дропшиперам"""
     list_display = ('payout_number', 'dropshipper_info', 'amount', 'status_badge', 
-                   'payment_method', 'created_at')
-    list_filter = ('status', 'payment_method', 'created_at')
+                   'payment_method', 'requested_at')
+    list_filter = ('status', 'payment_method', 'requested_at')
     search_fields = ('payout_number', 'dropshipper__username', 
                     'dropshipper__userprofile__company_name')
-    readonly_fields = ('payout_number', 'dropshipper', 'created_at', 'updated_at', 
-                      'processed_at', 'orders_list')
+    readonly_fields = ('payout_number', 'dropshipper', 'requested_at', 
+                      'processed_at', 'completed_at', 'orders_list')
     
     fieldsets = (
         ('Основна інформація', {
@@ -206,7 +206,7 @@ class DropshipperPayoutAdmin(admin.ModelAdmin):
             'fields': ('payment_method', 'payment_details')
         }),
         ('Дати', {
-            'fields': ('created_at', 'updated_at', 'processed_at')
+            'fields': ('requested_at', 'processed_at', 'completed_at')
         }),
         ('Замовлення', {
             'fields': ('orders_list',),
@@ -255,7 +255,7 @@ class DropshipperPayoutAdmin(admin.ModelAdmin):
         orders_html += '<th style="padding: 8px; text-align: right;">Сума</th>'
         orders_html += '</tr>'
         
-        for order in obj.orders.all():
+        for order in obj.included_orders.all():
             url = reverse('admin:orders_dropshipperorder_change', args=[order.id])
             orders_html += '<tr style="border-bottom: 1px solid #e5e7eb;">'
             orders_html += f'<td style="padding: 8px;"><a href="{url}">{order.order_number}</a></td>'
