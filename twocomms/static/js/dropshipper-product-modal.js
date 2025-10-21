@@ -49,26 +49,27 @@
     // ===== ШАГ 1: СОЗДАНИЕ POPUP ЭЛЕМЕНТА =====
     const popup = document.createElement('div');
     popup.id = 'dsProductPopup';
+    // Точная копия стилей из рабочего wholesale модала
     popup.style.cssText = `
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%) scale(0.8);
-      background: linear-gradient(135deg, rgba(20,22,27,.95), rgba(14,16,22,.95));
-      border: 1px solid rgba(255,255,255,.1);
-      border-radius: 16px;
-      padding: 0;
-      max-width: 900px;
-      width: 90vw;
-      max-height: 90vh;
-      z-index: 10000;
-      box-shadow: 0 25px 60px rgba(0,0,0,.6);
-      color: #e5e7eb;
-      opacity: 0;
-      transition: all 0.3s ease;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) scale(0.8);
+        background: linear-gradient(135deg, rgba(20,22,27,.98), rgba(14,16,22,.98));
+        border: 1px solid rgba(255,255,255,.1);
+        border-radius: 20px;
+        padding: 20px;
+        max-width: 900px;
+        width: 90vw;
+        max-height: 90vh;
+        overflow-y: auto;
+        z-index: 10000;
+        box-shadow: 0 25px 60px rgba(0,0,0,.6);
+        color: #e5e7eb;
+        opacity: 0;
+        transition: all 0.3s ease;
+        display: flex;
+        flex-direction: column;
     `;
     
     // ===== ШАГ 2: ЗАПОЛНЕНИЕ КОНТЕНТОМ =====
@@ -399,23 +400,13 @@
     
     // ===== ШАГ 7: ПРИНУДИТЕЛЬНОЕ ЦЕНТРИРОВАНИЕ =====
     // КРИТИЧЕСКИ ВАЖНО: устанавливаем позицию ПОСЛЕ добавления в DOM
-    // Иначе браузер вычисляет 50% от высоты документа, а не viewport
+    // position: fixed центрируется относительно viewport (не документа!)
+    // Поэтому НЕ нужно добавлять scrollY
     setTimeout(() => {
-      // Принудительно устанавливаем центрирование через viewport размеры
-      const viewportHeight = window.innerHeight;
-      const viewportWidth = window.innerWidth;
-      
-      popup.style.top = `${viewportHeight / 2}px`;
-      popup.style.left = `${viewportWidth / 2}px`;
       popup.style.transform = 'translate(-50%, -50%) scale(1)';
       popup.style.opacity = '1';
       
-      console.log('✅ Модальное окно отцентровано:', {
-        viewportHeight,
-        viewportWidth,
-        top: popup.style.top,
-        left: popup.style.left
-      });
+      console.log('✅ Модальное окно отцентровано (position: fixed)');
     }, 10);
     
     // ===== ШАГ 8: ЗАГРУЗКА ДАННЫХ ТОВАРА =====
