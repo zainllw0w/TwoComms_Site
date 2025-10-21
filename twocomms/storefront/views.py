@@ -7329,11 +7329,56 @@ from django.contrib.admin.views.decorators import staff_member_required
 
 @staff_member_required
 def collaboration_admin(request):
-    """Simple collaboration admin page with dropshippers placeholder and wholesalers invoices list."""
+    """Страница управления сотрудничеством - дропшипперы и оптовые накладные"""
     from django.shortcuts import render
-    from orders.models import WholesaleInvoice
-    invoices = WholesaleInvoice.objects.all().order_by('-created_at')[:100]
-    return render(request, 'pages/admin_collaboration.html', { 'invoices': invoices })
+    from django.db.models import Sum, Count, Q
+    from orders.models import WholesaleInvoice, DropshipperOrder, DropshipperStats
+    from accounts.models import UserProfile
+    from django.contrib.auth.models import User
+    
+    # Получаем накладные оптовиков
+    invoices = WholesaleInvoice.objects.all().order_by('-created_at')[:50]
+    
+    # Получаем заказы дропшипперов
+    dropship_orders = DropshipperOrder.objects.select_related(
+        'dropshipper', 'dropshipper__userprofile'
+    ).prefetch_related('items').order_by('-created_at')[:50]
+    
+    # Статистика по дропшипперам
+    dropshipper_stats = DropshipperStats.objects.select_related(
+        'dropshipper', 'dropshipper__userprofile'
+    ).filter(total_orders__gt=0).order_by('-total_profit')[:20]
+    
+    # Получаем список всех активных дропшипперов
+    dropshippers = User.objects.filter(
+        Q(dropshipper_orders__isnull=False) | Q(dropshipper_stats__isnull=False)
+    ).select_related('userprofile').distinct()
+    
+    # Общая статистика
+    total_dropship_orders = DropshipperOrder.objects.count()
+    total_dropship_revenue = DropshipperOrder.objects.aggregate(
+        total=Sum('total_selling_price')
+    )['total'] or 0
+    total_dropship_profit = DropshipperOrder.objects.aggregate(
+        total=Sum('profit')
+    )['total'] or 0
+    
+    pending_orders = DropshipperOrder.objects.filter(
+        status__in=['draft', 'pending']
+    ).count()
+    
+    context = {
+        'invoices': invoices,
+        'dropship_orders': dropship_orders,
+        'dropshipper_stats': dropshipper_stats,
+        'dropshippers': dropshippers,
+        'total_dropship_orders': total_dropship_orders,
+        'total_dropship_revenue': total_dropship_revenue,
+        'total_dropship_profit': total_dropship_profit,
+        'pending_orders': pending_orders,
+    }
+    
+    return render(request, 'pages/admin_collaboration.html', context)
 
 
 @require_POST
@@ -7376,6 +7421,45 @@ def update_invoice_status(request, invoice_id):
         return JsonResponse({'success': False, 'error': 'Накладна не знайдена'}, status=404)
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+@require_POST
+@staff_member_required
+def admin_update_dropship_status(request, order_id):
+    """Обновление статуса заказа дропшипера (только для staff)"""
+    import json
+    from orders.models import DropshipperOrder
+    from orders.telegram_notifications import telegram_notifier
+    
+    try:
+        data = json.loads(request.body or '{}')
+        new_status = data.get('status')
+        
+        # Валидные статусы
+        allowed_statuses = ['draft', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled']
+        if new_status not in allowed_statuses:
+            return JsonResponse({'success': False, 'error': 'Невірний статус'}, status=400)
+        
+        order = DropshipperOrder.objects.get(id=order_id)
+        old_status = order.status
+        order.status = new_status
+        order.save(update_fields=['status', 'updated_at'])
+        
+        # Отправляем уведомление дропшиперу о изменении статуса
+        try:
+            telegram_notifier.send_order_status_update(order, old_status, new_status)
+        except Exception as e:
+            print(f'Ошибка отправки уведомления: {e}')
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Статус замовлення оновлено на {order.get_status_display()}'
+        })
+        
+    except DropshipperOrder.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Замовлення не знайдено'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
 
 @require_POST
 @staff_member_required
