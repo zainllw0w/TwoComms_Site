@@ -34,20 +34,33 @@
 }
 
 /* Современный фон главной страницы */
+* {
+  box-sizing: border-box;
+}
+
 html {
   height: 100%;
-  overflow-x: hidden;
+  width: 100%;
+  overflow-x: hidden !important;
+  position: relative;
 }
 
 body {
   background: var(--tc-bg);
   color: var(--tc-text);
   position: relative;
-  overflow-x: hidden;
+  overflow-x: hidden !important;
   font-size-adjust: 0.52;
   min-height: 100vh;
   max-height: none;
   height: auto;
+  width: 100%;
+  max-width: 100vw;
+}
+
+/* Prevent any horizontal overflow */
+body > * {
+  max-width: 100%;
 }
 
 /* Основной градиентный фон - менее подвижный и более размытый */
@@ -10290,11 +10303,11 @@ body::after {
 /* Bottom Navigation - Fixed at bottom */
 .bottom-nav {
   position: fixed !important;
-  left: 0;
-  right: 0;
-  bottom: 10px;
-  margin: 0 auto;
-  width: min(560px, 92%);
+  left: 50% !important;
+  bottom: 10px !important;
+  transform: translateX(-50%) !important;
+  width: min(560px, 92%) !important;
+  max-width: 92vw !important;
   background: rgba(20, 22, 27, 0.86);
   border: 1px solid rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(5px) saturate(110%);
@@ -10304,6 +10317,7 @@ body::after {
   transition: transform 0.28s ease, opacity 0.2s ease;
   will-change: transform;
   display: flex !important; /* Override Bootstrap d-lg-none */
+  box-sizing: border-box !important;
 }
 
 /* Hide on desktop (lg and up) */
@@ -10313,8 +10327,18 @@ body::after {
   }
 }
 
+/* Extra rules for mobile to ensure it stays fixed */
+@media (max-width: 991px) {
+  .bottom-nav {
+    position: fixed !important;
+    left: 50% !important;
+    bottom: 10px !important;
+    transform: translateX(-50%) !important;
+  }
+}
+
 .bottom-nav.bottom-nav--hidden {
-  transform: translateY(110%);
+  transform: translateX(-50%) translateY(110%) !important;
   opacity: 0;
   pointer-events: none;
 }
