@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load seo_tags %}
+{% load responsive_images %}
 
 {% block title %}Оптові закупівлі та дропшипінг одягу — TwoComms{% endblock %}
 {% block description %}Оптовий одяг TwoComms: футболки та худі з фірмовим дизайном, старт від 8 одиниць, персональні прайси, швидке відвантаження та підтримка менеджера. Дропшипінг і класичний опт для магазинів та мереж.{% endblock %}
@@ -2163,7 +2164,7 @@
   <section class="wholesale-hero">
     <!-- Background Logo -->
     <div class="hero-logo-bg">
-      <img src="{% static 'img/logo.svg' %}" alt="TwoComms Background">
+      <img src="{% static 'img/logo.svg' %}" alt="TwoComms Background" width="120" height="120">
     </div>
     
               <div class="hero-content">
@@ -2613,7 +2614,7 @@
       <div class="product-card" data-category="hoodies">
         <div class="product-image-container">
           {% if product.main_image %}
-            <img src="{{ product.main_image.url }}" alt="{{ product.title }} - TwoComms" class="product-image">
+            {% optimized_image product.main_image.url product.title|add:" - TwoComms" "product-image" product.main_image.width|default:1080 product.main_image.height|default:1350 loading='lazy' fetchpriority='low' sizes='(max-width: 768px) 80vw, (max-width: 1200px) 45vw, 30vw' %}
           {% endif %}
           <div class="product-overlay">
             <div class="product-badge">Дроп: {{ hoodie_prices.drop }} грн</div>
@@ -2679,7 +2680,7 @@
       <div class="product-card" data-category="tshirts">
         <div class="product-image-container">
           {% if product.main_image %}
-            <img src="{{ product.main_image.url }}" alt="{{ product.title }} - TwoComms" class="product-image">
+            {% optimized_image product.main_image.url product.title|add:" - TwoComms" "product-image" product.main_image.width|default:1080 product.main_image.height|default:1350 loading='lazy' fetchpriority='low' sizes='(max-width: 768px) 80vw, (max-width: 1200px) 45vw, 30vw' %}
           {% endif %}
           <div class="product-overlay">
             <div class="product-badge">Дроп: {{ tshirt_prices.drop }} грн</div>
