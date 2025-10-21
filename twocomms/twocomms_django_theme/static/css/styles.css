@@ -21976,3 +21976,125 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   border-radius: 14px !important;
   box-shadow: 0 6px 22px rgba(0,0,0,0.2);
 }
+
+/* Mono Checkout Button Styles */
+.mono-checkout-mini {
+  margin-top: 0.5rem;
+}
+
+.mono-checkout-btn-mini {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, rgba(20, 22, 27, 0.9) 0%, rgba(30, 32, 37, 0.95) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 12px;
+  color: var(--tc-text);
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.mono-checkout-btn-mini::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(99, 102, 241, 0.15) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.mono-checkout-btn-mini:hover {
+  border-color: rgba(139, 92, 246, 0.6);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(139, 92, 246, 0.25);
+}
+
+.mono-checkout-btn-mini:hover::before {
+  opacity: 1;
+}
+
+.mono-checkout-btn-mini:active {
+  transform: translateY(0);
+}
+
+.mono-checkout-label {
+  font-size: 0.9rem;
+  color: rgba(232, 233, 236, 0.9);
+}
+
+.mono-checkout-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.mono-cat-icon {
+  width: 20px;
+  height: 20px;
+  margin-right: 0.25rem;
+}
+
+.mono-cat-head {
+  fill: #8b5cf6;
+  transition: fill 0.3s ease;
+}
+
+.mono-cat-eye {
+  fill: #fff;
+}
+
+.mono-cat-mouth {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 0.5;
+  stroke-linecap: round;
+}
+
+.mono-checkout-btn-mini:hover .mono-cat-head {
+  fill: #a78bfa;
+}
+
+.mono-logo-word {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.mono-logo-word--mono {
+  color: #8b5cf6;
+}
+
+.mono-logo-word--checkout {
+  color: rgba(232, 233, 236, 0.8);
+  font-weight: 600;
+}
+
+.mono-checkout-status {
+  font-size: 0.75rem;
+  min-height: 1.2rem;
+  color: rgba(232, 233, 236, 0.6);
+}
+
+.mono-checkout-status.error {
+  color: #ef4444;
+}
+
+.mono-checkout-status.success {
+  color: #10b981;
+}
+
+.mono-checkout-btn-mini:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.mono-checkout-btn-mini:disabled:hover {
+  border-color: rgba(139, 92, 246, 0.3);
+  transform: none;
+  box-shadow: none;
+}
