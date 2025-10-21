@@ -571,10 +571,11 @@
     </section>
   </main>
 </div>
-{% endblock %}
 
+<!-- Модальные окна - ВНЕ main но ВНУТРИ content -->
 {% include "partials/dropshipper_modals.html" %}
 {% include "partials/dropshipper_add_product_modal.html" %}
+{% endblock %}
 
 {% block extra_js %}
 <script src="{% static 'js/dropshipper.js' %}?v=8"></script>
