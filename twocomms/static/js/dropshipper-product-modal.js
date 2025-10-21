@@ -125,14 +125,34 @@
         <div id="dsProductContent" style="display: none;">
           <!-- Информация о товаре -->
           <div style="display: flex; gap: 20px; margin-bottom: 30px; flex-wrap: wrap;">
-            <div style="flex-shrink: 0; width: 200px;">
+            <div style="flex-shrink: 0; width: 200px; position: relative;">
               <img id="dsProductImage" src="" alt="Товар" style="
                 width: 100%;
                 height: 200px;
                 object-fit: cover;
                 border-radius: 12px;
                 border: 1px solid rgba(255,255,255,.1);
+                cursor: pointer;
+                transition: all 0.3s ease;
+              " onclick="openImageLightbox(this.src, this.alt)" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 8px 20px rgba(139,92,246,.4)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+              <div style="
+                position: absolute;
+                top: 8px;
+                right: 8px;
+                background: rgba(0,0,0,.7);
+                color: white;
+                padding: 6px 10px;
+                border-radius: 8px;
+                font-size: 0.75rem;
+                font-weight: 700;
+                pointer-events: none;
+                display: flex;
+                align-items: center;
+                gap: 5px;
               ">
+                <i class="fas fa-search-plus"></i>
+                <span>Збільшити</span>
+              </div>
             </div>
             <div style="flex: 1; min-width: 250px;">
               <h4 id="dsProductTitle" style="margin: 0 0 10px; font-weight: 700; color: #e5e7eb; font-size: 1.2rem;"></h4>
@@ -828,6 +848,180 @@
       setTimeout(() => notification.remove(), 300);
     }, 4000);
   }
+  
+  /**
+   * LIGHTBOX: Открыть увеличенное изображение
+   * Красивый, плавный, без перезагрузки страницы
+   */
+  window.openImageLightbox = function(imageSrc, imageAlt) {
+    console.log('🖼️ Открываем lightbox для изображения');
+    
+    // Удаляем старый lightbox если есть
+    const oldLightbox = document.getElementById('dsImageLightbox');
+    if (oldLightbox) oldLightbox.remove();
+    
+    // Создаем backdrop
+    const lightbox = document.createElement('div');
+    lightbox.id = 'dsImageLightbox';
+    
+    const documentHeight = Math.max(
+      document.documentElement.scrollHeight,
+      document.body.scrollHeight
+    );
+    
+    lightbox.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: ${documentHeight}px;
+      background: rgba(0,0,0,.95);
+      backdrop-filter: blur(20px);
+      z-index: 99999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: zoom-out;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      padding: 40px;
+    `;
+    
+    // Создаем контейнер для изображения
+    const imageContainer = document.createElement('div');
+    imageContainer.style.cssText = `
+      position: relative;
+      max-width: 90vw;
+      max-height: 90vh;
+      transform: scale(0.7);
+      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    `;
+    
+    // Создаем изображение
+    const img = document.createElement('img');
+    img.src = imageSrc;
+    img.alt = imageAlt || 'Товар';
+    img.style.cssText = `
+      max-width: 100%;
+      max-height: 90vh;
+      width: auto;
+      height: auto;
+      display: block;
+      border-radius: 16px;
+      box-shadow: 0 30px 90px rgba(0,0,0,.8);
+      cursor: default;
+    `;
+    
+    // Кнопка закрытия
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '<i class="fas fa-times"></i>';
+    closeBtn.style.cssText = `
+      position: fixed;
+      top: 30px;
+      right: 30px;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,.3);
+      background: rgba(0,0,0,.7);
+      color: white;
+      font-size: 1.5rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      z-index: 100000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(10px);
+    `;
+    closeBtn.onmouseover = function() {
+      this.style.background = 'rgba(239,68,68,.9)';
+      this.style.borderColor = 'rgba(239,68,68,1)';
+      this.style.transform = 'rotate(90deg) scale(1.1)';
+    };
+    closeBtn.onmouseout = function() {
+      this.style.background = 'rgba(0,0,0,.7)';
+      this.style.borderColor = 'rgba(255,255,255,.3)';
+      this.style.transform = 'rotate(0deg) scale(1)';
+    };
+    
+    // Название изображения
+    const imageTitle = document.createElement('div');
+    imageTitle.textContent = imageAlt || 'Товар';
+    imageTitle.style.cssText = `
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,.8);
+      color: white;
+      padding: 12px 28px;
+      border-radius: 50px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,.2);
+      box-shadow: 0 10px 30px rgba(0,0,0,.5);
+      z-index: 100000;
+    `;
+    
+    // Собираем все вместе
+    imageContainer.appendChild(img);
+    lightbox.appendChild(imageContainer);
+    lightbox.appendChild(closeBtn);
+    lightbox.appendChild(imageTitle);
+    
+    // Функция закрытия
+    const closeLightbox = function() {
+      lightbox.style.opacity = '0';
+      imageContainer.style.transform = 'scale(0.7)';
+      setTimeout(() => {
+        lightbox.remove();
+        // Восстанавливаем скролл если он был заблокирован
+        if (!document.getElementById('dsProductPopup')) {
+          document.body.style.overflow = '';
+        }
+      }, 400);
+    };
+    
+    // Обработчики закрытия
+    closeBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      closeLightbox();
+    });
+    
+    lightbox.addEventListener('click', function(e) {
+      // Закрываем только если кликнули на backdrop, не на изображение
+      if (e.target === lightbox) {
+        closeLightbox();
+      }
+    });
+    
+    // Закрытие по Escape
+    const escapeHandler = function(e) {
+      if (e.key === 'Escape') {
+        closeLightbox();
+        document.removeEventListener('keydown', escapeHandler);
+      }
+    };
+    document.addEventListener('keydown', escapeHandler);
+    
+    // Предотвращаем клик на изображении от закрытия
+    img.addEventListener('click', function(e) {
+      e.stopPropagation();
+    });
+    
+    // Добавляем в DOM
+    document.body.appendChild(lightbox);
+    
+    // Анимация появления
+    setTimeout(() => {
+      lightbox.style.opacity = '1';
+      imageContainer.style.transform = 'scale(1)';
+    }, 10);
+    
+    console.log('✅ Lightbox открыт');
+  };
   
   console.log('✅ Модуль модального окна дропшиппера инициализирован (динамическое создание)');
   
