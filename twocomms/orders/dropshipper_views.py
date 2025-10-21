@@ -592,6 +592,15 @@ def create_dropshipper_order(request):
             order.profit = total_selling_price - total_drop_price
             order.save()
             
+            # Отправляем уведомление в Telegram админу
+            try:
+                from .telegram_notifications import telegram_notifier
+                telegram_notifier.send_dropshipper_order_notification(order)
+                print(f"Telegram уведомление отправлено для заказа {order.order_number}")
+            except Exception as e:
+                # Не прерываем создание заказа если Telegram не работает
+                print(f"Ошибка отправки Telegram уведомления: {e}")
+            
             # Очищаем корзину после создания заказа
             request.session['dropshipper_cart'] = []
             request.session.modified = True

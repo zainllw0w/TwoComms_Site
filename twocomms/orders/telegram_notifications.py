@@ -355,6 +355,133 @@ class TelegramNotifier:
         except Exception as e:
             print(f"Ошибка при отправке документа накладной: {e}")
             return False
+    
+    def send_dropshipper_order_notification(self, order):
+        """
+        Отправляет уведомление админу о новом заказе дропшиппера
+        
+        Args:
+            order (DropshipperOrder): Заказ дропшиппера
+            
+        Returns:
+            bool: True если сообщение отправлено успешно
+        """
+        if not self.is_configured():
+            return False
+            
+        message = self._format_dropshipper_order_message(order)
+        return self.send_message(message)
+    
+    def _format_dropshipper_order_message(self, order):
+        """
+        Форматирует сообщение о новом заказе дропшиппера
+        
+        Args:
+            order (DropshipperOrder): Заказ дропшиппера
+            
+        Returns:
+            str: Отформатированное HTML сообщение
+        """
+        # Определяем эмодзи статуса
+        status_emoji = "📋"
+        if order.status == 'draft':
+            status_emoji = "⏳"
+        elif order.status == 'pending':
+            status_emoji = "🔔"
+        elif order.status == 'confirmed':
+            status_emoji = "✅"
+        
+        # Заголовок
+        header = f"🆕 <b>НОВИЙ ДРОПШИП ЗАМОВЛЕННЯ</b>\n"
+        
+        # Получаем информацию о дропшиппере
+        dropshipper_profile = None
+        try:
+            dropshipper_profile = order.dropshipper.userprofile
+        except:
+            pass
+        
+        dropshipper_company = dropshipper_profile.company_name if dropshipper_profile and dropshipper_profile.company_name else order.dropshipper.username
+        dropshipper_telegram = dropshipper_profile.telegram if dropshipper_profile and dropshipper_profile.telegram else 'не підключено'
+        dropshipper_phone = dropshipper_profile.phone if dropshipper_profile and dropshipper_profile.phone else 'не вказано'
+        
+        # Основной блок информации
+        full_block = f"""
+<pre language="text">
+┌─────────────────────────────────────────┐
+│  {status_emoji} ЗАМОВЛЕННЯ #{order.order_number}
+├─────────────────────────────────────────┤
+│  👤 ДРОПШИПЕР:
+│     Компанія: {dropshipper_company}
+│     Telegram: @{dropshipper_telegram}
+│     Телефон: {dropshipper_phone}
+├─────────────────────────────────────────┤
+│  📦 КЛІЄНТ:
+│     ПІБ: {order.client_name if order.client_name else 'Не вказано'}
+│     Телефон: {order.client_phone if order.client_phone else 'Не вказано'}"""
+        
+        if order.client_np_address:
+            full_block += f"\n│     Адреса НП: {order.client_np_address}"
+        
+        full_block += f"""
+├─────────────────────────────────────────┤
+│  📋 СТАТУС:
+│     Замовлення: {order.get_status_display()}
+│     Оплата: {order.get_payment_status_display()}
+│     Створено: {order.created_at.strftime('%d.%m.%Y %H:%M')}
+├─────────────────────────────────────────┤
+│  📦 ТОВАРИ ({order.items.count()} позицій):
+"""
+        
+        # Добавляем товары
+        for i, item in enumerate(order.items.all(), 1):
+            full_block += f"│     {i}. {item.product.title}\n"
+            
+            # Детали товара
+            if item.size:
+                full_block += f"│        └ Розмір: {item.size}\n"
+            if item.quantity:
+                full_block += f"│        └ Кількість: {item.quantity}\n"
+            if item.color_variant:
+                full_block += f"│        └ Колір: {item.color_variant.color.name if hasattr(item.color_variant.color, 'name') else str(item.color_variant.color)}\n"
+            if item.drop_price:
+                full_block += f"│        └ Ціна дропа: {item.drop_price} грн\n"
+            if item.selling_price:
+                full_block += f"│        └ Ціна продажу: {item.selling_price} грн\n"
+            
+            if i < order.items.count():
+                full_block += "│     ───────────────────────────────────\n"
+        
+        # Итоговая информация
+        full_block += f"""├─────────────────────────────────────────┤
+│  💰 ФІНАНСИ:
+│     Сума продажу: {order.total_selling_price} грн
+│     Собівартість: {order.total_drop_price} грн
+│     Прибуток дропшипера: {order.profit} грн
+├─────────────────────────────────────────┤
+│  💳 ВСЬОГО: {order.total_selling_price} грн
+└─────────────────────────────────────────┘
+</pre>"""
+        
+        # Добавляем ссылки
+        links = f"""
+🔗 <b>Корисні посилання:</b>
+• <a href="https://t.me/twocomms">💬 Підтримка в Telegram</a>
+• <a href="https://twocomms.shop/admin/orders/dropshipperorder/{order.id}/change/">⚙️ Керування замовленням</a>
+• <a href="https://twocomms.shop/orders/dropshipper/orders/">📋 Всі замовлення дропшипера</a>
+"""
+        
+        # Дополнительная информация
+        additional_info = ""
+        if order.status == 'draft':
+            additional_info = "\n⚠️ <b>Увага!</b> Замовлення потребує підтвердження дропшипером."
+        elif order.order_source:
+            additional_info = f"\n🔗 <b>Джерело замовлення:</b> {order.order_source}"
+        
+        # Собираем полное сообщение
+        message = f"{header}\n{full_block}\n{links}{additional_info}"
+        
+        return message
 
 
 # Глобальный экземпляр для использования
