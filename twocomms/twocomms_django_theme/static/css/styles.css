@@ -10284,6 +10284,14 @@ body::after {
   z-index: 1030 !important;
   transition: transform 0.28s ease, opacity 0.2s ease;
   will-change: transform;
+  display: flex !important; /* Override Bootstrap d-lg-none */
+}
+
+/* Hide on desktop (lg and up) */
+@media (min-width: 992px) {
+  .bottom-nav {
+    display: none !important;
+  }
 }
 
 .bottom-nav.bottom-nav--hidden {
