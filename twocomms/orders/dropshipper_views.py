@@ -570,6 +570,9 @@ def create_dropshipper_order(request):
             })
         
         with transaction.atomic():
+            # Получаем способ оплаты
+            payment_method = data.get('payment_method', 'cod')  # По умолчанию - наложенный платеж
+            
             # Создаем заказ
             order = DropshipperOrder.objects.create(
                 dropshipper=request.user,
@@ -578,6 +581,7 @@ def create_dropshipper_order(request):
                 client_np_address=data.get('client_np_address', ''),
                 order_source=data.get('order_source', ''),
                 notes=data.get('notes', ''),
+                payment_method=payment_method,
                 status='pending'  # Изменяем статус на pending для отображения
             )
             
@@ -612,6 +616,10 @@ def create_dropshipper_order(request):
             order.total_drop_price = total_drop_price
             order.total_selling_price = total_selling_price
             order.profit = total_selling_price - total_drop_price
+            
+            # Рассчитываем сумму, которую должен оплатить дропшипер
+            order.calculate_dropshipper_payment()
+            
             order.save()
             
             # Отправляем уведомление в Telegram админу

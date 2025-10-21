@@ -397,6 +397,125 @@
               </div>
             </div>
             
+            <!-- Спосіб оплати -->
+            <div style="margin-bottom: 20px;">
+              <h5 style="margin: 0 0 15px; font-weight: 700; color: #e5e7eb; font-size: 1rem; border-bottom: 1px solid rgba(255,255,255,.08); padding-bottom: 10px;">
+                💳 Спосіб оплати
+              </h5>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <label style="
+                  position: relative;
+                  display: flex;
+                  flex-direction: column;
+                  padding: 20px;
+                  border-radius: 12px;
+                  border: 2px solid rgba(255,255,255,.16);
+                  background: rgba(12,12,18,.65);
+                  cursor: pointer;
+                  transition: all 0.3s ease;
+                " onmouseover="this.style.borderColor='rgba(139,92,246,.38)'; this.style.background='rgba(139,92,246,.08)'" onmouseout="if(!this.querySelector('input').checked) { this.style.borderColor='rgba(255,255,255,.16)'; this.style.background='rgba(12,12,18,.65)' }">
+                  <input type="radio" name="paymentMethod" value="prepaid" id="dsPaymentPrepaid" required style="
+                    position: absolute;
+                    opacity: 0;
+                  " onchange="handlePaymentMethodChange(this)">
+                  <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+                    <div id="dsPaymentPrepaidIcon" style="
+                      width: 24px;
+                      height: 24px;
+                      border-radius: 50%;
+                      border: 2px solid rgba(255,255,255,.3);
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      transition: all 0.3s ease;
+                    ">
+                      <div style="width: 12px; height: 12px; border-radius: 50%; background: transparent; transition: all 0.3s ease;"></div>
+                    </div>
+                    <strong style="font-size: 1.05rem; color: #e5e7eb;">Оплачено передоплатою</strong>
+                  </div>
+                  <div style="font-size: 0.85rem; color: rgba(229,231,235,.7); margin-bottom: 12px;">
+                    Клієнт вже оплатив товар. Ви сплачуєте повну вартість дропа.
+                  </div>
+                  <div id="dsPaymentPrepaidAmount" style="
+                    background: linear-gradient(135deg, rgba(139,92,246,.15), rgba(99,102,241,.15));
+                    border: 1px solid rgba(139,92,246,.3);
+                    border-radius: 8px;
+                    padding: 12px;
+                    display: none;
+                  ">
+                    <div style="font-size: 0.75rem; text-transform: uppercase; color: rgba(229,231,235,.6); margin-bottom: 4px;">До сплати:</div>
+                    <div style="font-size: 1.3rem; font-weight: 800; color: #a78bfa;"><span id="dsPaymentPrepaidValue">0</span> грн</div>
+                  </div>
+                </label>
+                
+                <label style="
+                  position: relative;
+                  display: flex;
+                  flex-direction: column;
+                  padding: 20px;
+                  border-radius: 12px;
+                  border: 2px solid rgba(255,255,255,.16);
+                  background: rgba(12,12,18,.65);
+                  cursor: pointer;
+                  transition: all 0.3s ease;
+                " onmouseover="this.style.borderColor='rgba(139,92,246,.38)'; this.style.background='rgba(139,92,246,.08)'" onmouseout="if(!this.querySelector('input').checked) { this.style.borderColor='rgba(255,255,255,.16)'; this.style.background='rgba(12,12,18,.65)' }">
+                  <input type="radio" name="paymentMethod" value="cod" id="dsPaymentCOD" required style="
+                    position: absolute;
+                    opacity: 0;
+                  " onchange="handlePaymentMethodChange(this)" checked>
+                  <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+                    <div id="dsPaymentCODIcon" style="
+                      width: 24px;
+                      height: 24px;
+                      border-radius: 50%;
+                      border: 2px solid #8b5cf6;
+                      background: #8b5cf6;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      transition: all 0.3s ease;
+                    ">
+                      <div style="width: 12px; height: 12px; border-radius: 50%; background: white; transition: all 0.3s ease;"></div>
+                    </div>
+                    <strong style="font-size: 1.05rem; color: #e5e7eb;">Накладний платіж</strong>
+                  </div>
+                  <div style="font-size: 0.85rem; color: rgba(229,231,235,.7); margin-bottom: 12px;">
+                    Клієнт оплатить при отриманні. Ви сплачуєте передоплату 200 грн.
+                  </div>
+                  <div id="dsPaymentCODAmount" style="
+                    background: linear-gradient(135deg, rgba(139,92,246,.15), rgba(99,102,241,.15));
+                    border: 1px solid rgba(139,92,246,.3);
+                    border-radius: 8px;
+                    padding: 12px;
+                  ">
+                    <div style="font-size: 0.75rem; text-transform: uppercase; color: rgba(229,231,235,.6); margin-bottom: 4px;">Передоплата:</div>
+                    <div style="font-size: 1.3rem; font-weight: 800; color: #a78bfa;">200 грн</div>
+                    <div style="font-size: 0.75rem; color: rgba(229,231,235,.5); margin-top: 6px;">
+                      ⚠️ На випадок відмови клієнта
+                    </div>
+                  </div>
+                </label>
+              </div>
+              
+              <div id="dsPaymentInfo" style="
+                margin-top: 16px;
+                padding: 16px;
+                background: linear-gradient(135deg, rgba(59,130,246,.1), rgba(37,99,235,.1));
+                border: 1px solid rgba(59,130,246,.2);
+                border-radius: 12px;
+                font-size: 0.85rem;
+                color: rgba(229,231,235,.8);
+                line-height: 1.6;
+              ">
+                <div style="font-weight: 700; margin-bottom: 8px; color: #60a5fa;">
+                  <i class="fas fa-info-circle"></i> Важлива інформація:
+                </div>
+                <div id="dsPaymentInfoText">
+                  При накладному платежі ви сплачуєте передоплату 200 грн для страхування від відмови клієнта. Якщо клієнт отримає товар - передоплата повертається.
+                </div>
+              </div>
+            </div>
+            
             <!-- Кнопки -->
             <div style="display: flex; justify-content: flex-end; gap: 12px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,.08);">
               <button type="button" onclick="closeDsProductPopup()" style="
@@ -509,6 +628,109 @@
     loadProductData(productId, popup);
     
     console.log('✅ Модальное окно создано и отображено');
+  };
+  
+  /**
+   * Обработка изменения способа оплаты
+   */
+  window.handlePaymentMethodChange = function(radio) {
+    const popup = document.getElementById('dsProductPopup');
+    if (!popup || !currentProduct) return;
+    
+    const isPrepaid = radio.value === 'prepaid';
+    const dropPrice = currentProduct.drop_price || 0;
+    
+    // Обновляем иконки
+    const prepaidIcon = popup.querySelector('#dsPaymentPrepaidIcon');
+    const codIcon = popup.querySelector('#dsPaymentCODIcon');
+    const prepaidInner = prepaidIcon ? prepaidIcon.querySelector('div') : null;
+    const codInner = codIcon ? codIcon.querySelector('div') : null;
+    
+    if (isPrepaid) {
+      // Prepaid выбран
+      if (prepaidIcon) {
+        prepaidIcon.style.borderColor = '#8b5cf6';
+        prepaidIcon.style.background = '#8b5cf6';
+      }
+      if (prepaidInner) {
+        prepaidInner.style.background = 'white';
+      }
+      if (codIcon) {
+        codIcon.style.borderColor = 'rgba(255,255,255,.3)';
+        codIcon.style.background = 'transparent';
+      }
+      if (codInner) {
+        codInner.style.background = 'transparent';
+      }
+      
+      // Показываем сумму для prepaid
+      const prepaidAmount = popup.querySelector('#dsPaymentPrepaidAmount');
+      const codAmount = popup.querySelector('#dsPaymentCODAmount');
+      const prepaidValue = popup.querySelector('#dsPaymentPrepaidValue');
+      
+      if (prepaidAmount) prepaidAmount.style.display = 'block';
+      if (codAmount) codAmount.style.display = 'none';
+      if (prepaidValue) prepaidValue.textContent = dropPrice.toFixed(0);
+      
+      // Обновляем инфо-текст
+      const infoText = popup.querySelector('#dsPaymentInfoText');
+      if (infoText) {
+        infoText.innerHTML = `Ви сплачуєте <strong>${dropPrice} грн</strong> - повну вартість дропа. Клієнт вже оплатив товар, тому ризиків немає.`;
+      }
+      
+      // Обновляем стили родительских label
+      const prepaidLabel = popup.querySelector('#dsPaymentPrepaid').closest('label');
+      const codLabel = popup.querySelector('#dsPaymentCOD').closest('label');
+      if (prepaidLabel) {
+        prepaidLabel.style.borderColor = 'rgba(139,92,246,.5)';
+        prepaidLabel.style.background = 'rgba(139,92,246,.12)';
+      }
+      if (codLabel) {
+        codLabel.style.borderColor = 'rgba(255,255,255,.16)';
+        codLabel.style.background = 'rgba(12,12,18,.65)';
+      }
+    } else {
+      // COD выбран
+      if (prepaidIcon) {
+        prepaidIcon.style.borderColor = 'rgba(255,255,255,.3)';
+        prepaidIcon.style.background = 'transparent';
+      }
+      if (prepaidInner) {
+        prepaidInner.style.background = 'transparent';
+      }
+      if (codIcon) {
+        codIcon.style.borderColor = '#8b5cf6';
+        codIcon.style.background = '#8b5cf6';
+      }
+      if (codInner) {
+        codInner.style.background = 'white';
+      }
+      
+      // Показываем сумму для COD
+      const prepaidAmount = popup.querySelector('#dsPaymentPrepaidAmount');
+      const codAmount = popup.querySelector('#dsPaymentCODAmount');
+      
+      if (prepaidAmount) prepaidAmount.style.display = 'none';
+      if (codAmount) codAmount.style.display = 'block';
+      
+      // Обновляем инфо-текст
+      const infoText = popup.querySelector('#dsPaymentInfoText');
+      if (infoText) {
+        infoText.innerHTML = 'При накладному платежі ви сплачуєте передоплату <strong>200 грн</strong> для страхування від відмови клієнта. Якщо клієнт отримає товар - передоплата повертається.';
+      }
+      
+      // Обновляем стили родительских label
+      const prepaidLabel = popup.querySelector('#dsPaymentPrepaid').closest('label');
+      const codLabel = popup.querySelector('#dsPaymentCOD').closest('label');
+      if (prepaidLabel) {
+        prepaidLabel.style.borderColor = 'rgba(255,255,255,.16)';
+        prepaidLabel.style.background = 'rgba(12,12,18,.65)';
+      }
+      if (codLabel) {
+        codLabel.style.borderColor = 'rgba(139,92,246,.5)';
+        codLabel.style.background = 'rgba(139,92,246,.12)';
+      }
+    }
   };
   
   /**
@@ -705,6 +927,8 @@
       }
       
       // Собираем данные формы
+      const paymentMethod = popup.querySelector('input[name="paymentMethod"]:checked');
+      
       const formData = {
         product_id: currentProduct.id,
         color_variant_id: popup.querySelector('#dsProductColor').value || null,
@@ -719,6 +943,9 @@
         client_np_office: popup.querySelector('#dsClientNPOffice').value.trim(),
         order_source: popup.querySelector('#dsOrderSource').value.trim(),
         notes: popup.querySelector('#dsOrderNotes').value.trim(),
+        
+        // Способ оплаты
+        payment_method: paymentMethod ? paymentMethod.value : 'cod',
       };
       
       console.log('📦 Отправляем данные:', formData);
