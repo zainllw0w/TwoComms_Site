@@ -53,29 +53,17 @@ window.openAddProductModal = function(productId) {
   
   // Показываем модальное окно
   modal.removeAttribute('hidden');
+    
+  // Показываем загрузку
+  productLoading.removeAttribute('hidden');
+  productContent.setAttribute('hidden', 'hidden');
   
-  // ПРИНУДИТЕЛЬНОЕ ЦЕНТРИРОВАНИЕ - исправляем конфликты CSS
-  const dialog = modal.querySelector('.add-product-modal__dialog');
-  if (dialog) {
-    dialog.style.setProperty('margin', 'auto', 'important');
-    dialog.style.setProperty('margin-top', 'auto', 'important');
-    dialog.style.setProperty('margin-bottom', 'auto', 'important');
-    dialog.style.setProperty('margin-left', 'auto', 'important');
-    dialog.style.setProperty('margin-right', 'auto', 'important');
-    dialog.style.setProperty('padding', '0', 'important');
-    dialog.style.setProperty('position', 'relative', 'important');
-  }
-    
-    // Показываем загрузку
-    productLoading.removeAttribute('hidden');
-    productContent.setAttribute('hidden', 'hidden');
-    
-    // Блокируем скролл страницы
-    document.body.style.overflow = 'hidden';
-    
-    // Загружаем данные товара
-    loadProductData(productId);
-  };
+  // Блокируем скролл страницы
+  document.body.style.overflow = 'hidden';
+  
+  // Загружаем данные товара
+  loadProductData(productId);
+};
   
   /**
    * Закрыть модальное окно
