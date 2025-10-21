@@ -406,15 +406,23 @@
     // Блокируем скролл страницы
     document.body.style.overflow = 'hidden';
     
-    // ===== ШАГ 7: ПРИНУДИТЕЛЬНОЕ ЦЕНТРИРОВАНИЕ =====
-    // КРИТИЧЕСКИ ВАЖНО: устанавливаем позицию ПОСЛЕ добавления в DOM
-    // position: fixed центрируется относительно viewport (не документа!)
-    // Поэтому НЕ нужно добавлять scrollY
+    // ===== ШАГ 7: АБСОЛЮТНОЕ ЦЕНТРИРОВАНИЕ ЧЕРЕЗ VIEWPORT =====
+    // Проблема: браузер всё ещё вычисляет 50% неправильно
+    // Решение: устанавливаем ЯВНО координаты центра viewport в пикселях
     setTimeout(() => {
+      const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
+      
+      // ЯВНО устанавливаем координаты центра viewport
+      popup.style.setProperty('top', `${viewportHeight / 2}px`, 'important');
+      popup.style.setProperty('left', `${viewportWidth / 2}px`, 'important');
       popup.style.transform = 'translate(-50%, -50%) scale(1)';
       popup.style.opacity = '1';
       
-      console.log('✅ Модальное окно отцентровано (position: fixed)');
+      console.log('✅ Модальное окно отцентровано:', {
+        top: `${viewportHeight / 2}px`,
+        left: `${viewportWidth / 2}px`
+      });
     }, 10);
     
     // ===== ШАГ 8: ЗАГРУЗКА ДАННЫХ ТОВАРА =====
