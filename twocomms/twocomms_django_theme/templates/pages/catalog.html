@@ -116,7 +116,7 @@
             <div class="col">
               <a href="{% url 'catalog_by_cat' c.slug %}" class="card product glass hover-raise text-decoration-none text-body">
                 <div class="ratio ratio-1x1 rounded-top-4 overflow-hidden bg-elevate">
-                  {% if c.cover %}<img src="{{ c.cover.url }}" class="w-100 h-100 object-fit-cover" alt="{{ c.name }}">{% endif %}
+                  {% if c.cover %}<img src="{{ c.cover.url }}" class="w-100 h-100 object-fit-cover" alt="{{ c.name }}" width="{{ c.cover.width }}" height="{{ c.cover.height }}">{% endif %}
                 </div>
                 <div class="card-body">
                   <div class="fw-semibold">{{ c.name }}</div>

@@ -46,6 +46,9 @@ sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${S
     echo "   📚 Собираем статические файлы..."
     python manage.py collectstatic --noinput
     
+    echo "   🧩 Генерируем сжатые бандлы..."
+    python manage.py compress --force
+    
     echo "   🔄 Перезапускаем сервер..."
     touch twocomms/wsgi.py
     
@@ -55,4 +58,3 @@ EOF
 echo ""
 echo "✅ Деплой успешно завершен!"
 echo "🌐 Сайт обновлен: https://twocomms.shop"
-

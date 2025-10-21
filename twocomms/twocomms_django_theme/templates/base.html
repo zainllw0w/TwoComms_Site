@@ -510,11 +510,11 @@
               <div class="user-header">
                 <div class="user-avatar-large">
                   {% if request.user.userprofile and request.user.userprofile.avatar %}
-                    <img src="{{ request.user.userprofile.avatar.url }}" class="avatar-image" loading="lazy" decoding="async" fetchpriority="low" alt="Аватар користувача - TwoComms">
+                    <img src="{{ request.user.userprofile.avatar.url }}" class="avatar-image" loading="lazy" decoding="async" fetchpriority="low" alt="Аватар користувача - TwoComms" width="36" height="36">
                   {% elif request.session.profile_avatar %}
-                    <img src="{{ MEDIA_URL }}{{ request.session.profile_avatar }}" class="avatar-image" loading="lazy" decoding="async" fetchpriority="low" alt="Аватар користувача - TwoComms">
+                    <img src="{{ MEDIA_URL }}{{ request.session.profile_avatar }}" class="avatar-image" loading="lazy" decoding="async" fetchpriority="low" alt="Аватар користувача - TwoComms" width="36" height="36">
                   {% else %}
-                    <img src="{% static 'img/placeholder.jpg' %}" class="avatar-image" loading="lazy" decoding="async" fetchpriority="low" alt="Аватар користувача - TwoComms">
+                    <img src="{% static 'img/placeholder.jpg' %}" class="avatar-image" loading="lazy" decoding="async" fetchpriority="low" alt="Аватар користувача - TwoComms" width="36" height="36">
                   {% endif %}
                   <div class="avatar-glow-large"></div>
                 </div>

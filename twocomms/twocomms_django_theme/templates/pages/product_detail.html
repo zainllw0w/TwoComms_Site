@@ -32,6 +32,7 @@
           loading="eager" decoding="async" fetchpriority="high"
           class="w-100 h-100 object-fit-contain"
           alt="{{ product.title }}"
+          width="1080" height="1350"
         >
       {% else %}
         {% static 'img/placeholder.jpg' as ph_url %}
@@ -41,6 +42,7 @@
           loading="eager" decoding="async" fetchpriority="high"
           class="w-100 h-100 object-fit-contain"
           alt="{{ product.title }}"
+          width="1080" height="1350"
         >
       {% endif %}
     </div>
@@ -137,6 +139,7 @@
                 src="{{ product.display_image.url }}"
                 class="d-block w-100 h-100 object-fit-contain"
                 alt="{{ product.title }}"
+                width="1080" height="1350"
               >
             {% else %}
               {% static 'img/placeholder.jpg' as ph_url %}
@@ -144,6 +147,7 @@
                 src="{{ ph_url }}"
                 class="d-block w-100 h-100 object-fit-contain"
                 alt="{{ product.title }}"
+                width="1080" height="1350"
               >
             {% endif %}
           </div>

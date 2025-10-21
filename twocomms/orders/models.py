@@ -43,6 +43,11 @@ class Order(models.Model):
 
     class Meta:
         ordering = ['-created']
+        indexes = [
+            models.Index(fields=['-created'], name='idx_order_created_desc'),
+            models.Index(fields=['status', '-created'], name='idx_order_status_created'),
+            models.Index(fields=['payment_status', '-created'], name='idx_order_payment_created'),
+        ]
 
     def __str__(self):
         return f'Order {self.order_number} by {self.get_user_display()} — {self.get_status_display()}'
@@ -305,6 +310,11 @@ class DropshipperOrder(models.Model):
         verbose_name = "Замовлення дропшипера"
         verbose_name_plural = "Замовлення дропшиперів"
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['-created_at'], name='dropship_ord_created'),
+            models.Index(fields=['status', '-created_at'], name='dropship_ord_status'),
+            models.Index(fields=['payment_status', '-created_at'], name='dropship_ord_payment'),
+        ]
     
     def __str__(self):
         return f"Дропшип замовлення #{self.order_number} - {self.client_name}"

@@ -1,10 +1,13 @@
 {% extends "base.html" %}
 {% load static %}
+{% load compress %}
 
 {% block title %}Статистика дропшипера - TwoComms{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/dropshipper.css' %}?v=5">
+{% compress css %}
+<link rel="stylesheet" href="{% static 'css/dropshipper.css' %}">
+{% endcompress %}
 {% endblock %}
 
 {% block content %}
@@ -22,6 +25,8 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/dropshipper.js' %}?v=8"></script>
+{% compress js %}
+<script src="{% static 'js/dropshipper.js' %}"></script>
+{% endcompress %}
 <script src="{% static 'js/dropshipper.dashboard.js' %}?v=8"></script>
 {% endblock %}

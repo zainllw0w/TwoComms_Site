@@ -47,3 +47,24 @@ class WWWRedirectMiddleware(MiddlewareMixin):
             return HttpResponsePermanentRedirect(non_www_url)
         
         return None
+
+
+class SecurityHeadersMiddleware(MiddlewareMixin):
+    """
+    Middleware для установки Content-Security-Policy и связанных security-заголовков.
+    """
+
+    def process_response(self, request, response):
+        csp = getattr(settings, "CONTENT_SECURITY_POLICY", None)
+        if csp and not response.has_header("Content-Security-Policy"):
+            response["Content-Security-Policy"] = csp
+
+        x_xss = getattr(settings, "X_XSS_PROTECTION", None)
+        if x_xss and not response.has_header("X-XSS-Protection"):
+            response["X-XSS-Protection"] = x_xss
+
+        referrer_policy = getattr(settings, "SECURE_REFERRER_POLICY", None)
+        if referrer_policy and not response.has_header("Referrer-Policy"):
+            response["Referrer-Policy"] = referrer_policy
+
+        return response
