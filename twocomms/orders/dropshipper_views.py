@@ -386,7 +386,7 @@ def dropshipper_company_settings(request):
 @login_required
 @require_http_methods(["POST"])
 def add_to_cart(request):
-    """Добавление товара в корзину"""
+    """Добавление товара в корзину с данными клиента"""
     try:
         data = json.loads(request.body)
         product_id = data.get('product_id')
@@ -395,10 +395,25 @@ def add_to_cart(request):
         quantity = int(data.get('quantity', 1))
         selling_price = data.get('selling_price')
         
+        # Данные клиента
+        client_name = data.get('client_name', '').strip()
+        client_phone = data.get('client_phone', '').strip()
+        client_city = data.get('client_city', '').strip()
+        client_np_office = data.get('client_np_office', '').strip()
+        order_source = data.get('order_source', '').strip()
+        notes = data.get('notes', '').strip()
+        
         if not product_id:
             return JsonResponse({
                 'success': False,
                 'message': 'ID товара обязателен'
+            })
+        
+        # Проверяем обязательные поля клиента
+        if not all([client_name, client_phone, client_city, client_np_office]):
+            return JsonResponse({
+                'success': False,
+                'message': 'Заповніть всі обов\'язкові поля клієнта'
             })
         
         product = get_object_or_404(Product, id=product_id)
@@ -410,45 +425,50 @@ def add_to_cart(request):
         # Получаем актуальную цену дропа
         actual_drop_price = product.get_drop_price(request.user)
         
-        # Сохраняем в сессии
-        cart = request.session.get('dropshipper_cart', [])
+        # Формируем адрес доставки
+        client_np_address = f"{client_city}, {client_np_office}"
         
-        # Проверяем, есть ли уже такой товар в корзине
-        existing_item = None
-        for item in cart:
-            if (item.get('product_id') == product_id and 
-                item.get('color_variant_id') == color_variant_id and 
-                item.get('size') == size):
-                existing_item = item
-                break
-        
-        if existing_item:
-            existing_item['quantity'] += quantity
-        else:
-            cart.append({
-                'product_id': product_id,
-                'color_variant_id': color_variant_id,
-                'size': size,
-                'quantity': quantity,
-                'drop_price': actual_drop_price,
-                'selling_price': selling_price or product.recommended_price,
-                'product_title': product.title,
-                'color_name': color_variant.name if color_variant else 'Базовий колір'
-            })
-        
-        request.session['dropshipper_cart'] = cart
-        request.session.modified = True
+        # Создаем заказ сразу (новая логика - не используем корзину)
+        with transaction.atomic():
+            order = DropshipperOrder.objects.create(
+                dropshipper=request.user,
+                client_name=client_name,
+                client_phone=client_phone,
+                client_np_address=client_np_address,
+                order_source=order_source,
+                notes=notes,
+                status='pending'
+            )
+            
+            # Добавляем товар в заказ
+            order_item = DropshipperOrderItem.objects.create(
+                order=order,
+                product=product,
+                color_variant=color_variant,
+                size=size,
+                quantity=quantity,
+                drop_price=actual_drop_price,
+                selling_price=selling_price or product.recommended_price,
+                recommended_price=product.recommended_price
+            )
+            
+            # Обновляем итоговые суммы
+            order.total_drop_price = order_item.total_drop_price
+            order.total_selling_price = order_item.total_selling_price
+            order.profit = order.total_selling_price - order.total_drop_price
+            order.save()
         
         return JsonResponse({
             'success': True,
-            'message': 'Товар додано до корзини',
-            'cart_count': len(cart)
+            'message': 'Замовлення створено!',
+            'order_id': order.id,
+            'order_number': order.order_number
         })
         
     except Exception as e:
         return JsonResponse({
             'success': False,
-            'message': f'Помилка при додаванні товару: {str(e)}'
+            'message': f'Помилка при створенні замовлення: {str(e)}'
         })
 
 
