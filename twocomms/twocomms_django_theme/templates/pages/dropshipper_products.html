@@ -54,8 +54,7 @@
 
 {% block extra_js %}
 {% compress js %}
-<script src="{% static 'js/dropshipper.js' %}" defer></script>
-<script src="{% static 'js/dropshipper.dashboard.js' %}" defer></script>
-<script src="{% static 'js/dropshipper-product-modal.js' %}" defer></script>
+<script src="{% static 'js/dropshipper.js' %}?v=20251021" defer></script>
+<script src="{% static 'js/dropshipper-init.js' %}?v=20251021" defer></script>
 {% endcompress %}
 {% endblock %}
