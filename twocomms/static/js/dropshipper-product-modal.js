@@ -631,7 +631,10 @@
     
     // Диапазон цены (как на сайте)
     const productPriceRange = popup.querySelector('#dsProductPriceRange');
-    if (productPriceRange && product.recommended_price && product.drop_price) {
+    if (productPriceRange && product.price_range) {
+      productPriceRange.textContent = `Діапазон ${product.price_range.min}–${product.price_range.max} грн`;
+    } else if (productPriceRange && product.recommended_price) {
+      // Fallback если нет price_range
       const minPrice = Math.round(product.recommended_price * 0.9);
       const maxPrice = Math.round(product.recommended_price * 1.1);
       productPriceRange.textContent = `Діапазон ${minPrice}–${maxPrice} грн`;
