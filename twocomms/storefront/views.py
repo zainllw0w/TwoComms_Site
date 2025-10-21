@@ -7443,6 +7443,114 @@ def admin_update_dropship_status(request, order_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
+@staff_member_required
+def admin_get_dropship_order(request, order_id):
+    """Получение данных заказа дропшипера для редактирования"""
+    from orders.models import DropshipperOrder
+    
+    try:
+        order = DropshipperOrder.objects.get(id=order_id)
+        data = {
+            'id': order.id,
+            'order_number': order.order_number,
+            'status': order.status,
+            'tracking_number': order.tracking_number or '',
+            'client_name': order.client_name or '',
+            'client_phone': order.client_phone or '',
+            'client_np_address': order.client_np_address or '',
+            'total_selling_price': float(order.total_selling_price),
+            'total_drop_price': float(order.total_drop_price),
+            'profit': float(order.profit),
+        }
+        return JsonResponse(data)
+    except DropshipperOrder.DoesNotExist:
+        return JsonResponse({'error': 'Замовлення не знайдено'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_POST
+@staff_member_required
+def admin_update_dropship_order(request, order_id):
+    """Обновление данных заказа дропшипера (полное редактирование)"""
+    import json
+    from orders.models import DropshipperOrder
+    from orders.telegram_notifications import telegram_notifier
+    
+    try:
+        order = DropshipperOrder.objects.get(id=order_id)
+        data = json.loads(request.body or '{}')
+        
+        old_status = order.status
+        old_ttn = order.tracking_number
+        
+        # Обновляем поля
+        if 'status' in data:
+            order.status = data['status']
+        if 'tracking_number' in data:
+            order.tracking_number = data['tracking_number'].strip() or None
+        if 'client_name' in data:
+            order.client_name = data['client_name'].strip()
+        if 'client_phone' in data:
+            order.client_phone = data['client_phone'].strip()
+        if 'client_np_address' in data:
+            order.client_np_address = data['client_np_address'].strip()
+        
+        order.save()
+        
+        # Отправляем уведомления если изменился статус или добавился ТТН
+        try:
+            if old_status != order.status:
+                telegram_notifier.send_order_status_update(order, old_status, order.status)
+            
+            # Если добавили ТТН - уведомляем дропшипера
+            if not old_ttn and order.tracking_number:
+                telegram_notifier.send_ttn_notification(order)
+        except Exception as e:
+            print(f'Ошибка отправки уведомления: {e}')
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Замовлення успішно оновлено'
+        })
+        
+    except DropshipperOrder.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Замовлення не знайдено'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@require_POST
+@staff_member_required
+def admin_delete_dropship_order(request, order_id):
+    """Удаление заказа дропшипера"""
+    from orders.models import DropshipperOrder
+    from orders.telegram_notifications import telegram_notifier
+    
+    try:
+        order = DropshipperOrder.objects.get(id=order_id)
+        
+        # Можно удалять только черновики и отмененные
+        if order.status not in ['draft', 'cancelled']:
+            return JsonResponse({
+                'success': False,
+                'error': 'Можна видаляти лише чернетки та скасовані замовлення'
+            }, status=400)
+        
+        order_number = order.order_number
+        order.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Замовлення {order_number} видалено'
+        })
+        
+    except DropshipperOrder.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Замовлення не знайдено'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
 @require_POST
 @staff_member_required
 def reset_all_invoices_status(request):
