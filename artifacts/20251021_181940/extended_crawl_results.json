@@ -1,0 +1,535 @@
+{
+  "pages": [
+    {
+      "url": "/",
+      "status": 200,
+      "size": 114897,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:46.467896"
+    },
+    {
+      "url": "/catalog/",
+      "status": 200,
+      "size": 67864,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:46.565059"
+    },
+    {
+      "url": "/delivery/",
+      "status": 200,
+      "size": 133394,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:46.794492"
+    },
+    {
+      "url": "/cooperation/",
+      "status": 200,
+      "size": 82608,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:46.884131"
+    },
+    {
+      "url": "/about/",
+      "status": 200,
+      "size": 80608,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:47.059879"
+    },
+    {
+      "url": "/contacts/",
+      "status": 200,
+      "size": 72798,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:47.144252"
+    },
+    {
+      "url": "/add-print/",
+      "status": 200,
+      "size": 83207,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:48.135572"
+    },
+    {
+      "url": "/favorites/",
+      "status": 200,
+      "size": 64502,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:48.219593"
+    },
+    {
+      "url": "/login/",
+      "status": 200,
+      "size": 67095,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:49.242945"
+    },
+    {
+      "url": "/register/",
+      "status": 200,
+      "size": 69035,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:49.419202"
+    },
+    {
+      "url": "/oauth/login/google-oauth2/",
+      "status": 200,
+      "size": 880392,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:51.050167"
+    },
+    {
+      "url": "/product/-225-hoodie-/",
+      "status": 200,
+      "size": 109286,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:51.233498"
+    },
+    {
+      "url": "/catalog/long-sleeve/",
+      "status": 200,
+      "size": 151207,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:51.323696"
+    },
+    {
+      "url": "/catalog/tshirts/",
+      "status": 200,
+      "size": 155951,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:52.423726"
+    },
+    {
+      "url": "/catalog/hoodie/",
+      "status": 200,
+      "size": 149535,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:52.591632"
+    },
+    {
+      "url": "/product/-225-tshirt-/",
+      "status": 200,
+      "size": 109161,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:53.674557"
+    },
+    {
+      "url": "/product/longsleeve-limited-edition/",
+      "status": 200,
+      "size": 107995,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:53.838492"
+    },
+    {
+      "url": "/product/bentejne-ls/",
+      "status": 200,
+      "size": 107346,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:54.855461"
+    },
+    {
+      "url": "/product/bentejne-hd/",
+      "status": 200,
+      "size": 106971,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:54.940799"
+    },
+    {
+      "url": "/product/bentejne-ts/",
+      "status": 200,
+      "size": 108265,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:55.031051"
+    },
+    {
+      "url": "/product/pojuy-ls/",
+      "status": 200,
+      "size": 107437,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:55.200426"
+    },
+    {
+      "url": "/product/pojuy-hd/",
+      "status": 200,
+      "size": 107204,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:56.269742"
+    },
+    {
+      "url": "/dropshipper/",
+      "status": 200,
+      "size": 74833,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:57.319063"
+    },
+    {
+      "url": "/wholesale/",
+      "status": 200,
+      "size": 231980,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:57.513290"
+    },
+    {
+      "url": "/profile/setup/",
+      "status": 200,
+      "size": 67152,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:58.567264"
+    },
+    {
+      "url": "/signin/v2/usernamerecovery",
+      "status": 404,
+      "size": 179,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:59.605409"
+    },
+    {
+      "url": "/lifecycle/flows/signup",
+      "status": 404,
+      "size": 179,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:25:59.666080"
+    },
+    {
+      "url": "/product/-kha-style-ls/",
+      "status": 200,
+      "size": 107228,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:00.708909"
+    },
+    {
+      "url": "/product/kha-edition-ls/",
+      "status": 200,
+      "size": 106929,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:00.802558"
+    },
+    {
+      "url": "/product/-death-gbs-ass-ls/",
+      "status": 200,
+      "size": 107358,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:00.968561"
+    },
+    {
+      "url": "/product/-red-leaves-ls/",
+      "status": 200,
+      "size": 106835,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:01.142769"
+    },
+    {
+      "url": "/product/-lord-of-the-lending-ls/",
+      "status": 200,
+      "size": 106489,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:01.225989"
+    },
+    {
+      "url": "/product/dvoznachni-summy-ls/",
+      "status": 200,
+      "size": 107100,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:02.272715"
+    },
+    {
+      "url": "/product/-death-grabs-ass-ls/",
+      "status": 200,
+      "size": 105598,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:02.363724"
+    },
+    {
+      "url": "/product/pokrovsk-girl-ls/",
+      "status": 200,
+      "size": 106884,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:03.571675"
+    },
+    {
+      "url": "/product/kharkiv-district-ls/",
+      "status": 200,
+      "size": 106818,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:03.664182"
+    },
+    {
+      "url": "/product/-last-breath-ls/",
+      "status": 200,
+      "size": 105512,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:04.816517"
+    },
+    {
+      "url": "/product/buisness-money-ls/",
+      "status": 200,
+      "size": 107411,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:04.903961"
+    },
+    {
+      "url": "/product/in-shee-ls/",
+      "status": 200,
+      "size": 107469,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:04.987498"
+    },
+    {
+      "url": "/product/where-mi-present-ls/",
+      "status": 200,
+      "size": 107013,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:05.166014"
+    },
+    {
+      "url": "/product/-my-little-baby-ls/",
+      "status": 200,
+      "size": 106780,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:06.199696"
+    },
+    {
+      "url": "/product/longsleeve-classic/",
+      "status": 200,
+      "size": 105703,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:06.283042"
+    },
+    {
+      "url": "/product/pojuy-ts/",
+      "status": 200,
+      "size": 108626,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:07.444991"
+    },
+    {
+      "url": "/product/-kha-style-ts/",
+      "status": 200,
+      "size": 106879,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:07.542706"
+    },
+    {
+      "url": "/product/kha-edition-ts/",
+      "status": 200,
+      "size": 107277,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:08.559090"
+    },
+    {
+      "url": "/product/-death-gbs-ass-ts/",
+      "status": 200,
+      "size": 108550,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:08.682725"
+    },
+    {
+      "url": "/product/-red-leaves-ts/",
+      "status": 200,
+      "size": 107007,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:09.743618"
+    },
+    {
+      "url": "/product/-lord-of-the-lending/",
+      "status": 200,
+      "size": 107755,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:09.916350"
+    },
+    {
+      "url": "/product/dvoznachni-summy/",
+      "status": 200,
+      "size": 107743,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:10.114015"
+    },
+    {
+      "url": "/product/-death-grabs-ass/",
+      "status": 200,
+      "size": 105525,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:10.205053"
+    },
+    {
+      "url": "/product/pokrovsk-girl/",
+      "status": 200,
+      "size": 106938,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:11.250943"
+    },
+    {
+      "url": "/product/kharkiv-district-ts/",
+      "status": 200,
+      "size": 107931,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:11.436625"
+    },
+    {
+      "url": "/product/-last-breath/",
+      "status": 200,
+      "size": 106602,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:12.494942"
+    },
+    {
+      "url": "/product/buisness-money/",
+      "status": 200,
+      "size": 107094,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:12.681929"
+    },
+    {
+      "url": "/product/in-shee/",
+      "status": 200,
+      "size": 106978,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:13.727230"
+    },
+    {
+      "url": "/product/where-mi-present-ts/",
+      "status": 200,
+      "size": 108532,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:13.851582"
+    },
+    {
+      "url": "/product/-my-little-baby/",
+      "status": 200,
+      "size": 108211,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:14.057348"
+    },
+    {
+      "url": "/product/clasic-tshort/",
+      "status": 200,
+      "size": 105480,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:14.253933"
+    },
+    {
+      "url": "/product/-kha-style-hd/",
+      "status": 200,
+      "size": 106505,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:14.362010"
+    },
+    {
+      "url": "/product/kha-edition-hd/",
+      "status": 200,
+      "size": 106454,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:15.460104"
+    },
+    {
+      "url": "/product/-death-gbs-ass-hd/",
+      "status": 200,
+      "size": 106985,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:15.668415"
+    },
+    {
+      "url": "/product/-red-leaves-hd/",
+      "status": 200,
+      "size": 106680,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:16.768108"
+    },
+    {
+      "url": "/product/-lord-of-the-lending-hd/",
+      "status": 200,
+      "size": 106349,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:16.947674"
+    },
+    {
+      "url": "/product/dvoznachni-summy-hd/",
+      "status": 200,
+      "size": 106946,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:17.061502"
+    },
+    {
+      "url": "/product/-death-grabs-ass-hd/",
+      "status": 200,
+      "size": 105325,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:17.249383"
+    },
+    {
+      "url": "/product/pokrovsk-girl-hd/",
+      "status": 200,
+      "size": 106689,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:18.250525"
+    },
+    {
+      "url": "/product/kharkiv-district-hd/",
+      "status": 200,
+      "size": 106717,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:18.449538"
+    },
+    {
+      "url": "/product/-last-breath-hd/",
+      "status": 200,
+      "size": 105239,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:19.460680"
+    },
+    {
+      "url": "/product/buisness-money-hd/",
+      "status": 200,
+      "size": 106825,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:19.569578"
+    },
+    {
+      "url": "/product/in-shee-hd/",
+      "status": 200,
+      "size": 106908,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:20.561665"
+    },
+    {
+      "url": "/product/where-mi-present-hd/",
+      "status": 200,
+      "size": 106968,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:20.674789"
+    },
+    {
+      "url": "/product/-my-little-baby-hd/",
+      "status": 200,
+      "size": 106506,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:21.762581"
+    },
+    {
+      "url": "/product/hoodie-classic/",
+      "status": 200,
+      "size": 105215,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:21.958319"
+    },
+    {
+      "url": "/wholesale/order-form/",
+      "status": 200,
+      "size": 287462,
+      "content_type": "text/html; charset=utf-8",
+      "timestamp": "2025-10-21T18:26:22.138203"
+    },
+    {
+      "url": "/pricelist_opt.xlsx",
+      "status": 200,
+      "size": 7971,
+      "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "timestamp": "2025-10-21T18:26:22.364791"
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "total_pages": 75,
+    "time_elapsed": 36.09428405761719,
+    "avg_time_per_page": 0.4812571207682292
+  }
+}
