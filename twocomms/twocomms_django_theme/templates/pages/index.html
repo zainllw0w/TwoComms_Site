@@ -50,15 +50,15 @@
 {% block content %}
 {% cache 1800 hero_block %}
 <section class="hero-section mb-4 mb-md-5 reveal">
+  <!-- Фоновый логотип -->
+  <div class="hero-logo-bg">
+    {% static 'img/logo.svg' as hero_logo_url %}
+    <img src="{{ hero_logo_url }}" alt="TwoComms логотип - стріт & мілітарі одяг" width="200" height="200" class="hero-logo-image" loading="eager" fetchpriority="high" decoding="sync">
+  </div>
+  
   <div class="hero-container row align-items-center g-4">
-    <!-- Фоновый логотип -->
-    <div class="col-12 col-md-6 hero-logo-bg">
-      {% static 'img/logo.svg' as hero_logo_url %}
-      <img src="{{ hero_logo_url }}" alt="TwoComms логотип - стріт & мілітарі одяг" width="200" height="200" class="hero-logo-image" loading="eager" fetchpriority="high" decoding="sync">
-    </div>
-    
     <!-- Основной контент -->
-    <div class="col-12 col-md-6 hero-content">
+    <div class="col-12 hero-content">
       <div class="hero-text-section">
         <h1 class="hero-title">
           <span class="hero-title-main">Стріт & мілітарі</span>
