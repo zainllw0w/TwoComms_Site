@@ -712,6 +712,14 @@ def get_product_details(request, product_id):
         # Получаем актуальную цену дропа
         drop_price = product.get_drop_price(request.user)
         
+        # Получаем рекомендованную цену (как на сайте)
+        recommended = product.get_recommended_price()
+        recommended_price = recommended.get('base', product.price)
+        price_range = {
+            'min': recommended.get('min', int(recommended_price * 0.9)),
+            'max': recommended.get('max', int(recommended_price * 1.1))
+        }
+        
         # Получаем варианты цветов
         color_variants = []
         for variant in product.color_variants.all():
@@ -738,7 +746,8 @@ def get_product_details(request, product_id):
             'description': product.description or '',
             'primary_image_url': main_image_url,
             'drop_price': float(drop_price),
-            'recommended_price': float(product.recommended_price),
+            'recommended_price': float(recommended_price),
+            'price_range': price_range,  # Добавляем диапазон цены
             'color_variants': color_variants,
             'category': {
                 'id': product.category.id,
