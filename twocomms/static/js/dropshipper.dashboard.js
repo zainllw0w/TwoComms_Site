@@ -267,7 +267,12 @@
         if (!productId) {
           return;
         }
-        openProductDetail(productId);
+        // Используем НОВОЕ модальное окно с lightbox
+        if (typeof window.openAddProductModal === 'function') {
+          window.openAddProductModal(productId);
+        } else {
+          console.error('openAddProductModal не найдена');
+        }
       });
     });
   }
@@ -390,7 +395,12 @@
 
         const chooseButton = item.querySelector('button');
         if (chooseButton) {
-          chooseButton.addEventListener('click', () => openProductDetail(productId));
+          chooseButton.addEventListener('click', () => {
+            // Используем НОВОЕ модальное окно
+            if (typeof window.openAddProductModal === 'function') {
+              window.openAddProductModal(productId);
+            }
+          });
         }
 
           productResults.appendChild(item);

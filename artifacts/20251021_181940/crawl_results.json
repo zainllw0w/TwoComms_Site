@@ -1,0 +1,494 @@
+[
+  {
+    "url": "/",
+    "full_url": "https://twocomms.shop/",
+    "status": 200,
+    "size": 114897,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/",
+    "timestamp": "2025-10-21T18:18:52.993881"
+  },
+  {
+    "url": "/catalog/",
+    "full_url": "https://twocomms.shop/catalog/",
+    "status": 200,
+    "size": 67864,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/catalog/",
+    "timestamp": "2025-10-21T18:18:53.148651"
+  },
+  {
+    "url": "/delivery/",
+    "full_url": "https://twocomms.shop/delivery/",
+    "status": 200,
+    "size": 133394,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/delivery/",
+    "timestamp": "2025-10-21T18:18:54.175788"
+  },
+  {
+    "url": "/cooperation/",
+    "full_url": "https://twocomms.shop/cooperation/",
+    "status": 200,
+    "size": 82608,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/cooperation/",
+    "timestamp": "2025-10-21T18:18:54.292532"
+  },
+  {
+    "url": "/about/",
+    "full_url": "https://twocomms.shop/about/",
+    "status": 200,
+    "size": 80608,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/about/",
+    "timestamp": "2025-10-21T18:18:55.235178"
+  },
+  {
+    "url": "/contacts/",
+    "full_url": "https://twocomms.shop/contacts/",
+    "status": 200,
+    "size": 72798,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/contacts/",
+    "timestamp": "2025-10-21T18:18:55.320162"
+  },
+  {
+    "url": "/add-print/",
+    "full_url": "https://twocomms.shop/add-print/",
+    "status": 200,
+    "size": 83207,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/add-print/",
+    "timestamp": "2025-10-21T18:18:56.259963"
+  },
+  {
+    "url": "/favorites/",
+    "full_url": "https://twocomms.shop/favorites/",
+    "status": 200,
+    "size": 64502,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/favorites/",
+    "timestamp": "2025-10-21T18:18:56.346231"
+  },
+  {
+    "url": "/login/",
+    "full_url": "https://twocomms.shop/login/",
+    "status": 200,
+    "size": 67095,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/login/",
+    "timestamp": "2025-10-21T18:18:57.355227"
+  },
+  {
+    "url": "/register/",
+    "full_url": "https://twocomms.shop/register/",
+    "status": 200,
+    "size": 69035,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/register/",
+    "timestamp": "2025-10-21T18:18:57.444132"
+  },
+  {
+    "url": "/oauth/login/google-oauth2/",
+    "full_url": "https://twocomms.shop/oauth/login/google-oauth2/",
+    "status": 200,
+    "size": 879774,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 2,
+    "final_url": "https://accounts.google.com/v3/signin/identifier?opparams=%253F&dsh=S757433003%3A1761059938813781&client_id=755743858558-5s4mq6liscckeu16pt38oo5ltjl32u9t.apps.googleusercontent.com&o2v=1&redirect_uri=https%3A%2F%2Ftwocomms.shop%2Foauth%2Fcomplete%2Fgoogle-oauth2%2F&response_type=code&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+openid+email+profile&service=lso&state=MsmxNE6ck3a9qWRzvxWvVd9205uNCxPr&flowName=GeneralOAuthLite&continue=https%3A%2F%2Faccounts.google.com%2Fsignin%2Foauth%2Flegacy%2Fconsent%3Fauthuser%3Dunknown%26part%3DAJi8hAMSZlqJZk29475Vo1dxi5N8H_oIS_9IbvZeDXCjeR5mVwqAD3ag4d06lOuUgTcxtrpk4KJq2D3EnrUhgSP01NNMpYbKwb-f33gQxoPNOXdEXR1N6DSsyAp-27pGe3aYtvG37quUlmpBmnk4HVRbwS-5PKDKs3VYwiQyAjLf8wL1_CjjcNIbL25Cjle3AphRsfgl5xddZ2n6pikDGhL5koqD3rGqLm9wfCCiO6jPVfMBVvutj9qDrNLeeYACW6HwBIi3uabc7FO3l-C1-4Gr4lbZ_9-hQQGcqZX8tSnelHzxK6RgdqaO76vgPnACd86dWRyclLbHGjcgdYJteK2gHNKvcn2_mXT4s5rxdeQjd9SQ97XOR5oYFMtH7MtHfsu6m_nggTOH1bbPPSB9XPIW1N6M_9KXLAaNOoGxy01mBR4C7XFeuySPlo3rwWULQqbDXNVKuz6r_uqbww6xXfX1TOzO3d_NpQ%26flowName%3DGeneralOAuthFlow%26as%3DS757433003%253A1761059938813781%26client_id%3D755743858558-5s4mq6liscckeu16pt38oo5ltjl32u9t.apps.googleusercontent.com%23&app_domain=https%3A%2F%2Ftwocomms.shop&rart=ANgoxcdHSjtbQlaneoE7JIlEl-dEI6hpEac9J4AvOyqZ6W8BunM_U1DfGIBZiVFkV2f0cvvsKtH3c5zfE3_JmGPH6ryedit8fgJrz4UpF0wIbFzmI-1kAHc",
+    "timestamp": "2025-10-21T18:18:59.253727"
+  },
+  {
+    "url": "/product/-225-hoodie-/",
+    "full_url": "https://twocomms.shop/product/-225-hoodie-/",
+    "status": 200,
+    "size": 109286,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/-225-hoodie-/",
+    "timestamp": "2025-10-21T18:18:59.374321"
+  },
+  {
+    "url": "/catalog/long-sleeve/",
+    "full_url": "https://twocomms.shop/catalog/long-sleeve/",
+    "status": 200,
+    "size": 151207,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/catalog/long-sleeve/",
+    "timestamp": "2025-10-21T18:18:59.553999"
+  },
+  {
+    "url": "/catalog/tshirts/",
+    "full_url": "https://twocomms.shop/catalog/tshirts/",
+    "status": 200,
+    "size": 155951,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/catalog/tshirts/",
+    "timestamp": "2025-10-21T18:19:00.681932"
+  },
+  {
+    "url": "/catalog/hoodie/",
+    "full_url": "https://twocomms.shop/catalog/hoodie/",
+    "status": 200,
+    "size": 149535,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/catalog/hoodie/",
+    "timestamp": "2025-10-21T18:19:00.921737"
+  },
+  {
+    "url": "/product/-225-tshirt-/",
+    "full_url": "https://twocomms.shop/product/-225-tshirt-/",
+    "status": 200,
+    "size": 109161,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/-225-tshirt-/",
+    "timestamp": "2025-10-21T18:19:01.128077"
+  },
+  {
+    "url": "/product/longsleeve-limited-edition/",
+    "full_url": "https://twocomms.shop/product/longsleeve-limited-edition/",
+    "status": 200,
+    "size": 107995,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/longsleeve-limited-edition/",
+    "timestamp": "2025-10-21T18:19:01.324689"
+  },
+  {
+    "url": "/product/bentejne-ls/",
+    "full_url": "https://twocomms.shop/product/bentejne-ls/",
+    "status": 200,
+    "size": 107346,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/bentejne-ls/",
+    "timestamp": "2025-10-21T18:19:02.381121"
+  },
+  {
+    "url": "/product/bentejne-hd/",
+    "full_url": "https://twocomms.shop/product/bentejne-hd/",
+    "status": 200,
+    "size": 106971,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/bentejne-hd/",
+    "timestamp": "2025-10-21T18:19:02.481860"
+  },
+  {
+    "url": "/product/bentejne-ts/",
+    "full_url": "https://twocomms.shop/product/bentejne-ts/",
+    "status": 200,
+    "size": 108265,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/bentejne-ts/",
+    "timestamp": "2025-10-21T18:19:03.470093"
+  },
+  {
+    "url": "/product/pojuy-ls/",
+    "full_url": "https://twocomms.shop/product/pojuy-ls/",
+    "status": 200,
+    "size": 107437,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/pojuy-ls/",
+    "timestamp": "2025-10-21T18:19:03.572574"
+  },
+  {
+    "url": "/product/pojuy-hd/",
+    "full_url": "https://twocomms.shop/product/pojuy-hd/",
+    "status": 200,
+    "size": 107204,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/pojuy-hd/",
+    "timestamp": "2025-10-21T18:19:04.593041"
+  },
+  {
+    "url": "/dropshipper/",
+    "full_url": "https://twocomms.shop/dropshipper/",
+    "status": 200,
+    "size": 74833,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 1,
+    "final_url": "https://twocomms.shop/orders/dropshipper/",
+    "timestamp": "2025-10-21T18:19:05.566763"
+  },
+  {
+    "url": "/wholesale/",
+    "full_url": "https://twocomms.shop/wholesale/",
+    "status": 200,
+    "size": 231980,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/wholesale/",
+    "timestamp": "2025-10-21T18:19:05.710870"
+  },
+  {
+    "url": "/profile/setup/",
+    "full_url": "https://twocomms.shop/profile/setup/",
+    "status": 200,
+    "size": 67152,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 1,
+    "final_url": "https://twocomms.shop/login/?next=/profile/setup/",
+    "timestamp": "2025-10-21T18:19:06.933843"
+  },
+  {
+    "url": "/signin/v2/usernamerecovery",
+    "full_url": "https://twocomms.shop/signin/v2/usernamerecovery",
+    "status": 404,
+    "size": 179,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/signin/v2/usernamerecovery",
+    "timestamp": "2025-10-21T18:19:07.097747"
+  },
+  {
+    "url": "/lifecycle/flows/signup",
+    "full_url": "https://twocomms.shop/lifecycle/flows/signup",
+    "status": 404,
+    "size": 179,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/lifecycle/flows/signup",
+    "timestamp": "2025-10-21T18:19:07.164110"
+  },
+  {
+    "url": "/product/-kha-style-ls/",
+    "full_url": "https://twocomms.shop/product/-kha-style-ls/",
+    "status": 200,
+    "size": 107228,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/-kha-style-ls/",
+    "timestamp": "2025-10-21T18:19:08.169973"
+  },
+  {
+    "url": "/product/kha-edition-ls/",
+    "full_url": "https://twocomms.shop/product/kha-edition-ls/",
+    "status": 200,
+    "size": 106929,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/kha-edition-ls/",
+    "timestamp": "2025-10-21T18:19:08.450967"
+  },
+  {
+    "url": "/product/-death-gbs-ass-ls/",
+    "full_url": "https://twocomms.shop/product/-death-gbs-ass-ls/",
+    "status": 200,
+    "size": 107358,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/-death-gbs-ass-ls/",
+    "timestamp": "2025-10-21T18:19:09.517005"
+  },
+  {
+    "url": "/product/-red-leaves-ls/",
+    "full_url": "https://twocomms.shop/product/-red-leaves-ls/",
+    "status": 200,
+    "size": 106835,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/-red-leaves-ls/",
+    "timestamp": "2025-10-21T18:19:09.713613"
+  },
+  {
+    "url": "/product/-lord-of-the-lending-ls/",
+    "full_url": "https://twocomms.shop/product/-lord-of-the-lending-ls/",
+    "status": 200,
+    "size": 106489,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/-lord-of-the-lending-ls/",
+    "timestamp": "2025-10-21T18:19:10.767164"
+  },
+  {
+    "url": "/product/dvoznachni-summy-ls/",
+    "full_url": "https://twocomms.shop/product/dvoznachni-summy-ls/",
+    "status": 200,
+    "size": 107100,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/dvoznachni-summy-ls/",
+    "timestamp": "2025-10-21T18:19:10.874731"
+  },
+  {
+    "url": "/product/-death-grabs-ass-ls/",
+    "full_url": "https://twocomms.shop/product/-death-grabs-ass-ls/",
+    "status": 200,
+    "size": 105598,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/-death-grabs-ass-ls/",
+    "timestamp": "2025-10-21T18:19:10.977063"
+  },
+  {
+    "url": "/product/pokrovsk-girl-ls/",
+    "full_url": "https://twocomms.shop/product/pokrovsk-girl-ls/",
+    "status": 200,
+    "size": 106884,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/pokrovsk-girl-ls/",
+    "timestamp": "2025-10-21T18:19:11.164461"
+  },
+  {
+    "url": "/product/kharkiv-district-ls/",
+    "full_url": "https://twocomms.shop/product/kharkiv-district-ls/",
+    "status": 200,
+    "size": 106818,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/kharkiv-district-ls/",
+    "timestamp": "2025-10-21T18:19:12.329228"
+  },
+  {
+    "url": "/product/-last-breath-ls/",
+    "full_url": "https://twocomms.shop/product/-last-breath-ls/",
+    "status": 200,
+    "size": 105512,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/-last-breath-ls/",
+    "timestamp": "2025-10-21T18:19:12.432668"
+  },
+  {
+    "url": "/product/buisness-money-ls/",
+    "full_url": "https://twocomms.shop/product/buisness-money-ls/",
+    "status": 200,
+    "size": 107411,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/buisness-money-ls/",
+    "timestamp": "2025-10-21T18:19:13.467595"
+  },
+  {
+    "url": "/product/in-shee-ls/",
+    "full_url": "https://twocomms.shop/product/in-shee-ls/",
+    "status": 200,
+    "size": 107469,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/in-shee-ls/",
+    "timestamp": "2025-10-21T18:19:13.573365"
+  },
+  {
+    "url": "/product/where-mi-present-ls/",
+    "full_url": "https://twocomms.shop/product/where-mi-present-ls/",
+    "status": 200,
+    "size": 107013,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/where-mi-present-ls/",
+    "timestamp": "2025-10-21T18:19:14.762516"
+  },
+  {
+    "url": "/product/-my-little-baby-ls/",
+    "status": 0,
+    "error": "('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
+    "timestamp": "2025-10-21T18:19:24.762481"
+  },
+  {
+    "url": "/product/longsleeve-classic/",
+    "full_url": "https://twocomms.shop/product/longsleeve-classic/",
+    "status": 200,
+    "size": 105703,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/longsleeve-classic/",
+    "timestamp": "2025-10-21T18:19:24.923559"
+  },
+  {
+    "url": "/product/pojuy-ts/",
+    "full_url": "https://twocomms.shop/product/pojuy-ts/",
+    "status": 200,
+    "size": 108626,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/pojuy-ts/",
+    "timestamp": "2025-10-21T18:19:25.087259"
+  },
+  {
+    "url": "/product/-kha-style-ts/",
+    "full_url": "https://twocomms.shop/product/-kha-style-ts/",
+    "status": 200,
+    "size": 106879,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/-kha-style-ts/",
+    "timestamp": "2025-10-21T18:19:25.296214"
+  },
+  {
+    "url": "/product/kha-edition-ts/",
+    "full_url": "https://twocomms.shop/product/kha-edition-ts/",
+    "status": 200,
+    "size": 107277,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/kha-edition-ts/",
+    "timestamp": "2025-10-21T18:19:26.476576"
+  },
+  {
+    "url": "/product/-death-gbs-ass-ts/",
+    "status": 0,
+    "error": "HTTPSConnectionPool(host='twocomms.shop', port=443): Read timed out. (read timeout=10)",
+    "timestamp": "2025-10-21T18:19:36.516220"
+  },
+  {
+    "url": "/product/-red-leaves-ts/",
+    "full_url": "https://twocomms.shop/product/-red-leaves-ts/",
+    "status": 200,
+    "size": 107007,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/-red-leaves-ts/",
+    "timestamp": "2025-10-21T18:19:38.241330"
+  },
+  {
+    "url": "/product/-lord-of-the-lending/",
+    "full_url": "https://twocomms.shop/product/-lord-of-the-lending/",
+    "status": 200,
+    "size": 107755,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/-lord-of-the-lending/",
+    "timestamp": "2025-10-21T18:19:38.547418"
+  },
+  {
+    "url": "/product/dvoznachni-summy/",
+    "full_url": "https://twocomms.shop/product/dvoznachni-summy/",
+    "status": 200,
+    "size": 107743,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/dvoznachni-summy/",
+    "timestamp": "2025-10-21T18:19:38.682771"
+  },
+  {
+    "url": "/product/-death-grabs-ass/",
+    "full_url": "https://twocomms.shop/product/-death-grabs-ass/",
+    "status": 200,
+    "size": 105525,
+    "content_type": "text/html; charset=utf-8",
+    "redirect_count": 0,
+    "final_url": "https://twocomms.shop/product/-death-grabs-ass/",
+    "timestamp": "2025-10-21T18:19:40.013648"
+  }
+]
