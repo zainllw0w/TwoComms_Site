@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 {% load cache %}
+{% load responsive_images %}
 
 {% block title %}{% if category %}{{ category.name }} — TwoComms{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
 
@@ -116,7 +117,9 @@
             <div class="col">
               <a href="{% url 'catalog_by_cat' c.slug %}" class="card product glass hover-raise text-decoration-none text-body">
                 <div class="ratio ratio-1x1 rounded-top-4 overflow-hidden bg-elevate">
-                  {% if c.cover %}<img src="{{ c.cover.url }}" class="w-100 h-100 object-fit-cover" alt="{{ c.name }}" width="{{ c.cover.width }}" height="{{ c.cover.height }}">{% endif %}
+                  {% if c.cover %}
+                    {% optimized_image c.cover.url c.name "w-100 h-100 object-fit-cover" c.cover.width c.cover.height loading='lazy' fetchpriority='low' sizes='(max-width: 576px) 50vw, (max-width: 992px) 33vw, (max-width: 1400px) 25vw, 18vw' %}
+                  {% endif %}
                 </div>
                 <div class="card-body">
                   <div class="fw-semibold">{{ c.name }}</div>

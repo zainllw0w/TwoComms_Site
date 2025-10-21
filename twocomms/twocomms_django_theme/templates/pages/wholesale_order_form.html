@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 {% load math_filters %}
+{% load responsive_images %}
 
 {% block title %}Формування оптового замовлення - TwoComms{% endblock %}
 
@@ -2495,7 +2496,7 @@
                         <div class="product-card-content">
                             <div class="product-image-container">
                                 {% if product.main_image %}
-                                    <img src="{{ product.main_image.url }}" alt="{{ product.title }}" class="product-image">
+                                    {% optimized_image product.main_image.url product.title "product-image" product.main_image.width|default:1080 product.main_image.height|default:1350 loading='lazy' fetchpriority='low' sizes='(max-width: 768px) 45vw, (max-width: 1200px) 30vw, 20vw' %}
                                 {% else %}
                                     <div class="product-image" style="background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #718096;">
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -2541,7 +2542,7 @@
                         <div class="product-card-content">
                             <div class="product-image-container">
                                 {% if product.main_image %}
-                                    <img src="{{ product.main_image.url }}" alt="{{ product.title }}" class="product-image">
+                                    {% optimized_image product.main_image.url product.title "product-image" product.main_image.width|default:1080 product.main_image.height|default:1350 loading='lazy' fetchpriority='low' sizes='(max-width: 768px) 45vw, (max-width: 1200px) 30vw, 20vw' %}
                                 {% else %}
                                     <div class="product-image" style="background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #718096;">
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
