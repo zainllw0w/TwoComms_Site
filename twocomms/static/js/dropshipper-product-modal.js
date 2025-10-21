@@ -406,22 +406,28 @@
     // Блокируем скролл страницы
     document.body.style.overflow = 'hidden';
     
-    // ===== ШАГ 7: АБСОЛЮТНОЕ ЦЕНТРИРОВАНИЕ ЧЕРЕЗ VIEWPORT =====
-    // Проблема: браузер всё ещё вычисляет 50% неправильно
-    // Решение: устанавливаем ЯВНО координаты центра viewport в пикселях
+    // ===== ШАГ 7: АБСОЛЮТНОЕ ЦЕНТРИРОВАНИЕ ЧЕРЕЗ VIEWPORT + SCROLL =====
+    // КРИТИЧЕСКИ ВАЖНО: position: fixed работает относительно viewport,
+    // НО если страница прокручена - нужно учитывать scrollY!
     setTimeout(() => {
       const viewportHeight = window.innerHeight;
       const viewportWidth = window.innerWidth;
+      const scrollY = window.scrollY || window.pageYOffset;
       
-      // ЯВНО устанавливаем координаты центра viewport
-      popup.style.setProperty('top', `${viewportHeight / 2}px`, 'important');
-      popup.style.setProperty('left', `${viewportWidth / 2}px`, 'important');
+      // Вычисляем абсолютную позицию центра ВИДИМОЙ области viewport
+      const centerY = scrollY + (viewportHeight / 2);
+      const centerX = viewportWidth / 2;
+      
+      // ЯВНО устанавливаем координаты
+      popup.style.setProperty('top', `${centerY}px`, 'important');
+      popup.style.setProperty('left', `${centerX}px`, 'important');
       popup.style.transform = 'translate(-50%, -50%) scale(1)';
       popup.style.opacity = '1';
       
       console.log('✅ Модальное окно отцентровано:', {
-        top: `${viewportHeight / 2}px`,
-        left: `${viewportWidth / 2}px`
+        scrollY,
+        top: `${centerY}px`,
+        left: `${centerX}px`
       });
     }, 10);
     
