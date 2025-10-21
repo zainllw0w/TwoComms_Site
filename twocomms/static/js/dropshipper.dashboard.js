@@ -209,290 +209,15 @@
     });
   }
 
-  function openProductDetailModal(productId) {
-    console.log('Открываем детальную форму товара:', productId);
-    
-    // Создаем новое модальное окно
-    createProductDetailModal();
-    
-    // Загружаем детальную информацию о товаре
-    loadProductDetails(productId);
-  }
-
-  function createProductDetailModal() {
-    // Удаляем существующее модальное окно если есть
-    const existingModal = document.getElementById('ds-product-detail-modal');
-    if (existingModal) {
-      existingModal.remove();
-    }
-    
-    // Создаем новое модальное окно БЕЗ inline стилей - используем только CSS классы
-    const modal = document.createElement('div');
-    modal.id = 'ds-product-detail-modal';
-    modal.className = 'ds-product-detail-modal';
-    
-    modal.innerHTML = `
-      <div class="ds-product-detail-modal__dialog">
-        <div class="ds-product-detail-modal__header">
-          <h2 class="ds-product-detail-modal__title">Додати товар до замовлення</h2>
-          <button type="button" class="ds-product-detail-modal__close" data-dismiss-modal>
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-        <div class="ds-product-detail-modal__body">
-          <div class="ds-loading">
-            <i class="fas fa-spinner fa-spin"></i>
-            <span>Завантажуємо товар...</span>
-          </div>
-        </div>
-      </div>
-    `;
-    
-    // Добавляем в DOM
-    document.body.appendChild(modal);
-    
-    // Блокируем скролл страницы
-    document.body.style.overflow = 'hidden';
-    
-    // Привязываем обработчики
-    bindProductDetailModalEvents(modal);
-  }
-
-  function bindProductDetailModalEvents(modal) {
-    const closeModalFn = () => {
-      modal.remove();
-      // Восстанавливаем скролл страницы
-      document.body.style.overflow = '';
-    };
-    
-    // Обработчик закрытия
-    const closeBtn = modal.querySelector('[data-dismiss-modal]');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', closeModalFn);
-    }
-    
-    // Обработчик клика по фону
-    modal.addEventListener('click', (event) => {
-      if (event.target === modal) {
-        closeModalFn();
-      }
-    });
-    
-    // Обработчик ESC
-    const handleEsc = (event) => {
-      if (event.key === 'Escape') {
-        closeModalFn();
-        document.removeEventListener('keydown', handleEsc);
-      }
-    };
-    document.addEventListener('keydown', handleEsc);
-  }
-
-  function loadProductDetails(productId) {
-    console.log('Загружаем детали товара:', productId);
-    
-    const modal = document.getElementById('ds-product-detail-modal');
-    if (!modal) return;
-    
-    const body = modal.querySelector('.ds-product-detail-modal__body');
-    
-    // Загружаем детальную информацию о товаре
-    fetch(`/orders/dropshipper/api/product/${productId}/`, {
-      headers: {
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        console.log('Детали товара загружены:', data);
-        console.log('Вызываем renderProductDetail...');
-        console.log('renderProductDetail доступна:', typeof renderProductDetail);
-        if (typeof renderProductDetail === 'function') {
-          renderProductDetail(data.product, body);
-        } else {
-          console.error('renderProductDetail не является функцией!');
-          body.innerHTML = '<div class="ds-error">Помилка рендеринга товару</div>';
-        }
-      } else {
-        console.error('Ошибка загрузки товара:', data.message);
-        body.innerHTML = '<div class="ds-error">Помилка завантаження товару</div>';
-      }
-    })
-    .catch(error => {
-      console.error('Ошибка при загрузке товара:', error);
-      body.innerHTML = '<div class="ds-error">Помилка завантаження товару</div>';
-    });
-  }
-
-  function renderProductDetail(product, container) {
-    console.log('Отображаем детали товара:', product);
-    
-    // Создаем HTML для детальной формы товара с полным функционалом
-    const html = `
-      <div class="ds-product-detail" data-product-id="${product.id}">
-        <div class="ds-product-detail__layout">
-          <div class="ds-product-detail__media">
-            <img src="${product.primary_image_url || '/static/img/placeholder.jpg'}" 
-                 alt="${product.title}" 
-                 class="ds-product-detail__image">
-          </div>
-          
-          <div class="ds-product-detail__info">
-            <h3 class="ds-product-detail__title">${product.title}</h3>
-            <div class="ds-product-detail__description">${product.description || 'Опис товару відсутній'}</div>
-            
-            <div class="ds-product-detail__pricing">
-              <div class="ds-product-price">
-                <span class="ds-product-price__label">Ціна дропа</span>
-                <span class="ds-product-price__value">${product.drop_price} грн</span>
-              </div>
-              <div class="ds-product-price ds-product-price--recommended">
-                <span class="ds-product-price__label">Рекомендована</span>
-                <span class="ds-product-price__value">${product.recommended_price} грн</span>
-              </div>
-            </div>
-            
-            <form class="ds-product-detail__form" id="product-detail-form">
-              <div class="ds-product-detail__form-grid">
-                <label class="ds-input">
-                  <span class="ds-input__label">Кількість</span>
-                  <input type="number" name="quantity" value="1" min="1" max="99" required>
-                </label>
-                
-                <label class="ds-input">
-                  <span class="ds-input__label">Розмір</span>
-                  <select name="size" required>
-                    <option value="">— Обрати розмір —</option>
-                    <option value="S">S</option>
-                    <option value="M">M</option>
-                    <option value="L">L</option>
-                    <option value="XL">XL</option>
-                    <option value="XXL">XXL</option>
-                  </select>
-                </label>
-                
-                <label class="ds-input">
-                  <span class="ds-input__label">Колір</span>
-                  <select name="color_variant_id">
-                    <option value="">Єдиний колір</option>
-                    ${product.color_variants ? product.color_variants.map(variant => 
-                      `<option value="${variant.id}">${variant.name}</option>`
-                    ).join('') : ''}
-                  </select>
-                </label>
-                
-                <label class="ds-input">
-                  <span class="ds-input__label">Ціна продажу, грн</span>
-                  <input type="number" name="selling_price" value="${product.recommended_price}" 
-                         min="${product.drop_price}" step="0.01" required>
-                </label>
-              </div>
-              
-              <div class="ds-product-detail__form-actions">
-                <button type="button" class="ds-btn ds-btn--ghost" data-dismiss-modal>
-                  <i class="fas fa-times"></i>
-                  Скасувати
-                </button>
-                <button type="submit" class="ds-btn ds-btn--primary" id="add-to-order-btn">
-                  <i class="fas fa-cart-plus"></i>
-                  Додати до замовлення
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    `;
-    
-    container.innerHTML = html;
-    
-    // Привязываем обработчик формы
-    const form = container.querySelector('#product-detail-form');
-    if (form) {
-      form.addEventListener('submit', (event) => {
-        event.preventDefault();
-        addProductToOrder(product, form);
-      });
-    }
-  }
-
-  function addProductToOrder(product, form) {
-    const formData = new FormData(form);
-    const quantity = parseInt(formData.get('quantity')) || 1;
-    const size = formData.get('size') || '';
-    const colorVariantId = formData.get('color_variant_id') || null;
-    const sellingPrice = parseFloat(formData.get('selling_price')) || product.recommended_price;
-    
-    console.log('Добавляем товар в заказ:', {
-      productId: product.id,
-      quantity,
-      size,
-      colorVariantId,
-      sellingPrice
-    });
-    
-    // Показываем индикатор загрузки
-    const submitBtn = form.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Додаємо...';
-    submitBtn.disabled = true;
-    
-    // Отправляем товар на сервер
-    fetch('/orders/dropshipper/api/cart/add/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': csrfToken,
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-      body: JSON.stringify({
-        product_id: product.id,
-        color_variant_id: colorVariantId ? parseInt(colorVariantId) : null,
-        size: size,
-        quantity: quantity,
-        selling_price: sellingPrice
-      }),
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        console.log('Товар добавлен в заказ:', data);
-        showToast('Товар додано до замовлення!');
-        
-        // Закрываем модальное окно и восстанавливаем скролл
-        const modal = document.getElementById('ds-product-detail-modal');
-        if (modal) {
-          modal.remove();
-          document.body.style.overflow = '';
-        }
-        
-        // Обновляем корзину
-        loadCart();
-      } else {
-        console.error('Ошибка добавления товара:', data.message);
-        showToast(data.message || 'Помилка при додаванні товару', 'error');
-        
-        // Восстанавливаем кнопку
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
-      }
-    })
-    .catch(error => {
-      console.error('Ошибка при добавлении товара:', error);
-      showToast('Помилка при додаванні товару', 'error');
-      
-      // Восстанавливаем кнопку
-      submitBtn.innerHTML = originalText;
-      submitBtn.disabled = false;
-    });
-  }
 
   function bindQuickAddButtons() {
     const quickButtons = document.querySelectorAll('.js-product-quick-add');
     if (!quickButtons.length) {
+      console.log('⚠️ Кнопки быстрого добавления не найдены');
       return;
     }
+
+    console.log('✅ Найдено кнопок быстрого добавления:', quickButtons.length);
 
     quickButtons.forEach((btn) => {
       if (btn.dataset.quickAddBound === 'true') {
@@ -507,11 +232,15 @@
         const productId = productCard ? productCard.dataset.productId : null;
         
         if (productId) {
-          console.log('Открываем детальную форму товара ID:', productId);
-          // Открываем детальную форму товара
-          openProductDetailModal(productId);
+          console.log('🚀 Открываем НОВОЕ модальное окно для товара ID:', productId);
+          // Вызываем НОВУЮ функцию из dropshipper-product-modal.js
+          if (typeof window.openAddProductModal === 'function') {
+            window.openAddProductModal(productId);
+          } else {
+            console.error('❌ window.openAddProductModal не найдена! Проверьте подключение dropshipper-product-modal.js');
+          }
         } else {
-          console.log('ID товара не найден');
+          console.error('❌ ID товара не найден в карточке');
         }
       });
     });
