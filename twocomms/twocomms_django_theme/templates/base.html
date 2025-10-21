@@ -437,7 +437,7 @@
     };
   })();
   </script>
-</head><body class='bg-body text-body' style='font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;'>{% include 'partials/header.html' %}<main class='container-xxl py-4 py-md-5'>{% block breadcrumbs %}{% endblock %}{% block content %}{% endblock %}</main>{% cache 86400 footer_block %}{% include 'partials/footer.html' %}{% endcache %}
+</head><body class='bg-body text-body' style='font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;'>{% include 'partials/header.html' %}<main class='container-xxl py-4 py-md-5'>{% block breadcrumbs %}{% endblock %}{% block content %}{% endblock %}</main>{% block modals %}{% endblock %}{% cache 86400 footer_block %}{% include 'partials/footer.html' %}{% endcache %}
 
 <!-- Мобильные мини-панели (только для мобильной версии) -->
 <div id="mini-cart-panel-mobile" class="cart-panel d-none d-md-none">

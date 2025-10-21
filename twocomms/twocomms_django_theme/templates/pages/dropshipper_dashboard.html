@@ -571,8 +571,10 @@
     </section>
   </main>
 </div>
+{% endblock %}
 
-<!-- Модальные окна - ВНУТРИ content но ВНЕ ds-shell -->
+{% block modals %}
+<!-- Модальные окна - ВНЕ main, прямо в body -->
 {% include "partials/dropshipper_modals.html" %}
 {% include "partials/dropshipper_add_product_modal.html" %}
 {% endblock %}
