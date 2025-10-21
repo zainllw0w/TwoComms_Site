@@ -1933,14 +1933,50 @@ def admin_panel(request):
         })
     elif section == 'collaboration':
         try:
-            from orders.models import WholesaleInvoice
-            # Показываем только отправленные накладные (статус pending и выше, исключаем draft)
+            from orders.models import WholesaleInvoice, DropshipperOrder, DropshipperStats
+            from django.db.models import Sum, Q
+            from django.contrib.auth.models import User
+            
+            # Накладные оптовиков
             invoices = WholesaleInvoice.objects.filter(
                 status__in=['pending', 'processing', 'shipped', 'delivered', 'cancelled']
-            ).order_by('-created_at')[:100]
-        except Exception:
+            ).order_by('-created_at')[:50]
+            
+            # Заказы дропшипперов
+            dropship_orders = DropshipperOrder.objects.select_related(
+                'dropshipper', 'dropshipper__userprofile'
+            ).prefetch_related('items').order_by('-created_at')[:50]
+            
+            # Статистика дропшипперов
+            dropshipper_stats = DropshipperStats.objects.select_related(
+                'dropshipper', 'dropshipper__userprofile'
+            ).filter(total_orders__gt=0).order_by('-total_profit')[:20]
+            
+            # Общая статистика
+            total_dropship_orders = DropshipperOrder.objects.count()
+            total_dropship_revenue = DropshipperOrder.objects.aggregate(
+                total=Sum('total_selling_price')
+            )['total'] or 0
+            total_dropship_profit = DropshipperOrder.objects.aggregate(
+                total=Sum('profit')
+            )['total'] or 0
+            pending_orders = DropshipperOrder.objects.filter(
+                status__in=['draft', 'pending']
+            ).count()
+            
+            ctx.update({
+                'invoices': invoices,
+                'dropship_orders': dropship_orders,
+                'dropshipper_stats': dropshipper_stats,
+                'total_dropship_orders': total_dropship_orders,
+                'total_dropship_revenue': total_dropship_revenue,
+                'total_dropship_profit': total_dropship_profit,
+                'pending_orders': pending_orders,
+            })
+        except Exception as e:
+            print(f"Error loading collaboration data: {e}")
             invoices = []
-        ctx.update({'invoices': invoices})
+            ctx.update({'invoices': invoices})
     
     return render(request, 'pages/admin_panel.html', ctx)
 
@@ -7326,60 +7362,6 @@ def get_user_invoices(request):
 
 
 from django.contrib.admin.views.decorators import staff_member_required
-
-@staff_member_required
-def collaboration_admin(request):
-    """Страница управления сотрудничеством - дропшипперы и оптовые накладные"""
-    from django.shortcuts import render
-    from django.db.models import Sum, Count, Q
-    from orders.models import WholesaleInvoice, DropshipperOrder, DropshipperStats
-    from accounts.models import UserProfile
-    from django.contrib.auth.models import User
-    
-    # Получаем накладные оптовиков
-    invoices = WholesaleInvoice.objects.all().order_by('-created_at')[:50]
-    
-    # Получаем заказы дропшипперов
-    dropship_orders = DropshipperOrder.objects.select_related(
-        'dropshipper', 'dropshipper__userprofile'
-    ).prefetch_related('items').order_by('-created_at')[:50]
-    
-    # Статистика по дропшипперам
-    dropshipper_stats = DropshipperStats.objects.select_related(
-        'dropshipper', 'dropshipper__userprofile'
-    ).filter(total_orders__gt=0).order_by('-total_profit')[:20]
-    
-    # Получаем список всех активных дропшипперов
-    dropshippers = User.objects.filter(
-        Q(dropshipper_orders__isnull=False) | Q(dropshipper_stats__isnull=False)
-    ).select_related('userprofile').distinct()
-    
-    # Общая статистика
-    total_dropship_orders = DropshipperOrder.objects.count()
-    total_dropship_revenue = DropshipperOrder.objects.aggregate(
-        total=Sum('total_selling_price')
-    )['total'] or 0
-    total_dropship_profit = DropshipperOrder.objects.aggregate(
-        total=Sum('profit')
-    )['total'] or 0
-    
-    pending_orders = DropshipperOrder.objects.filter(
-        status__in=['draft', 'pending']
-    ).count()
-    
-    context = {
-        'invoices': invoices,
-        'dropship_orders': dropship_orders,
-        'dropshipper_stats': dropshipper_stats,
-        'dropshippers': dropshippers,
-        'total_dropship_orders': total_dropship_orders,
-        'total_dropship_revenue': total_dropship_revenue,
-        'total_dropship_profit': total_dropship_profit,
-        'pending_orders': pending_orders,
-    }
-    
-    return render(request, 'pages/admin_collaboration.html', context)
-
 
 @require_POST
 @staff_member_required
