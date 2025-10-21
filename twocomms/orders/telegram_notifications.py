@@ -495,7 +495,7 @@ class TelegramNotifier:
 │     Дропшипер сплачує: {dropshipper_payment} грн"""
         
         if order.payment_method == 'cod':
-            full_block += "\n│     ⚠️ Передоплата на випадок відмови"
+            full_block += "\n│     📦 Віднімається з накладки при отриманні"
         
         full_block += f"""
 ├─────────────────────────────────────────┤

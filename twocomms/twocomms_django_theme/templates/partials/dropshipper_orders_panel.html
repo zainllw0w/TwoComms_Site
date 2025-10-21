@@ -324,7 +324,7 @@
                     {% if order.payment_method == 'prepaid' %}
                       Клієнт оплатив товар. Ви сплачуєте <strong style="color: #a78bfa;">{{ order.total_drop_price|floatformat:0 }} ₴</strong>
                     {% else %}
-                      Передоплата <strong style="color: #a78bfa;">200 ₴</strong> на випадок відмови клієнта
+                      З накладки віднімається <strong style="color: #a78bfa;">200 ₴</strong> на покриття вартості дропа
                     {% endif %}
                   </div>
                 </div>
