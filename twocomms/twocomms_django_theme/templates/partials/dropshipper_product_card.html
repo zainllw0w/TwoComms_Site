@@ -6,7 +6,9 @@
     <img class="product-image"
          src="{{ product.primary_image_url|default:placeholder }}"
          alt="{{ product.title }}"
-         loading="lazy">
+         loading="lazy"
+         width="600"
+         height="250">
     <span class="ds-product-card__badge">
       <i class="fas fa-box" aria-hidden="true"></i>
       {{ product.category.name|default:"Категорія" }}

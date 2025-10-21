@@ -175,6 +175,11 @@ class Product(models.Model):
             return False
         return True
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['-id'], name='idx_product_id_desc'),
+        ]
+
 class ProductImage(models.Model):
     product=models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
     image=models.ImageField(upload_to='products/extra/')
