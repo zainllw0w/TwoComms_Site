@@ -8,7 +8,8 @@
          alt="{{ product.title }}"
          loading="lazy"
          width="600"
-         height="250">
+         height="250"
+         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 45vw, 33vw">
     <span class="ds-product-card__badge">
       <i class="fas fa-box" aria-hidden="true"></i>
       {{ product.category.name|default:"Категорія" }}
