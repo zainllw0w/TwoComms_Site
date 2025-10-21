@@ -394,9 +394,6 @@
     document.body.appendChild(backdrop);
     document.body.appendChild(popup);
     
-    // Прокручиваем страницу в начало для правильного позиционирования
-    window.scrollTo({ top: 0, behavior: 'instant' });
-    
     // Блокируем скролл страницы
     document.body.style.overflow = 'hidden';
     
