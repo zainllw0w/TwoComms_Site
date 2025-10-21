@@ -1,49 +1,490 @@
 {% extends "base.html" %}
 {% load static %}
+
 {% block title %}Співпраця — адмін{% endblock %}
+
+{% block extra_css %}
+<style>
+  .collab-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+  }
+  .stat-card {
+    background: linear-gradient(145deg, rgba(139,92,246,.15), rgba(99,102,241,.15));
+    border: 1px solid rgba(139,92,246,.3);
+    border-radius: 16px;
+    padding: 24px;
+    transition: all 0.3s;
+  }
+  .stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(139,92,246,.3);
+  }
+  .stat-value {
+    font-size: 2.5rem;
+    font-weight: 900;
+    background: linear-gradient(135deg, #8b5cf6, #6366f1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  .stat-label {
+    font-size: 0.9rem;
+    color: rgba(229,231,235,.6);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+  }
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid rgba(139,92,246,.3);
+  }
+  .section-title {
+    font-size: 1.8rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #8b5cf6, #6366f1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .order-card, .invoice-card {
+    background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98));
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    transition: all 0.2s;
+  }
+  .order-card:hover, .invoice-card:hover {
+    border-color: rgba(139,92,246,.4);
+    box-shadow: 0 8px 20px rgba(139,92,246,.2);
+  }
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .status-draft { background: rgba(251,191,36,.2); color: #fbbf24; border: 1px solid rgba(251,191,36,.3); }
+  .status-pending { background: rgba(139,92,246,.2); color: #a78bfa; border: 1px solid rgba(139,92,246,.3); }
+  .status-confirmed { background: rgba(59,130,246,.2); color: #60a5fa; border: 1px solid rgba(59,130,246,.3); }
+  .status-processing { background: rgba(245,158,11,.2); color: #fbbf24; border: 1px solid rgba(245,158,11,.3); }
+  .status-shipped { background: rgba(6,182,212,.2); color: #22d3ee; border: 1px solid rgba(6,182,212,.3); }
+  .status-delivered { background: rgba(16,185,129,.2); color: #34d399; border: 1px solid rgba(16,185,129,.3); }
+  .status-cancelled { background: rgba(239,68,68,.2); color: #f87171; border: 1px solid rgba(239,68,68,.3); }
+  .action-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #8b5cf6, #6366f1);
+    color: white;
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(139,92,246,.4);
+  }
+  .btn-success {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+  }
+  .btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(16,185,129,.4);
+  }
+  .btn-warning {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+  }
+  .btn-warning:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(245,158,11,.4);
+  }
+  .tabs {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 30px;
+    border-bottom: 2px solid rgba(255,255,255,.1);
+    padding-bottom: 12px;
+  }
+  .tab {
+    padding: 12px 24px;
+    border-radius: 8px 8px 0 0;
+    background: rgba(255,255,255,.05);
+    color: rgba(229,231,235,.6);
+    border: none;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tab.active {
+    background: linear-gradient(135deg, #8b5cf6, #6366f1);
+    color: white;
+  }
+  .tab-content {
+    display: none;
+  }
+  .tab-content.active {
+    display: block;
+  }
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: rgba(229,231,235,.5);
+  }
+  .empty-state i {
+    font-size: 4rem;
+    margin-bottom: 16px;
+    opacity: 0.3;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container py-4">
-    <h1 class="mb-3">Співпраця</h1>
-    <div class="row g-3">
-        <div class="col-md-6">
-            <div class="p-3 rounded" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)">
-                <h3>Дропшипери</h3>
-                <div style="opacity:.7">Блок у розробці</div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="p-3 rounded" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)">
-                <h3>Оптовики — накладні</h3>
-                {% if invoices %}
-                <div class="list-group">
-                    {% for inv in invoices %}
-                    <div class="list-group-item d-flex justify-content-between align-items-center" style="background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.08)">
-                        <div>
-                            <div><strong>{{ inv.invoice_number }}</strong> · {{ inv.company_name }}</div>
-                            <div class="small text-muted">Статус: {{ inv.get_status_display }}</div>
-                            {% if inv.file_path %}
-                                <div class="small"><a href="{% url 'download_invoice_file' inv.id %}" class="link-primary">Скачати файл</a></div>
-                            {% endif %}
-                        </div>
-                        <div class="d-flex gap-2">
-                            <button class="btn btn-sm btn-outline-warning" onclick="updateInvoiceStatus({{ inv.id }}, 'processing')">В обробку</button>
-                            <button class="btn btn-sm btn-outline-success" onclick="updateInvoiceStatus({{ inv.id }}, 'shipped')">Відправлено</button>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <div class="text-muted">Накладних поки немає</div>
-                {% endif %}
-            </div>
-        </div>
+<div class="container py-5">
+  <h1 style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #8b5cf6, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 40px;">
+    Управління співпрацею
+  </h1>
+
+  {# Общая статистика #}
+  <div class="collab-stats-grid">
+    <div class="stat-card">
+      <div class="stat-value">{{ total_dropship_orders }}</div>
+      <div class="stat-label">Всього дропшип-замовлень</div>
     </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ pending_orders }}</div>
+      <div class="stat-label">Очікують обробки</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ total_dropship_revenue|floatformat:0 }} грн</div>
+      <div class="stat-label">Загальний оборот</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ total_dropship_profit|floatformat:0 }} грн</div>
+      <div class="stat-label">Загальний прибуток</div>
+    </div>
+  </div>
+
+  {# Вкладки #}
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('dropship')">
+      <i class="fas fa-shipping-fast"></i> Дропшипінг ({{ dropship_orders|length }})
+    </button>
+    <button class="tab" onclick="switchTab('wholesale')">
+      <i class="fas fa-file-invoice"></i> Оптові накладні ({{ invoices|length }})
+    </button>
+    <button class="tab" onclick="switchTab('stats')">
+      <i class="fas fa-chart-bar"></i> Статистика дропшиперів
+    </button>
+  </div>
+
+  {# Дропшипінг #}
+  <div id="dropship-tab" class="tab-content active">
+    <div class="section-header">
+      <h2 class="section-title">Замовлення дропшиперів</h2>
+      <a href="/admin/orders/dropshipperorder/" class="action-btn btn-primary">
+        <i class="fas fa-cog"></i> Django Admin
+      </a>
+    </div>
+
+    {% if dropship_orders %}
+      {% for order in dropship_orders %}
+        <div class="order-card">
+          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px;">
+            <div style="flex: 1;">
+              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                <h3 style="margin: 0; font-size: 1.3rem; font-weight: 800; color: #e5e7eb;">
+                  #{{ order.order_number }}
+                </h3>
+                <span class="status-badge status-{{ order.status }}">
+                  {% if order.status == 'draft' %}📝 Чернетка
+                  {% elif order.status == 'pending' %}⏳ Очікує
+                  {% elif order.status == 'confirmed' %}✅ Підтверджено
+                  {% elif order.status == 'processing' %}⚙️ В обробці
+                  {% elif order.status == 'shipped' %}🚚 Відправлено
+                  {% elif order.status == 'delivered' %}📦 Доставлено
+                  {% elif order.status == 'cancelled' %}❌ Скасовано
+                  {% endif %}
+                </span>
+              </div>
+
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 12px;">
+                <div>
+                  <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(229,231,235,.5); margin-bottom: 4px;">Дропшипер</div>
+                  <div style="font-weight: 700; color: #a78bfa;">
+                    {% if order.dropshipper.userprofile.company_name %}
+                      {{ order.dropshipper.userprofile.company_name }}
+                    {% else %}
+                      {{ order.dropshipper.username }}
+                    {% endif %}
+                  </div>
+                  {% if order.dropshipper.userprofile.phone %}
+                    <div style="font-size: 0.85rem; color: rgba(229,231,235,.6);">📞 {{ order.dropshipper.userprofile.phone }}</div>
+                  {% endif %}
+                </div>
+
+                <div>
+                  <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(229,231,235,.5); margin-bottom: 4px;">Клієнт</div>
+                  <div style="font-weight: 700; color: #e5e7eb;">{{ order.client_name|default:"—" }}</div>
+                  {% if order.client_phone %}
+                    <div style="font-size: 0.85rem; color: rgba(229,231,235,.6);">📞 {{ order.client_phone }}</div>
+                  {% endif %}
+                </div>
+
+                <div>
+                  <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(229,231,235,.5); margin-bottom: 4px;">Адреса НП</div>
+                  <div style="font-size: 0.9rem; color: rgba(229,231,235,.8);">{{ order.client_np_address|default:"—" }}</div>
+                </div>
+
+                {% if order.tracking_number %}
+                  <div>
+                    <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(229,231,235,.5); margin-bottom: 4px;">ТТН</div>
+                    <div style="font-weight: 700; color: #22d3ee;">{{ order.tracking_number }}</div>
+                  </div>
+                {% endif %}
+              </div>
+
+              <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.1);">
+                <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+                  <div>
+                    <span style="color: rgba(229,231,235,.6);">Ціна продажу:</span>
+                    <strong style="color: #60a5fa; margin-left: 8px;">{{ order.total_selling_price }} грн</strong>
+                  </div>
+                  <div>
+                    <span style="color: rgba(229,231,235,.6);">Ціна дропа:</span>
+                    <strong style="color: rgba(229,231,235,.8); margin-left: 8px;">{{ order.total_drop_price }} грн</strong>
+                  </div>
+                  <div>
+                    <span style="color: rgba(229,231,235,.6);">Прибуток:</span>
+                    <strong style="color: #34d399; margin-left: 8px;">+{{ order.profit }} грн</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-left: 20px;">
+              <a href="/admin/orders/dropshipperorder/{{ order.id }}/change/" class="action-btn btn-primary">
+                <i class="fas fa-edit"></i> Редагувати
+              </a>
+              {% if order.status == 'draft' %}
+                <button onclick="updateOrderStatus({{ order.id }}, 'confirmed')" class="action-btn btn-success">
+                  <i class="fas fa-check"></i> Підтвердити
+                </button>
+              {% elif order.status == 'confirmed' %}
+                <button onclick="updateOrderStatus({{ order.id }}, 'processing')" class="action-btn btn-warning">
+                  <i class="fas fa-cog"></i> В обробку
+                </button>
+              {% elif order.status == 'processing' %}
+                <button onclick="updateOrderStatus({{ order.id }}, 'shipped')" class="action-btn btn-success">
+                  <i class="fas fa-shipping-fast"></i> Відправлено
+                </button>
+              {% endif %}
+            </div>
+          </div>
+
+          {# Товары в заказе #}
+          <div style="margin-top: 16px; padding: 16px; background: rgba(0,0,0,.3); border-radius: 8px;">
+            <div style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(229,231,235,.6); margin-bottom: 12px;">
+              Товари в замовленні:
+            </div>
+            <div style="display: grid; gap: 8px;">
+              {% for item in order.items.all %}
+                <div style="display: flex; justify-content: space-between; padding: 8px; background: rgba(255,255,255,.02); border-radius: 6px;">
+                  <div>
+                    <strong style="color: #e5e7eb;">{{ item.product.title }}</strong>
+                    {% if item.size %} · <span style="color: rgba(229,231,235,.6);">Розмір: {{ item.size }}</span>{% endif %}
+                    {% if item.color_variant %} · <span style="color: rgba(229,231,235,.6);">Колір: {{ item.color_variant.color.name }}</span>{% endif %}
+                  </div>
+                  <div style="display: flex; gap: 16px; align-items: center;">
+                    <span style="color: rgba(229,231,235,.6);">x{{ item.quantity }}</span>
+                    <span style="color: #60a5fa; font-weight: 700;">{{ item.selling_price }} грн</span>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div style="margin-top: 12px; font-size: 0.85rem; color: rgba(229,231,235,.5);">
+            <i class="far fa-clock"></i> {{ order.created_at|date:"d.m.Y H:i" }}
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state">
+        <i class="fas fa-inbox"></i>
+        <div style="font-size: 1.2rem; font-weight: 700; margin-bottom: 8px;">Замовлень поки немає</div>
+        <div>Коли дропшипери створять замовлення, вони з'являться тут</div>
+      </div>
+    {% endif %}
+  </div>
+
+  {# Оптові накладні #}
+  <div id="wholesale-tab" class="tab-content">
+    <div class="section-header">
+      <h2 class="section-title">Оптові накладні</h2>
+    </div>
+
+    {% if invoices %}
+      {% for inv in invoices %}
+        <div class="invoice-card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="flex: 1;">
+              <h3 style="margin: 0 0 8px; font-size: 1.2rem; font-weight: 800; color: #e5e7eb;">
+                {{ inv.invoice_number }}
+              </h3>
+              <div style="color: rgba(229,231,235,.7);">{{ inv.company_name }}</div>
+              <div style="margin-top: 8px; font-size: 0.85rem;">
+                <span class="status-badge status-{{ inv.status }}">{{ inv.get_status_display }}</span>
+              </div>
+              {% if inv.file_path %}
+                <div style="margin-top: 12px;">
+                  <a href="{% url 'download_invoice_file' inv.id %}" style="color: #60a5fa; text-decoration: none;">
+                    <i class="fas fa-download"></i> Скачати файл
+                  </a>
+                </div>
+              {% endif %}
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="action-btn btn-warning" onclick="updateInvoiceStatus({{ inv.id }}, 'processing')">
+                В обробку
+              </button>
+              <button class="action-btn btn-success" onclick="updateInvoiceStatus({{ inv.id }}, 'shipped')">
+                Відправлено
+              </button>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state">
+        <i class="fas fa-file-invoice"></i>
+        <div style="font-size: 1.2rem; font-weight: 700; margin-bottom: 8px;">Накладних поки немає</div>
+      </div>
+    {% endif %}
+  </div>
+
+  {# Статистика дропшиперов #}
+  <div id="stats-tab" class="tab-content">
+    <div class="section-header">
+      <h2 class="section-title">Топ дропшиперів</h2>
+    </div>
+
+    {% if dropshipper_stats %}
+      <div style="display: grid; gap: 16px;">
+        {% for stat in dropshipper_stats %}
+          <div style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 12px; padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div style="flex: 1;">
+                <h3 style="margin: 0 0 12px; font-size: 1.3rem; font-weight: 800; color: #e5e7eb;">
+                  {% if stat.dropshipper.userprofile.company_name %}
+                    {{ stat.dropshipper.userprofile.company_name }}
+                  {% else %}
+                    {{ stat.dropshipper.username }}
+                  {% endif %}
+                </h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px;">
+                  <div>
+                    <div style="font-size: 0.75rem; text-transform: uppercase; color: rgba(229,231,235,.5);">Замовлень</div>
+                    <div style="font-size: 1.5rem; font-weight: 800; color: #a78bfa;">{{ stat.total_orders }}</div>
+                  </div>
+                  <div>
+                    <div style="font-size: 0.75rem; text-transform: uppercase; color: rgba(229,231,235,.5);">Оборот</div>
+                    <div style="font-size: 1.5rem; font-weight: 800; color: #60a5fa;">{{ stat.total_revenue|floatformat:0 }} грн</div>
+                  </div>
+                  <div>
+                    <div style="font-size: 0.75rem; text-transform: uppercase; color: rgba(229,231,235,.5);">Прибуток</div>
+                    <div style="font-size: 1.5rem; font-weight: 800; color: #34d399;">{{ stat.total_profit|floatformat:0 }} грн</div>
+                  </div>
+                  <div>
+                    <div style="font-size: 0.75rem; text-transform: uppercase; color: rgba(229,231,235,.5);">Середній чек</div>
+                    <div style="font-size: 1.5rem; font-weight: 800; color: #e5e7eb;">{{ stat.average_order_value|floatformat:0 }} грн</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <i class="fas fa-chart-line"></i>
+        <div style="font-size: 1.2rem; font-weight: 700; margin-bottom: 8px;">Статистики поки немає</div>
+      </div>
+    {% endif %}
+  </div>
 </div>
+
 <script>
-async function updateInvoiceStatus(id, status){
-  const res = await fetch(`/admin-panel/invoices/update-status/${id}/`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')},body:JSON.stringify({status})});
-  if(res.ok){ location.reload(); } else { alert('Помилка оновлення статусу'); }
+// Переключение вкладок
+function switchTab(tabName) {
+  // Скрываем все вкладки
+  document.querySelectorAll('.tab-content').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  
+  // Показываем нужную
+  document.getElementById(tabName + '-tab').classList.add('active');
+  event.target.classList.add('active');
 }
-function getCookie(name){const v=`; ${document.cookie}`.split(`; ${name}=`);if(v.length===2) return v.pop().split(';').shift();}
+
+// Обновление статуса накладной
+async function updateInvoiceStatus(id, status) {
+  const res = await fetch(`/admin-panel/invoices/update-status/${id}/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCookie('csrftoken')
+    },
+    body: JSON.stringify({status})
+  });
+  
+  if (res.ok) {
+    location.reload();
+  } else {
+    alert('Помилка оновлення статусу');
+  }
+}
+
+// Обновление статуса заказа дропшипера
+async function updateOrderStatus(id, status) {
+  const res = await fetch(`/admin-panel/dropship/update-status/${id}/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCookie('csrftoken')
+    },
+    body: JSON.stringify({status})
+  });
+  
+  if (res.ok) {
+    location.reload();
+  } else {
+    alert('Помилка оновлення статусу');
+  }
+}
+
+function getCookie(name) {
+  const v = `; ${document.cookie}`.split(`; ${name}=`);
+  if (v.length === 2) return v.pop().split(';').shift();
+}
 </script>
 {% endblock %}
