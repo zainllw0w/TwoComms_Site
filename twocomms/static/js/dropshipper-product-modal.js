@@ -397,10 +397,25 @@
     // Блокируем скролл страницы
     document.body.style.overflow = 'hidden';
     
-    // ===== ШАГ 7: АНИМАЦИЯ ПОЯВЛЕНИЯ =====
+    // ===== ШАГ 7: ПРИНУДИТЕЛЬНОЕ ЦЕНТРИРОВАНИЕ =====
+    // КРИТИЧЕСКИ ВАЖНО: устанавливаем позицию ПОСЛЕ добавления в DOM
+    // Иначе браузер вычисляет 50% от высоты документа, а не viewport
     setTimeout(() => {
+      // Принудительно устанавливаем центрирование через viewport размеры
+      const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
+      
+      popup.style.top = `${viewportHeight / 2}px`;
+      popup.style.left = `${viewportWidth / 2}px`;
       popup.style.transform = 'translate(-50%, -50%) scale(1)';
       popup.style.opacity = '1';
+      
+      console.log('✅ Модальное окно отцентровано:', {
+        viewportHeight,
+        viewportWidth,
+        top: popup.style.top,
+        left: popup.style.left
+      });
     }, 10);
     
     // ===== ШАГ 8: ЗАГРУЗКА ДАННЫХ ТОВАРА =====
