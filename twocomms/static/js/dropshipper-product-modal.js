@@ -870,14 +870,14 @@
     );
     
     lightbox.style.cssText = `
-      position: absolute;
+      position: fixed;
       top: 0;
       left: 0;
-      width: 100%;
-      height: ${documentHeight}px;
+      width: 100vw;
+      height: 100vh;
       background: rgba(0,0,0,.95);
       backdrop-filter: blur(20px);
-      z-index: 99999;
+      z-index: 999999;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -928,7 +928,7 @@
       font-size: 1.5rem;
       cursor: pointer;
       transition: all 0.3s ease;
-      z-index: 100000;
+      z-index: 1000000;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -962,7 +962,7 @@
       backdrop-filter: blur(10px);
       border: 1px solid rgba(255,255,255,.2);
       box-shadow: 0 10px 30px rgba(0,0,0,.5);
-      z-index: 100000;
+      z-index: 1000000;
     `;
     
     // Собираем все вместе
