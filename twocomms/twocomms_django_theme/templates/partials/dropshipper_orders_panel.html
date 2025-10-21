@@ -284,6 +284,67 @@
                 </div>
               </div>
               
+              {# Информация об оплате #}
+              <div style="
+                background: linear-gradient(135deg, rgba(139,92,246,.08), rgba(99,102,241,.08));
+                border: 1px solid rgba(139,92,246,.2);
+                border-radius: 12px;
+                padding: 18px;
+                margin-bottom: 20px;
+                display: grid;
+                grid-template-columns: auto 1fr auto;
+                gap: 16px;
+                align-items: center;
+              ">
+                <div style="
+                  width: 48px;
+                  height: 48px;
+                  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+                  border-radius: 50%;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-size: 1.5rem;
+                ">
+                  {% if order.payment_method == 'prepaid' %}💳{% else %}📦{% endif %}
+                </div>
+                
+                <div>
+                  <div style="font-size: 0.75rem; text-transform: uppercase; color: rgba(229,231,235,.5); margin-bottom: 4px; letter-spacing: 0.05em;">
+                    Спосіб оплати
+                  </div>
+                  <div style="font-size: 1.1rem; font-weight: 700; color: #e5e7eb; margin-bottom: 4px;">
+                    {% if order.payment_method == 'prepaid' %}
+                      💳 Оплачено передоплатою
+                    {% else %}
+                      📦 Накладний платіж
+                    {% endif %}
+                  </div>
+                  <div style="font-size: 0.85rem; color: rgba(229,231,235,.6);">
+                    {% if order.payment_method == 'prepaid' %}
+                      Клієнт оплатив товар. Ви сплачуєте <strong style="color: #a78bfa;">{{ order.total_drop_price|floatformat:0 }} ₴</strong>
+                    {% else %}
+                      Передоплата <strong style="color: #a78bfa;">200 ₴</strong> на випадок відмови клієнта
+                    {% endif %}
+                  </div>
+                </div>
+                
+                <div style="text-align: right;">
+                  <div style="font-size: 0.75rem; text-transform: uppercase; color: rgba(229,231,235,.5); margin-bottom: 4px;">
+                    До сплати
+                  </div>
+                  <div style="
+                    font-size: 1.8rem;
+                    font-weight: 900;
+                    background: linear-gradient(135deg, #8b5cf6, #6366f1);
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                  ">
+                    {{ order.dropshipper_payment_required|floatformat:0 }} ₴
+                  </div>
+                </div>
+              </div>
+              
               {# Список товаров (expandable) #}
               {% if order.items.all %}
                 <details style="
