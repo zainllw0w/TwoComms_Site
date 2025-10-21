@@ -1116,10 +1116,23 @@ document.addEventListener('DOMContentLoaded',()=>{
     let touchStartY = null;
     let touchStartX = null;
     let touchMoved = false;
+    
+    // Накопление скролла для предотвращения мерцания на мобильных
+    let scrollAccumulator = 0;
+    let lastToggleTime = 0;
+    const minToggleInterval = 300; // Минимум 300ms между переключениями
 
     const setHidden = (v)=>{
       if(hidden === v) return;
+      
+      // Предотвращаем слишком частые переключения
+      const now = Date.now();
+      if(now - lastToggleTime < minToggleInterval) return;
+      
       hidden = v;
+      lastToggleTime = now;
+      scrollAccumulator = 0; // Сбрасываем аккумулятор
+      
       // Используем batch operations для предотвращения reflow
       PerformanceOptimizer.batchDOMOperations([
         () => bottomNav.classList.toggle('bottom-nav--hidden', hidden)
@@ -1138,18 +1151,30 @@ document.addEventListener('DOMContentLoaded',()=>{
     // Оптимизированная обработка скролла с использованием PerformanceOptimizer
     PerformanceOptimizer.onScrollChange = (currentY, lastY) => {
       const dy = currentY - lastY;
-      const threshold = 8;
+      
+      // Накапливаем скролл для более надёжного определения направления
+      scrollAccumulator += dy;
+      
+      // Увеличенный порог для более стабильной работы на touch-устройствах
+      const threshold = 30;
       
       // Скролл вниз - скрыть меню
-      if(dy > threshold) {
+      if(scrollAccumulator > threshold) {
         setHidden(true);
+        scrollAccumulator = 0;
       } 
       // Скролл вверх - показать меню (но только если оно уже скрыто)
-      else if(dy < -threshold) {
+      else if(scrollAccumulator < -threshold) {
         // Если меню уже показано (hidden=false), не трогаем его
         if(hidden) {
           setHidden(false);
         }
+        scrollAccumulator = 0;
+      }
+      
+      // Сбрасываем аккумулятор если он стал слишком большим
+      if(Math.abs(scrollAccumulator) > 200) {
+        scrollAccumulator = 0;
       }
     };
     
