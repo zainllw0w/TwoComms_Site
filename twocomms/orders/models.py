@@ -279,6 +279,11 @@ class DropshipperOrder(models.Model):
         ('refunded', 'Повернено'),
     ]
     
+    PAYMENT_METHOD_CHOICES = [
+        ('prepaid', 'Оплачено (передоплата)'),
+        ('cod', 'Накладний платіж'),
+    ]
+    
     # Информация о дропшипере
     dropshipper = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='dropshipper_orders', verbose_name="Дропшипер")
     
@@ -296,6 +301,11 @@ class DropshipperOrder(models.Model):
     total_drop_price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Загальна ціна дропа")
     total_selling_price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Загальна ціна продажу")
     profit = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Прибуток")
+    
+    # Информация об оплате
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cod', verbose_name="Спосіб оплати")
+    prepayment_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Сума передоплати")
+    dropshipper_payment_required = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Дропшипер має сплатити")
     
     # Дополнительная информация
     notes = models.TextField(blank=True, null=True, verbose_name="Примітки")
@@ -341,6 +351,26 @@ class DropshipperOrder(models.Model):
         """Рассчитывает прибыль от заказа"""
         self.profit = self.total_selling_price - self.total_drop_price
         return self.profit
+    
+    def calculate_dropshipper_payment(self):
+        """Рассчитывает сумму которую должен оплатить дропшипер"""
+        if self.payment_method == 'prepaid':
+            # Если заказ оплачен - дропшипер платит полную стоимость дропа
+            self.dropshipper_payment_required = self.total_drop_price
+            self.prepayment_amount = 0
+        else:  # cod - наложенный платеж
+            # Дропшипер платит предоплату 200 грн
+            self.prepayment_amount = 200
+            self.dropshipper_payment_required = 200
+        
+        return self.dropshipper_payment_required
+    
+    def get_payment_method_display_detailed(self):
+        """Возвращает детальное описание способа оплаты"""
+        if self.payment_method == 'prepaid':
+            return f"Оплачено передоплатою (дропшипер сплачує {self.total_drop_price} грн)"
+        else:
+            return f"Накладний платіж (дропшипер сплачує передоплату 200 грн)"
 
 
 class DropshipperOrderItem(models.Model):
