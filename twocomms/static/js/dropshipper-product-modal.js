@@ -753,43 +753,33 @@
    * Обновить счетчик заказов в сайдбаре
    */
   function updateOrdersCounter() {
-    // Находим счетчик заказов в сайдбаре
-    const ordersLink = document.querySelector('[href*="orders"]');
-    if (!ordersLink) return;
+    // Находим badge по data-атрибуту
+    const badge = document.querySelector('[data-orders-badge]');
     
-    // Ищем или создаем badge
-    let badge = ordersLink.querySelector('.ds-sidebar__badge');
     if (!badge) {
-      badge = document.createElement('span');
-      badge.className = 'ds-sidebar__badge';
-      badge.style.cssText = `
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 20px;
-        height: 20px;
-        padding: 0 6px;
-        background: linear-gradient(135deg, #8b5cf6, #6366f1);
-        color: white;
-        border-radius: 10px;
-        font-size: 0.75rem;
-        font-weight: 700;
-        margin-left: 8px;
-      `;
-      ordersLink.appendChild(badge);
+      console.warn('⚠️ Badge заказов не найден в DOM');
+      return;
+    }
+    
+    // Показываем badge если он скрыт
+    if (badge.hasAttribute('hidden')) {
+      badge.removeAttribute('hidden');
     }
     
     // Увеличиваем счетчик
     const currentCount = parseInt(badge.textContent) || 0;
-    badge.textContent = currentCount + 1;
+    const newCount = currentCount + 1;
+    badge.textContent = newCount;
     
-    // Анимация
-    badge.style.transform = 'scale(1.3)';
+    // Анимация увеличения
+    badge.style.transition = 'transform 0.2s ease';
+    badge.style.transform = 'scale(1.4)';
+    
     setTimeout(() => {
       badge.style.transform = 'scale(1)';
     }, 200);
     
-    console.log('✅ Счетчик заказов обновлен:', currentCount + 1);
+    console.log('✅ Счетчик заказов обновлен:', newCount);
   }
   
   /**
