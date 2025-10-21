@@ -395,6 +395,14 @@
     document.body.appendChild(backdrop);
     document.body.appendChild(popup);
     
+    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: убираем position: relative с body
+    // Это ломает position: fixed - он начинает работать как absolute!
+    const originalBodyPosition = document.body.style.position;
+    document.body.style.position = 'static';
+    
+    // Сохраняем оригинальную позицию для восстановления при закрытии
+    popup.dataset.originalBodyPosition = originalBodyPosition;
+    
     // Блокируем скролл страницы
     document.body.style.overflow = 'hidden';
     
@@ -429,6 +437,12 @@
       // Анимация исчезновения
       popup.style.transform = 'translate(-50%, -50%) scale(0.8)';
       popup.style.opacity = '0';
+      
+      // Восстанавливаем оригинальную позицию body
+      const originalPosition = popup.dataset.originalBodyPosition;
+      if (originalPosition !== undefined) {
+        document.body.style.position = originalPosition;
+      }
       
       // Удаление после анимации
       setTimeout(() => {
