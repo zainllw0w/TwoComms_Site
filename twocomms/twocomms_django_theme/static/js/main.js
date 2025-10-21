@@ -1116,24 +1116,26 @@ document.addEventListener('DOMContentLoaded',()=>{
     let touchStartY = null;
     let touchStartX = null;
     let touchMoved = false;
+    let isScrolling = false;
+    let scrollEndTimer = null;
     
-    // Накопление скролла для предотвращения мерцания на мобильных
-    let scrollAccumulator = 0;
+    // Улучшенная система предотвращения мерцания
+    let scrollDirection = 0; // -1 = вверх, 1 = вниз, 0 = нет
+    let scrollMomentum = 0; // Накопленный импульс скролла
     let lastToggleTime = 0;
-    const minToggleInterval = 300; // Минимум 300ms между переключениями
+    const TOGGLE_COOLDOWN = 400; // Минимальная пауза между переключениями
 
-    const setHidden = (v)=>{
+    const setHidden = (v, force = false)=>{
       if(hidden === v) return;
       
-      // Предотвращаем слишком частые переключения
+      // Защита от частых переключений
       const now = Date.now();
-      if(now - lastToggleTime < minToggleInterval) return;
+      if(!force && now - lastToggleTime < TOGGLE_COOLDOWN) return;
       
       hidden = v;
       lastToggleTime = now;
-      scrollAccumulator = 0; // Сбрасываем аккумулятор
+      scrollMomentum = 0; // Полный сброс при переключении
       
-      // Используем batch operations для предотвращения reflow
       PerformanceOptimizer.batchDOMOperations([
         () => bottomNav.classList.toggle('bottom-nav--hidden', hidden)
       ]);
@@ -1148,34 +1150,45 @@ document.addEventListener('DOMContentLoaded',()=>{
       hintShown = true;
     };
 
-    // Оптимизированная обработка скролла с использованием PerformanceOptimizer
+    // Оптимизированная обработка скролла
     PerformanceOptimizer.onScrollChange = (currentY, lastY) => {
       const dy = currentY - lastY;
+      if(Math.abs(dy) < 1) return; // Игнорируем микро-движения
       
-      // Накапливаем скролл для более надёжного определения направления
-      scrollAccumulator += dy;
+      isScrolling = true;
+      clearTimeout(scrollEndTimer);
+      scrollEndTimer = setTimeout(() => {
+        isScrolling = false;
+        scrollMomentum = 0; // Сброс после остановки скролла
+      }, 150);
       
-      // Увеличенный порог для более стабильной работы на touch-устройствах
-      const threshold = 30;
+      // Определяем направление с гистерезисом
+      const currentDirection = dy > 2 ? 1 : (dy < -2 ? -1 : 0);
       
-      // Скролл вниз - скрыть меню
-      if(scrollAccumulator > threshold) {
+      // Сброс импульса при смене направления
+      if(currentDirection !== 0 && scrollDirection !== 0 && currentDirection !== scrollDirection) {
+        scrollMomentum = 0;
+      }
+      scrollDirection = currentDirection;
+      
+      // Накапливаем импульс
+      scrollMomentum += dy;
+      
+      // Разные пороги для скрытия и показа (гистерезис)
+      const HIDE_THRESHOLD = 50;  // Нужно проскроллить вниз 50px
+      const SHOW_THRESHOLD = -20; // Нужно проскроллить вверх 20px
+      
+      // Скрытие меню - только при значительном скролле вниз
+      if(!hidden && scrollMomentum > HIDE_THRESHOLD) {
         setHidden(true);
-        scrollAccumulator = 0;
-      } 
-      // Скролл вверх - показать меню (но только если оно уже скрыто)
-      else if(scrollAccumulator < -threshold) {
-        // Если меню уже показано (hidden=false), не трогаем его
-        if(hidden) {
-          setHidden(false);
-        }
-        scrollAccumulator = 0;
+      }
+      // Показ меню - при любом скролле вверх (если скрыто)
+      else if(hidden && scrollMomentum < SHOW_THRESHOLD) {
+        setHidden(false);
       }
       
-      // Сбрасываем аккумулятор если он стал слишком большим
-      if(Math.abs(scrollAccumulator) > 200) {
-        scrollAccumulator = 0;
-      }
+      // Ограничиваем импульс
+      scrollMomentum = Math.max(-100, Math.min(100, scrollMomentum));
     };
     
     // Инициализируем оптимизированный скролл
@@ -1194,7 +1207,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       }
     });
 
-    // Свайпы по самому нижнему меню и по странице: вниз — скрыть, вверх — показать
+    // Свайпы - только для явных жестов, не конфликтующих со скроллом
     const onTouchStart = (e)=>{
       const t = e.touches ? e.touches[0] : e;
       touchStartY = t.clientY;
@@ -1206,25 +1219,37 @@ document.addEventListener('DOMContentLoaded',()=>{
     };
     const onTouchEnd = (e)=>{
       if(touchStartY == null) return;
+      
+      // Игнорируем тач-события во время активного скролла
+      if(isScrolling) {
+        touchStartY = touchStartX = null;
+        touchMoved = false;
+        return;
+      }
+      
       const t = (e.changedTouches && e.changedTouches[0]) || e;
       const dy = (t.clientY - touchStartY) || 0;
       const dx = (t.clientX - touchStartX) || 0;
       const absY = Math.abs(dy), absX = Math.abs(dx);
-      // вертикальный жест с минимальным порогом и явным преобладанием вертикали
-      if(absY > 20 && absY > absX * 1.4){
-        if(dy > 0) setHidden(true); else setHidden(false);
+      
+      // Только явные вертикальные свайпы (не скролл!)
+      // Увеличенный порог для предотвращения ложных срабатываний
+      if(absY > 40 && absY > absX * 2){
+        if(dy > 0) {
+          setHidden(true, true); // force = true для свайпов
+        } else {
+          if(hidden) setHidden(false, true);
+        }
         maybeShowHint();
       }
       touchStartY = touchStartX = null;
       touchMoved = false;
     };
-    // Навешиваем и на меню, и глобально (на случай свайпов с контента)
+    
+    // Навешиваем только на меню (не глобально, чтобы не конфликтовать со скроллом)
     bottomNav.addEventListener('touchstart', onTouchStart, {passive:true});
     bottomNav.addEventListener('touchmove', onTouchMove, {passive:true});
     bottomNav.addEventListener('touchend', onTouchEnd, {passive:true});
-    document.addEventListener('touchstart', onTouchStart, {passive:true});
-    document.addEventListener('touchmove', onTouchMove, {passive:true});
-    document.addEventListener('touchend', onTouchEnd, {passive:true});
 
     // Первичная ненавязчивая подсказка — один раз за сессию
     setTimeout(()=>{ maybeShowHint(); }, 800);
