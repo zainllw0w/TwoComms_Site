@@ -136,15 +136,61 @@
             </div>
             <div style="flex: 1; min-width: 250px;">
               <h4 id="dsProductTitle" style="margin: 0 0 10px; font-weight: 700; color: #e5e7eb; font-size: 1.2rem;"></h4>
-              <p id="dsProductDescription" style="margin: 0 0 15px; color: rgba(229,231,235,.7); font-size: 0.9rem;"></p>
-              <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-                <div>
-                  <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,.5);">Ціна дропа:</span>
-                  <div id="dsProductDropPrice" style="font-size: 1.3rem; font-weight: 800; color: #10b981; margin-top: 4px;">0 грн</div>
+              
+              <!-- Сворачиваемое описание -->
+              <div style="margin-bottom: 15px;">
+                <button type="button" id="dsProductDescriptionToggle" style="
+                  background: rgba(139,92,246,.15);
+                  border: 1px solid rgba(139,92,246,.3);
+                  color: #a78bfa;
+                  padding: 6px 12px;
+                  border-radius: 8px;
+                  font-size: 0.85rem;
+                  cursor: pointer;
+                  display: flex;
+                  align-items: center;
+                  gap: 6px;
+                  transition: all 0.2s;
+                " onmouseover="this.style.background='rgba(139,92,246,.25)'" onmouseout="this.style.background='rgba(139,92,246,.15)'">
+                  <i class="fas fa-chevron-down" id="dsDescToggleIcon"></i>
+                  <span>Опис товару</span>
+                </button>
+                <div id="dsProductDescription" style="
+                  max-height: 0;
+                  overflow: hidden;
+                  transition: max-height 0.3s ease;
+                  margin-top: 10px;
+                  color: rgba(229,231,235,.7);
+                  font-size: 0.9rem;
+                  line-height: 1.6;
+                "></div>
+              </div>
+              
+              <!-- Цены в стиле сайта -->
+              <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: stretch;">
+                <div style="
+                  flex: 1;
+                  min-width: 140px;
+                  background: linear-gradient(135deg, rgba(16,185,129,.15), rgba(5,150,105,.15));
+                  border: 1px solid rgba(16,185,129,.3);
+                  border-radius: 12px;
+                  padding: 12px 16px;
+                ">
+                  <span style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(16,185,129,.8); font-weight: 600;">Ціна дропа</span>
+                  <div id="dsProductDropPrice" style="font-size: 1.4rem; font-weight: 800; color: #10b981; margin-top: 6px;">0 грн</div>
+                  <span style="font-size: 0.7rem; color: rgba(16,185,129,.6);">Закупівельна вартість</span>
                 </div>
-                <div>
-                  <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,.5);">Рекомендована:</span>
-                  <div id="dsProductRecommendedPrice" style="font-size: 1.3rem; font-weight: 800; color: #8b5cf6; margin-top: 4px;">0 грн</div>
+                <div style="
+                  flex: 1;
+                  min-width: 140px;
+                  background: linear-gradient(135deg, rgba(139,92,246,.15), rgba(124,58,237,.15));
+                  border: 1px solid rgba(139,92,246,.3);
+                  border-radius: 12px;
+                  padding: 12px 16px;
+                ">
+                  <span style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(139,92,246,.8); font-weight: 600;">Рекомендована</span>
+                  <div id="dsProductRecommendedPrice" style="font-size: 1.4rem; font-weight: 800; color: #8b5cf6; margin-top: 6px;">0 грн</div>
+                  <div id="dsProductPriceRange" style="font-size: 0.7rem; color: rgba(139,92,246,.6); margin-top: 2px;"></div>
                 </div>
               </div>
             </div>
@@ -548,10 +594,28 @@
       productTitle.textContent = product.title;
     }
     
-    // Описание
+    // Описание (сворачиваемое)
     const productDescription = popup.querySelector('#dsProductDescription');
-    if (productDescription) {
-      productDescription.textContent = product.description || 'Опис товару відсутній';
+    const descToggle = popup.querySelector('#dsProductDescriptionToggle');
+    const descToggleIcon = popup.querySelector('#dsDescToggleIcon');
+    
+    if (productDescription && product.description) {
+      productDescription.textContent = product.description;
+      
+      // Обработчик сворачивания/разворачивания
+      if (descToggle) {
+        descToggle.addEventListener('click', () => {
+          const isExpanded = productDescription.style.maxHeight !== '0px' && productDescription.style.maxHeight !== '';
+          
+          if (isExpanded) {
+            productDescription.style.maxHeight = '0';
+            if (descToggleIcon) descToggleIcon.className = 'fas fa-chevron-down';
+          } else {
+            productDescription.style.maxHeight = productDescription.scrollHeight + 'px';
+            if (descToggleIcon) descToggleIcon.className = 'fas fa-chevron-up';
+          }
+        });
+      }
     }
     
     // Цены
@@ -562,13 +626,23 @@
     
     const productRecommendedPrice = popup.querySelector('#dsProductRecommendedPrice');
     if (productRecommendedPrice) {
-      productRecommendedPrice.textContent = `${product.recommended_price} грн`;
+      productRecommendedPrice.textContent = `${product.recommended_price || product.drop_price} грн`;
+    }
+    
+    // Диапазон цены (как на сайте)
+    const productPriceRange = popup.querySelector('#dsProductPriceRange');
+    if (productPriceRange && product.recommended_price && product.drop_price) {
+      const minPrice = Math.round(product.recommended_price * 0.9);
+      const maxPrice = Math.round(product.recommended_price * 1.1);
+      productPriceRange.textContent = `Діапазон ${minPrice}–${maxPrice} грн`;
     }
     
     // Устанавливаем рекомендованную цену как цену продажи по умолчанию
     const productSellingPrice = popup.querySelector('#dsProductSellingPrice');
-    if (productSellingPrice && product.recommended_price) {
-      productSellingPrice.value = product.recommended_price;
+    if (productSellingPrice) {
+      const defaultPrice = product.recommended_price || product.drop_price;
+      productSellingPrice.value = defaultPrice;
+      productSellingPrice.setAttribute('min', product.drop_price);
     }
     
     // Цвета
@@ -648,6 +722,9 @@
         // Закрываем модальное окно
         closeDsProductPopup();
         
+        // АВТООБНОВЛЕНИЕ СЧЕТЧИКА ЗАКАЗОВ
+        updateOrdersCounter();
+        
         // Обновляем список заказов
         if (typeof loadExistingOrders === 'function') {
           setTimeout(() => loadExistingOrders(), 500);
@@ -670,6 +747,49 @@
         submitBtn.innerHTML = originalBtnHTML;
       }
     });
+  }
+  
+  /**
+   * Обновить счетчик заказов в сайдбаре
+   */
+  function updateOrdersCounter() {
+    // Находим счетчик заказов в сайдбаре
+    const ordersLink = document.querySelector('[href*="orders"]');
+    if (!ordersLink) return;
+    
+    // Ищем или создаем badge
+    let badge = ordersLink.querySelector('.ds-sidebar__badge');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'ds-sidebar__badge';
+      badge.style.cssText = `
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 20px;
+        height: 20px;
+        padding: 0 6px;
+        background: linear-gradient(135deg, #8b5cf6, #6366f1);
+        color: white;
+        border-radius: 10px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        margin-left: 8px;
+      `;
+      ordersLink.appendChild(badge);
+    }
+    
+    // Увеличиваем счетчик
+    const currentCount = parseInt(badge.textContent) || 0;
+    badge.textContent = currentCount + 1;
+    
+    // Анимация
+    badge.style.transform = 'scale(1.3)';
+    setTimeout(() => {
+      badge.style.transform = 'scale(1)';
+    }, 200);
+    
+    console.log('✅ Счетчик заказов обновлен:', currentCount + 1);
   }
   
   /**
