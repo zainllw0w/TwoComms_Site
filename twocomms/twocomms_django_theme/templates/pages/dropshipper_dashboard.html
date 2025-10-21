@@ -6,19 +6,9 @@
 
 {% block extra_css %}
 {% compress css %}
-<link rel="stylesheet" href="{% static 'css/dropshipper.css' %}" media="all">
+<link rel="stylesheet" href="{% static 'css/dropshipper/base.css' %}" media="all">
+<link rel="stylesheet" href="{% static 'css/dropshipper/dashboard.css' %}" media="all">
 {% endcompress %}
-<style>
-/* Принудительное применение стилей дропшиппинга */
-.ds-shell {
-  background: var(--ds-bg) !important;
-  color: var(--ds-text) !important;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-}
-.ds-shell * {
-  box-sizing: border-box;
-}
-</style>
 {% endblock %}
 
 {% block content %}
