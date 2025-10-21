@@ -10316,8 +10316,8 @@ body::after {
   border-radius: 18px;
   padding: 8px;
   z-index: 1030 !important;
-  transition: transform 0.28s ease, opacity 0.2s ease;
-  will-change: transform;
+  transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.2s ease;
+  will-change: auto; /* Changed back to auto to prevent jank with position: fixed */
   display: flex !important; /* Override Bootstrap d-lg-none */
   box-sizing: border-box !important;
 }
@@ -10343,6 +10343,15 @@ body::after {
   transform: translateX(-50%) translateY(calc(100% + 20px)) !important;
   opacity: 0;
   pointer-events: none;
+}
+
+/* Улучшение плавности рендеринга */
+.bottom-nav,
+.bottom-nav * {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  -webkit-perspective: 1000;
+  perspective: 1000;
 }
 
 .bottom-nav .btn {
