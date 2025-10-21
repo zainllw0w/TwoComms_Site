@@ -1,5 +1,4 @@
 from django.urls import path
-from django.shortcuts import render
 from . import dropshipper_views
 
 app_name = 'orders'
@@ -12,7 +11,6 @@ urlpatterns = [
     path('dropshipper/statistics/', dropshipper_views.dropshipper_statistics, name='dropshipper_statistics'),
     path('dropshipper/payouts/', dropshipper_views.dropshipper_payouts, name='dropshipper_payouts'),
     path('dropshipper/company/', dropshipper_views.dropshipper_company_settings, name='dropshipper_company'),
-    path('dropshipper/test/', lambda request: render(request, 'pages/dropshipper_test.html'), name='dropshipper_test'),
     
     # API маршруты
     path('dropshipper/api/create-order/', dropshipper_views.create_dropshipper_order, name='create_dropshipper_order'),
