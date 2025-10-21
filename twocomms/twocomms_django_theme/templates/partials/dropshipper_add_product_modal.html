@@ -126,15 +126,21 @@
 </div>
 
 <style>
-/* Новые стили для модального окна */
+/* Новые стили для модального окна - с максимальным приоритетом */
 .add-product-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 10000;
-  display: block;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 10000 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .add-product-modal[hidden] {
@@ -142,42 +148,41 @@
 }
 
 .add-product-modal__backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
-  z-index: 10001;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(0, 0, 0, 0.75) !important;
+  backdrop-filter: blur(8px) !important;
+  z-index: 10001 !important;
 }
 
 .add-product-modal__dialog {
-  position: fixed;
-  top: 50vh;
-  left: 50vw;
-  transform: translate(-50%, -50%);
-  margin: 0;
-  max-width: 900px;
-  width: 90vw;
-  max-height: 90vh;
-  overflow-y: auto;
-  z-index: 10002;
-  background: linear-gradient(135deg, rgba(20, 22, 27, 0.98), rgba(14, 16, 22, 0.98));
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
-  animation: modalSlideIn 0.3s ease-out;
+  position: relative !important;
+  margin: auto !important;
+  max-width: 900px !important;
+  width: 90vw !important;
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+  z-index: 10002 !important;
+  background: linear-gradient(135deg, rgba(20, 22, 27, 0.98), rgba(14, 16, 22, 0.98)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6) !important;
+  animation: modalSlideIn 0.3s ease-out !important;
 }
 
 @keyframes modalSlideIn {
   from {
     opacity: 0;
-    transform: translate(-50%, -48%);
+    transform: scale(0.95) translateY(-20px);
   }
   to {
     opacity: 1;
-    transform: translate(-50%, -50%);
+    transform: scale(1) translateY(0);
   }
 }
 
@@ -448,33 +453,37 @@ textarea.form-control {
 
 /* Адаптивность */
 @media (max-width: 768px) {
+  .add-product-modal {
+    padding: 10px !important;
+  }
+  
   .add-product-modal__dialog {
-    width: 95vw;
-    max-height: 95vh;
+    width: 95vw !important;
+    max-height: 95vh !important;
   }
   
   .product-info {
-    grid-template-columns: 1fr;
-    gap: 16px;
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
   }
   
   .product-info__image {
-    width: 100%;
-    height: 200px;
-    margin: 0 auto;
+    width: 100% !important;
+    height: 200px !important;
+    margin: 0 auto !important;
   }
   
   .form-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
   }
   
   .add-product-modal__footer {
-    flex-direction: column;
+    flex-direction: column !important;
   }
   
   .btn {
-    width: 100%;
-    justify-content: center;
+    width: 100% !important;
+    justify-content: center !important;
   }
 }
 
