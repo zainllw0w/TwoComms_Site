@@ -44,6 +44,7 @@ html {
   overflow-x: hidden !important;
   position: static !important; /* Changed from relative to fix position: fixed for bottom-nav */
   transform: none !important; /* Prevent transform from breaking position: fixed */
+  will-change: auto !important; /* Prevent will-change from breaking position: fixed */
 }
 
 body {
