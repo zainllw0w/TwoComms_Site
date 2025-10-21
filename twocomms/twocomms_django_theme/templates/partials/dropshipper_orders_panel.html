@@ -39,23 +39,106 @@
     {% if page_obj and page_obj.object_list %}
       <div class="ds-orders-table">
         {% for order in page_obj %}
-          <article class="ds-order-entry" data-fade>
-            <header class="ds-order-entry__header">
-              <div>
-                <span class="ds-pill ds-pill--ghost">
-                  <i class="fas fa-hashtag" aria-hidden="true"></i>
-                  {{ order.order_number }}
-                </span>
-                <h2 class="ds-order-entry__title">{{ order.client_name|default:"Без назви" }}</h2>
-                <p class="ds-order-entry__meta">
-                  {{ order.created_at|date:"d.m.Y" }} · {{ order.get_status_display }}
+          <article class="ds-order-entry" data-fade style="
+            background: linear-gradient(135deg, rgba(20,22,27,.95), rgba(14,16,22,.95));
+            border: 1px solid rgba(255,255,255,.1);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,.3);
+          ">
+            <header class="ds-order-entry__header" style="
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              margin-bottom: 20px;
+              padding-bottom: 20px;
+              border-bottom: 1px solid rgba(255,255,255,.08);
+            ">
+              <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                  <span class="ds-pill ds-pill--ghost" style="
+                    background: rgba(139,92,246,.15);
+                    border: 1px solid rgba(139,92,246,.3);
+                    color: #a78bfa;
+                    padding: 6px 12px;
+                    border-radius: 8px;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                  ">
+                    <i class="fas fa-hashtag" aria-hidden="true"></i>
+                    {{ order.order_number }}
+                  </span>
+                  {% if order.status == 'draft' %}
+                    <span style="
+                      background: rgba(234,179,8,.15);
+                      border: 1px solid rgba(234,179,8,.3);
+                      color: #fbbf24;
+                      padding: 4px 10px;
+                      border-radius: 6px;
+                      font-size: 0.75rem;
+                      font-weight: 600;
+                    ">
+                      <i class="fas fa-clock" aria-hidden="true"></i>
+                      Потребує підтвердження
+                    </span>
+                  {% endif %}
+                </div>
+                <h2 style="margin: 0 0 8px; font-size: 1.3rem; font-weight: 700; color: #e5e7eb;">
+                  {{ order.client_name|default:"Без назви" }}
+                </h2>
+                <p style="margin: 0; font-size: 0.9rem; color: rgba(229,231,235,.6);">
+                  <i class="fas fa-calendar" aria-hidden="true"></i>
+                  {{ order.created_at|date:"d.m.Y H:i" }}
+                  {% if order.tracking_number %}
+                    · <i class="fas fa-truck" aria-hidden="true"></i>
+                    TTN: <strong style="color: #10b981;">{{ order.tracking_number }}</strong>
+                  {% endif %}
                 </p>
               </div>
-              <div class="ds-order-entry__status">
-                <span class="ds-status {% if order.status == 'delivered' %}ds-status--success{% elif order.status == 'cancelled' %}ds-status--danger{% else %}ds-status--info{% endif %}">
+              <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                <span class="ds-status" style="
+                  {% if order.status == 'delivered' %}
+                    background: linear-gradient(135deg, rgba(16,185,129,.2), rgba(5,150,105,.2));
+                    border: 1px solid rgba(16,185,129,.4);
+                    color: #10b981;
+                  {% elif order.status == 'cancelled' %}
+                    background: linear-gradient(135deg, rgba(239,68,68,.2), rgba(220,38,38,.2));
+                    border: 1px solid rgba(239,68,68,.4);
+                    color: #ef4444;
+                  {% elif order.status == 'shipped' %}
+                    background: linear-gradient(135deg, rgba(59,130,246,.2), rgba(37,99,235,.2));
+                    border: 1px solid rgba(59,130,246,.4);
+                    color: #3b82f6;
+                  {% else %}
+                    background: linear-gradient(135deg, rgba(139,92,246,.2), rgba(124,58,237,.2));
+                    border: 1px solid rgba(139,92,246,.4);
+                    color: #8b5cf6;
+                  {% endif %}
+                  padding: 8px 16px;
+                  border-radius: 10px;
+                  font-size: 0.85rem;
+                  font-weight: 700;
+                  text-align: center;
+                ">
+                  <i class="fas {% if order.status == 'delivered' %}fa-check-circle{% elif order.status == 'cancelled' %}fa-times-circle{% elif order.status == 'shipped' %}fa-truck{% else %}fa-hourglass-half{% endif %}" aria-hidden="true"></i>
                   {{ order.get_status_display }}
                 </span>
-                <span class="ds-payment-status {% if order.payment_status == 'paid' %}is-paid{% endif %}">
+                <span class="ds-payment-status" style="
+                  {% if order.payment_status == 'paid' %}
+                    background: rgba(16,185,129,.15);
+                    border: 1px solid rgba(16,185,129,.3);
+                    color: #10b981;
+                  {% else %}
+                    background: rgba(234,179,8,.15);
+                    border: 1px solid rgba(234,179,8,.3);
+                    color: #fbbf24;
+                  {% endif %}
+                  padding: 6px 12px;
+                  border-radius: 8px;
+                  font-size: 0.8rem;
+                  font-weight: 600;
+                ">
                   <i class="fas fa-credit-card" aria-hidden="true"></i>
                   {{ order.get_payment_status_display }}
                 </span>
