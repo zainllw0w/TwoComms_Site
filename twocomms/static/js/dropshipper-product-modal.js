@@ -599,29 +599,17 @@
     // Блокируем скролл страницы
     document.body.style.overflow = 'hidden';
     
-    // ===== ШАГ 7: АБСОЛЮТНОЕ ЦЕНТРИРОВАНИЕ ЧЕРЕЗ VIEWPORT + SCROLL =====
-    // КРИТИЧЕСКИ ВАЖНО: position: fixed работает относительно viewport,
-    // НО если страница прокручена - нужно учитывать scrollY!
+    // ===== ШАГ 7: ПРАВИЛЬНОЕ ЦЕНТРИРОВАНИЕ ДЛЯ POSITION: FIXED =====
+    // КРИТИЧЕСКИ ВАЖНО: position: fixed позиционируется относительно VIEWPORT,
+    // поэтому используем 50% БЕЗ учета scrollY!
     setTimeout(() => {
-      const viewportHeight = window.innerHeight;
-      const viewportWidth = window.innerWidth;
-      const scrollY = window.scrollY || window.pageYOffset;
-      
-      // Вычисляем абсолютную позицию центра ВИДИМОЙ области viewport
-      const centerY = scrollY + (viewportHeight / 2);
-      const centerX = viewportWidth / 2;
-      
-      // ЯВНО устанавливаем координаты
-      popup.style.setProperty('top', `${centerY}px`, 'important');
-      popup.style.setProperty('left', `${centerX}px`, 'important');
+      // Для position: fixed используем проценты - они работают относительно viewport
+      popup.style.setProperty('top', '50%', 'important');
+      popup.style.setProperty('left', '50%', 'important');
       popup.style.transform = 'translate(-50%, -50%) scale(1)';
       popup.style.opacity = '1';
       
-      console.log('✅ Модальное окно отцентровано:', {
-        scrollY,
-        top: `${centerY}px`,
-        left: `${centerX}px`
-      });
+      console.log('✅ Модальное окно отцентровано (fixed positioning)');
     }, 10);
     
     // ===== ШАГ 8: ЗАГРУЗКА ДАННЫХ ТОВАРА =====
