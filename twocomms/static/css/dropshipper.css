@@ -72,15 +72,21 @@ main.container-xxl.py-4.py-md-5 {
   height: auto !important;
 }
 
-/* КРИТИЧНО: когда открыто модальное окно, убираем position: relative */
+/* КРИТИЧНО: когда открыто модальное окно, убираем position: relative у ВСЕХ контейнеров */
+body.ds-modal-open,
 body.ds-modal-open .ds-shell,
-body.ds-modal-open.ds-shell {
+body.ds-modal-open.ds-shell,
+body.ds-modal-open .ds-panel,
+body.ds-modal-open .ds-container,
+body.ds-modal-open main,
+body.ds-modal-open .container-xxl {
   position: static !important;
 }
 
 /* И убираем псевдоэлементы которые используют position: fixed */
 body.ds-modal-open .ds-shell::before,
-body.ds-modal-open .ds-shell::after {
+body.ds-modal-open .ds-shell::after,
+body.ds-modal-open .ds-panel::before {
   display: none !important;
 }
 
@@ -315,11 +321,6 @@ body.ds-modal-open .ds-shell::after {
   color: var(--ds-text) !important;
 }
 
-/* КРИТИЧНО: когда открыто модальное окно, убираем position: relative */
-body.ds-modal-open .ds-main,
-body.ds-modal-open .ds-main {
-  position: static !important;
-}
 
 .ds-container {
   width: min(1600px, 100%);
