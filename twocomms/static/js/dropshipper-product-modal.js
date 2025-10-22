@@ -623,24 +623,9 @@
     document.body.appendChild(backdrop);
     document.body.appendChild(popup);
     
-    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: убираем position: relative с body
-    // Это ломает position: fixed - он начинает работать как absolute!
-    const originalBodyPosition = document.body.style.position;
-    document.body.style.position = 'static';
-    
-    // Также убираем position у всех родительских контейнеров
-    const dsShell = document.querySelector('.ds-shell');
-    const dsMain = document.querySelector('.ds-main');
-    const originalShellPosition = dsShell ? dsShell.style.position : '';
-    const originalMainPosition = dsMain ? dsMain.style.position : '';
-    
-    if (dsShell) dsShell.style.position = 'static';
-    if (dsMain) dsMain.style.position = 'static';
-    
-    // Сохраняем оригинальные позиции для восстановления при закрытии
-    popup.dataset.originalBodyPosition = originalBodyPosition;
-    popup.dataset.originalShellPosition = originalShellPosition;
-    popup.dataset.originalMainPosition = originalMainPosition;
+    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: добавляем класс который через CSS убирает position: relative
+    // у body, .ds-shell и .ds-main (это ломает position: fixed!)
+    document.body.classList.add('ds-modal-open');
     
     // Блокируем скролл страницы
     document.body.style.overflow = 'hidden';
@@ -651,12 +636,13 @@
     setTimeout(() => {
       // ДЕТАЛЬНОЕ ЛОГИРОВАНИЕ ДЛЯ ОТЛАДКИ
       console.log('🔍 DEBUGGING MODAL POSITIONING:');
-      console.log('  Body position:', document.body.style.position, '(computed:', window.getComputedStyle(document.body).position + ')');
+      console.log('  Body classList:', document.body.classList.contains('ds-modal-open') ? '✅ ds-modal-open' : '❌ NO CLASS');
+      console.log('  Body position (computed):', window.getComputedStyle(document.body).position);
       
       const dsShellEl = document.querySelector('.ds-shell');
       const dsMainEl = document.querySelector('.ds-main');
-      if (dsShellEl) console.log('  .ds-shell position:', dsShellEl.style.position, '(computed:', window.getComputedStyle(dsShellEl).position + ')');
-      if (dsMainEl) console.log('  .ds-main position:', dsMainEl.style.position, '(computed:', window.getComputedStyle(dsMainEl).position + ')');
+      if (dsShellEl) console.log('  .ds-shell position (computed):', window.getComputedStyle(dsShellEl).position);
+      if (dsMainEl) console.log('  .ds-main position (computed):', window.getComputedStyle(dsMainEl).position);
       
       console.log('  Viewport:', window.innerWidth + 'x' + window.innerHeight);
       console.log('  ScrollY:', window.scrollY);
@@ -813,24 +799,8 @@
       popup.style.transform = 'translate(-50%, -50%) scale(0.8)';
       popup.style.opacity = '0';
       
-      // Восстанавливаем оригинальные позиции
-      const originalBodyPosition = popup.dataset.originalBodyPosition;
-      const originalShellPosition = popup.dataset.originalShellPosition;
-      const originalMainPosition = popup.dataset.originalMainPosition;
-      
-      if (originalBodyPosition !== undefined) {
-        document.body.style.position = originalBodyPosition;
-      }
-      
-      const dsShell = document.querySelector('.ds-shell');
-      const dsMain = document.querySelector('.ds-main');
-      
-      if (dsShell && originalShellPosition !== undefined) {
-        dsShell.style.position = originalShellPosition;
-      }
-      if (dsMain && originalMainPosition !== undefined) {
-        dsMain.style.position = originalMainPosition;
-      }
+      // Убираем класс модального окна
+      document.body.classList.remove('ds-modal-open');
       
       // Удаление после анимации
       setTimeout(() => {
