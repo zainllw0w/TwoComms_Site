@@ -72,18 +72,16 @@ main.container-xxl.py-4.py-md-5 {
   height: auto !important;
 }
 
-/* КРИТИЧНО: когда открыто модальное окно, убираем position: relative у ВСЕХ контейнеров */
+/* КРИТИЧНО: когда открыто модальное окно, убираем position: relative у ВСЕХ контейнеров КРОМЕ модального окна */
 body.ds-modal-open,
-body.ds-modal-open *:not(#dsProductPopup):not(#dsProductPopup *) {
+body.ds-modal-open *:not(#dsProductPopup):not(#dsProductPopup *):not(#dsProductPopupBackdrop) {
   position: static !important;
 }
 
-/* И убираем псевдоэлементы которые используют position: fixed */
+/* И убираем ТОЛЬКО фоновые псевдоэлементы, но не иконки в модальном окне */
 body.ds-modal-open .ds-shell::before,
 body.ds-modal-open .ds-shell::after,
-body.ds-modal-open .ds-panel::before,
-body.ds-modal-open *::before,
-body.ds-modal-open *::after {
+body.ds-modal-open .ds-panel::before {
   display: none !important;
 }
 
