@@ -1826,11 +1826,87 @@ main.container-xxl.py-4.py-md-5 {
   padding: 24px !important;
 }
 
+/* Принудительное центрирование модального окна */
+.ds-modal:not([hidden]) {
+  display: grid !important;
+  place-items: center !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* СТАРЫЕ СТИЛИ УДАЛЕНЫ - используем новое модальное окно из dropshipper_add_product_modal.html */
+
 .ds-modal__overlay {
   position: absolute !important;
   inset: 0 !important;
   background: rgba(7, 7, 10, 0.78) !important;
   backdrop-filter: blur(14px) !important;
+}
+
+/* КРИТИЧЕСКИЙ CSS ДЛЯ МОДАЛЬНОГО ОКНА - ВЫСОКАЯ СПЕЦИФИЧНОСТЬ */
+#addProductModal.add-product-modal {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 10000 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+#addProductModal.add-product-modal[hidden] {
+  display: none !important;
+}
+
+/* КРИТИЧЕСКИЙ CSS - МАКСИМАЛЬНАЯ СПЕЦИФИЧНОСТЬ ПРОТИВ BOOTSTRAP */
+html body #addProductModal.add-product-modal .add-product-modal__dialog {
+  position: relative !important; /* ИСПРАВЛЕНО: используем relative для правильного центрирования через flexbox */
+  margin: auto !important; /* Центрирование через margin auto */
+  max-width: 900px !important;
+  width: 90vw !important;
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+  z-index: 10002 !important;
+  background: linear-gradient(135deg, rgba(20, 22, 27, 0.98), rgba(14, 16, 22, 0.98)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6) !important;
+  animation: modalSlideIn 0.3s ease-out !important;
+}
+
+/* ДОПОЛНИТЕЛЬНЫЙ СЕЛЕКТОР С ЕЩЕ БОЛЬШЕЙ СПЕЦИФИЧНОСТЬЮ */
+html body #addProductModal.add-product-modal .add-product-modal__dialog.add-product-modal__dialog {
+  position: relative !important;
+  margin: auto !important;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  #addProductModal.add-product-modal {
+    padding: 10px !important;
+  }
+  
+  #addProductModal.add-product-modal .add-product-modal__dialog {
+    width: 95vw !important;
+    max-height: 95vh !important;
+  }
 }
 
 .ds-modal__dialog {
