@@ -74,19 +74,16 @@ main.container-xxl.py-4.py-md-5 {
 
 /* КРИТИЧНО: когда открыто модальное окно, убираем position: relative у ВСЕХ контейнеров */
 body.ds-modal-open,
-body.ds-modal-open .ds-shell,
-body.ds-modal-open.ds-shell,
-body.ds-modal-open .ds-panel,
-body.ds-modal-open .ds-container,
-body.ds-modal-open main,
-body.ds-modal-open .container-xxl {
+body.ds-modal-open *:not(#dsProductPopup):not(#dsProductPopup *) {
   position: static !important;
 }
 
 /* И убираем псевдоэлементы которые используют position: fixed */
 body.ds-modal-open .ds-shell::before,
 body.ds-modal-open .ds-shell::after,
-body.ds-modal-open .ds-panel::before {
+body.ds-modal-open .ds-panel::before,
+body.ds-modal-open *::before,
+body.ds-modal-open *::after {
   display: none !important;
 }
 
