@@ -180,11 +180,23 @@
 }
 
 .ds-stats__grid {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 32px;
+}
+
+@media (max-width: 1024px) {
+  .ds-stats__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .ds-stats__grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .ds-stat-card {
@@ -643,6 +655,20 @@
           <span>Дізнатись більше</span>
         </a>
       </div>
+
+      <!-- XML Feed Link in Hero -->
+      <div style="margin-top: 40px; padding: 20px; background: linear-gradient(135deg, rgba(139,92,246,.15), rgba(99,102,241,.15)); border: 1px solid rgba(139,92,246,.3); border-radius: 16px; display: inline-flex; align-items: center; gap: 16px; transition: all 0.3s ease;" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 10px 30px rgba(139,92,246,.3)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+        <i class="fas fa-file-code" style="font-size: 2rem; color: #a78bfa;"></i>
+        <div style="text-align: left;">
+          <div style="font-size: 0.85rem; color: rgba(229,231,235,.6); font-weight: 600; margin-bottom: 4px;">
+            XML фід для маркетплейсів
+          </div>
+          <a href="https://twocomms.shop/products_feed.xml" target="_blank" style="font-size: 0.95rem; color: #e5e7eb; font-weight: 700; text-decoration: none; display: flex; align-items: center; gap: 8px;">
+            <span>Завантажити XML</span>
+            <i class="fas fa-external-link-alt" style="font-size: 0.8rem; color: #a78bfa;"></i>
+          </a>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -671,6 +697,18 @@
         <div class="ds-stat-card__icon">🏭</div>
         <div class="ds-stat-card__value">100%</div>
         <div class="ds-stat-card__label">власне виробництво</div>
+      </div>
+
+      <div class="ds-stat-card">
+        <div class="ds-stat-card__icon">📦</div>
+        <div class="ds-stat-card__value">Prom.ua</div>
+        <div class="ds-stat-card__label">та інші маркетплейси</div>
+      </div>
+      
+      <div class="ds-stat-card">
+        <div class="ds-stat-card__icon">⚡</div>
+        <div class="ds-stat-card__value">XML фід</div>
+        <div class="ds-stat-card__label">швидка вигрузка товарів</div>
       </div>
     </div>
   </section>
