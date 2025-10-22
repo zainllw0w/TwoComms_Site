@@ -38,6 +38,12 @@ import re
 import base64
 import time
 from datetime import timedelta
+from twocomms.cache_utils import get_fragment_cache
+from .services.catalog_helpers import (
+    build_color_preview_map,
+    get_categories_cached,
+    get_detailed_color_variants,
+)
 
 from urllib.parse import urljoin
 import requests
@@ -460,7 +466,8 @@ def google_merchant_feed(request):
 def home(request):
     # Оптимизированные запросы с select_related и prefetch_related
     featured = Product.objects.select_related('category').filter(featured=True).order_by('-id').first()
-    categories = Category.objects.select_related().filter(is_active=True).order_by('order','name')
+    fragment_cache = get_fragment_cache()
+    categories = get_categories_cached(fragment_cache)
     page_number = request.GET.get('page', '1')
     product_qs = Product.objects.select_related('category').order_by('-id')
     paginator = Paginator(product_qs, HOME_PRODUCTS_PER_PAGE)
@@ -471,40 +478,13 @@ def home(request):
         page_obj = paginator.get_page(paginator.num_pages)
 
     products = list(page_obj.object_list)
-    # Варіанти кольорів для featured (якщо є додаток і дані)
-    featured_variants = []
-    # Варіанти кольорів для «Новинок»
-    try:
-        from productcolors.models import ProductColorVariant
-        if featured:
-            vset = ProductColorVariant.objects.select_related('color').prefetch_related('images').filter(product=featured).order_by('order','id')
-            for v in vset:
-                first_image = v.images.first()
-                featured_variants.append({
-                    'primary_hex': v.color.primary_hex,
-                    'secondary_hex': v.color.secondary_hex or '',
-                    'is_default': v.is_default,
-                    'first_image_url': first_image.image.url if first_image else '',
-                })
-        # Для списку новинок — підготуємо мапу
-        prod_ids = [p.id for p in products]
-        if prod_ids:
-            vlist = ProductColorVariant.objects.select_related('color').prefetch_related('images').filter(product_id__in=prod_ids).order_by('product_id','order','id')
-            colors_map = {}
-            for v in vlist:
-                first_image = v.images.first()
-                colors_map.setdefault(v.product_id, []).append({
-                    'primary_hex': v.color.primary_hex,
-                    'secondary_hex': v.color.secondary_hex or '',
-                    'first_image_url': first_image.image.url if first_image else '',
-                })
-            for p in products:
-                setattr(p, 'colors_preview', colors_map.get(p.id, []))
-    except Exception:
-        # якщо додаток або таблиці відсутні — просто не показуємо кольори
-        for p in products:
-            setattr(p, 'colors_preview', [])
-        featured_variants = featured_variants or []
+    preview_products = list(products)
+    if featured:
+        preview_products.append(featured)
+    color_previews = build_color_preview_map(preview_products)
+    featured_variants = color_previews.get(featured.id, []) if featured else []
+    for product in products:
+        setattr(product, 'colors_preview', color_previews.get(product.id, []))
     # Проверяем есть ли еще товары для пагинации
     total_products = paginator.count
     has_more = page_obj.has_next()
@@ -543,24 +523,9 @@ def load_more_products(request):
         products = list(page_obj.object_list)
 
         # Подготавливаем цвета для товаров
-        try:
-            from productcolors.models import ProductColorVariant
-            prod_ids = [p.id for p in products]
-            if prod_ids:
-                vlist = ProductColorVariant.objects.select_related('color').prefetch_related('images').filter(product_id__in=prod_ids).order_by('product_id','order','id')
-                colors_map = {}
-                for v in vlist:
-                    first_image = v.images.first()
-                    colors_map.setdefault(v.product_id, []).append({
-                        'primary_hex': v.color.primary_hex,
-                        'secondary_hex': v.color.secondary_hex or '',
-                        'first_image_url': first_image.image.url if first_image else '',
-                    })
-                for p in products:
-                    setattr(p, 'colors_preview', colors_map.get(p.id, []))
-        except Exception:
-            for p in products:
-                setattr(p, 'colors_preview', [])
+        color_previews = build_color_preview_map(products)
+        for product in products:
+            product.colors_preview = color_previews.get(product.id, [])
         
         # Проверяем есть ли еще товары
         total_products = paginator.count
@@ -586,34 +551,21 @@ def load_more_products(request):
 
 @cache_page_for_anon(600)  # Кэшируем каталог на 10 минут только для анонимов
 def catalog(request, cat_slug=None):
-    categories = cache.get('categories_ordered')
-    if categories is None:
-        categories = list(Category.objects.order_by('order','name'))
-        cache.set('categories_ordered', categories, 600)
+    fragment_cache = get_fragment_cache()
+    categories = get_categories_cached(fragment_cache)
     if cat_slug:
         category = get_object_or_404(Category, slug=cat_slug)
-        products = Product.objects.select_related('category').filter(category=category).order_by('-id')
+        product_qs = Product.objects.select_related('category').filter(category=category).order_by('-id')
         show_category_cards = False
     else:
         category = None
-        products = Product.objects.order_by('-id')
+        product_qs = Product.objects.order_by('-id')
         show_category_cards = True
     
-    # Добавляем данные о цветах для товаров
+    products = list(product_qs)
+    color_previews = build_color_preview_map(products)
     for product in products:
-        try:
-            from productcolors.models import ProductColorVariant
-            variants = ProductColorVariant.objects.select_related('color').prefetch_related('images').filter(product=product)
-            product.colors_preview = []
-            for v in variants:
-                first_image = v.images.first()
-                product.colors_preview.append({
-                    'primary_hex': v.color.primary_hex,
-                    'secondary_hex': v.color.secondary_hex or '',
-                    'first_image_url': first_image.image.url if first_image else '',
-                })
-        except:
-            product.colors_preview = []
+        product.colors_preview = color_previews.get(product.id, [])
     
     return render(request,'pages/catalog.html',{
         'categories': categories,
@@ -628,35 +580,21 @@ def product_detail(request, slug):
     product = get_object_or_404(Product, slug=slug)
     images = product.images.all()
     # Варианты цветов с изображениями (если есть приложение и данные)
-    color_variants = []
+    color_variants = get_detailed_color_variants(product)
     auto_select_first_color = False
-    
-    try:
-        from productcolors.models import ProductColorVariant
-        variants = ProductColorVariant.objects.select_related('color').prefetch_related('images').filter(product=product)
-        for v in variants:
-            color_variants.append({
-                'id': v.id,
-                'primary_hex': v.color.primary_hex,
-                'secondary_hex': v.color.secondary_hex or '',
-                'is_default': v.is_default,
-                'images': [img.image.url for img in v.images.all()],
-            })
-        
-        # Если есть цветовые варианты, устанавливаем первый как активный по умолчанию
-        if color_variants:
-            # Устанавливаем первый цвет как активный
-            color_variants[0]['is_default'] = True
-            # Убираем is_default у остальных
-            for i in range(1, len(color_variants)):
-                color_variants[i]['is_default'] = False
-            
-            # Если нет основной картинки, помечаем для автоматического выбора изображения
-            if not product.main_image:
-                auto_select_first_color = True
-                    
-    except Exception:
-        color_variants = []
+
+    if color_variants:
+        default_index = next(
+            (idx for idx, variant in enumerate(color_variants) if variant.get('is_default')),
+            0
+        )
+        if default_index != 0:
+            default_variant = color_variants.pop(default_index)
+            color_variants.insert(0, default_variant)
+        for idx, variant in enumerate(color_variants):
+            variant['is_default'] = (idx == 0)
+        if not product.main_image:
+            auto_select_first_color = True
     
     # Генерируем breadcrumbs для SEO
     breadcrumbs = [
@@ -880,11 +818,21 @@ def search(request):
     q=(request.GET.get('q') or '').strip()
     qs = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images')
     if q: qs=qs.filter(title__icontains=q)
-    categories = cache.get('categories_ordered')
-    if categories is None:
-        categories = list(Category.objects.order_by('order','name'))
-        cache.set('categories_ordered', categories, 600)
-    return render(request,'pages/catalog.html',{'categories':categories,'products':qs.order_by('-id'),'show_category_cards':False})
+    fragment_cache = get_fragment_cache()
+    categories = get_categories_cached(fragment_cache)
+    product_list = list(qs.order_by('-id'))
+    color_previews = build_color_preview_map(product_list)
+    for product in product_list:
+        product.colors_preview = color_previews.get(product.id, [])
+    return render(
+        request,
+        'pages/catalog.html',
+        {
+            'categories': categories,
+            'products': product_list,
+            'show_category_cards': False
+        }
+    )
 
 def debug_media(request):
     """Диагностика медиа-файлов"""
@@ -893,36 +841,32 @@ def debug_media(request):
     
     # Обработка POST запроса для тестирования загрузки
     if request.method == 'POST':
+        uploaded_file = request.FILES.get('test_file')
+        if not uploaded_file:
+            return JsonResponse(
+                {'success': False, 'error': 'Файл не найден в запросе'},
+                status=400,
+            )
+
+        test_dir = os.path.join(settings.MEDIA_ROOT, 'test')
         try:
-            uploaded_file = request.FILES.get('test_file')
-            if uploaded_file:
-                # Создаем папку test если её нет
-                test_dir = os.path.join(settings.MEDIA_ROOT, 'test')
-                os.makedirs(test_dir, exist_ok=True)
-                
-                # Сохраняем файл
-                file_path = os.path.join(test_dir, uploaded_file.name)
-                with open(file_path, 'wb+') as destination:
-                    for chunk in uploaded_file.chunks():
-                        destination.write(chunk)
-                
-                return JsonResponse({
-                    'success': True,
-                    'file_path': file_path,
-                    'file_url': f"{settings.MEDIA_URL}test/{uploaded_file.name}",
-                    'file_size': uploaded_file.size,
-                    'message': 'Файл успешно загружен'
-                })
-            else:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Файл не найден в запросе'
-                })
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': str(e)
-            })
+            os.makedirs(test_dir, exist_ok=True)
+            file_path = os.path.join(test_dir, uploaded_file.name)
+            with open(file_path, 'wb+') as destination:
+                for chunk in uploaded_file.chunks():
+                    destination.write(chunk)
+        except OSError as exc:
+            return JsonResponse(
+                {'success': False, 'error': str(exc)}, status=500
+            )
+
+        return JsonResponse({
+            'success': True,
+            'file_path': file_path,
+            'file_url': f"{settings.MEDIA_URL}test/{uploaded_file.name}",
+            'file_size': uploaded_file.size,
+            'message': 'Файл успешно загружен'
+        })
     
     # GET запрос - возвращаем диагностическую информацию
     debug_info = {
@@ -1048,20 +992,17 @@ def add_to_cart(request):
         if p:
             total_sum += i['qty'] * p.final_price
 
-    try:
-        cart_logger.info(
-            'add_to_cart: session=%s user=%s key=%s product=%s size=%s color=%s qty=%s cart_keys=%s',
-            request.session.session_key,
-            request.user.id if request.user.is_authenticated else None,
-            key,
-            product.id,
-            size,
-            color_variant_id,
-            item['qty'],
-            list(cart.keys())
-        )
-    except Exception:
-        pass
+    cart_logger.info(
+        'add_to_cart: session=%s user=%s key=%s product=%s size=%s color=%s qty=%s cart_keys=%s',
+        request.session.session_key,
+        request.user.id if request.user.is_authenticated else None,
+        key,
+        product.id,
+        size,
+        color_variant_id,
+        item['qty'],
+        list(cart.keys())
+    )
 
     return JsonResponse({'ok': True, 'count': total_qty, 'total': total_sum})
 
@@ -1093,16 +1034,13 @@ def cart_summary(request):
         _reset_monobank_session(request, drop_pending=True)
         request.session['cart'] = cart
         request.session.modified = True
-        try:
-            cart_logger.warning(
-                'cart_summary_cleanup: session=%s user=%s removed_products=%s remaining_keys=%s',
-                request.session.session_key,
-                request.user.id if request.user.is_authenticated else None,
-                list(missing_products),
-                list(cart.keys())
-            )
-        except Exception:
-            pass
+        cart_logger.warning(
+            'cart_summary_cleanup: session=%s user=%s removed_products=%s remaining_keys=%s',
+            request.session.session_key,
+            request.user.id if request.user.is_authenticated else None,
+            list(missing_products),
+            list(cart.keys())
+        )
     
     # Пересчитываем с очищенной корзиной
     total_qty = sum(i['qty'] for i in cart.values())
@@ -1138,26 +1076,20 @@ def cart_mini(request):
         _reset_monobank_session(request, drop_pending=True)
         request.session['cart'] = cart_sess
         request.session.modified = True
-        try:
-            cart_logger.warning(
-                'cart_view_cleanup: session=%s user=%s removed_products=%s remaining_keys=%s',
-                request.session.session_key,
-                request.user.id if request.user.is_authenticated else None,
-                list(missing_products),
-                list(cart_sess.keys())
-            )
-        except Exception:
-            pass
-        try:
-            cart_logger.warning(
-                'cart_mini_cleanup: session=%s user=%s removed_products=%s remaining_keys=%s',
-                request.session.session_key,
-                request.user.id if request.user.is_authenticated else None,
-                list(missing_products),
-                list(cart_sess.keys())
-            )
-        except Exception:
-            pass
+        cart_logger.warning(
+            'cart_view_cleanup: session=%s user=%s removed_products=%s remaining_keys=%s',
+            request.session.session_key,
+            request.user.id if request.user.is_authenticated else None,
+            list(missing_products),
+            list(cart_sess.keys())
+        )
+        cart_logger.warning(
+            'cart_mini_cleanup: session=%s user=%s removed_products=%s remaining_keys=%s',
+            request.session.session_key,
+            request.user.id if request.user.is_authenticated else None,
+            list(missing_products),
+            list(cart_sess.keys())
+        )
     
     items = []
     total = 0

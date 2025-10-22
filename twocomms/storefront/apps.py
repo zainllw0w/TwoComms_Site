@@ -15,3 +15,9 @@ class StorefrontConfig(AppConfig):
             from . import ai_signals  # noqa: F401
         except Exception:
             pass
+        
+        # Сигналы для инвалидации кеша
+        try:
+            from . import cache_signals  # noqa: F401
+        except Exception:
+            pass

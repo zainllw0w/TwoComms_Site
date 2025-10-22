@@ -1,4 +1,4 @@
-from django.core.cache import cache
+from twocomms.cache_utils import get_cache
 
 def orders_processing_count(request):
     """
@@ -7,11 +7,12 @@ def orders_processing_count(request):
     if request.user.is_authenticated and request.user.is_staff:
         try:
             cache_key = 'orders_processing_count'
-            processing_count = cache.get(cache_key)
+            cache_backend = get_cache('fragments')
+            processing_count = cache_backend.get(cache_key)
             if processing_count is None:
                 from orders.models import Order
                 processing_count = Order.get_processing_count()
-                cache.set(cache_key, processing_count, 60)
+                cache_backend.set(cache_key, processing_count, 60)
         except Exception:
             processing_count = 0
     else:

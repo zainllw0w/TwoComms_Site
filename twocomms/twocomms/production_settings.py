@@ -17,17 +17,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 _explicit_env_file = os.environ.get('DJANGO_ENV_FILE')
 if _explicit_env_file:
     load_dotenv(_explicit_env_file)
-else:
-    _candidate_env_files = [
-        BASE_DIR.parent / '.env.production',
-        BASE_DIR / '.env.production',
-        BASE_DIR.parent / '.env',
-        BASE_DIR / '.env',
-    ]
-    for _env_path in _candidate_env_files:
-        if _env_path.exists():
-            load_dotenv(_env_path)
-            break
 
 from .settings import *
 
@@ -216,44 +205,88 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # Кэширование: Redis для продакшена
 REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
-REDIS_PORT = os.environ.get('REDIS_PORT', '6379')
+REDIS_PORT = int(os.environ.get('REDIS_PORT', '6379'))
 REDIS_DB = os.environ.get('REDIS_DB', '0')
+REDIS_STATIC_DB = os.environ.get('REDIS_STATIC_DB', '1')
+REDIS_FRAGMENT_DB = os.environ.get('REDIS_FRAGMENT_DB', '2')
+REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', '')
+REDIS_USE_SSL = os.environ.get('REDIS_USE_SSL', 'false').lower() in ('1', 'true', 'yes')
+REDIS_SCHEME = 'rediss' if REDIS_USE_SSL else 'redis'
+REDIS_CACHE_URL = os.environ.get('REDIS_CACHE_URL')
+REDIS_STATIC_URL = os.environ.get('REDIS_STATIC_URL')
+REDIS_FRAGMENT_URL = os.environ.get('REDIS_FRAGMENT_URL')
+REDIS_MAX_CONNECTIONS = int(os.environ.get('REDIS_MAX_CONNECTIONS', '100'))
+REDIS_FRAGMENT_MAX_CONNECTIONS = int(os.environ.get('REDIS_FRAGMENT_MAX_CONNECTIONS', '40'))
+
+
+def _build_redis_location(db_name: str, explicit_url: str | None = None) -> str:
+    """
+    Собирает Redis URI, учитывая пароль и протокол.
+    При переданном explicit_url возвращает его (используется для кастомных URL).
+    """
+    if explicit_url:
+        return explicit_url
+    auth_part = f":{REDIS_PASSWORD}@" if REDIS_PASSWORD else ''
+    return f"{REDIS_SCHEME}://{auth_part}{REDIS_HOST}:{REDIS_PORT}/{db_name}"
+
+
+COMMON_REDIS_OPTIONS = {
+    'CLIENT_CLASS': 'django_redis.client.HerdClient',
+    'SERIALIZER': 'django_redis.serializers.pickle.PickleSerializer',
+    'COMPRESSOR': 'django_redis.compressors.zlib.ZlibCompressor',
+    'COMPRESS_MIN_LEN': 1024,
+    'IGNORE_EXCEPTIONS': True,  # Не падаем, если Redis недоступен
+    'SOCKET_CONNECT_TIMEOUT': 5,
+    'SOCKET_TIMEOUT': 5,
+    'SOCKET_KEEPALIVE': True,
+    'HEALTH_CHECK_INTERVAL': 30,
+    'PICKLE_VERSION': -1,
+}
+
 
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}',
+        'LOCATION': _build_redis_location(REDIS_DB, REDIS_CACHE_URL),
         'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            **COMMON_REDIS_OPTIONS,
+            'PASSWORD': REDIS_PASSWORD or None,
             'CONNECTION_POOL_KWARGS': {
-                'max_connections': 50,
+                'max_connections': REDIS_MAX_CONNECTIONS,
                 'retry_on_timeout': True,
             },
-            'SOCKET_CONNECT_TIMEOUT': 5,
-            'SOCKET_TIMEOUT': 5,
-            'COMPRESSOR': 'django_redis.compressors.zlib.ZlibCompressor',
-            'IGNORE_EXCEPTIONS': True,  # Не падать если Redis недоступен
         },
         'KEY_PREFIX': 'twocomms',
-        'TIMEOUT': 300,
+        'TIMEOUT': int(os.environ.get('CACHE_DEFAULT_TIMEOUT', '600')),
     },
     'staticfiles': {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': f'redis://{REDIS_HOST}:{REDIS_PORT}/1',
+        'LOCATION': _build_redis_location(REDIS_STATIC_DB, REDIS_STATIC_URL),
         'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            **COMMON_REDIS_OPTIONS,
+            'PASSWORD': REDIS_PASSWORD or None,
             'CONNECTION_POOL_KWARGS': {
-                'max_connections': 30,
+                'max_connections': max(REDIS_FRAGMENT_MAX_CONNECTIONS // 2, 10),
                 'retry_on_timeout': True,
             },
-            'SOCKET_CONNECT_TIMEOUT': 5,
-            'SOCKET_TIMEOUT': 5,
-            'COMPRESSOR': 'django_redis.compressors.zlib.ZlibCompressor',
-            'IGNORE_EXCEPTIONS': True,
         },
         'KEY_PREFIX': 'staticfiles',
-        'TIMEOUT': 86400,  # 24 часа для статических файлов
-    }
+        'TIMEOUT': int(os.environ.get('CACHE_STATIC_TIMEOUT', str(60 * 60 * 24))),  # 24 часа
+    },
+    'fragments': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': _build_redis_location(REDIS_FRAGMENT_DB, REDIS_FRAGMENT_URL),
+        'OPTIONS': {
+            **COMMON_REDIS_OPTIONS,
+            'PASSWORD': REDIS_PASSWORD or None,
+            'CONNECTION_POOL_KWARGS': {
+                'max_connections': REDIS_FRAGMENT_MAX_CONNECTIONS,
+                'retry_on_timeout': True,
+            },
+        },
+        'KEY_PREFIX': 'twocomms:frag',
+        'TIMEOUT': int(os.environ.get('CACHE_FRAGMENT_TIMEOUT', '900')),  # 15 минут
+    },
 }
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
