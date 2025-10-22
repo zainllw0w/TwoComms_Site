@@ -628,8 +628,19 @@
     const originalBodyPosition = document.body.style.position;
     document.body.style.position = 'static';
     
-    // Сохраняем оригинальную позицию для восстановления при закрытии
+    // Также убираем position у всех родительских контейнеров
+    const dsShell = document.querySelector('.ds-shell');
+    const dsMain = document.querySelector('.ds-main');
+    const originalShellPosition = dsShell ? dsShell.style.position : '';
+    const originalMainPosition = dsMain ? dsMain.style.position : '';
+    
+    if (dsShell) dsShell.style.position = 'static';
+    if (dsMain) dsMain.style.position = 'static';
+    
+    // Сохраняем оригинальные позиции для восстановления при закрытии
     popup.dataset.originalBodyPosition = originalBodyPosition;
+    popup.dataset.originalShellPosition = originalShellPosition;
+    popup.dataset.originalMainPosition = originalMainPosition;
     
     // Блокируем скролл страницы
     document.body.style.overflow = 'hidden';
@@ -770,10 +781,23 @@
       popup.style.transform = 'translate(-50%, -50%) scale(0.8)';
       popup.style.opacity = '0';
       
-      // Восстанавливаем оригинальную позицию body
-      const originalPosition = popup.dataset.originalBodyPosition;
-      if (originalPosition !== undefined) {
-        document.body.style.position = originalPosition;
+      // Восстанавливаем оригинальные позиции
+      const originalBodyPosition = popup.dataset.originalBodyPosition;
+      const originalShellPosition = popup.dataset.originalShellPosition;
+      const originalMainPosition = popup.dataset.originalMainPosition;
+      
+      if (originalBodyPosition !== undefined) {
+        document.body.style.position = originalBodyPosition;
+      }
+      
+      const dsShell = document.querySelector('.ds-shell');
+      const dsMain = document.querySelector('.ds-main');
+      
+      if (dsShell && originalShellPosition !== undefined) {
+        dsShell.style.position = originalShellPosition;
+      }
+      if (dsMain && originalMainPosition !== undefined) {
+        dsMain.style.position = originalMainPosition;
       }
       
       // Удаление после анимации
