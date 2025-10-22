@@ -179,7 +179,60 @@
           </header>
 
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 32px; margin-bottom: 50px;">
-            {# Вариант 1: Передоплата #}
+            {# Вариант 1: Предоплата 200 грн #}
+            <div style="
+              background: linear-gradient(145deg, rgba(24,26,31,.95), rgba(18,20,24,.95));
+              border: 2px solid rgba(99,102,241,.3);
+              border-radius: 20px;
+              padding: 36px;
+              position: relative;
+              overflow: hidden;
+              transition: all 0.3s ease;
+            " onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 16px 40px rgba(99,102,241,.3)'; this.style.borderColor='rgba(99,102,241,.5)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'; this.style.borderColor='rgba(99,102,241,.3)'">
+              <div style="position: absolute; top: 20px; right: 20px; width: 60px; height: 60px; background: linear-gradient(135deg, #6366f1, #8b5cf6); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; opacity: 0.15;">🛡️</div>
+              
+              <div style="font-size: 3rem; margin-bottom: 20px;">🛡️</div>
+              <h3 style="font-size: 1.8rem; font-weight: 800; color: #e5e7eb; margin-bottom: 12px;">Передоплата 200 грн</h3>
+              <p style="font-size: 1rem; color: rgba(229,231,235,.6); line-height: 1.7; margin-bottom: 24px;">
+                Клієнт вносить передоплату 200 грн як страховку від невикупу. Ви передаєте нам 200 грн, ми відправляємо товар накладним платежем на решту суми.
+              </p>
+              
+              <div style="background: rgba(99,102,241,.15); border: 1px solid rgba(99,102,241,.3); border-radius: 14px; padding: 20px; margin-bottom: 24px;">
+                <div style="font-size: 0.85rem; text-transform: uppercase; color: rgba(229,231,235,.5); margin-bottom: 8px; letter-spacing: 0.05em;">Ви сплачуєте нам:</div>
+                <div style="font-size: 2.8rem; font-weight: 900; background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                  200 грн
+                </div>
+                <div style="font-size: 0.9rem; color: rgba(229,231,235,.65); margin-top: 8px;">
+                  Страхування від невикупу товару
+                </div>
+              </div>
+              
+              <ul style="list-style: none; padding: 0; margin: 0;">
+                <li style="padding: 12px 0; border-top: 1px solid rgba(255,255,255,.08); display: flex; align-items: start; gap: 12px;">
+                  <i class="fas fa-shield-check" style="color: #60a5fa; font-size: 1.2rem; margin-top: 2px;"></i>
+                  <div>
+                    <strong style="color: #e5e7eb; display: block; margin-bottom: 4px;">Захист від невикупу</strong>
+                    <span style="color: rgba(229,231,235,.6); font-size: 0.9rem;">200 грн покривають витрати на доставку, якщо клієнт не прийде на пошту</span>
+                  </div>
+                </li>
+                <li style="padding: 12px 0; border-top: 1px solid rgba(255,255,255,.08); display: flex; align-items: start; gap: 12px;">
+                  <i class="fas fa-truck" style="color: #60a5fa; font-size: 1.2rem; margin-top: 2px;"></i>
+                  <div>
+                    <strong style="color: #e5e7eb; display: block; margin-bottom: 4px;">Накладний платіж на решту</strong>
+                    <span style="color: rgba(229,231,235,.6); font-size: 0.9rem;">Відправляємо товар на суму (ціна продажу - 200 грн)</span>
+                  </div>
+                </li>
+                <li style="padding: 12px 0; border-top: 1px solid rgba(255,255,255,.08); display: flex; align-items: start; gap: 12px;">
+                  <i class="fas fa-coins" style="color: #60a5fa; font-size: 1.2rem; margin-top: 2px;"></i>
+                  <div>
+                    <strong style="color: #e5e7eb; display: block; margin-bottom: 4px;">Виплата після викупу</strong>
+                    <span style="color: rgba(229,231,235,.6); font-size: 0.9rem;">Коли клієнт забере товар — отримуєте від нас решту від дроп-ціни</span>
+                  </div>
+                </li>
+              </ul>
+            </div>
+
+            {# Вариант 2: Полная оплата #}
             <div style="
               background: linear-gradient(145deg, rgba(24,26,31,.95), rgba(18,20,24,.95));
               border: 2px solid rgba(139,92,246,.3);
@@ -194,13 +247,13 @@
               <div style="font-size: 3rem; margin-bottom: 20px;">💳</div>
               <h3 style="font-size: 1.8rem; font-weight: 800; color: #e5e7eb; margin-bottom: 12px;">Оплачено повністю</h3>
               <p style="font-size: 1rem; color: rgba(229,231,235,.6); line-height: 1.7; margin-bottom: 24px;">
-                Клієнт вже оплатив товар вам або через ваш магазин. Ризиків немає, товар гарантовано буде викуплений.
+                Клієнт вже повністю оплатив товар. Ви сплачуєте нам дроп-ціну, ми відправляємо замовлення. Без накладеного платежу.
               </p>
               
               <div style="background: rgba(139,92,246,.15); border: 1px solid rgba(139,92,246,.3); border-radius: 14px; padding: 20px; margin-bottom: 24px;">
-                <div style="font-size: 0.85rem; text-transform: uppercase; color: rgba(229,231,235,.5); margin-bottom: 8px; letter-spacing: 0.05em;">Ви сплачуєте:</div>
+                <div style="font-size: 0.85rem; text-transform: uppercase; color: rgba(229,231,235,.5); margin-bottom: 8px; letter-spacing: 0.05em;">Ви сплачуєте нам:</div>
                 <div style="font-size: 2.2rem; font-weight: 900; background: linear-gradient(135deg, #8b5cf6, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-                  Вартість дропа
+                  Дроп-ціну
                 </div>
                 <div style="font-size: 0.9rem; color: rgba(229,231,235,.65); margin-top: 8px;">
                   Наприклад, якщо дроп-ціна 300 грн — ви сплачуєте 300 грн
@@ -211,75 +264,22 @@
                 <li style="padding: 12px 0; border-top: 1px solid rgba(255,255,255,.08); display: flex; align-items: start; gap: 12px;">
                   <i class="fas fa-check-circle" style="color: #34d399; font-size: 1.2rem; margin-top: 2px;"></i>
                   <div>
-                    <strong style="color: #e5e7eb; display: block; margin-bottom: 4px;">Без ризиків</strong>
-                    <span style="color: rgba(229,231,235,.6); font-size: 0.9rem;">Клієнт вже оплатив, гарантовано отримаєте товар</span>
+                    <strong style="color: #e5e7eb; display: block; margin-bottom: 4px;">Нульовий ризик</strong>
+                    <span style="color: rgba(229,231,235,.6); font-size: 0.9rem;">Клієнт вже оплатив — товар гарантовано викуплений</span>
                   </div>
                 </li>
                 <li style="padding: 12px 0; border-top: 1px solid rgba(255,255,255,.08); display: flex; align-items: start; gap: 12px;">
-                  <i class="fas fa-check-circle" style="color: #34d399; font-size: 1.2rem; margin-top: 2px;"></i>
+                  <i class="fas fa-bolt" style="color: #34d399; font-size: 1.2rem; margin-top: 2px;"></i>
                   <div>
-                    <strong style="color: #e5e7eb; display: block; margin-bottom: 4px;">Повна вартість дропа</strong>
-                    <span style="color: rgba(229,231,235,.6); font-size: 0.9rem;">Сплачуєте тільки собівартість, весь прибуток — ваш</span>
+                    <strong style="color: #e5e7eb; display: block; margin-bottom: 4px;">Миттєва відправка</strong>
+                    <span style="color: rgba(229,231,235,.6); font-size: 0.9rem;">Після оплати дроп-ціни — відразу відправляємо товар</span>
                   </div>
                 </li>
                 <li style="padding: 12px 0; border-top: 1px solid rgba(255,255,255,.08); display: flex; align-items: start; gap: 12px;">
-                  <i class="fas fa-check-circle" style="color: #34d399; font-size: 1.2rem; margin-top: 2px;"></i>
+                  <i class="fas fa-wallet" style="color: #34d399; font-size: 1.2rem; margin-top: 2px;"></i>
                   <div>
-                    <strong style="color: #e5e7eb; display: block; margin-bottom: 4px;">Найкраща для інтернет-магазинів</strong>
-                    <span style="color: rgba(229,231,235,.6); font-size: 0.9rem;">Ідеально для онлайн-оплат та передплачених замовлень</span>
-                  </div>
-                </li>
-              </ul>
-            </div>
-
-            {# Вариант 2: COD #}
-            <div style="
-              background: linear-gradient(145deg, rgba(24,26,31,.95), rgba(18,20,24,.95));
-              border: 2px solid rgba(99,102,241,.3);
-              border-radius: 20px;
-              padding: 36px;
-              position: relative;
-              overflow: hidden;
-              transition: all 0.3s ease;
-            " onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 16px 40px rgba(99,102,241,.3)'; this.style.borderColor='rgba(99,102,241,.5)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'; this.style.borderColor='rgba(99,102,241,.3)'">
-              <div style="position: absolute; top: 20px; right: 20px; width: 60px; height: 60px; background: linear-gradient(135deg, #6366f1, #8b5cf6); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; opacity: 0.15;">📦</div>
-              
-              <div style="font-size: 3rem; margin-bottom: 20px;">📦</div>
-              <h3 style="font-size: 1.8rem; font-weight: 800; color: #e5e7eb; margin-bottom: 12px;">Накладний платіж (COD)</h3>
-              <p style="font-size: 1rem; color: rgba(229,231,235,.6); line-height: 1.7; margin-bottom: 24px;">
-                Клієнт оплачує товар при отриманні на Новій Пошті. З суми накладки автоматично віднімається 200 грн.
-              </p>
-              
-              <div style="background: rgba(99,102,241,.15); border: 1px solid rgba(99,102,241,.3); border-radius: 14px; padding: 20px; margin-bottom: 24px;">
-                <div style="font-size: 0.85rem; text-transform: uppercase; color: rgba(229,231,235,.5); margin-bottom: 8px; letter-spacing: 0.05em;">З накладки віднімається:</div>
-                <div style="font-size: 2.8rem; font-weight: 900; background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-                  200 грн
-                </div>
-                <div style="font-size: 0.9rem; color: rgba(229,231,235,.65); margin-top: 8px;">
-                  Автоматично при отриманні клієнтом
-                </div>
-              </div>
-              
-              <ul style="list-style: none; padding: 0; margin: 0;">
-                <li style="padding: 12px 0; border-top: 1px solid rgba(255,255,255,.08); display: flex; align-items: start; gap: 12px;">
-                  <i class="fas fa-calculator" style="color: #60a5fa; font-size: 1.2rem; margin-top: 2px;"></i>
-                  <div>
-                    <strong style="color: #e5e7eb; display: block; margin-bottom: 4px;">Автоматичне вирахування</strong>
-                    <span style="color: rgba(229,231,235,.6); font-size: 0.9rem;">200 грн віднімається з суми, яку клієнт платить на НП</span>
-                  </div>
-                </li>
-                <li style="padding: 12px 0; border-top: 1px solid rgba(255,255,255,.08); display: flex; align-items: start; gap: 12px;">
-                  <i class="fas fa-wallet" style="color: #60a5fa; font-size: 1.2rem; margin-top: 2px;"></i>
-                  <div>
-                    <strong style="color: #e5e7eb; display: block; margin-bottom: 4px;">Ви отримуєте решту</strong>
-                    <span style="color: rgba(229,231,235,.6); font-size: 0.9rem;">Сума продажу мінус 200 грн — це ваш прибуток</span>
-                  </div>
-                </li>
-                <li style="padding: 12px 0; border-top: 1px solid rgba(255,255,255,.08); display: flex; align-items: start; gap: 12px;">
-                  <i class="fas fa-handshake" style="color: #60a5fa; font-size: 1.2rem; margin-top: 2px;"></i>
-                  <div>
-                    <strong style="color: #e5e7eb; display: block; margin-bottom: 4px;">Популярний спосіб</strong>
-                    <span style="color: rgba(229,231,235,.6); font-size: 0.9rem;">Більшість клієнтів звикли платити при отриманні</span>
+                    <strong style="color: #e5e7eb; display: block; margin-bottom: 4px;">Весь прибуток — ваш</strong>
+                    <span style="color: rgba(229,231,235,.6); font-size: 0.9rem;">Ідеально для онлайн-оплат та магазинів з передоплатою</span>
                   </div>
                 </li>
               </ul>
@@ -293,25 +293,28 @@
               Як це працює на практиці
             </h4>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
-              <div style="padding: 20px; background: rgba(139,92,246,.08); border-left: 4px solid #8b5cf6; border-radius: 12px;">
-                <strong style="color: #a78bfa; font-size: 1.1rem; display: block; margin-bottom: 12px;">Приклад з передоплатою:</strong>
+              <div style="padding: 20px; background: rgba(99,102,241,.08); border-left: 4px solid #6366f1; border-radius: 12px;">
+                <strong style="color: #60a5fa; font-size: 1.1rem; display: block; margin-bottom: 12px;">💡 Приклад з передоплатою 200 грн:</strong>
                 <div style="color: rgba(229,231,235,.7); line-height: 1.8; font-size: 0.95rem;">
-                  • Ви продали футболку за 650 грн<br>
-                  • Клієнт оплатив вам 650 грн<br>
-                  • Дроп-ціна — 300 грн<br>
-                  • Ви сплачуєте нам 300 грн<br>
-                  • <strong style="color: #34d399;">Ваш прибуток: 350 грн</strong>
+                  • Ви продали футболку клієнту за 650 грн<br>
+                  • Клієнт вносить вам передоплату 200 грн<br>
+                  • Ви передаєте нам 200 грн<br>
+                  • Ми відправляємо товар накладним на 450 грн (650-200)<br>
+                  • Клієнт забирає товар, платить 450 грн на НП<br>
+                  • Дроп-ціна 300 грн, ви отримуєте від нас 100 грн (300-200)<br>
+                  • <strong style="color: #34d399;">Ваш прибуток: 350 грн (200+450-300)</strong>
                 </div>
               </div>
-              <div style="padding: 20px; background: rgba(99,102,241,.08); border-left: 4px solid #6366f1; border-radius: 12px;">
-                <strong style="color: #60a5fa; font-size: 1.1rem; display: block; margin-bottom: 12px;">Приклад з накладкою:</strong>
+              <div style="padding: 20px; background: rgba(139,92,246,.08); border-left: 4px solid #8b5cf6; border-radius: 12px;">
+                <strong style="color: #a78bfa; font-size: 1.1rem; display: block; margin-bottom: 12px;">💳 Приклад з повною оплатою:</strong>
                 <div style="color: rgba(229,231,235,.7); line-height: 1.8; font-size: 0.95rem;">
                   • Ви продали худі за 850 грн<br>
-                  • Клієнт оплачує 850 грн при отриманні<br>
-                  • Дроп-ціна — 450 грн<br>
-                  • З накладки віднімається 200 грн<br>
-                  • Ви отримуєте: 850 - 200 = 650 грн<br>
-                  • <strong style="color: #34d399;">Ваш прибуток: 650 - 450 = 200 грн</strong>
+                  • Клієнт повністю оплатив вам 850 грн<br>
+                  • Дроп-ціна 450 грн<br>
+                  • Ви сплачуєте нам 450 грн<br>
+                  • Ми відправляємо товар без накладеного платежу<br>
+                  • Клієнт просто забирає оплачену посилку<br>
+                  • <strong style="color: #34d399;">Ваш прибуток: 400 грн (850-450)</strong>
                 </div>
               </div>
             </div>
@@ -327,19 +330,19 @@
               <details style="background: rgba(139,92,246,.05); border: 1px solid rgba(139,92,246,.15); border-radius: 12px; padding: 16px; cursor: pointer;">
                 <summary style="font-weight: 700; color: #e5e7eb; font-size: 1.05rem; cursor: pointer; user-select: none;">
                   <i class="fas fa-chevron-right" style="color: #a78bfa; margin-right: 8px; transition: transform 0.3s;"></i>
-                  Що буде, якщо клієнт відмовиться від COD-замовлення?
+                  Навіщо потрібна передоплата 200 грн?
                 </summary>
                 <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.08); color: rgba(229,231,235,.7); line-height: 1.7;">
-                  200 грн, які віднімаються з накладки, покривають вартість доставки туди та назад. Ви не втратите гроші, а товар повернеться на наш склад. У наступних замовленнях ви зможете знову його продати.
+                  200 грн — це страховка від невикупу. Вона покриває наші витрати на доставку, якщо клієнт не прийде на пошту або товар не підійде (неправильний розмір, помилка у замовленні). Без цієї передоплати ми б несли збитки на кожному відмовленому замовленні. Це захищає як нас, так і вас від непередбачуваних ситуацій.
                 </div>
               </details>
               <details style="background: rgba(139,92,246,.05); border: 1px solid rgba(139,92,246,.15); border-radius: 12px; padding: 16px; cursor: pointer;">
                 <summary style="font-weight: 700; color: #e5e7eb; font-size: 1.05rem; cursor: pointer; user-select: none;">
                   <i class="fas fa-chevron-right" style="color: #a78bfa; margin-right: 8px; transition: transform 0.3s;"></i>
-                  Як працює вирахування 200 грн з накладки?
+                  Що буде, якщо клієнт не забере товар з передоплатою?
                 </summary>
                 <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.08); color: rgba(229,231,235,.7); line-height: 1.7;">
-                  Коли клієнт оплачує товар на Новій Пошті, з цієї суми автоматично віднімається 200 грн, які йдуть на покриття вартості дропа. Решту грошей (сума продажу мінус 200 грн) ви отримуєте як свій прибуток.
+                  Якщо клієнт не забрав товар — 200 грн передоплати залишаються у нас (покривають доставку туди-назад). Товар повертається на склад. Ви зможете знову його продати іншому клієнту. Ваші основні витрати — це тільки ці 200 грн, а не повна дроп-ціна.
                 </div>
               </details>
               <details style="background: rgba(139,92,246,.05); border: 1px solid rgba(139,92,246,.15); border-radius: 12px; padding: 16px; cursor: pointer;">
@@ -348,7 +351,32 @@
                   Який спосіб оплати краще обрати?
                 </summary>
                 <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.08); color: rgba(229,231,235,.7); line-height: 1.7;">
-                  Якщо ваш клієнт вже оплатив товар (онлайн-оплата, передплата на картку) — обирайте "Передоплата". Якщо клієнт платить при отриманні — обирайте "Накладний платіж". Система автоматично розрахує всі суми.
+                  <strong>Оберіть "Передоплата 200 грн"</strong>, якщо клієнт вносить страхові 200 грн і буде платити решту при отриманні.<br><br>
+                  <strong>Оберіть "Оплачено повністю"</strong>, якщо клієнт вже повністю оплатив товар (онлайн-оплата, переказ на картку, LiqPay тощо).
+                </div>
+              </details>
+              <details style="background: rgba(139,92,246,.05); border: 1px solid rgba(139,92,246,.15); border-radius: 12px; padding: 16px; cursor: pointer;">
+                <summary style="font-weight: 700; color: #e5e7eb; font-size: 1.05rem; cursor: pointer; user-select: none;">
+                  <i class="fas fa-chevron-right" style="color: #a78bfa; margin-right: 8px; transition: transform 0.3s;"></i>
+                  Чому спочатку оплата, а потім відправка?
+                </summary>
+                <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.08); color: rgba(229,231,235,.7); line-height: 1.7;">
+                  Ми працюємо так, щоб мінімізувати ризики для всіх сторін. Якщо хтось не прийде на пошту, помилиться з розміром або передумає — ми не несемо збитки на доставці. Передоплата або повна оплата гарантує, що ми можемо безпечно працювати і швидко відправляти товари.
+                </div>
+              </details>
+              <details style="background: linear-gradient(145deg, rgba(255,215,0,.12), rgba(255,193,7,.08)); border: 2px solid rgba(255,193,7,.3); border-radius: 12px; padding: 16px; cursor: pointer;">
+                <summary style="font-weight: 700; color: #fbbf24; font-size: 1.05rem; cursor: pointer; user-select: none;">
+                  <i class="fas fa-crown" style="color: #fbbf24; margin-right: 8px;"></i>
+                  🌟 Програма лояльності для перевірених партнерів
+                </summary>
+                <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,193,7,.2); color: rgba(229,231,235,.85); line-height: 1.7;">
+                  <strong style="color: #fbbf24; font-size: 1.05rem;">Для дропшиперів з більш ніж 10 успішними замовленнями:</strong><br><br>
+                  Ми цінуємо надійних партнерів! Коли у вас буде 10+ успішних викупів — ми особисто зв'яжемося з вами для обговорення спеціальних умов співпраці:<br><br>
+                  ✨ Можливість роботи без передоплати<br>
+                  ✨ Ексклюзивні знижки на дроп-ціни<br>
+                  ✨ Пріоритетна обробка замовлень<br>
+                  ✨ Персональний менеджер<br><br>
+                  <em style="color: rgba(251,191,36,.7);">Це ваш шлях до масштабування бізнесу з TwoComms! 🚀</em>
                 </div>
               </details>
             </div>
