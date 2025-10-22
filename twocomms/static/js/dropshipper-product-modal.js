@@ -50,11 +50,11 @@
     const popup = document.createElement('div');
     popup.id = 'dsProductPopup';
     // Точная копия стилей из рабочего wholesale модала
+    // Изначально скрываем и устанавливаем базовые стили
     popup.style.cssText = `
         position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%) scale(0.8);
+        top: 0;
+        left: 0;
         background: linear-gradient(135deg, rgba(20,22,27,.98), rgba(14,16,22,.98));
         border: 1px solid rgba(255,255,255,.1);
         border-radius: 20px;
@@ -67,7 +67,7 @@
         box-shadow: 0 25px 60px rgba(0,0,0,.6);
         color: #e5e7eb;
         opacity: 0;
-        transition: all 0.3s ease;
+        transition: opacity 0.3s ease;
         display: flex;
         flex-direction: column;
     `;
@@ -642,20 +642,27 @@
       const viewportWidth = window.innerWidth;
       const scrollY = window.scrollY || window.pageYOffset;
       
-      // Вычисляем абсолютную позицию центра ВИДИМОЙ области viewport
-      const centerY = scrollY + (viewportHeight / 2);
-      const centerX = viewportWidth / 2;
+      // Получаем реальные размеры модального окна после рендеринга
+      const popupRect = popup.getBoundingClientRect();
+      const popupWidth = popupRect.width;
+      const popupHeight = popupRect.height;
       
-      // ЯВНО устанавливаем координаты
-      popup.style.setProperty('top', `${centerY}px`, 'important');
-      popup.style.setProperty('left', `${centerX}px`, 'important');
-      popup.style.transform = 'translate(-50%, -50%) scale(1)';
+      // Вычисляем координаты ЛЕВОГО ВЕРХНЕГО угла для центрирования
+      const topPosition = scrollY + (viewportHeight / 2) - (popupHeight / 2);
+      const leftPosition = (viewportWidth / 2) - (popupWidth / 2);
+      
+      // ЯВНО устанавливаем координаты без transform
+      popup.style.setProperty('top', `${topPosition}px`, 'important');
+      popup.style.setProperty('left', `${leftPosition}px`, 'important');
       popup.style.opacity = '1';
       
       console.log('✅ Модальное окно отцентровано:', {
         scrollY,
-        top: `${centerY}px`,
-        left: `${centerX}px`
+        viewportHeight,
+        popupWidth,
+        popupHeight,
+        top: `${topPosition}px`,
+        left: `${leftPosition}px`
       });
     }, 10);
     
@@ -668,18 +675,19 @@
       // Проверяем что модальное окно все еще по центру
       const rect = popup.getBoundingClientRect();
       const viewportCenterY = window.innerHeight / 2;
-      const popupCenterY = rect.top + rect.height / 2;
+      const popupCenterY = rect.top + rect.height / 2 - window.scrollY;
       const offset = Math.abs(popupCenterY - viewportCenterY);
       
       // Если отклонение больше 10px - перецентровываем
       if (offset > 10 && popup.parentElement) {
         console.log('⚠️ Модальное окно сместилось на', offset.toFixed(2), 'px - перецентровка...');
         const scrollY = window.scrollY || window.pageYOffset;
-        const centerY = scrollY + (window.innerHeight / 2);
-        const centerX = window.innerWidth / 2;
-        popup.style.setProperty('top', `${centerY}px`, 'important');
-        popup.style.setProperty('left', `${centerX}px`, 'important');
-        popup.style.transform = 'translate(-50%, -50%) scale(1)';
+        const popupWidth = rect.width;
+        const popupHeight = rect.height;
+        const topPosition = scrollY + (window.innerHeight / 2) - (popupHeight / 2);
+        const leftPosition = (window.innerWidth / 2) - (popupWidth / 2);
+        popup.style.setProperty('top', `${topPosition}px`, 'important');
+        popup.style.setProperty('left', `${leftPosition}px`, 'important');
       }
     });
     
@@ -694,6 +702,29 @@
     // Сохраняем observer для очистки при закрытии
     popup.dataset.observerId = 'active';
     window.dsModalObserver = observer;
+    
+    // ===== ШАГ 10: ОБРАБОТКА ПРОКРУТКИ СТРАНИЦЫ =====
+    // При прокрутке страницы модальное окно должно оставаться по центру viewport
+    const handleScroll = () => {
+      if (!popup.parentElement) {
+        window.removeEventListener('scroll', handleScroll);
+        return;
+      }
+      
+      const scrollY = window.scrollY || window.pageYOffset;
+      const rect = popup.getBoundingClientRect();
+      const topPosition = scrollY + (window.innerHeight / 2) - (rect.height / 2);
+      const leftPosition = (window.innerWidth / 2) - (rect.width / 2);
+      
+      popup.style.setProperty('top', `${topPosition}px`, 'important');
+      popup.style.setProperty('left', `${leftPosition}px`, 'important');
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    
+    // Сохраняем обработчик для очистки при закрытии
+    popup.dataset.scrollHandler = 'active';
+    window.dsModalScrollHandler = handleScroll;
     
     console.log('✅ Модальное окно создано и отображено');
   };
@@ -812,7 +843,6 @@
     
     if (popup) {
       // Анимация исчезновения
-      popup.style.transform = 'translate(-50%, -50%) scale(0.8)';
       popup.style.opacity = '0';
       
       // Восстанавливаем оригинальную позицию body
@@ -825,6 +855,12 @@
       if (window.dsModalObserver) {
         window.dsModalObserver.disconnect();
         window.dsModalObserver = null;
+      }
+      
+      // Удаляем обработчик scroll
+      if (window.dsModalScrollHandler) {
+        window.removeEventListener('scroll', window.dsModalScrollHandler);
+        window.dsModalScrollHandler = null;
       }
       
       // Удаление после анимации
