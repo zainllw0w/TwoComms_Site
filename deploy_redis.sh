@@ -11,6 +11,13 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Требуем пароль Redis из переменной окружения
+if [ -z "${REDIS_PASSWORD}" ]; then
+    echo -e "${RED}Ошибка: установите переменную окружения REDIS_PASSWORD перед запуском${NC}"
+    exit 1
+fi
+REDIS_PASSWORD_ESCAPED=$(printf '%q' "${REDIS_PASSWORD}")
+
 # SSH параметры
 SSH_PASSWORD='trs5m4t1'
 SSH_USER='qlknpodo'
@@ -55,10 +62,12 @@ echo -e "${YELLOW}[3/7] Обновление кода из git...${NC}"
 sshpass -p "${SSH_PASSWORD}" ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} "cd ${PROJECT_PATH} && git pull origin main"
 echo -e "${GREEN}✓ Код обновлен${NC}"
 
-# 4. Копирование docker-compose.yml на сервер
-echo -e "${YELLOW}[4/7] Копирование docker-compose.yml...${NC}"
+# 4. Копирование docker-compose.yml и redis.conf на сервер
+echo -e "${YELLOW}[4/7] Копирование docker-compose.yml и redis.conf...${NC}"
 sshpass -p "${SSH_PASSWORD}" scp -o StrictHostKeyChecking=no docker-compose.yml ${SSH_USER}@${SSH_HOST}:${PROJECT_PATH}/
-echo -e "${GREEN}✓ docker-compose.yml скопирован${NC}"
+sshpass -p "${SSH_PASSWORD}" ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} "mkdir -p ${PROJECT_PATH}/infra/redis"
+sshpass -p "${SSH_PASSWORD}" scp -o StrictHostKeyChecking=no infra/redis/redis.conf ${SSH_USER}@${SSH_HOST}:${PROJECT_PATH}/infra/redis/redis.conf
+echo -e "${GREEN}✓ Конфигурация Redis обновлена${NC}"
 
 # 5. Обновление зависимостей Python
 echo -e "${YELLOW}[5/7] Обновление зависимостей Python...${NC}"
@@ -68,8 +77,8 @@ echo -e "${GREEN}✓ Зависимости обновлены${NC}"
 
 # 6. Запуск Redis в Docker
 echo -e "${YELLOW}[6/7] Запуск Redis контейнера...${NC}"
-sshpass -p "${SSH_PASSWORD}" ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} "cd ${PROJECT_PATH} && docker-compose down" || true
-sshpass -p "${SSH_PASSWORD}" ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} "cd ${PROJECT_PATH} && docker-compose up -d"
+sshpass -p "${SSH_PASSWORD}" ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} "cd ${PROJECT_PATH} && export REDIS_PASSWORD=${REDIS_PASSWORD_ESCAPED} && docker-compose down" || true
+sshpass -p "${SSH_PASSWORD}" ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} "cd ${PROJECT_PATH} && export REDIS_PASSWORD=${REDIS_PASSWORD_ESCAPED} && docker-compose up -d"
 echo -e "${GREEN}✓ Redis запущен${NC}"
 
 # 7. Перезапуск Django приложения
@@ -82,8 +91,9 @@ echo -e "${GREEN}✓ Django приложение перезапущено${NC}"
 # 8. Проверка статуса
 echo -e "${YELLOW}Проверка статуса Redis...${NC}"
 sshpass -p "${SSH_PASSWORD}" ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} "cd ${PROJECT_PATH} && docker-compose ps"
+sshpass -p "${SSH_PASSWORD}" ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} "cd ${PROJECT_PATH} && export REDIS_PASSWORD=${REDIS_PASSWORD_ESCAPED} && docker-compose exec -T redis redis-cli -a ${REDIS_PASSWORD_ESCAPED} ping"
 
 echo -e "${GREEN}=== Развертывание завершено успешно! ===${NC}"
-echo -e "${GREEN}Redis доступен на localhost:6379${NC}"
+echo -e "${GREEN}Redis доступен на localhost:6379 (подключение требует пароль)${NC}"
 echo -e "${YELLOW}Для проверки работы выполните:${NC}"
 echo -e "  docker-compose logs -f redis"

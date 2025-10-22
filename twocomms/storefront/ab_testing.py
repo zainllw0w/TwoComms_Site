@@ -1,10 +1,8 @@
 """
 Система A/B тестирования для оптимизации конверсии
 """
-from django.core.cache import cache
-from django.utils import timezone
 import hashlib
-import random
+from twocomms.cache_utils import get_cache
 
 class ABTestManager:
     """
@@ -15,6 +13,7 @@ class ABTestManager:
         self.user_id = user_id
         self.session_key = session_key
         self.cache_timeout = 86400  # 24 часа
+        self.cache = get_cache('fragments')
     
     def get_variant(self, test_name, variants=None, default_variant='A'):
         """
@@ -36,7 +35,7 @@ class ABTestManager:
         
         # Кэшируем результат
         cache_key = f"ab_test_{test_name}_{user_key}"
-        cache.set(cache_key, variant, self.cache_timeout)
+        self.cache.set(cache_key, variant, self.cache_timeout)
         
         # Логируем участие в тесте
         self._log_test_participation(test_name, variant, user_key)
@@ -57,7 +56,7 @@ class ABTestManager:
         """
         user_key = self.user_id or self.session_key or 'anonymous'
         cache_key = f"ab_test_{test_name}_{user_key}"
-        variant = cache.get(cache_key)
+        variant = self.cache.get(cache_key)
         
         if variant:
             # Логируем конверсию

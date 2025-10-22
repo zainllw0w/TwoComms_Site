@@ -1,28 +1,29 @@
 """
 Система рекомендаций товаров для увеличения конверсии
 """
-from django.core.cache import cache
 from django.db.models import Q, Count
 from .models import Product, Category
 from accounts.models import UserProfile, FavoriteProduct
 from orders.models import Order, OrderItem
 import random
+from twocomms.cache_utils import get_cache
 
 class ProductRecommendationEngine:
     """
     Движок рекомендаций товаров
     """
     
-    def __init__(self, user=None):
+    def __init__(self, user=None, cache_alias='fragments'):
         self.user = user
         self.cache_timeout = 300  # 5 минут
+        self.cache = get_cache(cache_alias)
     
     def get_recommendations(self, product=None, limit=8):
         """
         Получает рекомендации товаров
         """
         cache_key = f"recommendations_{self.user.id if self.user else 'anon'}_{product.id if product else 'home'}"
-        recommendations = cache.get(cache_key)
+        recommendations = self.cache.get(cache_key)
         
         if recommendations is None:
             if product:
@@ -30,7 +31,7 @@ class ProductRecommendationEngine:
             else:
                 recommendations = self._get_home_recommendations(limit)
             
-            cache.set(cache_key, recommendations, self.cache_timeout)
+            self.cache.set(cache_key, recommendations, self.cache_timeout)
         
         return recommendations
     
@@ -167,7 +168,7 @@ class ProductRecommendationEngine:
         from datetime import datetime, timedelta
         
         cache_key = "trending_products"
-        trending = cache.get(cache_key)
+        trending = self.cache.get(cache_key)
         
         if trending is None:
             week_ago = timezone.now() - timedelta(days=7)
@@ -179,7 +180,7 @@ class ProductRecommendationEngine:
                 recent_orders=Count('orderitem')
             ).order_by('-recent_orders', '-id')[:limit]
             
-            cache.set(cache_key, list(trending), 600)  # 10 минут
+            self.cache.set(cache_key, list(trending), 600)  # 10 минут
         
         return trending
     
@@ -202,12 +203,12 @@ class ProductRecommendationEngine:
             season = 'autumn'
         
         cache_key = f"seasonal_products_{season}"
-        seasonal = cache.get(cache_key)
+        seasonal = self.cache.get(cache_key)
         
         if seasonal is None:
             # Здесь можно добавить логику для сезонных товаров
             # Пока возвращаем популярные товары
             seasonal = self._get_popular_products(limit)
-            cache.set(cache_key, list(seasonal), 3600)  # 1 час
+            self.cache.set(cache_key, list(seasonal), 3600)  # 1 час
         
         return seasonal
