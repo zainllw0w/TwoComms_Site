@@ -623,6 +623,10 @@
     document.body.appendChild(backdrop);
     document.body.appendChild(popup);
     
+    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: добавляем класс ds-modal-open к body
+    // Это активирует CSS правила которые убирают position: relative с родительских контейнеров
+    document.body.classList.add('ds-modal-open');
+    
     // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: убираем position: relative с body
     // Это ломает position: fixed - он начинает работать как absolute!
     const originalBodyPosition = document.body.style.position;
@@ -877,6 +881,9 @@
     if (backdrop) {
       backdrop.remove();
     }
+    
+    // Убираем класс ds-modal-open
+    document.body.classList.remove('ds-modal-open');
     
     // Восстанавливаем скролл страницы
     document.body.style.overflow = '';
