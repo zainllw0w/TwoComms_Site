@@ -424,6 +424,7 @@ def add_to_cart(request):
         client_np_office = data.get('client_np_office', '').strip()
         order_source = data.get('order_source', '').strip()
         notes = data.get('notes', '').strip()
+        payment_method = data.get('payment_method', 'cod')  # Способ оплаты
         
         if not product_id:
             return JsonResponse({
@@ -459,6 +460,7 @@ def add_to_cart(request):
                 client_np_address=client_np_address,
                 order_source=order_source,
                 notes=notes,
+                payment_method=payment_method,
                 status='pending'
             )
             
@@ -478,13 +480,37 @@ def add_to_cart(request):
             order.total_drop_price = order_item.total_drop_price
             order.total_selling_price = order_item.total_selling_price
             order.profit = order.total_selling_price - order.total_drop_price
+            
+            # Рассчитываем платеж дропшипера в зависимости от способа оплаты
+            order.calculate_dropshipper_payment()
+            
             order.save()
+            
+            # Отправляем уведомление в Telegram админу
+            try:
+                from .telegram_notifications import telegram_notifier
+                telegram_notifier.send_dropshipper_order_notification(order)
+                print(f"✅ Telegram уведомление отправлено для заказа {order.order_number}")
+            except Exception as e:
+                # Не прерываем создание заказа если Telegram не работает
+                print(f"⚠️ Ошибка отправки Telegram уведомления: {e}")
+        
+        # Проверяем требуется ли оплата
+        requires_payment = order.payment_method in ['prepaid', 'cod']
+        payment_amount = None
+        if order.payment_method == 'prepaid':
+            payment_amount = float(order.total_drop_price)
+        elif order.payment_method == 'cod':
+            payment_amount = 200.00
         
         return JsonResponse({
             'success': True,
             'message': 'Замовлення створено!',
             'order_id': order.id,
-            'order_number': order.order_number
+            'order_number': order.order_number,
+            'requires_payment': requires_payment,
+            'payment_amount': payment_amount,
+            'payment_method': order.payment_method
         })
         
     except Exception as e:
@@ -806,3 +832,213 @@ def get_product_details(request, product_id):
             'success': False,
             'message': f'Помилка при завантаженні товару: {str(e)}'
         })
+
+
+# =============================================================================
+# MONOBANK ОПЛАТА ДЛЯ ДРОПШИПЕРОВ
+# =============================================================================
+
+import logging
+from django.conf import settings
+import requests
+
+monobank_logger = logging.getLogger('monobank')
+
+
+class MonobankAPIError(Exception):
+    """Ошибка API Monobank"""
+    pass
+
+
+def _monobank_api_request(method, endpoint, json_payload=None):
+    """Выполнить запрос к API Monobank"""
+    token = getattr(settings, 'MONOBANK_CHECKOUT_TOKEN', None)
+    if not token:
+        raise MonobankAPIError('Monobank API token не налаштований')
+    
+    base_url = getattr(settings, 'MONOBANK_CHECKOUT_BASE_URL', 'https://api.monobank.ua')
+    url = f"{base_url}{endpoint}"
+    
+    headers = {
+        'X-Token': token,
+        'Content-Type': 'application/json'
+    }
+    
+    try:
+        if method == 'POST':
+            response = requests.post(url, json=json_payload, headers=headers, timeout=30)
+        else:
+            response = requests.get(url, headers=headers, timeout=30)
+        
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        monobank_logger.error(f'Monobank API error: {e}')
+        raise MonobankAPIError(f'Помилка з\'єднання з Monobank: {str(e)}')
+
+
+@login_required
+@require_http_methods(["POST"])
+def create_dropshipper_monobank_payment(request):
+    """Создать платеж Monobank для дропшипера"""
+    try:
+        data = json.loads(request.body)
+        order_id = data.get('order_id')
+        
+        if not order_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'ID замовлення не вказано'
+            })
+        
+        # Получаем заказ
+        order = get_object_or_404(DropshipperOrder, id=order_id, dropshipper=request.user)
+        
+        # Проверяем что заказ требует оплаты
+        if order.payment_method == 'delegation':
+            return JsonResponse({
+                'success': False,
+                'error': 'Це замовлення не потребує оплати (повне делегування)'
+            })
+        
+        # Определяем сумму к оплате
+        if order.payment_method == 'prepaid':
+            amount = order.total_drop_price
+            description = f"Оплата дропа для замовлення {order.order_number}"
+        elif order.payment_method == 'cod':
+            amount = Decimal('200.00')
+            description = f"Передоплата 200 грн для замовлення {order.order_number}"
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Невідомий спосіб оплати'
+            })
+        
+        # Получаем первый товар для отображения
+        first_item = order.items.select_related('product').first()
+        if not first_item:
+            return JsonResponse({
+                'success': False,
+                'error': 'Замовлення не містить товарів'
+            })
+        
+        # Формируем payload для Monobank
+        payload = {
+            'order_ref': f"DS-{order.order_number}",
+            'amount': int(amount * 100),  # В копійках
+            'ccy': 980,  # Гривна
+            'count': 1,
+            'products': [{
+                'name': first_item.product.title,
+                'qty': first_item.quantity,
+                'sum': int(amount * 100),
+                'unit': 'шт',
+                'code': str(first_item.product.id)
+            }],
+            'destination': description,
+            'callback_url': request.build_absolute_uri('/orders/dropshipper/monobank/callback/').replace('http://', 'https://', 1),
+            'return_url': request.build_absolute_uri('/orders/dropshipper/monobank/return/').replace('http://', 'https://', 1),
+        }
+        
+        # Создаем платеж в Monobank
+        try:
+            result = _monobank_api_request('POST', '/personal/checkout/order', json_payload=payload)
+        except MonobankAPIError as e:
+            monobank_logger.error(f'Failed to create Monobank payment for dropshipper order {order.id}: {e}')
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+        
+        # Сохраняем данные платежа в заказе
+        order.monobank_invoice_id = result.get('order_id') or result.get('orderId')
+        order.save()
+        
+        # Сохраняем в сессию
+        request.session['dropshipper_monobank_order_id'] = order.id
+        request.session['dropshipper_monobank_invoice_id'] = order.monobank_invoice_id
+        request.session.modified = True
+        
+        return JsonResponse({
+            'success': True,
+            'page_url': result.get('page_url') or result.get('pageUrl'),
+            'order_id': order.monobank_invoice_id
+        })
+        
+    except Exception as e:
+        monobank_logger.exception(f'Error creating dropshipper Monobank payment: {e}')
+        return JsonResponse({
+            'success': False,
+            'error': f'Помилка при створенні платежу: {str(e)}'
+        })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def dropshipper_monobank_callback(request):
+    """Обработка callback от Monobank для оплаты дропшипера"""
+    try:
+        data = json.loads(request.body)
+        monobank_logger.info(f'Received Monobank callback for dropshipper: {data}')
+        
+        invoice_id = data.get('invoiceId')
+        status = data.get('status')
+        
+        if not invoice_id:
+            monobank_logger.error('No invoiceId in callback')
+            return JsonResponse({'success': False})
+        
+        # Находим заказ по invoice_id
+        try:
+            order = DropshipperOrder.objects.get(monobank_invoice_id=invoice_id)
+        except DropshipperOrder.DoesNotExist:
+            monobank_logger.error(f'Order not found for invoice_id: {invoice_id}')
+            return JsonResponse({'success': False})
+        
+        # Обновляем статус оплаты
+        if status == 'success':
+            order.payment_status = 'paid'
+            order.save()
+            monobank_logger.info(f'Payment successful for dropshipper order {order.order_number}')
+        elif status == 'failure':
+            order.payment_status = 'failed'
+            order.save()
+            monobank_logger.warning(f'Payment failed for dropshipper order {order.order_number}')
+        
+        return JsonResponse({'success': True})
+        
+    except Exception as e:
+        monobank_logger.exception(f'Error processing dropshipper Monobank callback: {e}')
+        return JsonResponse({'success': False})
+
+
+@login_required
+def dropshipper_monobank_return(request):
+    """Обработка возврата пользователя после оплаты Monobank"""
+    from django.contrib import messages
+    
+    order_id = request.session.get('dropshipper_monobank_order_id')
+    invoice_id = request.GET.get('invoiceId') or request.session.get('dropshipper_monobank_invoice_id')
+    
+    if order_id:
+        try:
+            order = DropshipperOrder.objects.get(id=order_id, dropshipper=request.user)
+            
+            # Очищаем сессию
+            request.session.pop('dropshipper_monobank_order_id', None)
+            request.session.pop('dropshipper_monobank_invoice_id', None)
+            request.session.modified = True
+            
+            if order.payment_status == 'paid':
+                messages.success(request, f'Оплата успішна! Замовлення {order.order_number} оплачено.')
+            else:
+                messages.warning(request, f'Очікується підтвердження оплати для замовлення {order.order_number}')
+            
+            return redirect('orders:dropshipper_orders')
+            
+        except DropshipperOrder.DoesNotExist:
+            messages.error(request, 'Замовлення не знайдено')
+    else:
+        messages.error(request, 'Помилка: дані про замовлення відсутні')
+    
+    return redirect('orders:dropshipper_dashboard')

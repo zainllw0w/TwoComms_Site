@@ -23,4 +23,9 @@ urlpatterns = [
     path('dropshipper/api/cart/get/', dropshipper_views.get_cart, name='get_cart'),
     path('dropshipper/api/cart/remove/', dropshipper_views.remove_from_cart, name='remove_from_cart'),
     path('dropshipper/api/cart/clear/', dropshipper_views.clear_cart, name='clear_cart'),
+    
+    # Monobank оплата для дропшиперов
+    path('dropshipper/monobank/create/', dropshipper_views.create_dropshipper_monobank_payment, name='create_dropshipper_monobank_payment'),
+    path('dropshipper/monobank/callback/', dropshipper_views.dropshipper_monobank_callback, name='dropshipper_monobank_callback'),
+    path('dropshipper/monobank/return/', dropshipper_views.dropshipper_monobank_return, name='dropshipper_monobank_return'),
 ]

@@ -307,6 +307,7 @@ class DropshipperOrder(models.Model):
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cod', verbose_name="Спосіб оплати")
     prepayment_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Сума передоплати")
     dropshipper_payment_required = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Дропшипер має сплатити")
+    monobank_invoice_id = models.CharField(max_length=100, blank=True, null=True, verbose_name="ID інвойсу Monobank")
     
     # Дополнительная информация
     notes = models.TextField(blank=True, null=True, verbose_name="Примітки")
