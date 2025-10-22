@@ -306,7 +306,13 @@
                   justify-content: center;
                   font-size: 1.5rem;
                 ">
-                  {% if order.payment_method == 'prepaid' %}💳{% else %}📦{% endif %}
+                  {% if order.payment_method == 'prepaid' %}
+                    💳
+                  {% elif order.payment_method == 'cod' %}
+                    📦
+                  {% else %}
+                    🎁
+                  {% endif %}
                 </div>
                 
                 <div>
@@ -315,16 +321,20 @@
                   </div>
                   <div style="font-size: 1.1rem; font-weight: 700; color: #e5e7eb; margin-bottom: 4px;">
                     {% if order.payment_method == 'prepaid' %}
-                      💳 Оплачено передоплатою
-                    {% else %}
+                      💳 Товар оплачено
+                    {% elif order.payment_method == 'cod' %}
                       📦 Накладний платіж
+                    {% else %}
+                      🎁 Повне делегування
                     {% endif %}
                   </div>
                   <div style="font-size: 0.85rem; color: rgba(229,231,235,.6);">
                     {% if order.payment_method == 'prepaid' %}
                       Клієнт оплатив товар. Ви сплачуєте <strong style="color: #a78bfa;">{{ order.total_drop_price|floatformat:0 }} ₴</strong>
-                    {% else %}
+                    {% elif order.payment_method == 'cod' %}
                       З накладки віднімається <strong style="color: #a78bfa;">200 ₴</strong> на покриття вартості дропа
+                    {% else %}
+                      Всі ризики на нас. Ви нічого не платите
                     {% endif %}
                   </div>
                 </div>

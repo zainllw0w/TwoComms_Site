@@ -98,7 +98,7 @@
         </span>
         <span class="ds-sidebar__label">
           Замовлення
-          <span class="ds-sidebar__badge" data-orders-badge hidden>0</span>
+          <span class="ds-sidebar__badge" data-orders-badge {% if not total_orders_count or total_orders_count == 0 %}hidden{% endif %}>{{ total_orders_count|default:0 }}</span>
         </span>
       </a>
 
