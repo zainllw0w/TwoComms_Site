@@ -149,6 +149,9 @@ def dropshipper_dashboard(request):
     # Получаем последние заказы
     recent_orders = DropshipperOrder.objects.filter(dropshipper=request.user).order_by('-created_at')[:5]
     
+    # Получаем общее количество заказов
+    total_orders_count = DropshipperOrder.objects.filter(dropshipper=request.user).count()
+    
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
 
     products_preview = [
@@ -163,6 +166,7 @@ def dropshipper_dashboard(request):
     context = {
         'stats': stats,
         'recent_orders': recent_orders,
+        'total_orders_count': total_orders_count,
         'payout_methods': DropshipperPayout.PAYMENT_METHOD_CHOICES,
         'payment_method_choices': DropshipperPayout.PAYMENT_METHOD_CHOICES,
         'profile': profile,
