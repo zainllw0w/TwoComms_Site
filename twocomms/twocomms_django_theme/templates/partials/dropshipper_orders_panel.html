@@ -74,8 +74,8 @@
                       gap: 6px;
                     ">
                       <i class="fas fa-receipt" aria-hidden="true"></i>
-                      {{ order.order_number }}
-                    </span>
+                  {{ order.order_number }}
+                </span>
                     
                     {% if order.status == 'draft' %}
                       <span style="
@@ -150,7 +150,7 @@
                       </span>
                     {% endif %}
                   </div>
-                </div>
+              </div>
                 
                 {# Статус и оплата #}
                 <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-end;">
@@ -188,8 +188,8 @@
                     gap: 8px;
                   ">
                     <i class="fas {% if order.status == 'delivered' %}fa-check-circle{% elif order.status == 'cancelled' %}fa-times-circle{% elif order.status == 'shipped' %}fa-shipping-fast{% else %}fa-spinner fa-pulse{% endif %}" aria-hidden="true"></i>
-                    {{ order.get_status_display }}
-                  </span>
+                  {{ order.get_status_display }}
+                </span>
                   
                   <span style="
                     {% if order.payment_status == 'paid' %}
@@ -210,8 +210,8 @@
                     gap: 6px;
                   ">
                     <i class="fas fa-{% if order.payment_status == 'paid' %}check-circle{% else %}clock{% endif %}" aria-hidden="true"></i>
-                    {{ order.get_payment_status_display }}
-                  </span>
+                  {{ order.get_payment_status_display }}
+                </span>
                 </div>
               </div>
               
@@ -251,8 +251,8 @@
                   <div style="color: #60a5fa; font-size: 1.5rem; font-weight: 800;">
                     {{ order.total_selling_price|floatformat:0 }} ₴
                   </div>
-                </div>
-                
+              </div>
+
                 <div style="
                   background: linear-gradient(135deg, rgba(245,158,11,.12), rgba(217,119,6,.08));
                   border: 1px solid rgba(245,158,11,.25);
@@ -283,7 +283,7 @@
                   </div>
                 </div>
               </div>
-              
+
               {# Информация об оплате #}
               <div style="
                 background: linear-gradient(135deg, rgba(139,92,246,.08), rgba(99,102,241,.08));
@@ -405,8 +405,39 @@
                 </details>
               {% endif %}
               
-              {# Инфо: Управление статусом заказа доступно только администратору в админ панели #}
-              <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; align-items: center;">
+              {# Действия: Оплата и статистика #}
+              <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: space-between; align-items: center;">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                  {# Кнопка оплаты для неоплаченных заказов (prepaid и cod) #}
+                  {% if order.payment_status == 'unpaid' and order.payment_method != 'delegation' %}
+                    <button type="button" class="ds-btn" data-dropshipper-pay data-order-id="{{ order.id }}" data-payment-method="{{ order.payment_method }}" data-payment-amount="{{ order.dropshipper_payment_required }}" style="
+                      background: linear-gradient(135deg, #10b981, #059669);
+                      border: none;
+                      color: white;
+                      border-radius: 10px;
+                      padding: 12px 20px;
+                      font-weight: 700;
+                      font-size: 0.95rem;
+                      cursor: pointer;
+                      transition: all 0.2s;
+                      display: inline-flex;
+                      align-items: center;
+                      gap: 10px;
+                    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(16,185,129,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                      <span style="
+                        background: white;
+                        color: #10b981;
+                        padding: 4px 8px;
+                        border-radius: 6px;
+                        font-size: 0.85rem;
+                        font-weight: 900;
+                      ">{{ order.dropshipper_payment_required|floatformat:0 }} ₴</span>
+                      <span>Оплатити</span>
+                    <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                    </button>
+                  {% endif %}
+                </div>
+                
                 <a href="{% url 'orders:dropshipper_statistics' %}?order={{ order.id }}" data-tab-link="statistics" style="
                   color: #8b5cf6;
                   text-decoration: none;
@@ -584,3 +615,90 @@
     </nav>
   {% endif %}
 </div>
+
+<script>
+// Обработка кнопок оплаты дропшипера
+document.addEventListener('DOMContentLoaded', function() {
+  bindDropshipperPaymentButtons();
+});
+
+// Также привязываем при переключении табов
+document.addEventListener('ds:reload-tab', function(e) {
+  if (e.detail && e.detail.target === 'orders') {
+    setTimeout(bindDropshipperPaymentButtons, 100);
+  }
+});
+
+function bindDropshipperPaymentButtons() {
+  const payButtons = document.querySelectorAll('[data-dropshipper-pay]');
+  
+  payButtons.forEach(button => {
+    // Удаляем старые обработчики
+    const newButton = button.cloneNode(true);
+    button.parentNode.replaceChild(newButton, button);
+    
+    newButton.addEventListener('click', async function() {
+      const orderId = this.dataset.orderId;
+      const paymentMethod = this.dataset.paymentMethod;
+      const paymentAmount = this.dataset.paymentAmount;
+      
+      console.log('💳 Оплата заказа:', orderId, paymentMethod, paymentAmount + ' грн');
+      
+      // Блокируем кнопку
+      const originalHTML = this.innerHTML;
+      this.disabled = true;
+      this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Створення платежу...';
+      
+      try {
+        // Создаем платеж Monobank
+        const response = await fetch('/orders/dropshipper/monobank/create/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          body: JSON.stringify({
+            order_id: orderId
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.page_url) {
+          console.log('✅ Платеж создан, перенаправление:', data.page_url);
+          // Перенаправляем на страницу оплаты Monobank
+          window.location.href = data.page_url;
+        } else {
+          throw new Error(data.error || 'Не вдалося створити платіж');
+        }
+      } catch (error) {
+        console.error('❌ Ошибка создания платежа:', error);
+        alert('Помилка при створенні платежу: ' + error.message);
+        
+        // Восстанавливаем кнопку
+        this.disabled = false;
+        this.innerHTML = originalHTML;
+      }
+    });
+  });
+  
+  console.log('✅ Привязано кнопок оплаты:', payButtons.length);
+}
+
+// Утилита для получения CSRF токена
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+</script>

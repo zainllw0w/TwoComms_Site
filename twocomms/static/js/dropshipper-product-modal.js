@@ -1009,46 +1009,16 @@
         
         console.log('✅ Заказ создан:', data);
         
-        // Если требуется оплата - перенаправляем на Monobank
+        // Показываем сообщение в зависимости от способа оплаты
         if (data.requires_payment) {
-          showNotification(`Замовлення №${data.order_number} створено! Перенаправлення на оплату...`, 'success');
-          
-          // Создаем платеж Monobank
-          try {
-            const paymentResponse = await fetch('/orders/dropshipper/monobank/create/', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken'),
-                'X-Requested-With': 'XMLHttpRequest',
-              },
-              body: JSON.stringify({
-                order_id: data.order_id
-              })
-            });
-            
-            const paymentData = await paymentResponse.json();
-            
-            if (paymentData.success && paymentData.page_url) {
-              // Перенаправляем на страницу оплаты Monobank
-              window.location.href = paymentData.page_url;
-              return;
-            } else {
-              throw new Error(paymentData.error || 'Не вдалося створити платіж');
-            }
-          } catch (paymentError) {
-            console.error('❌ Ошибка создания платежа:', paymentError);
-            showNotification(`Замовлення створено, але виникла помилка з оплатою: ${paymentError.message}`, 'error');
-            
-            // Восстанавливаем кнопку
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalBtnHTML;
-            return;
+          if (data.payment_method === 'prepaid') {
+            showNotification(`Замовлення №${data.order_number} створено! Оплатіть ${data.payment_amount} грн в списку замовлень.`, 'success');
+          } else if (data.payment_method === 'cod') {
+            showNotification(`Замовлення №${data.order_number} створено! Оплатіть передоплату 200 грн в списку замовлень.`, 'success');
           }
+        } else {
+          showNotification(`Замовлення №${data.order_number} створено!`, 'success');
         }
-        
-        // Если оплата не требуется (delegation) - просто показываем успех
-        showNotification(`Замовлення №${data.order_number} створено!`, 'success');
         
         // Закрываем модальное окно
         closeDsProductPopup();
