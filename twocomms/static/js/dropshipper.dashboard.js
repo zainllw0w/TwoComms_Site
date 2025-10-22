@@ -716,24 +716,9 @@ function renderOrderItems() {
           console.log('Контейнер .ds-orders-table не найден - заказов нет');
         }
         
-        // Обновляем бейдж заказов (не корзины!)
-        const ordersBadge = document.querySelector('[data-orders-badge]');
-        if (ordersBadge) {
-          if (orderCount > 0) {
-            ordersBadge.textContent = orderCount;
-            ordersBadge.removeAttribute('hidden');
-            ordersBadge.closest('.ds-sidebar__link').classList.add('has-orders');
-            console.log('Бейдж заказов обновлен:', orderCount);
-          } else {
-            // Полностью скрываем бейдж и убираем текст
-            ordersBadge.setAttribute('hidden', 'hidden');
-            ordersBadge.textContent = '';
-            ordersBadge.closest('.ds-sidebar__link').classList.remove('has-orders');
-            console.log('Бейдж заказов скрыт, заказов нет');
-          }
-        } else {
-          console.log('Бейдж заказов не найден в DOM');
-        }
+        // НЕ обновляем бейдж здесь! Он обновляется только через updateOrdersCounter()
+        // при создании нового заказа, или инициализируется из backend при загрузке страницы
+        console.log('Счётчик заказов не изменяется (управляется из backend и updateOrdersCounter)');
       })
       .catch(error => {
         console.log('Не удалось загрузить заказы:', error);
