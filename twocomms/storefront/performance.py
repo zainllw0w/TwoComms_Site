@@ -1,10 +1,10 @@
 """
 Система мониторинга производительности
 """
-from django.core.cache import cache
 from django.db import connection
 from django.utils import timezone
 import time
+from twocomms.cache_utils import get_cache
 
 class PerformanceMonitor:
     """
@@ -42,8 +42,9 @@ class PerformanceMonitor:
         """
         Кэширует метрики производительности
         """
+        cache_backend = get_cache('fragments')
         cache_key = f"perf_metrics_{view_name}_{timezone.now().strftime('%Y%m%d%H')}"
-        cache.set(cache_key, metrics, 3600)  # 1 час
+        cache_backend.set(cache_key, metrics, 3600)  # 1 час
 
 def performance_middleware(get_response):
     """

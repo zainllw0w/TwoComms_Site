@@ -162,14 +162,15 @@
       <div class="featured-card-compact">
         <div class="featured-image-compact">
           {% if featured.display_image %}
-            {% optimized_image featured.display_image.url featured.title|add:" - "|add:featured.category.name|add:" TwoComms" "featured-img" 400 400 %}
+            {% optimized_image featured.display_image.url featured.title|add:" - "|add:featured.category.name|add:" TwoComms" "featured-img" 400 400 loading='eager' fetchpriority='high' %}
           {% else %}
             {% static 'img/placeholder.jpg' as ph_url %}
             <img
               src="{{ ph_url }}"
               class="featured-img"
               alt="{{ featured.title }} - рекомендуємий товар TwoComms"
-              loading="lazy"
+              loading="eager"
+              fetchpriority="high"
               decoding="async"
               width="400"
               height="400"

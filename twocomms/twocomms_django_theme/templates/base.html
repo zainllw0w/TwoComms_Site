@@ -3,60 +3,16 @@
 {% load seo_tags %}
 {% load image_optimization %}
 <!DOCTYPE html>
-<html lang='uk' data-bs-theme='dark'>
+<html lang='uk' data-bs-theme='dark'{% if not debug %} data-ga-id="G-109EFTWM05" data-clarity-id="t7u94cvpqc" data-meta-pixel-id="823958313630148"{% endif %}>
 <head>
-  <!-- Google Analytics - отложенная загрузка для оптимизации критического пути -->
-  <script>
-    // Инициализация Google Analytics с отложенной загрузкой
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-109EFTWM05', {
-      'send_page_view': false // Отключаем автоматическую отправку
-    });
-    
-    // Загружаем Google Analytics после загрузки страницы
-    function loadGoogleAnalytics() {
-      var script = document.createElement('script');
-      script.async = true;
-      script.src = 'https://www.googletagmanager.com/gtag/js?id=G-109EFTWM05';
-      document.head.appendChild(script);
-      
-      // Отправляем pageview после загрузки
-      script.onload = function() {
-        gtag('event', 'page_view', {
-          'page_title': document.title,
-          'page_location': window.location.href
-        });
-      };
-    }
-    
-    // Загружаем в idle time или после load
-    if('requestIdleCallback' in window) {
-      requestIdleCallback(loadGoogleAnalytics, {timeout: 2000});
-    } else {
-      window.addEventListener('load', loadGoogleAnalytics, {once: true});
-    }
-  </script>
-  
-  <!-- Microsoft Clarity - отложенная загрузка -->
-  <script>
-    function loadClarity() {
-      (function(c,l,a,r,i,t,y){
-          c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-          t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-          y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-      })(window, document, "clarity", "script", "t7u94cvpqc");
-    }
-    
-    // Загружаем Clarity в idle time
-    if('requestIdleCallback' in window) {
-      requestIdleCallback(loadClarity, {timeout: 3000});
-    } else {
-      window.addEventListener('load', loadClarity, {once: true});
-    }
-  </script>
-  
+  {% if not debug %}
+  <link rel="preconnect" href="https://www.googletagmanager.com">
+  <link rel="dns-prefetch" href="https://www.googletagmanager.com">
+  <link rel="preconnect" href="https://connect.facebook.net">
+  <link rel="dns-prefetch" href="https://connect.facebook.net">
+  <link rel="preconnect" href="https://www.clarity.ms">
+  <link rel="dns-prefetch" href="https://www.clarity.ms">
+  {% endif %}
   <meta charset='utf-8'>
   <meta name='viewport' content='width=device-width, initial-scale=1'>
   <meta name="csrf-token" content="{{ csrf_token }}">
@@ -391,52 +347,11 @@
          {% if request.user.userprofile and request.user.userprofile.full_name %}data-fn="{{ request.user.userprofile.full_name|escapejs }}"{% else %}data-fn="{{ request.user.first_name|escapejs }} {{ request.user.last_name|escapejs }}"{% endif %}
          {% if request.user.userprofile and request.user.userprofile.city %}data-ct="{{ request.user.userprofile.city|escapejs }}"{% endif %}
        {% endif %} style="display:none"></div>
-  <script>
-  (function(){
-    function loadPixel(){
-      !function(f,b,e,v,n,t,s){
-        if(f.fbq)return; n=f.fbq=function(){ n.callMethod ? n.callMethod.apply(n,arguments) : n.queue.push(arguments) };
-        if(!f._fbq) f._fbq=n; n.push=n; n.loaded=!0; n.version='2.0'; n.queue=[]; t=b.createElement(e); t.async=!0; t.src=v; s=b.getElementsByTagName(e)[0]; s.parentNode.insertBefore(t,s);
-      }(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');
-      try{
-        var amEl=document.getElementById('am');
-        var am={};
-        if(amEl){
-          var fn=(amEl.dataset.fn||'').trim();
-          var parts=fn.split(/\s+/);
-          if(fn && parts.length>1){ am.fn=parts[0]; am.ln=parts.slice(1).join(' ');} else if(fn){ am.fn=fn; }
-          if(amEl.dataset.externalId) am.external_id=amEl.dataset.externalId;
-          if(amEl.dataset.em) am.em=amEl.dataset.em;
-          if(amEl.dataset.ph) am.ph=amEl.dataset.ph;
-          if(amEl.dataset.ct) am.ct=amEl.dataset.ct;
-        }
-        fbq('init','823958313630148', am);
-      }catch(_){ try{ fbq('init','823958313630148'); }catch(__){} }
-      try{ fbq('track','PageView'); }catch(__){}
-    }
-    // Загружаем Facebook Pixel в idle time для оптимизации критического пути
-    if('requestIdleCallback' in window){ 
-      requestIdleCallback(loadPixel, {timeout: 2000}); 
-    } else { 
-      window.addEventListener('load', loadPixel, {once:true}); 
-    }
-  })();
-  </script>
   <noscript><img height="1" width="1" style="display:none"
   src="https://www.facebook.com/tr?id=823958313630148&ev=PageView&noscript=1"
   /></noscript>
   <!-- End Meta Pixel Code -->
   {% block structured_data %}{% endblock %}
-  <script>
-  // Лёгкий аналитический хелпер: шлёт события во все доступные источники
-  (function(){
-    window.trackEvent = function(eventName, payload){
-      try{ if(window.fbq) fbq('track', eventName, payload||{}); }catch(_){ }
-      try{ if(window.gtag) gtag('event', eventName, payload||{}); }catch(_){ }
-      try{ if(window.ym) ym(window.YM_ID||0, 'reachGoal', eventName, payload||{}); }catch(_){ }
-    };
-  })();
-  </script>
 </head><body class='bg-body text-body' style='font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;'>{% include 'partials/header.html' %}<main class='container-xxl py-4 py-md-5'>{% block breadcrumbs %}{% endblock %}{% block content %}{% endblock %}</main>{% block modals %}{% endblock %}{% cache 86400 footer_block %}{% include 'partials/footer.html' %}{% endcache %}
 
 <!-- Мобильные мини-панели (только для мобильной версии) -->
@@ -770,6 +685,7 @@
         onload="this.classList.add('script-loaded')"
         onerror="this.classList.add('script-error')"
         crossorigin="anonymous"></script>
+<script defer src="{% static 'js/analytics-loader.js' %}?v=1"></script>
 
 <!-- UI fallback helpers -->
 <script>
