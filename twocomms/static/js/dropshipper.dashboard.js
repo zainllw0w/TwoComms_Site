@@ -719,6 +719,11 @@ function renderOrderItems() {
         // НЕ обновляем бейдж здесь! Он обновляется только через updateOrdersCounter()
         // при создании нового заказа, или инициализируется из backend при загрузке страницы
         console.log('Счётчик заказов не изменяется (управляется из backend и updateOrdersCounter)');
+        
+        // ВАЖНО: Привязываем кнопки оплаты ПОСЛЕ загрузки заказов
+        if (typeof window.bindDropshipperPaymentButtons === 'function') {
+          setTimeout(() => window.bindDropshipperPaymentButtons(), 100);
+        }
       })
       .catch(error => {
         console.log('Не удалось загрузить заказы:', error);
