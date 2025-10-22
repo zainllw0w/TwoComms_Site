@@ -620,11 +620,8 @@
     };
     document.addEventListener('keydown', popupEscapeHandler);
     
-    // ===== ШАГ 6: ДОБАВЛЕНИЕ В DOM =====
-    document.body.appendChild(backdrop);
-    document.body.appendChild(popup);
-    
-    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: добавляем класс ds-modal-open к body
+    // ===== ШАГ 5.5: ПОДГОТОВКА КОНТЕЙНЕРОВ =====
+    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: добавляем класс ds-modal-open к body ДО добавления модального окна
     // Это активирует CSS правила которые убирают position: relative с родительских контейнеров
     document.body.classList.add('ds-modal-open');
     
@@ -638,6 +635,10 @@
     
     // Блокируем скролл страницы
     document.body.style.overflow = 'hidden';
+    
+    // ===== ШАГ 6: ДОБАВЛЕНИЕ В DOM =====
+    document.body.appendChild(backdrop);
+    document.body.appendChild(popup);
     
     // ===== ШАГ 7: ПОКАЗЫВАЕМ МОДАЛЬНОЕ ОКНО =====
     // position: fixed с top: 50%, left: 50% и transform: translate(-50%, -50%)
