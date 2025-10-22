@@ -52,8 +52,8 @@
     // Точная копия стилей из рабочего wholesale модала
     popup.style.cssText = `
         position: fixed;
-        top: 50%;
-        left: 50%;
+        top: 50vh;
+        left: 50vw;
         transform: translate(-50%, -50%) scale(0.8);
         background: linear-gradient(135deg, rgba(20,22,27,.98), rgba(14,16,22,.98));
         border: 1px solid rgba(255,255,255,.1);
