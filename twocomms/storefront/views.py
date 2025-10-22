@@ -7455,26 +7455,23 @@ def admin_update_dropship_order(request, order_id):
 @require_POST
 @staff_member_required
 def admin_delete_dropship_order(request, order_id):
-    """Удаление заказа дропшипера"""
+    """Удаление заказа дропшипера (админ может удалять любые заказы)"""
     from orders.models import DropshipperOrder
     from orders.telegram_notifications import telegram_notifier
     
     try:
         order = DropshipperOrder.objects.get(id=order_id)
         
-        # Можно удалять только черновики и отмененные
-        if order.status not in ['draft', 'cancelled']:
-            return JsonResponse({
-                'success': False,
-                'error': 'Можна видаляти лише чернетки та скасовані замовлення'
-            }, status=400)
-        
+        # Админ может удалять любые заказы
+        # Но показываем предупреждение для доставленных заказов в UI
         order_number = order.order_number
+        dropshipper_name = order.dropshipper.username if order.dropshipper else 'Невідомий'
+        
         order.delete()
         
         return JsonResponse({
             'success': True,
-            'message': f'Замовлення {order_number} видалено'
+            'message': f'Замовлення {order_number} (дропшипер: {dropshipper_name}) видалено'
         })
         
     except DropshipperOrder.DoesNotExist:

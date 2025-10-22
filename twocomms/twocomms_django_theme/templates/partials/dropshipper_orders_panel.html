@@ -8,10 +8,10 @@
         </p>
       </div>
       <div class="ds-actions">
-        <button type="button" class="ds-btn ds-btn--primary js-open-order-modal">
+        <a href="{% url 'orders:dropshipper_products' %}" class="ds-btn ds-btn--primary" data-tab-link="products">
           <i class="fas fa-plus" aria-hidden="true"></i>
           <span>Нове замовлення</span>
-        </button>
+        </a>
         <a href="{% url 'orders:dropshipper_dashboard' %}" class="ds-btn ds-btn--ghost" data-tab-link="main">
           <i class="fas fa-home" aria-hidden="true"></i>
           <span>На головну</span>
@@ -35,11 +35,11 @@
     </form>
   </section>
 
-  <section class="ds-section ds-orders-list" data-animate>
+  <section class="ds-section ds-orders-list">
     {% if page_obj and page_obj.object_list %}
       <div class="ds-orders-table" style="display: grid; gap: 20px;">
         {% for order in page_obj %}
-          <article class="ds-order-card" data-fade style="
+          <article class="ds-order-card" style="
             background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98));
             border: 1px solid rgba(139,92,246,.2);
             border-radius: 20px;
