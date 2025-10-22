@@ -280,8 +280,9 @@ class DropshipperOrder(models.Model):
     ]
     
     PAYMENT_METHOD_CHOICES = [
-        ('prepaid', 'Оплачено (передоплата)'),
+        ('prepaid', 'Товар оплачено'),
         ('cod', 'Накладний платіж'),
+        ('delegation', 'Повне делегування'),
     ]
     
     # Информация о дропшипере
@@ -355,22 +356,28 @@ class DropshipperOrder(models.Model):
     def calculate_dropshipper_payment(self):
         """Рассчитывает сумму которую должен оплатить дропшипер"""
         if self.payment_method == 'prepaid':
-            # Если заказ оплачен - дропшипер платит полную стоимость дропа
+            # Товар оплачено - дропшипер платит полную стоимость дропа
             self.dropshipper_payment_required = self.total_drop_price
             self.prepayment_amount = 0
-        else:  # cod - наложенный платеж
-            # Дропшипер платит предоплату 200 грн
+        elif self.payment_method == 'cod':
+            # Накладний платіж - дропшипер платит предоплату 200 грн
             self.prepayment_amount = 200
             self.dropshipper_payment_required = 200
+        else:  # delegation - повне делегування
+            # Ми все беремо на себе - дропшипер нічого не платить
+            self.prepayment_amount = 0
+            self.dropshipper_payment_required = 0
         
         return self.dropshipper_payment_required
     
     def get_payment_method_display_detailed(self):
         """Возвращает детальное описание способа оплаты"""
         if self.payment_method == 'prepaid':
-            return f"Оплачено передоплатою (дропшипер сплачує {self.total_drop_price} грн)"
-        else:
+            return f"Товар оплачено (дропшипер сплачує {self.total_drop_price} грн)"
+        elif self.payment_method == 'cod':
             return f"Накладний платіж (200 грн вираховується з суми при отриманні)"
+        else:  # delegation
+            return "Повне делегування (0 грн - всі ризики на нас)"
 
 
 class DropshipperOrderItem(models.Model):

@@ -304,7 +304,7 @@ main.container-xxl.py-4.py-md-5 {
 }
 
 .ds-container {
-  width: min(1400px, 100%);
+  width: min(1600px, 100%);
   margin: 0 auto;
   display: flex;
   flex-direction: column;

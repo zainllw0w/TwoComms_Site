@@ -59,8 +59,8 @@
         border: 1px solid rgba(255,255,255,.1);
         border-radius: 20px;
         padding: 20px;
-        max-width: 900px;
-        width: 90vw;
+        max-width: 1100px;
+        width: 92vw;
         max-height: 90vh;
         overflow-y: auto;
         z-index: 10000;
@@ -402,12 +402,12 @@
               <h5 style="margin: 0 0 15px; font-weight: 700; color: #e5e7eb; font-size: 1rem; border-bottom: 1px solid rgba(255,255,255,.08); padding-bottom: 10px;">
                 💳 Спосіб оплати
               </h5>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;">
                 <label style="
                   position: relative;
                   display: flex;
                   flex-direction: column;
-                  padding: 20px;
+                  padding: 16px;
                   border-radius: 12px;
                   border: 2px solid rgba(255,255,255,.16);
                   background: rgba(12,12,18,.65);
@@ -418,10 +418,10 @@
                     position: absolute;
                     opacity: 0;
                   " onchange="handlePaymentMethodChange(this)">
-                  <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+                  <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
                     <div id="dsPaymentPrepaidIcon" style="
-                      width: 24px;
-                      height: 24px;
+                      width: 20px;
+                      height: 20px;
                       border-radius: 50%;
                       border: 2px solid rgba(255,255,255,.3);
                       display: flex;
@@ -429,22 +429,22 @@
                       justify-content: center;
                       transition: all 0.3s ease;
                     ">
-                      <div style="width: 12px; height: 12px; border-radius: 50%; background: transparent; transition: all 0.3s ease;"></div>
+                      <div style="width: 10px; height: 10px; border-radius: 50%; background: transparent; transition: all 0.3s ease;"></div>
                     </div>
-                    <strong style="font-size: 1.05rem; color: #e5e7eb;">Оплачено передоплатою</strong>
+                    <strong style="font-size: 0.95rem; color: #e5e7eb;">Товар оплачено</strong>
                   </div>
-                  <div style="font-size: 0.85rem; color: rgba(229,231,235,.7); margin-bottom: 12px;">
-                    Клієнт вже оплатив товар. Ви сплачуєте повну вартість дропа.
+                  <div style="font-size: 0.8rem; color: rgba(229,231,235,.7); margin-bottom: 10px; line-height: 1.4;">
+                    Клієнт вже оплатив. Ви сплачуєте повну вартість дропа.
                   </div>
                   <div id="dsPaymentPrepaidAmount" style="
                     background: linear-gradient(135deg, rgba(139,92,246,.15), rgba(99,102,241,.15));
                     border: 1px solid rgba(139,92,246,.3);
                     border-radius: 8px;
-                    padding: 12px;
+                    padding: 10px;
                     display: none;
                   ">
-                    <div style="font-size: 0.75rem; text-transform: uppercase; color: rgba(229,231,235,.6); margin-bottom: 4px;">До сплати:</div>
-                    <div style="font-size: 1.3rem; font-weight: 800; color: #a78bfa;"><span id="dsPaymentPrepaidValue">0</span> грн</div>
+                    <div style="font-size: 0.7rem; text-transform: uppercase; color: rgba(229,231,235,.6); margin-bottom: 4px;">До сплати:</div>
+                    <div style="font-size: 1.2rem; font-weight: 800; color: #a78bfa;"><span id="dsPaymentPrepaidValue">0</span> грн</div>
                   </div>
                 </label>
                 
@@ -452,21 +452,21 @@
                   position: relative;
                   display: flex;
                   flex-direction: column;
-                  padding: 20px;
+                  padding: 16px;
                   border-radius: 12px;
-                  border: 2px solid rgba(255,255,255,.16);
-                  background: rgba(12,12,18,.65);
+                  border: 2px solid #8b5cf6;
+                  background: rgba(139,92,246,.12);
                   cursor: pointer;
                   transition: all 0.3s ease;
-                " onmouseover="this.style.borderColor='rgba(139,92,246,.38)'; this.style.background='rgba(139,92,246,.08)'" onmouseout="if(!this.querySelector('input').checked) { this.style.borderColor='rgba(255,255,255,.16)'; this.style.background='rgba(12,12,18,.65)' }">
+                " onmouseover="this.style.borderColor='rgba(139,92,246,.5)'" onmouseout="if(!this.querySelector('input').checked) { this.style.borderColor='rgba(255,255,255,.16)'; this.style.background='rgba(12,12,18,.65)' }">
                   <input type="radio" name="paymentMethod" value="cod" id="dsPaymentCOD" required style="
                     position: absolute;
                     opacity: 0;
                   " onchange="handlePaymentMethodChange(this)" checked>
-                  <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+                  <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
                     <div id="dsPaymentCODIcon" style="
-                      width: 24px;
-                      height: 24px;
+                      width: 20px;
+                      height: 20px;
                       border-radius: 50%;
                       border: 2px solid #8b5cf6;
                       background: #8b5cf6;
@@ -475,24 +475,66 @@
                       justify-content: center;
                       transition: all 0.3s ease;
                     ">
-                      <div style="width: 12px; height: 12px; border-radius: 50%; background: white; transition: all 0.3s ease;"></div>
+                      <div style="width: 10px; height: 10px; border-radius: 50%; background: white; transition: all 0.3s ease;"></div>
                     </div>
-                    <strong style="font-size: 1.05rem; color: #e5e7eb;">Накладний платіж</strong>
+                    <strong style="font-size: 0.95rem; color: #e5e7eb;">Накладний платіж</strong>
                   </div>
-                  <div style="font-size: 0.85rem; color: rgba(229,231,235,.7); margin-bottom: 12px;">
-                    Клієнт оплатить при отриманні на Новій Пошті. 200 грн вираховується з суми.
+                  <div style="font-size: 0.8rem; color: rgba(229,231,235,.7); margin-bottom: 10px; line-height: 1.4;">
+                    Клієнт оплачує при отриманні. 200 грн віднімається з суми.
                   </div>
                   <div id="dsPaymentCODAmount" style="
                     background: linear-gradient(135deg, rgba(139,92,246,.15), rgba(99,102,241,.15));
                     border: 1px solid rgba(139,92,246,.3);
                     border-radius: 8px;
-                    padding: 12px;
+                    padding: 10px;
                   ">
-                    <div style="font-size: 0.75rem; text-transform: uppercase; color: rgba(229,231,235,.6); margin-bottom: 4px;">З накладки віднімається:</div>
-                    <div style="font-size: 1.3rem; font-weight: 800; color: #a78bfa;">200 грн</div>
-                    <div style="font-size: 0.75rem; color: rgba(229,231,235,.5); margin-top: 6px;">
-                      📦 Вираховується при отриманні клієнтом
+                    <div style="font-size: 0.7rem; text-transform: uppercase; color: rgba(229,231,235,.6); margin-bottom: 4px;">Віднімається:</div>
+                    <div style="font-size: 1.2rem; font-weight: 800; color: #a78bfa;">200 грн</div>
+                  </div>
+                </label>
+                
+                <label style="
+                  position: relative;
+                  display: flex;
+                  flex-direction: column;
+                  padding: 16px;
+                  border-radius: 12px;
+                  border: 2px solid rgba(255,255,255,.16);
+                  background: rgba(12,12,18,.65);
+                  cursor: pointer;
+                  transition: all 0.3s ease;
+                " onmouseover="this.style.borderColor='rgba(16,185,129,.38)'; this.style.background='rgba(16,185,129,.08)'" onmouseout="if(!this.querySelector('input').checked) { this.style.borderColor='rgba(255,255,255,.16)'; this.style.background='rgba(12,12,18,.65)' }">
+                  <input type="radio" name="paymentMethod" value="delegation" id="dsPaymentDelegation" required style="
+                    position: absolute;
+                    opacity: 0;
+                  " onchange="handlePaymentMethodChange(this)">
+                  <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                    <div id="dsPaymentDelegationIcon" style="
+                      width: 20px;
+                      height: 20px;
+                      border-radius: 50%;
+                      border: 2px solid rgba(255,255,255,.3);
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      transition: all 0.3s ease;
+                    ">
+                      <div style="width: 10px; height: 10px; border-radius: 50%; background: transparent; transition: all 0.3s ease;"></div>
                     </div>
+                    <strong style="font-size: 0.95rem; color: #e5e7eb;">Повне делегування</strong>
+                  </div>
+                  <div style="font-size: 0.8rem; color: rgba(229,231,235,.7); margin-bottom: 10px; line-height: 1.4;">
+                    Всі ризики на нас. Ви нічого не платите наперед.
+                  </div>
+                  <div id="dsPaymentDelegationAmount" style="
+                    background: linear-gradient(135deg, rgba(16,185,129,.15), rgba(5,150,105,.15));
+                    border: 1px solid rgba(16,185,129,.3);
+                    border-radius: 8px;
+                    padding: 10px;
+                    display: none;
+                  ">
+                    <div style="font-size: 0.7rem; text-transform: uppercase; color: rgba(229,231,235,.6); margin-bottom: 4px;">До сплати:</div>
+                    <div style="font-size: 1.2rem; font-weight: 800; color: #34d399;">0 грн</div>
                   </div>
                 </label>
               </div>
@@ -612,104 +654,103 @@
   };
   
   /**
-   * Обработка изменения способа оплаты
+   * Обработка изменения способа оплаты (3 варианта)
    */
   window.handlePaymentMethodChange = function(radio) {
     const popup = document.getElementById('dsProductPopup');
     if (!popup || !currentProduct) return;
     
-    const isPrepaid = radio.value === 'prepaid';
+    const paymentMethod = radio.value; // 'prepaid', 'cod', 'delegation'
     const dropPrice = currentProduct.drop_price || 0;
     
-    // Обновляем иконки
+    // Получаем все элементы
     const prepaidIcon = popup.querySelector('#dsPaymentPrepaidIcon');
     const codIcon = popup.querySelector('#dsPaymentCODIcon');
-    const prepaidInner = prepaidIcon ? prepaidIcon.querySelector('div') : null;
-    const codInner = codIcon ? codIcon.querySelector('div') : null;
+    const delegationIcon = popup.querySelector('#dsPaymentDelegationIcon');
     
-    if (isPrepaid) {
-      // Prepaid выбран
+    const prepaidLabel = popup.querySelector('#dsPaymentPrepaid')?.closest('label');
+    const codLabel = popup.querySelector('#dsPaymentCOD')?.closest('label');
+    const delegationLabel = popup.querySelector('#dsPaymentDelegation')?.closest('label');
+    
+    const prepaidAmount = popup.querySelector('#dsPaymentPrepaidAmount');
+    const codAmount = popup.querySelector('#dsPaymentCODAmount');
+    const delegationAmount = popup.querySelector('#dsPaymentDelegationAmount');
+    
+    const infoText = popup.querySelector('#dsPaymentInfoText');
+    
+    // Сбрасываем все стили
+    [prepaidIcon, codIcon, delegationIcon].forEach(icon => {
+      if (icon) {
+        icon.style.borderColor = 'rgba(255,255,255,.3)';
+        icon.style.background = 'transparent';
+        const inner = icon.querySelector('div');
+        if (inner) inner.style.background = 'transparent';
+      }
+    });
+    
+    [prepaidLabel, codLabel, delegationLabel].forEach(label => {
+      if (label) {
+        label.style.borderColor = 'rgba(255,255,255,.16)';
+        label.style.background = 'rgba(12,12,18,.65)';
+      }
+    });
+    
+    [prepaidAmount, codAmount, delegationAmount].forEach(el => {
+      if (el) el.style.display = 'none';
+    });
+    
+    // Применяем стили для выбранного варианта
+    if (paymentMethod === 'prepaid') {
+      // Товар оплачено
       if (prepaidIcon) {
         prepaidIcon.style.borderColor = '#8b5cf6';
         prepaidIcon.style.background = '#8b5cf6';
+        const inner = prepaidIcon.querySelector('div');
+        if (inner) inner.style.background = 'white';
       }
-      if (prepaidInner) {
-        prepaidInner.style.background = 'white';
-      }
-      if (codIcon) {
-        codIcon.style.borderColor = 'rgba(255,255,255,.3)';
-        codIcon.style.background = 'transparent';
-      }
-      if (codInner) {
-        codInner.style.background = 'transparent';
-      }
-      
-      // Показываем сумму для prepaid
-      const prepaidAmount = popup.querySelector('#dsPaymentPrepaidAmount');
-      const codAmount = popup.querySelector('#dsPaymentCODAmount');
-      const prepaidValue = popup.querySelector('#dsPaymentPrepaidValue');
-      
-      if (prepaidAmount) prepaidAmount.style.display = 'block';
-      if (codAmount) codAmount.style.display = 'none';
-      if (prepaidValue) prepaidValue.textContent = dropPrice.toFixed(0);
-      
-      // Обновляем инфо-текст
-      const infoText = popup.querySelector('#dsPaymentInfoText');
-      if (infoText) {
-        infoText.innerHTML = `Ви сплачуєте <strong>${dropPrice} грн</strong> - повну вартість дропа. Клієнт вже оплатив товар, тому ризиків немає.`;
-      }
-      
-      // Обновляем стили родительских label
-      const prepaidLabel = popup.querySelector('#dsPaymentPrepaid').closest('label');
-      const codLabel = popup.querySelector('#dsPaymentCOD').closest('label');
       if (prepaidLabel) {
         prepaidLabel.style.borderColor = 'rgba(139,92,246,.5)';
         prepaidLabel.style.background = 'rgba(139,92,246,.12)';
       }
-      if (codLabel) {
-        codLabel.style.borderColor = 'rgba(255,255,255,.16)';
-        codLabel.style.background = 'rgba(12,12,18,.65)';
+      if (prepaidAmount) {
+        prepaidAmount.style.display = 'block';
+        const prepaidValue = popup.querySelector('#dsPaymentPrepaidValue');
+        if (prepaidValue) prepaidValue.textContent = dropPrice.toFixed(0);
       }
-    } else {
-      // COD выбран
-      if (prepaidIcon) {
-        prepaidIcon.style.borderColor = 'rgba(255,255,255,.3)';
-        prepaidIcon.style.background = 'transparent';
+      if (infoText) {
+        infoText.innerHTML = `Ви сплачуєте <strong>${dropPrice} грн</strong> - повну вартість дропа. Клієнт вже оплатив товар, тому ризиків немає.`;
       }
-      if (prepaidInner) {
-        prepaidInner.style.background = 'transparent';
-      }
+    } else if (paymentMethod === 'cod') {
+      // Накладний платіж
       if (codIcon) {
         codIcon.style.borderColor = '#8b5cf6';
         codIcon.style.background = '#8b5cf6';
-      }
-      if (codInner) {
-        codInner.style.background = 'white';
-      }
-      
-      // Показываем сумму для COD
-      const prepaidAmount = popup.querySelector('#dsPaymentPrepaidAmount');
-      const codAmount = popup.querySelector('#dsPaymentCODAmount');
-      
-      if (prepaidAmount) prepaidAmount.style.display = 'none';
-      if (codAmount) codAmount.style.display = 'block';
-      
-      // Обновляем инфо-текст
-      const infoText = popup.querySelector('#dsPaymentInfoText');
-      if (infoText) {
-        infoText.innerHTML = 'При накладному платежі клієнт оплачує товар на Новій Пошті. З цієї суми автоматично віднімається <strong>200 грн</strong>, які йдуть на покриття вартості дропа. Ви отримуєте суму продажу мінус 200 грн.';
-      }
-      
-      // Обновляем стили родительских label
-      const prepaidLabel = popup.querySelector('#dsPaymentPrepaid').closest('label');
-      const codLabel = popup.querySelector('#dsPaymentCOD').closest('label');
-      if (prepaidLabel) {
-        prepaidLabel.style.borderColor = 'rgba(255,255,255,.16)';
-        prepaidLabel.style.background = 'rgba(12,12,18,.65)';
+        const inner = codIcon.querySelector('div');
+        if (inner) inner.style.background = 'white';
       }
       if (codLabel) {
         codLabel.style.borderColor = 'rgba(139,92,246,.5)';
         codLabel.style.background = 'rgba(139,92,246,.12)';
+      }
+      if (codAmount) codAmount.style.display = 'block';
+      if (infoText) {
+        infoText.innerHTML = 'При накладному платежі клієнт оплачує товар на Новій Пошті. З цієї суми автоматично віднімається <strong>200 грн</strong>, які йдуть на покриття вартості дропа. Ви отримуєте суму продажу мінус 200 грн.';
+      }
+    } else if (paymentMethod === 'delegation') {
+      // Повне делегування
+      if (delegationIcon) {
+        delegationIcon.style.borderColor = '#10b981';
+        delegationIcon.style.background = '#10b981';
+        const inner = delegationIcon.querySelector('div');
+        if (inner) inner.style.background = 'white';
+      }
+      if (delegationLabel) {
+        delegationLabel.style.borderColor = 'rgba(16,185,129,.5)';
+        delegationLabel.style.background = 'rgba(16,185,129,.12)';
+      }
+      if (delegationAmount) delegationAmount.style.display = 'block';
+      if (infoText) {
+        infoText.innerHTML = 'При повному делегуванні <strong>всі ризики на нас</strong>. Ви нічого не платите наперед - ні дроп, ні передоплату. Ми самі займаємося всім процесом від виробництва до відправки та обробки оплати від клієнта.';
       }
     }
   };

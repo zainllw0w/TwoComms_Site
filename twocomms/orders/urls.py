@@ -6,7 +6,7 @@ app_name = 'orders'
 urlpatterns = [
     # Дропшип маршруты
     path('dropshipper/', dropshipper_views.dropshipper_dashboard, name='dropshipper_dashboard'),
-    path('dropshipper/products/', dropshipper_views.dropshipper_products, name='dropshipper_products'),
+    path('products/', dropshipper_views.dropshipper_products, name='dropshipper_products'),
     path('dropshipper/orders/', dropshipper_views.dropshipper_orders, name='dropshipper_orders'),
     path('dropshipper/statistics/', dropshipper_views.dropshipper_statistics, name='dropshipper_statistics'),
     path('dropshipper/payouts/', dropshipper_views.dropshipper_payouts, name='dropshipper_payouts'),
