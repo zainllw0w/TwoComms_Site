@@ -679,6 +679,36 @@
     // ===== ШАГ 8: ЗАГРУЗКА ДАННЫХ ТОВАРА =====
     loadProductData(productId, popup);
     
+    // ===== ШАГ 9: ЗАЩИТА ОТ "УЛЕТАНИЯ" =====
+    // Наблюдаем за изменениями в модальном окне и перецентровываем при необходимости
+    const observer = new MutationObserver(() => {
+      // Проверяем что модальное окно все еще по центру
+      const rect = popup.getBoundingClientRect();
+      const viewportCenterY = window.innerHeight / 2;
+      const popupCenterY = rect.top + rect.height / 2;
+      const offset = Math.abs(popupCenterY - viewportCenterY);
+      
+      // Если отклонение больше 10px - перецентровываем
+      if (offset > 10 && popup.parentElement) {
+        console.log('⚠️ Модальное окно сместилось на', offset.toFixed(2), 'px - перецентровка...');
+        popup.style.setProperty('top', '50%', 'important');
+        popup.style.setProperty('left', '50%', 'important');
+        popup.style.transform = 'translate(-50%, -50%) scale(1)';
+      }
+    });
+    
+    // Запускаем наблюдение
+    observer.observe(popup, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+      attributeFilter: ['style', 'class']
+    });
+    
+    // Сохраняем observer для очистки при закрытии
+    popup.dataset.observerId = 'active';
+    window.dsModalObserver = observer;
+    
     console.log('✅ Модальное окно создано и отображено');
   };
   
@@ -802,6 +832,12 @@
       // Убираем класс модального окна
       document.body.classList.remove('ds-modal-open');
       
+      // Останавливаем MutationObserver
+      if (window.dsModalObserver) {
+        window.dsModalObserver.disconnect();
+        window.dsModalObserver = null;
+      }
+      
       // Удаление после анимации
       setTimeout(() => {
         // Удаляем обработчик Escape
@@ -867,6 +903,15 @@
       
       // Навешиваем обработчик формы
       setupFormHandler(popup);
+      
+      // КРИТИЧНО: После загрузки контента повторно фиксируем позицию
+      // (иначе изменение высоты может сместить модальное окно)
+      setTimeout(() => {
+        popup.style.setProperty('top', '50%', 'important');
+        popup.style.setProperty('left', '50%', 'important');
+        popup.style.transform = 'translate(-50%, -50%) scale(1)';
+        console.log('🔒 Позиция модального окна зафиксирована после загрузки контента');
+      }, 50);
       
     } catch (error) {
       console.error('❌ Ошибка загрузки товара:', error);
