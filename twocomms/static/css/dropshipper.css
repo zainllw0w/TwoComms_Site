@@ -50,13 +50,16 @@ main.container-xxl.py-4.py-md-5 {
 }
 
 .ds-shell {
-  display: flex !important;
+  display: grid !important;
+  grid-template-columns: minmax(220px, 18vw) minmax(0, 1fr);
+  column-gap: clamp(28px, 4vw, 48px);
+  align-items: start;
   min-height: min(100vh, 1200px) !important;
   background: var(--ds-bg) !important;
   position: relative !important;
   width: 100% !important;
   margin: 0 !important;
-  padding: clamp(20px, 3vw, 32px) 0 clamp(24px, 4vw, 40px) 0 !important;
+  padding: clamp(20px, 3vw, 32px) clamp(16px, 3vw, 24px) clamp(24px, 4vw, 40px) clamp(16px, 3vw, 24px) !important;
   box-sizing: border-box !important;
 }
 
@@ -2938,7 +2941,8 @@ html body #addProductModal.add-product-modal .add-product-modal__dialog.add-prod
 /* Responsive adjustments */
 @media (max-width: 1080px) {
   .ds-shell {
-    flex-direction: column;
+    grid-template-columns: 1fr;
+    row-gap: clamp(24px, 4vw, 36px);
   }
 
   .ds-sidebar {
