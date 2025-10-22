@@ -2936,7 +2936,7 @@ html body #addProductModal.add-product-modal .add-product-modal__dialog.add-prod
 }
 
 /* Responsive adjustments */
-@media (max-width: 920px) {
+@media (max-width: 1080px) {
   .ds-shell {
     flex-direction: column;
   }
