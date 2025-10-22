@@ -52,8 +52,8 @@
     // Точная копия стилей из рабочего wholesale модала
     popup.style.cssText = `
         position: fixed;
-        top: 50vh;
-        left: 50vw;
+        top: 50%;
+        left: 50%;
         transform: translate(-50%, -50%) scale(0.8);
         background: linear-gradient(135deg, rgba(20,22,27,.98), rgba(14,16,22,.98));
         border: 1px solid rgba(255,255,255,.1);
@@ -623,20 +623,40 @@
     document.body.appendChild(backdrop);
     document.body.appendChild(popup);
     
-    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: добавляем класс который через CSS убирает position: relative
-    // у body, .ds-shell и .ds-main (это ломает position: fixed!)
-    document.body.classList.add('ds-modal-open');
+    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: убираем position: relative с body
+    // Это ломает position: fixed - он начинает работать как absolute!
+    const originalBodyPosition = document.body.style.position;
+    document.body.style.position = 'static';
+    
+    // Сохраняем оригинальную позицию для восстановления при закрытии
+    popup.dataset.originalBodyPosition = originalBodyPosition;
     
     // Блокируем скролл страницы
     document.body.style.overflow = 'hidden';
     
-    // ===== ШАГ 7: АНИМАЦИЯ ПОЯВЛЕНИЯ =====
-    // Просто показываем модальное окно с анимацией
-    // Позиция уже правильная (top: 50%, left: 50% из cssText)
+    // ===== ШАГ 7: АБСОЛЮТНОЕ ЦЕНТРИРОВАНИЕ ЧЕРЕЗ VIEWPORT + SCROLL =====
+    // КРИТИЧЕСКИ ВАЖНО: position: fixed работает относительно viewport,
+    // НО если страница прокручена - нужно учитывать scrollY!
     setTimeout(() => {
+      const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
+      const scrollY = window.scrollY || window.pageYOffset;
+      
+      // Вычисляем абсолютную позицию центра ВИДИМОЙ области viewport
+      const centerY = scrollY + (viewportHeight / 2);
+      const centerX = viewportWidth / 2;
+      
+      // ЯВНО устанавливаем координаты
+      popup.style.setProperty('top', `${centerY}px`, 'important');
+      popup.style.setProperty('left', `${centerX}px`, 'important');
       popup.style.transform = 'translate(-50%, -50%) scale(1)';
       popup.style.opacity = '1';
-      console.log('✅ Модальное окно показано');
+      
+      console.log('✅ Модальное окно отцентровано:', {
+        scrollY,
+        top: `${centerY}px`,
+        left: `${centerX}px`
+      });
     }, 10);
     
     // ===== ШАГ 8: ЗАГРУЗКА ДАННЫХ ТОВАРА =====
@@ -654,8 +674,11 @@
       // Если отклонение больше 10px - перецентровываем
       if (offset > 10 && popup.parentElement) {
         console.log('⚠️ Модальное окно сместилось на', offset.toFixed(2), 'px - перецентровка...');
-        popup.style.setProperty('top', '50%', 'important');
-        popup.style.setProperty('left', '50%', 'important');
+        const scrollY = window.scrollY || window.pageYOffset;
+        const centerY = scrollY + (window.innerHeight / 2);
+        const centerX = window.innerWidth / 2;
+        popup.style.setProperty('top', `${centerY}px`, 'important');
+        popup.style.setProperty('left', `${centerX}px`, 'important');
         popup.style.transform = 'translate(-50%, -50%) scale(1)';
       }
     });
@@ -792,8 +815,11 @@
       popup.style.transform = 'translate(-50%, -50%) scale(0.8)';
       popup.style.opacity = '0';
       
-      // Убираем класс модального окна
-      document.body.classList.remove('ds-modal-open');
+      // Восстанавливаем оригинальную позицию body
+      const originalPosition = popup.dataset.originalBodyPosition;
+      if (originalPosition !== undefined) {
+        document.body.style.position = originalPosition;
+      }
       
       // Останавливаем MutationObserver
       if (window.dsModalObserver) {
