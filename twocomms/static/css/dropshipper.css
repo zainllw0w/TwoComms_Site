@@ -47,6 +47,8 @@ main.container-xxl.py-4.py-md-5 {
   padding-right: clamp(16px, 4vw, 48px) !important;
   padding-top: calc(70px + clamp(16px, 4vw, 32px)) !important;
   padding-bottom: clamp(24px, 4vw, 42px) !important;
+  overflow: visible !important; /* КРИТИЧНО для position: sticky в дочерних элементах */
+  height: auto !important;
 }
 
 .ds-shell {
