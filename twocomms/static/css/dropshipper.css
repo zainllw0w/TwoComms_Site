@@ -33,6 +33,14 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
+/* КРИТИЧНО: для работы position: sticky в дочерних элементах */
+html, body {
+  overflow: visible !important;
+  height: auto !important;
+  transform: none !important;
+  will-change: auto !important;
+}
+
 body {
   background: var(--ds-bg) !important;
   color: var(--ds-text) !important;
@@ -60,6 +68,8 @@ main.container-xxl.py-4.py-md-5 {
   margin: 0 !important;
   padding: clamp(20px, 3vw, 32px) 0 clamp(24px, 4vw, 40px) 0 !important;
   box-sizing: border-box !important;
+  overflow: visible !important; /* КРИТИЧНО для position: sticky в sidebar */
+  height: auto !important;
 }
 
 .ds-shell::before,
