@@ -161,6 +161,71 @@
           </div>
         </section>
 
+        {# XML Feed Block #}
+        <section class="ds-section" id="ds-xml-feed" data-animate style="background: linear-gradient(145deg, rgba(16,185,129,.08), rgba(5,150,105,.08)); border: 2px solid rgba(16,185,129,.25); border-radius: 24px; padding: 50px 40px; margin: 60px 0;">
+          <div style="display: flex; align-items: center; gap: 40px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 300px;">
+              <div style="display: inline-flex; align-items: center; gap: 10px; background: rgba(16,185,129,.15); padding: 8px 16px; border-radius: 50px; margin-bottom: 24px;">
+                <i class="fas fa-file-code" style="color: #10b981; font-size: 1.2rem;"></i>
+                <span style="color: #34d399; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Маркетплейси</span>
+              </div>
+              
+              <h2 style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #10b981, #059669); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 16px;">
+                📦 XML фід для швидкої вигрузки
+              </h2>
+              
+              <p style="font-size: 1.1rem; color: rgba(229,231,235,.7); line-height: 1.7; margin-bottom: 28px;">
+                Завантажуй актуальний каталог товарів одним кліком та публікуй на <strong style="color: #10b981;">Prom.ua</strong>, <strong style="color: #10b981;">Rozetka</strong> та інших маркетплейсах. XML оновлюється автоматично з новими товарами та цінами.
+              </p>
+
+              <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                <a href="https://twocomms.shop/products_feed.xml" target="_blank" class="ds-btn ds-btn--primary" style="background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 20px rgba(16,185,129,.3); display: inline-flex; align-items: center; gap: 10px; padding: 14px 28px; border-radius: 12px; font-weight: 700; text-decoration: none; color: white; transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 30px rgba(16,185,129,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 20px rgba(16,185,129,.3)'">
+                  <i class="fas fa-download"></i>
+                  <span>Завантажити XML</span>
+                  <i class="fas fa-external-link-alt" style="font-size: 0.85rem;"></i>
+                </a>
+
+                <button onclick="navigator.clipboard.writeText('https://twocomms.shop/products_feed.xml'); this.innerHTML='<i class=\'fas fa-check\'></i> Скопійовано!'; setTimeout(() => this.innerHTML='<i class=\'fas fa-copy\'></i> Копіювати URL', 2000)" class="ds-btn ds-btn--ghost" style="display: inline-flex; align-items: center; gap: 10px; padding: 14px 28px; border-radius: 12px; font-weight: 600; text-decoration: none; color: #10b981; border: 2px solid rgba(16,185,129,.3); background: transparent; cursor: pointer; transition: all 0.3s ease;" onmouseover="this.style.background='rgba(16,185,129,.1)'; this.style.borderColor='rgba(16,185,129,.5)'" onmouseout="this.style.background='transparent'; this.style.borderColor='rgba(16,185,129,.3)'">
+                  <i class="fas fa-copy"></i>
+                  <span>Копіювати URL</span>
+                </button>
+              </div>
+            </div>
+
+            <div style="flex: 0 0 auto;">
+              <div style="background: linear-gradient(145deg, rgba(24,26,31,.95), rgba(18,20,24,.95)); border: 2px solid rgba(16,185,129,.3); border-radius: 20px; padding: 32px; min-width: 320px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,.1);">
+                  <i class="fas fa-info-circle" style="color: #10b981; font-size: 1.4rem;"></i>
+                  <h3 style="font-size: 1.3rem; font-weight: 800; color: #e5e7eb; margin: 0;">Що містить XML?</h3>
+                </div>
+                
+                <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 14px;">
+                  <li style="display: flex; align-items: flex-start; gap: 12px;">
+                    <i class="fas fa-check-circle" style="color: #10b981; font-size: 1.1rem; margin-top: 2px;"></i>
+                    <span style="color: rgba(229,231,235,.75); line-height: 1.6;">Всі активні товари з каталогу</span>
+                  </li>
+                  <li style="display: flex; align-items: flex-start; gap: 12px;">
+                    <i class="fas fa-check-circle" style="color: #10b981; font-size: 1.1rem; margin-top: 2px;"></i>
+                    <span style="color: rgba(229,231,235,.75); line-height: 1.6;">Актуальні дроп-ціни та розміри</span>
+                  </li>
+                  <li style="display: flex; align-items: flex-start; gap: 12px;">
+                    <i class="fas fa-check-circle" style="color: #10b981; font-size: 1.1rem; margin-top: 2px;"></i>
+                    <span style="color: rgba(229,231,235,.75); line-height: 1.6;">Високоякісні фото товарів</span>
+                  </li>
+                  <li style="display: flex; align-items: flex-start; gap: 12px;">
+                    <i class="fas fa-check-circle" style="color: #10b981; font-size: 1.1rem; margin-top: 2px;"></i>
+                    <span style="color: rgba(229,231,235,.75); line-height: 1.6;">Детальні описи та характеристики</span>
+                  </li>
+                  <li style="display: flex; align-items: flex-start; gap: 12px;">
+                    <i class="fas fa-check-circle" style="color: #10b981; font-size: 1.1rem; margin-top: 2px;"></i>
+                    <span style="color: rgba(229,231,235,.75); line-height: 1.6;">Автооновлення щодня о 00:00</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {# Система оплаты #}
         <section class="ds-section" id="ds-payment-info" data-animate style="background: linear-gradient(145deg, rgba(139,92,246,.08), rgba(99,102,241,.08)); border: 2px solid rgba(139,92,246,.2); border-radius: 24px; padding: 60px 40px; margin: 60px 0;">
           <header class="ds-section__header ds-section__header--center" style="margin-bottom: 50px;">
