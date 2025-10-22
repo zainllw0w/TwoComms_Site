@@ -551,20 +551,13 @@
     // ===== ШАГ 3: СОЗДАНИЕ BACKDROP =====
     const backdrop = document.createElement('div');
     backdrop.id = 'dsProductPopupBackdrop';
-    // ВАЖНО: backdrop должен быть position: absolute с полным покрытием документа
-    // или position: fixed с height: 100% от document.documentElement
-    const scrollY = window.scrollY || window.pageYOffset;
-    const documentHeight = Math.max(
-      document.documentElement.scrollHeight,
-      document.body.scrollHeight
-    );
-    
+    // ВАЖНО: backdrop должен быть position: fixed для правильного отображения
     backdrop.style.cssText = `
-      position: absolute;
+      position: fixed;
       top: 0;
       left: 0;
       width: 100%;
-      height: ${documentHeight}px;
+      height: 100%;
       background: rgba(0,0,0,.75);
       backdrop-filter: blur(8px);
       z-index: 9999;
