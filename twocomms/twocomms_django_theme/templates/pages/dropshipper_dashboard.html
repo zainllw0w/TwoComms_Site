@@ -53,7 +53,7 @@
                   <i class="fas fa-plus" aria-hidden="true"></i>
                   <span>Створити замовлення</span>
                 </button>
-                <a href="{% url 'orders:dropshipper_products' %}" class="ds-btn ds-btn--ghost">
+                <a href="{% url 'orders:dropshipper_products' %}" class="ds-btn ds-btn--ghost" data-tab-link="products">
                   <i class="fas fa-store" aria-hidden="true"></i>
                   <span>Каталог для дропшипа</span>
                 </a>
@@ -842,75 +842,10 @@
       </div>
     </section>
 
-    <section class="ds-tab-panel" data-tab-panel="products">
-      <div class="ds-container ds-products-container">
-        <header class="ds-products-header">
-          <div>
-            <h1 class="ds-products-header__title">Каталог TwoComms для ваших продажів</h1>
-            <p class="ds-products-header__lead">Невелика підбірка топових позицій. Повний асортимент — у розділі «Каталог».</p>
-          </div>
-          <div class="ds-products-header__actions">
-            <a href="{% url 'orders:dropshipper_products' %}" class="ds-btn ds-btn--primary">
-              <i class="fas fa-store" aria-hidden="true"></i>
-              <span>Повний каталог</span>
-            </a>
-          </div>
-        </header>
-
-        <div class="ds-product-stats ds-product-stats--subtle ds-product-stats--inline">
-          <div class="ds-product-stats__item">
-            <span class="ds-product-stats__label">У добірці</span>
-            <span class="ds-product-stats__value">{{ dropship_products_preview|length }}</span>
-          </div>
-          <div class="ds-product-stats__item">
-            <span class="ds-product-stats__label">Активних категорій</span>
-            <span class="ds-product-stats__value">{{ dropship_products_categories_count }}</span>
-          </div>
-          <div class="ds-product-stats__item">
-            <span class="ds-product-stats__label">Оновлення</span>
-            <span class="ds-product-stats__value">щотижня</span>
-          </div>
-        </div>
-
-        {% if dropship_inactive_categories %}
-          <div class="ds-products-note">
-            <i class="fas fa-hourglass-half" aria-hidden="true"></i>
-            <div>
-              <strong>Лонгсливи готуємо до повернення.</strong>
-              <div>Категорія відключена для замовлень, але вже невдовзі можна буде додавати оновлену лінійку.</div>
-            </div>
-          </div>
-        {% endif %}
-
-        {% static 'img/placeholder.jpg' as ds_product_placeholder %}
-        <script>
-          window.__dsPlaceholder = window.__dsPlaceholder || '{{ ds_product_placeholder }}';
-        </script>
-        <div class="ds-products-grid-wrapper">
-          {% if dropship_products_preview %}
-            <div class="ds-products-grid">
-              {% for product in dropship_products_preview %}
-                {% include "partials/dropshipper_product_card.html" with product=product ds_product_placeholder=ds_product_placeholder show_description=True show_margin=True show_quick_add=True %}
-              {% endfor %}
-            </div>
-            <div class="ds-actions ds-actions--center">
-              <a href="{% url 'orders:dropshipper_products' %}" class="ds-btn ds-btn--ghost">
-                <i class="fas fa-arrow-right" aria-hidden="true"></i>
-                <span>Дивитися всі товари</span>
-              </a>
-            </div>
-          {% else %}
-            <div class="ds-empty">
-              <i class="fas fa-box-open" aria-hidden="true"></i>
-              <h3 class="ds-empty__title">Поки що каталог порожній</h3>
-              <p class="ds-empty__text">Ми оновлюємо асортимент. Зверніться до менеджера або завітайте трохи пізніше.</p>
-              <a href="https://t.me/twocomms" target="_blank" rel="noopener" class="ds-btn ds-btn--primary">
-                <i class="fab fa-telegram" aria-hidden="true"></i>
-                <span>Звʼязатися в Telegram</span>
-              </a>
-            </div>
-          {% endif %}
-        </div>
+    <section class="ds-tab-panel" data-tab-panel="products" data-tab-autoload="{% url 'orders:dropshipper_products' %}?partial=1">
+      <div class="ds-panel-loading">
+        <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+        <span>Завантажуємо каталог...</span>
       </div>
     </section>
 
