@@ -630,59 +630,13 @@
     // Блокируем скролл страницы
     document.body.style.overflow = 'hidden';
     
-    // ===== ШАГ 7: ПРАВИЛЬНОЕ ЦЕНТРИРОВАНИЕ ДЛЯ POSITION: FIXED =====
-    // КРИТИЧЕСКИ ВАЖНО: position: fixed позиционируется относительно VIEWPORT,
-    // поэтому используем 50% БЕЗ учета scrollY!
+    // ===== ШАГ 7: АНИМАЦИЯ ПОЯВЛЕНИЯ =====
+    // Просто показываем модальное окно с анимацией
+    // Позиция уже правильная (top: 50%, left: 50% из cssText)
     setTimeout(() => {
-      // ДЕТАЛЬНОЕ ЛОГИРОВАНИЕ ДЛЯ ОТЛАДКИ
-      console.log('🔍 DEBUGGING MODAL POSITIONING:');
-      console.log('  Body classList:', document.body.classList.contains('ds-modal-open') ? '✅ ds-modal-open' : '❌ NO CLASS');
-      console.log('  Body position (computed):', window.getComputedStyle(document.body).position);
-      
-      const dsShellEl = document.querySelector('.ds-shell');
-      const dsMainEl = document.querySelector('.ds-main');
-      if (dsShellEl) {
-        const shellComputed = window.getComputedStyle(dsShellEl);
-        console.log('  .ds-shell position (computed):', shellComputed.position);
-        console.log('  .ds-shell transform (computed):', shellComputed.transform);
-        console.log('  .ds-shell perspective (computed):', shellComputed.perspective);
-      }
-      if (dsMainEl) {
-        const mainComputed = window.getComputedStyle(dsMainEl);
-        console.log('  .ds-main position (computed):', mainComputed.position);
-        console.log('  .ds-main transform (computed):', mainComputed.transform);
-      }
-      
-      console.log('  Viewport:', window.innerWidth + 'x' + window.innerHeight);
-      console.log('  ScrollY:', window.scrollY);
-      
-      // Для position: fixed используем проценты - они работают относительно viewport
-      popup.style.setProperty('top', '50%', 'important');
-      popup.style.setProperty('left', '50%', 'important');
       popup.style.transform = 'translate(-50%, -50%) scale(1)';
       popup.style.opacity = '1';
-      
-      // Проверяем результат
-      setTimeout(() => {
-        const rect = popup.getBoundingClientRect();
-        const computed = window.getComputedStyle(popup);
-        console.log('  Popup computed position:', computed.position);
-        console.log('  Popup computed top:', computed.top);
-        console.log('  Popup computed left:', computed.left);
-        console.log('  Popup rect.top:', rect.top);
-        console.log('  Popup rect.left:', rect.left);
-        console.log('  Popup center Y:', rect.top + rect.height / 2, '(должно быть ~', window.innerHeight / 2 + ')');
-        console.log('  Popup center X:', rect.left + rect.width / 2, '(должно быть ~', window.innerWidth / 2 + ')');
-        
-        const isVisible = rect.top >= 0 && rect.top < window.innerHeight;
-        console.log('  Видимость:', isVisible ? '✅ ВИДНО' : '❌ ЗА ПРЕДЕЛАМИ VIEWPORT');
-        
-        if (!isVisible && rect.top < 0) {
-          console.error('⚠️ МОДАЛЬНОЕ ОКНО СВЕРХУ! rect.top =', rect.top);
-        }
-      }, 50);
-      
-      console.log('✅ Модальное окно отцентровано (fixed positioning)');
+      console.log('✅ Модальное окно показано');
     }, 10);
     
     // ===== ШАГ 8: ЗАГРУЗКА ДАННЫХ ТОВАРА =====
@@ -912,15 +866,6 @@
       
       // Навешиваем обработчик формы
       setupFormHandler(popup);
-      
-      // КРИТИЧНО: После загрузки контента повторно фиксируем позицию
-      // (иначе изменение высоты может сместить модальное окно)
-      setTimeout(() => {
-        popup.style.setProperty('top', '50%', 'important');
-        popup.style.setProperty('left', '50%', 'important');
-        popup.style.transform = 'translate(-50%, -50%) scale(1)';
-        console.log('🔒 Позиция модального окна зафиксирована после загрузки контента');
-      }, 50);
       
     } catch (error) {
       console.error('❌ Ошибка загрузки товара:', error);
