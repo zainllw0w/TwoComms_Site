@@ -649,11 +649,43 @@
     // КРИТИЧЕСКИ ВАЖНО: position: fixed позиционируется относительно VIEWPORT,
     // поэтому используем 50% БЕЗ учета scrollY!
     setTimeout(() => {
+      // ДЕТАЛЬНОЕ ЛОГИРОВАНИЕ ДЛЯ ОТЛАДКИ
+      console.log('🔍 DEBUGGING MODAL POSITIONING:');
+      console.log('  Body position:', document.body.style.position, '(computed:', window.getComputedStyle(document.body).position + ')');
+      
+      const dsShellEl = document.querySelector('.ds-shell');
+      const dsMainEl = document.querySelector('.ds-main');
+      if (dsShellEl) console.log('  .ds-shell position:', dsShellEl.style.position, '(computed:', window.getComputedStyle(dsShellEl).position + ')');
+      if (dsMainEl) console.log('  .ds-main position:', dsMainEl.style.position, '(computed:', window.getComputedStyle(dsMainEl).position + ')');
+      
+      console.log('  Viewport:', window.innerWidth + 'x' + window.innerHeight);
+      console.log('  ScrollY:', window.scrollY);
+      
       // Для position: fixed используем проценты - они работают относительно viewport
       popup.style.setProperty('top', '50%', 'important');
       popup.style.setProperty('left', '50%', 'important');
       popup.style.transform = 'translate(-50%, -50%) scale(1)';
       popup.style.opacity = '1';
+      
+      // Проверяем результат
+      setTimeout(() => {
+        const rect = popup.getBoundingClientRect();
+        const computed = window.getComputedStyle(popup);
+        console.log('  Popup computed position:', computed.position);
+        console.log('  Popup computed top:', computed.top);
+        console.log('  Popup computed left:', computed.left);
+        console.log('  Popup rect.top:', rect.top);
+        console.log('  Popup rect.left:', rect.left);
+        console.log('  Popup center Y:', rect.top + rect.height / 2, '(должно быть ~', window.innerHeight / 2 + ')');
+        console.log('  Popup center X:', rect.left + rect.width / 2, '(должно быть ~', window.innerWidth / 2 + ')');
+        
+        const isVisible = rect.top >= 0 && rect.top < window.innerHeight;
+        console.log('  Видимость:', isVisible ? '✅ ВИДНО' : '❌ ЗА ПРЕДЕЛАМИ VIEWPORT');
+        
+        if (!isVisible && rect.top < 0) {
+          console.error('⚠️ МОДАЛЬНОЕ ОКНО СВЕРХУ! rect.top =', rect.top);
+        }
+      }, 50);
       
       console.log('✅ Модальное окно отцентровано (fixed positioning)');
     }, 10);
