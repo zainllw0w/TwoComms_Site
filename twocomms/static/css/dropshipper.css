@@ -73,8 +73,15 @@ main.container-xxl.py-4.py-md-5 {
 }
 
 /* КРИТИЧНО: когда открыто модальное окно, убираем position: relative */
-body.ds-modal-open .ds-shell {
+body.ds-modal-open .ds-shell,
+body.ds-modal-open.ds-shell {
   position: static !important;
+}
+
+/* И убираем псевдоэлементы которые используют position: fixed */
+body.ds-modal-open .ds-shell::before,
+body.ds-modal-open .ds-shell::after {
+  display: none !important;
 }
 
 .ds-shell::before,
@@ -309,6 +316,7 @@ body.ds-modal-open .ds-shell {
 }
 
 /* КРИТИЧНО: когда открыто модальное окно, убираем position: relative */
+body.ds-modal-open .ds-main,
 body.ds-modal-open .ds-main {
   position: static !important;
 }

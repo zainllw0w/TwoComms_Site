@@ -641,8 +641,17 @@
       
       const dsShellEl = document.querySelector('.ds-shell');
       const dsMainEl = document.querySelector('.ds-main');
-      if (dsShellEl) console.log('  .ds-shell position (computed):', window.getComputedStyle(dsShellEl).position);
-      if (dsMainEl) console.log('  .ds-main position (computed):', window.getComputedStyle(dsMainEl).position);
+      if (dsShellEl) {
+        const shellComputed = window.getComputedStyle(dsShellEl);
+        console.log('  .ds-shell position (computed):', shellComputed.position);
+        console.log('  .ds-shell transform (computed):', shellComputed.transform);
+        console.log('  .ds-shell perspective (computed):', shellComputed.perspective);
+      }
+      if (dsMainEl) {
+        const mainComputed = window.getComputedStyle(dsMainEl);
+        console.log('  .ds-main position (computed):', mainComputed.position);
+        console.log('  .ds-main transform (computed):', mainComputed.transform);
+      }
       
       console.log('  Viewport:', window.innerWidth + 'x' + window.innerHeight);
       console.log('  ScrollY:', window.scrollY);
