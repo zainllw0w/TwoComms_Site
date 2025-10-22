@@ -2942,7 +2942,8 @@ html body #addProductModal.add-product-modal .add-product-modal__dialog.add-prod
   }
 
   .ds-sidebar {
-    position: relative;
+    position: sticky;
+    top: clamp(68px, 8vw, 88px);
     width: 100%;
     min-height: auto;
     border-right: none;
@@ -2950,6 +2951,7 @@ html body #addProductModal.add-product-modal .add-product-modal__dialog.add-prod
     border-radius: 0 0 var(--ds-radius-lg) var(--ds-radius-lg);
     box-shadow: 0 22px 55px rgba(0, 0, 0, 0.45);
     margin-bottom: clamp(24px, 4vw, 36px);
+    z-index: 10;
   }
 
   .ds-sidebar__inner {
@@ -2971,6 +2973,11 @@ html body #addProductModal.add-product-modal .add-product-modal__dialog.add-prod
 }
 
 @media (max-width: 720px) {
+  .ds-sidebar {
+    position: relative;
+    top: auto;
+    border-radius: var(--ds-radius-lg);
+  }
   .ds-hero__intro {
     text-align: center;
   }
