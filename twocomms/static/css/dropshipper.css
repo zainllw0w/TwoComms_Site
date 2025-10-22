@@ -72,6 +72,11 @@ main.container-xxl.py-4.py-md-5 {
   height: auto !important;
 }
 
+/* КРИТИЧНО: когда открыто модальное окно, убираем position: relative */
+body.ds-modal-open .ds-shell {
+  position: static !important;
+}
+
 .ds-shell::before,
 .ds-shell::after {
   content: "";
@@ -301,6 +306,11 @@ main.container-xxl.py-4.py-md-5 {
   position: relative !important;
   background: var(--ds-bg) !important;
   color: var(--ds-text) !important;
+}
+
+/* КРИТИЧНО: когда открыто модальное окно, убираем position: relative */
+body.ds-modal-open .ds-main {
+  position: static !important;
 }
 
 .ds-container {
