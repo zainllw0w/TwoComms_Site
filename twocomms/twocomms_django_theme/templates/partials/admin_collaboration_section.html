@@ -92,6 +92,28 @@
   background: rgba(255,255,255,.08);
   box-shadow: 0 0 0 3px rgba(139,92,246,.1);
 }
+
+/* Payout status badges */
+.payout-status-pending {
+  background: linear-gradient(135deg, rgba(139,92,246,.25), rgba(124,58,237,.25));
+  border: 1px solid rgba(139,92,246,.5);
+  color: #a78bfa;
+}
+.payout-status-processing {
+  background: linear-gradient(135deg, rgba(245,158,11,.25), rgba(217,119,6,.25));
+  border: 1px solid rgba(245,158,11,.5);
+  color: #fbbf24;
+}
+.payout-status-completed {
+  background: linear-gradient(135deg, rgba(16,185,129,.25), rgba(5,150,105,.25));
+  border: 1px solid rgba(16,185,129,.5);
+  color: #34d399;
+}
+.payout-status-cancelled {
+  background: linear-gradient(135deg, rgba(239,68,68,.25), rgba(220,38,38,.25));
+  border: 1px solid rgba(239,68,68,.5);
+  color: #f87171;
+}
 </style>
 
 {# Переключатель режимов - СВЕРХУ #}
@@ -99,6 +121,10 @@
   <button class="collab-mode-btn active" id="mode-dropship" onclick="switchCollabMode('dropship')">
     <i class="fas fa-shipping-fast"></i> Дропшипінг
     <small style="display: block; font-size: 0.8rem; font-weight: 600; margin-top: 4px; opacity: 0.8;">{{ dropship_orders|length }} замовлень</small>
+  </button>
+  <button class="collab-mode-btn" id="mode-payouts" onclick="switchCollabMode('payouts')">
+    <i class="fas fa-wallet"></i> Виплати
+    <small style="display: block; font-size: 0.8rem; font-weight: 600; margin-top: 4px; opacity: 0.8;">{{ pending_payouts|default:0 }} запитів</small>
   </button>
   <button class="collab-mode-btn" id="mode-wholesale" onclick="switchCollabMode('wholesale')">
     <i class="fas fa-file-invoice"></i> Оптові накладні
@@ -365,6 +391,85 @@
   </div>
 </div>
 
+{# Контент виплат #}
+<div id="collab-content-payouts" style="display: none;">
+  <h2 style="font-size: 1.8rem; font-weight: 800; background: linear-gradient(135deg, #8b5cf6, #6366f1); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0 0 24px;">Запити на виплати</h2>
+  
+  {% if payouts %}
+    {% for payout in payouts %}
+      <div style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 24px; margin-bottom: 20px; transition: all 0.3s;" onmouseover="this.style.borderColor='rgba(139,92,246,.4)'; this.style.transform='translateX(4px)'" onmouseout="this.style.borderColor='rgba(255,255,255,.1)'; this.style.transform='translateX(0)'">
+        
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <span style="background: linear-gradient(135deg, rgba(139,92,246,.2), rgba(99,102,241,.2)); border: 1px solid rgba(139,92,246,.4); color: #c4b5fd; padding: 8px 16px; border-radius: 10px; font-size: 0.9rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                <i class="fas fa-receipt"></i>
+                {{ payout.payout_number }}
+              </span>
+              
+              <span class="payout-status-{{ payout.status }}" style="padding: 8px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 700;">
+                {{ payout.get_status_display }}
+              </span>
+            </div>
+            
+            <h3 style="margin: 0 0 8px; font-size: 1.6rem; font-weight: 800; color: #e5e7eb;">{{ payout.amount|floatformat:0 }} грн</h3>
+            <div style="color: rgba(229,231,235,.6); font-size: 0.9rem;">Запитано: {{ payout.requested_at|date:"d.m.Y H:i" }}</div>
+          </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; padding: 16px; background: rgba(0,0,0,.3); border-radius: 12px; margin-bottom: 16px;">
+          <div>
+            <div style="font-size: 0.75rem; text-transform: uppercase; color: rgba(229,231,235,.5); margin-bottom: 4px;">Дропшипер</div>
+            <div style="font-weight: 700; color: #a78bfa;">
+              {% if payout.dropshipper.userprofile.company_name %}
+                {{ payout.dropshipper.userprofile.company_name }}
+              {% else %}
+                {{ payout.dropshipper.username }}
+              {% endif %}
+            </div>
+            {% if payout.dropshipper.userprofile.phone %}
+              <div style="font-size: 0.9rem; color: rgba(229,231,235,.6); margin-top: 4px;">📞 {{ payout.dropshipper.userprofile.phone }}</div>
+            {% endif %}
+          </div>
+          
+          <div>
+            <div style="font-size: 0.75rem; text-transform: uppercase; color: rgba(229,231,235,.5); margin-bottom: 4px;">Реквізити</div>
+            <div style="font-weight: 600; color: #e5e7eb; word-break: break-all;">{{ payout.payment_details|default:"Не вказано" }}</div>
+          </div>
+        </div>
+        
+        <div style="padding: 16px; background: rgba(0,0,0,.2); border-radius: 12px; border: 1px solid rgba(255,255,255,.08);">
+          <div style="font-weight: 700; color: #e5e7eb; font-size: 1rem; margin-bottom: 12px;">
+            <i class="fas fa-tasks"></i> Управління виплатою
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: end;">
+            <div>
+              <label style="display: block; font-size: 0.75rem; text-transform: uppercase; color: rgba(229,231,235,.5); margin-bottom: 6px;">Змінити статус</label>
+              <select id="payout-status-select-{{ payout.id }}" style="width: 100%; padding: 10px 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.15); border-radius: 8px; color: #e5e7eb; font-weight: 600;">
+                <option value="pending" {% if payout.status == 'pending' %}selected{% endif %}>⏳ Очікує виплати</option>
+                <option value="processing" {% if payout.status == 'processing' %}selected{% endif %}>⚙️ В обробці</option>
+                <option value="completed" {% if payout.status == 'completed' %}selected{% endif %}>✅ Виплачено</option>
+                <option value="cancelled" {% if payout.status == 'cancelled' %}selected{% endif %}>❌ Скасовано</option>
+              </select>
+            </div>
+            
+            <button data-payout-id="{{ payout.id }}" onclick="updatePayoutStatus(this.dataset.payoutId)" style="padding: 12px 24px; border-radius: 8px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(16,185,129,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+              <i class="fas fa-save"></i> Зберегти
+            </button>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div style="text-align: center; padding: 80px 20px; color: rgba(229,231,235,.5);">
+      <i class="fas fa-wallet" style="font-size: 5rem; margin-bottom: 20px; opacity: 0.2;"></i>
+      <div style="font-size: 1.4rem; font-weight: 700; margin-bottom: 8px;">Запитів на виплати немає</div>
+      <div style="font-size: 1rem;">Коли дропшипери створять запити, вони з'являться тут</div>
+    </div>
+  {% endif %}
+</div>
+
 {# Контент оптовых накладных #}
 <div id="collab-content-wholesale" style="display: none;">
   <h2 style="font-size: 1.8rem; font-weight: 800; background: linear-gradient(135deg, #8b5cf6, #6366f1); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0 0 24px;">Оптові накладні</h2>
@@ -470,6 +575,7 @@ function switchCollabMode(mode) {
   // Показываем нужный контент
   document.getElementById('dropship-stats').style.display = mode === 'dropship' ? 'grid' : 'none';
   document.getElementById('collab-content-dropship').style.display = mode === 'dropship' ? 'block' : 'none';
+  document.getElementById('collab-content-payouts').style.display = mode === 'payouts' ? 'block' : 'none';
   document.getElementById('collab-content-wholesale').style.display = mode === 'wholesale' ? 'block' : 'none';
 }
 
@@ -773,5 +879,42 @@ document.addEventListener('change', function(e) {
     }
   }
 });
+
+// Обновление статуса выплаты
+async function updatePayoutStatus(payoutId) {
+  const statusSelect = document.getElementById(`payout-status-select-${payoutId}`);
+  const newStatus = statusSelect.value;
+  
+  if (!confirm(`Змінити статус виплати на "${statusSelect.options[statusSelect.selectedIndex].text}"?`)) {
+    return;
+  }
+  
+  try {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    const response = await fetch(`/orders/admin/payout/update-status/${payoutId}/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken
+      },
+      body: JSON.stringify({
+        status: newStatus
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      alert('✅ Статус виплати оновлено!');
+      setTimeout(() => location.reload(), 1000);
+    } else {
+      alert('❌ Помилка: ' + (data.error || 'Невідома помилка'));
+    }
+  } catch (error) {
+    console.error('Error updating payout status:', error);
+    alert('❌ Помилка з\'єднання');
+  }
+}
 </script>
 
