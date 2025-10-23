@@ -65,7 +65,6 @@ def _enrich_product(product, dropshipper=None):
 
     product.recommended_price_info = recommended
     product.recommended_base_price = int(base_price)
-    product.dropship_margin = max(int(base_price) - int(drop_price), 0)
     product.drop_price_value = int(drop_price)
     
     # Добавляем информацию о скидке лояльности для дропшипера
@@ -73,10 +72,18 @@ def _enrich_product(product, dropshipper=None):
         try:
             stats, _ = DropshipperStats.objects.get_or_create(dropshipper=dropshipper)
             product.loyalty_discount = float(stats.loyalty_discount) if stats.loyalty_discount else 0
+            # Цена дропа с учетом скидки лояльности
+            product.drop_price_with_loyalty = max(int(drop_price) - product.loyalty_discount, 0)
+            # Маржа с учетом скидки лояльности
+            product.dropship_margin = max(int(base_price) - product.drop_price_with_loyalty, 0)
         except:
             product.loyalty_discount = 0
+            product.drop_price_with_loyalty = int(drop_price)
+            product.dropship_margin = max(int(base_price) - int(drop_price), 0)
     else:
         product.loyalty_discount = 0
+        product.drop_price_with_loyalty = int(drop_price)
+        product.dropship_margin = max(int(base_price) - int(drop_price), 0)
 
     image = product.display_image
     product.primary_image = image
