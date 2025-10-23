@@ -345,6 +345,11 @@ class DropshipperOrder(models.Model):
     def save(self, *args, **kwargs):
         if not self.order_number:
             self.order_number = self.generate_order_number()
+        
+        # Автоматически меняем payment_status на paid если статус confirmed
+        if self.status == 'confirmed' and self.payment_status != 'paid':
+            self.payment_status = 'paid'
+        
         super().save(*args, **kwargs)
     
     def generate_order_number(self):
