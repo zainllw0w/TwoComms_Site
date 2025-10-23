@@ -257,6 +257,31 @@
             </div>
           </div>
           
+          {# Додаткова інформація #}
+          {% if order.notes or order.order_source %}
+            <div style="margin-top: 12px; padding: 16px; background: rgba(99,102,241,.08); border: 1px solid rgba(99,102,241,.2); border-radius: 12px;">
+              {% if order.order_source %}
+                <div style="margin-bottom: {% if order.notes %}12px{% else %}0{% endif %};">
+                  <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(229,231,235,.5); margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-link"></i> Джерело замовлення
+                  </div>
+                  <a href="{{ order.order_source }}" target="_blank" rel="noopener noreferrer" style="color: #818cf8; font-weight: 600; text-decoration: none; word-break: break-all; display: inline-flex; align-items: center; gap: 6px; transition: color 0.2s;" onmouseover="this.style.color='#a5b4fc'" onmouseout="this.style.color='#818cf8'">
+                    {{ order.order_source }}
+                    <i class="fas fa-external-link-alt" style="font-size: 0.75rem;"></i>
+                  </a>
+                </div>
+              {% endif %}
+              {% if order.notes %}
+                <div>
+                  <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(229,231,235,.5); margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-sticky-note"></i> Примітки
+                  </div>
+                  <p style="color: rgba(229,231,235,.8); margin: 0; line-height: 1.6;">{{ order.notes }}</p>
+                </div>
+              {% endif %}
+            </div>
+          {% endif %}
+          
           {# Управление статусом #}
           <div style="margin-top: 16px; padding: 16px; background: rgba(0,0,0,.2); border-radius: 12px; border: 1px solid rgba(255,255,255,.08);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
