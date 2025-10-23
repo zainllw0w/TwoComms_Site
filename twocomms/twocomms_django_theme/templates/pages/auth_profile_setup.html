@@ -669,5 +669,29 @@ function hideTelegramLoadingIndicator() {
   // Возвращаем обычную кнопку
   updateTelegramButton(false);
 }
+
+// Сохраняем изначальный Telegram username
+let initialTelegramUsername = '';
+document.addEventListener('DOMContentLoaded', function() {
+  const telegramInput = document.querySelector('input[name="telegram"]');
+  if (telegramInput) {
+    initialTelegramUsername = telegramInput.value.trim();
+    
+    // Отслеживаем изменения в поле Telegram
+    telegramInput.addEventListener('input', function() {
+      const currentValue = this.value.trim();
+      const buttonContainer = document.querySelector('.telegram-button-container');
+      
+      // Если значение изменилось и кнопка "Підтверджено"
+      if (currentValue !== initialTelegramUsername && buttonContainer) {
+        const confirmedBtn = buttonContainer.querySelector('button[disabled]');
+        if (confirmedBtn && confirmedBtn.textContent.includes('Підтверджено')) {
+          // Сбрасываем на кнопку "Підтвердити"
+          updateTelegramButton(false);
+        }
+      }
+    });
+  }
+});
 </script>
 {% endblock %}

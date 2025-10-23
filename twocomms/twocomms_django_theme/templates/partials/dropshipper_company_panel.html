@@ -388,4 +388,50 @@ style.textContent = `
   }
 `;
 document.head.appendChild(style);
+
+// Сохраняем изначальный Telegram username
+let initialTelegramUsername = '';
+document.addEventListener('DOMContentLoaded', function() {
+  const telegramInput = document.querySelector('input[name="telegram"]');
+  if (telegramInput) {
+    initialTelegramUsername = telegramInput.value.trim();
+    
+    // Отслеживаем изменения в поле Telegram
+    telegramInput.addEventListener('input', function() {
+      const currentValue = this.value.trim();
+      const buttonContainer = document.querySelector('.telegram-button-container');
+      
+      // Если значение изменилось и кнопка "Підтверджено"
+      if (currentValue !== initialTelegramUsername && buttonContainer) {
+        const confirmedBtn = buttonContainer.querySelector('button[disabled]');
+        if (confirmedBtn && confirmedBtn.textContent.includes('Підтверджено')) {
+          // Сбрасываем на кнопку "Підтвердити"
+          buttonContainer.innerHTML = `
+            <button type="button" class="ds-btn telegram-confirm-btn" onclick="confirmDropshipperTelegram()" style="
+              background: linear-gradient(135deg, #8b5cf6, #6366f1) !important;
+              border: none !important;
+              color: white !important;
+              border-radius: 8px !important;
+              padding: 10px 16px !important;
+              font-weight: 700 !important;
+              font-size: 0.85rem !important;
+              cursor: pointer !important;
+              transition: all 0.2s !important;
+              display: inline-flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              gap: 8px !important;
+              white-space: nowrap !important;
+              height: 100% !important;
+              min-height: 44px !important;
+            " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(139,92,246,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+              <i class="fab fa-telegram"></i>
+              <span>Підтвердити</span>
+            </button>
+          `;
+        }
+      }
+    });
+  }
+});
 </script>
