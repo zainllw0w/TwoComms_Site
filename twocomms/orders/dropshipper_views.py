@@ -1071,8 +1071,18 @@ def dropshipper_monobank_callback(request):
         # Обновляем статус оплаты
         if status == 'success':
             order.payment_status = 'paid'
+            order.status = 'confirmed'  # Меняем статус на "Підтверджено"
             order.save()
             monobank_logger.info(f'Payment successful for dropshipper order {order.order_number}')
+            
+            # Отправляем уведомление в Telegram админу об оплате
+            try:
+                from .telegram_notifications import telegram_notifier
+                telegram_notifier.send_dropshipper_payment_notification(order)
+                monobank_logger.info(f"Telegram уведомление об оплате отправлено для заказа {order.order_number}")
+            except Exception as e:
+                # Не прерываем обработку callback если Telegram не работает
+                monobank_logger.error(f"Ошибка отправки Telegram уведомления об оплате: {e}")
         elif status == 'failure':
             order.payment_status = 'failed'
             order.save()
