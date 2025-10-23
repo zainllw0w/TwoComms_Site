@@ -300,7 +300,7 @@ class DropshipperOrder(models.Model):
     
     # Информация о заказе
     order_number = models.CharField(max_length=20, unique=True, blank=True, verbose_name="Номер замовлення")
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name="Статус")
+    status = models.CharField(max_length=35, choices=STATUS_CHOICES, default='draft', verbose_name="Статус")
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='unpaid', verbose_name="Статус оплати")
     
     # Финансовая информация
