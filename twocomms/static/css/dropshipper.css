@@ -2945,12 +2945,18 @@ html body #addProductModal.add-product-modal .add-product-modal__dialog.add-prod
 }
 
 .ds-section[data-animate],
-.ds-section[data-animate-early],
 .ds-hero[data-animate],
 .ds-highlight[data-animate],
 .ds-company-card[data-animate] {
   opacity: 0;
   transform: translateY(24px);
+  transition: opacity 420ms ease, transform 420ms ease;
+}
+
+/* Блоки с data-animate-early видны сразу, анимация только при скролле */
+.ds-section[data-animate-early] {
+  opacity: 1;
+  transform: translateY(0);
   transition: opacity 420ms ease, transform 420ms ease;
 }
 
