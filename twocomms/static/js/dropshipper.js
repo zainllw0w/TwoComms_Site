@@ -463,8 +463,8 @@ console.log('✅ window.confirmDropshipperTelegram defined:', typeof window.conf
           });
         },
         {
-          threshold: 0.2,
-          rootMargin: '0px 0px -15% 0px',
+          threshold: 0.05,
+          rootMargin: '0px 0px 0px 0px',
         },
       );
 
