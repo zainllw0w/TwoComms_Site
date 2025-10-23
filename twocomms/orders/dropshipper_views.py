@@ -1150,6 +1150,7 @@ def admin_update_dropship_status(request, order_id):
         order = get_object_or_404(DropshipperOrder, id=order_id)
         
         new_status = data.get('status')
+        new_payment_status = data.get('payment_status')
         tracking_number = data.get('tracking_number', '').strip()
         
         if not new_status:
@@ -1160,8 +1161,20 @@ def admin_update_dropship_status(request, order_id):
         if new_status not in valid_statuses:
             return JsonResponse({'success': False, 'error': 'Невірний статус'})
         
+        # Валидация payment_status если указан
+        if new_payment_status:
+            valid_payment_statuses = [choice[0] for choice in DropshipperOrder.PAYMENT_STATUS_CHOICES]
+            if new_payment_status not in valid_payment_statuses:
+                return JsonResponse({'success': False, 'error': 'Невірний статус оплати'})
+        
         old_status = order.status
+        old_payment_status = order.payment_status
+        
         order.status = new_status
+        
+        # Обновляем payment_status если указан
+        if new_payment_status:
+            order.payment_status = new_payment_status
         
         # Обновляем ТТН если предоставлен
         if tracking_number:
