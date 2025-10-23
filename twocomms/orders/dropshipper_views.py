@@ -923,35 +923,40 @@ def create_dropshipper_monobank_payment(request):
                 'error': 'Невідомий спосіб оплати'
             })
         
-        # Получаем первый товар для отображения
-        first_item = order.items.select_related('product').first()
-        if not first_item:
+        # Формируем корзину товаров для Monobank
+        basket_entries = []
+        for item in order.items.select_related('product').all():
+            basket_entries.append({
+                'name': item.product.title[:128],
+                'qty': item.quantity,
+                'sum': int(item.drop_price * item.quantity * 100),  # В копійках
+                'icon': ''
+            })
+        
+        if not basket_entries:
             return JsonResponse({
                 'success': False,
                 'error': 'Замовлення не містить товарів'
             })
         
-        # Формируем payload для Monobank
+        # Формируем payload для Monobank Acquiring API (как в корзине)
         payload = {
-            'order_ref': f"DS-{order.order_number}",
-            'amount': int(amount * 100),  # В копійках
-            'ccy': 980,  # Гривна
-            'count': 1,
-            'products': [{
-                'name': first_item.product.title,
-                'qty': first_item.quantity,
-                'sum': int(amount * 100),
-                'unit': 'шт',
-                'code': str(first_item.product.id)
-            }],
-            'destination': description,
-            'callback_url': request.build_absolute_uri('/orders/dropshipper/monobank/callback/').replace('http://', 'https://', 1),
-            'return_url': request.build_absolute_uri('/orders/dropshipper/monobank/return/').replace('http://', 'https://', 1),
+            'amount': int(amount * 100),  # сумма в копейках
+            'ccy': 980,  # гривна
+            'merchantPaymInfo': {
+                'reference': f"DS-{order.order_number}",
+                'destination': description,
+                'basketOrder': basket_entries
+            },
+            'redirectUrl': request.build_absolute_uri('/orders/dropshipper/monobank/return/').replace('http://', 'https://', 1),
+            'webHookUrl': request.build_absolute_uri('/orders/dropshipper/monobank/callback/').replace('http://', 'https://', 1),
         }
+        
+        monobank_logger.info(f'Creating Monobank payment for dropshipper order {order.id}, payload: {payload}')
         
         # Создаем платеж в Monobank
         try:
-            result = _monobank_api_request('POST', '/personal/checkout/order', json_payload=payload)
+            creation_data = _monobank_api_request('POST', '/api/merchant/invoice/create', json_payload=payload)
         except MonobankAPIError as e:
             monobank_logger.error(f'Failed to create Monobank payment for dropshipper order {order.id}: {e}')
             return JsonResponse({
@@ -959,19 +964,33 @@ def create_dropshipper_monobank_payment(request):
                 'error': str(e)
             })
         
+        result = creation_data.get('result') or creation_data
+        invoice_id = result.get('invoiceId')
+        invoice_url = result.get('pageUrl')
+        
+        if not invoice_id or not invoice_url:
+            monobank_logger.error(f'Invalid Monobank response for dropshipper order {order.id}: {creation_data}')
+            return JsonResponse({
+                'success': False,
+                'error': 'Не вдалося створити платіж. Спробуйте пізніше.'
+            })
+        
         # Сохраняем данные платежа в заказе
-        order.monobank_invoice_id = result.get('order_id') or result.get('orderId')
+        order.monobank_invoice_id = invoice_id
         order.save()
         
         # Сохраняем в сессию
         request.session['dropshipper_monobank_order_id'] = order.id
-        request.session['dropshipper_monobank_invoice_id'] = order.monobank_invoice_id
+        request.session['dropshipper_monobank_invoice_id'] = invoice_id
         request.session.modified = True
+        
+        monobank_logger.info(f'Monobank payment created for dropshipper order {order.id}: {invoice_id}')
         
         return JsonResponse({
             'success': True,
-            'page_url': result.get('page_url') or result.get('pageUrl'),
-            'order_id': order.monobank_invoice_id
+            'page_url': invoice_url,
+            'order_id': order.id,
+            'invoice_id': invoice_id
         })
         
     except Exception as e:
