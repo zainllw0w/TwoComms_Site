@@ -745,3 +745,67 @@ console.log('✅ window.confirmDropshipperTelegram defined:', typeof window.conf
     }
   });
 })();
+
+// Обработчик запроса выплаты
+document.addEventListener('DOMContentLoaded', () => {
+  const requestPayoutBtn = document.querySelector('[data-request-payout]');
+  
+  if (requestPayoutBtn) {
+    requestPayoutBtn.addEventListener('click', async function() {
+      if (this.disabled) return;
+      
+      if (!confirm('Ви впевнені, що хочете запросити виплату? Після підтвердження сума буде переведена в обробку.')) {
+        return;
+      }
+      
+      this.disabled = true;
+      this.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Обробка...</span>';
+      
+      try {
+        const csrfToken = getCookie('csrftoken');
+        
+        const response = await fetch('/orders/dropshipper/api/request-payout/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          // Показываем успешное уведомление
+          alert(`✅ ${data.message}\n\nНомер виплати: ${data.payout_number}\nСума: ${data.amount} грн`);
+          
+          // Перезагружаем страницу чтобы обновить данные
+          location.reload();
+        } else {
+          alert(`❌ Помилка: ${data.error}`);
+          this.disabled = false;
+          this.innerHTML = '<i class="fas fa-wallet"></i><span>Запросити виплату</span>';
+        }
+      } catch (error) {
+        console.error('Error requesting payout:', error);
+        alert('❌ Помилка при створенні запиту на виплату');
+        this.disabled = false;
+        this.innerHTML = '<i class="fas fa-wallet"></i><span>Запросити виплату</span>';
+      }
+    });
+  }
+});
+
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
