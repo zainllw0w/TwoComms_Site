@@ -266,10 +266,15 @@ class DropshipperOrder(models.Model):
     STATUS_CHOICES = [
         ('draft', 'Чернетка'),
         ('pending', 'Очікує підтвердження'),
+        ('awaiting_payment', 'Очікує оплати'),
         ('confirmed', 'Підтверджено'),
         ('processing', 'В обробці'),
+        ('awaiting_shipment', 'Очікує відправки'),
         ('shipped', 'Відправлено'),
-        ('delivered', 'Доставлено'),
+        ('delivered_awaiting_pickup', 'Доставлено, очікує отримувача'),
+        ('received', 'Товар отримано'),
+        ('refused', 'Від товару відмовились'),
+        ('delivered', 'Доставлено'),  # Оставляем для совместимости
         ('cancelled', 'Скасовано'),
     ]
     
@@ -313,6 +318,9 @@ class DropshipperOrder(models.Model):
     notes = models.TextField(blank=True, null=True, verbose_name="Примітки")
     order_source = models.CharField(max_length=500, blank=True, null=True, verbose_name="Джерело замовлення")
     tracking_number = models.CharField(max_length=50, blank=True, null=True, verbose_name="Номер ТТН")
+    shipment_status = models.CharField(max_length=100, blank=True, null=True, verbose_name='Статус НП')
+    shipment_status_updated = models.DateTimeField(null=True, blank=True, verbose_name='Оновлення статусу НП')
+    payout_processed = models.BooleanField(default=False, verbose_name="Виплату оброблено")
     
     # Временные метки
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата створення")
@@ -379,6 +387,91 @@ class DropshipperOrder(models.Model):
             return f"Накладний платіж (200 грн вираховується з суми при отриманні)"
         else:  # delegation
             return "Повне делегування (0 грн - всі ризики на нас)"
+    
+    def process_payout(self):
+        """Обрабатывает выплату дропшиперу при получении товара"""
+        if self.payout_processed:
+            return False, "Виплату вже оброблено"
+        
+        # Рассчитываем сумму выплаты
+        payout_amount = self.profit
+        
+        # Для COD вычитаем 200 грн (предоплату)
+        if self.payment_method == 'cod':
+            payout_amount = self.profit - 200
+        
+        # Создаем выплату
+        from decimal import Decimal
+        if payout_amount > 0:
+            payout = DropshipperPayout.objects.create(
+                dropshipper=self.dropshipper,
+                amount=Decimal(str(payout_amount)),
+                status='pending',
+                description=f"Виплата за замовлення #{self.order_number}",
+                order=self
+            )
+            
+            self.payout_processed = True
+            self.save(update_fields=['payout_processed'])
+            
+            return True, f"Створено виплату на суму {payout_amount} грн"
+        
+        return False, "Сума виплати <= 0"
+    
+    def update_status_on_payment(self):
+        """Обновляет статус заказа после оплаты"""
+        if self.payment_status == 'paid':
+            if self.payment_method in ['prepaid', 'cod']:
+                # Для предоплаты и COD переводим в "Ожидает отправки"
+                self.status = 'awaiting_shipment'
+            else:  # delegation
+                # Для делегирования сразу в "Подтверждено"
+                self.status = 'confirmed'
+            self.save(update_fields=['status'])
+            return True
+        return False
+    
+    def check_np_status_and_update(self):
+        """Проверяет статус НП и обновляет статус заказа"""
+        if not self.tracking_number:
+            return False, "ТТН не вказано"
+        
+        try:
+            from .nova_poshta_service import NovaPoshtaService
+            np_service = NovaPoshtaService()
+            status_info = np_service.track_parcel(self.tracking_number)
+            
+            if not status_info:
+                return False, "Не вдалося отримати статус"
+            
+            old_status = self.shipment_status
+            self.shipment_status = status_info.get('Status', '')
+            self.shipment_status_updated = timezone.now()
+            
+            # Обновляем статус заказа на основе статуса НП
+            np_status_code = status_info.get('StatusCode', 0)
+            
+            # 3 - Прибыло в отделение
+            # 9 - Получено
+            # 10 - Возвращено отправителю
+            # 11 - Отказ от получения
+            
+            if np_status_code == 3:
+                self.status = 'delivered_awaiting_pickup'
+            elif np_status_code == 9:
+                self.status = 'received'
+                # Обрабатываем выплату только если еще не обработана
+                if not self.payout_processed:
+                    self.process_payout()
+            elif np_status_code in [10, 11]:
+                self.status = 'refused'
+            
+            self.save()
+            
+            return True, f"Статус оновлено: {old_status} -> {self.shipment_status}"
+        
+        except Exception as e:
+            return False, f"Помилка: {str(e)}"
 
 
 class DropshipperOrderItem(models.Model):
@@ -488,19 +581,21 @@ class DropshipperPayout(models.Model):
     ]
     
     dropshipper = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='dropshipper_payouts', verbose_name="Дропшипер")
+    order = models.ForeignKey(DropshipperOrder, on_delete=models.SET_NULL, null=True, blank=True, related_name='single_payout', verbose_name="Замовлення")
     
     # Информация о выплате
     payout_number = models.CharField(max_length=20, unique=True, blank=True, verbose_name="Номер виплати")
     amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Сума виплати")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name="Статус")
-    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, verbose_name="Спосіб виплати")
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, blank=True, null=True, verbose_name="Спосіб виплати")
+    description = models.CharField(max_length=500, blank=True, verbose_name="Опис")
     
     # Детали выплаты
-    payment_details = models.CharField(max_length=500, verbose_name="Деталі виплати (номер картки/рахунку)")
+    payment_details = models.CharField(max_length=500, blank=True, null=True, verbose_name="Деталі виплати (номер картки/рахунку)")
     notes = models.TextField(blank=True, null=True, verbose_name="Примітки")
     
     # Заказы, включенные в выплату
-    included_orders = models.ManyToManyField(DropshipperOrder, related_name='payouts', verbose_name="Включені замовлення")
+    included_orders = models.ManyToManyField(DropshipperOrder, related_name='payouts', blank=True, verbose_name="Включені замовлення")
     
     # Временные метки
     requested_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата запиту")
