@@ -278,6 +278,9 @@ class DropshipperOrder(models.Model):
         ('cancelled', 'Скасовано'),
     ]
     
+    # Словарь для быстрого доступа к названиям статусов
+    STATUS_CHOICES_DICT = dict(STATUS_CHOICES)
+    
     PAYMENT_STATUS_CHOICES = [
         ('unpaid', 'Не оплачено'),
         ('paid', 'Оплачено'),

@@ -83,10 +83,112 @@
             <span class="ds-field-error" data-field-error="instagram" hidden></span>
           </label>
           <label class="ds-input">
-            <span class="ds-input__label">Telegram</span>
+            <span class="ds-input__label">Telegram username</span>
             {{ form.telegram }}
             <span class="ds-field-error" data-field-error="telegram" hidden></span>
           </label>
+        </div>
+        
+        {# Блок привязки Telegram #}
+        <div class="ds-telegram-link-block" style="
+          background: linear-gradient(135deg, rgba(139,92,246,.12), rgba(99,102,241,.08));
+          border: 1px solid rgba(139,92,246,.25);
+          border-radius: 12px;
+          padding: 20px;
+          margin-top: 20px;
+        ">
+          <div style="display: flex; align-items: flex-start; gap: 16px; margin-bottom: 16px;">
+            <div style="
+              width: 48px;
+              height: 48px;
+              background: linear-gradient(135deg, #8b5cf6, #6366f1);
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 1.5rem;
+              flex-shrink: 0;
+            ">
+              <i class="fab fa-telegram" style="color: white;"></i>
+            </div>
+            <div style="flex: 1;">
+              <h3 style="
+                color: #e5e7eb;
+                font-size: 1.1rem;
+                font-weight: 700;
+                margin: 0 0 8px 0;
+              ">
+                📱 Отримуйте сповіщення в Telegram
+              </h3>
+              <p style="
+                color: rgba(229,231,235,.7);
+                font-size: 0.95rem;
+                line-height: 1.6;
+                margin: 0 0 16px 0;
+              ">
+                Прив'яжіть свій Telegram, щоб миттєво отримувати сповіщення про нові замовлення, зміну статусів, оплати та інші важливі події.
+              </p>
+              <div style="
+                background: rgba(245,158,11,.15);
+                border: 1px solid rgba(245,158,11,.3);
+                border-radius: 8px;
+                padding: 12px;
+                margin-bottom: 16px;
+              ">
+                <p style="
+                  color: rgba(229,231,235,.85);
+                  font-size: 0.9rem;
+                  line-height: 1.5;
+                  margin: 0;
+                ">
+                  <strong style="color: #fbbf24;">📝 Інструкція:</strong><br>
+                  1️⃣ Введіть ваш Telegram username вище (з @ або без)<br>
+                  2️⃣ Натисніть кнопку "Підтвердити Telegram" нижче<br>
+                  3️⃣ Напишіть боту <strong>будь-яке повідомлення протягом 5 хвилин</strong><br>
+                  4️⃣ Готово! Ви отримаєте підтвердження
+                </p>
+              </div>
+              <div class="telegram-button-container">
+                {% if user.userprofile.telegram_id %}
+                  <button type="button" class="ds-btn" disabled style="
+                    background: linear-gradient(135deg, #10b981, #059669);
+                    border: none;
+                    color: white;
+                    border-radius: 10px;
+                    padding: 12px 20px;
+                    font-weight: 700;
+                    font-size: 0.95rem;
+                    cursor: not-allowed;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 10px;
+                    opacity: 0.7;
+                  ">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Telegram підтверджено</span>
+                  </button>
+                {% else %}
+                  <button type="button" class="ds-btn telegram-confirm-btn" onclick="confirmDropshipperTelegram()" style="
+                    background: linear-gradient(135deg, #8b5cf6, #6366f1);
+                    border: none;
+                    color: white;
+                    border-radius: 10px;
+                    padding: 12px 20px;
+                    font-weight: 700;
+                    font-size: 0.95rem;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 10px;
+                  " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(139,92,246,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                    <i class="fab fa-telegram"></i>
+                    <span>Підтвердити Telegram</span>
+                  </button>
+                {% endif %}
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -123,3 +225,156 @@
     </div>
   </form>
 </div>
+
+<script>
+// Функция для подтверждения Telegram дропшипера
+function confirmDropshipperTelegram() {
+  const telegramInput = document.querySelector('input[name="telegram"]');
+  let telegramUsername = telegramInput.value.trim();
+  
+  if (!telegramUsername) {
+    alert('Будь ласка, введіть ваш Telegram username');
+    return;
+  }
+  
+  // Автоматически добавляем @ если его нет
+  if (!telegramUsername.startsWith('@')) {
+    telegramUsername = '@' + telegramUsername;
+    telegramInput.value = telegramUsername;
+  }
+  
+  // Открываем Telegram бота
+  const botUrl = 'https://t.me/twocommsbot?start=' + encodeURIComponent(telegramUsername);
+  window.open(botUrl, '_blank');
+  
+  // Показываем инструкцию
+  alert('Відкриється Telegram бот. Напишіть будь-яке повідомлення для підтвердження протягом 5 хвилин. Статус оновиться автоматично.');
+  
+  // Показываем индикатор загрузки
+  showDropshipperTelegramLoadingIndicator();
+  
+  // Запускаем проверку статуса
+  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+  if (csrfToken) {
+    startDropshipperTelegramStatusCheck();
+  } else {
+    hideDropshipperTelegramLoadingIndicator();
+  }
+}
+
+// Функция для проверки статуса подтверждения Telegram
+function checkDropshipperTelegramStatus() {
+  fetch('/accounts/telegram/status/', {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'same-origin'
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.telegram_confirmed) {
+      // Telegram подтвержден
+      hideDropshipperTelegramLoadingIndicator();
+      updateDropshipperTelegramButton(true);
+      stopDropshipperTelegramStatusCheck();
+    }
+  })
+  .catch(error => {
+    console.error('Error checking Telegram status:', error);
+  });
+}
+
+// Запускаем периодическую проверку статуса
+let dropshipperTelegramCheckInterval;
+function startDropshipperTelegramStatusCheck() {
+  checkDropshipperTelegramStatus();
+  dropshipperTelegramCheckInterval = setInterval(checkDropshipperTelegramStatus, 5000); // каждые 5 секунд
+  
+  // Автоматически останавливаем через 5 минут
+  setTimeout(stopDropshipperTelegramStatusCheck, 5 * 60 * 1000);
+}
+
+function stopDropshipperTelegramStatusCheck() {
+  if (dropshipperTelegramCheckInterval) {
+    clearInterval(dropshipperTelegramCheckInterval);
+    dropshipperTelegramCheckInterval = null;
+    hideDropshipperTelegramLoadingIndicator();
+  }
+}
+
+// Показываем индикатор загрузки
+function showDropshipperTelegramLoadingIndicator() {
+  const buttonContainer = document.querySelector('.telegram-button-container');
+  if (buttonContainer) {
+    const existingBtn = buttonContainer.querySelector('.telegram-confirm-btn');
+    if (existingBtn) {
+      existingBtn.innerHTML = `
+        <svg class="spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="12" cy="12" r="10" stroke-width="4" stroke-opacity="0.25"/>
+          <path d="M12 2a10 10 0 0 1 10 10" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+        <span>Очікування підтвердження...</span>
+      `;
+      existingBtn.disabled = true;
+      existingBtn.style.opacity = '0.7';
+      existingBtn.style.cursor = 'not-allowed';
+    }
+  }
+}
+
+function hideDropshipperTelegramLoadingIndicator() {
+  const buttonContainer = document.querySelector('.telegram-button-container');
+  if (buttonContainer) {
+    const existingBtn = buttonContainer.querySelector('.telegram-confirm-btn');
+    if (existingBtn && !existingBtn.classList.contains('confirmed')) {
+      existingBtn.innerHTML = `
+        <i class="fab fa-telegram"></i>
+        <span>Підтвердити Telegram</span>
+      `;
+      existingBtn.disabled = false;
+      existingBtn.style.opacity = '1';
+      existingBtn.style.cursor = 'pointer';
+    }
+  }
+}
+
+// Обновляем кнопку после подтверждения
+function updateDropshipperTelegramButton(confirmed) {
+  const buttonContainer = document.querySelector('.telegram-button-container');
+  if (buttonContainer && confirmed) {
+    buttonContainer.innerHTML = `
+      <button type="button" class="ds-btn" disabled style="
+        background: linear-gradient(135deg, #10b981, #059669);
+        border: none;
+        color: white;
+        border-radius: 10px;
+        padding: 12px 20px;
+        font-weight: 700;
+        font-size: 0.95rem;
+        cursor: not-allowed;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        opacity: 0.7;
+      ">
+        <i class="fas fa-check-circle"></i>
+        <span>Telegram підтверджено</span>
+      </button>
+    `;
+  }
+}
+
+// Стили для spinner
+const style = document.createElement('style');
+style.textContent = `
+  .spinner {
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+`;
+document.head.appendChild(style);
+</script>

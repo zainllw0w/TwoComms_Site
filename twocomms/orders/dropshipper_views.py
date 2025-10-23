@@ -656,10 +656,19 @@ def create_dropshipper_order(request):
             try:
                 from .telegram_notifications import telegram_notifier
                 telegram_notifier.send_dropshipper_order_notification(order)
-                print(f"Telegram уведомление отправлено для заказа {order.order_number}")
+                print(f"Telegram уведомление админу отправлено для заказа {order.order_number}")
             except Exception as e:
                 # Не прерываем создание заказа если Telegram не работает
-                print(f"Ошибка отправки Telegram уведомления: {e}")
+                print(f"Ошибка отправки Telegram уведомления админу: {e}")
+            
+            # Отправляем уведомление дропшиперу
+            try:
+                from .telegram_notifications import telegram_notifier
+                telegram_notifier.send_dropshipper_order_created_notification(order)
+                print(f"✅ Telegram уведомление дропшиперу отправлено для заказа {order.order_number}")
+            except Exception as e:
+                # Не прерываем создание заказа если Telegram не работает
+                print(f"⚠️ Ошибка отправки Telegram уведомления дропшиперу: {e}")
             
             # Очищаем корзину после создания заказа
             request.session['dropshipper_cart'] = []
@@ -1167,6 +1176,15 @@ def admin_update_dropship_status(request, order_id):
             })
         
         order.save()
+        
+        # Отправляем уведомление дропшиперу об изменении статуса
+        if old_status != new_status:
+            try:
+                from .telegram_notifications import telegram_notifier
+                telegram_notifier.send_dropshipper_status_change_notification(order, old_status, new_status)
+                monobank_logger.info(f"✅ Telegram уведомление дропшиперу отправлено для заказа {order.order_number}")
+            except Exception as e:
+                monobank_logger.error(f"⚠️ Ошибка отправки Telegram уведомления дропшиперу: {e}")
         
         # Логируем изменение
         monobank_logger.info(
