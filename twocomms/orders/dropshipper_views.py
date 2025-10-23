@@ -306,25 +306,25 @@ def dropshipper_statistics(request):
 @login_required
 def dropshipper_payouts(request):
     """Страница с выплатами дропшипера"""
-    # Получаем выплаты
-    payouts = DropshipperPayout.objects.filter(dropshipper=request.user).prefetch_related('included_orders')
+    # Получаем выплаты (только те, которые были запрошены через DropshipperPayout, а не автоматические)
+    payouts = DropshipperPayout.objects.filter(
+        dropshipper=request.user,
+        status__in=['pending', 'processing', 'completed']
+    ).prefetch_related('included_orders').order_by('-requested_at')
     
     # Пагинация
     paginator = Paginator(payouts, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
-    # Получаем доступную сумму для выплаты
-    available_amount = DropshipperOrder.objects.filter(
-        dropshipper=request.user,
-        status='delivered',
-        payment_status='paid',
-        payouts__isnull=True
-    ).aggregate(total=Sum('profit'))['total'] or 0
+    # Получаем доступную сумму для выплаты из DropshipperStats
+    stats, created = DropshipperStats.objects.get_or_create(dropshipper=request.user)
+    available_amount = stats.available_for_payout
     
     context = {
         'page_obj': page_obj,
         'available_amount': available_amount,
+        'stats': stats,
         'status_choices': DropshipperPayout.STATUS_CHOICES,
         'payment_method_choices': DropshipperPayout.PAYMENT_METHOD_CHOICES,
         'payout_methods': DropshipperPayout.PAYMENT_METHOD_CHOICES,
@@ -1272,4 +1272,76 @@ def admin_check_np_status(request, order_id):
         
     except Exception as e:
         monobank_logger.exception(f'Error checking NP status: {e}')
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def request_payout(request):
+    """Создание запроса на выплату дропшипером"""
+    try:
+        # Получаем статистику дропшипера
+        stats, created = DropshipperStats.objects.get_or_create(dropshipper=request.user)
+        
+        if stats.available_for_payout <= 0:
+            return JsonResponse({
+                'success': False,
+                'error': 'Немає доступної суми для виплати'
+            }, status=400)
+        
+        # Проверяем что у дропшипера заполнены реквизиты
+        profile = request.user.userprofile
+        if not profile.payment_details:
+            return JsonResponse({
+                'success': False,
+                'error': 'Спочатку заповніть реквізити для виплат в налаштуваннях компанії'
+            }, status=400)
+        
+        # Создаем запрос на выплату
+        payout = DropshipperPayout.objects.create(
+            dropshipper=request.user,
+            amount=stats.available_for_payout,
+            status='pending',
+            description=f"Запит на виплату від {request.user.username}",
+            payment_details=profile.payment_details
+        )
+        
+        # Обнуляем available_for_payout
+        stats.available_for_payout = 0
+        stats.save(update_fields=['available_for_payout'])
+        
+        # Отправляем уведомление админу в Telegram
+        try:
+            from .telegram_notifications import telegram_notifier
+            
+            company_name = profile.company_name if profile.company_name else request.user.username
+            
+            admin_message = f"""💰 <b>НОВИЙ ЗАПИТ НА ВИПЛАТУ</b>
+
+<b>Дропшипер:</b> {company_name}
+<b>Сума:</b> {payout.amount} грн
+<b>Номер виплати:</b> #{payout.payout_number}
+
+<b>Реквізити:</b>
+{payout.payment_details}
+
+<b>Телефон:</b> {profile.phone if profile.phone else 'Не вказано'}
+<b>Email:</b> {profile.email if profile.email else 'Не вказано'}
+
+🔗 <a href="https://twocomms.shop/admin-panel/?section=collaboration">Переглянути в адмін-панелі</a>"""
+            
+            telegram_notifier.send_message(admin_message)
+            monobank_logger.info(f"✅ Telegram уведомление админу о запросе выплаты отправлено для {request.user.username}")
+        except Exception as e:
+            monobank_logger.error(f"⚠️ Ошибка отправки Telegram уведомления о запросе выплаты: {e}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Запит на виплату створено! Менеджер зв\'яжеться з вами найближчим часом.',
+            'payout_number': payout.payout_number,
+            'amount': float(payout.amount)
+        })
+        
+    except Exception as e:
+        monobank_logger.exception(f'Error creating payout request: {e}')
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
