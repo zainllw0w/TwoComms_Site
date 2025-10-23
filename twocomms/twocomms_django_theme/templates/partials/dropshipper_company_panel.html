@@ -314,10 +314,18 @@ if (!window.resetDropshipperTelegram) {
             Вкажіть IBAN або карту банку, який використовуєте для отримання виплат. Ми збережемо реквізити у шифрованому вигляді.
           </p>
         </header>
-        <div class="ds-company-form__grid ds-company-form__grid--single">
-          <label class="ds-input ds-input--full">
-            <span class="ds-input__label">Реквізити для виплат</span>
+        <div class="ds-company-form__grid">
+          <label class="ds-input">
+            <span class="ds-input__label">Спосіб виплати</span>
+            {{ form.payment_method }}
+            <span class="ds-field-error" data-field-error="payment_method" hidden></span>
+          </label>
+          <label class="ds-input">
+            <span class="ds-input__label" id="company-payment-label">{{ form.payment_method.value|yesno:"IBAN,Номер картки,Номер картки" }}</span>
             {{ form.payment_details }}
+            <small class="ds-input__hint" id="company-payment-hint" style="display: block; margin-top: 6px; font-size: 0.85rem; color: rgba(229,231,235,.6); line-height: 1.4;">
+              {% if form.payment_method.value == 'iban' %}Міжнародний номер банківського рахунку (29 символів для України){% else %}16 цифр картки без пробілів або з пробілами{% endif %}
+            </small>
             <span class="ds-field-error" data-field-error="payment_details" hidden></span>
           </label>
         </div>
@@ -561,4 +569,28 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 });
+
+// === Динамическое изменение формы payment_details в зависимости от payment_method ===
+(function() {
+  const paymentMethodSelect = document.querySelector('select[name="payment_method"]');
+  const paymentDetailsLabel = document.getElementById('company-payment-label');
+  const paymentDetailsInput = document.querySelector('input[name="payment_details"], textarea[name="payment_details"]');
+  const paymentDetailsHint = document.getElementById('company-payment-hint');
+  
+  if (paymentMethodSelect && paymentDetailsLabel && paymentDetailsInput && paymentDetailsHint) {
+    paymentMethodSelect.addEventListener('change', function() {
+      const method = this.value;
+      
+      if (method === 'card') {
+        paymentDetailsLabel.textContent = 'Номер картки';
+        paymentDetailsInput.placeholder = '1234 5678 9012 3456';
+        paymentDetailsHint.textContent = '16 цифр картки без пробілів або з пробілами';
+      } else if (method === 'iban') {
+        paymentDetailsLabel.textContent = 'IBAN';
+        paymentDetailsInput.placeholder = 'UA123456789012345678901234567';
+        paymentDetailsHint.textContent = 'Міжнародний номер банківського рахунку (29 символів для України)';
+      }
+    });
+  }
+})();
 </script>

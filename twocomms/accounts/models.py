@@ -26,6 +26,7 @@ class UserProfile(models.Model):
     company_number = models.CharField(max_length=50, blank=True, verbose_name='Номер компанії/ЄДРПОУ/ІПН')
     delivery_address = models.TextField(blank=True, verbose_name='Адреса доставки')
     website = models.URLField(blank=True, null=True, verbose_name='Посилання на магазин')
+    payment_method = models.CharField(max_length=20, choices=[('card', 'На картку'), ('iban', 'IBAN')], default='card', verbose_name='Спосіб виплати')
     payment_details = models.TextField(blank=True, verbose_name='Реквізити для виплат')
 
     def __str__(self):
