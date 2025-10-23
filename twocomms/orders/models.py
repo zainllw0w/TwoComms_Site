@@ -589,9 +589,7 @@ class DropshipperPayout(models.Model):
     
     PAYMENT_METHOD_CHOICES = [
         ('card', 'На картку'),
-        ('bank', 'Банківський переказ'),
-        ('cash', 'Готівка'),
-        ('crypto', 'Криптовалюта'),
+        ('iban', 'IBAN'),
     ]
     
     dropshipper = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='dropshipper_payouts', verbose_name="Дропшипер")
