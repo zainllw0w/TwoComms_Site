@@ -543,8 +543,13 @@ class TelegramNotifier:
         additional_info = ""
         if order.status == 'draft':
             additional_info = "\n⚠️ <b>Увага!</b> Замовлення потребує підтвердження дропшипером."
-        elif order.order_source:
-            additional_info = f"\n🔗 <b>Джерело замовлення:</b> {order.order_source}"
+        
+        # Добавляем источник и примечания если есть
+        if order.order_source:
+            additional_info += f"\n🔗 <b>Джерело замовлення:</b> {order.order_source}"
+        
+        if order.notes:
+            additional_info += f"\n📝 <b>Примітки:</b> {order.notes}"
         
         # Собираем полное сообщение
         message = f"{header}\n{full_block}\n{links}{additional_info}"
