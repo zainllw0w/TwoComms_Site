@@ -572,9 +572,20 @@ function getCookie(name) {
 // Обновление статуса заказа
 async function updateOrderStatus(orderId) {
   console.log('🔧 updateOrderStatus called for order:', orderId);
+  console.log('🔧 orderId type:', typeof orderId, 'value:', orderId);
+  
+  // Преобразуем в число, если пришла строка
+  orderId = parseInt(orderId);
   
   const statusSelect = document.getElementById(`status-select-${orderId}`);
   const ttnInput = document.getElementById(`ttn-input-${orderId}`);
+  
+  console.log('🔍 Looking for elements:', {
+    statusSelectId: `status-select-${orderId}`,
+    ttnInputId: `ttn-input-${orderId}`,
+    statusSelectFound: !!statusSelect,
+    ttnInputFound: !!ttnInput
+  });
   
   if (!statusSelect) {
     console.error('❌ Status select not found for order:', orderId);
