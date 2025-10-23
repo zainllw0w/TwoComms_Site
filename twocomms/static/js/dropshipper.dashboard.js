@@ -714,10 +714,8 @@ function renderOrderItems() {
         // при создании нового заказа, или инициализируется из backend при загрузке страницы
         console.log('Счётчик заказов не изменяется (управляется из backend и updateOrdersCounter)');
         
-        // ВАЖНО: Привязываем кнопки оплаты ПОСЛЕ загрузки заказов
-        if (typeof window.bindDropshipperPaymentButtons === 'function') {
-          setTimeout(() => window.bindDropshipperPaymentButtons(), 100);
-        }
+        // Глобальный обработчик оплаты уже привязан через делегирование событий,
+        // поэтому не нужно ничего делать здесь
       })
       .catch(error => {
         console.log('Не удалось загрузить заказы:', error);
@@ -882,85 +880,80 @@ function renderOrderItems() {
   window.dsShowToast = showToast;
   
   // ============================================================================
-  // ОБРАБОТКА КНОПОК ОПЛАТЫ ДРОПШИПЕРА
+  // ОБРАБОТКА КНОПОК ОПЛАТЫ ДРОПШИПЕРА (через делегирование событий)
   // ============================================================================
   
   function bindDropshipperPaymentButtons() {
-    const payButtons = document.querySelectorAll('[data-dropshipper-pay]');
+    // Используем делегирование событий - привязываем обработчик к document
+    // Это работает даже когда элементы динамически добавляются/удаляются
     
-    console.log('🔧 Привязка кнопок оплаты дропшипера:', payButtons.length);
+    // Проверяем, не привязан ли уже глобальный обработчик
+    if (window.dropshipperPaymentHandlerBound) {
+      console.log('⏭️ Глобальный обработчик оплаты уже привязан');
+      return;
+    }
     
-    payButtons.forEach((button, index) => {
-      // Проверяем, не привязана ли уже кнопка
-      if (button.dataset.paymentBound === 'true') {
-        console.log(`⏭️ Кнопка ${index + 1} уже привязана, пропускаем`);
-        return;
-      }
+    console.log('🔧 Привязываем глобальный обработчик оплаты через делегирование');
+    
+    document.addEventListener('click', async function(e) {
+      // Проверяем, является ли кликнутый элемент кнопкой оплаты
+      const button = e.target.closest('[data-dropshipper-pay]');
+      if (!button) return;
       
-      // Помечаем кнопку как привязанную
-      button.dataset.paymentBound = 'true';
+      e.preventDefault();
+      e.stopPropagation();
       
-      console.log(`🔗 Привязываем обработчик к кнопке ${index + 1}:`, {
-        orderId: button.dataset.orderId,
-        paymentMethod: button.dataset.paymentMethod,
-        amount: button.dataset.paymentAmount
-      });
+      const orderId = button.dataset.orderId;
+      const paymentMethod = button.dataset.paymentMethod;
+      const paymentAmount = button.dataset.paymentAmount;
       
-      button.addEventListener('click', async function(e) {
-        e.preventDefault();
-        e.stopPropagation();
+      console.log('💳 КЛИК! Оплата заказа:', orderId, paymentMethod, paymentAmount + ' грн');
+      
+      // Блокируем кнопку
+      const originalHTML = button.innerHTML;
+      button.disabled = true;
+      button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Створення платежу...';
+      
+      try {
+        console.log('📡 Отправляем запрос на создание платежа...');
         
-        const orderId = this.dataset.orderId;
-        const paymentMethod = this.dataset.paymentMethod;
-        const paymentAmount = this.dataset.paymentAmount;
+        // Создаем платеж Monobank
+        const response = await fetch('/orders/dropshipper/monobank/create/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken(),
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          body: JSON.stringify({
+            order_id: orderId
+          })
+        });
         
-        console.log('💳 КЛИК! Оплата заказа:', orderId, paymentMethod, paymentAmount + ' грн');
+        console.log('📥 Ответ получен:', response.status);
         
-        // Блокируем кнопку
-        const originalHTML = this.innerHTML;
-        this.disabled = true;
-        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Створення платежу...';
+        const data = await response.json();
+        console.log('📦 Данные:', data);
         
-        try {
-          console.log('📡 Отправляем запрос на создание платежа...');
-          
-          // Создаем платеж Monobank
-          const response = await fetch('/orders/dropshipper/monobank/create/', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRFToken': getCsrfToken(),
-              'X-Requested-With': 'XMLHttpRequest',
-            },
-            body: JSON.stringify({
-              order_id: orderId
-            })
-          });
-          
-          console.log('📥 Ответ получен:', response.status);
-          
-          const data = await response.json();
-          console.log('📦 Данные:', data);
-          
-          if (data.success && data.page_url) {
-            console.log('✅ Платеж создан, перенаправление:', data.page_url);
-            // Перенаправляем на страницу оплаты Monobank
-            window.location.href = data.page_url;
-          } else {
-            throw new Error(data.error || 'Не вдалося створити платіж');
-          }
-        } catch (error) {
-          console.error('❌ Ошибка создания платежа:', error);
-          alert('Помилка при створенні платежу: ' + error.message);
-          
-          // Восстанавливаем кнопку
-          this.disabled = false;
-          this.innerHTML = originalHTML;
+        if (data.success && data.page_url) {
+          console.log('✅ Платеж создан, перенаправление:', data.page_url);
+          // Перенаправляем на страницу оплаты Monobank
+          window.location.href = data.page_url;
+        } else {
+          throw new Error(data.error || 'Не вдалося створити платіж');
         }
-      });
+      } catch (error) {
+        console.error('❌ Ошибка создания платежа:', error);
+        alert('Помилка при створенні платежу: ' + error.message);
+        
+        // Восстанавливаем кнопку
+        button.disabled = false;
+        button.innerHTML = originalHTML;
+      }
     });
     
-    console.log('✅ Привязано кнопок оплаты:', payButtons.length);
+    window.dropshipperPaymentHandlerBound = true;
+    console.log('✅ Глобальный обработчик оплаты привязан');
   }
   
   function getCsrfToken() {
@@ -978,16 +971,9 @@ function renderOrderItems() {
     return cookieValue;
   }
   
-  // Привязываем кнопки оплаты при загрузке
+  // Привязываем глобальный обработчик оплаты при загрузке (только один раз!)
   document.addEventListener('DOMContentLoaded', function() {
     bindDropshipperPaymentButtons();
-  });
-  
-  // Также привязываем при переключении табов
-  document.addEventListener('ds:reload-tab', function(e) {
-    if (e.detail && e.detail.target === 'orders') {
-      setTimeout(bindDropshipperPaymentButtons, 100);
-    }
   });
   
   // Делаем функцию глобальной для вызова из других мест
