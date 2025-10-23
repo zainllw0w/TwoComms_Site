@@ -539,19 +539,57 @@ class TelegramNotifier:
     
     def send_dropshipper_payment_notification(self, order):
         """
-        Отправляет уведомление админу об оплате дропшип заказа
+        Отправляет уведомление админу И дропшиперу об оплате дропшип заказа
         
         Args:
             order (DropshipperOrder): Оплаченный заказ дропшиппера
             
         Returns:
-            bool: True если сообщение отправлено успешно
+            bool: True если хотя бы одно сообщение отправлено успешно
         """
+        print(f"🔵 send_dropshipper_payment_notification called for order #{order.order_number}")
+        
         if not self.is_configured():
+            print(f"❌ Telegram notifier not configured")
             return False
-            
-        message = self._format_dropshipper_payment_message(order)
-        return self.send_message(message)
+        
+        # Отправляем админу
+        admin_message = self._format_dropshipper_payment_message(order)
+        print(f"🟡 Sending payment notification to ADMIN")
+        admin_result = self.send_message(admin_message)
+        print(f"{'✅' if admin_result else '❌'} Admin notification result: {admin_result}")
+        
+        # Отправляем дропшиперу
+        dropshipper_result = False
+        if order.dropshipper:
+            try:
+                telegram_id = order.dropshipper.userprofile.telegram_id
+                print(f"🟡 Dropshipper telegram_id: {telegram_id}")
+                
+                if telegram_id:
+                    # Формируем сообщение для дропшипера
+                    dropshipper_message = f"""💰 <b>ВАШ ЗАКАЗ ОПЛАЧЕНО!</b>
+
+Замовлення <b>#{order.order_number}</b> успішно оплачено клієнтом!
+
+💳 <b>Сума оплати:</b> {order.dropshipper_payment_required} грн
+📦 <b>Товарів:</b> {order.items.count()} позицій
+💵 <b>Ваш прибуток:</b> {order.profit} грн
+
+Замовлення очікує на підтвердження адміністратором для відправки.
+
+🔗 <a href="https://twocomms.shop/orders/dropshipper/?tab=orders">Переглянути замовлення</a>"""
+                    
+                    print(f"🟢 Sending payment notification to DROPSHIPPER (telegram_id={telegram_id})")
+                    dropshipper_result = self.send_personal_message(telegram_id, dropshipper_message)
+                    print(f"{'✅' if dropshipper_result else '❌'} Dropshipper notification result: {dropshipper_result}")
+                else:
+                    print(f"⚠️ Dropshipper {order.dropshipper.username} has no telegram_id")
+            except Exception as e:
+                print(f"❌ Error sending to dropshipper: {e}")
+        
+        # Возвращаем True если хотя бы одно уведомление отправлено
+        return admin_result or dropshipper_result
     
     def _format_dropshipper_payment_message(self, order):
         """
