@@ -82,54 +82,62 @@
             {{ form.instagram }}
             <span class="ds-field-error" data-field-error="instagram" hidden></span>
           </label>
-          <label class="ds-input" style="position: relative;">
+          <div class="ds-input">
             <span class="ds-input__label">Telegram username</span>
-            {{ form.telegram }}
-            <div class="telegram-button-container" style="position: absolute !important; right: 0 !important; top: 32px !important; z-index: 10 !important;">
-              {% if user.userprofile.telegram_id %}
-                <button type="button" class="ds-btn" disabled style="
-                  background: linear-gradient(135deg, #10b981, #059669) !important;
-                  border: none !important;
-                  color: white !important;
-                  border-radius: 10px !important;
-                  padding: 9px 14px !important;
-                  font-weight: 700 !important;
-                  font-size: 0.8rem !important;
-                  cursor: not-allowed !important;
-                  display: inline-flex !important;
-                  align-items: center !important;
-                  justify-content: center !important;
-                  gap: 6px !important;
-                  opacity: 0.7 !important;
-                  white-space: nowrap !important;
-                ">
-                  <i class="fas fa-check-circle"></i>
-                  <span>Підтверджено</span>
-                </button>
-              {% else %}
-                <button type="button" class="ds-btn telegram-confirm-btn" onclick="confirmDropshipperTelegram()" style="
-                  background: linear-gradient(135deg, #8b5cf6, #6366f1) !important;
-                  border: none !important;
-                  color: white !important;
-                  border-radius: 10px !important;
-                  padding: 9px 14px !important;
-                  font-weight: 700 !important;
-                  font-size: 0.8rem !important;
-                  cursor: pointer !important;
-                  transition: all 0.2s !important;
-                  display: inline-flex !important;
-                  align-items: center !important;
-                  justify-content: center !important;
-                  gap: 6px !important;
-                  white-space: nowrap !important;
-                " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(139,92,246,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-                  <i class="fab fa-telegram"></i>
-                  <span>Підтвердити</span>
-                </button>
-              {% endif %}
+            <div style="position: relative; display: flex; align-items: stretch; gap: 8px;">
+              <div style="flex: 1; min-width: 0;">
+                {{ form.telegram }}
+              </div>
+              <div class="telegram-button-container" style="flex-shrink: 0; display: flex; align-items: center;">
+                {% if user.userprofile.telegram_id %}
+                  <button type="button" class="ds-btn" disabled style="
+                    background: linear-gradient(135deg, #10b981, #059669) !important;
+                    border: none !important;
+                    color: white !important;
+                    border-radius: 8px !important;
+                    padding: 10px 16px !important;
+                    font-weight: 700 !important;
+                    font-size: 0.85rem !important;
+                    cursor: not-allowed !important;
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    gap: 8px !important;
+                    opacity: 0.7 !important;
+                    white-space: nowrap !important;
+                    height: 100% !important;
+                    min-height: 44px !important;
+                  ">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Підтверджено</span>
+                  </button>
+                {% else %}
+                  <button type="button" class="ds-btn telegram-confirm-btn" onclick="confirmDropshipperTelegram()" style="
+                    background: linear-gradient(135deg, #8b5cf6, #6366f1) !important;
+                    border: none !important;
+                    color: white !important;
+                    border-radius: 8px !important;
+                    padding: 10px 16px !important;
+                    font-weight: 700 !important;
+                    font-size: 0.85rem !important;
+                    cursor: pointer !important;
+                    transition: all 0.2s !important;
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    gap: 8px !important;
+                    white-space: nowrap !important;
+                    height: 100% !important;
+                    min-height: 44px !important;
+                  " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(139,92,246,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                    <i class="fab fa-telegram"></i>
+                    <span>Підтвердити</span>
+                  </button>
+                {% endif %}
+              </div>
             </div>
             <span class="ds-field-error" data-field-error="telegram" hidden></span>
-          </label>
+          </div>
         </div>
         
         {# Информационный блок о Telegram #}
