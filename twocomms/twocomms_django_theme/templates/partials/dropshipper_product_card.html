@@ -34,6 +34,12 @@
         <div class="ds-product-price">
           <span class="ds-product-price__label">Ціна дропа</span>
           <span class="ds-product-price__value drop-price">{{ product.drop_price_value }} грн</span>
+          {% if product.loyalty_discount > 0 %}
+            <span class="ds-product-price__loyalty" style="display: block; margin-top: 6px; color: #10b981; font-weight: 700; font-size: 0.85rem;">
+              <i class="fas fa-gift" aria-hidden="true"></i>
+              −{{ product.loyalty_discount|floatformat:0 }} грн (знижка лояльності)
+            </span>
+          {% endif %}
           <span class="ds-product-price__hint">Закупівельна вартість з виробництва</span>
         </div>
         <div class="ds-product-price ds-product-price--recommended">
