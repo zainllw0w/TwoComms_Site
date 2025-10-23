@@ -307,7 +307,7 @@ body.ds-modal-open .ds-panel::before {
 .ds-main {
   flex: 1 !important;
   min-height: 100vh !important;
-  padding: clamp(24px, 6vw, 52px) clamp(24px, 5vw, 64px) !important;
+  padding: clamp(24px, 6vw, 52px) clamp(16px, 2vw, 32px) !important;
   display: flex !important;
   flex-direction: column !important;
   gap: clamp(32px, 4vw, 48px) !important;
@@ -318,7 +318,7 @@ body.ds-modal-open .ds-panel::before {
 
 
 .ds-container {
-  width: min(1600px, 100%);
+  width: min(1800px, 100%);
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -2945,6 +2945,7 @@ html body #addProductModal.add-product-modal .add-product-modal__dialog.add-prod
 }
 
 .ds-section[data-animate],
+.ds-section[data-animate-early],
 .ds-hero[data-animate],
 .ds-highlight[data-animate],
 .ds-company-card[data-animate] {

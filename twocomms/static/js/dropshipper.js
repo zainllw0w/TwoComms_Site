@@ -443,11 +443,33 @@ console.log('✅ window.confirmDropshipperTelegram defined:', typeof window.conf
         return;
       }
 
-      const animatedBlocks = document.querySelectorAll('[data-animate]:not(.is-animated)');
+      const animatedBlocks = document.querySelectorAll('[data-animate]:not(.is-animated), [data-animate-early]:not(.is-animated)');
       if (!animatedBlocks.length) {
         return;
       }
 
+      // Для блоков с data-animate-early - более низкий threshold
+      const observerEarly = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('is-animated');
+              entry.target.querySelectorAll('[data-fade]').forEach((child) => {
+                const delay = Number(child.dataset.delay || 0);
+                child.style.setProperty('--ds-fade-delay', `${delay}ms`);
+                child.classList.add('is-revealed');
+              });
+              observerEarly.unobserve(entry.target);
+            }
+          });
+        },
+        {
+          threshold: 0.01,
+          rootMargin: '100px 0px 0px 0px',
+        },
+      );
+
+      // Для обычных блоков - стандартный threshold
       const observer = new IntersectionObserver(
         (entries) => {
           entries.forEach((entry) => {
@@ -468,7 +490,14 @@ console.log('✅ window.confirmDropshipperTelegram defined:', typeof window.conf
         },
       );
 
-      animatedBlocks.forEach((block) => observer.observe(block));
+      // Применяем соответствующий observer
+      animatedBlocks.forEach((block) => {
+        if (block.hasAttribute('data-animate-early')) {
+          observerEarly.observe(block);
+        } else {
+          observer.observe(block);
+        }
+      });
     }
 
     function setupCompanyTab() {
