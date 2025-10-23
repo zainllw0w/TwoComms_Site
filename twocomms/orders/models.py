@@ -539,6 +539,10 @@ class DropshipperStats(models.Model):
     # Статистика по товарам
     total_items_sold = models.PositiveIntegerField(default=0, verbose_name="Всього товарів продано")
     
+    # Система лояльности
+    successful_orders = models.PositiveIntegerField(default=0, verbose_name="Успішних замовлень (отримано)")
+    loyalty_discount = models.DecimalField(max_digits=6, decimal_places=2, default=0, verbose_name="Знижка лояльності (грн)")
+    
     # Временные метки
     last_order_date = models.DateTimeField(null=True, blank=True, verbose_name="Дата останнього замовлення")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата створення")
@@ -550,6 +554,28 @@ class DropshipperStats(models.Model):
     
     def __str__(self):
         return f"Статистика {self.dropshipper.username}"
+    
+    def update_loyalty_discount(self):
+        """Обновляет скидку лояльности: -10 грн за каждый успешный заказ, максимум -120 грн"""
+        from decimal import Decimal
+        
+        # Считаем успешные заказы (статус received)
+        self.successful_orders = DropshipperOrder.objects.filter(
+            dropshipper=self.dropshipper,
+            status='received'
+        ).count()
+        
+        # Рассчитываем скидку: -10 грн за заказ, но не больше -120 грн
+        discount_per_order = Decimal('10.00')
+        max_discount = Decimal('120.00')
+        
+        self.loyalty_discount = min(
+            Decimal(self.successful_orders) * discount_per_order,
+            max_discount
+        )
+        
+        self.save(update_fields=['successful_orders', 'loyalty_discount'])
+        return self.loyalty_discount
     
     def update_stats(self):
         """Обновляет статистику на основе заказов"""
@@ -574,6 +600,9 @@ class DropshipperStats(models.Model):
         last_order = orders.order_by('-created_at').first()
         if last_order:
             self.last_order_date = last_order.created_at
+        
+        # Обновляем скидку лояльности
+        self.update_loyalty_discount()
         
         self.save()
 

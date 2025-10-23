@@ -67,6 +67,16 @@ def _enrich_product(product, dropshipper=None):
     product.recommended_base_price = int(base_price)
     product.dropship_margin = max(int(base_price) - int(drop_price), 0)
     product.drop_price_value = int(drop_price)
+    
+    # Добавляем информацию о скидке лояльности для дропшипера
+    if dropshipper:
+        try:
+            stats, _ = DropshipperStats.objects.get_or_create(dropshipper=dropshipper)
+            product.loyalty_discount = float(stats.loyalty_discount) if stats.loyalty_discount else 0
+        except:
+            product.loyalty_discount = 0
+    else:
+        product.loyalty_discount = 0
 
     image = product.display_image
     product.primary_image = image
@@ -1150,6 +1160,14 @@ def admin_update_dropship_status(request, order_id):
                 monobank_logger.info(f"💰 Payout processing for order {order.order_number}: success={success}, message={message}")
             except Exception as e:
                 monobank_logger.error(f"⚠️ Error processing payout for order {order.order_number}: {e}")
+            
+            # Обновляем скидку лояльности при успешном получении заказа
+            try:
+                stats, _ = DropshipperStats.objects.get_or_create(dropshipper=order.dropshipper)
+                new_discount = stats.update_loyalty_discount()
+                monobank_logger.info(f"🎁 Loyalty discount updated for {order.dropshipper.username}: {new_discount} грн ({stats.successful_orders} успешных заказов)")
+            except Exception as e:
+                monobank_logger.error(f"⚠️ Error updating loyalty discount: {e}")
         
         # Отправляем уведомления об изменении статуса
         if old_status != new_status:
@@ -1286,28 +1304,47 @@ def request_payout(request):
         stats.available_for_payout = 0
         stats.save(update_fields=['available_for_payout'])
         
-        # Отправляем уведомление админу в Telegram
+        # Отправляем уведомления в Telegram (админу и дропшиперу)
         try:
             from .telegram_notifications import telegram_notifier
             
             company_name = profile.company_name if profile.company_name else request.user.username
+            payment_method_display = 'На картку' if payout.payment_method == 'card' else 'IBAN'
             
+            # Уведомление админу
             admin_message = f"""💰 <b>НОВИЙ ЗАПИТ НА ВИПЛАТУ</b>
 
 <b>Дропшипер:</b> {company_name}
 <b>Сума:</b> {payout.amount} грн
 <b>Номер виплати:</b> #{payout.payout_number}
 
+<b>Спосіб виплати:</b> {payment_method_display}
 <b>Реквізити:</b>
 {payout.payment_details}
 
 <b>Телефон:</b> {profile.phone if profile.phone else 'Не вказано'}
 <b>Email:</b> {profile.email if profile.email else 'Не вказано'}
 
-🔗 <a href="https://twocomms.shop/admin-panel/?section=collaboration">Переглянути в адмін-панелі</a>"""
+🔗 <a href="https://twocomms.shop/admin-panel/?section=collaboration&mode=payouts">Переглянути в адмін-панелі</a>"""
             
             telegram_notifier.send_message(admin_message)
             monobank_logger.info(f"✅ Telegram уведомление админу о запросе выплаты отправлено для {request.user.username}")
+            
+            # Уведомление дропшиперу
+            dropshipper_telegram_id = profile.telegram_id
+            if dropshipper_telegram_id:
+                dropshipper_message = f"""✅ <b>ЗАПИТ НА ВИПЛАТУ СТВОРЕНО</b>
+
+<b>Номер виплати:</b> #{payout.payout_number}
+<b>Сума:</b> {payout.amount} грн
+<b>Статус:</b> ⏳ Очікує обробки
+
+Менеджер зв'яжеться з вами найближчим часом для підтвердження виплати.
+
+📊 <a href="https://twocomms.shop/orders/dropshipper/?tab=payouts">Переглянути виплати</a>"""
+                
+                telegram_notifier.send_personal_message(dropshipper_telegram_id, dropshipper_message)
+                monobank_logger.info(f"✅ Telegram уведомление дропшиперу о запросе выплаты отправлено")
         except Exception as e:
             monobank_logger.error(f"⚠️ Ошибка отправки Telegram уведомления о запросе выплаты: {e}")
         
