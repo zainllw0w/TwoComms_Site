@@ -587,6 +587,28 @@ console.log('✅ window.confirmDropshipperTelegram defined:', typeof window.conf
         payoutModal.focus();
       });
 
+      // Обработчик смены способа выплаты
+      const paymentMethodSelect = payoutForm.querySelector('#ds-payout-method');
+      const detailsLabel = payoutForm.querySelector('#ds-payout-details-label');
+      const detailsInput = payoutForm.querySelector('#ds-payout-details');
+      const detailsHint = payoutForm.querySelector('#ds-payout-hint');
+      
+      if (paymentMethodSelect && detailsLabel && detailsInput && detailsHint) {
+        paymentMethodSelect.addEventListener('change', () => {
+          const method = paymentMethodSelect.value;
+          
+          if (method === 'card') {
+            detailsLabel.textContent = 'Номер картки';
+            detailsInput.placeholder = '1234 5678 9012 3456';
+            detailsHint.textContent = '16 цифр картки без пробілів або з пробілами';
+          } else if (method === 'iban') {
+            detailsLabel.textContent = 'IBAN';
+            detailsInput.placeholder = 'UA123456789012345678901234567';
+            detailsHint.textContent = 'Міжнародний номер банківського рахунку (29 символів для України)';
+          }
+        });
+      }
+
       payoutForm.addEventListener('submit', (event) => {
         event.preventDefault();
 
@@ -615,7 +637,7 @@ console.log('✅ window.confirmDropshipperTelegram defined:', typeof window.conf
           .then((response) => response.json())
           .then((data) => {
             if (!data.success) {
-              throw new Error(data.message || 'Не вдалося створити запит на виплату');
+              throw new Error(data.error || data.message || 'Не вдалося створити запит на виплату');
             }
             showToast(data.message || 'Запит на виплату створено');
             const dismissTrigger = payoutModal.querySelector('[data-dismiss-modal]');
@@ -746,54 +768,7 @@ console.log('✅ window.confirmDropshipperTelegram defined:', typeof window.conf
   });
 })();
 
-// Обработчик запроса выплаты
-document.addEventListener('DOMContentLoaded', () => {
-  const requestPayoutBtn = document.querySelector('[data-request-payout]');
-  
-  if (requestPayoutBtn) {
-    requestPayoutBtn.addEventListener('click', async function() {
-      if (this.disabled) return;
-      
-      if (!confirm('Ви впевнені, що хочете запросити виплату? Після підтвердження сума буде переведена в обробку.')) {
-        return;
-      }
-      
-      this.disabled = true;
-      this.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Обробка...</span>';
-      
-      try {
-        const csrfToken = getCookie('csrftoken');
-        
-        const response = await fetch('/orders/dropshipper/api/request-payout/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken
-          }
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          // Показываем успешное уведомление
-          alert(`✅ ${data.message}\n\nНомер виплати: ${data.payout_number}\nСума: ${data.amount} грн`);
-          
-          // Перезагружаем страницу чтобы обновить данные
-          location.reload();
-        } else {
-          alert(`❌ Помилка: ${data.error}`);
-          this.disabled = false;
-          this.innerHTML = '<i class="fas fa-wallet"></i><span>Запросити виплату</span>';
-        }
-      } catch (error) {
-        console.error('Error requesting payout:', error);
-        alert('❌ Помилка при створенні запиту на виплату');
-        this.disabled = false;
-        this.innerHTML = '<i class="fas fa-wallet"></i><span>Запросити виплату</span>';
-      }
-    });
-  }
-});
+// Старый обработчик удален - теперь используется модальное окно (см. выше)
 
 function getCookie(name) {
   let cookieValue = null;
