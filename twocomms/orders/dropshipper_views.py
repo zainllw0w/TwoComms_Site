@@ -910,28 +910,73 @@ def create_dropshipper_monobank_payment(request):
                 'error': 'Це замовлення не потребує оплати (повне делегування)'
             })
         
-        # Определяем сумму к оплате
+        # Определяем сумму к оплате и тип платежа
         if order.payment_method == 'prepaid':
             amount = order.total_drop_price
-            description = f"Оплата дропа для замовлення {order.order_number}"
+            payment_type = 'Повна оплата дропшипу'
+            description = f"Повна оплата дропшипу #{order.order_number}"
         elif order.payment_method == 'cod':
             amount = Decimal('200.00')
-            description = f"Передоплата 200 грн для замовлення {order.order_number}"
+            payment_type = 'Передоплата дропшипу'
+            description = f"Передоплата 200 грн за дропшип #{order.order_number}"
         else:
             return JsonResponse({
                 'success': False,
                 'error': 'Невідомий спосіб оплати'
             })
         
-        # Формируем корзину товаров для Monobank
+        # Формируем корзину товаров для Monobank (с фото, размерами и правильными суммами)
         basket_entries = []
-        for item in order.items.select_related('product').all():
+        items_qs = list(order.items.select_related('product', 'color_variant__color').all())
+        
+        for item in items_qs:
+            # Формируем название: Товар • розмір X • колір
+            name_parts = [item.product.title]
+            if item.size:
+                name_parts.append(f"розмір {item.size}")
+            if item.color_variant and item.color_variant.color:
+                name_parts.append(item.color_variant.color.name)
+            display_name = ' • '.join(filter(None, name_parts))[:128]
+            
+            # Получаем фото товара
+            icon_url = ''
+            try:
+                image_obj = None
+                if item.color_variant and item.color_variant.images.exists():
+                    image_obj = item.color_variant.images.first().image
+                elif item.product.main_image:
+                    image_obj = item.product.main_image
+                if image_obj and hasattr(image_obj, 'url'):
+                    icon_url = request.build_absolute_uri(image_obj.url)
+                    if icon_url.startswith('http://'):
+                        icon_url = 'https://' + icon_url[len('http://'):]
+            except Exception as e:
+                monobank_logger.warning(f'Failed to get image for item {item.id}: {e}')
+                icon_url = ''
+            
+            # Для предоплаты показываем фиксированную сумму 200 грн
+            # Для полной оплаты показываем реальную стоимость дропа
+            if order.payment_method == 'cod':
+                # При предоплате показываем один товар с суммой 200 грн
+                item_sum = int(amount * 100)  # 200 грн в копійках
+                item_qty = 1
+                item_name = f"{payment_type} • {display_name}"
+            else:
+                # При полной оплате показываем реальную стоимость
+                item_sum = int(item.drop_price * item.quantity * 100)
+                item_qty = item.quantity
+                item_name = display_name
+            
             basket_entries.append({
-                'name': item.product.title[:128],
-                'qty': item.quantity,
-                'sum': int(item.drop_price * item.quantity * 100),  # В копійках
-                'icon': ''
+                'name': item_name,
+                'qty': item_qty,
+                'sum': item_sum,
+                'icon': icon_url
             })
+            
+            # Для предоплаты достаточно одного товара
+            if order.payment_method == 'cod':
+                break
         
         if not basket_entries:
             return JsonResponse({
@@ -939,7 +984,7 @@ def create_dropshipper_monobank_payment(request):
                 'error': 'Замовлення не містить товарів'
             })
         
-        # Формируем payload для Monobank Acquiring API (как в корзине)
+        # Формируем payload для Monobank Acquiring API
         payload = {
             'amount': int(amount * 100),  # сумма в копейках
             'ccy': 980,  # гривна
