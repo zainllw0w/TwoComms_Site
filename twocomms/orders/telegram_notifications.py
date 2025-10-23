@@ -21,12 +21,19 @@ class TelegramNotifier:
         return bool(self.bot_token and (self.chat_id or self.admin_id))
     
     def send_message(self, message, parse_mode='HTML'):
-        """Отправляет сообщение в Telegram"""
+        """Отправляет сообщение в Telegram админу"""
+        print(f"🔵 send_message to ADMIN called")
+        print(f"🔵 bot_token: {'SET' if self.bot_token else 'NOT SET'}")
+        print(f"🔵 admin_id: {self.admin_id if self.admin_id else 'NOT SET'}")
+        print(f"🔵 chat_id: {self.chat_id if self.chat_id else 'NOT SET'}")
+        
         if not self.is_configured():
+            print(f"❌ Telegram not configured (bot_token={bool(self.bot_token)}, admin_id={bool(self.admin_id)}, chat_id={bool(self.chat_id)})")
             return False
             
         # Используем админ ID, если он доступен, иначе chat_id
         target_id = self.admin_id if self.admin_id else self.chat_id
+        print(f"🟡 Target admin ID: {target_id}")
         
         try:
             url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
@@ -35,9 +42,16 @@ class TelegramNotifier:
                 'text': message,
                 'parse_mode': parse_mode
             }
+            print(f"🟢 Sending POST to Telegram API for admin (chat_id={target_id})")
             response = requests.post(url, data=data, timeout=10)
+            print(f"🟣 Admin message response status: {response.status_code}")
+            
+            if response.status_code != 200:
+                print(f"❌ Admin message response: {response.text[:200]}")
+            
             return response.status_code == 200
         except Exception as e:
+            print(f"❌ Exception in send_message to admin: {e}")
             return False
     
     def send_personal_message(self, telegram_id, message, parse_mode='HTML'):
