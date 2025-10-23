@@ -82,47 +82,49 @@
             {{ form.instagram }}
             <span class="ds-field-error" data-field-error="instagram" hidden></span>
           </label>
-          <div class="ds-input">
-            <span class="ds-input__label">Telegram username</span>
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <div style="flex: 1;">
-                {{ form.telegram }}
-              </div>
-              <div class="telegram-button-container" style="flex-shrink: 0;">
+          <div style="display: grid; grid-template-columns: 1fr; gap: 8px;">
+            <span class="ds-input__label" style="display: block;">Telegram username</span>
+            <div style="display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center;">
+              {{ form.telegram }}
+              <div class="telegram-button-container">
                 {% if user.userprofile.telegram_id %}
                   <button type="button" class="ds-btn" disabled style="
-                    background: linear-gradient(135deg, #10b981, #059669);
-                    border: none;
-                    color: white;
-                    border-radius: 10px;
-                    padding: 10px 16px;
-                    font-weight: 700;
-                    font-size: 0.85rem;
-                    cursor: not-allowed;
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 8px;
-                    opacity: 0.7;
-                    white-space: nowrap;
+                    background: linear-gradient(135deg, #10b981, #059669) !important;
+                    border: none !important;
+                    color: white !important;
+                    border-radius: 10px !important;
+                    padding: 11px 18px !important;
+                    font-weight: 700 !important;
+                    font-size: 0.85rem !important;
+                    cursor: not-allowed !important;
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    gap: 8px !important;
+                    opacity: 0.7 !important;
+                    white-space: nowrap !important;
+                    min-height: 44px !important;
                   ">
                     <i class="fas fa-check-circle"></i>
                     <span>Підтверджено</span>
                   </button>
                 {% else %}
                   <button type="button" class="ds-btn telegram-confirm-btn" onclick="confirmDropshipperTelegram()" style="
-                    background: linear-gradient(135deg, #8b5cf6, #6366f1);
-                    border: none;
-                    color: white;
-                    border-radius: 10px;
-                    padding: 10px 16px;
-                    font-weight: 700;
-                    font-size: 0.85rem;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 8px;
-                    white-space: nowrap;
+                    background: linear-gradient(135deg, #8b5cf6, #6366f1) !important;
+                    border: none !important;
+                    color: white !important;
+                    border-radius: 10px !important;
+                    padding: 11px 18px !important;
+                    font-weight: 700 !important;
+                    font-size: 0.85rem !important;
+                    cursor: pointer !important;
+                    transition: all 0.2s !important;
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    gap: 8px !important;
+                    white-space: nowrap !important;
+                    min-height: 44px !important;
                   " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(139,92,246,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
                     <i class="fab fa-telegram"></i>
                     <span>Підтвердити</span>
