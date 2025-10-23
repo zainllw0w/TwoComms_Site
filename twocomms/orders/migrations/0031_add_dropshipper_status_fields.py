@@ -7,7 +7,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('orders', '0028_dropshipperorder_dropshipper_payment_required_and_more'),
+        ('orders', '0030_dropshipperorder_monobank_invoice_id'),
     ]
 
     operations = [
