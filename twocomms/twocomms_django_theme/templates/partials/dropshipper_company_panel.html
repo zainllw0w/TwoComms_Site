@@ -82,11 +82,11 @@
             {{ form.instagram }}
             <span class="ds-field-error" data-field-error="instagram" hidden></span>
           </label>
-          <div style="display: grid; grid-template-columns: 1fr; gap: 8px;">
-            <span class="ds-input__label" style="display: block;">Telegram username</span>
-            <div style="display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center;">
+          <label class="ds-input" style="grid-column: span 2;">
+            <span class="ds-input__label">Telegram username</span>
+            <div style="display: flex; align-items: center; gap: 12px;">
               {{ form.telegram }}
-              <div class="telegram-button-container">
+              <div class="telegram-button-container" style="flex-shrink: 0;">
                 {% if user.userprofile.telegram_id %}
                   <button type="button" class="ds-btn" disabled style="
                     background: linear-gradient(135deg, #10b981, #059669) !important;
@@ -103,7 +103,6 @@
                     gap: 8px !important;
                     opacity: 0.7 !important;
                     white-space: nowrap !important;
-                    min-height: 44px !important;
                   ">
                     <i class="fas fa-check-circle"></i>
                     <span>Підтверджено</span>
@@ -124,7 +123,6 @@
                     justify-content: center !important;
                     gap: 8px !important;
                     white-space: nowrap !important;
-                    min-height: 44px !important;
                   " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(139,92,246,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
                     <i class="fab fa-telegram"></i>
                     <span>Підтвердити</span>
@@ -133,7 +131,7 @@
               </div>
             </div>
             <span class="ds-field-error" data-field-error="telegram" hidden></span>
-          </div>
+          </label>
         </div>
         
         {# Информационный блок о Telegram #}
