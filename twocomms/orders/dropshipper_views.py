@@ -1353,3 +1353,70 @@ def request_payout(request):
     except Exception as e:
         monobank_logger.exception(f'Error creating payout request: {e}')
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@staff_member_required
+@require_http_methods(["POST"])
+def admin_update_payout_status(request, payout_id):
+    """Обновление статуса выплаты админом"""
+    try:
+        data = json.loads(request.body)
+        payout = get_object_or_404(DropshipperPayout, id=payout_id)
+        
+        new_status = data.get('status')
+        
+        # Валидация статуса
+        valid_statuses = [choice[0] for choice in DropshipperPayout.STATUS_CHOICES]
+        if new_status not in valid_statuses:
+            return JsonResponse({'success': False, 'error': 'Невірний статус'})
+        
+        old_status = payout.status
+        payout.status = new_status
+        
+        # Обновляем временные метки
+        if new_status == 'processing' and not payout.processed_at:
+            payout.processed_at = timezone.now()
+        elif new_status == 'completed' and not payout.completed_at:
+            payout.completed_at = timezone.now()
+        
+        payout.save()
+        
+        monobank_logger.info(f"✅ Payout {payout.payout_number} status updated: {old_status} → {new_status}")
+        
+        # Отправляем уведомление дропшиперу
+        try:
+            from .telegram_notifications import telegram_notifier
+            
+            dropshipper_telegram_id = payout.dropshipper.userprofile.telegram_id
+            
+            if dropshipper_telegram_id:
+                status_emoji = {
+                    'pending': '⏳',
+                    'processing': '⚙️',
+                    'completed': '✅',
+                    'cancelled': '❌'
+                }
+                
+                dropshipper_message = f"""{status_emoji.get(new_status, '📋')} <b>ОНОВЛЕННЯ СТАТУСУ ВИПЛАТИ</b>
+
+<b>Номер виплати:</b> #{payout.payout_number}
+<b>Сума:</b> {payout.amount} грн
+<b>Новий статус:</b> {payout.get_status_display()}
+
+{'💰 Кошти переведені на ваші реквізити!' if new_status == 'completed' else ''}"""
+                
+                telegram_notifier.send_personal_message(dropshipper_telegram_id, dropshipper_message)
+                monobank_logger.info(f"✅ Telegram уведомление дропшиперу о смене статуса выплаты отправлено")
+        except Exception as e:
+            monobank_logger.error(f"⚠️ Ошибка отправки Telegram уведомления о смене статуса выплаты: {e}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Статус виплати оновлено',
+            'new_status': new_status,
+            'new_status_display': payout.get_status_display()
+        })
+        
+    except Exception as e:
+        monobank_logger.exception(f'Error updating payout status: {e}')
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
