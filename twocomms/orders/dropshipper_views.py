@@ -195,8 +195,8 @@ def dropshipper_dashboard(request):
     completed_payouts_sum = DropshipperPayout.objects.filter(
         dropshipper=request.user,
         status='completed',
-        created_at__month=current_month,
-        created_at__year=current_year
+        requested_at__month=current_month,
+        requested_at__year=current_year
     ).aggregate(total=Sum('amount'))['total'] or 0
 
     context = {
