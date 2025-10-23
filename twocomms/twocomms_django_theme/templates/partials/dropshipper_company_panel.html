@@ -88,7 +88,7 @@
               <div style="flex: 1; min-width: 0;">
                 {{ form.telegram }}
               </div>
-              <div class="telegram-button-container" style="flex-shrink: 0; display: flex; align-items: center;">
+              <div class="telegram-button-container" style="flex-shrink: 0; display: flex; align-items: center; gap: 8px;">
                 {% if user.userprofile.telegram_id %}
                   <button type="button" class="ds-btn" disabled style="
                     background: linear-gradient(135deg, #10b981, #059669) !important;
@@ -110,6 +110,24 @@
                   ">
                     <i class="fas fa-check-circle"></i>
                     <span>Підтверджено</span>
+                  </button>
+                  <button type="button" class="ds-btn" onclick="resetDropshipperTelegram()" title="Переприв'язати Telegram" style="
+                    background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+                    border: none !important;
+                    color: white !important;
+                    border-radius: 8px !important;
+                    padding: 10px 12px !important;
+                    font-weight: 700 !important;
+                    font-size: 0.95rem !important;
+                    cursor: pointer !important;
+                    transition: all 0.2s !important;
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    height: 100% !important;
+                    min-height: 44px !important;
+                  " onmouseover="this.style.transform='scale(1.1)'; this.style.boxShadow='0 4px 12px rgba(239,68,68,.4)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+                    <i class="fas fa-times"></i>
                   </button>
                 {% else %}
                   <button type="button" class="ds-btn telegram-confirm-btn" onclick="confirmDropshipperTelegram()" style="
@@ -238,6 +256,63 @@
 </div>
 
 <script>
+// Функция для сброса привязки Telegram дропшипера
+function resetDropshipperTelegram() {
+  if (!confirm('Ви впевнені, що хочете відв\'язати Telegram? Вам потрібно буде прив\'язати його заново.')) {
+    return;
+  }
+  
+  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  
+  fetch('/accounts/telegram/unlink/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken
+    },
+    credentials: 'same-origin'
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Заменяем на кнопку "Підтвердити"
+      const buttonContainer = document.querySelector('.telegram-button-container');
+      if (buttonContainer) {
+        buttonContainer.innerHTML = `
+          <button type="button" class="ds-btn telegram-confirm-btn" onclick="confirmDropshipperTelegram()" style="
+            background: linear-gradient(135deg, #8b5cf6, #6366f1) !important;
+            border: none !important;
+            color: white !important;
+            border-radius: 8px !important;
+            padding: 10px 16px !important;
+            font-weight: 700 !important;
+            font-size: 0.85rem !important;
+            cursor: pointer !important;
+            transition: all 0.2s !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 8px !important;
+            white-space: nowrap !important;
+            height: 100% !important;
+            min-height: 44px !important;
+          " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(139,92,246,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+            <i class="fab fa-telegram"></i>
+            <span>Підтвердити</span>
+          </button>
+        `;
+      }
+      alert('✅ Telegram відв\'язано! Тепер ви можете прив\'язати новий акаунт.');
+    } else {
+      alert('❌ Помилка при відв\'язуванні Telegram: ' + (data.error || 'Невідома помилка'));
+    }
+  })
+  .catch(error => {
+    console.error('Error unlinking Telegram:', error);
+    alert('❌ Помилка при відв\'язуванні Telegram');
+  });
+}
+
 // Функция для подтверждения Telegram дропшипера
 function confirmDropshipperTelegram() {
   const telegramInput = document.querySelector('input[name="telegram"]');

@@ -80,6 +80,24 @@ def check_telegram_status(request):
 
 
 
+@require_http_methods(["POST"])
+def unlink_telegram(request):
+    """Отвязывает Telegram от профиля пользователя"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Not authenticated'}, status=401)
+    
+    try:
+        profile = request.user.userprofile
+        profile.telegram_id = None
+        # Оставляем telegram username для повторной привязки
+        profile.save()
+        
+        return JsonResponse({'success': True})
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def get_telegram_id(request):
