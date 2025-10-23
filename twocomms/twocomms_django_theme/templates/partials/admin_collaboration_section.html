@@ -293,7 +293,7 @@
                 <input type="text" id="ttn-input-{{ order.id }}" value="{% if order.tracking_number %}{{ order.tracking_number }}{% endif %}" placeholder="20450012345678" style="width: 100%; padding: 10px 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.15); border-radius: 8px; color: #e5e7eb; font-weight: 600; font-family: monospace;">
               </div>
               
-              <button data-order-id="{{ order.id }}" onclick="updateOrderStatus(this.dataset.orderId)" style="padding: 12px 24px; border-radius: 8px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(16,185,129,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+              <button data-order-id="{{ order.id }}" onclick="updateDropshipOrderStatus(this.dataset.orderId)" style="padding: 12px 24px; border-radius: 8px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(16,185,129,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
                 <i class="fas fa-save"></i> Зберегти
               </button>
             </div>
@@ -569,9 +569,9 @@ function getCookie(name) {
   if (v.length === 2) return v.pop().split(';').shift();
 }
 
-// Обновление статуса заказа
-async function updateOrderStatus(orderId) {
-  console.log('🔧 updateOrderStatus called for order:', orderId);
+// Обновление статуса заказа ДРОПШИПА
+async function updateDropshipOrderStatus(orderId) {
+  console.log('🔧 updateDropshipOrderStatus called for order:', orderId);
   console.log('🔧 orderId type:', typeof orderId, 'value:', orderId);
   
   // Преобразуем в число, если пришла строка
