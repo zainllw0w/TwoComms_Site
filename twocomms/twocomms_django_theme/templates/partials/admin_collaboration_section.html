@@ -180,7 +180,14 @@
               <button onclick="openEditModal({{ order.id }})" style="padding: 8px 16px; border-radius: 8px; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white; border: none; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(139,92,246,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
                 <i class="fas fa-edit"></i> Редагувати
               </button>
-              <button onclick="{% if order.status == 'delivered' %}if(confirm('⚠️ УВАГА! Це замовлення вже доставлено.\n\nВи впевнені що хочете видалити доставлене замовлення?\n\nЦе може вплинути на статистику та виплати дропшиперу.')){% else %}if(confirm('Видалити замовлення {{ order.order_number }}?')){% endif %} deleteOrder({{ order.id }})" style="padding: 8px 16px; border-radius: 8px; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(239,68,68,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+              <button 
+                data-order-id="{{ order.id }}" 
+                data-order-number="{{ order.order_number }}" 
+                data-is-delivered="{% if order.status == 'delivered' %}true{% else %}false{% endif %}"
+                onclick="handleDeleteOrder(this)"
+                style="padding: 8px 16px; border-radius: 8px; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;" 
+                onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(239,68,68,.4)'" 
+                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
                 <i class="fas fa-trash"></i>
               </button>
             </div>
@@ -242,7 +249,11 @@
             </div>
             <div style="text-align: right;">
               <div style="font-size: 0.75rem; text-transform: uppercase; color: rgba(229,231,235,.5); margin-bottom: 4px;">Дропшипер сплачує</div>
-              <div style="font-size: 1.2rem; font-weight: 800; color: {% if order.dropshipper_payment_required == 0 %}#34d399{% else %}#a78bfa{% endif %};">{{ order.dropshipper_payment_required|floatformat:0 }} грн</div>
+              {% if order.dropshipper_payment_required == 0 %}
+              <div style="font-size: 1.2rem; font-weight: 800; color: #34d399;">{{ order.dropshipper_payment_required|floatformat:0 }} грн</div>
+              {% else %}
+              <div style="font-size: 1.2rem; font-weight: 800; color: #a78bfa;">{{ order.dropshipper_payment_required|floatformat:0 }} грн</div>
+              {% endif %}
             </div>
           </div>
           
@@ -277,9 +288,9 @@
                 </select>
               </div>
               
-              <div id="ttn-field-{{ order.id }}" style="{% if order.status != 'shipped' and order.status != 'delivered_awaiting_pickup' and order.status != 'received' %}display: none;{% endif %}">
+              <div id="ttn-field-{{ order.id }}" {% if order.status == 'shipped' or order.status == 'delivered_awaiting_pickup' or order.status == 'received' %}style="display: block;"{% else %}style="display: none;"{% endif %}>
                 <label style="display: block; font-size: 0.75rem; text-transform: uppercase; color: rgba(229,231,235,.5); margin-bottom: 6px;">ТТН Нової Пошти</label>
-                <input type="text" id="ttn-input-{{ order.id }}" value="{{ order.tracking_number|default:'' }}" placeholder="20450012345678" style="width: 100%; padding: 10px 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.15); border-radius: 8px; color: #e5e7eb; font-weight: 600; font-family: monospace;">
+                <input type="text" id="ttn-input-{{ order.id }}" value="{% if order.tracking_number %}{{ order.tracking_number }}{% endif %}" placeholder="20450012345678" style="width: 100%; padding: 10px 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.15); border-radius: 8px; color: #e5e7eb; font-weight: 600; font-family: monospace;">
               </div>
               
               <button onclick="updateOrderStatus({{ order.id }})" style="padding: 12px 24px; border-radius: 8px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(16,185,129,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
@@ -491,6 +502,24 @@ document.getElementById('edit-order-form').addEventListener('submit', async func
     console.error(err);
   }
 });
+
+// Обработчик удаления заказа
+function handleDeleteOrder(button) {
+  const orderId = button.dataset.orderId;
+  const orderNumber = button.dataset.orderNumber;
+  const isDelivered = button.dataset.isDelivered === 'true';
+  
+  let confirmMessage;
+  if (isDelivered) {
+    confirmMessage = '⚠️ УВАГА! Це замовлення вже доставлено.\n\nВи впевнені що хочете видалити доставлене замовлення?\n\nЦе може вплинути на статистику та виплати дропшиперу.';
+  } else {
+    confirmMessage = `Видалити замовлення ${orderNumber}?`;
+  }
+  
+  if (confirm(confirmMessage)) {
+    deleteOrder(orderId);
+  }
+}
 
 // Удалить заказ
 async function deleteOrder(orderId) {
