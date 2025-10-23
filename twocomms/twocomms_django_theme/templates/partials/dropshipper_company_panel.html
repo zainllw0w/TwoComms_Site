@@ -577,20 +577,30 @@ document.addEventListener('DOMContentLoaded', function() {
   const paymentDetailsInput = document.querySelector('input[name="payment_details"], textarea[name="payment_details"]');
   const paymentDetailsHint = document.getElementById('company-payment-hint');
   
+  function updatePaymentDetailsForm() {
+    const method = paymentMethodSelect.value;
+    
+    if (method === 'card') {
+      paymentDetailsLabel.textContent = 'Номер картки';
+      paymentDetailsInput.placeholder = '1234 5678 9012 3456';
+      paymentDetailsInput.setAttribute('maxlength', '19');
+      paymentDetailsInput.setAttribute('pattern', '[0-9 ]*');
+      paymentDetailsHint.textContent = '16 цифр картки без пробілів або з пробілами';
+    } else if (method === 'iban') {
+      paymentDetailsLabel.textContent = 'IBAN';
+      paymentDetailsInput.placeholder = 'UA123456789012345678901234567';
+      paymentDetailsInput.setAttribute('maxlength', '29');
+      paymentDetailsInput.setAttribute('pattern', 'UA[0-9]{27}');
+      paymentDetailsHint.textContent = 'Міжнародний номер банківського рахунку (29 символів для України)';
+    }
+  }
+  
   if (paymentMethodSelect && paymentDetailsLabel && paymentDetailsInput && paymentDetailsHint) {
-    paymentMethodSelect.addEventListener('change', function() {
-      const method = this.value;
-      
-      if (method === 'card') {
-        paymentDetailsLabel.textContent = 'Номер картки';
-        paymentDetailsInput.placeholder = '1234 5678 9012 3456';
-        paymentDetailsHint.textContent = '16 цифр картки без пробілів або з пробілами';
-      } else if (method === 'iban') {
-        paymentDetailsLabel.textContent = 'IBAN';
-        paymentDetailsInput.placeholder = 'UA123456789012345678901234567';
-        paymentDetailsHint.textContent = 'Міжнародний номер банківського рахунку (29 символів для України)';
-      }
-    });
+    // Инициализация при загрузке
+    updatePaymentDetailsForm();
+    
+    // Обновление при изменении
+    paymentMethodSelect.addEventListener('change', updatePaymentDetailsForm);
   }
 })();
 </script>
