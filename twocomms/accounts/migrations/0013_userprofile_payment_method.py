@@ -5,7 +5,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0003_userprofile_telegram_id'),
+        ('accounts', '0012_userprofile_payment_details'),
     ]
 
     operations = [
