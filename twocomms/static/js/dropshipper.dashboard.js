@@ -428,7 +428,8 @@
 
     // Стандартные размеры для одежды
     const standardSizes = ['S', 'M', 'L', 'XL'];
-    const uniqueSizes = Array.from(new Set((sizes || []).map((size) => (size || '').trim()).filter(Boolean)));
+    // Временно исключаем XXL из доступных размеров
+    const uniqueSizes = Array.from(new Set((sizes || []).map((size) => (size || '').trim()).filter((size) => size && size.toUpperCase() !== 'XXL')));
     
     if (sizeSelect) {
       sizeSelect.innerHTML = '';
