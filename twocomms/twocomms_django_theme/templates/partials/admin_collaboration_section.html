@@ -295,7 +295,7 @@
               {% endif %}
             </div>
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; align-items: end;">
               <div>
                 <label style="display: block; font-size: 0.75rem; text-transform: uppercase; color: rgba(229,231,235,.5); margin-bottom: 6px;">Змінити статус</label>
                 <select id="status-select-{{ order.id }}" style="width: 100%; padding: 10px 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.15); border-radius: 8px; color: #e5e7eb; font-weight: 600;">
@@ -310,6 +310,15 @@
                   <option value="received" {% if order.status == 'received' %}selected{% endif %}>✅ Отримано</option>
                   <option value="refused" {% if order.status == 'refused' %}selected{% endif %}>↩️ Відмова</option>
                   <option value="cancelled" {% if order.status == 'cancelled' %}selected{% endif %}>❌ Скасовано</option>
+                </select>
+              </div>
+              
+              <div>
+                <label style="display: block; font-size: 0.75rem; text-transform: uppercase; color: rgba(229,231,235,.5); margin-bottom: 6px;">Статус оплати</label>
+                <select id="payment-status-select-{{ order.id }}" style="width: 100%; padding: 10px 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.15); border-radius: 8px; color: #e5e7eb; font-weight: 600;">
+                  <option value="unpaid" {% if order.payment_status == 'unpaid' %}selected{% endif %}>⏳ Не оплачено</option>
+                  <option value="paid" {% if order.payment_status == 'paid' %}selected{% endif %}>✅ Оплачено</option>
+                  <option value="refunded" {% if order.payment_status == 'refunded' %}selected{% endif %}>↩️ Повернено</option>
                 </select>
               </div>
               
@@ -603,12 +612,15 @@ async function updateDropshipOrderStatus(orderId) {
   orderId = parseInt(orderId);
   
   const statusSelect = document.getElementById(`status-select-${orderId}`);
+  const paymentStatusSelect = document.getElementById(`payment-status-select-${orderId}`);
   const ttnInput = document.getElementById(`ttn-input-${orderId}`);
   
   console.log('🔍 Looking for elements:', {
     statusSelectId: `status-select-${orderId}`,
+    paymentStatusSelectId: `payment-status-select-${orderId}`,
     ttnInputId: `ttn-input-${orderId}`,
     statusSelectFound: !!statusSelect,
+    paymentStatusSelectFound: !!paymentStatusSelect,
     ttnInputFound: !!ttnInput
   });
   
@@ -619,9 +631,10 @@ async function updateDropshipOrderStatus(orderId) {
   }
   
   const newStatus = statusSelect.value;
+  const newPaymentStatus = paymentStatusSelect ? paymentStatusSelect.value : null;
   const ttnValue = ttnInput ? ttnInput.value.trim() : '';
   
-  console.log('📊 New status:', newStatus, 'TTN:', ttnValue);
+  console.log('📊 New status:', newStatus, 'Payment status:', newPaymentStatus, 'TTN:', ttnValue);
   
   // Валидация: если статус "shipped" - требуем ТТН
   if (newStatus === 'shipped' && !ttnValue) {
@@ -635,16 +648,23 @@ async function updateDropshipOrderStatus(orderId) {
   try {
     console.log('📡 Sending request to:', `/orders/admin/dropship/update-status/${orderId}/`);
     
+    const requestBody = {
+      status: newStatus,
+      tracking_number: ttnValue
+    };
+    
+    // Добавляем payment_status если он был изменен
+    if (newPaymentStatus) {
+      requestBody.payment_status = newPaymentStatus;
+    }
+    
     const res = await fetch(`/orders/admin/dropship/update-status/${orderId}/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-CSRFToken': csrfToken
       },
-      body: JSON.stringify({
-        status: newStatus,
-        tracking_number: ttnValue
-      })
+      body: JSON.stringify(requestBody)
     });
     
     console.log('📥 Response status:', res.status, res.statusText);
