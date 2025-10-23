@@ -675,14 +675,16 @@ let initialTelegramUsername = '';
 document.addEventListener('DOMContentLoaded', function() {
   const telegramInput = document.querySelector('input[name="telegram"]');
   if (telegramInput) {
-    initialTelegramUsername = telegramInput.value.trim();
+    // Сохраняем БЕЗ trim() чтобы отслеживать ВСЕ изменения
+    initialTelegramUsername = telegramInput.value;
     
     // Отслеживаем изменения в поле Telegram
     telegramInput.addEventListener('input', function() {
-      const currentValue = this.value.trim();
+      // Сравниваем БЕЗ trim() - любое изменение, даже пробел
+      const currentValue = this.value;
       const buttonContainer = document.querySelector('.telegram-button-container');
       
-      // Если значение изменилось и кнопка "Підтверджено"
+      // Если значение изменилось ХОТЬ НА ОДИН СИМВОЛ и кнопка "Підтверджено"
       if (currentValue !== initialTelegramUsername && buttonContainer) {
         const confirmedBtn = buttonContainer.querySelector('button[disabled]');
         if (confirmedBtn && confirmedBtn.textContent.includes('Підтверджено')) {
