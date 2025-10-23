@@ -408,35 +408,37 @@ class DropshipperOrder(models.Model):
         if self.payout_processed:
             return False, "Виплату вже оброблено"
         
-        # Рассчитываем сумму выплаты
-        payout_amount = self.profit
-        
-        # Для COD вычитаем 200 грн (предоплату)
-        if self.payment_method == 'cod':
-            payout_amount = self.profit - 200
-        
-        # Создаем выплату
         from decimal import Decimal
-        if payout_amount > 0:
-            payout = DropshipperPayout.objects.create(
-                dropshipper=self.dropshipper,
-                amount=Decimal(str(payout_amount)),
-                status='pending',
-                description=f"Виплата за замовлення #{self.order_number}",
-                order=self
-            )
-            
-            # Обновляем available_for_payout в статистике дропшипера
-            stats, created = DropshipperStats.objects.get_or_create(dropshipper=self.dropshipper)
-            stats.available_for_payout += Decimal(str(payout_amount))
-            stats.save(update_fields=['available_for_payout'])
-            
+        
+        # Рассчитываем сумму выплаты в зависимости от способа оплаты
+        payout_amount = Decimal('0')
+        
+        if self.payment_method == 'delegation':
+            # Для делегирования - вся прибыль
+            payout_amount = self.profit
+        elif self.payment_method == 'cod':
+            # Для COD - прибыль минус 200 грн (которые клиент заплатил при получении)
+            payout_amount = self.profit - Decimal('200')
+        elif self.payment_method == 'prepaid':
+            # Для предоплаты - вся прибыль (дропшипер уже оплатил товар)
+            payout_amount = self.profit
+        
+        # Проверяем что сумма положительная
+        if payout_amount <= 0:
             self.payout_processed = True
             self.save(update_fields=['payout_processed'])
-            
-            return True, f"Створено виплату на суму {payout_amount} грн"
+            return False, f"Сума виплати <= 0 (розраховано: {payout_amount} грн)"
         
-        return False, "Сума виплати <= 0"
+        # Обновляем available_for_payout в статистике дропшипера
+        stats, created = DropshipperStats.objects.get_or_create(dropshipper=self.dropshipper)
+        stats.available_for_payout += payout_amount
+        stats.save(update_fields=['available_for_payout'])
+        
+        # Отмечаем что выплата обработана
+        self.payout_processed = True
+        self.save(update_fields=['payout_processed'])
+        
+        return True, f"Додано {payout_amount} грн до доступних виплат (метод: {self.get_payment_method_display()}, прибуток: {self.profit} грн)"
     
     def update_status_on_payment(self):
         """Обновляет статус заказа после оплаты"""
