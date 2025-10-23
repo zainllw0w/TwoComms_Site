@@ -351,6 +351,7 @@ def dropshipper_company_settings(request):
         'website': profile.website or '',
         'instagram': profile.instagram or '',
         'telegram': profile.telegram or '',
+        'payment_method': profile.payment_method or 'card',
         'payment_details': profile.payment_details or '',
     }
 
@@ -365,6 +366,7 @@ def dropshipper_company_settings(request):
             profile.website = form.cleaned_data.get('website', '').strip()
             profile.instagram = form.cleaned_data.get('instagram', '').strip()
             profile.telegram = form.cleaned_data.get('telegram', '').strip()
+            profile.payment_method = form.cleaned_data.get('payment_method', 'card')
             profile.payment_details = form.cleaned_data.get('payment_details', '').strip()
 
             avatar = form.cleaned_data.get('avatar')
@@ -726,57 +728,7 @@ def update_order_status(request, order_id):
         })
 
 
-@login_required
-@require_http_methods(["POST"])
-def request_payout(request):
-    """Запрос на выплату"""
-    try:
-        data = json.loads(request.body)
-        
-        # Получаем доступные заказы для выплаты
-        available_orders = DropshipperOrder.objects.filter(
-            dropshipper=request.user,
-            status='delivered',
-            payment_status='paid',
-            payouts__isnull=True
-        )
-        
-        if not available_orders.exists():
-            return JsonResponse({
-                'success': False,
-                'message': 'Немає доступних замовлень для виплати!'
-            })
-        
-        # Рассчитываем сумму выплаты
-        total_amount = sum(order.profit for order in available_orders)
-        
-        with transaction.atomic():
-            # Создаем выплату
-            payout = DropshipperPayout.objects.create(
-                dropshipper=request.user,
-                amount=total_amount,
-                payment_method=data.get('payment_method', 'card'),
-                payment_details=data.get('payment_details', ''),
-                notes=data.get('notes', ''),
-                status='pending'
-            )
-            
-            # Связываем заказы с выплатой
-            payout.included_orders.set(available_orders)
-            
-            return JsonResponse({
-                'success': True,
-                'payout_id': payout.id,
-                'payout_number': payout.payout_number,
-                'amount': float(total_amount),
-                'message': 'Запит на виплату створено!'
-            })
-            
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': f'Помилка при створенні запиту на виплату: {str(e)}'
-        })
+# Удалено старая версия request_payout (дублировалась)
 
 
 
@@ -1289,6 +1241,9 @@ def admin_check_np_status(request, order_id):
 def request_payout(request):
     """Создание запроса на выплату дропшипером"""
     try:
+        # Парсим данные из запроса
+        data = json.loads(request.body)
+        
         # Получаем статистику дропшипера
         stats, created = DropshipperStats.objects.get_or_create(dropshipper=request.user)
         
@@ -1298,12 +1253,22 @@ def request_payout(request):
                 'error': 'Немає доступної суми для виплати'
             }, status=400)
         
-        # Проверяем что у дропшипера заполнены реквизиты
-        profile = request.user.userprofile
-        if not profile.payment_details:
+        # Получаем данные из формы
+        payment_method = data.get('payment_method')
+        payment_details = data.get('payment_details', '').strip()
+        notes = data.get('notes', '').strip()
+        
+        # Валидация
+        if not payment_method or payment_method not in ['card', 'iban']:
             return JsonResponse({
                 'success': False,
-                'error': 'Спочатку заповніть реквізити для виплат в налаштуваннях компанії'
+                'error': 'Будь ласка, оберіть спосіб виплати'
+            }, status=400)
+        
+        if not payment_details:
+            return JsonResponse({
+                'success': False,
+                'error': 'Будь ласка, вкажіть реквізити для виплати'
             }, status=400)
         
         # Создаем запрос на выплату
@@ -1311,8 +1276,10 @@ def request_payout(request):
             dropshipper=request.user,
             amount=stats.available_for_payout,
             status='pending',
-            description=f"Запит на виплату від {request.user.username}",
-            payment_details=profile.payment_details
+            payment_method=payment_method,
+            payment_details=payment_details,
+            notes=notes,
+            description=f"Запит на виплату від {request.user.username}"
         )
         
         # Обнуляем available_for_payout
