@@ -410,24 +410,15 @@ class DropshipperOrder(models.Model):
         
         from decimal import Decimal
         
-        # Рассчитываем сумму выплаты в зависимости от способа оплаты
-        payout_amount = Decimal('0')
-        
-        if self.payment_method == 'delegation':
-            # Для делегирования - вся прибыль
-            payout_amount = self.profit
-        elif self.payment_method == 'cod':
-            # Для COD - прибыль минус 200 грн (которые клиент заплатил при получении)
-            payout_amount = self.profit - Decimal('200')
-        elif self.payment_method == 'prepaid':
-            # Для предоплаты - вся прибыль (дропшипер уже оплатил товар)
-            payout_amount = self.profit
+        # Сумма выплаты дропшиперу = его прибыль (независимо от способа оплаты)
+        # 200 грн при COD - это наша страховка от клиента, она не влияет на прибыль дропшипера
+        payout_amount = self.profit
         
         # Проверяем что сумма положительная
         if payout_amount <= 0:
             self.payout_processed = True
             self.save(update_fields=['payout_processed'])
-            return False, f"Сума виплати <= 0 (розраховано: {payout_amount} грн)"
+            return False, f"Сума виплати <= 0 (прибуток: {payout_amount} грн)"
         
         # Обновляем available_for_payout в статистике дропшипера
         stats, created = DropshipperStats.objects.get_or_create(dropshipper=self.dropshipper)
