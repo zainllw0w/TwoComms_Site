@@ -782,11 +782,30 @@ class TelegramNotifier:
         Returns:
             bool: True если сообщение отправлено успешно
         """
-        if not order.dropshipper or not order.dropshipper.userprofile.telegram_id:
+        print(f"🔵 send_dropshipper_status_change_notification called for order #{order.order_number}")
+        print(f"🔵 Status change: {old_status} → {new_status}")
+        print(f"🔵 Dropshipper: {order.dropshipper.username if order.dropshipper else 'None'}")
+        
+        if not order.dropshipper:
+            print(f"❌ No dropshipper for order #{order.order_number}")
+            return False
+            
+        try:
+            telegram_id = order.dropshipper.userprofile.telegram_id
+            print(f"🟡 Dropshipper telegram_id: {telegram_id}")
+        except Exception as e:
+            print(f"❌ Error getting telegram_id: {e}")
+            return False
+        
+        if not telegram_id:
+            print(f"❌ Dropshipper {order.dropshipper.username} has no telegram_id")
             return False
         
         message = self._format_dropshipper_status_change_message(order, old_status, new_status)
-        return self.send_personal_message(order.dropshipper.userprofile.telegram_id, message)
+        print(f"🟢 Sending status change notification to telegram_id={telegram_id}")
+        result = self.send_personal_message(telegram_id, message)
+        print(f"{'✅' if result else '❌'} Status change notification result: {result}")
+        return result
     
     def _format_dropshipper_status_change_message(self, order, old_status, new_status):
         """
