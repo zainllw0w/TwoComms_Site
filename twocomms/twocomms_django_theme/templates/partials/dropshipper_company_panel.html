@@ -111,7 +111,7 @@
                     <i class="fas fa-check-circle"></i>
                     <span>Підтверджено</span>
                   </button>
-                  <button type="button" class="ds-btn" onclick="resetDropshipperTelegram()" title="Переприв'язати Telegram" style="
+                  <button type="button" class="ds-btn telegram-reset-btn" title="Переприв'язати Telegram" style="
                     background: linear-gradient(135deg, #ef4444, #dc2626) !important;
                     border: none !important;
                     color: white !important;
@@ -256,6 +256,14 @@
 </div>
 
 <script>
+// Привязываем обработчик события для кнопки сброса Telegram
+document.addEventListener('DOMContentLoaded', function() {
+  const resetBtn = document.querySelector('.telegram-reset-btn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', resetDropshipperTelegram);
+  }
+});
+
 // Функция для сброса привязки Telegram дропшипера
 function resetDropshipperTelegram() {
   if (!confirm('Ви впевнені, що хочете відв\'язати Telegram? Вам потрібно буде прив\'язати його заново.')) {
