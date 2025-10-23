@@ -542,24 +542,39 @@ function getCookie(name) {
 
 // Обновление статуса заказа
 async function updateOrderStatus(orderId) {
+  console.log('🔧 updateOrderStatus called for order:', orderId);
+  
   const statusSelect = document.getElementById(`status-select-${orderId}`);
   const ttnInput = document.getElementById(`ttn-input-${orderId}`);
+  
+  if (!statusSelect) {
+    console.error('❌ Status select not found for order:', orderId);
+    alert('❌ Помилка: не знайдено поле статусу');
+    return;
+  }
   
   const newStatus = statusSelect.value;
   const ttnValue = ttnInput ? ttnInput.value.trim() : '';
   
+  console.log('📊 New status:', newStatus, 'TTN:', ttnValue);
+  
   // Валидация: если статус "shipped" - требуем ТТН
-  if ((newStatus === 'shipped' || newStatus === 'delivered_awaiting_pickup') && !ttnValue) {
+  if (newStatus === 'shipped' && !ttnValue) {
     alert('❌ Для статусу "Відправлено" необхідно вказати ТТН Нової Пошти!');
     return;
   }
   
+  const csrfToken = getCookie('csrftoken');
+  console.log('🔑 CSRF Token:', csrfToken ? 'OK' : 'MISSING');
+  
   try {
+    console.log('📡 Sending request to:', `/orders/admin/dropship/update-status/${orderId}/`);
+    
     const res = await fetch(`/orders/admin/dropship/update-status/${orderId}/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRFToken': getCookie('csrftoken')
+        'X-CSRFToken': csrfToken
       },
       body: JSON.stringify({
         status: newStatus,
@@ -567,7 +582,10 @@ async function updateOrderStatus(orderId) {
       })
     });
     
+    console.log('📥 Response status:', res.status, res.statusText);
+    
     const data = await res.json();
+    console.log('📦 Response data:', data);
     
     if (res.ok && data.success) {
       // Показываем уведомление об успехе
@@ -576,11 +594,12 @@ async function updateOrderStatus(orderId) {
       // Перезагружаем страницу через секунду
       setTimeout(() => location.reload(), 1000);
     } else {
+      console.error('❌ Error response:', data);
       alert('❌ Помилка: ' + (data.error || 'Невідома помилка'));
     }
   } catch(err) {
-    console.error('Error:', err);
-    alert('❌ Помилка з\'єднання');
+    console.error('❌ Exception caught:', err);
+    alert('❌ Помилка з\'єднання: ' + err.message);
   }
 }
 
