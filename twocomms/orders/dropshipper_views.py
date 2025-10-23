@@ -180,6 +180,24 @@ def dropshipper_dashboard(request):
     categories_info = _get_dropship_categories()
     active_categories_count = sum(1 for category in categories_info if not category['disabled'])
     inactive_categories = [category for category in categories_info if category['disabled']]
+    
+    # Статистика по выплатам
+    from datetime import datetime
+    from django.db.models import Sum
+    
+    pending_payouts_sum = DropshipperPayout.objects.filter(
+        dropshipper=request.user,
+        status='pending'
+    ).aggregate(total=Sum('amount'))['total'] or 0
+    
+    current_month = datetime.now().month
+    current_year = datetime.now().year
+    completed_payouts_sum = DropshipperPayout.objects.filter(
+        dropshipper=request.user,
+        status='completed',
+        created_at__month=current_month,
+        created_at__year=current_year
+    ).aggregate(total=Sum('amount'))['total'] or 0
 
     context = {
         'stats': stats,
@@ -191,6 +209,8 @@ def dropshipper_dashboard(request):
         'dropship_products_preview': products_preview,
         'dropship_products_categories_count': active_categories_count,
         'dropship_inactive_categories': inactive_categories,
+        'pending_payouts_sum': pending_payouts_sum,
+        'completed_payouts_sum': completed_payouts_sum,
     }
     
     return render(request, 'pages/dropshipper_dashboard.html', context)
