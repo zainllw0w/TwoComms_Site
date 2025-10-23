@@ -5,7 +5,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('orders', '0041_dropshipperorder_payout_processed'),
+        ('orders', '0032_add_available_for_payout'),
     ]
 
     operations = [
