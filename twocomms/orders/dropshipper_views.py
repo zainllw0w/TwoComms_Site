@@ -760,6 +760,16 @@ def get_product_details(request, product_id):
         # Получаем актуальную цену дропа
         drop_price = product.get_drop_price(request.user)
         
+        # Получаем информацию о лояльности дропшипера
+        loyalty_discount = 0
+        drop_price_with_loyalty = float(drop_price)
+        try:
+            stats, _ = DropshipperStats.objects.get_or_create(dropshipper=request.user)
+            loyalty_discount = float(stats.loyalty_discount) if stats.loyalty_discount else 0
+            drop_price_with_loyalty = max(float(drop_price) - loyalty_discount, 0)
+        except:
+            pass
+        
         # Получаем рекомендованную цену (как на сайте)
         recommended = product.get_recommended_price()
         recommended_price = recommended.get('base', product.price)
@@ -796,6 +806,8 @@ def get_product_details(request, product_id):
             'description': product.description or '',
             'primary_image_url': main_image_url,
             'drop_price': float(drop_price),
+            'loyalty_discount': loyalty_discount,
+            'drop_price_with_loyalty': drop_price_with_loyalty,
             'recommended_price': float(recommended_price),
             'price_range': price_range,  # Добавляем диапазон цены
             'color_variants': color_variants,
