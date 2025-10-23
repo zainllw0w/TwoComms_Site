@@ -100,30 +100,40 @@ class TelegramBot:
     def auto_confirm_user(self, user_id, username=None):
         """Автоматически подтверждает пользователя по введенному username"""
         try:
+            print(f"🔵 auto_confirm_user called: user_id={user_id}, username={username}")
+            
             if not username:
+                print(f"❌ No username provided")
                 return False
             
             # Убираем @ если есть
             clean_username = username.lstrip('@')
+            print(f"🟡 Clean username: {clean_username}")
             
             # Ищем все профили с таким telegram username (без @) - только неподтвержденные
             profiles_without_at = UserProfile.objects.filter(telegram=clean_username, telegram_id__isnull=True)
+            print(f"🟢 Profiles without @: {profiles_without_at.count()}")
             
             # Ищем все профили с таким telegram username (с @) - только неподтвержденные
             profiles_with_at = UserProfile.objects.filter(telegram=f"@{clean_username}", telegram_id__isnull=True)
+            print(f"🟢 Profiles with @: {profiles_with_at.count()}")
             
             # Объединяем результаты
             all_matching_profiles = list(profiles_without_at) + list(profiles_with_at)
+            print(f"🟣 Total matching profiles: {len(all_matching_profiles)}")
             
             if len(all_matching_profiles) == 0:
+                print(f"❌ No matching profiles found")
                 return False
             
             # Привязываем только к ПЕРВОМУ найденному неподтвержденному профилю
             profile = all_matching_profiles[0]
+            print(f"✅ Linking to profile: {profile.user.username} (company: {profile.company_name})")
             
             # Привязываем telegram_id к профилю
             profile.telegram_id = user_id
             profile.save()
+            print(f"✅ Profile saved with telegram_id={user_id}")
             
             message = f"""🎉 <b>Відмінно! Ваш Telegram успішно підтверджено!</b>
 
@@ -217,6 +227,7 @@ class TelegramBot:
     def process_webhook_update(self, update_data):
         """Обрабатывает обновление от webhook"""
         try:
+            print(f"🔵 Webhook update received: {update_data}")
             
             if 'message' in update_data:
                 message = update_data['message']
@@ -224,16 +235,22 @@ class TelegramBot:
                 username = message['from'].get('username')
                 text = message.get('text', '')
                 
+                print(f"🟡 Message from user_id={user_id}, username={username}, text={text}")
                 
                 if text == '/start':
+                    print(f"🟢 Processing /start command")
                     result = self.process_start_command(user_id, username)
+                    print(f"🟣 /start result: {result}")
                     return result
                 else:
                     # Обрабатываем любое другое сообщение
+                    print(f"🟢 Processing any message")
                     result = self.process_any_message(user_id, username, text)
+                    print(f"🟣 Any message result: {result}")
                     return result
                     
         except Exception as e:
+            print(f"❌ Webhook error: {e}")
             return False
     
     def process_any_message(self, user_id, username=None, text=''):
