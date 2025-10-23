@@ -28,4 +28,8 @@ urlpatterns = [
     path('dropshipper/monobank/create/', dropshipper_views.create_dropshipper_monobank_payment, name='create_dropshipper_monobank_payment'),
     path('dropshipper/monobank/callback/', dropshipper_views.dropshipper_monobank_callback, name='dropshipper_monobank_callback'),
     path('dropshipper/monobank/return/', dropshipper_views.dropshipper_monobank_return, name='dropshipper_monobank_return'),
+    
+    # Админские маршруты для управления дропшип заказами
+    path('admin/dropship/update-status/<int:order_id>/', dropshipper_views.admin_update_dropship_status, name='admin_update_dropship_status'),
+    path('admin/dropship/check-np/<int:order_id>/', dropshipper_views.admin_check_np_status, name='admin_check_np_status'),
 ]
