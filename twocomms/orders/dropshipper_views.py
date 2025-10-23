@@ -1177,14 +1177,40 @@ def admin_update_dropship_status(request, order_id):
         
         order.save()
         
-        # Отправляем уведомление дропшиперу об изменении статуса
+        # Отправляем уведомления об изменении статуса
         if old_status != new_status:
+            # Уведомление дропшиперу
             try:
                 from .telegram_notifications import telegram_notifier
                 telegram_notifier.send_dropshipper_status_change_notification(order, old_status, new_status)
                 monobank_logger.info(f"✅ Telegram уведомление дропшиперу отправлено для заказа {order.order_number}")
             except Exception as e:
                 monobank_logger.error(f"⚠️ Ошибка отправки Telegram уведомления дропшиперу: {e}")
+            
+            # Уведомление админу об изменении статуса
+            try:
+                from .telegram_notifications import telegram_notifier
+                # Используем существующую функцию или создаем новую для админа
+                admin_message = f"""🔄 <b>ЗМІНА СТАТУСУ ДРОПШИП ЗАМОВЛЕННЯ</b>
+
+<b>Замовлення:</b> #{order.order_number}
+<b>Дропшипер:</b> {order.dropshipper.userprofile.company_name if order.dropshipper.userprofile.company_name else order.dropshipper.username}
+
+<b>Старий статус:</b> {dict(DropshipperOrder.STATUS_CHOICES).get(old_status, old_status)}
+<b>Новий статус:</b> {order.get_status_display()}
+
+<b>Клієнт:</b> {order.client_name if order.client_name else 'Не вказано'}
+<b>Телефон:</b> {order.client_phone if order.client_phone else 'Не вказано'}"""
+                
+                if order.tracking_number:
+                    admin_message += f"\n<b>ТТН:</b> {order.tracking_number}"
+                
+                admin_message += f"\n\n🔗 <a href=\"https://twocomms.shop/admin-panel/?section=collaboration\">Переглянути в адмін-панелі</a>"
+                
+                telegram_notifier.send_message(admin_message)
+                monobank_logger.info(f"✅ Telegram уведомление админу об изменении статуса отправлено для заказа {order.order_number}")
+            except Exception as e:
+                monobank_logger.error(f"⚠️ Ошибка отправки Telegram уведомления админу: {e}")
         
         # Логируем изменение
         monobank_logger.info(
