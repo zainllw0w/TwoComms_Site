@@ -175,11 +175,27 @@
                       {% endif %}
                     </div>
                   </div>
-                  <div class="telegram-hint">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <div class="telegram-hint" style="
+                    background: linear-gradient(135deg, rgba(139,92,246,.12), rgba(99,102,241,.08));
+                    border: 1px solid rgba(139,92,246,.25);
+                    border-radius: 8px;
+                    padding: 12px;
+                    margin-top: 8px;
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 10px;
+                  ">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="color: #8b5cf6; flex-shrink: 0; margin-top: 2px;">
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
                     </svg>
-                    <span>Telegram потрібен для автоматичної відправки сповіщень про статус замовлення та відстеження посилок для вашої зручності</span>
+                    <div style="flex: 1;">
+                      <p style="margin: 0 0 8px 0; color: rgba(229,231,235,.9); font-size: 0.95rem; line-height: 1.5;">
+                        <strong style="color: #a78bfa;">📱 Отримуйте сповіщення в Telegram!</strong> Миттєві сповіщення про нові замовлення, зміну статусів та відстеження посилок.
+                      </p>
+                      <p style="margin: 0; color: rgba(229,231,235,.7); font-size: 0.85rem; line-height: 1.4;">
+                        <strong style="color: #fbbf24;">📝 Як підключити:</strong> Натисніть "Получать статусы", потім <strong>напишіть боту будь-яке повідомлення протягом 5 хвилин</strong> для підтвердження.
+                      </p>
+                    </div>
                   </div>
                   {% if form.telegram.errors %}
                     <div class="error-message">{{ form.telegram.errors.0 }}</div>
