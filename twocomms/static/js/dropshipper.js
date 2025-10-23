@@ -448,7 +448,7 @@ console.log('✅ window.confirmDropshipperTelegram defined:', typeof window.conf
         return;
       }
 
-      // Для блоков с data-animate-early - более агрессивный threshold для немедленного появления
+      // Для блоков с data-animate-early - большой rootMargin чтобы анимация началась раньше
       const observerEarly = new IntersectionObserver(
         (entries) => {
           entries.forEach((entry) => {
@@ -464,8 +464,8 @@ console.log('✅ window.confirmDropshipperTelegram defined:', typeof window.conf
           });
         },
         {
-          threshold: 0,
-          rootMargin: '200px 0px 0px 0px',
+          threshold: 0.05,
+          rootMargin: '300px 0px 0px 0px', // Начинаем анимацию за 300px до появления блока
         },
       );
 
@@ -493,21 +493,7 @@ console.log('✅ window.confirmDropshipperTelegram defined:', typeof window.conf
       // Применяем соответствующий observer
       animatedBlocks.forEach((block) => {
         if (block.hasAttribute('data-animate-early')) {
-          // Для data-animate-early проверяем, виден ли блок сразу
-          const rect = block.getBoundingClientRect();
-          const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
-          
-          if (isVisible) {
-            // Если блок уже виден - показываем сразу
-            block.classList.add('is-animated');
-            block.querySelectorAll('[data-fade]').forEach((child) => {
-              const delay = Number(child.dataset.delay || 0);
-              child.style.setProperty('--ds-fade-delay', `${delay}ms`);
-              child.classList.add('is-revealed');
-            });
-          } else {
-            observerEarly.observe(block);
-          }
+          observerEarly.observe(block);
         } else {
           observer.observe(block);
         }
