@@ -39,15 +39,22 @@ class CompanyProfileForm(forms.Form):
         required=False,
         widget=forms.TextInput(attrs={"placeholder": "@manager"})
     )
+    payment_method = forms.ChoiceField(
+        label="Спосіб виплати",
+        choices=[('card', 'На картку'), ('iban', 'IBAN')],
+        required=True,
+        initial='card',
+        widget=forms.Select(attrs={"class": "ds-select"})
+    )
     payment_details = forms.CharField(
         label="Реквізити для виплат",
         required=False,
-        widget=forms.Textarea(
+        widget=forms.TextInput(
             attrs={
-                "placeholder": "IBAN або номер картки",
-                "rows": 4,
-                "maxlength": 180,
-                "class": "ds-textarea ds-textarea--payment",
+                "placeholder": "1234 5678 9012 3456",
+                "maxlength": 50,
+                "class": "ds-input",
+                "id": "id_payment_details",
             }
         )
     )

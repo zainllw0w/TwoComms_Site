@@ -571,7 +571,7 @@ console.log('✅ window.confirmDropshipperTelegram defined:', typeof window.conf
         return;
       }
 
-      document.addEventListener('click', (event) => {
+      document.addEventListener('click', async (event) => {
         const trigger = event.target.closest('[data-request-payout]');
         if (!trigger || trigger.disabled) {
           return;
@@ -579,6 +579,41 @@ console.log('✅ window.confirmDropshipperTelegram defined:', typeof window.conf
 
         event.preventDefault();
         payoutForm.reset();
+        
+        // Загружаем данные профиля для автозаполнения
+        try {
+          const response = await fetch('/orders/dropshipper/company/?partial=1', {
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+          });
+          
+          if (response.ok) {
+            const html = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            // Получаем payment_method из формы компании
+            const paymentMethodField = doc.querySelector('#id_payment_method, select[name="payment_method"]');
+            const paymentDetailsField = doc.querySelector('#id_payment_details, input[name="payment_details"], textarea[name="payment_details"]');
+            
+            if (paymentMethodField && paymentMethodSelect) {
+              const savedMethod = paymentMethodField.value || 'card';
+              paymentMethodSelect.value = savedMethod;
+              
+              // Обновляем форму под выбранный метод
+              const changeEvent = new Event('change');
+              paymentMethodSelect.dispatchEvent(changeEvent);
+            }
+            
+            if (paymentDetailsField && detailsInput) {
+              detailsInput.value = paymentDetailsField.value || '';
+            }
+          }
+        } catch (error) {
+          console.error('Error loading profile data:', error);
+        }
+        
         const parentPanel = trigger.closest('[data-tab-panel]');
         payoutForm.dataset.reloadTarget = parentPanel && parentPanel.dataset.tabPanel ? parentPanel.dataset.tabPanel : 'payouts';
         payoutModal.hidden = false;
