@@ -346,8 +346,15 @@ class DropshipperOrder(models.Model):
         if not self.order_number:
             self.order_number = self.generate_order_number()
         
-        # Автоматически меняем payment_status на paid если статус confirmed
-        if self.status == 'confirmed' and self.payment_status != 'paid':
+        # Автоматически меняем payment_status на paid если статус confirmed или выше
+        # (confirmed, processing, awaiting_shipment, shipped, delivered_awaiting_pickup, received)
+        # НО только если payment_status еще не был установлен вручную админом
+        confirmed_and_higher_statuses = [
+            'confirmed', 'processing', 'awaiting_shipment', 'shipped', 
+            'delivered_awaiting_pickup', 'received'
+        ]
+        
+        if self.status in confirmed_and_higher_statuses and self.payment_status == 'unpaid':
             self.payment_status = 'paid'
         
         super().save(*args, **kwargs)
