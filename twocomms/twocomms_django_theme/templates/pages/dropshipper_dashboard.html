@@ -531,6 +531,87 @@
           </div>
         </section>
 
+        {# Система лояльности #}
+        <section class="ds-section" id="ds-loyalty" data-animate style="background: linear-gradient(145deg, rgba(16,185,129,.08), rgba(5,150,105,.05)); border: 2px solid rgba(16,185,129,.2); border-radius: 24px; padding: 60px 40px; margin-bottom: 60px;">
+          <div style="text-align: center; max-width: 900px; margin: 0 auto;">
+            <div style="display: inline-flex; align-items: center; gap: 12px; background: linear-gradient(135deg, rgba(16,185,129,.15), rgba(5,150,105,.15)); border: 1px solid rgba(16,185,129,.3); border-radius: 50px; padding: 12px 28px; margin-bottom: 32px;">
+              <i class="fas fa-gift" style="font-size: 1.5rem; color: #10b981;"></i>
+              <span style="font-weight: 800; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em; color: #10b981;">Система лояльності</span>
+            </div>
+
+            <h2 style="font-size: 3rem; font-weight: 900; color: #f3f4f6; margin-bottom: 24px; letter-spacing: -0.02em; line-height: 1.2;">
+              Чим більше продаєте — тим менше платите
+            </h2>
+
+            <p style="font-size: 1.25rem; color: rgba(229,231,235,.75); line-height: 1.7; margin-bottom: 48px; max-width: 700px; margin-left: auto; margin-right: auto;">
+              За кожне успішно отримане замовлення ваша ціна дропа знижується на <strong style="color: #10b981;">10 грн</strong>. Максимальна знижка — <strong style="color: #10b981;">120 грн</strong> на всі товари!
+            </p>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-bottom: 48px;">
+              <div style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 2px solid rgba(16,185,129,.25); border-radius: 20px; padding: 32px; text-align: center; transition: all 0.3s;" onmouseover="this.style.transform='translateY(-8px)'; this.style.borderColor='rgba(16,185,129,.5)'" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(16,185,129,.25)'">
+                <div style="font-size: 3.5rem; margin-bottom: 16px;">🎯</div>
+                <div style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #10b981, #059669); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">
+                  −10 грн
+                </div>
+                <div style="color: rgba(229,231,235,.75); font-weight: 600;">За кожне замовлення</div>
+              </div>
+
+              <div style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 2px solid rgba(16,185,129,.25); border-radius: 20px; padding: 32px; text-align: center; transition: all 0.3s;" onmouseover="this.style.transform='translateY(-8px)'; this.style.borderColor='rgba(16,185,129,.5)'" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(16,185,129,.25)'">
+                <div style="font-size: 3.5rem; margin-bottom: 16px;">🏆</div>
+                <div style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #10b981, #059669); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">
+                  −120 грн
+                </div>
+                <div style="color: rgba(229,231,235,.75); font-weight: 600;">Максимальна знижка</div>
+              </div>
+
+              <div style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 2px solid rgba(16,185,129,.25); border-radius: 20px; padding: 32px; text-align: center; transition: all 0.3s;" onmouseover="this.style.transform='translateY(-8px)'; this.style.borderColor='rgba(16,185,129,.5)'" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(16,185,129,.25)'">
+                <div style="font-size: 3.5rem; margin-bottom: 16px;">♾️</div>
+                <div style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #10b981, #059669); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">
+                  Назавжди
+                </div>
+                <div style="color: rgba(229,231,235,.75); font-weight: 600;">Знижка не згорає</div>
+              </div>
+            </div>
+
+            <div style="background: rgba(16,185,129,.1); border: 2px solid rgba(16,185,129,.25); border-radius: 20px; padding: 32px;">
+              <div style="display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 20px;">
+                <i class="fas fa-chart-line" style="font-size: 2rem; color: #10b981;"></i>
+                <h3 style="font-size: 1.8rem; font-weight: 800; color: #e5e7eb; margin: 0;">Ваш прогрес</h3>
+              </div>
+              <div style="display: flex; align-items: baseline; justify-content: center; gap: 12px; margin-bottom: 16px;">
+                <span style="font-size: 4rem; font-weight: 900; background: linear-gradient(135deg, #10b981, #059669); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                  {{ stats.successful_orders }}
+                </span>
+                <span style="font-size: 1.5rem; color: rgba(229,231,235,.6);">/ 12</span>
+              </div>
+              <div style="color: rgba(229,231,235,.75); font-size: 1.1rem; margin-bottom: 20px;">Успішних замовлень</div>
+              <div style="background: rgba(16,185,129,.15); border-radius: 12px; padding: 20px;">
+                <div style="font-size: 0.9rem; text-transform: uppercase; color: rgba(229,231,235,.5); margin-bottom: 8px; letter-spacing: 0.05em;">Ваша поточна знижка:</div>
+                <div style="font-size: 3rem; font-weight: 900; color: #10b981;">
+                  −{{ stats.loyalty_discount|floatformat:0 }} грн
+                </div>
+                <div style="font-size: 0.95rem; color: rgba(229,231,235,.65); margin-top: 8px;">
+                  {% if stats.successful_orders >= 12 %}
+                    🎉 Ви досягли максимальної знижки!
+                  {% elif stats.successful_orders >= 10 %}
+                    Ще трохи до максимальної знижки!
+                  {% elif stats.successful_orders >= 6 %}
+                    На півдорозі до максимальної знижки!
+                  {% elif stats.successful_orders > 0 %}
+                    Чудовий старт! Продовжуйте у тому ж дусі!
+                  {% else %}
+                    Виконайте перше замовлення та отримайте знижку!
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+
+            <p style="font-size: 0.95rem; color: rgba(229,231,235,.5); margin-top: 32px; font-style: italic;">
+              * Знижка застосовується автоматично після кожного отриманого клієнтом замовлення
+            </p>
+          </div>
+        </section>
+
         <section class="ds-section" id="ds-benefits" data-animate>
           <header class="ds-section__header">
             <div>
