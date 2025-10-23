@@ -890,17 +890,31 @@ function renderOrderItems() {
     
     console.log('🔧 Привязка кнопок оплаты дропшипера:', payButtons.length);
     
-    payButtons.forEach(button => {
-      // Удаляем старые обработчики
-      const newButton = button.cloneNode(true);
-      button.parentNode.replaceChild(newButton, button);
+    payButtons.forEach((button, index) => {
+      // Проверяем, не привязана ли уже кнопка
+      if (button.dataset.paymentBound === 'true') {
+        console.log(`⏭️ Кнопка ${index + 1} уже привязана, пропускаем`);
+        return;
+      }
       
-      newButton.addEventListener('click', async function() {
+      // Помечаем кнопку как привязанную
+      button.dataset.paymentBound = 'true';
+      
+      console.log(`🔗 Привязываем обработчик к кнопке ${index + 1}:`, {
+        orderId: button.dataset.orderId,
+        paymentMethod: button.dataset.paymentMethod,
+        amount: button.dataset.paymentAmount
+      });
+      
+      button.addEventListener('click', async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
         const orderId = this.dataset.orderId;
         const paymentMethod = this.dataset.paymentMethod;
         const paymentAmount = this.dataset.paymentAmount;
         
-        console.log('💳 Оплата заказа:', orderId, paymentMethod, paymentAmount + ' грн');
+        console.log('💳 КЛИК! Оплата заказа:', orderId, paymentMethod, paymentAmount + ' грн');
         
         // Блокируем кнопку
         const originalHTML = this.innerHTML;
@@ -908,6 +922,8 @@ function renderOrderItems() {
         this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Створення платежу...';
         
         try {
+          console.log('📡 Отправляем запрос на создание платежа...');
+          
           // Создаем платеж Monobank
           const response = await fetch('/orders/dropshipper/monobank/create/', {
             method: 'POST',
@@ -921,7 +937,10 @@ function renderOrderItems() {
             })
           });
           
+          console.log('📥 Ответ получен:', response.status);
+          
           const data = await response.json();
+          console.log('📦 Данные:', data);
           
           if (data.success && data.page_url) {
             console.log('✅ Платеж создан, перенаправление:', data.page_url);
