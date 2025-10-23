@@ -105,25 +105,25 @@
       <div class="ds-form__grid">
         <label class="ds-input">
           <span class="ds-input__label">Спосіб виплати</span>
-          <select name="payment_method" required>
-            {% for value, label in methods %}
-              <option value="{{ value }}">{{ label }}</option>
-            {% endfor %}
+          <select name="payment_method" id="ds-payout-method" required>
+            <option value="card">На картку</option>
+            <option value="iban">IBAN</option>
           </select>
         </label>
         <label class="ds-input ds-input--full">
-          <span class="ds-input__label">Реквізити для виплати</span>
-          <input type="text" name="payment_details" required placeholder="Номер картки, рахунку чи гаманець">
+          <span class="ds-input__label" id="ds-payout-details-label">Номер картки</span>
+          <input type="text" name="payment_details" id="ds-payout-details" required placeholder="1234 5678 9012 3456">
+          <small class="ds-input__hint" id="ds-payout-hint" style="display: block; margin-top: 6px; font-size: 0.85rem; color: rgba(229,231,235,.6); line-height: 1.4;">16 цифр картки без пробілів або з пробілами</small>
         </label>
         <label class="ds-input ds-input--full">
-          <span class="ds-input__label">Примітки для менеджера</span>
+          <span class="ds-input__label">Примітки для менеджера (необов'язково)</span>
           <textarea name="notes" rows="3" placeholder="Додаткові побажання чи коментарі"></textarea>
         </label>
       </div>
 
       <footer class="ds-modal__footer">
         <button type="button" class="ds-btn ds-btn--ghost" data-dismiss-modal>Скасувати</button>
-        <button type="submit" class="ds-btn ds-btn--primary">
+        <button type="submit" class="ds-btn ds-btn--primary" id="ds-payout-submit">
           <i class="fas fa-paper-plane" aria-hidden="true"></i>
           <span>Надіслати запит</span>
         </button>
