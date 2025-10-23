@@ -396,6 +396,7 @@ document.addEventListener('DOMContentLoaded', function() {
   if (telegramInput) {
     // Сохраняем БЕЗ trim() чтобы отслеживать ВСЕ изменения
     initialTelegramUsername = telegramInput.value;
+    console.log('🔵 Initial Telegram username:', initialTelegramUsername);
     
     // Отслеживаем изменения в поле Telegram
     telegramInput.addEventListener('input', function() {
@@ -403,35 +404,56 @@ document.addEventListener('DOMContentLoaded', function() {
       const currentValue = this.value;
       const buttonContainer = document.querySelector('.telegram-button-container');
       
-      // Если значение изменилось ХОТЬ НА ОДИН СИМВОЛ и кнопка "Підтверджено"
+      console.log('🔴 Input changed:', {
+        initial: initialTelegramUsername,
+        current: currentValue,
+        changed: currentValue !== initialTelegramUsername
+      });
+      
+      // Если значение изменилось ХОТЬ НА ОДИН СИМВОЛ
       if (currentValue !== initialTelegramUsername && buttonContainer) {
-        const confirmedBtn = buttonContainer.querySelector('button[disabled]');
-        if (confirmedBtn && confirmedBtn.textContent.includes('Підтверджено')) {
-          // Сбрасываем на кнопку "Підтвердити"
-          buttonContainer.innerHTML = `
-            <button type="button" class="ds-btn telegram-confirm-btn" onclick="confirmDropshipperTelegram()" style="
-              background: linear-gradient(135deg, #8b5cf6, #6366f1) !important;
-              border: none !important;
-              color: white !important;
-              border-radius: 8px !important;
-              padding: 10px 16px !important;
-              font-weight: 700 !important;
-              font-size: 0.85rem !important;
-              cursor: pointer !important;
-              transition: all 0.2s !important;
-              display: inline-flex !important;
-              align-items: center !important;
-              justify-content: center !important;
-              gap: 8px !important;
-              white-space: nowrap !important;
-              height: 100% !important;
-              min-height: 44px !important;
-            " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(139,92,246,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-              <i class="fab fa-telegram"></i>
-              <span>Підтвердити</span>
-            </button>
-          `;
-        }
+        // Проверяем все кнопки в контейнере
+        const allButtons = buttonContainer.querySelectorAll('button');
+        console.log('🟡 Buttons found:', allButtons.length);
+        
+        allButtons.forEach(btn => {
+          const isDisabled = btn.disabled || btn.hasAttribute('disabled');
+          const text = btn.textContent || btn.innerText;
+          console.log('🟢 Button:', {
+            disabled: isDisabled,
+            text: text.trim(),
+            includes: text.includes('підтверджено') || text.includes('Підтверджено')
+          });
+          
+          // Если кнопка disabled И содержит текст "підтверджено"
+          if (isDisabled && (text.includes('підтверджено') || text.includes('Підтверджено'))) {
+            console.log('✅ RESETTING BUTTON!');
+            // Сбрасываем на кнопку "Підтвердити"
+            buttonContainer.innerHTML = `
+              <button type="button" class="ds-btn telegram-confirm-btn" onclick="confirmDropshipperTelegram()" style="
+                background: linear-gradient(135deg, #8b5cf6, #6366f1) !important;
+                border: none !important;
+                color: white !important;
+                border-radius: 8px !important;
+                padding: 10px 16px !important;
+                font-weight: 700 !important;
+                font-size: 0.85rem !important;
+                cursor: pointer !important;
+                transition: all 0.2s !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 8px !important;
+                white-space: nowrap !important;
+                height: 100% !important;
+                min-height: 44px !important;
+              " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(139,92,246,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                <i class="fab fa-telegram"></i>
+                <span>Підтвердити</span>
+              </button>
+            `;
+          }
+        });
       }
     });
   }
