@@ -414,6 +414,11 @@ class DropshipperOrder(models.Model):
                 order=self
             )
             
+            # Обновляем available_for_payout в статистике дропшипера
+            stats, created = DropshipperStats.objects.get_or_create(dropshipper=self.dropshipper)
+            stats.available_for_payout += Decimal(str(payout_amount))
+            stats.save(update_fields=['available_for_payout'])
+            
             self.payout_processed = True
             self.save(update_fields=['payout_processed'])
             
@@ -524,6 +529,7 @@ class DropshipperStats(models.Model):
     total_revenue = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Загальний дохід")
     total_profit = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Загальний прибуток")
     total_drop_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Загальна собівартість")
+    available_for_payout = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Доступно до виплати")
     
     # Статистика по товарам
     total_items_sold = models.PositiveIntegerField(default=0, verbose_name="Всього товарів продано")
