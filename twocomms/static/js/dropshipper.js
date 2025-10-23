@@ -76,6 +76,184 @@ window.resetDropshipperTelegram = function() {
 
 console.log('✅ dropshipper.js loaded, window.resetDropshipperTelegram defined:', typeof window.resetDropshipperTelegram);
 
+// Глобальная функция для подтверждения Telegram дропшипера
+window.confirmDropshipperTelegram = function() {
+  const telegramInput = document.querySelector('input[name="telegram"]');
+  let telegramUsername = telegramInput.value.trim();
+  
+  if (!telegramUsername) {
+    alert('Будь ласка, введіть ваш Telegram username');
+    return;
+  }
+  
+  // Автоматически добавляем @ если его нет
+  if (!telegramUsername.startsWith('@')) {
+    telegramUsername = '@' + telegramUsername;
+    telegramInput.value = telegramUsername;
+  }
+  
+  // Открываем Telegram бота
+  const botUrl = 'https://t.me/twocommsbot?start=' + encodeURIComponent(telegramUsername);
+  window.open(botUrl, '_blank');
+  
+  // Показываем инструкцию
+  alert('Відкриється Telegram бот. Напишіть будь-яке повідомлення для підтвердження протягом 5 хвилин. Статус оновиться автоматично.');
+  
+  // Показываем индикатор загрузки
+  showDropshipperTelegramLoadingIndicator();
+  
+  // Запускаем проверку статуса
+  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+  if (csrfToken) {
+    startDropshipperTelegramStatusCheck();
+  } else {
+    hideDropshipperTelegramLoadingIndicator();
+  }
+};
+
+// Функция для проверки статуса подтверждения Telegram
+function checkDropshipperTelegramStatus() {
+  fetch('/accounts/telegram/status/', {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'same-origin'
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.is_confirmed) {
+      // Telegram подтвержден
+      hideDropshipperTelegramLoadingIndicator();
+      updateDropshipperTelegramButton(true);
+      stopDropshipperTelegramStatusCheck();
+    }
+  })
+  .catch(error => {
+    console.error('Error checking Telegram status:', error);
+  });
+}
+
+// Запускаем периодическую проверку статуса
+let dropshipperTelegramCheckInterval;
+function startDropshipperTelegramStatusCheck() {
+  checkDropshipperTelegramStatus();
+  dropshipperTelegramCheckInterval = setInterval(checkDropshipperTelegramStatus, 5000); // каждые 5 секунд
+  
+  // Автоматически останавливаем через 5 минут
+  setTimeout(stopDropshipperTelegramStatusCheck, 5 * 60 * 1000);
+}
+
+function stopDropshipperTelegramStatusCheck() {
+  if (dropshipperTelegramCheckInterval) {
+    clearInterval(dropshipperTelegramCheckInterval);
+    dropshipperTelegramCheckInterval = null;
+    hideDropshipperTelegramLoadingIndicator();
+  }
+}
+
+// Показываем индикатор загрузки
+function showDropshipperTelegramLoadingIndicator() {
+  const buttonContainer = document.querySelector('.telegram-button-container');
+  if (buttonContainer) {
+    const existingBtn = buttonContainer.querySelector('.telegram-confirm-btn');
+    if (existingBtn) {
+      existingBtn.innerHTML = `
+        <svg class="spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="12" cy="12" r="10" stroke-width="4" stroke-opacity="0.25"/>
+          <path d="M12 2a10 10 0 0 1 10 10" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+        <span>Очікування підтвердження...</span>
+      `;
+      existingBtn.disabled = true;
+      existingBtn.style.opacity = '0.7';
+      existingBtn.style.cursor = 'not-allowed';
+    }
+  }
+}
+
+function hideDropshipperTelegramLoadingIndicator() {
+  const buttonContainer = document.querySelector('.telegram-button-container');
+  if (buttonContainer) {
+    const existingBtn = buttonContainer.querySelector('.telegram-confirm-btn');
+    if (existingBtn && !existingBtn.classList.contains('confirmed')) {
+      existingBtn.innerHTML = `
+        <i class="fab fa-telegram"></i>
+        <span>Підтвердити Telegram</span>
+      `;
+      existingBtn.disabled = false;
+      existingBtn.style.opacity = '1';
+      existingBtn.style.cursor = 'pointer';
+    }
+  }
+}
+
+// Обновляем кнопку после подтверждения
+function updateDropshipperTelegramButton(confirmed) {
+  const buttonContainer = document.querySelector('.telegram-button-container');
+  if (buttonContainer && confirmed) {
+    buttonContainer.innerHTML = `
+      <button type="button" class="ds-btn" disabled style="
+        background: linear-gradient(135deg, #10b981, #059669) !important;
+        border: none !important;
+        color: white !important;
+        border-radius: 8px !important;
+        padding: 10px 16px !important;
+        font-weight: 700 !important;
+        font-size: 0.85rem !important;
+        cursor: not-allowed !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 8px !important;
+        opacity: 0.7 !important;
+        white-space: nowrap !important;
+        height: 100% !important;
+        min-height: 44px !important;
+      ">
+        <i class="fas fa-check-circle"></i>
+        <span>Telegram підтверджено</span>
+      </button>
+      <button type="button" class="ds-btn telegram-reset-btn" onclick="resetDropshipperTelegram()" title="Переприв'язати Telegram" style="
+        background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+        border: none !important;
+        color: white !important;
+        border-radius: 8px !important;
+        padding: 10px 12px !important;
+        font-weight: 700 !important;
+        font-size: 0.95rem !important;
+        cursor: pointer !important;
+        transition: all 0.2s !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        height: 100% !important;
+        min-height: 44px !important;
+      " onmouseover="this.style.transform='scale(1.1)'; this.style.boxShadow='0 4px 12px rgba(239,68,68,.4)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+        <i class="fas fa-times"></i>
+      </button>
+    `;
+  }
+}
+
+// Добавляем стили для spinner
+if (!document.getElementById('dropshipper-spinner-styles')) {
+  const spinnerStyle = document.createElement('style');
+  spinnerStyle.id = 'dropshipper-spinner-styles';
+  spinnerStyle.textContent = `
+    .spinner {
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  `;
+  document.head.appendChild(spinnerStyle);
+}
+
+console.log('✅ window.confirmDropshipperTelegram defined:', typeof window.confirmDropshipperTelegram);
+
 (() => {
   document.addEventListener('DOMContentLoaded', () => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
