@@ -42,7 +42,14 @@ class TelegramNotifier:
     
     def send_personal_message(self, telegram_id, message, parse_mode='HTML'):
         """Отправляет личное сообщение пользователю по telegram_id"""
-        if not self.bot_token or not telegram_id:
+        print(f"🔵 send_personal_message: telegram_id={telegram_id}, bot_token={'SET' if self.bot_token else 'NOT SET'}")
+        
+        if not self.bot_token:
+            print(f"❌ No bot_token configured")
+            return False
+            
+        if not telegram_id:
+            print(f"❌ No telegram_id provided")
             return False
             
         try:
@@ -52,9 +59,16 @@ class TelegramNotifier:
                 'text': message,
                 'parse_mode': parse_mode
             }
+            print(f"🟡 Sending POST to {url[:50]}... with chat_id={telegram_id}")
             response = requests.post(url, data=data, timeout=10)
+            print(f"🟢 Response status: {response.status_code}")
+            
+            if response.status_code != 200:
+                print(f"❌ Response content: {response.text[:200]}")
+            
             return response.status_code == 200
         except Exception as e:
+            print(f"❌ Exception in send_personal_message: {e}")
             return False
     
     def format_order_message(self, order):
@@ -624,11 +638,29 @@ class TelegramNotifier:
         Returns:
             bool: True если сообщение отправлено успешно
         """
-        if not order.dropshipper or not order.dropshipper.userprofile.telegram_id:
+        print(f"🔵 send_dropshipper_order_created_notification called for order #{order.order_number}")
+        print(f"🔵 Dropshipper: {order.dropshipper.username if order.dropshipper else 'None'}")
+        
+        if not order.dropshipper:
+            print(f"❌ No dropshipper for order #{order.order_number}")
+            return False
+            
+        try:
+            telegram_id = order.dropshipper.userprofile.telegram_id
+            print(f"🟡 Dropshipper telegram_id: {telegram_id}")
+        except Exception as e:
+            print(f"❌ Error getting telegram_id: {e}")
+            return False
+        
+        if not telegram_id:
+            print(f"❌ Dropshipper {order.dropshipper.username} has no telegram_id")
             return False
         
         message = self._format_dropshipper_order_created_message(order)
-        return self.send_personal_message(order.dropshipper.userprofile.telegram_id, message)
+        print(f"🟢 Sending message to telegram_id={telegram_id}")
+        result = self.send_personal_message(telegram_id, message)
+        print(f"{'✅' if result else '❌'} Message send result: {result}")
+        return result
     
     def _format_dropshipper_order_created_message(self, order):
         """
