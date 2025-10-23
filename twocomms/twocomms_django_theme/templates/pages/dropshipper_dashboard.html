@@ -861,6 +861,14 @@
             </div>
             <ul class="ds-progress-list">
               <li>
+                <span>Успішних замовлень (отримано)</span>
+                <span style="color: #10b981; font-weight: 700;">{{ stats.successful_orders }}</span>
+              </li>
+              <li>
+                <span>Ваша знижка лояльності</span>
+                <span style="color: #10b981; font-weight: 700;">−{{ stats.loyalty_discount|floatformat:0 }} грн</span>
+              </li>
+              <li>
                 <span>Виконано замовлень</span>
                 <span>{{ stats.completed_orders }}</span>
               </li>
@@ -887,11 +895,11 @@
             <div class="ds-payout-overview">
               <div class="ds-payout-overview__item">
                 <span class="ds-payout-overview__label">Очікує підтвердження</span>
-                <span class="ds-payout-overview__value">—</span>
+                <span class="ds-payout-overview__value" style="color: #fbbf24;">{{ pending_payouts_sum|floatformat:0 }} грн</span>
               </div>
               <div class="ds-payout-overview__item">
                 <span class="ds-payout-overview__label">Виплачено цього місяця</span>
-                <span class="ds-payout-overview__value">—</span>
+                <span class="ds-payout-overview__value" style="color: #10b981;">{{ completed_payouts_sum|floatformat:0 }} грн</span>
               </div>
             </div>
             <button type="button" class="ds-btn ds-btn--primary" data-tab-link="payouts">
