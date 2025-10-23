@@ -1865,7 +1865,7 @@ def admin_panel(request):
         })
     elif section == 'collaboration':
         try:
-            from orders.models import WholesaleInvoice, DropshipperOrder, DropshipperStats
+            from orders.models import WholesaleInvoice, DropshipperOrder, DropshipperStats, DropshipperPayout
             from django.db.models import Sum, Q
             from django.contrib.auth.models import User
             
@@ -1884,6 +1884,20 @@ def admin_panel(request):
                 'dropshipper', 'dropshipper__userprofile'
             ).filter(total_orders__gt=0).order_by('-total_profit')[:20]
             
+            # Выплаты дропшипперов (с защитой от ошибок)
+            try:
+                payouts = DropshipperPayout.objects.select_related(
+                    'dropshipper', 'dropshipper__userprofile'
+                ).order_by('-requested_at')[:50]
+                
+                pending_payouts = DropshipperPayout.objects.filter(
+                    status='pending'
+                ).count()
+            except Exception as e:
+                print(f"Error loading payouts: {e}")
+                payouts = []
+                pending_payouts = 0
+            
             # Общая статистика
             total_dropship_orders = DropshipperOrder.objects.count()
             total_dropship_revenue = DropshipperOrder.objects.aggregate(
@@ -1900,6 +1914,8 @@ def admin_panel(request):
                 'invoices': invoices,
                 'dropship_orders': dropship_orders,
                 'dropshipper_stats': dropshipper_stats,
+                'payouts': payouts,
+                'pending_payouts': pending_payouts,
                 'total_dropship_orders': total_dropship_orders,
                 'total_dropship_revenue': total_dropship_revenue,
                 'total_dropship_profit': total_dropship_profit,

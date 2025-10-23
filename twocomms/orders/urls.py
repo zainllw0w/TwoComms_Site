@@ -32,4 +32,5 @@ urlpatterns = [
     # Админские маршруты для управления дропшип заказами
     path('admin/dropship/update-status/<int:order_id>/', dropshipper_views.admin_update_dropship_status, name='admin_update_dropship_status'),
     path('admin/dropship/check-np/<int:order_id>/', dropshipper_views.admin_check_np_status, name='admin_check_np_status'),
+    path('admin/payout/update-status/<int:payout_id>/', dropshipper_views.admin_update_payout_status, name='admin_update_payout_status'),
 ]
