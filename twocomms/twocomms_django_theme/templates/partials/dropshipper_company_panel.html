@@ -82,11 +82,11 @@
             {{ form.instagram }}
             <span class="ds-field-error" data-field-error="instagram" hidden></span>
           </label>
-          <label class="ds-input" style="grid-column: span 2;">
+          <label class="ds-input" style="grid-column: 1 / -1 !important;">
             <span class="ds-input__label">Telegram username</span>
-            <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="display: flex !important; align-items: center !important; gap: 12px !important;">
               {{ form.telegram }}
-              <div class="telegram-button-container" style="flex-shrink: 0;">
+              <div class="telegram-button-container" style="flex-shrink: 0 !important;">
                 {% if user.userprofile.telegram_id %}
                   <button type="button" class="ds-btn" disabled style="
                     background: linear-gradient(135deg, #10b981, #059669) !important;
