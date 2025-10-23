@@ -2633,7 +2633,19 @@ function updateOrderStatus(orderId, newStatus) {
     'prep': 'Готується до відправлення', 
     'ship': 'Відправлено',
     'done': 'Отримано',
-    'cancelled': 'Скасовано'
+    'cancelled': 'Скасовано',
+    // Дропшип статусы
+    'draft': 'Чернетка',
+    'pending': 'Очікує підтвердження',
+    'awaiting_payment': 'Очікує оплати',
+    'confirmed': 'Підтверджено',
+    'processing': 'В обробці',
+    'awaiting_shipment': 'Очікує відправки',
+    'shipped': 'Відправлено',
+    'delivered_awaiting_pickup': 'На відділенні',
+    'received': 'Отримано',
+    'refused': 'Відмова',
+    'delivered': 'Доставлено'
   };
   
   /* Если статус "Відправлено", запрашиваем ТТН */
