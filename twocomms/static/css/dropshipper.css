@@ -1641,7 +1641,7 @@ body.ds-modal-open .ds-panel::before {
 
 .ds-products-grid {
   display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
+  grid-template-columns: repeat(2, 1fr) !important;
   gap: var(--ds-grid-gap) !important;
 }
 
