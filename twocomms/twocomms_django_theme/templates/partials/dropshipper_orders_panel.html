@@ -417,34 +417,81 @@
               
               {# Действия: Оплата и статистика #}
               <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: space-between; align-items: center;">
-                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
                   {# Кнопка оплаты для неоплаченных заказов (prepaid и cod) #}
                   {% if order.payment_status == 'unpaid' and order.payment_method != 'delegation' %}
-                    <button type="button" class="ds-btn" data-dropshipper-pay data-order-id="{{ order.id }}" data-payment-method="{{ order.payment_method }}" data-payment-amount="{{ order.dropshipper_payment_required }}" style="
-                      background: linear-gradient(135deg, #10b981, #059669);
-                      border: none;
-                      color: white;
-                      border-radius: 10px;
-                      padding: 12px 20px;
-                      font-weight: 700;
-                      font-size: 0.95rem;
-                      cursor: pointer;
-                      transition: all 0.2s;
-                      display: inline-flex;
-                      align-items: center;
-                      gap: 10px;
-                    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(16,185,129,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-                      <span style="
-                        background: white;
-                        color: #10b981;
-                        padding: 4px 8px;
-                        border-radius: 6px;
-                        font-size: 0.85rem;
-                        font-weight: 900;
-                      ">{{ order.dropshipper_payment_required|floatformat:0 }} ₴</span>
-                      <span>Оплатити</span>
-                    <i class="fas fa-arrow-right" aria-hidden="true"></i>
-                    </button>
+                    {% if order.status == 'pending' %}
+                      {# Disabled кнопка для статуса "Очікує підтвердження" #}
+                      <button type="button" disabled style="
+                        background: linear-gradient(135deg, rgba(107,114,128,.3), rgba(75,85,99,.3));
+                        border: 1px solid rgba(156,163,175,.2);
+                        color: rgba(156,163,175,.6);
+                        border-radius: 10px;
+                        padding: 12px 20px;
+                        font-weight: 700;
+                        font-size: 0.95rem;
+                        cursor: not-allowed;
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 10px;
+                        opacity: 0.5;
+                      ">
+                        <span style="
+                          background: rgba(156,163,175,.3);
+                          color: rgba(156,163,175,.7);
+                          padding: 4px 8px;
+                          border-radius: 6px;
+                          font-size: 0.85rem;
+                          font-weight: 900;
+                        ">{{ order.dropshipper_payment_required|floatformat:0 }} ₴</span>
+                        <span>Оплата недоступна</span>
+                        <i class="fas fa-lock" aria-hidden="true"></i>
+                      </button>
+                      
+                      {# Красивое описание #}
+                      <div style="
+                        background: linear-gradient(135deg, rgba(245,158,11,.12), rgba(217,119,6,.08));
+                        border: 1px solid rgba(245,158,11,.3);
+                        border-radius: 10px;
+                        padding: 12px 16px;
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 10px;
+                        max-width: 400px;
+                      ">
+                        <i class="fas fa-info-circle" style="color: #fbbf24; font-size: 1.2rem;"></i>
+                        <span style="color: rgba(229,231,235,.8); font-size: 0.9rem; line-height: 1.4;">
+                          <strong style="color: #fbbf24;">Очікує підтвердження.</strong> Оплатити можна тільки після підтвердження замовлення адміністратором.
+                        </span>
+                      </div>
+                    {% else %}
+                      {# Активная кнопка для статуса "Очікує оплати" #}
+                      <button type="button" class="ds-btn" data-dropshipper-pay data-order-id="{{ order.id }}" data-payment-method="{{ order.payment_method }}" data-payment-amount="{{ order.dropshipper_payment_required }}" style="
+                        background: linear-gradient(135deg, #10b981, #059669);
+                        border: none;
+                        color: white;
+                        border-radius: 10px;
+                        padding: 12px 20px;
+                        font-weight: 700;
+                        font-size: 0.95rem;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 10px;
+                      " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(16,185,129,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                        <span style="
+                          background: white;
+                          color: #10b981;
+                          padding: 4px 8px;
+                          border-radius: 6px;
+                          font-size: 0.85rem;
+                          font-weight: 900;
+                        ">{{ order.dropshipper_payment_required|floatformat:0 }} ₴</span>
+                        <span>Оплатити</span>
+                        <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                      </button>
+                    {% endif %}
                   {% endif %}
                 </div>
                 

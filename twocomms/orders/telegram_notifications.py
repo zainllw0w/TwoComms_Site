@@ -522,6 +522,97 @@ class TelegramNotifier:
         message = f"{header}\n{full_block}\n{links}{additional_info}"
         
         return message
+    
+    def send_dropshipper_payment_notification(self, order):
+        """
+        Отправляет уведомление админу об оплате дропшип заказа
+        
+        Args:
+            order (DropshipperOrder): Оплаченный заказ дропшиппера
+            
+        Returns:
+            bool: True если сообщение отправлено успешно
+        """
+        if not self.is_configured():
+            return False
+            
+        message = self._format_dropshipper_payment_message(order)
+        return self.send_message(message)
+    
+    def _format_dropshipper_payment_message(self, order):
+        """
+        Форматирует сообщение об оплате дропшип заказа
+        
+        Args:
+            order (DropshipperOrder): Оплаченный заказ дропшиппера
+            
+        Returns:
+            str: Отформатированное HTML сообщение
+        """
+        # Получаем информацию о дропшиппере
+        dropshipper_profile = None
+        try:
+            dropshipper_profile = order.dropshipper.userprofile
+        except:
+            pass
+        
+        dropshipper_company = dropshipper_profile.company_name if dropshipper_profile and dropshipper_profile.company_name else order.dropshipper.username
+        
+        # Заголовок с эмодзи
+        header = f"💰 <b>ДРОПШИП ЗАМОВЛЕННЯ ОПЛАЧЕНО!</b>\n"
+        
+        # Основной блок информации
+        full_block = f"""
+<pre language="text">
+┌─────────────────────────────────────────┐
+│  ✅ ЗАМОВЛЕННЯ #{order.order_number}
+├─────────────────────────────────────────┤
+│  👤 ДРОПШИПЕР:
+│     Компанія: {dropshipper_company}
+├─────────────────────────────────────────┤
+│  📦 КЛІЄНТ:
+│     ПІБ: {order.client_name if order.client_name else 'Не вказано'}
+│     Телефон: {order.client_phone if order.client_phone else 'Не вказано'}
+├─────────────────────────────────────────┤
+│  💳 ОПЛАТА:
+│     Статус: ОПЛАЧЕНО ✅
+│     Сума: {order.dropshipper_payment_required} грн
+│     Спосіб: {order.get_payment_method_display()}
+│     Час оплати: {timezone.now().strftime('%d.%m.%Y %H:%M')}
+├─────────────────────────────────────────┤
+│  📦 ТОВАРИ ({order.items.count()} позицій):
+"""
+        
+        # Добавляем товары
+        for i, item in enumerate(order.items.all(), 1):
+            full_block += f"│     {i}. {item.product.title}"
+            if item.size:
+                full_block += f" · {item.size}"
+            if item.color_variant:
+                full_block += f" · {item.color_variant.color.name if hasattr(item.color_variant.color, 'name') else str(item.color_variant.color)}"
+            full_block += f" (×{item.quantity})\n"
+        
+        full_block += f"""├─────────────────────────────────────────┤
+│  💰 ФІНАНСИ:
+│     Сума продажу: {order.total_selling_price} грн
+│     Собівартість: {order.total_drop_price} грн
+│     Прибуток дропшипера: {order.profit} грн
+└─────────────────────────────────────────┘
+</pre>"""
+        
+        # Добавляем ссылки
+        links = f"""
+🔗 <b>Корисні посилання:</b>
+• <a href="https://t.me/twocomms">💬 Підтримка в Telegram</a>
+• <a href="https://twocomms.shop/admin/orders/dropshipperorder/{order.id}/change/">⚙️ Керування замовленням</a>
+
+✅ <i>Замовлення готове до відправки!</i>
+"""
+        
+        # Собираем полное сообщение
+        message = f"{header}\n{full_block}\n{links}"
+        
+        return message
 
 
 # Глобальный экземпляр для использования
