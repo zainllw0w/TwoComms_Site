@@ -856,11 +856,11 @@ class MonobankAPIError(Exception):
 
 def _monobank_api_request(method, endpoint, json_payload=None):
     """Выполнить запрос к API Monobank"""
-    token = getattr(settings, 'MONOBANK_CHECKOUT_TOKEN', None)
+    token = getattr(settings, 'MONOBANK_TOKEN', None)
     if not token:
         raise MonobankAPIError('Monobank API token не налаштований')
     
-    base_url = getattr(settings, 'MONOBANK_CHECKOUT_BASE_URL', 'https://api.monobank.ua')
+    base_url = getattr(settings, 'MONOBANK_API_BASE', 'https://api.monobank.ua').rstrip('/')
     url = f"{base_url}{endpoint}"
     
     headers = {
@@ -868,14 +868,19 @@ def _monobank_api_request(method, endpoint, json_payload=None):
         'Content-Type': 'application/json'
     }
     
+    monobank_logger.info(f'Monobank API request: {method} {endpoint}, payload: {json_payload}')
+    
     try:
         if method == 'POST':
             response = requests.post(url, json=json_payload, headers=headers, timeout=30)
         else:
             response = requests.get(url, headers=headers, timeout=30)
         
+        data = response.json()
+        monobank_logger.info(f'Monobank API response: status={response.status_code}, data={data}')
+        
         response.raise_for_status()
-        return response.json()
+        return data
     except requests.exceptions.RequestException as e:
         monobank_logger.error(f'Monobank API error: {e}')
         raise MonobankAPIError(f'Помилка з\'єднання з Monobank: {str(e)}')

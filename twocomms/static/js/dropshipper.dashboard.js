@@ -700,20 +700,14 @@ function renderOrderItems() {
       })
       .then(html => {
         console.log('HTML заказов получен, длина:', html.length);
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
         
-        // ИСПРАВЛЕНО: используем только конкретный класс .ds-order-entry
-        // и проверяем, что это не пустое состояние
-        const ordersContainer = doc.querySelector('.ds-orders-table');
-        let orderCount = 0;
-        
-        if (ordersContainer) {
-          const orderEntries = ordersContainer.querySelectorAll('.ds-order-entry');
-          orderCount = orderEntries.length;
-          console.log('Найдено заказов в .ds-orders-table:', orderCount);
+        // КРИТИЧЕСКИ ВАЖНО: Вставляем HTML в DOM!
+        const ordersPanel = document.querySelector('[data-tab-panel="orders"]');
+        if (ordersPanel) {
+          ordersPanel.innerHTML = html;
+          console.log('✅ HTML заказов вставлен в DOM');
         } else {
-          console.log('Контейнер .ds-orders-table не найден - заказов нет');
+          console.log('⚠️ Контейнер [data-tab-panel="orders"] не найден');
         }
         
         // НЕ обновляем бейдж здесь! Он обновляется только через updateOrdersCounter()
