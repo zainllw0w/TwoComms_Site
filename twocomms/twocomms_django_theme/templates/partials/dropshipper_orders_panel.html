@@ -192,7 +192,7 @@
                 </span>
                   
                   <span style="
-                    {% if order.payment_status == 'paid' %}
+                    {% if order.payment_status == 'paid' or order.status == 'confirmed' %}
                       background: rgba(16,185,129,.15);
                       border: 1px solid rgba(16,185,129,.3);
                       color: #6ee7b7;
@@ -209,8 +209,8 @@
                     align-items: center;
                     gap: 6px;
                   ">
-                    <i class="fas fa-{% if order.payment_status == 'paid' %}check-circle{% else %}clock{% endif %}" aria-hidden="true"></i>
-                  {{ order.get_payment_status_display }}
+                    <i class="fas fa-{% if order.payment_status == 'paid' or order.status == 'confirmed' %}check-circle{% else %}clock{% endif %}" aria-hidden="true"></i>
+                  {% if order.payment_status == 'paid' or order.status == 'confirmed' %}Оплачено{% else %}{{ order.get_payment_status_display }}{% endif %}
                 </span>
                 </div>
               </div>
@@ -461,8 +461,8 @@
               {# Действия: Оплата и статистика #}
               <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: space-between; align-items: center;">
                 <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
-                  {# Кнопка оплаты для неоплаченных заказов (prepaid и cod) #}
-                  {% if order.payment_status == 'unpaid' and order.payment_method != 'delegation' %}
+                  {# Кнопка оплаты для неоплаченных заказов (prepaid и cod), скрывается после confirmed #}
+                  {% if order.payment_status == 'unpaid' and order.payment_method != 'delegation' and order.status != 'confirmed' %}
                     {% if order.status == 'pending' %}
                       {# Disabled кнопка для статуса "Очікує підтвердження" #}
                       <button type="button" disabled style="
