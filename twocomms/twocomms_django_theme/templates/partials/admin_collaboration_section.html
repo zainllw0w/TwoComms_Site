@@ -177,7 +177,7 @@
             
             {# Действия #}
             <div style="display: flex; gap: 8px;">
-              <button onclick="openEditModal({{ order.id }})" style="padding: 8px 16px; border-radius: 8px; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white; border: none; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(139,92,246,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+              <button data-order-id="{{ order.id }}" onclick="openEditModal(this.dataset.orderId)" style="padding: 8px 16px; border-radius: 8px; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white; border: none; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(139,92,246,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
                 <i class="fas fa-edit"></i> Редагувати
               </button>
               <button 
@@ -264,7 +264,7 @@
                 <i class="fas fa-tasks"></i> Управління замовленням
               </div>
               {% if order.shipment_status %}
-              <button onclick="checkNPStatus({{ order.id }})" style="padding: 6px 12px; border-radius: 6px; background: rgba(6,182,212,.15); color: #22d3ee; border: 1px solid rgba(6,182,212,.3); font-weight: 600; font-size: 0.8rem; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(6,182,212,.25)'" onmouseout="this.style.background='rgba(6,182,212,.15)'">
+              <button data-order-id="{{ order.id }}" onclick="checkNPStatus(this.dataset.orderId)" style="padding: 6px 12px; border-radius: 6px; background: rgba(6,182,212,.15); color: #22d3ee; border: 1px solid rgba(6,182,212,.3); font-weight: 600; font-size: 0.8rem; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(6,182,212,.25)'" onmouseout="this.style.background='rgba(6,182,212,.15)'">
                 <i class="fas fa-sync-alt"></i> Оновити статус НП
               </button>
               {% endif %}
@@ -293,7 +293,7 @@
                 <input type="text" id="ttn-input-{{ order.id }}" value="{% if order.tracking_number %}{{ order.tracking_number }}{% endif %}" placeholder="20450012345678" style="width: 100%; padding: 10px 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.15); border-radius: 8px; color: #e5e7eb; font-weight: 600; font-family: monospace;">
               </div>
               
-              <button onclick="updateOrderStatus({{ order.id }})" style="padding: 12px 24px; border-radius: 8px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(16,185,129,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+              <button data-order-id="{{ order.id }}" onclick="updateOrderStatus(this.dataset.orderId)" style="padding: 12px 24px; border-radius: 8px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(16,185,129,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
                 <i class="fas fa-save"></i> Зберегти
               </button>
             </div>
@@ -336,8 +336,8 @@
           </div>
           
           <div style="display: flex; gap: 8px;">
-            <button onclick="updateInvoiceStatusInline({{ inv.id }}, 'processing')" style="padding: 8px 16px; border-radius: 8px; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; font-weight: 700; font-size: 0.85rem; cursor: pointer;">В обробку</button>
-            <button onclick="updateInvoiceStatusInline({{ inv.id }}, 'shipped')" style="padding: 8px 16px; border-radius: 8px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-weight: 700; font-size: 0.85rem; cursor: pointer;">Відправлено</button>
+            <button data-invoice-id="{{ inv.id }}" data-status="processing" onclick="updateInvoiceStatusInline(this.dataset.invoiceId, this.dataset.status)" style="padding: 8px 16px; border-radius: 8px; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; font-weight: 700; font-size: 0.85rem; cursor: pointer;">В обробку</button>
+            <button data-invoice-id="{{ inv.id }}" data-status="shipped" onclick="updateInvoiceStatusInline(this.dataset.invoiceId, this.dataset.status)" style="padding: 8px 16px; border-radius: 8px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-weight: 700; font-size: 0.85rem; cursor: pointer;">Відправлено</button>
           </div>
         </div>
       </div>
