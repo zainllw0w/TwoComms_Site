@@ -136,12 +136,17 @@
       <input type="text" id="dropship-search" placeholder="Пошук..." style="padding: 10px 16px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.15); border-radius: 10px; color: #e5e7eb; width: 250px;" oninput="filterDropshipOrders(this.value)">
       <select id="status-filter" style="padding: 10px 16px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.15); border-radius: 10px; color: #e5e7eb;" onchange="filterDropshipOrders(document.getElementById('dropship-search').value)">
         <option value="">Всі статуси</option>
-        <option value="draft">Чернетка</option>
-        <option value="pending">Очікує</option>
-        <option value="confirmed">Підтверджено</option>
-        <option value="processing">В обробці</option>
-        <option value="shipped">Відправлено</option>
-        <option value="delivered">Доставлено</option>
+        <option value="draft">📝 Чернетка</option>
+        <option value="pending">⏳ Очікує підтвердження</option>
+        <option value="awaiting_payment">💰 Очікує оплати</option>
+        <option value="confirmed">✅ Підтверджено</option>
+        <option value="processing">⚙️ В обробці</option>
+        <option value="awaiting_shipment">📋 Очікує відправки</option>
+        <option value="shipped">🚚 Відправлено</option>
+        <option value="delivered_awaiting_pickup">📬 На відділенні</option>
+        <option value="received">✅ Отримано</option>
+        <option value="refused">↩️ Відмова</option>
+        <option value="cancelled">❌ Скасовано</option>
       </select>
     </div>
   </div>
@@ -156,10 +161,15 @@
             <div style="display: flex; align-items: center; gap: 16px;">
               <h3 style="margin: 0; font-size: 1.4rem; font-weight: 800; color: #e5e7eb;">#{{ order.order_number }}</h3>
               {% if order.status == 'draft' %}<span style="padding: 6px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; background: rgba(251,191,36,.2); color: #fbbf24; border: 1px solid rgba(251,191,36,.3);">📝 Чернетка</span>
-              {% elif order.status == 'pending' %}<span style="padding: 6px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; background: rgba(139,92,246,.2); color: #a78bfa; border: 1px solid rgba(139,92,246,.3);">⏳ Очікує</span>
+              {% elif order.status == 'pending' %}<span style="padding: 6px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; background: rgba(139,92,246,.2); color: #a78bfa; border: 1px solid rgba(139,92,246,.3);">⏳ Очікує підтвердження</span>
+              {% elif order.status == 'awaiting_payment' %}<span style="padding: 6px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; background: rgba(245,158,11,.2); color: #fbbf24; border: 1px solid rgba(245,158,11,.3);">💰 Очікує оплати</span>
               {% elif order.status == 'confirmed' %}<span style="padding: 6px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; background: rgba(59,130,246,.2); color: #60a5fa; border: 1px solid rgba(59,130,246,.3);">✅ Підтверджено</span>
-              {% elif order.status == 'processing' %}<span style="padding: 6px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; background: rgba(245,158,11,.2); color: #fbbf24; border: 1px solid rgba(245,158,11,.3);">⚙️ В обробці</span>
+              {% elif order.status == 'processing' %}<span style="padding: 6px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; background: rgba(99,102,241,.2); color: #a5b4fc; border: 1px solid rgba(99,102,241,.3);">⚙️ В обробці</span>
+              {% elif order.status == 'awaiting_shipment' %}<span style="padding: 6px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; background: rgba(14,165,233,.2); color: #38bdf8; border: 1px solid rgba(14,165,233,.3);">📋 Очікує відправки</span>
               {% elif order.status == 'shipped' %}<span style="padding: 6px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; background: rgba(6,182,212,.2); color: #22d3ee; border: 1px solid rgba(6,182,212,.3);">🚚 Відправлено</span>
+              {% elif order.status == 'delivered_awaiting_pickup' %}<span style="padding: 6px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; background: rgba(20,184,166,.2); color: #2dd4bf; border: 1px solid rgba(20,184,166,.3);">📬 На відділенні</span>
+              {% elif order.status == 'received' %}<span style="padding: 6px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; background: rgba(16,185,129,.2); color: #34d399; border: 1px solid rgba(16,185,129,.3);">✅ Отримано</span>
+              {% elif order.status == 'refused' %}<span style="padding: 6px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; background: rgba(251,146,60,.2); color: #fb923c; border: 1px solid rgba(251,146,60,.3);">↩️ Відмова</span>
               {% elif order.status == 'delivered' %}<span style="padding: 6px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; background: rgba(16,185,129,.2); color: #34d399; border: 1px solid rgba(16,185,129,.3);">📦 Доставлено</span>
               {% elif order.status == 'cancelled' %}<span style="padding: 6px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; background: rgba(239,68,68,.2); color: #f87171; border: 1px solid rgba(239,68,68,.3);">❌ Скасовано</span>{% endif %}
               <span style="font-size: 0.85rem; color: rgba(229,231,235,.5);"><i class="far fa-clock"></i> {{ order.created_at|date:"d.m.Y H:i" }}</span>
@@ -217,18 +227,74 @@
           {# Информация об оплате #}
           <div style="display: flex; gap: 16px; padding: 14px 16px; background: linear-gradient(135deg, rgba(139,92,246,.1), rgba(99,102,241,.1)); border: 1px solid rgba(139,92,246,.25); border-radius: 12px; margin-top: 12px; align-items: center;">
             <div style="font-size: 1.5rem;">
-              {% if order.payment_method == 'prepaid' %}💳{% else %}📦{% endif %}
+              {% if order.payment_method == 'prepaid' %}💳
+              {% elif order.payment_method == 'cod' %}📦
+              {% else %}🤝{% endif %}
             </div>
             <div style="flex: 1;">
               <div style="font-size: 0.75rem; text-transform: uppercase; color: rgba(229,231,235,.5); margin-bottom: 4px;">Спосіб оплати</div>
               <div style="font-weight: 700; color: #e5e7eb;">
-                {% if order.payment_method == 'prepaid' %}💳 Оплачено передоплатою{% else %}📦 Накладний платіж{% endif %}
+                {% if order.payment_method == 'prepaid' %}💳 Товар оплачено
+                {% elif order.payment_method == 'cod' %}📦 Накладний платіж
+                {% elif order.payment_method == 'delegation' %}🤝 Повне делегування
+                {% else %}{{ order.get_payment_method_display }}{% endif %}
               </div>
             </div>
             <div style="text-align: right;">
               <div style="font-size: 0.75rem; text-transform: uppercase; color: rgba(229,231,235,.5); margin-bottom: 4px;">Дропшипер сплачує</div>
-              <div style="font-size: 1.2rem; font-weight: 800; color: #a78bfa;">{{ order.dropshipper_payment_required|floatformat:0 }} грн</div>
+              <div style="font-size: 1.2rem; font-weight: 800; color: {% if order.dropshipper_payment_required == 0 %}#34d399{% else %}#a78bfa{% endif %};">{{ order.dropshipper_payment_required|floatformat:0 }} грн</div>
             </div>
+          </div>
+          
+          {# Управление статусом #}
+          <div style="margin-top: 16px; padding: 16px; background: rgba(0,0,0,.2); border-radius: 12px; border: 1px solid rgba(255,255,255,.08);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <div style="font-weight: 700; color: #e5e7eb; font-size: 1rem;">
+                <i class="fas fa-tasks"></i> Управління замовленням
+              </div>
+              {% if order.shipment_status %}
+              <button onclick="checkNPStatus({{ order.id }})" style="padding: 6px 12px; border-radius: 6px; background: rgba(6,182,212,.15); color: #22d3ee; border: 1px solid rgba(6,182,212,.3); font-weight: 600; font-size: 0.8rem; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(6,182,212,.25)'" onmouseout="this.style.background='rgba(6,182,212,.15)'">
+                <i class="fas fa-sync-alt"></i> Оновити статус НП
+              </button>
+              {% endif %}
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end;">
+              <div>
+                <label style="display: block; font-size: 0.75rem; text-transform: uppercase; color: rgba(229,231,235,.5); margin-bottom: 6px;">Змінити статус</label>
+                <select id="status-select-{{ order.id }}" style="width: 100%; padding: 10px 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.15); border-radius: 8px; color: #e5e7eb; font-weight: 600;">
+                  <option value="draft" {% if order.status == 'draft' %}selected{% endif %}>📝 Чернетка</option>
+                  <option value="pending" {% if order.status == 'pending' %}selected{% endif %}>⏳ Очікує підтвердження</option>
+                  <option value="awaiting_payment" {% if order.status == 'awaiting_payment' %}selected{% endif %}>💰 Очікує оплати</option>
+                  <option value="confirmed" {% if order.status == 'confirmed' %}selected{% endif %}>✅ Підтверджено</option>
+                  <option value="processing" {% if order.status == 'processing' %}selected{% endif %}>⚙️ В обробці</option>
+                  <option value="awaiting_shipment" {% if order.status == 'awaiting_shipment' %}selected{% endif %}>📋 Очікує відправки</option>
+                  <option value="shipped" {% if order.status == 'shipped' %}selected{% endif %}>🚚 Відправлено</option>
+                  <option value="delivered_awaiting_pickup" {% if order.status == 'delivered_awaiting_pickup' %}selected{% endif %}>📬 На відділенні</option>
+                  <option value="received" {% if order.status == 'received' %}selected{% endif %}>✅ Отримано</option>
+                  <option value="refused" {% if order.status == 'refused' %}selected{% endif %}>↩️ Відмова</option>
+                  <option value="cancelled" {% if order.status == 'cancelled' %}selected{% endif %}>❌ Скасовано</option>
+                </select>
+              </div>
+              
+              <div id="ttn-field-{{ order.id }}" style="{% if order.status != 'shipped' and order.status != 'delivered_awaiting_pickup' and order.status != 'received' %}display: none;{% endif %}">
+                <label style="display: block; font-size: 0.75rem; text-transform: uppercase; color: rgba(229,231,235,.5); margin-bottom: 6px;">ТТН Нової Пошти</label>
+                <input type="text" id="ttn-input-{{ order.id }}" value="{{ order.tracking_number|default:'' }}" placeholder="20450012345678" style="width: 100%; padding: 10px 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.15); border-radius: 8px; color: #e5e7eb; font-weight: 600; font-family: monospace;">
+              </div>
+              
+              <button onclick="updateOrderStatus({{ order.id }})" style="padding: 12px 24px; border-radius: 8px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(16,185,129,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                <i class="fas fa-save"></i> Зберегти
+              </button>
+            </div>
+            
+            {% if order.shipment_status %}
+            <div style="margin-top: 12px; padding: 10px 12px; background: rgba(6,182,212,.1); border: 1px solid rgba(6,182,212,.2); border-radius: 8px;">
+              <div style="font-size: 0.75rem; text-transform: uppercase; color: rgba(34,211,238,.8); margin-bottom: 4px;">
+                Статус НП {% if order.shipment_status_updated %}(оновлено {{ order.shipment_status_updated|date:"d.m.Y H:i" }}){% endif %}
+              </div>
+              <div style="font-weight: 700; color: #22d3ee;">{{ order.shipment_status }}</div>
+            </div>
+            {% endif %}
           </div>
         </div>
       {% endfor %}
@@ -473,5 +539,123 @@ function getCookie(name) {
   const v = `; ${document.cookie}`.split(`; ${name}=`);
   if (v.length === 2) return v.pop().split(';').shift();
 }
+
+// Обновление статуса заказа
+async function updateOrderStatus(orderId) {
+  const statusSelect = document.getElementById(`status-select-${orderId}`);
+  const ttnInput = document.getElementById(`ttn-input-${orderId}`);
+  
+  const newStatus = statusSelect.value;
+  const ttnValue = ttnInput ? ttnInput.value.trim() : '';
+  
+  // Валидация: если статус "shipped" - требуем ТТН
+  if ((newStatus === 'shipped' || newStatus === 'delivered_awaiting_pickup') && !ttnValue) {
+    alert('❌ Для статусу "Відправлено" необхідно вказати ТТН Нової Пошти!');
+    return;
+  }
+  
+  try {
+    const res = await fetch(`/orders/admin/dropship/update-status/${orderId}/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken')
+      },
+      body: JSON.stringify({
+        status: newStatus,
+        tracking_number: ttnValue
+      })
+    });
+    
+    const data = await res.json();
+    
+    if (res.ok && data.success) {
+      // Показываем уведомление об успехе
+      showNotification('✅ Статус оновлено!', 'success');
+      
+      // Перезагружаем страницу через секунду
+      setTimeout(() => location.reload(), 1000);
+    } else {
+      alert('❌ Помилка: ' + (data.error || 'Невідома помилка'));
+    }
+  } catch(err) {
+    console.error('Error:', err);
+    alert('❌ Помилка з\'єднання');
+  }
+}
+
+// Проверка статуса НП
+async function checkNPStatus(orderId) {
+  const button = event.target.closest('button');
+  const originalHTML = button.innerHTML;
+  button.disabled = true;
+  button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Перевірка...';
+  
+  try {
+    const res = await fetch(`/orders/admin/dropship/check-np/${orderId}/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken')
+      }
+    });
+    
+    const data = await res.json();
+    
+    if (res.ok && data.success) {
+      showNotification('✅ ' + data.message, 'success');
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      alert('❌ ' + (data.error || 'Не вдалося оновити статус'));
+      button.disabled = false;
+      button.innerHTML = originalHTML;
+    }
+  } catch(err) {
+    console.error('Error:', err);
+    alert('❌ Помилка з\'єднання');
+    button.disabled = false;
+    button.innerHTML = originalHTML;
+  }
+}
+
+// Уведомления
+function showNotification(message, type = 'success') {
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 16px 24px;
+    background: ${type === 'success' ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #ef4444, #dc2626)'};
+    color: white;
+    border-radius: 12px;
+    font-weight: 700;
+    box-shadow: 0 8px 24px rgba(0,0,0,.3);
+    z-index: 10000;
+    animation: slideIn 0.3s ease;
+  `;
+  notification.textContent = message;
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.style.animation = 'slideOut 0.3s ease';
+    setTimeout(() => notification.remove(), 300);
+  }, 3000);
+}
+
+// Показать/скрыть поле ТТН при изменении статуса
+document.addEventListener('change', function(e) {
+  if (e.target.id && e.target.id.startsWith('status-select-')) {
+    const orderId = e.target.id.replace('status-select-', '');
+    const ttnField = document.getElementById(`ttn-field-${orderId}`);
+    const selectedStatus = e.target.value;
+    
+    if (selectedStatus === 'shipped' || selectedStatus === 'delivered_awaiting_pickup' || selectedStatus === 'received') {
+      ttnField.style.display = 'block';
+    } else {
+      ttnField.style.display = 'none';
+    }
+  }
+});
 </script>
 

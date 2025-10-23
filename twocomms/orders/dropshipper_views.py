@@ -1115,3 +1115,94 @@ def dropshipper_monobank_return(request):
         messages.error(request, 'Помилка: дані про замовлення відсутні')
     
     return redirect('orders:dropshipper_dashboard')
+
+
+# ============= ADMIN VIEWS =============
+
+@login_required
+@require_http_methods(["POST"])
+def admin_update_dropship_status(request, order_id):
+    """Обновление статуса заказа дропшипера администратором"""
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Доступ заборонено'}, status=403)
+    
+    try:
+        data = json.loads(request.body)
+        order = get_object_or_404(DropshipperOrder, id=order_id)
+        
+        new_status = data.get('status')
+        tracking_number = data.get('tracking_number', '').strip()
+        
+        if not new_status:
+            return JsonResponse({'success': False, 'error': 'Статус не вказано'})
+        
+        # Валидация статуса
+        valid_statuses = [choice[0] for choice in DropshipperOrder.STATUS_CHOICES]
+        if new_status not in valid_statuses:
+            return JsonResponse({'success': False, 'error': 'Невірний статус'})
+        
+        old_status = order.status
+        order.status = new_status
+        
+        # Обновляем ТТН если предоставлен
+        if tracking_number:
+            order.tracking_number = tracking_number
+        
+        # Логика изменения статуса
+        # Если переводим в "Відправлено" - требуем ТТН
+        if new_status == 'shipped' and not tracking_number and not order.tracking_number:
+            return JsonResponse({
+                'success': False,
+                'error': 'Для статусу "Відправлено" необхідно вказати ТТН'
+            })
+        
+        order.save()
+        
+        # Логируем изменение
+        monobank_logger.info(
+            f'Admin {request.user.username} changed order {order.order_number} '
+            f'status from {old_status} to {new_status}'
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Статус змінено на "{order.get_status_display()}"',
+            'new_status': new_status,
+            'new_status_display': order.get_status_display()
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Невірний формат даних'}, status=400)
+    except Exception as e:
+        monobank_logger.exception(f'Error updating dropship order status: {e}')
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def admin_check_np_status(request, order_id):
+    """Проверка статуса НП и автоматическое обновление заказа"""
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Доступ заборонено'}, status=403)
+    
+    try:
+        order = get_object_or_404(DropshipperOrder, id=order_id)
+        
+        # Вызываем метод модели для проверки статуса
+        success, message = order.check_np_status_and_update()
+        
+        if success:
+            return JsonResponse({
+                'success': True,
+                'message': message,
+                'new_status': order.status,
+                'new_status_display': order.get_status_display(),
+                'shipment_status': order.shipment_status,
+                'payout_processed': order.payout_processed
+            })
+        else:
+            return JsonResponse({'success': False, 'error': message})
+        
+    except Exception as e:
+        monobank_logger.exception(f'Error checking NP status: {e}')
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
