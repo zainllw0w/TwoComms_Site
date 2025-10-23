@@ -31,7 +31,7 @@ class Migration(migrations.Migration):
                     ('cancelled', 'Скасовано'),
                 ],
                 default='draft',
-                max_length=30,  # Увеличиваем размер для новых статусов
+                max_length=35,  # Увеличиваем размер для новых статусов
                 verbose_name='Статус'
             ),
         ),
