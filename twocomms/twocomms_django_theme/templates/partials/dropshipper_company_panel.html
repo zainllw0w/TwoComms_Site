@@ -111,7 +111,7 @@
                     <i class="fas fa-check-circle"></i>
                     <span>Підтверджено</span>
                   </button>
-                  <button type="button" class="ds-btn telegram-reset-btn" title="Переприв'язати Telegram" style="
+                  <button type="button" class="ds-btn telegram-reset-btn" onclick="resetDropshipperTelegram()" title="Переприв'язати Telegram" style="
                     background: linear-gradient(135deg, #ef4444, #dc2626) !important;
                     border: none !important;
                     color: white !important;
@@ -256,16 +256,10 @@
 </div>
 
 <script>
-// Привязываем обработчик события для кнопки сброса Telegram
-document.addEventListener('DOMContentLoaded', function() {
-  const resetBtn = document.querySelector('.telegram-reset-btn');
-  if (resetBtn) {
-    resetBtn.addEventListener('click', resetDropshipperTelegram);
-  }
-});
+console.log('🟦 Dropshipper company panel script loaded');
 
-// Функция для сброса привязки Telegram дропшипера
-function resetDropshipperTelegram() {
+// Функция для сброса привязки Telegram дропшипера (определяем сразу в глобальной области)
+window.resetDropshipperTelegram = function() {
   console.log('🔴 resetDropshipperTelegram called');
   
   if (!confirm('Ви впевнені, що хочете відв\'язати Telegram? Вам потрібно буде прив\'язати його заново.')) {
@@ -339,7 +333,18 @@ function resetDropshipperTelegram() {
     console.error('❌ FETCH ERROR:', error);
     alert('❌ Помилка при відв\'язуванні Telegram');
   });
-}
+};
+
+console.log('✅ window.resetDropshipperTelegram defined:', typeof window.resetDropshipperTelegram);
+
+// Проверяем наличие кнопки при загрузке
+setTimeout(function() {
+  const resetBtn = document.querySelector('.telegram-reset-btn');
+  console.log('🔍 .telegram-reset-btn found:', !!resetBtn);
+  if (resetBtn) {
+    console.log('🔍 Button onclick:', resetBtn.getAttribute('onclick'));
+  }
+}, 100);
 
 // Функция для подтверждения Telegram дропшипера
 function confirmDropshipperTelegram() {
