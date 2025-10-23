@@ -1190,6 +1190,14 @@ def admin_update_dropship_status(request, order_id):
         
         order.save()
         
+        # Обрабатываем выплату если статус изменен на "received" и выплата еще не обработана
+        if new_status == 'received' and not order.payout_processed:
+            try:
+                success, message = order.process_payout()
+                monobank_logger.info(f"💰 Payout processing for order {order.order_number}: success={success}, message={message}")
+            except Exception as e:
+                monobank_logger.error(f"⚠️ Error processing payout for order {order.order_number}: {e}")
+        
         # Отправляем уведомления об изменении статуса
         if old_status != new_status:
             # Уведомление дропшиперу
