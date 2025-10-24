@@ -1,17 +1,10 @@
 // Глобальная функция для сброса Telegram (должна быть доступна для onclick)
 window.resetDropshipperTelegram = function() {
-  console.log('🔴 resetDropshipperTelegram called from dropshipper.js');
-  
   if (!confirm('Ви впевнені, що хочете відв\'язати Telegram? Вам потрібно буде прив\'язати його заново.')) {
-    console.log('🔴 User cancelled');
     return;
   }
   
   const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-  console.log('🔵 CSRF token:', csrfToken ? 'found' : 'NOT FOUND');
-  
-  console.log('🟡 Sending POST to /accounts/telegram/unlink/');
-  
   fetch('/accounts/telegram/unlink/', {
     method: 'POST',
     headers: {
@@ -21,21 +14,12 @@ window.resetDropshipperTelegram = function() {
     credentials: 'same-origin'
   })
   .then(response => {
-    console.log('🟢 Response status:', response.status);
     return response.json();
   })
   .then(data => {
-    console.log('🟣 Response data:', data);
-    
     if (data.success) {
-      console.log('✅ SUCCESS! Updating UI...');
-      
       const buttonContainer = document.querySelector('.telegram-button-container');
-      console.log('🔵 Button container found:', !!buttonContainer);
-      
       if (buttonContainer) {
-        console.log('🟡 Replacing buttons...');
-        
         buttonContainer.innerHTML = `
           <button type="button" class="ds-btn telegram-confirm-btn" onclick="confirmDropshipperTelegram()" style="
             background: linear-gradient(135deg, #8b5cf6, #6366f1) !important;
@@ -60,11 +44,9 @@ window.resetDropshipperTelegram = function() {
           </button>
         `;
         
-        console.log('🟢 UI updated successfully');
-      }
+        }
       alert('✅ Telegram відв\'язано! Тепер ви можете прив\'язати новий акаунт.');
     } else {
-      console.log('❌ SUCCESS = FALSE:', data);
       alert('❌ Помилка при відв\'язуванні Telegram: ' + (data.error || 'Невідома помилка'));
     }
   })
@@ -73,8 +55,6 @@ window.resetDropshipperTelegram = function() {
     alert('❌ Помилка при відв\'язуванні Telegram');
   });
 };
-
-console.log('✅ dropshipper.js loaded, window.resetDropshipperTelegram defined:', typeof window.resetDropshipperTelegram);
 
 // Глобальная функция для подтверждения Telegram дропшипера
 window.confirmDropshipperTelegram = function() {
@@ -251,8 +231,6 @@ if (!document.getElementById('dropshipper-spinner-styles')) {
   `;
   document.head.appendChild(spinnerStyle);
 }
-
-console.log('✅ window.confirmDropshipperTelegram defined:', typeof window.confirmDropshipperTelegram);
 
 (() => {
   document.addEventListener('DOMContentLoaded', () => {

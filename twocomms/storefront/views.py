@@ -575,9 +575,13 @@ def catalog(request, cat_slug=None):
         'cat_slug': cat_slug or ''
     })
 
-@cache_page_for_anon(600)  # Кэшируем карточку товара на 10 минут для анонимов
+@cache_page_for_anon(1800)  # Кэшируем карточку товара на 30 минут для анонимов (оптимизация TTFB)
 def product_detail(request, slug):
-    product = get_object_or_404(Product, slug=slug)
+    # Оптимизированный запрос с select_related и prefetch_related
+    product = get_object_or_404(
+        Product.objects.select_related('category').prefetch_related('images'),
+        slug=slug
+    )
     images = product.images.all()
     # Варианты цветов с изображениями (если есть приложение и данные)
     color_variants = get_detailed_color_variants(product)
@@ -949,11 +953,11 @@ def debug_product_images(request):
     
     return JsonResponse({'products': debug_info})
 
-@csrf_exempt
 @require_POST
 def add_to_cart(request):
     """
     Добавляет товар в корзину (сессия) с учётом размера и цвета, возвращает JSON с количеством и суммой.
+    Frontend sends CSRF token in X-CSRFToken header.
     """
     pid = request.POST.get('product_id')
     size = ((request.POST.get('size') or '').strip() or 'S').upper()
@@ -1319,12 +1323,12 @@ def process_guest_order(request):
     
     return redirect('my_orders')
 
-@csrf_exempt
 @require_POST
 def cart_remove(request):
     """
     Удаление позиции: поддерживает key="productId:size" и (product_id + size).
     Печатает отладочную информацию в консоль.
+    Frontend sends CSRF token in X-CSRFToken header.
     """
     cart = request.session.get('cart', {})
 
@@ -6821,9 +6825,9 @@ def wholesale_order_form(request):
 
 
 @require_POST
-@csrf_exempt
 def generate_wholesale_invoice(request):
-    """Генерирует Excel накладную для оптового заказа"""
+    """Генерирует Excel накладную для оптового заказа.
+    Frontend sends CSRF token in X-CSRFToken header."""
     import json
     from datetime import datetime
     from django.http import HttpResponse
@@ -7201,9 +7205,9 @@ def download_invoice_file(request, invoice_id):
 
 
 @require_POST
-@csrf_exempt
 def delete_wholesale_invoice(request, invoice_id):
-    """Удаление накладной"""
+    """Удаление накладной.
+    Frontend sends CSRF token in X-CSRFToken header."""
     from orders.models import WholesaleInvoice
     import os
     import glob
@@ -7554,9 +7558,9 @@ def check_invoice_approval_status(request, invoice_id):
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
-@csrf_exempt
 def create_wholesale_payment(request):
-    """Создание платежа для накладной через Monobank"""
+    """Создание платежа для накладной через Monobank.
+    Frontend sends CSRF token in X-CSRFToken header."""
     from orders.models import WholesaleInvoice
     import json
     from decimal import Decimal
