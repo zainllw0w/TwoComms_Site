@@ -4,7 +4,7 @@
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
-from twocomms.cache_utils import get_fragment_cache
+from cache_utils import get_fragment_cache
 from .models import Category
 
 
