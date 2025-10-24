@@ -6,7 +6,7 @@ from .models import Product, Category
 from accounts.models import UserProfile, FavoriteProduct
 from orders.models import Order, OrderItem
 import random
-from twocomms.cache_utils import get_cache
+from cache_utils import get_cache
 
 class ProductRecommendationEngine:
     """

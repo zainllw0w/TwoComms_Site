@@ -4,7 +4,7 @@
 from django.db import connection
 from django.utils import timezone
 import time
-from twocomms.cache_utils import get_cache
+from cache_utils import get_cache
 
 class PerformanceMonitor:
     """
