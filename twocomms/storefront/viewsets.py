@@ -21,23 +21,6 @@ from .serializers import (
 )
 
 
-class TestProductViewSet(viewsets.ViewSet):
-    """
-    ВРЕМЕННЫЙ тестовый ViewSet для debug 500 ошибки.
-    Минимальная реализация без пагинации и сериализаторов.
-    """
-    permission_classes = [AllowAny]
-    queryset = Product.objects.all()  # Требуется для DefaultRouter
-    
-    def list(self, request):
-        """Простой список товаров без всяких наворотов."""
-        products = list(Product.objects.all().values('id', 'title', 'slug', 'price')[:20])
-        return Response({
-            'count': len(products),
-            'results': products
-        })
-
-
 class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet для категорий товаров.
