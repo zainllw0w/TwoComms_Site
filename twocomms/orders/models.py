@@ -582,18 +582,20 @@ class DropshipperStats(models.Model):
         orders = DropshipperOrder.objects.filter(dropshipper=self.dropshipper)
         
         self.total_orders = orders.count()
-        self.completed_orders = orders.filter(status='delivered').count()
+        # Считаем заказы со статусом 'received' (клиент забрал товар)
+        self.completed_orders = orders.filter(status='received').count()
         self.cancelled_orders = orders.filter(status='cancelled').count()
         
-        # Финансовая статистика
-        self.total_revenue = sum(order.total_selling_price for order in orders.filter(status='delivered'))
-        self.total_drop_cost = sum(order.total_drop_price for order in orders.filter(status='delivered'))
+        # Финансовая статистика - считаем только полученные заказы (received)
+        received_orders = orders.filter(status='received')
+        self.total_revenue = sum(order.total_selling_price for order in received_orders)
+        self.total_drop_cost = sum(order.total_drop_price for order in received_orders)
         self.total_profit = self.total_revenue - self.total_drop_cost
         
         # Статистика по товарам
         self.total_items_sold = sum(
             sum(item.quantity for item in order.items.all()) 
-            for order in orders.filter(status='delivered')
+            for order in received_orders
         )
         
         # Дата последнего заказа
