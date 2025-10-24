@@ -235,14 +235,16 @@ def payment_callback(request):
         return redirect('home')
 
 
-def order_success(request, order_number):
+def order_success(request, order_id):
     """
     Страница успешного оформления заказа.
     
     Args:
-        order_number (str): Номер заказа
+        order_id (int): ID заказа (из URL параметра)
+    
+    ИСПРАВЛЕНО: Параметр изменен с order_number на order_id для соответствия urls.py
     """
-    order = get_object_or_404(Order, order_number=order_number)
+    order = get_object_or_404(Order, pk=order_id)
     
     # Проверяем права доступа
     if request.user.is_authenticated:
