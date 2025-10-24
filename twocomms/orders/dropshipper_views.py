@@ -184,20 +184,24 @@ def dropshipper_dashboard(request):
     # Статистика по выплатам
     from datetime import datetime
     from django.db.models import Sum
+    from decimal import Decimal
     
     pending_payouts_sum = DropshipperPayout.objects.filter(
         dropshipper=request.user,
         status='pending'
-    ).aggregate(total=Sum('amount'))['total'] or 0
+    ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
     
     current_month = datetime.now().month
     current_year = datetime.now().year
     completed_payouts_sum = DropshipperPayout.objects.filter(
         dropshipper=request.user,
         status='completed',
-        requested_at__month=current_month,
-        requested_at__year=current_year
-    ).aggregate(total=Sum('amount'))['total'] or 0
+        completed_at__month=current_month,
+        completed_at__year=current_year
+    ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+    
+    # Логирование для отладки
+    monobank_logger.info(f"📊 Payout stats for {request.user.username}: pending={pending_payouts_sum}, completed={completed_payouts_sum}")
 
     context = {
         'stats': stats,
