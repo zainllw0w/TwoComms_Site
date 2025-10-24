@@ -215,3 +215,4 @@ def quick_view(request, product_id):
 
 
 
+

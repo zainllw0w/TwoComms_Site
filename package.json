@@ -1,0 +1,5 @@
+{
+  "devDependencies": {
+    "@modelcontextprotocol/server-sequential-thinking": "^2025.7.1"
+  }
+}

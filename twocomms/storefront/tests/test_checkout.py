@@ -400,3 +400,4 @@ class OrderSuccessTests(TestCase):
         self.assertContains(response, self.order.full_name)
 
 
+

@@ -52,3 +52,9 @@ openpyxl==3.1.2
 
 # Работа с часовыми поясами
 pytz==2024.2
+
+# Django REST Framework для API
+djangorestframework==3.15.2
+
+# OpenAPI 3 документация для DRF
+drf-spectacular==0.27.2
