@@ -1,4 +1,4 @@
-from twocomms.cache_utils import get_cache
+from cache_utils import get_cache
 
 def orders_processing_count(request):
     """
