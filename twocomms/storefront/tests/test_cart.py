@@ -458,3 +458,4 @@ class GetCartCountTests(TestCase):
         self.assertEqual(data.get('count'), 6)
 
 
+

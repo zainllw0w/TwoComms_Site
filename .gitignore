@@ -185,3 +185,5 @@ DEEP_*.md
 FINAL_*.md
 PHASE_*.md
 REDIS_*.md
+node_modules/
+*.backup

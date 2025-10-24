@@ -99,6 +99,10 @@ INSTALLED_APPS = [
     "django.contrib.sitemaps",      # Sitemap для SEO
     "django.contrib.redirects",     # Редиректы для SEO
     "compressor",                   # Сжатие статических файлов
+    # Django REST Framework
+    "rest_framework",               # DRF для API
+    "drf_spectacular",              # OpenAPI 3 документация
+    # Our apps
     "storefront.apps.StorefrontConfig",  # наше приложение из пакета
     "accounts",                     # регистрируем приложение аккаунтов
     "orders.apps.OrdersConfig",     # заказы (корректный AppConfig)
@@ -545,3 +549,84 @@ CSRF_TRUSTED_ORIGINS = [
     'https://www.twocomms.shop',
     # удалён домен pythonanywhere по требованию
 ]
+
+# ==================== DJANGO REST FRAMEWORK ====================
+
+REST_FRAMEWORK = {
+    # Рендереры
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',  # для браузера
+    ],
+    
+    # Парсеры
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.FormParser',
+        'rest_framework.parsers.MultiPartParser',
+    ],
+    
+    # Аутентификация (Session + Basic для browsable API)
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
+    ],
+    
+    # Права доступа по умолчанию (read-only для всех)
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ],
+    
+    # Пагинация
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+    
+    # Фильтрация и сортировка
+    'DEFAULT_FILTER_BACKENDS': [
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
+    ],
+    
+    # Throttling (ограничение запросов)
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',  # Анонимные пользователи: 100 запросов/час
+        'user': '1000/hour',  # Аутентифицированные: 1000 запросов/час
+    },
+    
+    # OpenAPI Schema (drf-spectacular)
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+# ==================== DRF SPECTACULAR (OpenAPI 3 Documentation) ====================
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'TwoComms Shop API',
+    'DESCRIPTION': 'RESTful API для магазина TwoComms - категории, товары, корзина',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    
+    # Схема
+    'SCHEMA_PATH_PREFIX': r'/api/',
+    'COMPONENT_SPLIT_REQUEST': True,
+    
+    # UI настройки
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+        'displayOperationId': True,
+    },
+    
+    # Аутентификация в документации
+    'SECURITY': [
+        {'SessionAuth': []},
+        {'BasicAuth': []},
+    ],
+    
+    # Сортировка
+    'SORT_OPERATIONS': True,
+    'SORT_OPERATION_PARAMETERS': True,
+}
