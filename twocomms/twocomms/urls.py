@@ -7,6 +7,7 @@ from django.views.generic.base import RedirectView
 from storefront import views as storefront_views
 from django.contrib.sitemaps.views import sitemap
 from storefront.sitemaps import StaticViewSitemap, ProductSitemap, CategorySitemap
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 # Sitemap configuration
 sitemaps = {
@@ -18,6 +19,19 @@ sitemaps = {
 urlpatterns = [
     # Core - главная страница должна быть первой!
     path("", include("storefront.urls")),
+    
+    # ==================== API (Django REST Framework) ====================
+    # REST API endpoints
+    path("api/", include("storefront.api_urls")),
+    # OpenAPI 3 Schema
+    path('api/schema/', SpectacularAPIView.as_view(), name='api-schema'),
+    # Swagger UI (интерактивная документация)
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='api-schema'), name='api-docs'),
+    # ReDoc (альтернативная документация)
+    path('api/redoc/', SpectacularRedocView.as_view(url_name='api-schema'), name='api-redoc'),
+    # Browsable API auth (login/logout для DRF)
+    path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
+    
     # Social auth - только для OAuth путей
     path('oauth/', include('social_django.urls', namespace='social')),
     path('social/', include('social_django.urls')),  # fallback для старых ссылок
