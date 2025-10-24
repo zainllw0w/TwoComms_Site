@@ -137,10 +137,9 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
 
 # Логирование наследуем из базовых настроек и используем ротацию файлов
 
-# База данных: выбираем по DB_ENGINE (mysql | postgresql), иначе SQLite как фолбэк
+# База данных: MySQL для продакшена
 DB_ENGINE = os.environ.get('DB_ENGINE', '').lower()
 if os.environ.get('DB_NAME') and os.environ.get('DB_USER'):
-    if DB_ENGINE.startswith('mysql'):
         # Базовые опции подключения к MySQL
         _options = {
             'charset': 'utf8mb4',
@@ -177,21 +176,6 @@ if os.environ.get('DB_NAME') and os.environ.get('DB_USER'):
             _options['sql_mode'] = _sql_mode
         else:
             _options['sql_mode'] = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ZERO_DATE,NO_ZERO_IN_DATE,NO_ENGINE_SUBSTITUTION'
-    else:
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.postgresql',
-                'NAME': os.environ['DB_NAME'],
-                'USER': os.environ['DB_USER'],
-                'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-                'HOST': os.environ.get('DB_HOST', 'localhost'),
-                'PORT': os.environ.get('DB_PORT', '5432'),
-                'CONN_MAX_AGE': 60,
-                'OPTIONS': {
-                    'sslmode': os.environ.get('DB_SSLMODE', 'require')
-                }
-            }
-        }
 
 # Настройки статических файлов для продакшена
 STATIC_URL = '/static/'
@@ -378,7 +362,7 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # HSTS
 SECURE_HSTS_SECONDS = 31536000
-SECURE_HSTS_INCLUDE_SUBDOMАINS = True
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True  # Fixed: was using Cyrillic 'А' instead of Latin 'A'
 SECURE_HSTS_PRELOAD = True
 
 # Куки

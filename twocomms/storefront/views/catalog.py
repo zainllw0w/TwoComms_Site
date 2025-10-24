@@ -14,6 +14,7 @@ from django.http import JsonResponse
 from django.core.paginator import Paginator, EmptyPage
 from django.urls import reverse
 from django.template.loader import render_to_string
+from django.db.models import Q
 
 from ..models import Product, Category
 from ..services.catalog_helpers import (
@@ -161,7 +162,8 @@ def catalog(request, cat_slug=None):
         show_category_cards = False
     else:
         category = None
-        product_qs = Product.objects.order_by('-id')
+        # Added select_related('category') for optimization
+        product_qs = Product.objects.select_related('category').order_by('-id')
         show_category_cards = True
     
     products = list(product_qs)
@@ -206,11 +208,10 @@ def search(request):
     selected_category = None
     
     if query:
-        # Базовый поиск (можно улучшить с использованием PostgreSQL full-text search)
+        # Базовый поиск с использованием Q objects для оптимизации
+        # (можно улучшить с использованием PostgreSQL full-text search)
         product_qs = Product.objects.select_related('category').filter(
-            title__icontains=query
-        ) | Product.objects.select_related('category').filter(
-            description__icontains=query
+            Q(title__icontains=query) | Q(description__icontains=query)
         )
         
         # Фильтрация по категории

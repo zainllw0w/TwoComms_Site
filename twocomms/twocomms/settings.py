@@ -300,7 +300,7 @@ LOGGING = {
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# Database selection by DB_ENGINE env: mysql | postgresql | sqlite (default)
+# Database selection by DB_ENGINE env: mysql | sqlite (default)
 # Ожидаемые переменные окружения: DB_ENGINE, DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT
 DB_ENGINE = os.environ.get('DB_ENGINE', '').lower()
 DB_NAME = os.environ.get('DB_NAME')
@@ -332,24 +332,8 @@ elif DB_ENGINE.startswith('mysql') and DB_NAME and DB_USER:
             'OPTIONS': {
                 'charset': 'utf8mb4',
                 'use_unicode': True,
-                # 'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ZERO_DATE,NO_ZERO_IN_DATE,NO_ENGINE_SUBSTITUTION'",
             },
-        }
-    }
-elif (DB_ENGINE.startswith('post') or (DB_NAME and DB_USER)):
-    # Продакшен - PostgreSQL
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': DB_NAME,
-            'USER': DB_USER,
-            'PASSWORD': DB_PASSWORD,
-            'HOST': DB_HOST,
-            'PORT': DB_PORT or '5432',
-            'CONN_MAX_AGE': 60,
-            'OPTIONS': {
-                'sslmode': os.environ.get('DB_SSLMODE', 'prefer')
-            }
         }
     }
 else:
