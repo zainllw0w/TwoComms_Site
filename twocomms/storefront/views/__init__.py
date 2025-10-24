@@ -106,6 +106,11 @@ from .profile import (
     favorites_count,
     points_history,
     settings,
+    # User Points & Rewards
+    user_points,
+    my_promocodes,
+    buy_with_points,
+    purchase_with_points,
 )
 
 # API endpoints
@@ -190,6 +195,7 @@ try:
         'favorites', 'favorites_list', 'toggle_favorite', 'add_to_favorites', 
         'remove_from_favorites', 'check_favorite_status', 'favorites_count', 
         'points_history', 'settings',
+        'user_points', 'my_promocodes', 'buy_with_points', 'purchase_with_points',
         # api.py
         'get_product_json', 'get_categories_json', 'track_event', 'search_suggestions',
         'product_availability', 'get_related_products', 'newsletter_subscribe', 'contact_form',
@@ -271,6 +277,7 @@ __all__ = [
     'favorites', 'favorites_list', 'toggle_favorite', 'add_to_favorites', 
     'remove_from_favorites', 'check_favorite_status', 'favorites_count', 
     'points_history', 'settings',
+    'user_points', 'my_promocodes', 'buy_with_points', 'purchase_with_points',
     
     # API
     'get_product_json', 'get_categories_json', 'track_event', 'search_suggestions',
