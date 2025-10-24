@@ -73,19 +73,17 @@ class RateLimitMiddleware:
             response['X-RateLimit-Reset'] = str(int(time.time()) + retry_after)
             return response
         
-        # Increment counter (using set instead of incr for compatibility)
+        # Increment counter
         try:
         if current_requests == 0:
             # First request in this window
             cache.set(cache_key, 1, window)
         else:
-                # Use set instead of incr for compatibility with all cache backends
+                # Use set instead of incr for redis-herd compatibility  
                 cache.set(cache_key, current_requests + 1, window)
-        except Exception as e:
-            # If cache fails, don't block the request
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning(f'Rate limit cache error: {e}')
+        except Exception:
+            # Gracefully handle cache failures
+            pass
         
         # Add rate limit headers to response
         response = self.get_response(request)
