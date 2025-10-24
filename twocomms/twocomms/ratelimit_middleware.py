@@ -47,7 +47,7 @@ class RateLimitMiddleware:
             limit = self.login_limit
             window = 60  # 1 minute
             cache_key = f'ratelimit:strict:{ip}:{request.path}'
-        elif request.user.is_authenticated:
+        elif hasattr(request, 'user') and request.user.is_authenticated:
             limit = self.user_limit
             window = 60
             cache_key = f'ratelimit:user:{ip}'
