@@ -176,3 +176,17 @@ def terms_of_service(request):
         'page_title': 'Умови використання'
     })
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

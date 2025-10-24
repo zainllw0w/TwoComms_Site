@@ -348,3 +348,17 @@ def inventory_management(request):
     # TODO: Реализовать управление складом
     return render(request, 'admin/inventory.html')
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

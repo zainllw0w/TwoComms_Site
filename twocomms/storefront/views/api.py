@@ -14,7 +14,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from ..models import Product, Category
 from ..services.catalog_helpers import get_categories_cached
-from twocomms.cache_utils import get_fragment_cache
+from cache_utils import get_fragment_cache
 
 
 # ==================== API ENDPOINTS ====================
@@ -337,4 +337,18 @@ def contact_form(request):
             'success': False,
             'error': str(e)
         }, status=400)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

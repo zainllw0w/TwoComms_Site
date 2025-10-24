@@ -435,3 +435,17 @@ def remove_promo_code(request):
             'error': str(e)
         }, status=400)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
