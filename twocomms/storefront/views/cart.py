@@ -13,7 +13,8 @@ Cart views - Корзина покупок.
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
+import logging
 
 from ..models import Product, PromoCode
 from productcolors.models import ProductColorVariant
@@ -22,6 +23,15 @@ from .utils import (
     save_cart_to_session,
     calculate_cart_total
 )
+
+# Logger для корзины
+cart_logger = logging.getLogger('storefront.cart')
+monobank_logger = logging.getLogger('storefront.monobank')
+
+# Константы статусов Monobank
+MONOBANK_SUCCESS_STATUSES = {'success', 'hold'}
+MONOBANK_PENDING_STATUSES = {'processing'}
+MONOBANK_FAILURE_STATUSES = {'failure', 'expired', 'rejected', 'canceled', 'cancelled', 'reversed'}
 
 
 # ==================== CART VIEWS ====================
@@ -436,6 +446,282 @@ def remove_promo_code(request):
         }, status=400)
 
 
+# ==================== HELPER FUNCTIONS ====================
+
+def _reset_monobank_session(request, drop_pending=False):
+    """
+    Сбрасывает связанные с Mono checkout данные в сессии.
+    
+    Args:
+        request: HTTP request
+        drop_pending: Если True, отменяет pending заказ в БД
+    """
+    if drop_pending:
+        pending_id = request.session.get('monobank_pending_order_id')
+        if pending_id:
+            try:
+                from orders.models import Order
+                qs = Order.objects.select_related('user').filter(
+                    id=pending_id,
+                    payment_provider__in=('monobank', 'monobank_checkout', 'monobank_pay')
+                )
+                if qs.exists():
+                    qs.update(status='cancelled', payment_status='unpaid')
+            except Exception:
+                monobank_logger.debug(
+                    'Failed to cancel pending Monobank order %s',
+                    pending_id,
+                    exc_info=True
+                )
+
+    for key in (
+        'monobank_pending_order_id',
+        'monobank_invoice_id',
+        'monobank_order_id',
+        'monobank_order_ref'
+    ):
+        if key in request.session:
+            request.session.pop(key, None)
+
+    request.session.modified = True
+
+
+def _normalize_color_variant_id(raw):
+    """
+    Приводит значение идентификатора цветового варианта к int либо None.
+    Отсекает плейсхолдеры вида 'default', 'null', 'None', 'false', 'undefined'.
+    """
+    if raw is None:
+        return None
+    if isinstance(raw, int):
+        return raw if raw > 0 else None
+    try:
+        value = str(raw).strip()
+    except Exception:
+        return None
+    if not value:
+        return None
+    lowered = value.lower()
+    if lowered in {'default', 'none', 'null', 'false', 'undefined'}:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _get_color_variant_safe(color_variant_id):
+    """
+    Возвращает экземпляр ProductColorVariant либо None, не выбрасывая ошибок.
+    """
+    normalized_id = _normalize_color_variant_id(color_variant_id)
+    if not normalized_id:
+        return None
+    try:
+        return ProductColorVariant.objects.get(id=normalized_id)
+    except (ProductColorVariant.DoesNotExist, ValueError, TypeError):
+        return None
+
+
+def _hex_to_name(hex_value: str):
+    """Конвертирует hex цвета в украинское название."""
+    if not hex_value:
+        return None
+    h = hex_value.strip().lstrip('#').upper()
+    mapping = {
+        '000000': 'чорний',
+        'FFFFFF': 'білий',
+        'FAFAFA': 'білий',
+        'F5F5F5': 'білий',
+        'FF0000': 'червоний',
+        'C1382F': 'бордовий',
+        'FFA500': 'помаранчевий',
+        'FFFF00': 'жовтий',
+        '00FF00': 'зелений',
+        '0000FF': 'синій',
+        '808080': 'сірий',
+        'A52A2A': 'коричневий',
+        '800080': 'фіолетовий',
+    }
+    return mapping.get(h)
+
+
+def _translate_color_to_ukrainian(color_name):
+    """Переводит название цвета на украинский."""
+    if not color_name:
+        return color_name
+    # Простой маппинг, можно расширить
+    translations = {
+        'black': 'чорний',
+        'white': 'білий',
+        'red': 'червоний',
+        'blue': 'синій',
+        'green': 'зелений',
+        'yellow': 'жовтий',
+        'orange': 'помаранчевий',
+        'purple': 'фіолетовий',
+        'pink': 'рожевий',
+        'gray': 'сірий',
+        'grey': 'сірий',
+        'brown': 'коричневий',
+    }
+    lower_name = color_name.lower()
+    return translations.get(lower_name, color_name)
+
+
+def _color_label_from_variant(color_variant):
+    """
+    Возвращает текстовую метку цвета из варианта.
+    """
+    if not color_variant:
+        return None
+    color = getattr(color_variant, 'color', None)
+    if not color:
+        return None
+    name = (getattr(color, 'name', '') or '').strip()
+    if name:
+        return _translate_color_to_ukrainian(name)
+    primary = (getattr(color, 'primary_hex', '') or '').strip()
+    secondary = (getattr(color, 'secondary_hex', '') or '').strip()
+    if secondary:
+        label = _translate_color_to_ukrainian(
+            '/'.join(filter(None, [_hex_to_name(primary), _hex_to_name(secondary)]))
+        )
+        if label:
+            return label
+        return f'{primary}+{secondary}'
+    if primary:
+        label = _hex_to_name(primary)
+        if label:
+            return label
+        return primary
+    return None
+
+
+# ==================== AJAX ENDPOINTS ====================
+
+def cart_summary(request):
+    """
+    Краткая сводка корзины для обновления бейджа (AJAX).
+    
+    Returns:
+        JsonResponse: {ok, count, total}
+    """
+    cart = request.session.get('cart', {})
+    
+    if not cart:
+        return JsonResponse({'ok': True, 'count': 0, 'total': 0})
+    
+    ids = [i['product_id'] for i in cart.values()]
+    prods = Product.objects.in_bulk(ids)
+    
+    # Проверяем, какие товары найдены
+    found_products = set(prods.keys())
+    missing_products = set(ids) - found_products
+    
+    if missing_products:
+        # Удаляем несуществующие товары из корзины
+        cart_to_clean = dict(cart)
+        for key, item in cart_to_clean.items():
+            if item['product_id'] in missing_products:
+                cart.pop(key, None)
+        _reset_monobank_session(request, drop_pending=True)
+        request.session['cart'] = cart
+        request.session.modified = True
+        cart_logger.warning(
+            'cart_summary_cleanup: session=%s user=%s removed_products=%s remaining_keys=%s',
+            request.session.session_key,
+            request.user.id if request.user.is_authenticated else None,
+            list(missing_products),
+            list(cart.keys())
+        )
+    
+    # Пересчитываем с очищенной корзиной
+    total_qty = sum(i['qty'] for i in cart.values())
+    total_sum = 0
+    for i in cart.values():
+        p = prods.get(i['product_id'])
+        if p:
+            total_sum += i['qty'] * p.final_price
+    
+    return JsonResponse({'ok': True, 'count': total_qty, 'total': total_sum})
+
+
+def cart_mini(request):
+    """
+    HTML для мини‑корзины (выпадающая панель).
+    
+    Returns:
+        HttpResponse: Rendered HTML partial
+    """
+    cart_sess = request.session.get('cart', {})
+    
+    if not cart_sess:
+        return render(request, 'partials/mini_cart.html', {'items': [], 'total': 0})
+    
+    ids = [i['product_id'] for i in cart_sess.values()]
+    prods = Product.objects.in_bulk(ids)
+    
+    # Проверяем, какие товары найдены
+    found_products = set(prods.keys())
+    missing_products = set(ids) - found_products
+    
+    if missing_products:
+        # Удаляем несуществующие товары из корзины
+        cart_to_clean = dict(cart_sess)
+        for key, item in cart_to_clean.items():
+            if item['product_id'] in missing_products:
+                cart_sess.pop(key, None)
+        _reset_monobank_session(request, drop_pending=True)
+        request.session['cart'] = cart_sess
+        request.session.modified = True
+        cart_logger.warning(
+            'cart_mini_cleanup: session=%s user=%s removed_products=%s remaining_keys=%s',
+            request.session.session_key,
+            request.user.id if request.user.is_authenticated else None,
+            list(missing_products),
+            list(cart_sess.keys())
+        )
+    
+    items = []
+    total = 0
+    total_points = 0
+    
+    for key, it in cart_sess.items():
+        p = prods.get(it['product_id'])
+        if not p:
+            continue
+        
+        # Получаем информацию о цвете
+        color_variant = _get_color_variant_safe(it.get('color_variant_id'))
+        
+        unit = p.final_price
+        line = unit * it['qty']
+        total += line
+        
+        # Баллы за товар, если предусмотрены
+        try:
+            if getattr(p, 'points_reward', 0):
+                total_points += int(p.points_reward) * int(it['qty'])
+        except Exception:
+            pass
+        
+        items.append({
+            'key': key,
+            'product': p,
+            'size': it.get('size', ''),
+            'color_variant': color_variant,
+            'color_label': _color_label_from_variant(color_variant),
+            'qty': it['qty'],
+            'unit_price': unit,
+            'line_total': line
+        })
+    
+    return render(request, 'partials/mini_cart.html', {
+        'items': items,
+        'total': total,
+        'total_points': total_points
+    })
 
 
 

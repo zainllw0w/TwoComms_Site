@@ -71,6 +71,8 @@ from .cart import (
     get_cart_count,
     apply_promo_code,
     remove_promo_code,
+    cart_summary,
+    cart_mini,
 )
 
 # Статические страницы
@@ -174,7 +176,7 @@ try:
         'product_detail', 'get_product_images', 'get_product_variants', 'quick_view',
         # cart.py
         'view_cart', 'add_to_cart', 'update_cart', 'remove_from_cart', 'clear_cart',
-        'get_cart_count', 'apply_promo_code', 'remove_promo_code',
+        'get_cart_count', 'apply_promo_code', 'remove_promo_code', 'cart_summary', 'cart_mini',
         # static_pages.py
         'robots_txt', 'static_sitemap', 'google_merchant_feed', 'uaprom_products_feed',
         'static_verification_file', 'about', 'contacts', 'delivery', 'returns',
@@ -251,7 +253,7 @@ __all__ = [
     
     # Cart
     'view_cart', 'add_to_cart', 'update_cart', 'remove_from_cart', 'clear_cart',
-    'get_cart_count', 'apply_promo_code', 'remove_promo_code',
+    'get_cart_count', 'apply_promo_code', 'remove_promo_code', 'cart_summary', 'cart_mini',
     
     # Static Pages
     'robots_txt', 'static_sitemap', 'google_merchant_feed', 'uaprom_products_feed',
