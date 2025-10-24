@@ -577,7 +577,11 @@ def catalog(request, cat_slug=None):
 
 @cache_page_for_anon(600)  # Кэшируем карточку товара на 10 минут для анонимов
 def product_detail(request, slug):
-    product = get_object_or_404(Product, slug=slug)
+    # Optimize query with select_related for category and prefetch_related for images
+    product = get_object_or_404(
+        Product.objects.select_related('category').prefetch_related('images'),
+        slug=slug
+    )
     images = product.images.all()
     # Варианты цветов с изображениями (если есть приложение и данные)
     color_variants = get_detailed_color_variants(product)
@@ -949,11 +953,11 @@ def debug_product_images(request):
     
     return JsonResponse({'products': debug_info})
 
-@csrf_exempt
 @require_POST
 def add_to_cart(request):
     """
     Добавляет товар в корзину (сессия) с учётом размера и цвета, возвращает JSON с количеством и суммой.
+    CSRF protection enabled for security.
     """
     pid = request.POST.get('product_id')
     size = ((request.POST.get('size') or '').strip() or 'S').upper()
@@ -1319,12 +1323,11 @@ def process_guest_order(request):
     
     return redirect('my_orders')
 
-@csrf_exempt
 @require_POST
 def cart_remove(request):
     """
     Удаление позиции: поддерживает key="productId:size" и (product_id + size).
-    Печатает отладочную информацию в консоль.
+    CSRF protection enabled for security.
     """
     cart = request.session.get('cart', {})
 
