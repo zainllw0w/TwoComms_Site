@@ -1,16 +1,12 @@
 // Глобальная функция для сброса Telegram (должна быть доступна для onclick)
 window.resetDropshipperTelegram = function() {
-  console.log('🔴 resetDropshipperTelegram called from dropshipper.js');
   
   if (!confirm('Ви впевнені, що хочете відв\'язати Telegram? Вам потрібно буде прив\'язати його заново.')) {
-    console.log('🔴 User cancelled');
     return;
   }
   
   const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-  console.log('🔵 CSRF token:', csrfToken ? 'found' : 'NOT FOUND');
   
-  console.log('🟡 Sending POST to /accounts/telegram/unlink/');
   
   fetch('/accounts/telegram/unlink/', {
     method: 'POST',
@@ -21,20 +17,15 @@ window.resetDropshipperTelegram = function() {
     credentials: 'same-origin'
   })
   .then(response => {
-    console.log('🟢 Response status:', response.status);
     return response.json();
   })
   .then(data => {
-    console.log('🟣 Response data:', data);
     
     if (data.success) {
-      console.log('✅ SUCCESS! Updating UI...');
       
       const buttonContainer = document.querySelector('.telegram-button-container');
-      console.log('🔵 Button container found:', !!buttonContainer);
       
       if (buttonContainer) {
-        console.log('🟡 Replacing buttons...');
         
         buttonContainer.innerHTML = `
           <button type="button" class="ds-btn telegram-confirm-btn" onclick="confirmDropshipperTelegram()" style="
@@ -60,21 +51,17 @@ window.resetDropshipperTelegram = function() {
           </button>
         `;
         
-        console.log('🟢 UI updated successfully');
       }
       alert('✅ Telegram відв\'язано! Тепер ви можете прив\'язати новий акаунт.');
     } else {
-      console.log('❌ SUCCESS = FALSE:', data);
       alert('❌ Помилка при відв\'язуванні Telegram: ' + (data.error || 'Невідома помилка'));
     }
   })
   .catch(error => {
-    console.error('❌ FETCH ERROR:', error);
     alert('❌ Помилка при відв\'язуванні Telegram');
   });
 };
 
-console.log('✅ dropshipper.js loaded, window.resetDropshipperTelegram defined:', typeof window.resetDropshipperTelegram);
 
 // Глобальная функция для подтверждения Telegram дропшипера
 window.confirmDropshipperTelegram = function() {
@@ -130,7 +117,6 @@ function checkDropshipperTelegramStatus() {
     }
   })
   .catch(error => {
-    console.error('Error checking Telegram status:', error);
   });
 }
 
@@ -252,7 +238,6 @@ if (!document.getElementById('dropshipper-spinner-styles')) {
   document.head.appendChild(spinnerStyle);
 }
 
-console.log('✅ window.confirmDropshipperTelegram defined:', typeof window.confirmDropshipperTelegram);
 
 (() => {
   document.addEventListener('DOMContentLoaded', () => {
@@ -400,7 +385,6 @@ console.log('✅ window.confirmDropshipperTelegram defined:', typeof window.conf
           document.dispatchEvent(new CustomEvent('ds:tabloaded', { detail: { target } }));
         })
         .catch((error) => {
-          console.error('Не вдалося завантажити дані вкладки:', error);
           panel.innerHTML = `
             <div class="ds-panel-error">
               <p>Не вдалося завантажити дані. Спробуйте ще раз.</p>
@@ -569,7 +553,6 @@ console.log('✅ window.confirmDropshipperTelegram defined:', typeof window.conf
             })
             .catch((error) => {
               if (error.message !== 'validation') {
-                console.error(error);
                 showToast('Не вдалося зберегти дані компанії', 'error');
               }
             })
@@ -640,7 +623,6 @@ console.log('✅ window.confirmDropshipperTelegram defined:', typeof window.conf
             }
           }
         } catch (error) {
-          console.error('Error loading profile data:', error);
         }
         
         const parentPanel = trigger.closest('[data-tab-panel]');
@@ -713,7 +695,6 @@ console.log('✅ window.confirmDropshipperTelegram defined:', typeof window.conf
             }));
           })
           .catch((error) => {
-            console.error(error);
             showToast(error.message || 'Не вдалося створити запит на виплату', 'error');
           })
           .finally(() => {
