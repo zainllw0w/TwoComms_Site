@@ -2,7 +2,7 @@
 Система A/B тестирования для оптимизации конверсии
 """
 import hashlib
-from twocomms.cache_utils import get_cache
+from cache_utils import get_cache
 
 class ABTestManager:
     """
