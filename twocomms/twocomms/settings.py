@@ -463,9 +463,27 @@ else:
         }
     }
 
-# Сессии через cached_db (кэш поверх БД)
+# ============================================================================
+# SESSION CONFIGURATION (E-COMMERCE BEST PRACTICES)
+# ============================================================================
+
+# Session backend (cached_db для производительности и персистентности)
 SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
 SESSION_CACHE_ALIAS = 'default'
+
+# Session cookie lifetime (30 дней для удобства пользователей)
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 дней
+
+# Session security settings
+SESSION_COOKIE_HTTPONLY = True  # Защита от XSS атак (cookie недоступен для JavaScript)
+SESSION_COOKIE_SAMESITE = 'Lax'  # Защита от CSRF атак (cookie не отправляется с других сайтов)
+SESSION_COOKIE_SECURE = not DEBUG  # HTTPS только в продакшене
+
+# Session serializer (JSON для безопасности)
+SESSION_SERIALIZER = 'django.contrib.sessions.serializers.JSONSerializer'
+
+# Session save optimization (не сохранять на каждый запрос, только при изменениях)
+SESSION_SAVE_EVERY_REQUEST = False
 
 # Кэширование шаблонов (только для продакшена)
 if not DEBUG:
@@ -550,14 +568,12 @@ if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
     SECURE_REDIRECT_EXEMPT = []  # Принудительный редирект для всех URL
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
+    # SESSION_COOKIE_SECURE и CSRF_COOKIE_SECURE настроены выше и ниже адаптивно (not DEBUG)
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
-# Настройки сессий (адаптивные для локальной разработки и продакшена)
-SESSION_COOKIE_SECURE = not DEBUG   # HTTPS только в продакшене
+# CSRF cookie security (адаптивная для локальной разработки и продакшена)
 CSRF_COOKIE_SECURE = not DEBUG      # HTTPS только в продакшене
 
 # CSRF настройки
