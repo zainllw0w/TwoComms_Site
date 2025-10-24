@@ -310,6 +310,173 @@ def _color_label_from_variant(color_variant):
     return None
 
 
+# ==================== MONOBANK HELPER FUNCTIONS ====================
+
+# Константы статусов Monobank
+MONOBANK_SUCCESS_STATUSES = {'success', 'hold'}
+MONOBANK_PENDING_STATUSES = {'processing'}
+MONOBANK_FAILURE_STATUSES = {
+    'failure', 'expired', 'rejected', 'canceled', 'cancelled', 'reversed'
+}
+
+
+def _record_monobank_status(order, payload, source='api'):
+    """
+    Записывает статус платежа Monobank в заказ.
+    ВОССТАНОВЛЕНА РАБОЧАЯ ЛОГИКА из старого views.py
+    
+    Args:
+        order: Объект заказа
+        payload: Данные от Monobank API
+        source: Источник данных ('api' или 'webhook')
+    """
+    from django.utils import timezone
+    
+    if not payload:
+        return
+
+    status = payload.get('status')
+    payment_payload = order.payment_payload or {}
+    history = payment_payload.get('history', [])
+    history.append({
+        'status': status,
+        'data': payload,
+        'source': source,
+        'received_at': timezone.now().isoformat()
+    })
+    payment_payload['history'] = history[-20:]
+    payment_payload['last_status'] = status
+    payment_payload['last_update_source'] = source
+    payment_payload['last_update_at'] = timezone.now().isoformat()
+    order.payment_payload = payment_payload
+
+    update_fields = ['payment_payload']
+
+    if status in MONOBANK_SUCCESS_STATUSES:
+        previous_status = order.payment_status
+        order.payment_status = 'paid'
+        update_fields.append('payment_status')
+        try:
+            order.save(update_fields=update_fields)
+        except Exception:
+            order.save()
+        if previous_status != 'paid':
+            try:
+                from orders.telegram_notifications import TelegramNotifier
+                notifier = TelegramNotifier()
+                notifier.send_new_order_notification(order)
+            except Exception:
+                monobank_logger.exception('Failed to send Telegram notification for paid order %s', order.id)
+        return
+
+    if status in MONOBANK_PENDING_STATUSES:
+        order.payment_status = 'checking'
+        update_fields.append('payment_status')
+    elif status in MONOBANK_FAILURE_STATUSES:
+        order.payment_status = 'unpaid'
+        update_fields.append('payment_status')
+
+    try:
+        order.save(update_fields=update_fields)
+    except Exception:
+        order.save()
+
+
+def _verify_monobank_signature(request):
+    """
+    Проверяет подпись Monobank webhook запроса.
+    ВОССТАНОВЛЕНА РАБОЧАЯ ЛОГИКА из старого views.py
+    
+    Args:
+        request: HTTP request с заголовком X-Sign
+        
+    Returns:
+        bool: True если подпись валидна, False иначе
+    """
+    import base64
+    from django.core.cache import cache
+    from django.conf import settings
+    
+    try:
+        signature = request.headers.get('X-Sign')
+        if not signature:
+            monobank_logger.warning('Missing X-Sign header in Monobank webhook')
+            return False
+        
+        # Получаем публичный ключ из кеша или API
+        MONOBANK_PUBLIC_KEY_CACHE_KEY = 'monobank_public_key'
+        cached_key = cache.get(MONOBANK_PUBLIC_KEY_CACHE_KEY)
+        
+        if not cached_key:
+            # Запрашиваем у API
+            import requests
+            response = requests.get(
+                'https://api.monobank.ua/api/merchant/pubkey',
+                headers={'X-Token': settings.MONOBANK_TOKEN},
+                timeout=10
+            )
+            response.raise_for_status()
+            cached_key = response.json().get('key')
+            
+            if cached_key:
+                cache.set(MONOBANK_PUBLIC_KEY_CACHE_KEY, cached_key, 3600)
+        
+        if not cached_key:
+            monobank_logger.error('Failed to get Monobank public key for verification')
+            return False
+        
+        # Получаем тело запроса
+        body = request.body
+        
+        # Проверяем подпись
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import padding
+        from cryptography.hazmat.backends import default_backend
+        
+        # Загружаем публичный ключ
+        public_key = serialization.load_pem_public_key(
+            cached_key.encode(),
+            backend=default_backend()
+        )
+        
+        # Декодируем подпись из base64
+        signature_bytes = base64.b64decode(signature)
+        
+        # Проверяем
+        try:
+            public_key.verify(
+                signature_bytes,
+                body,
+                padding.PKCS1v15(),
+                hashes.SHA256()
+            )
+            return True
+        except Exception as verify_error:
+            monobank_logger.warning(f'Monobank signature verification failed: {verify_error}')
+            return False
+            
+    except Exception as e:
+        monobank_logger.error(f'Error verifying Monobank signature: {e}', exc_info=True)
+        return False
+
+
+def _update_order_from_checkout_result(order, result, source='api'):
+    """
+    Обновляет заказ из результата Monobank checkout.
+    
+    Args:
+        order: Объект заказа
+        result: Результат от Monobank checkout API
+        source: Источник данных ('api' или 'webhook')
+    """
+    # Преобразуем result в формат payload для _record_monobank_status
+    payload = {
+        'status': result.get('status', 'unknown'),
+        'result': result
+    }
+    _record_monobank_status(order, payload, source=source)
+
+
 
 
 
