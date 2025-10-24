@@ -58,7 +58,9 @@ def checkout(request):
             product_id = item_data.get('product_id')
             product = Product.objects.get(id=product_id)
             
-            price = Decimal(str(item_data.get('price', product.final_price)))
+            # ВАЖНО: Цена ВСЕГДА из Product.final_price (актуальная)
+            # НЕ используем item_data.get('price') - может быть устаревшей!
+            price = product.final_price
             qty = int(item_data.get('qty', 1))
             line_total = price * qty
             
