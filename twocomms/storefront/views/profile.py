@@ -178,7 +178,7 @@ def profile_setup(request):
         }
         form = ProfileSetupForm(initial=initial)
     
-    return render(request, 'pages/profile_setup.html', {'form': form})
+    return render(request, 'pages/auth_profile_setup.html', {'form': form})
 
 
 @login_required

@@ -47,7 +47,7 @@ def checkout(request):
     cart = get_cart_from_session(request)
     
     if not cart:
-        return redirect('view_cart')
+        return redirect('cart')
     
     # Подготавливаем данные товаров
     cart_items = []
