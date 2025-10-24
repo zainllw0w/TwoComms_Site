@@ -34,18 +34,17 @@ class UserProfile(models.Model):
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
+    """
+    Create UserProfile and UserPoints for new users.
+    Consolidated signal handler to avoid multiple post_save handlers.
+    """
     if created:
         UserProfile.objects.create(user=instance)
-
-@receiver(post_save, sender=User)
-def save_user_profile(sender, instance, **kwargs):
-    instance.userprofile.save()
-
-@receiver(post_save, sender=User)
-def create_user_points(sender, instance, created, **kwargs):
-    """Автоматически создает объект UserPoints для нового пользователя"""
-    if created:
         UserPoints.objects.get_or_create(user=instance)
+    else:
+        # Only save profile if it exists (avoid creating on every save)
+        if hasattr(instance, 'userprofile'):
+            instance.userprofile.save()
 
 class UserPoints(models.Model):
     """Модель для хранения баллов пользователей"""
