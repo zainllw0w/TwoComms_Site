@@ -27,6 +27,7 @@ class TestProductViewSet(viewsets.ViewSet):
     Минимальная реализация без пагинации и сериализаторов.
     """
     permission_classes = [AllowAny]
+    queryset = Product.objects.all()  # Требуется для DefaultRouter
     
     def list(self, request):
         """Простой список товаров без всяких наворотов."""
