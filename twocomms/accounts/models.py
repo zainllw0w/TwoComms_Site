@@ -33,19 +33,21 @@ class UserProfile(models.Model):
         return f'Profile for {self.user.username}'
 
 @receiver(post_save, sender=User)
-def create_user_profile(sender, instance, created, **kwargs):
+def create_user_profile_and_points(sender, instance, created, **kwargs):
+    """
+    Автоматически создает UserProfile и UserPoints для нового пользователя.
+    Объединено в один сигнал для оптимизации.
+    """
     if created:
         UserProfile.objects.create(user=instance)
-
-@receiver(post_save, sender=User)
-def save_user_profile(sender, instance, **kwargs):
-    instance.userprofile.save()
-
-@receiver(post_save, sender=User)
-def create_user_points(sender, instance, created, **kwargs):
-    """Автоматически создает объект UserPoints для нового пользователя"""
-    if created:
         UserPoints.objects.get_or_create(user=instance)
+    else:
+        # Сохраняем профиль при обновлении пользователя
+        try:
+            instance.userprofile.save()
+        except UserProfile.DoesNotExist:
+            # Если профиль не существует, создаем его
+            UserProfile.objects.create(user=instance)
 
 class UserPoints(models.Model):
     """Модель для хранения баллов пользователей"""

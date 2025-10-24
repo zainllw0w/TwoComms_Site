@@ -9,7 +9,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, AllowAny
-from django.db.models import Q
+from django.db.models import Q, Count
 
 from .models import Product, Category
 from .serializers import (
@@ -37,11 +37,20 @@ class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
         - retrieve: GET /api/categories/{id}/ - детали категории
     
     Permissions: Read-only для всех пользователей
+    Performance: Использует annotate для products_count чтобы избежать N+1 queries
     """
-    queryset = Category.objects.all().order_by('name')
     serializer_class = CategorySerializer
     permission_classes = [AllowAny]
     lookup_field = 'slug'
+    
+    def get_queryset(self):
+        """
+        Возвращает queryset категорий с оптимизацией.
+        Добавляет annotate для подсчета товаров без N+1 проблем.
+        """
+        return Category.objects.annotate(
+            products_count_annotated=Count('products')
+        ).order_by('name')
 
 
 class ProductViewSet(viewsets.ReadOnlyModelViewSet):

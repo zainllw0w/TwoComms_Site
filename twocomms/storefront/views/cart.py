@@ -13,7 +13,7 @@ Cart views - Корзина покупок.
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 import logging
 
 from ..models import Product, PromoCode
@@ -28,10 +28,7 @@ from .utils import (
 cart_logger = logging.getLogger('storefront.cart')
 monobank_logger = logging.getLogger('storefront.monobank')
 
-# Константы статусов Monobank
-MONOBANK_SUCCESS_STATUSES = {'success', 'hold'}
-MONOBANK_PENDING_STATUSES = {'processing'}
-MONOBANK_FAILURE_STATUSES = {'failure', 'expired', 'rejected', 'canceled', 'cancelled', 'reversed'}
+# Note: Monobank status constants moved to checkout.py where they're actually used
 
 
 # ==================== CART VIEWS ====================
