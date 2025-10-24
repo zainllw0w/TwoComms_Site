@@ -29,6 +29,13 @@ class UserProfile(models.Model):
     payment_method = models.CharField(max_length=20, choices=[('card', 'На картку'), ('iban', 'IBAN')], default='card', verbose_name='Спосіб виплати')
     payment_details = models.TextField(blank=True, verbose_name='Реквізити для виплат')
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['telegram_id'], name='idx_userprofile_telegram'),
+            models.Index(fields=['phone'], name='idx_userprofile_phone'),
+            models.Index(fields=['user', 'is_ubd'], name='idx_userprofile_user_ubd'),
+        ]
+
     def __str__(self):
         return f'Profile for {self.user.username}'
 
