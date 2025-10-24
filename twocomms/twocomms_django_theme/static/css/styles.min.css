@@ -1343,7 +1343,7 @@ body::after {
 .user-panel {
   position: absolute;
   top: calc(100% + 8px);
-  right: 0;
+  right: 10px; /* Сдвиг влево для лучшего позиционирования */
   width: 380px !important;
   max-width: calc(100vw - 20px) !important;
   min-width: 320px !important;
@@ -8881,7 +8881,7 @@ body::after {
 .cart-panel {
   position: absolute;
   top: calc(100% + 8px);
-  right: 0;
+  right: 10px; /* Сдвиг влево для лучшего позиционирования */
   width: 380px;
   max-width: calc(100vw - 40px);
   background: linear-gradient(135deg, rgba(20,22,27,0.98), rgba(10,12,17,0.95));
