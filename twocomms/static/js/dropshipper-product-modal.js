@@ -38,8 +38,6 @@
    * По образцу openSendModal() из wholesale
    */
   window.openAddProductModal = function(productId) {
-    console.log('🎯 Открываем модальное окно для товара:', productId);
-    
     // Удаляем старое модальное окно если есть
     const oldPopup = document.getElementById('dsProductPopup');
     const oldBackdrop = document.getElementById('dsProductPopupBackdrop');
@@ -645,16 +643,14 @@
     // автоматически центрирует окно относительно viewport
     setTimeout(() => {
       popup.style.opacity = '1';
-      console.log('✅ Модальное окно показано');
-    }, 10);
+      }, 10);
     
     // ===== ШАГ 8: ЗАГРУЗКА ДАННЫХ ТОВАРА =====
     loadProductData(productId, popup);
     
     // position: fixed автоматически следует за viewport, дополнительная логика не нужна
     
-    console.log('✅ Модальное окно создано и отображено');
-  };
+    };
   
   /**
    * Обработка изменения способа оплаты (3 варианта)
@@ -763,8 +759,6 @@
    * По образцу closeSendPopup() из wholesale
    */
   window.closeDsProductPopup = function() {
-    console.log('❌ Закрываем модальное окно');
-    
     const popup = document.getElementById('dsProductPopup');
     const backdrop = document.getElementById('dsProductPopupBackdrop');
     
@@ -802,16 +796,13 @@
     // Сбрасываем текущий товар
     currentProduct = null;
     
-    console.log('✅ Модальное окно закрыто');
-  };
+    };
   
   /**
    * Загрузить данные товара с сервера
    */
   async function loadProductData(productId, popup) {
     try {
-      console.log('📡 Загружаем данные товара:', productId);
-      
       const response = await fetch(`/orders/dropshipper/api/product/${productId}/`, {
         headers: {
           'X-Requested-With': 'XMLHttpRequest',
@@ -827,8 +818,6 @@
       if (!data.success) {
         throw new Error(data.message || 'Помилка завантаження товару');
       }
-      
-      console.log('✅ Товар загружен:', data.product);
       
       // Сохраняем данные товара
       currentProduct = data.product;
@@ -981,8 +970,6 @@
         payment_method: paymentMethod ? paymentMethod.value : 'cod',
       };
       
-      console.log('📦 Отправляем данные:', formData);
-      
       // Блокируем кнопку
       const submitBtn = popup.querySelector('#dsProductSubmitBtn');
       const originalBtnHTML = submitBtn.innerHTML;
@@ -1006,8 +993,6 @@
         if (!data.success) {
           throw new Error(data.message || 'Не вдалося додати товар');
         }
-        
-        console.log('✅ Заказ создан:', data);
         
         // Показываем сообщение в зависимости от способа оплаты
         if (data.requires_payment) {
@@ -1080,8 +1065,7 @@
       badge.style.transform = 'scale(1)';
     }, 200);
     
-    console.log('✅ Счетчик заказов обновлен:', newCount);
-  }
+    }
   
   /**
    * Показать уведомление
@@ -1124,8 +1108,6 @@
    * Красивый, плавный, без перезагрузки страницы
    */
   window.openImageLightbox = function(imageSrc, imageAlt) {
-    console.log('🖼️ Открываем lightbox для изображения');
-    
     // Удаляем старый lightbox если есть
     const oldLightbox = document.getElementById('dsImageLightbox');
     if (oldLightbox) oldLightbox.remove();
@@ -1290,9 +1272,8 @@
       imageContainer.style.transform = 'scale(1)';
     }, 10);
     
-    console.log('✅ Lightbox открыт');
-  };
+    };
   
-  console.log('✅ Модуль модального окна дропшиппера инициализирован (динамическое создание)');
+  ');
   
 })();
