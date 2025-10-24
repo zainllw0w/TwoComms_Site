@@ -125,7 +125,11 @@ def calculate_cart_total(cart):
     for item in cart.values():
         product = products.get(item['product_id'])
         if product:
+<<<<<<< HEAD
             qty = int(item.get("qty", 0))
+=======
+            qty = int(item.get('qty', 0))
+>>>>>>> chore-page-audit-oUIHu
             total += product.final_price * qty
     
     return total
