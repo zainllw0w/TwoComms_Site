@@ -25,12 +25,12 @@ class CategorySerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Category
-        fields = ['id', 'name', 'slug', 'is_active', 'products_count']
+        fields = ['id', 'name', 'slug', 'products_count']
         read_only_fields = ['id', 'slug']
     
     def get_products_count(self, obj):
-        """Возвращает количество активных товаров в категории."""
-        return obj.products.filter(is_active=True).count()
+        """Возвращает количество товаров в категории."""
+        return obj.products.count()
 
 
 class ProductColorSerializer(serializers.ModelSerializer):
@@ -70,18 +70,18 @@ class ProductListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            'id', 'title', 'slug', 'retail_price', 'image',
-            'category', 'is_active', 'in_stock'
+            'id', 'title', 'slug', 'price', 'image',
+            'category', 'featured'
         ]
         read_only_fields = ['id', 'slug']
     
     def get_image(self, obj):
         """Возвращает URL главного изображения."""
-        if obj.image:
+        if obj.main_image:
             request = self.context.get('request')
             if request:
-                return request.build_absolute_uri(obj.image.url)
-            return obj.image.url
+                return request.build_absolute_uri(obj.main_image.url)
+            return obj.main_image.url
         return None
 
 
@@ -113,19 +113,19 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             'id', 'title', 'slug', 'description',
-            'retail_price', 'wholesale_price', 'drop_price',
-            'image', 'category', 'is_active', 'in_stock',
+            'price', 'wholesale_price', 'drop_price',
+            'image', 'category', 'featured',
             'colors', 'points_reward'
         ]
         read_only_fields = ['id', 'slug']
     
     def get_image(self, obj):
         """Возвращает URL главного изображения."""
-        if obj.image:
+        if obj.main_image:
             request = self.context.get('request')
             if request:
-                return request.build_absolute_uri(obj.image.url)
-            return obj.image.url
+                return request.build_absolute_uri(obj.main_image.url)
+            return obj.main_image.url
         return None
 
 
@@ -146,8 +146,8 @@ class CartItemSerializer(serializers.Serializer):
     
     def validate_product_id(self, value):
         """Проверяет существование товара."""
-        if not Product.objects.filter(id=value, is_active=True).exists():
-            raise serializers.ValidationError("Товар не найден или неактивен")
+        if not Product.objects.filter(id=value).exists():
+            raise serializers.ValidationError("Товар не найден")
         return value
 
 
