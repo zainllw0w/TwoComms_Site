@@ -1,13 +1,52 @@
+# Django imports
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db import transaction
 from django.db.models import Sum, F, ExpressionWrapper, FloatField, IntegerField
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse, FileResponse, Http404
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.cache import cache_page
 from django.urls import reverse
-from functools import wraps
 from django.core.paginator import Paginator, EmptyPage
+from django.core.cache import cache
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
+from django.utils.text import slugify
+from django.utils import timezone
+from django.conf import settings
+from django import forms
+
+# Python standard library
+import os
+import json
+import logging
+import copy
+import re
+import base64
+import time
+from datetime import timedelta
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
+from functools import wraps
+from urllib.parse import urljoin
+
+# Third-party imports
+import requests
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.exceptions import InvalidSignature
+
+# Local imports
+from .models import Product, Category, ProductImage, PromoCode, PrintProposal
+from .forms import ProductForm, CategoryForm, PrintProposalForm
+from accounts.models import UserProfile, FavoriteProduct
+from cache_utils import get_fragment_cache
+from .services.catalog_helpers import (
+    build_color_preview_map,
+    get_categories_cached,
+    get_detailed_color_variants,
+)
+
 
 def cache_page_for_anon(timeout):
     """Кэширует только для анонимных пользователей (избегаем проблем с персональными данными)."""
@@ -19,39 +58,6 @@ def cache_page_for_anon(timeout):
             return cache_page(timeout)(view_func)(request, *args, **kwargs)
         return _wrapped_view
     return decorator
-from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
-from .models import Product, Category, ProductImage, PromoCode, PrintProposal
-from .forms import ProductForm, CategoryForm, PrintProposalForm
-from accounts.models import UserProfile, FavoriteProduct
-from django import forms
-from django.conf import settings
-from django.http import HttpResponse, FileResponse, Http404
-from django.utils.text import slugify
-from django.core.cache import cache
-import os
-import json
-import logging
-import copy
-import re
-import base64
-import time
-from datetime import timedelta
-from cache_utils import get_fragment_cache
-from .services.catalog_helpers import (
-    build_color_preview_map,
-    get_categories_cached,
-    get_detailed_color_variants,
-)
-
-from urllib.parse import urljoin
-import requests
-from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
-from django.utils import timezone
-from cryptography.hazmat.primitives import serialization, hashes
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.exceptions import InvalidSignature
 
 HOME_PRODUCTS_PER_PAGE = 8
 
@@ -122,10 +128,9 @@ class ProfileSetupForm(forms.Form):
 # Старая функция logout_view удалена - используется новая ниже
 
 
-from django import forms
-
 # --------- AUTH FORMS (минимум, чтобы не плодить новый файл) ---------
-class RegisterForm(forms.Form):
+# Note: RegisterForm is already defined above. This is a duplicate definition.
+class RegisterFormDuplicate(forms.Form):
     username = forms.CharField(label="Логін", max_length=150,
                                widget=forms.TextInput(attrs={"class":"form-control bg-elevate"}))
     password1 = forms.CharField(label="Пароль",
