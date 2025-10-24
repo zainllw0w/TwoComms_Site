@@ -58,9 +58,14 @@ def checkout(request):
             product_id = item_data.get('product_id')
             product = Product.objects.get(id=product_id)
             
-            price = Decimal(str(item_data.get('price', product.final_price)))
+            # ИСПРАВЛЕНО: Цена всегда из Product (актуальная цена, не храним в сессии)
+            price = product.final_price
             qty = int(item_data.get('qty', 1))
             line_total = price * qty
+            
+            # Получаем color_variant вместо обычного color
+            from .utils import _get_color_variant_safe
+            color_variant = _get_color_variant_safe(item_data.get('color_variant_id'))
             
             cart_items.append({
                 'key': item_key,
@@ -69,7 +74,7 @@ def checkout(request):
                 'qty': qty,
                 'line_total': line_total,
                 'size': item_data.get('size', ''),
-                'color': item_data.get('color', '')
+                'color_variant': color_variant,
             })
             
             subtotal += line_total
@@ -119,6 +124,7 @@ def checkout(request):
 def create_order(request):
     """
     Создание заказа из корзины.
+    ВОССТАНОВЛЕНА РАБОЧАЯ ЛОГИКА из старого views.py (order_create)
     
     POST params:
         full_name: ФИО
@@ -129,18 +135,156 @@ def create_order(request):
         payment_method: Способ оплаты (card/cash)
         
     Returns:
-        JsonResponse или redirect: success, order_number
+        redirect: Редирект на страницу успеха или корзину с ошибкой
     """
-    # TODO: Полная реализация создания заказа
-    # Временно импортируем из старого views.py
-    from storefront import views as old_views
-    if hasattr(old_views, 'create_order'):
-        return old_views.create_order(request)
+    from django.contrib import messages
+    from django.utils import timezone
+    from datetime import timedelta
+    from .utils import _reset_monobank_session, _get_color_variant_safe
     
-    return JsonResponse({
-        'success': False,
-        'error': 'Not implemented yet'
-    }, status=501)
+    # Требуем заполненный профиль доставки
+    try:
+        prof = request.user.userprofile
+    except UserProfile.DoesNotExist:
+        messages.error(request, 'Будь ласка, заповніть профіль доставки!')
+        return redirect('profile_setup')
+    
+    # Получаем данные из формы или из профиля
+    if request.method == 'POST':
+        # Используем данные из формы
+        full_name = request.POST.get('full_name', '').strip()
+        phone = request.POST.get('phone', '').strip()
+        city = request.POST.get('city', '').strip()
+        np_office = request.POST.get('np_office', '').strip()
+        pay_type = request.POST.get('pay_type', '')
+        
+        # Валидация данных из формы
+        if not full_name or len(full_name) < 3:
+            messages.error(request, 'ПІБ повинно містити мінімум 3 символи!')
+            return redirect('cart')
+        
+        if not phone or len(phone.strip()) < 10:
+            messages.error(request, 'Введіть коректний номер телефону!')
+            return redirect('cart')
+        
+        if not city or len(city.strip()) < 2:
+            messages.error(request, 'Введіть назву міста!')
+            return redirect('cart')
+        
+        if not np_office or len(np_office.strip()) < 1:
+            messages.error(request, 'Введіть адресу відділення!')
+            return redirect('cart')
+        
+        if not pay_type:
+            messages.error(request, 'Оберіть тип оплати!')
+            return redirect('cart')
+        
+        # Обновляем профиль пользователя данными из формы
+        prof.full_name = full_name
+        prof.phone = phone
+        prof.city = city
+        prof.np_office = np_office
+        prof.pay_type = pay_type
+        prof.save()
+
+    # Корзина должна быть не пустой
+    cart = request.session.get('cart') or {}
+    if not cart:
+        messages.error(request, 'Кошик порожній!')
+        return redirect('cart')
+
+    # Защита от дублирования заказов
+    recent_orders = Order.objects.select_related('user').filter(
+        user=request.user,
+        created__gte=timezone.now() - timedelta(minutes=5)
+    )
+    
+    if recent_orders.exists():
+        messages.error(request, 'Замовлення вже було створено нещодавно. Спробуйте ще раз через кілька хвилин.')
+        return redirect('cart')
+
+    # Пересчёт total и создание заказа в одной транзакции
+    ids = [i['product_id'] for i in cart.values()]
+    prods = Product.objects.in_bulk(ids)
+    total_sum = Decimal('0')
+    
+    # Создаем заказ
+    order = Order.objects.create(
+        user=request.user,
+        full_name=prof.full_name or request.user.username,
+        phone=prof.phone,
+        city=prof.city,
+        np_office=prof.np_office,
+        pay_type=prof.pay_type,
+        total_sum=0,
+        status='new'
+    )
+    
+    # Создаем все товары заказа
+    order_items = []
+    for key, it in cart.items():
+        p = prods.get(it['product_id'])
+        if not p:
+            continue
+        
+        # Получаем информацию о цвете
+        color_variant = _get_color_variant_safe(it.get('color_variant_id'))
+        
+        unit = p.final_price
+        line = unit * it['qty']
+        total_sum += line
+        
+        # Создаем OrderItem
+        order_item = OrderItem(
+            order=order,
+            product=p,
+            color_variant=color_variant,
+            title=p.title,
+            size=it.get('size', ''),
+            qty=it['qty'],
+            unit_price=unit,
+            line_total=line
+        )
+        order_items.append(order_item)
+    
+    # Создаем все товары одним запросом
+    OrderItem.objects.bulk_create(order_items)
+    
+    # Применяем промокод если есть
+    promo_code_id = request.session.get('promo_code_id')
+    if promo_code_id:
+        try:
+            promo = PromoCode.objects.get(id=promo_code_id, is_active=True)
+            if promo.can_be_used():
+                discount = promo.calculate_discount(total_sum)
+                order.discount_amount = discount
+                order.promo_code = promo
+                promo.use()  # Увеличиваем счетчик использований
+        except PromoCode.DoesNotExist:
+            pass
+    
+    # Обновляем общую сумму заказа
+    order.total_sum = total_sum
+    order.save()
+
+    # Очищаем корзину и промокод
+    _reset_monobank_session(request, drop_pending=True)
+    request.session['cart'] = {}
+    request.session.pop('promo_code_id', None)
+    request.session.modified = True
+
+    # Отправляем Telegram уведомление после создания заказа и товаров
+    try:
+        from orders.telegram_notifications import TelegramNotifier
+        notifier = TelegramNotifier()
+        notifier.send_new_order_notification(order)
+    except Exception as e:
+        # Не прерываем процесс, если уведомление не отправилось
+        pass
+
+    messages.success(request, f'Замовлення #{order.order_number} успішно створено!')
+
+    return redirect('my_orders')
 
 
 def payment_method(request, order_number):
@@ -173,6 +317,7 @@ def payment_method(request, order_number):
 def monobank_webhook(request):
     """
     Webhook от Monobank для обновления статуса оплаты.
+    ВОССТАНОВЛЕНА РАБОЧАЯ ЛОГИКА из старого views.py
     
     Monobank отправляет POST запрос когда:
     - Платеж успешен
@@ -180,30 +325,63 @@ def monobank_webhook(request):
     - Платеж истек
     
     Returns:
-        HttpResponse: 200 OK
+        HttpResponse/JsonResponse: 200 OK или ошибка
     """
-    # TODO: Полная реализация webhook обработки
-    # Временно импортируем напрямую из views.py файла
-    import sys
-    import os
-    import importlib.util
+    import logging
+    import json
     
+    monobank_logger = logging.getLogger('storefront.monobank')
+    
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
     try:
-        # Явно импортируем старый views.py файл
-        views_py_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'views.py')
-        spec = importlib.util.spec_from_file_location("storefront.views_old_mono", views_py_path)
-        old_views_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(old_views_module)
-        
-        if hasattr(old_views_module, 'monobank_webhook'):
-            return old_views_module.monobank_webhook(request)
-    except Exception as e:
-        import logging
-        logger = logging.getLogger('storefront.monobank')
-        logger.error(f"Error importing old monobank_webhook: {e}", exc_info=True)
+        payload = json.loads(request.body.decode('utf-8'))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return HttpResponse(status=400)
+
+    # Legacy invoice webhook
+    invoice_id = payload.get('invoiceId')
+    if invoice_id:
+        try:
+            order = Order.objects.get(payment_invoice_id=invoice_id)
+        except Order.DoesNotExist:
+            monobank_logger.warning('Webhook received for unknown invoice %s', invoice_id)
+            return JsonResponse({'ok': True})
+
+        # Записываем статус платежа
+        from storefront.views.utils import _record_monobank_status
+        _record_monobank_status(order, payload, source='webhook')
+        return JsonResponse({'ok': True})
+
+    # Checkout order webhook requires signature validation
+    from storefront.views.utils import _verify_monobank_signature, _update_order_from_checkout_result
     
-    # Fallback - просто возвращаем 200
-    return HttpResponse(status=200)
+    if not _verify_monobank_signature(request):
+        monobank_logger.warning('Invalid or missing X-Sign for checkout webhook')
+        return HttpResponse(status=400)
+
+    result = payload.get('result') or {}
+    order_id = result.get('orderId') or result.get('order_id')
+    order_ref = result.get('orderRef') or result.get('order_ref')
+
+    order = None
+    if order_id:
+        order = Order.objects.select_related('user').filter(payment_invoice_id=order_id).first()
+    if order is None and order_ref:
+        order = Order.objects.select_related('user').filter(order_number=order_ref).first()
+
+    if order is None:
+        monobank_logger.warning('Checkout webhook received for unknown order: %s / %s', order_id, order_ref)
+        return JsonResponse({'ok': True})
+
+    try:
+        _update_order_from_checkout_result(order, result, source='webhook')
+    except Exception as exc:
+        monobank_logger.exception('Failed to process checkout webhook for order %s: %s', order.order_number, exc)
+        return HttpResponse(status=500)
+
+    return JsonResponse({'ok': True})
 
 
 def payment_callback(request):
