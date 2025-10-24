@@ -56,86 +56,90 @@ from .catalog import (
 # Товары
 from .product import (
     product_detail,
-    add_product,
-    add_category,
-    add_print,
+    get_product_images,
+    get_product_variants,
+    quick_view,
 )
 
 # Корзина
 from .cart import (
+    view_cart,
     add_to_cart,
-    cart_summary,
-    cart_mini,
-    cart_remove,
-    cart,
+    update_cart,
+    remove_from_cart,
+    clear_cart,
+    get_cart_count,
+    apply_promo_code,
     remove_promo_code,
 )
 
 # Статические страницы
 from .static_pages import (
-    uaprom_products_feed,
-    google_merchant_feed,
     robots_txt,
-    static_verification_file,
     static_sitemap,
+    google_merchant_feed,
+    uaprom_products_feed,
+    static_verification_file,
+    about,
+    contacts,
+    delivery,
+    returns,
+    privacy_policy,
+    terms_of_service,
 )
 
 # Профиль
 from .profile import (
-    profile_setup_db,
-    favorites_list,
-    favorites_count,
-    toggle_favorite,
-    profile_view,
+    profile,
     edit_profile,
-    change_password,
-    user_orders,
-    user_order_detail,
-    user_points_history,
-    cooperation_view,
+    profile_setup,
+    order_history,
+    order_detail,
+    favorites,
+    add_to_favorites,
+    remove_from_favorites,
+    points_history,
+    settings,
 )
 
 # API endpoints
 from .api import (
-    get_product_variants_api,
-    get_product_info_api,
-    get_product_price_api,
-    get_product_images_api,
-    get_category_products_api,
-    get_categories_api,
-    get_cart_items_api,
-    apply_promo_code_api,
-    get_order_status_api,
-    get_user_profile_api,
+    get_product_json,
+    get_categories_json,
+    track_event,
+    search_suggestions,
+    product_availability,
+    get_related_products,
+    newsletter_subscribe,
+    contact_form,
 )
 
 # Оформление заказа
 from .checkout import (
-    checkout_view,
+    checkout,
     create_order,
+    payment_method,
     monobank_webhook,
-    monobank_return,
-    monobank_checkout_view,
-    monobank_checkout_callback,
-    monobank_checkout_return,
-    monobank_checkout_status,
+    payment_callback,
+    order_success,
+    order_failed,
+    calculate_shipping,
 )
 
 # Админка
 from .admin import (
     admin_dashboard,
-    admin_orders,
-    admin_order_detail,
-    admin_products,
-    admin_product_edit,
-    admin_categories,
-    admin_category_edit,
-    admin_users,
-    admin_user_edit,
-    admin_promo_codes,
-    admin_promo_code_edit,
-    admin_print_proposals,
-    admin_print_proposal_detail,
+    manage_products,
+    add_product,
+    add_category,
+    add_print,
+    manage_print_proposals,
+    manage_promo_codes,
+    generate_seo_content,
+    generate_alt_texts,
+    manage_orders,
+    sales_statistics,
+    inventory_management,
 )
 
 
@@ -167,29 +171,27 @@ try:
         # catalog.py
         'home', 'load_more_products', 'catalog', 'search',
         # product.py
-        'product_detail', 'add_product', 'add_category', 'add_print',
+        'product_detail', 'get_product_images', 'get_product_variants', 'quick_view',
         # cart.py
-        'add_to_cart', 'cart_summary', 'cart_mini', 'cart_remove', 'cart', 'remove_promo_code',
+        'view_cart', 'add_to_cart', 'update_cart', 'remove_from_cart', 'clear_cart',
+        'get_cart_count', 'apply_promo_code', 'remove_promo_code',
         # static_pages.py
-        'uaprom_products_feed', 'google_merchant_feed', 'robots_txt', 
-        'static_verification_file', 'static_sitemap',
+        'robots_txt', 'static_sitemap', 'google_merchant_feed', 'uaprom_products_feed',
+        'static_verification_file', 'about', 'contacts', 'delivery', 'returns',
+        'privacy_policy', 'terms_of_service',
         # profile.py
-        'profile_setup_db', 'favorites_list', 'favorites_count', 'toggle_favorite',
-        'profile_view', 'edit_profile', 'change_password', 'user_orders',
-        'user_order_detail', 'user_points_history', 'cooperation_view',
+        'profile', 'edit_profile', 'profile_setup', 'order_history', 'order_detail',
+        'favorites', 'add_to_favorites', 'remove_from_favorites', 'points_history', 'settings',
         # api.py
-        'get_product_variants_api', 'get_product_info_api', 'get_product_price_api',
-        'get_product_images_api', 'get_category_products_api', 'get_categories_api',
-        'get_cart_items_api', 'apply_promo_code_api', 'get_order_status_api', 'get_user_profile_api',
+        'get_product_json', 'get_categories_json', 'track_event', 'search_suggestions',
+        'product_availability', 'get_related_products', 'newsletter_subscribe', 'contact_form',
         # checkout.py
-        'checkout_view', 'create_order', 'monobank_webhook', 'monobank_return',
-        'monobank_checkout_view', 'monobank_checkout_callback', 'monobank_checkout_return',
-        'monobank_checkout_status',
+        'checkout', 'create_order', 'payment_method', 'monobank_webhook', 'payment_callback',
+        'order_success', 'order_failed', 'calculate_shipping',
         # admin.py
-        'admin_dashboard', 'admin_orders', 'admin_order_detail', 'admin_products',
-        'admin_product_edit', 'admin_categories', 'admin_category_edit', 'admin_users',
-        'admin_user_edit', 'admin_promo_codes', 'admin_promo_code_edit',
-        'admin_print_proposals', 'admin_print_proposal_detail',
+        'admin_dashboard', 'manage_products', 'add_product', 'add_category', 'add_print',
+        'manage_print_proposals', 'manage_promo_codes', 'generate_seo_content',
+        'generate_alt_texts', 'manage_orders', 'sales_statistics', 'inventory_management',
         # Технические атрибуты Python
         '__name__', '__doc__', '__package__', '__loader__', '__spec__',
         '__file__', '__cached__', '__builtins__',
@@ -222,34 +224,32 @@ __all__ = [
     'home', 'load_more_products', 'catalog', 'search',
     
     # Product
-    'product_detail', 'add_product', 'add_category', 'add_print',
+    'product_detail', 'get_product_images', 'get_product_variants', 'quick_view',
     
     # Cart
-    'add_to_cart', 'cart_summary', 'cart_mini', 'cart_remove', 'cart', 'remove_promo_code',
+    'view_cart', 'add_to_cart', 'update_cart', 'remove_from_cart', 'clear_cart',
+    'get_cart_count', 'apply_promo_code', 'remove_promo_code',
     
     # Static Pages
-    'uaprom_products_feed', 'google_merchant_feed', 'robots_txt', 
-    'static_verification_file', 'static_sitemap',
+    'robots_txt', 'static_sitemap', 'google_merchant_feed', 'uaprom_products_feed',
+    'static_verification_file', 'about', 'contacts', 'delivery', 'returns',
+    'privacy_policy', 'terms_of_service',
     
     # Profile
-    'profile_setup_db', 'favorites_list', 'favorites_count', 'toggle_favorite',
-    'profile_view', 'edit_profile', 'change_password', 'user_orders',
-    'user_order_detail', 'user_points_history', 'cooperation_view',
+    'profile', 'edit_profile', 'profile_setup', 'order_history', 'order_detail',
+    'favorites', 'add_to_favorites', 'remove_from_favorites', 'points_history', 'settings',
     
     # API
-    'get_product_variants_api', 'get_product_info_api', 'get_product_price_api',
-    'get_product_images_api', 'get_category_products_api', 'get_categories_api',
-    'get_cart_items_api', 'apply_promo_code_api', 'get_order_status_api', 'get_user_profile_api',
+    'get_product_json', 'get_categories_json', 'track_event', 'search_suggestions',
+    'product_availability', 'get_related_products', 'newsletter_subscribe', 'contact_form',
     
     # Checkout
-    'checkout_view', 'create_order', 'monobank_webhook', 'monobank_return',
-    'monobank_checkout_view', 'monobank_checkout_callback', 'monobank_checkout_return',
-    'monobank_checkout_status',
+    'checkout', 'create_order', 'payment_method', 'monobank_webhook', 'payment_callback',
+    'order_success', 'order_failed', 'calculate_shipping',
     
     # Admin
-    'admin_dashboard', 'admin_orders', 'admin_order_detail', 'admin_products',
-    'admin_product_edit', 'admin_categories', 'admin_category_edit', 'admin_users',
-    'admin_user_edit', 'admin_promo_codes', 'admin_promo_code_edit',
-    'admin_print_proposals', 'admin_print_proposal_detail',
+    'admin_dashboard', 'manage_products', 'add_product', 'add_category', 'add_print',
+    'manage_print_proposals', 'manage_promo_codes', 'generate_seo_content',
+    'generate_alt_texts', 'manage_orders', 'sales_statistics', 'inventory_management',
 ]
 
