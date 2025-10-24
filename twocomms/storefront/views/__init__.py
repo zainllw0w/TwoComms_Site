@@ -98,8 +98,12 @@ from .profile import (
     order_history,
     order_detail,
     favorites,
+    favorites_list,
+    toggle_favorite,
     add_to_favorites,
     remove_from_favorites,
+    check_favorite_status,
+    favorites_count,
     points_history,
     settings,
 )
@@ -183,7 +187,9 @@ try:
         'privacy_policy', 'terms_of_service',
         # profile.py
         'profile', 'edit_profile', 'profile_setup', 'order_history', 'order_detail',
-        'favorites', 'add_to_favorites', 'remove_from_favorites', 'points_history', 'settings',
+        'favorites', 'favorites_list', 'toggle_favorite', 'add_to_favorites', 
+        'remove_from_favorites', 'check_favorite_status', 'favorites_count', 
+        'points_history', 'settings',
         # api.py
         'get_product_json', 'get_categories_json', 'track_event', 'search_suggestions',
         'product_availability', 'get_related_products', 'newsletter_subscribe', 'contact_form',
@@ -262,7 +268,9 @@ __all__ = [
     
     # Profile
     'profile', 'edit_profile', 'profile_setup', 'order_history', 'order_detail',
-    'favorites', 'add_to_favorites', 'remove_from_favorites', 'points_history', 'settings',
+    'favorites', 'favorites_list', 'toggle_favorite', 'add_to_favorites', 
+    'remove_from_favorites', 'check_favorite_status', 'favorites_count', 
+    'points_history', 'settings',
     
     # API
     'get_product_json', 'get_categories_json', 'track_event', 'search_suggestions',
