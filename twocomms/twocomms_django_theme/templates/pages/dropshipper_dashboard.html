@@ -5,7 +5,7 @@
 {% block title %}Дропшип панель — Головна • TwoComms{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/dropshipper.css' %}?v=20251023stats" media="all">
+<link rel="stylesheet" href="{% static 'css/dropshipper.css' %}?v=20251024clean" media="all">
 {% endblock %}
 
 {% block content %}
@@ -907,14 +907,6 @@
                   <span style="color: rgba(229,231,235,.75); font-size: 0.9rem;">Скасовано замовлень</span>
                 </div>
                 <span style="color: rgba(229,231,235,.9); font-weight: 700; font-size: 1.2rem;">{{ stats.cancelled_orders }}</span>
-              </div>
-
-              <div style="background: rgba(16,185,129,.12); border: 1px solid rgba(16,185,129,.25); border-radius: 14px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                  <i class="fas fa-chart-line" style="color: #10b981; font-size: 1.3rem;"></i>
-                  <span style="color: rgba(229,231,235,.85); font-size: 0.95rem;">Чистий прибуток</span>
-                </div>
-                <span style="color: #10b981; font-weight: 800; font-size: 1.4rem;">{{ stats.total_profit|floatformat:0 }} грн</span>
               </div>
             </div>
 
