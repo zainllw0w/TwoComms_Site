@@ -125,7 +125,7 @@ def calculate_cart_total(cart):
     for item in cart.values():
         product = products.get(item['product_id'])
         if product:
-        qty = int(item.get('qty', 0))
+            qty = int(item.get('qty', 0))
             total += product.final_price * qty
     
     return total
@@ -487,19 +487,3 @@ def _update_order_from_checkout_result(order, result, source='api'):
         'result': result
     }
     _record_monobank_status(order, payload, source=source)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
