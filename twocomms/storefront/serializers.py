@@ -7,7 +7,7 @@ Django REST Framework Serializers for Storefront API.
 
 from rest_framework import serializers
 from .models import Product, Category
-from productcolors.models import ProductColor
+from productcolors.models import ProductColorVariant
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -39,14 +39,14 @@ class ProductColorSerializer(serializers.ModelSerializer):
     
     Fields:
         - id: ID варианта
-        - color_name: Название цвета
-        - color_code: HEX код цвета
-        - size: Размер
-        - quantity: Количество на складе
+        - color: Объект цвета
+        - is_default: Дефолтный вариант
+        - order: Порядок сортировки
     """
     class Meta:
-        model = ProductColor
-        fields = ['id', 'color_name', 'color_code', 'size', 'quantity']
+        model = ProductColorVariant
+        fields = ['id', 'color', 'is_default', 'order']
+        depth = 1  # Включаем вложенный объект color
 
 
 class ProductListSerializer(serializers.ModelSerializer):
@@ -106,7 +106,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         - points_reward: Баллы за покупку
     """
     category = CategorySerializer(read_only=True)
-    colors = ProductColorSerializer(many=True, read_only=True, source='productcolor_set')
+    colors = ProductColorSerializer(many=True, read_only=True, source='color_variants')
     image = serializers.SerializerMethodField()
     
     class Meta:
