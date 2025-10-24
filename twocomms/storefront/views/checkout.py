@@ -270,3 +270,17 @@ def calculate_shipping(request):
         'message': 'Безкоштовна доставка'
     })
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
