@@ -73,7 +73,8 @@ def view_cart(request):
             cart_items.append({
                 'key': item_key,
                 'product': product,
-                'price': price,
+                'price': price,  # Для совместимости
+                'unit_price': price,  # Шаблон ожидает unit_price!
                 'qty': qty,
                 'line_total': line_total,
                 'size': item_data.get('size', ''),
