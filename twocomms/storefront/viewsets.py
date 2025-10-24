@@ -31,7 +31,7 @@ class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
     
     Permissions: Read-only для всех пользователей
     """
-    queryset = Category.objects.filter(is_active=True).order_by('name')
+    queryset = Category.objects.all().order_by('name')
     serializer_class = CategorySerializer
     permission_classes = [AllowAny]
     lookup_field = 'slug'
@@ -59,9 +59,7 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         
         Использует select_related для минимизации запросов к БД.
         """
-        return Product.objects.filter(
-            is_active=True
-        ).select_related('category').order_by('-id')
+        return Product.objects.all().select_related('category').order_by('-id')
     
     def get_serializer_class(self):
         """
@@ -120,13 +118,13 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         
         # Фильтр по цене
         if validated_data.get('min_price'):
-            queryset = queryset.filter(retail_price__gte=validated_data['min_price'])
+            queryset = queryset.filter(price__gte=validated_data['min_price'])
         if validated_data.get('max_price'):
-            queryset = queryset.filter(retail_price__lte=validated_data['max_price'])
+            queryset = queryset.filter(price__lte=validated_data['max_price'])
         
-        # Фильтр "только в наличии"
-        if validated_data.get('in_stock'):
-            queryset = queryset.filter(in_stock=True)
+        # Фильтр "только в наличии" - пропускаем, т.к. поле отсутствует в модели
+        # if validated_data.get('in_stock'):
+        #     queryset = queryset.filter(in_stock=True)
         
         # Пагинация
         page = self.paginate_queryset(queryset)
@@ -161,7 +159,7 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
             GET /api/products/by-category/odezhda/
         """
         try:
-            category = Category.objects.get(slug=category_slug, is_active=True)
+            category = Category.objects.get(slug=category_slug)
         except Category.DoesNotExist:
             return Response(
                 {'error': 'Категория не найдена'},
@@ -241,7 +239,7 @@ class CartViewSet(viewsets.ViewSet):
         size = validated_data.get('size', '')
         
         try:
-            product = Product.objects.get(id=product_id, is_active=True, in_stock=True)
+            product = Product.objects.get(id=product_id)
         except Product.DoesNotExist:
             return Response(
                 {'error': 'Товар не найден или недоступен'},
@@ -261,7 +259,7 @@ class CartViewSet(viewsets.ViewSet):
                 'color': color,
                 'size': size,
                 'title': product.title,
-                'price': float(product.retail_price)
+                'price': float(product.price)
             }
         
         request.session['cart'] = cart
