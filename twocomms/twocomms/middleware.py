@@ -2,9 +2,11 @@
 Дополнительные middleware для TwoComms
 """
 
-from django.http import HttpResponsePermanentRedirect
+from django.http import HttpResponsePermanentRedirect, HttpResponse
 from django.conf import settings
 from django.utils.deprecation import MiddlewareMixin
+from django.core.cache import cache
+import time
 
 
 class ForceHTTPSMiddleware(MiddlewareMixin):
@@ -68,3 +70,52 @@ class SecurityHeadersMiddleware(MiddlewareMixin):
             response["Referrer-Policy"] = referrer_policy
 
         return response
+
+
+class SimpleRateLimitMiddleware(MiddlewareMixin):
+    """
+    Simple rate limiting middleware to prevent abuse.
+    Limits requests per IP address.
+    """
+    
+    def process_request(self, request):
+        # Skip rate limiting in DEBUG mode
+        if settings.DEBUG:
+            return None
+        
+        # Get client IP
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0].strip()
+        else:
+            ip = request.META.get('REMOTE_ADDR', '')
+        
+        # Skip if no IP
+        if not ip:
+            return None
+        
+        # Rate limit: 100 requests per minute per IP
+        cache_key = f'ratelimit:ip:{ip}'
+        current_time = int(time.time())
+        window_key = f'{cache_key}:{current_time // 60}'  # 1-minute window
+        
+        try:
+            request_count = cache.get(window_key, 0)
+            
+            # Check if limit exceeded
+            if request_count >= 100:
+                response = HttpResponse(
+                    'Rate limit exceeded. Please try again later.',
+                    status=429
+                )
+                response['Retry-After'] = '60'
+                return response
+            
+            # Increment counter
+            cache.set(window_key, request_count + 1, 120)  # Store for 2 minutes
+            
+        except Exception:
+            # If cache fails, allow the request
+            pass
+        
+        return None
