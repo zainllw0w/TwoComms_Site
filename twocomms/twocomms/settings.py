@@ -55,7 +55,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', 'a_5xi!3wbf(m*j%!dn7#6r0tlhu(z(-qq&@s&kmot6v+kr#y')
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    raise ValueError(
+        "SECRET_KEY environment variable must be set. "
+        "Generate a new key with: python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'"
+    )
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = _env_bool('DEBUG', default=False)
@@ -117,6 +122,7 @@ MIDDLEWARE = [
     "twocomms.middleware.WWWRedirectMiddleware",  # Редирект с www
     "django.middleware.security.SecurityMiddleware",
     "twocomms.middleware.SecurityHeadersMiddleware",  # CSP и дополнительные заголовки
+    "twocomms.ratelimit_middleware.RateLimitMiddleware",  # Rate limiting для защиты от abuse
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "twocomms.image_middleware.ImageOptimizationMiddleware",  # Оптимизация изображений
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -407,6 +413,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
 REDIS_PORT = os.environ.get('REDIS_PORT', '6379')
 REDIS_DB = os.environ.get('REDIS_DB', '0')
+REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', '')
 
 # Для локальной разработки используем LocMemCache, для продакшена - Redis
 if DEBUG:
@@ -423,11 +430,13 @@ if DEBUG:
         }
     }
 else:
-    # Продакшен - Redis
+    # Продакшен - Redis с аутентификацией
+    # Формат URL: redis://:[password]@[host]:[port]/[db]
+    redis_url = f'redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}' if REDIS_PASSWORD else f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}'
     CACHES = {
         'default': {
             'BACKEND': 'django_redis.cache.RedisCache',
-            'LOCATION': f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}',
+            'LOCATION': redis_url,
             'OPTIONS': {
                 'CLIENT_CLASS': 'django_redis.client.DefaultClient',
                 'CONNECTION_POOL_KWARGS': {

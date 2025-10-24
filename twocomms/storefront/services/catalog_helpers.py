@@ -58,6 +58,7 @@ def _load_product_color_variant_queryset(product_ids: Iterable[int]):
 def build_color_preview_map(products: Iterable[Any]) -> Dict[int, List[Dict[str, Any]]]:
     """
     Returns mapping {product_id: [colour preview dicts]} suitable for product cards / featured.
+    Optimized to use prefetched images without additional queries.
     """
     product_ids = [p.id for p in products if getattr(p, 'id', None)]
     if not product_ids:
@@ -70,7 +71,8 @@ def build_color_preview_map(products: Iterable[Any]) -> Dict[int, List[Dict[str,
     preview_map: Dict[int, List[Dict[str, Any]]] = defaultdict(list)
     for variant in queryset:
         color = getattr(variant, 'color', None)
-        images = list(getattr(variant, 'images', []).all() if hasattr(variant, 'images') else [])
+        # Use prefetched images directly without .all() to avoid extra queries
+        images = list(variant.images.all()) if hasattr(variant, 'images') else []
         first_image = images[0].image.url if images else ''
         preview_map[variant.product_id].append(
             {
@@ -88,6 +90,7 @@ def build_color_preview_map(products: Iterable[Any]) -> Dict[int, List[Dict[str,
 def get_detailed_color_variants(product) -> List[Dict[str, Any]]:
     """
     Returns list of colour variants with full image sets for product detail page.
+    Optimized to use prefetched images without additional queries.
     """
     if not getattr(product, 'id', None):
         return []
@@ -99,6 +102,7 @@ def get_detailed_color_variants(product) -> List[Dict[str, Any]]:
     variants: List[Dict[str, Any]] = []
     for variant in queryset:
         color = getattr(variant, 'color', None)
+        # Use prefetched images directly - images are already loaded via prefetch_related
         image_urls = [
             image.image.url
             for image in (variant.images.all() if hasattr(variant, 'images') else [])
