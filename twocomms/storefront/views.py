@@ -14,7 +14,8 @@ def cache_page_for_anon(timeout):
     def decorator(view_func):
         @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
-            if request.user.is_authenticated:
+            # Check if user is authenticated (hasattr check for safety)
+            if hasattr(request, 'user') and request.user.is_authenticated:
                 return view_func(request, *args, **kwargs)
             return cache_page(timeout)(view_func)(request, *args, **kwargs)
         return _wrapped_view
