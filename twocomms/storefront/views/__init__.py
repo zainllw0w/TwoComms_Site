@@ -192,6 +192,8 @@ try:
         'admin_dashboard', 'manage_products', 'add_product', 'add_category', 'add_print',
         'manage_print_proposals', 'manage_promo_codes', 'generate_seo_content',
         'generate_alt_texts', 'manage_orders', 'sales_statistics', 'inventory_management',
+        # Aliases (чтобы не конфликтовали)
+        'cart', 'cart_remove', 'clean_cart', 'profile_setup_db', 'order_create', 'register_view_new',
         # Технические атрибуты Python
         '__name__', '__doc__', '__package__', '__loader__', '__spec__',
         '__file__', '__cached__', '__builtins__',
@@ -206,6 +208,26 @@ finally:
     # Убираем parent_dir из sys.path
     if parent_dir in sys.path:
         sys.path.remove(parent_dir)
+
+
+# ==================== АЛИАСЫ ДЛЯ ОБРАТНОЙ СОВМЕСТИМОСТИ ====================
+# Эти алиасы обеспечивают совместимость с старым views.py и storefront/urls.py
+
+# Cart aliases
+cart = view_cart  # для urls.py: views.cart
+cart_remove = remove_from_cart  # для urls.py: views.cart_remove
+clean_cart = clear_cart  # для urls.py: views.clean_cart
+
+# Profile aliases (если нужны)
+profile_setup_db = profile_setup  # для urls.py: views.profile_setup_db
+
+# Checkout aliases  
+order_create = create_order  # для urls.py: views.order_create
+
+# Admin aliases (если нужны)
+
+# Auth aliases (если нужны)
+register_view_new = register_view  # для urls.py: views.register_view_new
 
 
 # ==================== ЭКСПОРТЫ ====================
@@ -251,5 +273,8 @@ __all__ = [
     'admin_dashboard', 'manage_products', 'add_product', 'add_category', 'add_print',
     'manage_print_proposals', 'manage_promo_codes', 'generate_seo_content',
     'generate_alt_texts', 'manage_orders', 'sales_statistics', 'inventory_management',
+    
+    # Aliases (для обратной совместимости)
+    'cart', 'cart_remove', 'clean_cart', 'profile_setup_db', 'order_create', 'register_view_new',
 ]
 
