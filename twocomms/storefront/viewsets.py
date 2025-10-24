@@ -17,7 +17,14 @@ from .serializers import (
     ProductDetailSerializer,
     CategorySerializer,
     CartItemSerializer,
-    SearchQuerySerializer
+    SearchQuerySerializer,
+    # AJAX endpoints serializers
+    SearchSuggestionSerializer,
+    ProductAvailabilitySerializer,
+    RelatedProductSerializer,
+    TrackEventSerializer,
+    NewsletterSubscribeSerializer,
+    ContactFormSerializer
 )
 
 
@@ -184,6 +191,119 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
             context={'request': request}
         )
         return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'], url_path='related')
+    def related(self, request, slug=None):
+        """
+        Получить похожие товары.
+        
+        Возвращает товары из той же категории (кроме текущего).
+        
+        Args:
+            slug: URL slug товара
+        
+        Returns:
+            - 200: Список похожих товаров (до 6 штук)
+            - 404: Товар не найден
+        
+        Example:
+            GET /api/products/futbolka-classic/related/
+        """
+        product = self.get_object()
+        
+        # Ищем товары из той же категории
+        related_products = Product.objects.filter(
+            category=product.category
+        ).exclude(
+            id=product.id
+        ).select_related('category')[:6]
+        
+        serializer = RelatedProductSerializer(
+            related_products,
+            many=True,
+            context={'request': request}
+        )
+        
+        return Response({
+            'success': True,
+            'products': serializer.data,
+            'count': len(serializer.data)
+        })
+    
+    @action(detail=True, methods=['get'], url_path='availability')
+    def availability(self, request, slug=None):
+        """
+        Проверить доступность товара.
+        
+        Args:
+            slug: URL slug товара
+        
+        Returns:
+            - 200: Информация о доступности
+            - 404: Товар не найден
+        
+        Example:
+            GET /api/products/futbolka-classic/availability/
+        """
+        product = self.get_object()
+        
+        # TODO: Добавить реальную проверку наличия на складе
+        # Пока просто возвращаем True для всех товаров
+        
+        data = {
+            'available': True,
+            'in_stock': True,
+            'message': 'Товар доступний'
+        }
+        
+        serializer = ProductAvailabilitySerializer(data)
+        
+        return Response({
+            'success': True,
+            **serializer.data
+        })
+    
+    @action(detail=False, methods=['get'], url_path='suggestions')
+    def suggestions(self, request):
+        """
+        Автодополнение для поиска товаров.
+        
+        Query Parameters:
+            - q: Поисковый запрос (required, min 2 символа)
+            - limit: Количество результатов (optional, default 5, max 10)
+        
+        Returns:
+            - 200: Список предложений
+        
+        Example:
+            GET /api/products/suggestions/?q=футб&limit=5
+        """
+        query = request.query_params.get('q', '').strip()
+        limit = int(request.query_params.get('limit', 5))
+        
+        # Ограничение лимита
+        if limit > 10:
+            limit = 10
+        
+        if not query or len(query) < 2:
+            return Response({
+                'success': True,
+                'suggestions': [],
+                'count': 0
+            })
+        
+        # Ищем по началу названия (быстрее чем contains)
+        products = Product.objects.filter(
+            title__istartswith=query
+        ).values('id', 'title', 'slug')[:limit]
+        
+        serializer = SearchSuggestionSerializer(products, many=True)
+        
+        return Response({
+            'success': True,
+            'suggestions': serializer.data,
+            'count': len(serializer.data)
+        })
 
 
 class CartViewSet(viewsets.ViewSet):
@@ -342,6 +462,176 @@ class CartViewSet(viewsets.ViewSet):
                 item['quantity'] * item['price']
                 for item in cart.values()
             )
+        })
+
+
+class AnalyticsViewSet(viewsets.ViewSet):
+    """
+    ViewSet для аналитики и трекинга событий.
+    
+    Предоставляет:
+        - track: POST /api/analytics/track/ - трекинг событий
+    
+    Permissions: Доступно для всех (CSRF exempt для внешних интеграций)
+    """
+    permission_classes = [AllowAny]
+    
+    @action(detail=False, methods=['post'], url_path='track')
+    def track(self, request):
+        """
+        Трекинг событий для аналитики.
+        
+        Request Body:
+            - event_type: Тип события (view, click, add_to_cart, purchase, etc.)
+            - product_id: ID товара (optional)
+            - category_id: ID категории (optional)
+            - metadata: Дополнительные данные JSON (optional)
+        
+        Returns:
+            - 200: Событие записано
+            - 400: Ошибка валидации
+        
+        Example:
+            POST /api/analytics/track/
+            {
+                "event_type": "add_to_cart",
+                "product_id": 123,
+                "metadata": {"source": "homepage"}
+            }
+        """
+        serializer = TrackEventSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        validated_data = serializer.validated_data
+        event_type = validated_data['event_type']
+        product_id = validated_data.get('product_id')
+        category_id = validated_data.get('category_id')
+        metadata = validated_data.get('metadata', {})
+        
+        # TODO: Сохранить событие в БД или отправить в аналитику
+        # Например: Google Analytics, Mixpanel, Amplitude, etc.
+        
+        import logging
+        logger = logging.getLogger('storefront.analytics')
+        logger.info(
+            f"Event tracked: {event_type}, "
+            f"Product: {product_id}, "
+            f"Category: {category_id}, "
+            f"Metadata: {metadata}"
+        )
+        
+        return Response({
+            'success': True,
+            'message': 'Подію відстежено',
+            'event_type': event_type
+        })
+
+
+class CommunicationViewSet(viewsets.ViewSet):
+    """
+    ViewSet для коммуникации с клиентами.
+    
+    Предоставляет:
+        - newsletter: POST /api/communication/newsletter/ - подписка на рассылку
+        - contact: POST /api/communication/contact/ - форма обратной связи
+    
+    Permissions: Доступно для всех
+    """
+    permission_classes = [AllowAny]
+    
+    @action(detail=False, methods=['post'], url_path='newsletter')
+    def newsletter(self, request):
+        """
+        Подписка на email рассылку.
+        
+        Request Body:
+            - email: Email адрес подписчика
+        
+        Returns:
+            - 200: Подписка успешна
+            - 400: Ошибка валидации
+        
+        Example:
+            POST /api/communication/newsletter/
+            {
+                "email": "user@example.com"
+            }
+        """
+        serializer = NewsletterSubscribeSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        email = serializer.validated_data['email']
+        
+        # TODO: Сохранить email в БД или отправить в сервис рассылок
+        # Например: MailChimp, SendGrid, Mailgun, etc.
+        
+        import logging
+        logger = logging.getLogger('storefront.newsletter')
+        logger.info(f"Newsletter subscription: {email}")
+        
+        return Response({
+            'success': True,
+            'message': 'Дякуємо за підписку! Ви будете отримувати наші новини.'
+        })
+    
+    @action(detail=False, methods=['post'], url_path='contact')
+    def contact(self, request):
+        """
+        Форма обратной связи.
+        
+        Request Body:
+            - name: Имя отправителя
+            - email: Email отправителя
+            - phone: Телефон (optional)
+            - message: Текст сообщения
+        
+        Returns:
+            - 200: Сообщение отправлено
+            - 400: Ошибка валидации
+        
+        Example:
+            POST /api/communication/contact/
+            {
+                "name": "Іван Петренко",
+                "email": "ivan@example.com",
+                "phone": "+380501234567",
+                "message": "Питання про доставку..."
+            }
+        """
+        serializer = ContactFormSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        validated_data = serializer.validated_data
+        name = validated_data['name']
+        email = validated_data['email']
+        phone = validated_data.get('phone', '')
+        message = validated_data['message']
+        
+        # TODO: Отправить email администратору или сохранить в БД
+        # Например: Django send_mail, Celery task, etc.
+        
+        import logging
+        logger = logging.getLogger('storefront.contact')
+        logger.info(
+            f"Contact form submission: {name} ({email}), "
+            f"Phone: {phone}, Message: {message[:50]}..."
+        )
+        
+        return Response({
+            'success': True,
+            'message': 'Ваше повідомлення надіслано! Ми зв\'яжемося з вами найближчим часом.'
         })
 
 
