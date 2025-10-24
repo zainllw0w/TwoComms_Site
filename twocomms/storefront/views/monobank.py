@@ -34,6 +34,7 @@ import requests
 from ..models import Product, Order
 from orders.models import Order as OrderModel
 from productcolors.models import ProductColorVariant
+from .utils import _reset_monobank_session
 
 
 # Loggers
@@ -54,43 +55,7 @@ MONOBANK_PUBLIC_KEY_CACHE_TTL = 3600  # 1 час
 
 
 # ==================== HELPER FUNCTIONS ====================
-
-def _reset_monobank_session(request, drop_pending=False):
-    """
-    Сбрасывает связанные с Mono checkout данные в сессии.
-    
-    Args:
-        request: HTTP request
-        drop_pending: Если True, отменяет pending заказ в БД
-    """
-    if drop_pending:
-        pending_id = request.session.get('monobank_pending_order_id')
-        if pending_id:
-            try:
-                qs = OrderModel.objects.select_related('user').filter(
-                    id=pending_id,
-                    payment_provider__in=('monobank', 'monobank_checkout', 'monobank_pay')
-                )
-                if qs.exists():
-                    qs.update(status='cancelled', payment_status='unpaid')
-            except Exception:
-                monobank_logger.debug(
-                    'Failed to cancel pending Monobank order %s',
-                    pending_id,
-                    exc_info=True
-                )
-
-    for key in (
-        'monobank_pending_order_id',
-        'monobank_invoice_id',
-        'monobank_order_id',
-        'monobank_order_ref'
-    ):
-        if key in request.session:
-            request.session.pop(key, None)
-
-    request.session.modified = True
-
+# _reset_monobank_session moved to utils.py to avoid duplication
 
 def _drop_pending_monobank_order(request):
     """
