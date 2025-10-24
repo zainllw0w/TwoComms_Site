@@ -147,6 +147,11 @@ def create_order(request):
     from datetime import timedelta
     from .utils import _reset_monobank_session, _get_color_variant_safe
     
+    # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Проверяем аутентификацию ПЕРЕД доступом к userprofile
+    if not request.user.is_authenticated:
+        messages.error(request, 'Будь ласка, увійдіть в систему для оформлення замовлення!')
+        return redirect('login')
+    
     # Требуем заполненный профиль доставки
     try:
         prof = request.user.userprofile
