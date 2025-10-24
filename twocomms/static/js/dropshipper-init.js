@@ -43,7 +43,6 @@
 
     const load = () => {
       loadScript('dropshipper.dashboard.js').catch((error) => {
-        console.error('Не вдалося завантажити dropshipper.dashboard.js', error);
       });
     };
 
@@ -80,7 +79,6 @@
         })
         .catch((error) => {
           productModalReady = false;
-          console.error('Не вдалося завантажити dropshipper-product-modal.js', error);
         });
     }, true);
   }
