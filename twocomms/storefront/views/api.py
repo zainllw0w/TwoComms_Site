@@ -339,16 +339,34 @@ def contact_form(request):
         }, status=400)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+@require_http_methods(["GET"])
+def api_colors(request):
+    """
+    API endpoint для отримання всіх кольорів.
+    
+    Returns:
+        JsonResponse: Список всіх кольорів з їх властивостями
+        [
+            {
+                'id': int,
+                'name': str,
+                'primary_hex': str,
+                'secondary_hex': str|null
+            },
+            ...
+        ]
+    """
+    from productcolors.models import Color
+    
+    colors = Color.objects.all()
+    colors_data = []
+    
+    for color in colors:
+        colors_data.append({
+            'id': color.id,
+            'name': color.name,
+            'primary_hex': color.primary_hex,
+            'secondary_hex': color.secondary_hex
+        })
+    
+    return JsonResponse(colors_data, safe=False)

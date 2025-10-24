@@ -648,3 +648,111 @@ def purchase_with_points(request):
     
     return redirect('buy_with_points')
 
+
+@login_required
+def profile_setup_db(request):
+    """
+    Налаштування профілю користувача з БД.
+    
+    Дозволяє редагувати:
+    - Особисті дані (ім'я, телефон, email)
+    - Соціальні мережі (telegram, instagram)
+    - Дані доставки (місто, відділення НП)
+    - Тип оплати
+    - УБД статус та документи
+    - Аватар
+    """
+    # Профиль в БД
+    prof, _ = UserProfile.objects.get_or_create(user=request.user)
+    initial = {
+        'full_name': getattr(prof, 'full_name', ''),
+        'phone': prof.phone or '',
+        'email': prof.email or '',
+        'telegram': prof.telegram or '',
+        'instagram': prof.instagram or '',
+        'city': prof.city or '',
+        'np_office': prof.np_office or '',
+        'pay_type': prof.pay_type or '',
+        'is_ubd': prof.is_ubd,
+    }
+    form = ProfileSetupForm(request.POST or None, request.FILES or None, initial=initial)
+    if request.method == 'POST' and form.is_valid():
+        prof.full_name = form.cleaned_data.get('full_name') or ''
+        prof.phone = form.cleaned_data.get('phone') or ''
+        prof.email = form.cleaned_data.get('email') or ''
+        prof.telegram = form.cleaned_data.get('telegram') or ''
+        prof.instagram = form.cleaned_data.get('instagram') or ''
+        prof.city = form.cleaned_data.get('city') or ''
+        prof.np_office = form.cleaned_data.get('np_office') or ''
+        prof.pay_type = form.cleaned_data.get('pay_type') or ''
+        prof.is_ubd = bool(form.cleaned_data.get('is_ubd'))
+        
+        # Отладочная информация для аватара
+        if form.cleaned_data.get('avatar'):
+            prof.avatar = form.cleaned_data['avatar']
+            
+        if prof.is_ubd and form.cleaned_data.get('ubd_doc'):
+            prof.ubd_doc = form.cleaned_data['ubd_doc']
+        prof.save()
+        # Обновим сессию (не обязательно, но пусть будет телефон под рукой)
+        request.session['profile_phone'] = prof.phone
+        if prof.avatar:
+            request.session['profile_avatar'] = prof.avatar.name
+        request.session.modified = True
+        return redirect('home')
+    return render(request, 'pages/auth_profile_setup.html', {'form': form, 'profile': prof})
+
+
+def favorites_list_view(request):
+    """
+    Сторінка з обраними товарами.
+    
+    Функціонал:
+    - Для авторизованих: список з БД
+    - Для гостей: список з сесії
+    - Варіанти кольорів для кожного товару
+    - Підтримка ProductColorVariant
+    """
+    if request.user.is_authenticated:
+        # Для авторизованых пользователей - получаем из базы данных
+        favorites = FavoriteProduct.objects.select_related('category').filter(user=request.user).select_related('product', 'product__category')
+    else:
+        # Для неавторизованных пользователей - получаем из сессии
+        session_favorites = request.session.get('favorites', [])
+        favorites = []
+        
+        if session_favorites:
+            # Получаем товары по ID из сессии
+            products = Product.objects.select_related('category').filter(id__in=session_favorites).select_related('category')
+            
+            # Создаем объекты, похожие на FavoriteProduct
+            for product in products:
+                favorite = type('FavoriteProduct', (), {
+                    'product': product,
+                    'color_variants_data': []
+                })()
+                favorites.append(favorite)
+    
+    # Получаем варианты цветов для избранных товаров
+    for favorite in favorites:
+        try:
+            from productcolors.models import ProductColorVariant
+            variants = ProductColorVariant.objects.select_related('color').filter(product=favorite.product)
+            # Создаем список словарей с данными о цветах
+            color_variants_data = [
+                {
+                    'primary_hex': v.color.primary_hex,
+                    'secondary_hex': v.color.secondary_hex or '',
+                }
+                for v in variants
+            ]
+            # Добавляем как атрибут к объекту favorite
+            favorite.color_variants_data = color_variants_data
+        except:
+            favorite.color_variants_data = []
+    
+    return render(request, 'pages/favorites.html', {
+        'favorites': favorites,
+        'title': 'Обрані товари'
+    })
+
