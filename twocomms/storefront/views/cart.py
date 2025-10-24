@@ -51,11 +51,15 @@ def view_cart(request):
         subtotal: Сумма без скидки
         discount: Размер скидки (если применен промокод)
         total: Итоговая сумма
+        grand_total: Итоговая сумма (алиас для total)
+        total_points: Общее количество баллов за заказ
         promo_code: Примененный промокод (если есть)
+        applied_promo: Алиас для promo_code
     """
     cart = get_cart_from_session(request)
     cart_items = []
     subtotal = Decimal('0')
+    total_points = 0
     
     for item_key, item_data in cart.items():
         try:
@@ -69,6 +73,14 @@ def view_cart(request):
             
             # Информация о цвете из color_variant_id
             color_variant = _get_color_variant_safe(item_data.get('color_variant_id'))
+            color_label = _color_label_from_variant(color_variant)
+            
+            # Считаем баллы за товар
+            try:
+                if getattr(product, 'points_reward', 0):
+                    total_points += int(product.points_reward) * qty
+            except Exception:
+                pass
             
             cart_items.append({
                 'key': item_key,
@@ -79,6 +91,7 @@ def view_cart(request):
                 'line_total': line_total,
                 'size': item_data.get('size', ''),
                 'color_variant': color_variant,
+                'color_label': color_label,  # ДОБАВЛЕНО: для отображения цвета
             })
             
             subtotal += line_total
@@ -115,7 +128,10 @@ def view_cart(request):
             'subtotal': subtotal,
             'discount': discount,
             'total': total,
+            'grand_total': total,  # ДОБАВЛЕНО: алиас для шаблона
+            'total_points': total_points,  # ДОБАВЛЕНО: баллы за заказ
             'promo_code': promo_code,
+            'applied_promo': promo_code,  # ДОБАВЛЕНО: алиас для шаблона
             'cart_count': len(cart_items)
         }
     )
