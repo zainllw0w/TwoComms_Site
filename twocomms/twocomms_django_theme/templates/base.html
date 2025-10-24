@@ -14,24 +14,14 @@
   <link rel="dns-prefetch" href="https://www.clarity.ms">
   {% endif %}
   <meta charset='utf-8'>
-  <meta name='viewport' content='width=device-width, initial-scale=1'>
+  <meta name='viewport' content='width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no, maximum-scale=1'>
   <meta name="csrf-token" content="{{ csrf_token }}">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
 
-  <!-- Font Awesome: локальный бандл + CDN (ускоряет загрузку, но не критичен) -->
-  <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-  <link rel="preload"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
-        as="style"
-        crossorigin="anonymous"
-        referrerpolicy="no-referrer"
-        onload="this.rel='stylesheet'">
-  <noscript>
-    <link rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
-          crossorigin="anonymous"
-          referrerpolicy="no-referrer">
-  </noscript>
+  <!-- Font Awesome: локальный бандл (оптимизировано для мобильных устройств) -->
+  <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}" media="all">
   
   <!-- Расширенные SEO Meta Tags -->
   {% block seo_meta %}
@@ -119,12 +109,19 @@
   <!-- Critical CSS inline для быстрой отрисовки с CLS исправлениями -->
   <style>
     /* Critical CSS - минимальные стили для первой отрисовки */
+    * {
+      -webkit-tap-highlight-color: rgba(124, 58, 237, 0.2);
+      touch-action: manipulation;
+    }
     body { 
       margin: 0; 
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #0a0a0a;
       color: #ffffff;
       font-size-adjust: 0.52;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
     }
     .navbar { 
       background: rgba(0,0,0,0.8); 
@@ -276,6 +273,46 @@
     .script-loaded {
       opacity: 1;
     }
+    
+    /* Оптимизации для мобильных устройств */
+    button, a, input, select, textarea {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: rgba(124, 58, 237, 0.2);
+    }
+    
+    /* Минимальные размеры touch targets для мобильных */
+    button, a.btn, .btn, .bottom-nav-item, .cart-btn, .user-avatar-btn {
+      min-height: 44px;
+      min-width: 44px;
+    }
+    
+    /* Smooth scrolling для мобильных */
+    html {
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Оптимизация для notched устройств (iPhone X+) */
+    @supports (padding: max(0px)) {
+      body {
+        padding-left: max(0px, env(safe-area-inset-left));
+        padding-right: max(0px, env(safe-area-inset-right));
+      }
+      .bottom-nav {
+        padding-bottom: max(0px, env(safe-area-inset-bottom));
+      }
+    }
+    
+    /* Отключение backdrop-filter на мобильных для производительности */
+    @media (max-width: 768px) {
+      .perf-lite .navbar,
+      .perf-lite .bottom-nav,
+      .perf-lite .cart-panel,
+      .perf-lite .user-panel {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+      }
+    }
   </style>
   
   <!-- Асинхронная загрузка основного CSS с приоритизацией -->
@@ -287,6 +324,9 @@
   
   <!-- CLS Ultimate Optimization - Zero visual change, perfect performance -->
   <link href="{% static 'css/cls-ultimate.css' %}?v=2025.10.18.010" rel="stylesheet">
+  
+  <!-- Mobile Optimizations - Критично для производительности на мобильных -->
+  <link href="{% static 'css/mobile-optimizations.css' %}?v=2025.10.24.001" rel="stylesheet" media="all">
   
   <style>
   
@@ -1244,19 +1284,26 @@ document.addEventListener('DOMContentLoaded', function() {
 {% include 'partials/analytics.html' %}
 {% endcomment %}
 
-{% comment %}
-<!-- Service Worker for PWA - ОТКЛЮЧЕН -->
+<!-- Service Worker for PWA - ОПТИМИЗИРОВАН ДЛЯ МОБИЛЬНЫХ -->
 <script>
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && !navigator.userAgent.match(/bot|crawler|spider|crawling/i)) {
   window.addEventListener('load', function() {
-    navigator.serviceWorker.register('/sw.js')
+    // Регистрируем Service Worker с задержкой для улучшения производительности
+    setTimeout(function() {
+      navigator.serviceWorker.register('/static/sw.js', { scope: '/' })
       .then(function(registration) {
+          console.log('SW registered:', registration.scope);
+          // Проверка обновлений каждые 24 часа
+          setInterval(function() {
+            registration.update();
+          }, 86400000);
       })
-      .catch(function(registrationError) {
+        .catch(function(error) {
+          console.warn('SW registration failed:', error);
       });
+    }, 2000);
   });
 }
 </script>
-{% endcomment %}
 
 </body></html>

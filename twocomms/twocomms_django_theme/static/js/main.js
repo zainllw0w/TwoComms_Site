@@ -9,9 +9,23 @@ import {
   getCookie
 } from './modules/shared.js';
 import { PerformanceOptimizer, ImageOptimizer } from './modules/optimizers.js';
+import { initMobileOptimizations, isMobile, isLowEndDevice } from './modules/mobile-optimizations.js';
 
 // Помечаем, что основной JS инициализирован и можно запускать анимации
 document.documentElement.classList.add('js-ready');
+
+// Инициализируем мобильные оптимизации как можно раньше
+if (isMobile()) {
+  console.log('[TwoComms] Mobile device detected, applying mobile optimizations');
+  initMobileOptimizations();
+  
+  // Дополнительный класс для CSS
+  document.documentElement.classList.add('is-mobile');
+  
+  if (isLowEndDevice()) {
+    document.documentElement.classList.add('is-low-end');
+  }
+}
 
 // ===== ОПТИМИЗАЦИЯ ПРОИЗВОДИТЕЛЬНОСТИ =====
 // Анимации появления
