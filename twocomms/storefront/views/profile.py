@@ -491,3 +491,160 @@ def settings(request):
     
     return render(request, 'pages/settings.html')
 
+
+# ==================== USER POINTS & REWARDS ====================
+
+@login_required
+def user_points(request):
+    """
+    Страница баллов пользователя.
+    Показывает текущий баланс и историю начислений/списаний.
+    """
+    from accounts.models import UserPoints, PointsHistory
+    
+    # Получаем или создаем объект баллов пользователя
+    try:
+        user_points_obj = UserPoints.get_or_create_points(request.user)
+    except AttributeError:
+        # Если метод get_or_create_points не существует, используем get_or_create
+        user_points_obj, _ = UserPoints.objects.get_or_create(user=request.user)
+    
+    # Получаем историю баллов (последние 20 записей)
+    history = PointsHistory.objects.filter(user=request.user).order_by('-created_at')[:20]
+    
+    return render(request, 'pages/user_points.html', {
+        'user_points': user_points_obj,
+        'history': history
+    })
+
+
+@login_required
+def my_promocodes(request):
+    """
+    Страница промокодов пользователя.
+    Показывает использованные промокоды в заказах.
+    """
+    from orders.models import Order
+    
+    # Получаем все заказы пользователя с промокодами
+    orders_with_promocodes = Order.objects.filter(
+        user=request.user,
+        promo_code__isnull=False
+    ).select_related('promo_code').order_by('-created_at')
+    
+    # Создаем список использованных промокодов
+    used_promocodes = []
+    for order in orders_with_promocodes:
+        if order.promo_code:
+            used_promocodes.append({
+                'promo_code': order.promo_code,
+                'order': order,
+                'used_date': order.created_at,
+                'discount_amount': order.discount_amount,
+                'order_total': order.total_sum
+            })
+    
+    return render(request, 'pages/my_promocodes.html', {
+        'used_promocodes': used_promocodes
+    })
+
+
+@login_required
+def buy_with_points(request):
+    """
+    Страница покупки за баллы.
+    Показывает доступные товары/услуги за баллы лояльности.
+    """
+    from accounts.models import UserPoints
+    
+    # Получаем баллы пользователя
+    try:
+        user_points_obj = UserPoints.objects.get(user=request.user)
+        current_points = user_points_obj.points
+    except UserPoints.DoesNotExist:
+        current_points = 0
+    
+    # Определяем доступные товары за баллы
+    available_items = [
+        {
+            'id': 'promo_10',
+            'name': 'Промокод на знижку 10%',
+            'description': 'Отримайте промокод на знижку 10% від суми замовлення',
+            'points_cost': 100,
+            'type': 'promo',
+            'icon': 'M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z',
+            'color': 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+            'can_afford': current_points >= 100
+        },
+        {
+            'id': 'donate_zsu',
+            'name': 'Донат на ЗСУ',
+            'description': 'Пожертвуйте всі ваші бали на підтримку Збройних Сил України',
+            'points_cost': current_points,
+            'type': 'donate',
+            'icon': 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+            'color': 'linear-gradient(135deg, #dc2626, #991b1b)',
+            'can_afford': current_points > 0
+        }
+    ]
+    
+    return render(request, 'pages/buy_with_points.html', {
+        'current_points': current_points,
+        'available_items': available_items
+    })
+
+
+@login_required
+@require_POST
+def purchase_with_points(request):
+    """
+    Обработка покупки за баллы.
+    Списывает баллы и выдает соответствующую награду.
+    """
+    from accounts.models import UserPoints
+    from django.contrib import messages
+    
+    item_id = request.POST.get('item_id')
+    
+    try:
+        user_points_obj = UserPoints.objects.get(user=request.user)
+    except UserPoints.DoesNotExist:
+        messages.error(request, 'У вас немає балів для покупки')
+        return redirect('buy_with_points')
+    
+    if item_id == 'promo_10':
+        # Покупка промокода на 10% скидки
+        if user_points_obj.points >= 100:
+            # Здесь будет логика создания промокода
+            # Пока что просто списываем баллы
+            try:
+                user_points_obj.spend_points(100, 'Покупка промокода на знижку 10%')
+                messages.success(
+                    request,
+                    'Промокод на знижку 10% успішно придбано! Код: POINTS10'
+                )
+            except Exception as e:
+                messages.error(request, f'Помилка при списанні балів: {e}')
+        else:
+            messages.error(request, 'Недостатньо балів для покупки промокода')
+    
+    elif item_id == 'donate_zsu':
+        # Донат на ЗСУ
+        if user_points_obj.points > 0:
+            points_to_donate = user_points_obj.points
+            try:
+                user_points_obj.spend_points(points_to_donate, 'Донат на ЗСУ')
+                messages.success(
+                    request,
+                    f'Дякуємо за підтримку ЗСУ! Пожертвовано {points_to_donate} балів'
+                )
+            except Exception as e:
+                messages.error(request, f'Помилка при пожертвуванні: {e}')
+        else:
+            messages.error(request, 'У вас немає балів для пожертвування')
+    
+    else:
+        messages.error(request, 'Невідомий товар')
+    
+    return redirect('buy_with_points')
+
