@@ -20,6 +20,10 @@ class CategorySerializer(serializers.ModelSerializer):
         - slug: URL slug
         - is_active: Активна ли категория
         - products_count: Количество товаров (read-only)
+    
+    Performance Note:
+        products_count использует annotate() в ViewSet для избежания N+1 queries.
+        Если annotate не использован, вернет cached значение или 0.
     """
     products_count = serializers.SerializerMethodField()
     
@@ -29,7 +33,14 @@ class CategorySerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'slug']
     
     def get_products_count(self, obj):
-        """Возвращает количество товаров в категории."""
+        """
+        Возвращает количество товаров в категории.
+        Использует annotated поле из queryset если доступно, иначе выполняет запрос.
+        """
+        # Проверяем наличие annotated поля (должно быть добавлено в ViewSet)
+        if hasattr(obj, 'products_count_annotated'):
+            return obj.products_count_annotated
+        # Fallback - будет вызывать дополнительный запрос (N+1 проблема)
         return obj.products.count()
 
 

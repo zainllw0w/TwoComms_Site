@@ -54,7 +54,7 @@ class Product(models.Model):
     slug=models.SlugField(unique=True)
     category=models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products')
     price=models.PositiveIntegerField()
-    has_discount=models.BooleanField(default=False)
+    # has_discount field removed - now calculated via @property below
     discount_percent=models.PositiveIntegerField(blank=True, null=True)
     featured=models.BooleanField(default=False)
     description=models.TextField(blank=True)
