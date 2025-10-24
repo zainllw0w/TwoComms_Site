@@ -5936,6 +5936,13 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
             monobank_logger.error('Item has non-positive line total: %s', line_total_major)
             continue
 
+        # Получаем цену за единицу товара для Monobank
+        try:
+            unit_price_major = Decimal(str(item.unit_price)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        except Exception as exc:
+            monobank_logger.exception('Failed to convert unit price for item %s: %s', item.id if hasattr(item, 'id') else item.product_id, exc)
+            continue
+
         total_amount_major += line_total_major
         total_count += qty
 
@@ -5945,10 +5952,13 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
         if item.color_name:
             name_parts.append(item.color_name)
 
+        monobank_logger.info('Monobank product: %s, qty=%d, unit_price=%s грн, line_total=%s грн', 
+                             item.product.title[:50], qty, unit_price_major, line_total_major)
+
         product_data = {
             'name': ' • '.join(filter(None, name_parts)),
             'cnt': qty,
-            'price': _as_number(line_total_major),
+            'price': _as_number(unit_price_major),  # CRITICAL FIX: используем unit_price вместо line_total
         }
 
         code_product = getattr(item.product, 'sku', None) or getattr(item.product, 'id', None)
