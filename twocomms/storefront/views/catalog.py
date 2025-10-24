@@ -12,7 +12,6 @@ Catalog views - Каталог товаров и категорий.
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.core.paginator import Paginator, EmptyPage
-from django.urls import reverse
 from django.template.loader import render_to_string
 
 from ..models import Product, Category
