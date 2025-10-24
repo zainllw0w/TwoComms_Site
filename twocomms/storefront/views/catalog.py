@@ -20,7 +20,7 @@ from ..services.catalog_helpers import (
     build_color_preview_map,
     get_categories_cached,
 )
-from twocomms.cache_utils import get_fragment_cache
+from cache_utils import get_fragment_cache
 from .utils import cache_page_for_anon, HOME_PRODUCTS_PER_PAGE
 
 
@@ -236,4 +236,18 @@ def search(request):
             'results_count': len(products)
         }
     )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

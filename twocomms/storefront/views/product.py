@@ -201,3 +201,17 @@ def quick_view(request, product_id):
             'error': 'Product not found'
         }, status=404)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -38,7 +38,7 @@ import re
 import base64
 import time
 from datetime import timedelta
-from twocomms.cache_utils import get_fragment_cache
+from cache_utils import get_fragment_cache
 from .services.catalog_helpers import (
     build_color_preview_map,
     get_categories_cached,
