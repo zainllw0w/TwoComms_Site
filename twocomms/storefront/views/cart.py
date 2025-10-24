@@ -178,6 +178,7 @@ def add_to_cart(request):
                 'size': size,
                 'color': color,
                 'color_hex': color_hex,
+                'color_variant_id': color_variant_id,  # ИСПРАВЛЕНО: добавлен color_variant_id
                 'image_url': image_url
             }
         
@@ -187,7 +188,8 @@ def add_to_cart(request):
         cart_count = sum(item.get('qty', 0) for item in cart.values())
         
         return JsonResponse({
-            'success': True,
+            'ok': True,  # ИСПРАВЛЕНО: было 'success', изменено на 'ok' для соответствия с JavaScript
+            'count': cart_count,  # ИСПРАВЛЕНО: добавлен 'count' для updateCartBadge
             'cart_count': cart_count,
             'message': f'Товар "{product.title}" додано до кошика'
         })
@@ -257,7 +259,7 @@ def update_cart(request):
         total = subtotal - discount
         
         return JsonResponse({
-            'success': True,
+            'ok': True,  # ИСПРАВЛЕНО: было 'success', изменено на 'ok'
             'line_total': float(line_total),
             'subtotal': float(subtotal),
             'discount': float(discount),
@@ -308,7 +310,8 @@ def remove_from_cart(request):
         total = subtotal - discount
         
         return JsonResponse({
-            'success': True,
+            'ok': True,  # ИСПРАВЛЕНО: было 'success', изменено на 'ok'
+            'count': cart_count,  # ИСПРАВЛЕНО: добавлен 'count' для updateCartBadge
             'cart_count': cart_count,
             'subtotal': float(subtotal),
             'discount': float(discount),
@@ -406,7 +409,7 @@ def apply_promo_code(request):
         total = subtotal - discount
         
         return JsonResponse({
-            'success': True,
+            'ok': True,  # ИСПРАВЛЕНО: было 'success', изменено на 'ok'
             'discount': float(discount),
             'total': float(total),
             'message': f'Промокод застосовано! Знижка: {discount} грн'
@@ -436,7 +439,7 @@ def remove_promo_code(request):
         total = calculate_cart_total(cart)
         
         return JsonResponse({
-            'success': True,
+            'ok': True,  # ИСПРАВЛЕНО: было 'success', изменено на 'ok'
             'total': float(total),
             'message': 'Промокод видалено'
         })
