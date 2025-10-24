@@ -1,0 +1,171 @@
+{
+  "timestamp": "2025-10-24T17:38:10.480131",
+  "base_url": "https://twocomms.opillia.store",
+  "total": 23,
+  "ok": 0,
+  "redirects": 0,
+  "errors_count": 23,
+  "results": [
+    {
+      "name": "Главная",
+      "url": "https://twocomms.opillia.store/",
+      "status": null,
+      "error": "Connection Error: HTTPSConnectionPool(host='twocomms.opillia.store', port=443): Max retries exceeded with url: / (Caus",
+      "response_time": null
+    },
+    {
+      "name": "Каталог",
+      "url": "https://twocomms.opillia.store/catalog/",
+      "status": null,
+      "error": "Connection Error: HTTPSConnectionPool(host='twocomms.opillia.store', port=443): Max retries exceeded with url: /catalo",
+      "response_time": null
+    },
+    {
+      "name": "Корзина",
+      "url": "https://twocomms.opillia.store/cart/",
+      "status": null,
+      "error": "Connection Error: HTTPSConnectionPool(host='twocomms.opillia.store', port=443): Max retries exceeded with url: /cart/ ",
+      "response_time": null
+    },
+    {
+      "name": "Оформление заказа",
+      "url": "https://twocomms.opillia.store/checkout/",
+      "status": null,
+      "error": "Connection Error: HTTPSConnectionPool(host='twocomms.opillia.store', port=443): Max retries exceeded with url: /checko",
+      "response_time": null
+    },
+    {
+      "name": "Поиск",
+      "url": "https://twocomms.opillia.store/search/",
+      "status": null,
+      "error": "Connection Error: HTTPSConnectionPool(host='twocomms.opillia.store', port=443): Max retries exceeded with url: /search",
+      "response_time": null
+    },
+    {
+      "name": "О нас",
+      "url": "https://twocomms.opillia.store/about/",
+      "status": null,
+      "error": "Connection Error: HTTPSConnectionPool(host='twocomms.opillia.store', port=443): Max retries exceeded with url: /about/",
+      "response_time": null
+    },
+    {
+      "name": "Контакты",
+      "url": "https://twocomms.opillia.store/contacts/",
+      "status": null,
+      "error": "Connection Error: HTTPSConnectionPool(host='twocomms.opillia.store', port=443): Max retries exceeded with url: /contac",
+      "response_time": null
+    },
+    {
+      "name": "Доставка",
+      "url": "https://twocomms.opillia.store/delivery/",
+      "status": null,
+      "error": "Connection Error: HTTPSConnectionPool(host='twocomms.opillia.store', port=443): Max retries exceeded with url: /delive",
+      "response_time": null
+    },
+    {
+      "name": "Сотрудничество",
+      "url": "https://twocomms.opillia.store/cooperation/",
+      "status": null,
+      "error": "Connection Error: HTTPSConnectionPool(host='twocomms.opillia.store', port=443): Max retries exceeded with url: /cooper",
+      "response_time": null
+    },
+    {
+      "name": "Оптовые цены",
+      "url": "https://twocomms.opillia.store/wholesale/",
+      "status": null,
+      "error": "Connection Error: HTTPSConnectionPool(host='twocomms.opillia.store', port=443): Max retries exceeded with url: /wholes",
+      "response_time": null
+    },
+    {
+      "name": "Прайс-лист",
+      "url": "https://twocomms.opillia.store/pricelist/",
+      "status": null,
+      "error": "Connection Error: HTTPSConnectionPool(host='twocomms.opillia.store', port=443): Max retries exceeded with url: /pricel",
+      "response_time": null
+    },
+    {
+      "name": "Вход",
+      "url": "https://twocomms.opillia.store/login/",
+      "status": null,
+      "error": "Connection Error: HTTPSConnectionPool(host='twocomms.opillia.store', port=443): Max retries exceeded with url: /login/",
+      "response_time": null
+    },
+    {
+      "name": "Регистрация",
+      "url": "https://twocomms.opillia.store/register/",
+      "status": null,
+      "error": "Connection Error: HTTPSConnectionPool(host='twocomms.opillia.store', port=443): Max retries exceeded with url: /regist",
+      "response_time": null
+    },
+    {
+      "name": "Админ панель",
+      "url": "https://twocomms.opillia.store/admin-panel/",
+      "status": null,
+      "error": "Connection Error: HTTPSConnectionPool(host='twocomms.opillia.store', port=443): Max retries exceeded with url: /admin-",
+      "response_time": null
+    },
+    {
+      "name": "Cart Summary API",
+      "url": "https://twocomms.opillia.store/cart/summary/",
+      "status": null,
+      "error": "Connection Error: HTTPSConnectionPool(host='twocomms.opillia.store', port=443): Max retries exceeded with url: /cart/s",
+      "response_time": null
+    },
+    {
+      "name": "Cart Mini API",
+      "url": "https://twocomms.opillia.store/cart/mini/",
+      "status": null,
+      "error": "Connection Error: HTTPSConnectionPool(host='twocomms.opillia.store', port=443): Max retries exceeded with url: /cart/m",
+      "response_time": null
+    },
+    {
+      "name": "Favorites Count API",
+      "url": "https://twocomms.opillia.store/favorites/count/",
+      "status": null,
+      "error": "Connection Error: HTTPSConnectionPool(host='twocomms.opillia.store', port=443): Max retries exceeded with url: /favori",
+      "response_time": null
+    },
+    {
+      "name": "Robots.txt",
+      "url": "https://twocomms.opillia.store/robots.txt",
+      "status": null,
+      "error": "Connection Error: HTTPSConnectionPool(host='twocomms.opillia.store', port=443): Max retries exceeded with url: /robots",
+      "response_time": null
+    },
+    {
+      "name": "Sitemap",
+      "url": "https://twocomms.opillia.store/sitemap.xml",
+      "status": null,
+      "error": "Connection Error: HTTPSConnectionPool(host='twocomms.opillia.store', port=443): Max retries exceeded with url: /sitema",
+      "response_time": null
+    },
+    {
+      "name": "Google Merchant Feed",
+      "url": "https://twocomms.opillia.store/google_merchant_feed.xml",
+      "status": null,
+      "error": "Connection Error: HTTPSConnectionPool(host='twocomms.opillia.store', port=443): Max retries exceeded with url: /google",
+      "response_time": null
+    },
+    {
+      "name": "Products Feed",
+      "url": "https://twocomms.opillia.store/products_feed.xml",
+      "status": null,
+      "error": "Connection Error: HTTPSConnectionPool(host='twocomms.opillia.store', port=443): Max retries exceeded with url: /produc",
+      "response_time": null
+    },
+    {
+      "name": "Избранное",
+      "url": "https://twocomms.opillia.store/favorites/",
+      "status": null,
+      "error": "Connection Error: HTTPSConnectionPool(host='twocomms.opillia.store', port=443): Max retries exceeded with url: /favori",
+      "response_time": null
+    },
+    {
+      "name": "Wholesale Order Form",
+      "url": "https://twocomms.opillia.store/wholesale/order-form/",
+      "status": null,
+      "error": "Connection Error: HTTPSConnectionPool(host='twocomms.opillia.store', port=443): Max retries exceeded with url: /wholes",
+      "response_time": null
+    }
+  ]
+}
