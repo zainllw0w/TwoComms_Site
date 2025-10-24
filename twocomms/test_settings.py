@@ -6,6 +6,11 @@ Django Test Settings для запуска тестов с SQLite вместо M
     coverage run --source=storefront manage.py test --settings=test_settings
 """
 
+import os
+
+# Устанавливаем тестовый SECRET_KEY перед импортом settings
+os.environ.setdefault('SECRET_KEY', 'test-secret-key-for-testing-only-do-not-use-in-production')
+
 from twocomms.settings import *
 
 # Используем SQLite для тестов (быстрее и не требует MySQL)
