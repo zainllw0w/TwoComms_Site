@@ -9,6 +9,10 @@ import {
   getCookie
 } from './modules/shared.js';
 import { PerformanceOptimizer, ImageOptimizer } from './modules/optimizers.js';
+import MobileOptimizer from './modules/mobile-optimizer.js';
+
+// Инициализируем мобильный оптимизатор как можно раньше
+MobileOptimizer.init();
 
 // Помечаем, что основной JS инициализирован и можно запускать анимации
 document.documentElement.classList.add('js-ready');
