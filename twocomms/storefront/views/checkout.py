@@ -183,11 +183,26 @@ def monobank_webhook(request):
         HttpResponse: 200 OK
     """
     # TODO: Полная реализация webhook обработки
-    # Временно импортируем из старого views.py
-    from storefront import views as old_views
-    if hasattr(old_views, 'monobank_webhook'):
-        return old_views.monobank_webhook(request)
+    # Временно импортируем напрямую из views.py файла
+    import sys
+    import os
+    import importlib.util
     
+    try:
+        # Явно импортируем старый views.py файл
+        views_py_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'views.py')
+        spec = importlib.util.spec_from_file_location("storefront.views_old_mono", views_py_path)
+        old_views_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(old_views_module)
+        
+        if hasattr(old_views_module, 'monobank_webhook'):
+            return old_views_module.monobank_webhook(request)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger('storefront.monobank')
+        logger.error(f"Error importing old monobank_webhook: {e}", exc_info=True)
+    
+    # Fallback - просто возвращаем 200
     return HttpResponse(status=200)
 
 
