@@ -186,6 +186,12 @@ def dropshipper_dashboard(request):
     from django.db.models import Sum
     from decimal import Decimal
     
+    # Получаем все выплаты для отладки
+    all_payouts = DropshipperPayout.objects.filter(dropshipper=request.user)
+    monobank_logger.info(f"📊 Total payouts for {request.user.username}: {all_payouts.count()}")
+    for payout in all_payouts:
+        monobank_logger.info(f"  - Payout #{payout.payout_number}: {payout.amount} грн, status={payout.status}, completed_at={payout.completed_at}, requested_at={payout.requested_at}")
+    
     pending_payouts_sum = DropshipperPayout.objects.filter(
         dropshipper=request.user,
         status='pending'
@@ -201,7 +207,8 @@ def dropshipper_dashboard(request):
     ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
     
     # Логирование для отладки
-    monobank_logger.info(f"📊 Payout stats for {request.user.username}: pending={pending_payouts_sum}, completed={completed_payouts_sum}")
+    monobank_logger.info(f"📊 Payout stats for {request.user.username}: pending={pending_payouts_sum}, completed={completed_payouts_sum} (month={current_month}, year={current_year})")
+    monobank_logger.info(f"💰 Stats for {request.user.username}: total_profit={stats.total_profit}, total_revenue={stats.total_revenue}, total_drop_cost={stats.total_drop_cost}")
 
     context = {
         'stats': stats,
