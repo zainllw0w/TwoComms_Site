@@ -184,27 +184,28 @@ def monobank_webhook(request):
     Returns:
         HttpResponse: 200 OK
     """
-    # TODO: Полная реализация webhook обработки
-    # Временно импортируем напрямую из views.py файла
-    import sys
-    import os
-    import importlib.util
-    
+    # ИСПРАВЛЕНО: Убрана рекурсия!
+    # Используем реализацию из views.py через уже загруженный модуль
     try:
-        # Явно импортируем старый views.py файл
-        views_py_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'views.py')
-        spec = importlib.util.spec_from_file_location("storefront.views_old_mono", views_py_path)
-        old_views_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(old_views_module)
+        from .. import views as parent_views_module
+        # Ищем функцию в родительском модуле (views.py)
+        # __init__.py может не экспортировать её, поэтому ищем напрямую
+        import importlib
+        views_py = importlib.import_module('storefront.views')
         
-        if hasattr(old_views_module, 'monobank_webhook'):
-            return old_views_module.monobank_webhook(request)
-    except Exception as e:
+        # Если есть функция в старом views.py, используем её
+        if hasattr(views_py, 'monobank_webhook'):
+            # Получаем ссылку на функцию из views.py
+            webhook_func = getattr(views_py, 'monobank_webhook')
+            # Проверяем, что это не наша же функция (избегаем рекурсии)
+            if webhook_func.__module__ == 'storefront.views':
+                return webhook_func(request)
+    except (ImportError, AttributeError, RecursionError) as e:
         import logging
         logger = logging.getLogger('storefront.monobank')
-        logger.error(f"Error importing old monobank_webhook: {e}", exc_info=True)
+        logger.error(f"Error calling old monobank_webhook: {e}", exc_info=True)
     
-    # Fallback - просто возвращаем 200
+    # Fallback - просто возвращаем 200 (Monobank не будет повторять запрос)
     return HttpResponse(status=200)
 
 
