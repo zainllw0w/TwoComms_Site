@@ -266,3 +266,4 @@ router.register(r'communication', CommunicationViewSet, basename='api-communicat
 **Автор:** AI Assistant (Claude Sonnet 4.5)  
 **Статус:** ✅ COMPLETED
 
+
