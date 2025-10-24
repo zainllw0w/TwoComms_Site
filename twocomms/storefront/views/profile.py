@@ -18,7 +18,7 @@ from django.contrib.auth.models import User
 from accounts.models import UserProfile, FavoriteProduct, UserPoints, PointsHistory
 from orders.models import Order
 from ..models import Product
-from ..forms import ProfileSetupForm
+from .auth import ProfileSetupForm
 
 
 # ==================== PROFILE VIEWS ====================
