@@ -127,6 +127,10 @@
       font-size-adjust: 0.52;
     }
     .navbar { 
+      position: sticky;  /* Привязка к верху */
+      top: 0;            /* Позиция сверху */
+      z-index: 1030;     /* Поверх контента */
+      width: 100%;       /* На всю ширину */
       background: rgba(0,0,0,0.8); 
       backdrop-filter: blur(10px);
       border-bottom: 1px solid rgba(255,255,255,0.1);
