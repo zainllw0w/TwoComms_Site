@@ -1,23 +1,35 @@
 /**
  * Service Worker для PWA функциональности
+ * Оптимизирован для максимальной производительности на мобильных устройствах
  */
-const CACHE_NAME = 'twocomms-v1.0.0';
-const STATIC_CACHE = 'twocomms-static-v1.0.0';
-const DYNAMIC_CACHE = 'twocomms-dynamic-v1.0.0';
+const CACHE_VERSION = '2.0.0';
+const CACHE_NAME = `twocomms-v${CACHE_VERSION}`;
+const STATIC_CACHE = `twocomms-static-v${CACHE_VERSION}`;
+const DYNAMIC_CACHE = `twocomms-dynamic-v${CACHE_VERSION}`;
+const IMAGE_CACHE = `twocomms-images-v${CACHE_VERSION}`;
+const FONT_CACHE = `twocomms-fonts-v${CACHE_VERSION}`;
 
-// Управление логированием SW
-// Service Worker без отладочных логов
+// Максимальный размер кэша (количество элементов)
+const MAX_DYNAMIC_CACHE_SIZE = 50;
+const MAX_IMAGE_CACHE_SIZE = 100;
 
-// Файлы для кэширования
+// Файлы для кэширования (оптимизированный список для мобильных)
 const STATIC_FILES = [
     '/',
-    '/static/css/styles.css',
+    '/static/css/styles.min.css',
+    '/static/css/mobile-optimizations.css',
+    '/static/css/cls-ultimate.css',
     '/static/js/main.js',
     '/static/img/logo.svg',
-    '/static/img/favicon.ico',
-    '/static/site.webmanifest',
+    '/static/img/favicon-192x192.png',
+    '/static/img/favicon-512x512.png',
+    '/static/site.webmanifest'
+];
+
+// CDN ресурсы (кэшируем отдельно)
+const CDN_RESOURCES = [
     'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css',
-    'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
+    'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js'
 ];
 
 // Установка Service Worker
@@ -63,31 +75,49 @@ self.addEventListener('activate', event => {
     );
 });
 
-// Перехват запросов
+// Очистка старых кэшей
+async function cleanupCache(cacheName, maxSize) {
+    const cache = await caches.open(cacheName);
+    const keys = await cache.keys();
+    if (keys.length > maxSize) {
+        await cache.delete(keys[0]);
+        await cleanupCache(cacheName, maxSize);
+    }
+}
+
+// Перехват запросов (оптимизированный для мобильных)
 self.addEventListener('fetch', event => {
     const { request } = event;
     const url = new URL(request.url);
     
+    // Игнорируем не-GET запросы и chrome-extension
+    if (request.method !== 'GET' || url.protocol === 'chrome-extension:') {
+        return;
+    }
+    
     // Стратегия кэширования для разных типов запросов
-    if (request.method === 'GET') {
+    // Изображения - Cache First с отдельным кэшем
+    if (request.destination === 'image' || url.pathname.match(/\.(jpg|jpeg|png|gif|webp|svg|ico)$/i)) {
+        event.respondWith(cacheFirstImage(request));
+    }
+    // Шрифты - Cache First с отдельным кэшем
+    else if (request.destination === 'font' || url.pathname.match(/\.(woff|woff2|ttf|eot)$/i)) {
+        event.respondWith(cacheFirstFont(request));
+    }
         // Статические файлы - Cache First
-        if (url.pathname.startsWith('/static/') || 
+    else if (url.pathname.startsWith('/static/') || 
             url.hostname === 'cdn.jsdelivr.net' || 
-            url.hostname === 'fonts.googleapis.com') {
+             url.hostname === 'fonts.googleapis.com' ||
+             url.hostname === 'cdnjs.cloudflare.com') {
             event.respondWith(cacheFirst(request));
         }
         // API запросы - Network First
         else if (url.pathname.startsWith('/api/')) {
             event.respondWith(networkFirst(request));
         }
-        // HTML страницы - Stale While Revalidate
-        else if (request.headers.get('accept').includes('text/html')) {
-            event.respondWith(staleWhileRevalidate(request));
-        }
-        // Остальные запросы - Network First
-        else {
-            event.respondWith(networkFirst(request));
-        }
+    // HTML страницы - Network First с кэш fallback
+    else if (request.headers.get('accept')?.includes('text/html')) {
+        event.respondWith(networkFirstHTML(request));
     }
 });
 
@@ -138,14 +168,82 @@ async function staleWhileRevalidate(request) {
     const fetchPromise = fetch(request).then(networkResponse => {
         if (networkResponse.ok) {
             cache.put(request, networkResponse.clone());
+            cleanupCache(DYNAMIC_CACHE, MAX_DYNAMIC_CACHE_SIZE);
         }
         return networkResponse;
     }).catch(() => {
-        // Если сеть недоступна, возвращаем кэшированную версию
         return cachedResponse || new Response('Offline', { status: 503 });
     });
     
     return cachedResponse || fetchPromise;
+}
+
+// Cache First для изображений (отдельный кэш)
+async function cacheFirstImage(request) {
+    try {
+        const cachedResponse = await caches.match(request);
+        if (cachedResponse) {
+            return cachedResponse;
+        }
+        
+        const networkResponse = await fetch(request);
+        if (networkResponse.ok) {
+            const cache = await caches.open(IMAGE_CACHE);
+            cache.put(request, networkResponse.clone());
+            cleanupCache(IMAGE_CACHE, MAX_IMAGE_CACHE_SIZE);
+        }
+        return networkResponse;
+    } catch (error) {
+        // Возвращаем placeholder для изображений при ошибке
+        const cachedResponse = await caches.match(request);
+        return cachedResponse || new Response('', { status: 404 });
+    }
+}
+
+// Cache First для шрифтов (отдельный кэш)
+async function cacheFirstFont(request) {
+    try {
+        const cachedResponse = await caches.match(request);
+        if (cachedResponse) {
+            return cachedResponse;
+        }
+        
+        const networkResponse = await fetch(request);
+        if (networkResponse.ok) {
+            const cache = await caches.open(FONT_CACHE);
+            cache.put(request, networkResponse.clone());
+        }
+        return networkResponse;
+    } catch (error) {
+        const cachedResponse = await caches.match(request);
+        return cachedResponse || new Response('', { status: 404 });
+    }
+}
+
+// Network First для HTML (с кэш fallback)
+async function networkFirstHTML(request) {
+    try {
+        const networkResponse = await fetch(request);
+        if (networkResponse.ok) {
+            const cache = await caches.open(DYNAMIC_CACHE);
+            cache.put(request, networkResponse.clone());
+            cleanupCache(DYNAMIC_CACHE, MAX_DYNAMIC_CACHE_SIZE);
+        }
+        return networkResponse;
+    } catch (error) {
+        const cachedResponse = await caches.match(request);
+        if (cachedResponse) {
+            return cachedResponse;
+        }
+        // Offline fallback page
+        return caches.match('/') || new Response('Offline', { 
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: new Headers({
+                'Content-Type': 'text/html'
+            })
+        });
+    }
 }
 
 // Обработка push уведомлений
