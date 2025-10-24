@@ -127,8 +127,10 @@
       font-size-adjust: 0.52;
     }
     .navbar { 
-      position: sticky;  /* Привязка к верху */
+      position: fixed;   /* Всегда на верху экрана */
       top: 0;            /* Позиция сверху */
+      left: 0;           /* От левого края */
+      right: 0;          /* До правого края */
       z-index: 1030;     /* Поверх контента */
       width: 100%;       /* На всю ширину */
       background: rgba(0,0,0,0.8); 
@@ -136,6 +138,10 @@
       border-bottom: 1px solid rgba(255,255,255,0.1);
       height: 70px; /* Фиксированная высота */
       contain: layout; /* Изолируем layout */
+    }
+    /* Отступ сверху для main, чтобы контент не был под navbar */
+    main.container-xxl {
+      padding-top: calc(70px + 1rem) !important; /* Высота navbar + оригинальный padding */
     }
     .hero-section { 
       min-height: 60vh; /* Уменьшаем высоту hero-панели */
