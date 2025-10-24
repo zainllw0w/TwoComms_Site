@@ -729,7 +729,7 @@
                      document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || 
                      getCookie('csrftoken');
       
-      var body=new URLSearchParams({key:key});
+      var body=new URLSearchParams({cart_key:key});  // ИСПРАВЛЕНО: было 'key', изменено на 'cart_key'
       dlog('Request body:', body.toString());
       
       fetch('/cart/remove/',{
