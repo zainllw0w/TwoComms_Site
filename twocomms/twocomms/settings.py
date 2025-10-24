@@ -129,7 +129,10 @@ MIDDLEWARE = [
     "twocomms.middleware.SimpleRateLimitMiddleware",  # Rate limiting для защиты от злоупотреблений
     "django.middleware.security.SecurityMiddleware",
     "twocomms.middleware.SecurityHeadersMiddleware",  # CSP и дополнительные заголовки
+    "twocomms.mobile_middleware.PerformanceHintsMiddleware",  # Performance hints
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "twocomms.mobile_middleware.MobileDetectionMiddleware",  # Детекция мобильных устройств
+    "twocomms.mobile_middleware.AdaptiveImageHintsMiddleware",  # Адаптивные изображения
     "twocomms.image_middleware.ImageOptimizationMiddleware",  # Оптимизация изображений
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -137,6 +140,10 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "twocomms.mobile_middleware.ClientHintsMiddleware",  # Client hints для adaptive loading
+    "twocomms.mobile_middleware.MobileOptimizationMiddleware",  # HTML оптимизация для мобильных
+    "twocomms.mobile_middleware.CompressionMiddleware",  # Gzip сжатие
+    "twocomms.mobile_middleware.SecurityHeadersMiddleware",  # Доп. security headers
     "django.contrib.redirects.middleware.RedirectFallbackMiddleware",  # SEO редиректы
     "storefront.tracking.SimpleAnalyticsMiddleware",  # простая аналитика посещений
 ]

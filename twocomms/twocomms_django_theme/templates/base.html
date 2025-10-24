@@ -14,8 +14,11 @@
   <link rel="dns-prefetch" href="https://www.clarity.ms">
   {% endif %}
   <meta charset='utf-8'>
-  <meta name='viewport' content='width=device-width, initial-scale=1'>
+  <meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=5, minimum-scale=1, viewport-fit=cover'>
   <meta name="csrf-token" content="{{ csrf_token }}">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
 
   <!-- Font Awesome: локальный бандл + CDN (ускоряет загрузку, но не критичен) -->
   <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
@@ -113,8 +116,35 @@
   <link rel='mask-icon' href='{% static 'img/logo.svg' %}' color='#7c3aed'>
   <link rel='icon' href='{% static 'img/favicon.ico' %}' sizes='any' type='image/x-icon'>
   
-  <!-- Early performance hint: enable lite mode for save-data/low-memory/low-CPU -->
-  <script>(function(){try{var c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;var save=c&&c.saveData;var lowRam=Number(navigator.deviceMemory||0)&&navigator.deviceMemory<=1;var lowCPU=Number(navigator.hardwareConcurrency||0)&&navigator.hardwareConcurrency<=1;if(save||lowRam||lowCPU){document.documentElement.classList.add('perf-lite');}}catch(e){}})();</script>
+  <!-- Early performance hint: enable lite mode for save-data/low-memory/low-CPU/mobile -->
+  <script>
+  (function(){
+    try{
+      // Детекция слабых устройств
+      var c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+      var save=c&&c.saveData;
+      var lowRam=Number(navigator.deviceMemory||0)&&navigator.deviceMemory<=2; // Увеличили до 2GB
+      var lowCPU=Number(navigator.hardwareConcurrency||0)&&navigator.hardwareConcurrency<=2; // Увеличили до 2 ядер
+      var isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      var slowConnection=c&&(c.effectiveType==='slow-2g'||c.effectiveType==='2g'||c.effectiveType==='3g');
+      
+      // Включаем lite mode для слабых устройств или мобильных
+      if(save||lowRam||lowCPU||slowConnection||(isMobile&&(lowRam||lowCPU))){
+        document.documentElement.classList.add('perf-lite');
+      }
+      
+      // Добавляем класс для мобильных устройств
+      if(isMobile){
+        document.documentElement.classList.add('is-mobile');
+      }
+      
+      // Добавляем touch support detection
+      if('ontouchstart' in window||navigator.maxTouchPoints>0){
+        document.documentElement.classList.add('touch-device');
+      }
+    }catch(e){}
+  })();
+  </script>
   
   <!-- Critical CSS inline для быстрой отрисовки с CLS исправлениями -->
   <style>
@@ -134,15 +164,22 @@
       contain: layout; /* Изолируем layout */
     }
     .hero-section { 
-      min-height: 60vh; /* Уменьшаем высоту hero-панели */
-      height: 60vh; /* Фиксированная высота */
-      max-height: 60vh; /* Предотвращаем переполнение */
+      min-height: 50vh; /* Оптимально для мобильных */
+      height: auto; /* Автоматическая высота для адаптивности */
+      max-height: none; /* Убираем ограничение */
       display: flex; 
       align-items: center;
       background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
       position: relative;
-      contain: layout size; /* Изолируем layout и размеры */
+      contain: layout; /* Облегченная изоляция */
       overflow: hidden;
+      padding: 2rem 0; /* Добавляем padding для мобильных */
+    }
+    @media (min-width: 768px) {
+      .hero-section {
+        min-height: 60vh;
+        padding: 3rem 0;
+      }
     }
     .hero-content {
       display: flex;
@@ -287,6 +324,9 @@
   
   <!-- CLS Ultimate Optimization - Zero visual change, perfect performance -->
   <link href="{% static 'css/cls-ultimate.css' %}?v=2025.10.18.010" rel="stylesheet">
+  
+  <!-- Mobile-First Optimizations - Critical for mobile performance -->
+  <link href="{% static 'css/mobile-optimizations.css' %}?v=2025.10.24.001" rel="stylesheet" media="all">
   
   <style>
   
@@ -1244,19 +1284,40 @@ document.addEventListener('DOMContentLoaded', function() {
 {% include 'partials/analytics.html' %}
 {% endcomment %}
 
-{% comment %}
-<!-- Service Worker for PWA - ОТКЛЮЧЕН -->
+<!-- Service Worker for PWA and Mobile Optimization -->
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
-    navigator.serviceWorker.register('/sw.js')
+    navigator.serviceWorker.register('/static/sw.js?v=2025.10.24.001')
       .then(function(registration) {
+        console.log('[SW] Service Worker registered successfully:', registration.scope);
+        
+        // Обновляем Service Worker при новой версии
+        registration.addEventListener('updatefound', function() {
+          const newWorker = registration.installing;
+          newWorker.addEventListener('statechange', function() {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              // Новая версия доступна, показываем уведомление
+              console.log('[SW] New version available, updating...');
+              newWorker.postMessage({ type: 'SKIP_WAITING' });
+            }
+          });
+        });
       })
-      .catch(function(registrationError) {
+      .catch(function(error) {
+        console.log('[SW] Service Worker registration failed:', error);
+      });
+    
+    // Перезагружаем страницу при активации нового Service Worker
+    navigator.serviceWorker.addEventListener('controllerchange', function() {
+      if (!window.swRefreshing) {
+        window.swRefreshing = true;
+        console.log('[SW] New Service Worker activated, reloading page...');
+        window.location.reload();
+      }
       });
   });
 }
 </script>
-{% endcomment %}
 
 </body></html>
