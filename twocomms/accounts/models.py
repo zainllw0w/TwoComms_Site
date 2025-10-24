@@ -32,19 +32,19 @@ class UserProfile(models.Model):
     def __str__(self):
         return f'Profile for {self.user.username}'
 
-@receiver(post_save, sender=User)
-def create_user_profile(sender, instance, created, **kwargs):
-    if created:
-        UserProfile.objects.create(user=instance)
 
+# Signal to create UserProfile and UserPoints when a new User is created
 @receiver(post_save, sender=User)
-def save_user_profile(sender, instance, **kwargs):
-    instance.userprofile.save()
-
-@receiver(post_save, sender=User)
-def create_user_points(sender, instance, created, **kwargs):
-    """Автоматически создает объект UserPoints для нового пользователя"""
+def create_user_related_models(sender, instance, created, **kwargs):
+    """
+    Automatically creates UserProfile and UserPoints for new users.
+    
+    Note: UserProfile is linked via OneToOneField, so it will be auto-created
+    if accessed via instance.userprofile. However, we create it explicitly here
+    to ensure it exists immediately after user creation.
+    """
     if created:
+        UserProfile.objects.get_or_create(user=instance)
         UserPoints.objects.get_or_create(user=instance)
 
 class UserPoints(models.Model):

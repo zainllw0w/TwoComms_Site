@@ -161,7 +161,7 @@ def catalog(request, cat_slug=None):
         show_category_cards = False
     else:
         category = None
-        product_qs = Product.objects.order_by('-id')
+        product_qs = Product.objects.select_related('category').order_by('-id')
         show_category_cards = True
     
     products = list(product_qs)
