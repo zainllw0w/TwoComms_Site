@@ -55,10 +55,21 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', 'a_5xi!3wbf(m*j%!dn7#6r0tlhu(z(-qq&@s&kmot6v+kr#y')
-
-# SECURITY WARNING: don't run with debug turned on in production!
+# In production, SECRET_KEY must be set via environment variable
+# In development, we provide a fallback for convenience
 DEBUG = _env_bool('DEBUG', default=False)
+
+if DEBUG:
+    # Development fallback - only used when DEBUG=True
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-only-insecure-key-change-in-production')
+else:
+    # Production - SECRET_KEY must be set
+    SECRET_KEY = os.environ.get('SECRET_KEY')
+    if not SECRET_KEY:
+        raise ValueError(
+            "SECRET_KEY environment variable must be set in production! "
+            "Generate a secure key with: python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'"
+        )
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') if os.environ.get('ALLOWED_HOSTS') else [
     'test.com',
@@ -115,6 +126,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "twocomms.middleware.ForceHTTPSMiddleware",  # Принудительный HTTPS
     "twocomms.middleware.WWWRedirectMiddleware",  # Редирект с www
+    "twocomms.middleware.SimpleRateLimitMiddleware",  # Rate limiting для защиты от злоупотреблений
     "django.middleware.security.SecurityMiddleware",
     "twocomms.middleware.SecurityHeadersMiddleware",  # CSP и дополнительные заголовки
     "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -407,6 +419,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
 REDIS_PORT = os.environ.get('REDIS_PORT', '6379')
 REDIS_DB = os.environ.get('REDIS_DB', '0')
+REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', '')  # Redis password for production
 
 # Для локальной разработки используем LocMemCache, для продакшена - Redis
 if DEBUG:
@@ -423,12 +436,8 @@ if DEBUG:
         }
     }
 else:
-    # Продакшен - Redis
-    CACHES = {
-        'default': {
-            'BACKEND': 'django_redis.cache.RedisCache',
-            'LOCATION': f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}',
-            'OPTIONS': {
+    # Продакшен - Redis with optional password authentication
+    redis_options = {
                 'CLIENT_CLASS': 'django_redis.client.DefaultClient',
                 'CONNECTION_POOL_KWARGS': {
                     'max_connections': 50,
@@ -438,7 +447,17 @@ else:
                 'SOCKET_TIMEOUT': 5,
                 'COMPRESSOR': 'django_redis.compressors.zlib.ZlibCompressor',
                 'IGNORE_EXCEPTIONS': True,  # Не падать если Redis недоступен
-            },
+    }
+    
+    # Add password if provided
+    if REDIS_PASSWORD:
+        redis_options['PASSWORD'] = REDIS_PASSWORD
+    
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}',
+            'OPTIONS': redis_options,
             'KEY_PREFIX': 'twocomms',
             'TIMEOUT': 300,
         }

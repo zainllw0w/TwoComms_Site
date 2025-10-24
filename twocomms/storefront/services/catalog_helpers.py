@@ -99,10 +99,15 @@ def get_detailed_color_variants(product) -> List[Dict[str, Any]]:
     variants: List[Dict[str, Any]] = []
     for variant in queryset:
         color = getattr(variant, 'color', None)
-        image_urls = [
-            image.image.url
-            for image in (variant.images.all() if hasattr(variant, 'images') else [])
-        ]
+        # Use the prefetched images directly without calling .all() again
+        # This prevents N+1 queries
+        images = getattr(variant, '_prefetched_objects_cache', {}).get('images', [])
+        if not images:
+            # Fallback if prefetch didn't work
+            images = list(variant.images.all()) if hasattr(variant, 'images') else []
+        
+        image_urls = [image.image.url for image in images]
+        
         variants.append(
             {
                 'id': variant.id,
