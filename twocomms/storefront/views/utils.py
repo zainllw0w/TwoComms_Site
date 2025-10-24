@@ -102,6 +102,9 @@ def calculate_cart_total(cart):
     """
     Рассчитывает общую стоимость товаров в корзине.
     
+    ВАЖНО: Цена ВСЕГДА берется из Product.final_price (актуальная),
+    а НЕ из сессии (согласно CART_RESTORATION_REPORT.md)
+    
     Args:
         cart (dict): Данные корзины
         
@@ -109,10 +112,23 @@ def calculate_cart_total(cart):
         Decimal: Общая сумма
     """
     from decimal import Decimal
+    from ..models import Product
     
     total = Decimal('0')
+    
+    # Получаем все product_id из корзины
+    ids = [item['product_id'] for item in cart.values()]
+    if not ids:
+        return total
+    
+    # Загружаем товары одним запросом
+    products = Product.objects.in_bulk(ids)
+    
+    # Считаем сумму с актуальными ценами
     for item in cart.values():
-        price = Decimal(str(item.get('price', 0)))
+        product = products.get(item['product_id'])
+        if product:
+            price = product.final_price
         qty = int(item.get('qty', 0))
         total += price * qty
     

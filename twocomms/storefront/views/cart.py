@@ -211,8 +211,10 @@ def update_cart(request):
         cart[cart_key]['qty'] = qty
         save_cart_to_session(request, cart)
         
-        # Рассчитываем новые суммы
-        price = Decimal(str(cart[cart_key]['price']))
+        # ВАЖНО: Получаем актуальную цену из Product, а НЕ из сессии!
+        product_id = cart[cart_key]['product_id']
+        product = Product.objects.get(id=product_id)
+        price = product.final_price
         line_total = price * qty
         subtotal = calculate_cart_total(cart)
         
