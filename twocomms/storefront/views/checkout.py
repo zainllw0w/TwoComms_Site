@@ -21,7 +21,12 @@ from orders.models import Order, OrderItem
 from ..models import Product, PromoCode
 from productcolors.models import ProductColorVariant
 from accounts.models import UserProfile
-from .utils import get_cart_from_session, calculate_cart_total
+from .utils import (
+    get_cart_from_session,
+    calculate_cart_total,
+    _get_color_variant_safe,
+    _color_label_from_variant
+)
 
 
 # ==================== CHECKOUT VIEWS ====================
