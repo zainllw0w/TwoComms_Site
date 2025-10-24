@@ -64,6 +64,7 @@ def view_cart(request):
             # Информация о цвете
             color_name = item_data.get('color', '')
             color_hex = item_data.get('color_hex', '')
+            color_variant = _get_color_variant_safe(item_data.get('color_variant_id'))
             
             cart_items.append({
                 'key': item_key,
@@ -74,6 +75,7 @@ def view_cart(request):
                 'size': item_data.get('size', ''),
                 'color': color_name,
                 'color_hex': color_hex,
+                'color_variant': color_variant,
                 'image_url': item_data.get('image_url', product.display_image.url if product.display_image else '')
             })
             
@@ -332,7 +334,7 @@ def clear_cart(request):
         del request.session['promo_code_id']
     request.session.modified = True
     
-    return redirect('view_cart')
+    return redirect('cart')
 
 
 def get_cart_count(request):
