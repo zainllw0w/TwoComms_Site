@@ -7,11 +7,14 @@ Django REST Framework API URLs with Router.
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from .viewsets import CategoryViewSet, ProductViewSet, CartViewSet
+from .viewsets import CategoryViewSet, ProductViewSet, CartViewSet, TestProductViewSet
 
 
 # Создаем Router
 router = DefaultRouter()
+
+# ТЕСТОВЫЙ endpoint для debug
+router.register(r'test-products', TestProductViewSet, basename='api-test-product')
 
 # Регистрируем ViewSets
 router.register(r'categories', CategoryViewSet, basename='api-category')
