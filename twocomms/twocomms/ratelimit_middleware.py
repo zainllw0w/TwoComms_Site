@@ -75,10 +75,10 @@ class RateLimitMiddleware:
         
         # Increment counter
         try:
-        if current_requests == 0:
-            # First request in this window
-            cache.set(cache_key, 1, window)
-        else:
+            if current_requests == 0:
+                # First request in this window
+                cache.set(cache_key, 1, window)
+            else:
                 # Use set instead of incr for redis-herd compatibility  
                 cache.set(cache_key, current_requests + 1, window)
         except Exception:
