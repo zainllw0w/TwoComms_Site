@@ -187,7 +187,7 @@ def update_cart(request):
         qty: Новое количество
         
     Returns:
-        JsonResponse: success, line_total, subtotal, total
+        JsonResponse: ok, line_total, subtotal, total
     """
     try:
         cart_key = request.POST.get('cart_key')
@@ -211,10 +211,18 @@ def update_cart(request):
         cart[cart_key]['qty'] = qty
         save_cart_to_session(request, cart)
         
-        # ВАЖНО: Получаем актуальную цену из Product, а НЕ из сессии!
+        # ИСПРАВЛЕНО: Получаем цену из Product, а не из сессии (в сессии нет поля 'price')
         product_id = cart[cart_key]['product_id']
-        product = Product.objects.get(id=product_id)
-        price = product.final_price
+        try:
+            product = Product.objects.get(id=product_id)
+            price = product.final_price
+        except Product.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Товар не знайдено'
+            }, status=404)
+        
+        # Рассчитываем новые суммы
         line_total = price * qty
         subtotal = calculate_cart_total(cart)
         
@@ -232,7 +240,7 @@ def update_cart(request):
         total = subtotal - discount
         
         return JsonResponse({
-            'ok': True,  # ИСПРАВЛЕНО: было 'success', изменено на 'ok'
+            'ok': True,
             'line_total': float(line_total),
             'subtotal': float(subtotal),
             'discount': float(discount),
