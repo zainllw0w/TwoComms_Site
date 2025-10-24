@@ -179,3 +179,143 @@ class SearchQuerySerializer(serializers.Serializer):
     in_stock = serializers.BooleanField(required=False, default=False)
 
 
+# ==================== AJAX ENDPOINTS SERIALIZERS ====================
+
+class SearchSuggestionSerializer(serializers.Serializer):
+    """
+    Сериализатор для автодополнения поиска.
+    
+    Fields:
+        - id: ID товара
+        - title: Название товара
+        - slug: URL slug
+    """
+    id = serializers.IntegerField(read_only=True)
+    title = serializers.CharField(read_only=True)
+    slug = serializers.SlugField(read_only=True)
+
+
+class ProductAvailabilitySerializer(serializers.Serializer):
+    """
+    Сериализатор для проверки доступности товара.
+    
+    Fields:
+        - available: Доступен ли товар
+        - in_stock: В наличии
+        - message: Сообщение о доступности
+    """
+    available = serializers.BooleanField(read_only=True)
+    in_stock = serializers.BooleanField(read_only=True)
+    message = serializers.CharField(read_only=True)
+
+
+class RelatedProductSerializer(serializers.ModelSerializer):
+    """
+    Упрощенный сериализатор для похожих товаров.
+    
+    Fields:
+        - id: ID товара
+        - title: Название
+        - slug: URL slug
+        - price: Цена
+        - final_price: Итоговая цена (с учетом скидки)
+        - main_image: URL изображения
+    """
+    main_image = serializers.SerializerMethodField()
+    final_price = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Product
+        fields = ['id', 'title', 'slug', 'price', 'final_price', 'main_image']
+        read_only_fields = ['id', 'slug']
+    
+    def get_main_image(self, obj):
+        """Возвращает URL главного изображения."""
+        if obj.main_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.main_image.url)
+            return obj.main_image.url
+        return None
+    
+    def get_final_price(self, obj):
+        """Возвращает итоговую цену с учетом скидки."""
+        if hasattr(obj, 'final_price'):
+            return obj.final_price
+        if obj.has_discount and obj.discount_percent:
+            return int(obj.price * (1 - obj.discount_percent / 100))
+        return obj.price
+
+
+class TrackEventSerializer(serializers.Serializer):
+    """
+    Сериализатор для трекинга событий аналитики.
+    
+    Fields:
+        - event_type: Тип события (view, click, add_to_cart, etc.)
+        - product_id: ID товара (optional)
+        - category_id: ID категории (optional)
+        - metadata: Дополнительные данные (JSON, optional)
+    """
+    event_type = serializers.CharField(required=True, max_length=100)
+    product_id = serializers.IntegerField(required=False, allow_null=True)
+    category_id = serializers.IntegerField(required=False, allow_null=True)
+    metadata = serializers.JSONField(required=False, default=dict)
+    
+    def validate_event_type(self, value):
+        """Проверяет валидность типа события."""
+        allowed_types = [
+            'view', 'click', 'add_to_cart', 'remove_from_cart',
+            'purchase', 'search', 'favorite', 'share'
+        ]
+        if value not in allowed_types:
+            raise serializers.ValidationError(
+                f"Недопустимый тип события. Разрешены: {', '.join(allowed_types)}"
+            )
+        return value
+
+
+class NewsletterSubscribeSerializer(serializers.Serializer):
+    """
+    Сериализатор для подписки на рассылку.
+    
+    Fields:
+        - email: Email адрес подписчика
+    """
+    email = serializers.EmailField(required=True)
+    
+    def validate_email(self, value):
+        """Проверяет валидность email."""
+        if not value or len(value) < 5:
+            raise serializers.ValidationError("Введите корректный email адрес")
+        return value.lower().strip()
+
+
+class ContactFormSerializer(serializers.Serializer):
+    """
+    Сериализатор для формы обратной связи.
+    
+    Fields:
+        - name: Имя отправителя
+        - email: Email отправителя
+        - phone: Телефон (optional)
+        - message: Текст сообщения
+    """
+    name = serializers.CharField(required=True, max_length=100)
+    email = serializers.EmailField(required=True)
+    phone = serializers.CharField(required=False, allow_blank=True, max_length=20)
+    message = serializers.CharField(required=True, max_length=1000)
+    
+    def validate_name(self, value):
+        """Проверяет имя."""
+        if len(value.strip()) < 2:
+            raise serializers.ValidationError("Ім'я занадто коротке")
+        return value.strip()
+    
+    def validate_message(self, value):
+        """Проверяет сообщение."""
+        if len(value.strip()) < 10:
+            raise serializers.ValidationError("Повідомлення занадто коротке")
+        return value.strip()
+
+
