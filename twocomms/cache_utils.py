@@ -1,13 +1,11 @@
 """
 Утилиты для работы с кешем, абстрагируют получение alias-ов Redis.
 """
-from __future__ import annotations
-
 from django.core.cache import cache, caches
 from django.core.cache.backends.base import InvalidCacheBackendError
 
 
-def get_cache(alias: str = 'default'):
+def get_cache(alias='default'):
     """
     Возвращает кэш по алиасу, подстраховываясь fallback-ом на default.
     """
