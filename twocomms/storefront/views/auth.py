@@ -8,6 +8,8 @@ from django import forms
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
+from django.contrib.auth.decorators import login_required
+from django.conf import settings
 
 from ..models import Product
 from accounts.models import UserProfile, FavoriteProduct
@@ -272,6 +274,59 @@ def logout_view(request):
     return redirect('home')
 
 
+def register_view_new(request):
+    """
+    Нова версія реєстрації користувача.
+    
+    Функціонал:
+    - Перевірка на вже авторизованих користувачів
+    - Валідація username на унікальність
+    - Автоматичний вхід після реєстрації
+    - Редирект на налаштування профілю
+    
+    Uses:
+        RegisterForm для валідації даних
+    """
+    if request.user.is_authenticated:
+        return redirect('profile_setup')
+    form = RegisterForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        from django.contrib.auth.models import User
+        if User.objects.filter(username=form.cleaned_data['username']).exists():
+            form.add_error('username','Користувач з таким логіном вже існує')
+        else:
+            user = User.objects.create_user(
+                username=form.cleaned_data['username'],
+                password=form.cleaned_data['password1']
+            )
+            login(request, user)
+            return redirect('profile_setup')
+    return render(request, 'pages/auth_register.html', {'form': form})
+
+
+@login_required
+def dev_grant_admin(request):
+    """
+    Видати поточному користувачу права адміністратора (тільки при DEBUG).
+    
+    ⚠️ УВАГА: Функція працює ТІЛЬКИ в режимі DEBUG!
+    
+    Використання:
+    - Для швидкого тестування admin-функціоналу
+    - Автоматично надає is_staff та is_superuser
+    - Редирект на admin_panel після надання прав
+    
+    Security:
+        Автоматично редиректить на home якщо DEBUG=False
+    """
+    if not settings.DEBUG:
+        return redirect('home')
+    u = request.user
+    if not u.is_staff or not u.is_superuser:
+        u.is_staff = True
+        u.is_superuser = True
+        u.save()
+    return redirect('admin_panel')
 
 
 

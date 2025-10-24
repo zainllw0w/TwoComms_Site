@@ -724,6 +724,397 @@ def cart_mini(request):
     })
 
 
+# ==================== PROMO CODES ====================
+
+def apply_promo_code(request):
+    """
+    Застосування промокоду в кошику.
+    
+    POST params:
+        promo_code: Код промокоду
+    
+    Returns:
+        JsonResponse: {
+            'success': bool,
+            'message': str,
+            'discount': float (якщо успішно),
+            'final_total': float (якщо успішно),
+            'promo_code': str (якщо успішно)
+        }
+    """
+    if request.method == 'POST':
+        promo_code = request.POST.get('promo_code', '').strip().upper()
+        
+        if not promo_code:
+            return JsonResponse({
+                'success': False,
+                'message': 'Введіть код промокоду'
+            })
+        
+        try:
+            promocode = PromoCode.objects.get(code=promo_code)
+            
+            if not promocode.can_be_used():
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Промокод неактивний або вичерпаний'
+                })
+            
+            # Отримуємо кошик з сесії
+            cart = request.session.get('cart', {})
+            if not cart:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Корзина порожня'
+                })
+            
+            # Розраховуємо загальну суму кошика
+            total = 0
+            for key, item in cart.items():
+                # Отримуємо ціну товару
+                try:
+                    product = Product.objects.get(id=item['product_id'])
+                    price = product.final_price
+                    total += price * item['qty']
+                except Product.DoesNotExist:
+                    continue
+            
+            # Розраховуємо знижку
+            discount = promocode.calculate_discount(total)
+            
+            if discount <= 0:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Промокод не застосовується до цієї суми'
+                })
+            
+            # Зберігаємо промокод в сесії
+            request.session['applied_promo_code'] = {
+                'code': promocode.code,
+                'discount': float(discount),
+                'discount_type': promocode.discount_type,
+                'discount_value': float(promocode.discount_value)
+            }
+            
+            final_total = total - discount
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Промокод {promocode.code} застосовано! Знижка: {promocode.get_discount_display()}',
+                'discount': float(discount),
+                'final_total': float(final_total),
+                'promo_code': promocode.code
+            })
+            
+        except PromoCode.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Промокод не знайдено'
+            })
+    
+    return JsonResponse({'success': False, 'message': 'Невірний запит'})
+
+
+def remove_promo_code(request):
+    """
+    Видалення промокоду з кошика.
+    
+    Returns:
+        JsonResponse: {
+            'success': bool,
+            'message': str,
+            'final_total': float
+        }
+    """
+    if request.method == 'POST':
+        if 'applied_promo_code' in request.session:
+            del request.session['applied_promo_code']
+            request.session.modified = True
+        
+        # Перераховуємо загальну суму
+        cart = request.session.get('cart', {})
+        total = 0
+        for key, item in cart.items():
+            try:
+                product = Product.objects.get(id=item['product_id'])
+                price = product.final_price
+                total += price * item['qty']
+            except Product.DoesNotExist:
+                continue
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Промокод видалено',
+            'final_total': float(total)
+        })
+    
+    return JsonResponse({'success': False, 'message': 'Невірний запит'})
+
+
+# ==================== CART MANAGEMENT ====================
+
+def clean_cart(request):
+    """
+    Очищення кошика від неіснуючих товарів.
+    
+    Returns:
+        JsonResponse: {
+            'ok': bool,
+            'cleaned': int,
+            'message': str
+        }
+    """
+    cart = request.session.get('cart', {})
+    
+    if not cart:
+        return JsonResponse({'ok': True, 'cleaned': 0, 'message': 'Корзина пуста'})
+    
+    ids = [i['product_id'] for i in cart.values()]
+    prods = Product.objects.in_bulk(ids)
+    
+    # Перевіряємо, які товари знайдені
+    found_products = set(prods.keys())
+    missing_products = set(ids) - found_products
+    
+    cleaned_count = 0
+    if missing_products:
+        # Видаляємо неіснуючі товари з кошика
+        cart_to_clean = dict(cart)
+        for key, item in cart_to_clean.items():
+            if item['product_id'] in missing_products:
+                cart.pop(key, None)
+                cleaned_count += 1
+        request.session['cart'] = cart
+        request.session.modified = True
+    
+    return JsonResponse({
+        'ok': True, 
+        'cleaned': cleaned_count, 
+        'message': f'Очищено {cleaned_count} несуществующих товаров' if cleaned_count > 0 else 'Корзина в порядке'
+    })
+
+
+def cart_remove(request):
+    """
+    Видалення позиції з кошика.
+    
+    Підтримує два способи:
+    1. По ключу: key="productId:size:colorId"
+    2. По product_id + size
+    
+    POST params:
+        key: Ключ товару в кошику (опціонально)
+        product_id: ID товару (опціонально)
+        size: Розмір товару (опціонально)
+    
+    Returns:
+        JsonResponse: {
+            'ok': bool,
+            'removed': list,
+            'message': str,
+            'count': int
+        }
+    """
+    cart = request.session.get('cart', {})
+
+    key = (request.POST.get('key') or '').strip()
+    pid = request.POST.get('product_id')
+    size = (request.POST.get('size') or '').strip()
+
+    removed = []
+
+    def remove_key_exact(k: str) -> bool:
+        if k in cart:
+            cart.pop(k, None)
+            removed.append(k)
+            return True
+        return False
+
+    # 1) Намагаємось видалити по exact key
+    if key:
+        if not remove_key_exact(key):
+            # 1.1) case-insensitive порівняння ключів
+            target = key.lower()
+            for kk in list(cart.keys()):
+                if kk.lower() == target:
+                    remove_key_exact(kk)
+                    break
+            # 1.2) якщо все ще не знайшли, спробуємо видалити всі варіанти цього товару
+            if not removed and ":" in key:
+                pid_part = key.split(":", 1)[0]
+                for kk in list(cart.keys()):
+                    if kk.split(":", 1)[0] == pid_part:
+                        remove_key_exact(kk)
+    # 2) Або видаляємо по product_id (+optional size)
+    elif pid:
+        try:
+            pid_str = str(int(pid))
+        except (ValueError, TypeError):
+            pid_str = str(pid)
+        if size:
+            candidate = f"{pid_str}:{size}"
+            if not remove_key_exact(candidate):
+                # case-insensitive
+                target = candidate.lower()
+                for kk in list(cart.keys()):
+                    if kk.lower() == target:
+                        remove_key_exact(kk)
+                        break
+        else:
+            # Видаляємо всі варіанти цього товару
+            for kk in list(cart.keys()):
+                if kk.split(":", 1)[0] == pid_str:
+                    remove_key_exact(kk)
+
+    if removed:
+        _reset_monobank_session(request, drop_pending=True)
+        request.session['cart'] = cart
+        request.session.modified = True
+
+    return JsonResponse({
+        'ok': True,
+        'removed': removed,
+        'message': f'Видалено {len(removed)} позицій' if removed else 'Нічого не видалено',
+        'count': len(cart)
+    })
+
+
+def cart(request):
+    """
+    Головна функція відображення кошика.
+    
+    Обробляє:
+    - Відображення товарів у кошику
+    - Застосування промокодів
+    - Оновлення профілю користувача
+    - Оформлення замовлень (для гостей та авторизованих)
+    
+    Context:
+        items: Список товарів в кошику
+        total: Загальна сума
+        discount: Розмір знижки (якщо є промокод)
+        grand_total: Фінальна сума
+        total_points: Загальна кількість балів
+        applied_promo: Застосований промокод
+    """
+    from orders.models import Order
+    from ..models import UserProfile
+    
+    # Обробка POST запитів
+    if request.method == 'POST':
+        form_type = request.POST.get('form_type')
+        
+        if form_type == 'update_profile' and request.user.is_authenticated:
+            # Оновлення профілю користувача
+            try:
+                prof = request.user.userprofile
+                prof.full_name = request.POST.get('full_name', '')
+                prof.phone = request.POST.get('phone', '')
+                prof.city = request.POST.get('city', '')
+                prof.np_office = request.POST.get('np_office', '')
+                prof.pay_type = request.POST.get('pay_type', 'full')
+                prof.save()
+                
+                # Показуємо повідомлення про успіх
+                from django.contrib import messages
+                messages.success(request, 'Дані доставки успішно оновлено!')
+                
+            except UserProfile.DoesNotExist:
+                pass
+                
+        elif form_type == 'guest_order':
+            # Оформлення замовлення для гостя
+            from .checkout import process_guest_order
+            return process_guest_order(request)
+        elif form_type == 'order_create':
+            # Оформлення замовлення для авторизованого користувача
+            from .checkout import order_create
+            return order_create(request)
+    
+    cart_sess = request.session.get('cart', {})
+    
+    if not cart_sess:
+        return render(request, 'pages/cart.html', {'items': [], 'total': 0, 'discount': 0, 'grand_total': 0})
+    
+    ids = [i['product_id'] for i in cart_sess.values()]
+    prods = Product.objects.in_bulk(ids)
+    
+    # Перевіряємо, які товари знайдені
+    found_products = set(prods.keys())
+    missing_products = set(ids) - found_products
+    
+    if missing_products:
+        # Видаляємо неіснуючі товари з кошика
+        cart_to_clean = dict(cart_sess)
+        for key, item in cart_to_clean.items():
+            if item['product_id'] in missing_products:
+                cart_sess.pop(key, None)
+        _reset_monobank_session(request, drop_pending=True)
+        request.session['cart'] = cart_sess
+        request.session.modified = True
+    
+    items = []
+    total = 0
+    total_points = 0
+    for key, it in cart_sess.items():
+        p = prods.get(it['product_id'])
+        if not p:
+            continue
+        
+        # Отримуємо інформацію про колір
+        color_variant = _get_color_variant_safe(it.get('color_variant_id'))
+        
+        unit = p.final_price
+        line = unit * it['qty']
+        total += line
+        # Бали за товар, якщо передбачені
+        try:
+            if getattr(p, 'points_reward', 0):
+                total_points += int(p.points_reward) * int(it['qty'])
+        except Exception:
+            pass
+        items.append({
+            'key': key,
+            'product': p,
+            'size': it['size'],
+            'color_variant': color_variant,
+            'color_label': _color_label_from_variant(color_variant),
+            'qty': it['qty'],
+            'unit_price': unit,
+            'line_total': line
+        })
+    
+    # Перевіряємо застосований промокод
+    applied_promo = None
+    promo_code = request.session.get('applied_promo_code')
+    if promo_code:
+        try:
+            applied_promo = PromoCode.objects.get(code=promo_code, is_active=True)
+            if applied_promo.can_be_used():
+                discount = applied_promo.calculate_discount(total)
+                grand_total = total - discount
+            else:
+                # Промокод більше не діє
+                request.session.pop('applied_promo_code', None)
+                grand_total = total
+        except PromoCode.DoesNotExist:
+            request.session.pop('applied_promo_code', None)
+            grand_total = total
+    else:
+        grand_total = total
+    
+    context = {
+        'items': items,
+        'total': total,
+        'discount': total - grand_total if applied_promo else 0,
+        'grand_total': grand_total,
+        'total_points': total_points,
+        'applied_promo': applied_promo
+    }
+    
+    return render(request, 'pages/cart.html', context)
+
+
 
 
 
