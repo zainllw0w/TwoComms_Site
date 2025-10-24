@@ -69,7 +69,6 @@ def checkout(request):
             line_total = price * qty
             
             # Получаем color_variant вместо обычного color
-            from .utils import _get_color_variant_safe
             color_variant = _get_color_variant_safe(item_data.get('color_variant_id'))
             
             cart_items.append({
@@ -80,6 +79,7 @@ def checkout(request):
                 'line_total': line_total,
                 'size': item_data.get('size', ''),
                 'color_variant': color_variant,
+                'color_label': _color_label_from_variant(color_variant)
             })
             
             subtotal += line_total
