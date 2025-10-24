@@ -34,10 +34,8 @@
   // Добавляем обработчик клика на кнопку открытия модального окна заказа
   document.addEventListener('click', function(event) {
     if (event.target.classList.contains('js-open-order-modal')) {
-      console.log('=== КНОПКА ОТКРЫТИЯ ЗАКАЗА НАЖАТА ===');
       // Небольшая задержка, чтобы модальное окно успело открыться
       setTimeout(() => {
-        console.log('=== ПРИНУДИТЕЛЬНАЯ ЗАГРУЗКА КОРЗИНЫ ===');
         loadCart();
       }, 100);
     }
@@ -46,7 +44,6 @@
   // Также проверяем каждые 500ms, открыто ли модальное окно заказа
   setInterval(() => {
     if (orderModal && !orderModal.hidden) {
-      console.log('=== ПРОВЕРКА: МОДАЛЬНОЕ ОКНО ЗАКАЗА ОТКРЫТО ===');
       loadCart();
     }
   }, 500);
@@ -55,13 +52,11 @@
     document.querySelectorAll('.js-open-order-modal').forEach((btn) => {
       btn.addEventListener('click', (event) => {
         event.preventDefault();
-        console.log('Кнопка создания заказа нажата - переключаем на вкладку Товары!');
         
         // Переключаем на вкладку "Товари" вместо открытия модального окна
         const productsTab = document.querySelector('[data-tab-link="products"]');
         if (productsTab) {
           productsTab.click();
-          console.log('Переключились на вкладку Товары');
           
           // Дополнительно переключаем панель
           const productsPanel = document.querySelector('[data-tab-panel="products"]');
@@ -72,10 +67,8 @@
             });
             // Добавляем активный класс к панели товаров
             productsPanel.classList.add('is-active');
-            console.log('Панель товаров активирована');
           }
         } else {
-          console.log('Вкладка Товары не найдена');
         }
       });
     });
@@ -141,7 +134,6 @@
         })),
       };
 
-      console.log('Отправляем заказ:', payload);
       
       fetch('/orders/dropshipper/api/create-order/', {
         method: 'POST',
@@ -153,11 +145,9 @@
         body: JSON.stringify(payload),
       })
         .then((response) => {
-          console.log('Ответ сервера:', response.status);
           return response.json();
         })
         .then((data) => {
-          console.log('Данные ответа:', data);
           if (data.success) {
             showToast(data.message || 'Замовлення створено!');
             orderForm.reset();
@@ -180,7 +170,6 @@
           }
         })
         .catch((error) => {
-          console.error(error);
           showToast(error.message, 'error');
         });
     });
@@ -213,11 +202,9 @@
   function bindQuickAddButtons() {
     const quickButtons = document.querySelectorAll('.js-product-quick-add');
     if (!quickButtons.length) {
-      console.log('⚠️ Кнопки быстрого добавления не найдены');
       return;
     }
 
-    console.log('✅ Найдено кнопок быстрого добавления:', quickButtons.length);
 
     quickButtons.forEach((btn) => {
       if (btn.dataset.quickAddBound === 'true') {
@@ -232,15 +219,12 @@
         const productId = productCard ? productCard.dataset.productId : null;
         
         if (productId) {
-          console.log('🚀 Открываем НОВОЕ модальное окно для товара ID:', productId);
           // Вызываем НОВУЮ функцию из dropshipper-product-modal.js
           if (typeof window.openAddProductModal === 'function') {
             window.openAddProductModal(productId);
           } else {
-            console.error('❌ window.openAddProductModal не найдена! Проверьте подключение dropshipper-product-modal.js');
           }
         } else {
-          console.error('❌ ID товара не найден в карточке');
         }
       });
     });
@@ -271,7 +255,6 @@
         if (typeof window.openAddProductModal === 'function') {
           window.openAddProductModal(productId);
         } else {
-          console.error('openAddProductModal не найдена');
         }
       });
     });
@@ -313,7 +296,6 @@
         });
       })
       .catch((error) => {
-        console.error(error);
         productResults.dataset.emptyText = error.message || 'Не вдалося завантажити товар.';
         productResults.innerHTML = '';
         showToast(error.message || 'Не вдалося завантажити товар', 'error');
@@ -410,7 +392,6 @@
         if (error.name === 'AbortError') {
           return;
         }
-        console.error(error);
         showToast('Не вдалося завантажити товари. Спробуйте ще раз.', 'error');
       });
   }
@@ -631,7 +612,6 @@ function renderOrderItems() {
                 }
               })
               .catch(error => {
-                console.error(error);
                 showToast(error.message || 'Помилка при видаленні товару', 'error');
               });
           }
@@ -643,14 +623,11 @@ function renderOrderItems() {
   }
   
   function updateOrderBadge() {
-    console.log('Обновляем бейдж корзины, текущие товары в корзине:', orderItems.length);
     // Эта функция больше не управляет бейджем заказов - только корзиной
     // Бейдж заказов управляется функцией loadExistingOrders
-    console.log('Корзина обновлена, товаров:', orderItems.length);
   }
   
   function loadCart() {
-    console.log('Загружаем корзину...');
     fetch('/orders/dropshipper/api/cart/get/', {
       headers: {
         'X-Requested-With': 'XMLHttpRequest',
@@ -659,7 +636,6 @@ function renderOrderItems() {
       .then(response => response.json())
       .then(data => {
         if (data.success) {
-          console.log('Корзина загружена с сервера:', data.cart);
           // Обновляем локальную корзину
           orderItems = data.cart.map(item => ({
             productId: item.product_id,
@@ -674,52 +650,42 @@ function renderOrderItems() {
           }));
           
           renderOrderItems();
-          console.log('Корзина обновлена, товаров в корзине:', orderItems.length);
         } else {
-          console.log('Ошибка загрузки корзины:', data.message);
           orderItems = [];
           renderOrderItems();
         }
       })
       .catch(error => {
-        console.log('Не удалось загрузить корзину:', error);
         orderItems = [];
         renderOrderItems();
       });
   }
 
   function loadExistingOrders() {
-    console.log('Загружаем существующие заказы...');
     fetch('/orders/dropshipper/orders/?partial=1', {
       headers: {
         'X-Requested-With': 'XMLHttpRequest',
       },
     })
       .then(response => {
-        console.log('Ответ от сервера заказов:', response.status);
         return response.text();
       })
       .then(html => {
-        console.log('HTML заказов получен, длина:', html.length);
         
         // КРИТИЧЕСКИ ВАЖНО: Вставляем HTML в DOM!
         const ordersPanel = document.querySelector('[data-tab-panel="orders"]');
         if (ordersPanel) {
           ordersPanel.innerHTML = html;
-          console.log('✅ HTML заказов вставлен в DOM');
         } else {
-          console.log('⚠️ Контейнер [data-tab-panel="orders"] не найден');
         }
         
         // НЕ обновляем бейдж здесь! Он обновляется только через updateOrdersCounter()
         // при создании нового заказа, или инициализируется из backend при загрузке страницы
-        console.log('Счётчик заказов не изменяется (управляется из backend и updateOrdersCounter)');
         
         // Глобальный обработчик оплаты уже привязан через делегирование событий,
         // поэтому не нужно ничего делать здесь
       })
       .catch(error => {
-        console.log('Не удалось загрузить заказы:', error);
       });
   }
   
@@ -772,7 +738,6 @@ function renderOrderItems() {
         }
       })
       .catch(error => {
-        console.error(error);
         showToast(error.message || 'Помилка при оновленні статусу', 'error');
         button.textContent = originalText;
         button.disabled = false;
@@ -780,19 +745,13 @@ function renderOrderItems() {
   }
 
   function openModal(modal) {
-    console.log('=== ФУНКЦИЯ openModal ВЫЗВАНА ===');
-    console.log('Открываем модальное окно:', modal.id);
-    console.log('Модальное окно до изменения:', modal.hidden);
     modal.hidden = false;
-    console.log('Модальное окно после изменения:', modal.hidden);
     modal.focus();
     
     // Загружаем корзину при открытии модального окна заказа
     if (modal === orderModal) {
-      console.log('=== ЗАГРУЖАЕМ КОРЗИНУ ===');
       loadCart();
     }
-    console.log('=== ФУНКЦИЯ openModal ЗАВЕРШЕНА ===');
   }
 
   function closeModal(modal) {
@@ -800,7 +759,6 @@ function renderOrderItems() {
   }
   
   function setupOrderModalWatcher() {
-    console.log('Настраиваем наблюдатель за модальным окном заказа...');
     
     // Создаем наблюдатель за изменениями атрибута hidden
     const observer = new MutationObserver((mutations) => {
@@ -808,10 +766,7 @@ function renderOrderItems() {
         if (mutation.type === 'attributes' && mutation.attributeName === 'hidden') {
           const modal = mutation.target;
           if (modal === orderModal) {
-            console.log('Модальное окно заказа изменилось:', modal.hidden);
-            console.log('Атрибут hidden:', modal.getAttribute('hidden'));
             if (!modal.hidden) {
-              console.log('Модальное окно заказа открыто - загружаем корзину!');
               loadCart();
             }
           }
@@ -830,16 +785,13 @@ function renderOrderItems() {
     setInterval(() => {
       const currentModalState = orderModal.hidden;
       if (currentModalState !== lastModalState) {
-        console.log('Состояние модального окна изменилось:', lastModalState, '->', currentModalState);
         lastModalState = currentModalState;
         if (!currentModalState) {
-          console.log('Модальное окно заказа открыто (через интервал) - загружаем корзину!');
           loadCart();
         }
       }
     }, 100);
     
-    console.log('Наблюдатель за модальным окном заказа настроен');
   }
 
   function parseCurrency(value) {
@@ -890,11 +842,9 @@ function renderOrderItems() {
     
     // Проверяем, не привязан ли уже глобальный обработчик
     if (window.dropshipperPaymentHandlerBound) {
-      console.log('⏭️ Глобальный обработчик оплаты уже привязан');
       return;
     }
     
-    console.log('🔧 Привязываем глобальный обработчик оплаты через делегирование');
     
     document.addEventListener('click', async function(e) {
       // Проверяем, является ли кликнутый элемент кнопкой оплаты
@@ -908,7 +858,6 @@ function renderOrderItems() {
       const paymentMethod = button.dataset.paymentMethod;
       const paymentAmount = button.dataset.paymentAmount;
       
-      console.log('💳 КЛИК! Оплата заказа:', orderId, paymentMethod, paymentAmount + ' грн');
       
       // Блокируем кнопку
       const originalHTML = button.innerHTML;
@@ -916,7 +865,6 @@ function renderOrderItems() {
       button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Створення платежу...';
       
       try {
-        console.log('📡 Отправляем запрос на создание платежа...');
         
         // Создаем платеж Monobank
         const response = await fetch('/orders/dropshipper/monobank/create/', {
@@ -931,20 +879,16 @@ function renderOrderItems() {
           })
         });
         
-        console.log('📥 Ответ получен:', response.status);
         
         const data = await response.json();
-        console.log('📦 Данные:', data);
         
         if (data.success && data.page_url) {
-          console.log('✅ Платеж создан, перенаправление:', data.page_url);
           // Перенаправляем на страницу оплаты Monobank
           window.location.href = data.page_url;
         } else {
           throw new Error(data.error || 'Не вдалося створити платіж');
         }
       } catch (error) {
-        console.error('❌ Ошибка создания платежа:', error);
         alert('Помилка при створенні платежу: ' + error.message);
         
         // Восстанавливаем кнопку
@@ -954,7 +898,6 @@ function renderOrderItems() {
     });
     
     window.dropshipperPaymentHandlerBound = true;
-    console.log('✅ Глобальный обработчик оплаты привязан');
   }
   
   function getCsrfToken() {
