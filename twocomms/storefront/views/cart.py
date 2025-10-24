@@ -109,7 +109,8 @@ def view_cart(request):
         request,
         'pages/cart.html',
         {
-            'cart_items': cart_items,
+            'items': cart_items,  # Шаблон ожидает 'items', а не 'cart_items'!
+            'cart_items': cart_items,  # Оставляем для совместимости
             'subtotal': subtotal,
             'discount': discount,
             'total': total,
