@@ -21,7 +21,12 @@ from orders.models import Order, OrderItem
 from ..models import Product, PromoCode
 from productcolors.models import ProductColorVariant
 from accounts.models import UserProfile
-from .utils import get_cart_from_session, calculate_cart_total
+from .utils import (
+    get_cart_from_session,
+    calculate_cart_total,
+    _get_color_variant_safe,
+    _color_label_from_variant
+)
 
 
 # ==================== CHECKOUT VIEWS ====================
@@ -64,6 +69,9 @@ def checkout(request):
             qty = int(item_data.get('qty', 1))
             line_total = price * qty
             
+            # Получаем информацию о цвете
+            color_variant = _get_color_variant_safe(item_data.get('color_variant_id'))
+            
             cart_items.append({
                 'key': item_key,
                 'product': product,
@@ -71,7 +79,8 @@ def checkout(request):
                 'qty': qty,
                 'line_total': line_total,
                 'size': item_data.get('size', ''),
-                'color': item_data.get('color', '')
+                'color_variant': color_variant,
+                'color_label': _color_label_from_variant(color_variant)
             })
             
             subtotal += line_total
