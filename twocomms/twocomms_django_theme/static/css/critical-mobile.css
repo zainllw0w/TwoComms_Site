@@ -1,0 +1,391 @@
+/**
+ * Critical Mobile CSS - Inline в <head> для мгновенной отрисовки
+ * Минималь ные стили для First Contentful Paint
+ * Version: 2.0.1
+ * Date: October 24, 2025
+ */
+
+/* ========================================
+   CRITICAL RESET & BASE
+   ======================================== */
+
+* {
+  -webkit-tap-highlight-color: rgba(124, 58, 237, 0.2);
+  touch-action: manipulation;
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  /* Viewport height fix для mobile */
+  --vh: 1vh;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 16px; /* Важно: 16px для iOS чтобы избежать zoom */
+  line-height: 1.5;
+  color: #ffffff;
+  background: #0a0a0a;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'kern' 1, 'liga' 1;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+/* ========================================
+   CRITICAL LAYOUT CONTAINERS
+   ======================================== */
+
+/* Фиксированная высота navbar чтобы предотвратить CLS */
+.navbar {
+  height: 70px;
+  min-height: 70px;
+  max-height: 70px;
+  background: rgba(0, 0, 0, 0.8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  contain: layout size style;
+  will-change: transform;
+}
+
+@media (max-width: 768px) {
+  .navbar {
+    height: 60px;
+    min-height: 60px;
+    max-height: 60px;
+  }
+}
+
+/* Bottom navigation для mobile */
+.bottom-nav {
+  height: 70px;
+  min-height: 70px;
+  background: rgba(0, 0, 0, 0.9);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1030;
+  contain: layout size style;
+}
+
+/* ========================================
+   CRITICAL TYPOGRAPHY
+   ======================================== */
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #ffffff;
+}
+
+@media (max-width: 768px) {
+  h1 { font-size: 1.75rem; }
+  h2 { font-size: 1.5rem; }
+  h3 { font-size: 1.25rem; }
+  h4 { font-size: 1.1rem; }
+  h5 { font-size: 1rem; }
+  h6 { font-size: 0.9rem; }
+}
+
+/* ========================================
+   CRITICAL TOUCH TARGETS (WCAG AA)
+   ======================================== */
+
+button,
+a.btn,
+.btn,
+.bottom-nav-item,
+.cart-btn,
+.user-avatar-btn,
+input[type="button"],
+input[type="submit"],
+input[type="reset"] {
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(124, 58, 237, 0.2);
+  cursor: pointer;
+}
+
+/* ========================================
+   CRITICAL SAFE AREA SUPPORT (iPhone X+)
+   ======================================== */
+
+@supports (padding: max(0px)) {
+  body {
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
+  
+  .bottom-nav {
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+  
+  .navbar {
+    padding-top: max(0px, env(safe-area-inset-top));
+  }
+}
+
+/* ========================================
+   CRITICAL IMAGE OPTIMIZATION
+   ======================================== */
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  /* Предотвращение layout shift */
+  aspect-ratio: attr(width) / attr(height);
+}
+
+/* Placeholder для lazy loaded images */
+img[loading="lazy"] {
+  background: linear-gradient(90deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%);
+  background-size: 200% 100%;
+}
+
+/* ========================================
+   CRITICAL FORM ELEMENTS (iOS FIX)
+   ======================================== */
+
+input,
+textarea,
+select {
+  font-size: 16px !important; /* Prevent iOS zoom on focus */
+  font-family: inherit;
+  line-height: 1.5;
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 0;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: 2px solid #7c3aed;
+  outline-offset: 2px;
+}
+
+/* ========================================
+   CRITICAL PERFORMANCE OPTIMIZATIONS
+   ======================================== */
+
+/* Disable expensive backdrop-filter on mobile */
+@media (max-width: 768px) {
+  .navbar,
+  .bottom-nav,
+  .cart-panel,
+  .user-panel,
+  .modal-content {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+/* GPU acceleration для критических элементов */
+.navbar,
+.bottom-nav {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* ========================================
+   CRITICAL ACCESSIBILITY
+   ======================================== */
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* High contrast support */
+@media (prefers-contrast: high) {
+  * {
+    border-color: currentColor !important;
+  }
+}
+
+/* ========================================
+   CRITICAL LOADING STATES
+   ======================================== */
+
+/* Prevent content flash */
+[data-lazy-load] {
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+[data-lazy-load].loaded {
+  opacity: 1;
+}
+
+/* Skeleton loading для product cards */
+.product-skeleton {
+  background: linear-gradient(90deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ========================================
+   CRITICAL CLS (Cumulative Layout Shift) PREVENTION
+   ======================================== */
+
+/* Reserve space for images */
+.product-card {
+  contain: layout style;
+}
+
+.ratio {
+  position: relative;
+  width: 100%;
+}
+
+.ratio::before {
+  display: block;
+  padding-top: var(--bs-aspect-ratio, 100%);
+  content: "";
+}
+
+.ratio > * {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ========================================
+   CRITICAL MOBILE-SPECIFIC
+   ======================================== */
+
+/* Smooth scrolling container */
+.scroll-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scroll-container::-webkit-scrollbar {
+  display: none;
+}
+
+/* Touch optimized buttons */
+@media (hover: none) and (pointer: coarse) {
+  button,
+  .btn,
+  a {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+}
+
+/* Orientation handling */
+@media (max-width: 768px) and (orientation: landscape) {
+  .bottom-nav {
+    height: 56px;
+    min-height: 56px;
+  }
+  
+  .bottom-nav-label {
+    display: none;
+  }
+}
+
+/* ========================================
+   CRITICAL UTILITY CLASSES
+   ======================================== */
+
+.is-mobile { /* Applied by JavaScript */ }
+.is-low-end { /* Applied by JavaScript for low-end devices */ }
+.perf-lite { /* Applied by JavaScript for save-data mode */ }
+
+/* Low-end device optimizations */
+.is-low-end *,
+.perf-lite * {
+  animation: none !important;
+  transition: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* ========================================
+   CRITICAL FOCUS VISIBLE (ACCESSIBILITY)
+   ======================================== */
+
+:focus-visible {
+  outline: 2px solid #7c3aed;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Remove default focus outline for mouse users */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ========================================
+   CRITICAL GRID & CONTAINER
+   ======================================== */
+
+.container {
+  width: 100%;
+  padding-right: 12px;
+  padding-left: 12px;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+@media (min-width: 576px) {
+  .container { max-width: 540px; padding-right: 16px; padding-left: 16px; }
+}
+
+@media (min-width: 768px) {
+  .container { max-width: 720px; }
+}
+
+@media (min-width: 992px) {
+  .container { max-width: 960px; }
+}
+
+@media (min-width: 1200px) {
+  .container { max-width: 1140px; }
+}
+
+@media (min-width: 1400px) {
+  .container { max-width: 1320px; }
+}
+
+/* ========================================
+   END CRITICAL MOBILE CSS
+   ======================================== */
+
