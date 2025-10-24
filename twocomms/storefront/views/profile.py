@@ -226,52 +226,139 @@ def order_detail(request, order_number):
     )
 
 
-@login_required
 def favorites(request):
     """
     Список избранных товаров пользователя.
+    Поддерживает как авторизованных, так и неавторизованных пользователей.
     """
-    favorite_products = FavoriteProduct.objects.filter(
-        user=request.user
-    ).select_related('product', 'product__category').order_by('-created_at')
+    if request.user.is_authenticated:
+        # Для авторизованных пользователей - получаем из базы данных
+        favorites = FavoriteProduct.objects.filter(
+            user=request.user
+        ).select_related('product', 'product__category')
+    else:
+        # Для неавторизованных пользователей - получаем из сессии
+        session_favorites = request.session.get('favorites', [])
+        favorites = []
+        
+        if session_favorites:
+            # Получаем товары по ID из сессии
+            products = Product.objects.filter(
+                id__in=session_favorites
+            ).select_related('category')
+            
+            # Создаем объекты, похожие на FavoriteProduct
+            for product in products:
+                favorite = type('FavoriteProduct', (), {
+                    'product': product,
+                    'color_variants_data': []
+                })()
+                favorites.append(favorite)
     
-    # Добавляем цветовые варианты для товаров
-    from ..services.catalog_helpers import build_color_preview_map
+    # Получаем варианты цветов для избранных товаров
+    for favorite in favorites:
+        try:
+            from productcolors.models import ProductColorVariant
+            variants = ProductColorVariant.objects.select_related('color').filter(
+                product=favorite.product
+            )
+            # Создаем список словарей с данными о цветах
+            color_variants_data = [
+                {
+                    'primary_hex': v.color.primary_hex,
+                    'secondary_hex': v.color.secondary_hex or '',
+                }
+                for v in variants
+            ]
+            # Добавляем как атрибут к объекту favorite
+            favorite.color_variants_data = color_variants_data
+        except Exception:
+            favorite.color_variants_data = []
     
-    products = [fp.product for fp in favorite_products]
-    color_previews = build_color_preview_map(products)
-    
-    for fp in favorite_products:
-        fp.product.colors_preview = color_previews.get(fp.product.id, [])
-    
-    return render(
-        request,
-        'pages/favorites.html',
-        {'favorite_products': favorite_products}
-    )
+    return render(request, 'pages/favorites.html', {
+        'favorites': favorites,
+        'title': 'Обрані товари'
+    })
 
 
+# Алиас для обратной совместимости
+favorites_list = favorites
+
+
+def toggle_favorite(request, product_id):
+    """
+    Добавить/удалить товар из избранного.
+    Универсальная функция для авторизованных и неавторизованных пользователей.
+    """
+    try:
+        product = get_object_or_404(Product, id=product_id)
+        
+        if request.user.is_authenticated:
+            # Для авторизованных пользователей - используем базу данных
+            favorite, created = FavoriteProduct.objects.get_or_create(
+                user=request.user,
+                product=product
+            )
+            
+            if not created:
+                # Если запись уже существует, удаляем её
+                favorite.delete()
+                is_favorite = False
+                message = 'Товар видалено з обраного'
+            else:
+                is_favorite = True
+                message = 'Товар додано до обраного'
+        else:
+            # Для неавторизованных пользователей - используем сессии
+            session_favorites = request.session.get('favorites', [])
+            # Преобразуем product_id в int для корректного сравнения
+            product_id_int = int(product_id)
+            
+            if product_id_int in session_favorites:
+                # Удаляем из избранного
+                session_favorites.remove(product_id_int)
+                is_favorite = False
+                message = 'Товар видалено з обраного'
+            else:
+                # Добавляем в избранное
+                session_favorites.append(product_id_int)
+                is_favorite = True
+                message = 'Товар додано до обраного'
+            
+            # Сохраняем в сессии
+            request.session['favorites'] = session_favorites
+            request.session.modified = True
+        
+        # Подсчитываем общее количество избранных товаров
+        if request.user.is_authenticated:
+            favorites_count_val = FavoriteProduct.objects.filter(user=request.user).count()
+        else:
+            favorites_count_val = len(request.session.get('favorites', []))
+        
+        return JsonResponse({
+            'success': True,
+            'is_favorite': is_favorite,
+            'message': message,
+            'favorites_count': favorites_count_val
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': 'Помилка: ' + str(e)
+        }, status=400)
+
+
+# Алиасы для обратной совместимости с разными API
 @login_required
 @require_POST
 def add_to_favorites(request, product_id):
-    """
-    Добавление товара в избранное (AJAX).
-    
-    Args:
-        product_id (int): ID товара
-        
-    Returns:
-        JsonResponse: success, message
-    """
+    """Добавление товара в избранное (только для авторизованных)."""
     try:
         product = Product.objects.get(id=product_id)
-        
-        # Создаем или проверяем существование
         favorite, created = FavoriteProduct.objects.get_or_create(
             user=request.user,
             product=product
         )
-        
         if created:
             return JsonResponse({
                 'success': True,
@@ -282,7 +369,6 @@ def add_to_favorites(request, product_id):
                 'success': True,
                 'message': 'Товар вже в обраному'
             })
-            
     except Product.DoesNotExist:
         return JsonResponse({
             'success': False,
@@ -293,32 +379,58 @@ def add_to_favorites(request, product_id):
 @login_required
 @require_POST
 def remove_from_favorites(request, product_id):
-    """
-    Удаление товара из избранного (AJAX).
-    
-    Args:
-        product_id (int): ID товара
-        
-    Returns:
-        JsonResponse: success, message
-    """
+    """Удаление товара из избранного (только для авторизованных)."""
     try:
         favorite = FavoriteProduct.objects.get(
             user=request.user,
             product_id=product_id
         )
         favorite.delete()
-        
         return JsonResponse({
             'success': True,
             'message': 'Товар видалено з обраного'
         })
-        
     except FavoriteProduct.DoesNotExist:
         return JsonResponse({
             'success': False,
             'error': 'Товар не знайдено в обраному'
         }, status=404)
+
+
+def check_favorite_status(request, product_id):
+    """Проверить статус избранного для товара."""
+    try:
+        if request.user.is_authenticated:
+            # Для авторизованных пользователей - проверяем в базе данных
+            is_favorite = FavoriteProduct.objects.filter(
+                user=request.user,
+                product_id=product_id
+            ).exists()
+        else:
+            # Для неавторизованных пользователей - проверяем в сессии
+            session_favorites = request.session.get('favorites', [])
+            product_id_int = int(product_id)
+            is_favorite = product_id_int in session_favorites
+        
+        return JsonResponse({'is_favorite': is_favorite})
+    except Exception:
+        return JsonResponse({'is_favorite': False})
+
+
+def favorites_count(request):
+    """Получить количество товаров в избранном."""
+    try:
+        if request.user.is_authenticated:
+            # Для авторизованных пользователей - считаем в базе данных
+            count = FavoriteProduct.objects.filter(user=request.user).count()
+        else:
+            # Для неавторизованных пользователей - считаем в сессии
+            session_favorites = request.session.get('favorites', [])
+            count = len(session_favorites)
+        
+        return JsonResponse({'count': count})
+    except Exception as e:
+        return JsonResponse({'count': 0, 'error': str(e)})
 
 
 @login_required
