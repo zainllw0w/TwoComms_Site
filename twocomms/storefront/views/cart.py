@@ -56,14 +56,12 @@ def view_cart(request):
             product_id = item_data.get('product_id')
             product = Product.objects.select_related('category').get(id=product_id)
             
-            # Цена товара
-            price = Decimal(str(item_data.get('price', product.final_price)))
+            # Цена всегда берется из Product (актуальная цена)
+            price = product.final_price
             qty = int(item_data.get('qty', 1))
             line_total = price * qty
             
-            # Информация о цвете
-            color_name = item_data.get('color', '')
-            color_hex = item_data.get('color_hex', '')
+            # Информация о цвете из color_variant_id
             color_variant = _get_color_variant_safe(item_data.get('color_variant_id'))
             
             cart_items.append({
@@ -73,10 +71,7 @@ def view_cart(request):
                 'qty': qty,
                 'line_total': line_total,
                 'size': item_data.get('size', ''),
-                'color': color_name,
-                'color_hex': color_hex,
                 'color_variant': color_variant,
-                'image_url': item_data.get('image_url', product.display_image.url if product.display_image else '')
             })
             
             subtotal += line_total
@@ -121,89 +116,59 @@ def view_cart(request):
 @require_POST
 def add_to_cart(request):
     """
-    Добавление товара в корзину (AJAX).
-    
-    POST params:
-        product_id: ID товара
-        size: Размер
-        color: Название цвета (опционально)
-        color_hex: HEX код цвета (опционально)
-        color_variant_id: ID цветового варианта (опционально)
-        qty: Количество (по умолчанию 1)
-        
-    Returns:
-        JsonResponse: success, cart_count, message
+    Добавляет товар в корзину (сессия) с учётом размера и цвета, возвращает JSON с количеством и суммой.
+    ВОССТАНОВЛЕНА РАБОЧАЯ ЛОГИКА из старого views.py
     """
-    try:
-        product_id = request.POST.get('product_id')
-        size = request.POST.get('size', 'M')
-        color = request.POST.get('color', '')
-        color_hex = request.POST.get('color_hex', '')
+    pid = request.POST.get('product_id')
+    size = ((request.POST.get('size') or '').strip() or 'S').upper()
         color_variant_id = request.POST.get('color_variant_id')
-        qty = int(request.POST.get('qty', 1))
-        
-        product = Product.objects.get(id=product_id)
-        price = product.final_price
-        
-        # Получаем корзину из сессии
-        cart = get_cart_from_session(request)
-        
-        # Уникальный ключ товара: product_id + size + color
-        cart_key = f"{product_id}_{size}_{color}"
-        
-        # Получаем изображение
-        image_url = ''
-        if color_variant_id:
-            try:
-                variant = ProductColorVariant.objects.get(id=color_variant_id)
-                first_image = variant.images.first()
-                if first_image:
-                    image_url = first_image.image.url
-            except ProductColorVariant.DoesNotExist:
-                pass
-        
-        if not image_url and product.display_image:
-            image_url = product.display_image.url
-        
-        # Если товар уже в корзине - увеличиваем количество
-        if cart_key in cart:
-            cart[cart_key]['qty'] = cart[cart_key].get('qty', 0) + qty
-        else:
-            # Добавляем новый товар
-            cart[cart_key] = {
-                'product_id': product_id,
-                'title': product.title,
-                'price': float(price),
-                'qty': qty,
+    try:
+        qty = int(request.POST.get('qty') or '1')
+    except ValueError:
+        qty = 1
+    qty = max(qty, 1)
+
+    product = get_object_or_404(Product, pk=pid)
+
+    cart = request.session.get('cart', {})
+    key = f"{product.id}:{size}:{color_variant_id or 'default'}"
+    item = cart.get(key, {
+        'product_id': product.id, 
                 'size': size,
-                'color': color,
-                'color_hex': color_hex,
-                'color_variant_id': color_variant_id,  # ИСПРАВЛЕНО: добавлен color_variant_id
-                'image_url': image_url
-            }
-        
-        # Сохраняем в сессию
-        save_cart_to_session(request, cart)
-        
-        cart_count = sum(item.get('qty', 0) for item in cart.values())
-        
-        return JsonResponse({
-            'ok': True,  # ИСПРАВЛЕНО: было 'success', изменено на 'ok' для соответствия с JavaScript
-            'count': cart_count,  # ИСПРАВЛЕНО: добавлен 'count' для updateCartBadge
-            'cart_count': cart_count,
-            'message': f'Товар "{product.title}" додано до кошика'
-        })
-        
-    except Product.DoesNotExist:
-        return JsonResponse({
-            'success': False,
-            'error': 'Товар не знайдено'
-        }, status=404)
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'error': str(e)
-        }, status=400)
+        'color_variant_id': color_variant_id,
+        'qty': 0
+    })
+    item['qty'] += qty
+    cart[key] = item
+    if qty <= 0:
+        _reset_monobank_session(request, drop_pending=True)
+    request.session['cart'] = cart
+    request.session.modified = True
+
+    _reset_monobank_session(request, drop_pending=True)
+
+    ids = [i['product_id'] for i in cart.values()]
+    prods = Product.objects.in_bulk(ids)
+    total_qty = sum(i['qty'] for i in cart.values())
+    total_sum = 0
+    for i in cart.values():
+        p = prods.get(i['product_id'])
+        if p:
+            total_sum += i['qty'] * p.final_price
+
+    cart_logger.info(
+        'add_to_cart: session=%s user=%s key=%s product=%s size=%s color=%s qty=%s cart_keys=%s',
+        request.session.session_key,
+        request.user.id if request.user.is_authenticated else None,
+        key,
+        product.id,
+        size,
+        color_variant_id,
+        item['qty'],
+        list(cart.keys())
+    )
+
+    return JsonResponse({'ok': True, 'count': total_qty, 'total': total_sum})
 
 
 @require_POST
@@ -276,54 +241,88 @@ def update_cart(request):
 @require_POST
 def remove_from_cart(request):
     """
-    Удаление товара из корзины (AJAX).
-    
-    POST params:
-        cart_key: Ключ товара в корзине
-        
-    Returns:
-        JsonResponse: success, cart_count, subtotal, total
+    Удаление позиции из корзины: поддерживает key="productId:size:color" и (product_id + size).
+    ВОССТАНОВЛЕНА РАБОЧАЯ ЛОГИКА из старого cart_remove
     """
-    try:
-        cart_key = request.POST.get('cart_key')
-        
-        cart = get_cart_from_session(request)
-        
-        if cart_key in cart:
-            del cart[cart_key]
-            save_cart_to_session(request, cart)
-        
-        cart_count = sum(item.get('qty', 0) for item in cart.values())
-        subtotal = calculate_cart_total(cart)
-        
-        # Учитываем промокод
-        discount = Decimal('0')
-        promo_code_id = request.session.get('promo_code_id')
-        if promo_code_id:
+    cart = request.session.get('cart', {})
+
+    key = (request.POST.get('key') or '').strip()
+    pid = request.POST.get('product_id')
+    size = (request.POST.get('size') or '').strip()
+
+    removed = []
+
+    def remove_key_exact(k: str) -> bool:
+        if k in cart:
+            cart.pop(k, None)
+            removed.append(k)
+            return True
+        return False
+
+    # 1) Пытаемся удалить по exact key
+    if key:
+        if not remove_key_exact(key):
+            # 1.1) case-insensitive сравнение ключей
+            target = key.lower()
+            for kk in list(cart.keys()):
+                if kk.lower() == target:
+                    remove_key_exact(kk)
+                    break
+            # 1.2) если всё ещё не нашли, попробуем удалить все варианты этого товара
+            if not removed and ":" in key:
+                pid_part = key.split(":", 1)[0]
+                for kk in list(cart.keys()):
+                    if kk.split(":", 1)[0] == pid_part:
+                        remove_key_exact(kk)
+    # 2) Либо удаляем по product_id (+optional size)
+    elif pid:
             try:
-                promo_code = PromoCode.objects.get(id=promo_code_id)
-                if promo_code.can_be_used():
-                    discount = promo_code.calculate_discount(subtotal)
-            except PromoCode.DoesNotExist:
-                pass
-        
-        total = subtotal - discount
-        
-        return JsonResponse({
-            'ok': True,  # ИСПРАВЛЕНО: было 'success', изменено на 'ok'
-            'count': cart_count,  # ИСПРАВЛЕНО: добавлен 'count' для updateCartBadge
-            'cart_count': cart_count,
-            'subtotal': float(subtotal),
-            'discount': float(discount),
-            'total': float(total),
-            'message': 'Товар видалено з кошика'
-        })
-        
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'error': str(e)
-        }, status=400)
+            pid_str = str(int(pid))
+        except (ValueError, TypeError):
+            pid_str = str(pid)
+        if size:
+            candidate = f"{pid_str}:{size}"
+            if not remove_key_exact(candidate):
+                # case-insensitive
+                target = candidate.lower()
+                for kk in list(cart.keys()):
+                    if kk.lower() == target:
+                        remove_key_exact(kk)
+                        break
+        else:
+            for kk in list(cart.keys()):
+                if kk.split(":", 1)[0] == pid_str:
+                    remove_key_exact(kk)
+
+    # Сохраняем изменения
+    request.session['cart'] = cart
+    request.session.modified = True
+
+    # Пересчёт сводки
+    ids = [i['product_id'] for i in cart.values()]
+    prods = Product.objects.in_bulk(ids)
+    total_qty = sum(i['qty'] for i in cart.values())
+    total_sum = 0
+    for i in cart.values():
+        p = prods.get(i['product_id'])
+        if p:
+            total_sum += i['qty'] * p.final_price
+
+    try:
+        cart_logger.info(
+            'cart_remove: session=%s user=%s key=%s pid=%s size=%s removed=%s remaining_keys=%s',
+            request.session.session_key,
+            request.user.id if request.user.is_authenticated else None,
+            key,
+            pid,
+            size,
+            removed,
+            list(cart.keys())
+        )
+    except Exception:
+        pass
+
+    return JsonResponse({'ok': True, 'count': total_qty, 'total': total_sum, 'removed': removed, 'keys': list(cart.keys())})
 
 
 def clear_cart(request):
