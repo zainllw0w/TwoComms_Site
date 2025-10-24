@@ -42,7 +42,7 @@ def product_detail(request, slug):
         auto_select_first_color: Флаг автовыбора первого цвета
         breadcrumbs: Хлебные крошки для SEO
     """
-    product = get_object_or_404(Product, slug=slug)
+    product = get_object_or_404(Product.objects.select_related('category'), slug=slug)
     images = product.images.all()
     
     # Варианты цветов с изображениями (если есть приложение и данные)
