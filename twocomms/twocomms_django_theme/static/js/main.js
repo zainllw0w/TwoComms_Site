@@ -10,6 +10,8 @@ import {
 } from './modules/shared.js';
 import { PerformanceOptimizer, ImageOptimizer } from './modules/optimizers.js';
 import MobileOptimizer from './modules/mobile-optimizer.js';
+import LazyLoader from './modules/lazy-loader.js';
+import WebVitalsMonitor from './modules/web-vitals-monitor.js';
 
 // Инициализируем мобильный оптимизатор как можно раньше
 MobileOptimizer.init();
