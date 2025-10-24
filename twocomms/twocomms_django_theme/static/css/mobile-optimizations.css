@@ -1,0 +1,382 @@
+/* ==============================================
+   MOBILE-FIRST ОПТИМИЗАЦИИ для TwoComms
+   Критические улучшения производительности
+   ============================================== */
+
+/* ===== Touch Optimization ===== */
+.touch-device * {
+  -webkit-tap-highlight-color: rgba(139, 92, 246, 0.2);
+  -webkit-touch-callout: none;
+}
+
+.touch-device button,
+.touch-device a,
+.touch-device .btn {
+  touch-action: manipulation; /* Убирает задержку 300ms */
+  cursor: pointer;
+}
+
+/* Увеличенные touch targets для мобильных */
+@media (max-width: 767.98px) {
+  .btn,
+  button,
+  a.nav-link,
+  .bottom-nav-item {
+    min-height: 44px; /* Apple рекомендует минимум 44x44px */
+    min-width: 44px;
+  }
+  
+  /* Увеличиваем clickable area для маленьких элементов */
+  .btn-sm,
+  .badge,
+  .close-btn {
+    min-height: 36px;
+    min-width: 36px;
+    padding: 8px 12px;
+  }
+}
+
+/* ===== Mobile Performance Optimizations ===== */
+.is-mobile .hero-section,
+.is-mobile .hero-particles,
+.is-mobile .floating-logos {
+  will-change: auto !important; /* Убираем will-change на мобильных */
+  transform: translate3d(0,0,0); /* GPU acceleration только где нужно */
+}
+
+/* Отключаем тяжелые анимации на мобильных */
+.is-mobile .card:hover,
+.is-mobile .product-card:hover,
+.is-mobile .category-card-compact:hover {
+  transform: none !important;
+  transition: none !important;
+}
+
+/* Упрощаем backdrop-filter на мобильных (очень тяжелый эффект) */
+.is-mobile .navbar,
+.is-mobile .bottom-nav,
+.is-mobile .cart-panel,
+.is-mobile .user-panel {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(10, 11, 15, 0.95) !important;
+}
+
+/* Убираем box-shadow на мобильных (тяжелый для GPU) */
+.is-mobile .card,
+.is-mobile .btn,
+.is-mobile .modal-content {
+  box-shadow: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ===== Оптимизация скроллинга ===== */
+.hero-section,
+.categories-section,
+.products-container,
+main {
+  -webkit-overflow-scrolling: touch; /* Плавный скролл на iOS */
+  scroll-behavior: smooth;
+}
+
+/* Prevent scroll jank */
+body {
+  overscroll-behavior-y: none; /* Убирает "bounce" эффект на iOS */
+}
+
+/* ===== Оптимизация изображений ===== */
+@media (max-width: 767.98px) {
+  img {
+    image-rendering: -webkit-optimize-contrast; /* Оптимизация для WebKit */
+    image-rendering: crisp-edges; /* Четкие края */
+  }
+  
+  /* Ленивая загрузка изображений */
+  img[loading="lazy"] {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  
+  img[loading="lazy"].loaded {
+    opacity: 1;
+  }
+}
+
+/* ===== Оптимизация шрифтов ===== */
+@media (max-width: 767.98px) {
+  body {
+    font-size: 14px; /* Немного меньше для мобильных */
+    line-height: 1.5;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  h1, .hero-title {
+    font-size: 1.75rem;
+    line-height: 1.2;
+  }
+  
+  h2, .h2 {
+    font-size: 1.5rem;
+  }
+  
+  h3, .h3 {
+    font-size: 1.25rem;
+  }
+}
+
+/* ===== Оптимизация сетки продуктов ===== */
+@media (max-width: 575.98px) {
+  .row-cols-2 > * {
+    flex: 0 0 auto;
+    width: 50%;
+  }
+  
+  .g-3 {
+    --bs-gutter-x: 0.75rem;
+    --bs-gutter-y: 0.75rem;
+  }
+  
+  /* Оптимизация карточек продуктов */
+  .product-card {
+    contain: layout style paint; /* Изоляция для лучшей производительности */
+  }
+  
+  .product-card-wrap {
+    contain: content; /* Изоляция контента */
+  }
+}
+
+/* ===== Оптимизация модальных окон ===== */
+@media (max-width: 767.98px) {
+  .modal-dialog {
+    margin: 0.5rem;
+    max-height: calc(100vh - 1rem);
+  }
+  
+  .modal-content {
+    border-radius: 12px;
+    max-height: calc(100vh - 1rem);
+    overflow-y: auto;
+  }
+  
+  .modal-body {
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ===== Оптимизация нижнего меню ===== */
+@media (max-width: 991.98px) {
+  .bottom-nav {
+    position: fixed !important;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1040;
+    height: 60px;
+    transform: translateZ(0); /* GPU acceleration */
+    will-change: transform;
+  }
+  
+  /* Безопасная зона для iPhone X и новее */
+  @supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .bottom-nav {
+      padding-bottom: env(safe-area-inset-bottom);
+      height: calc(60px + env(safe-area-inset-bottom));
+    }
+  }
+  
+  /* Добавляем padding внизу body для компенсации bottom-nav */
+  body {
+    padding-bottom: 70px;
+  }
+  
+  @supports (padding-bottom: env(safe-area-inset-bottom)) {
+    body {
+      padding-bottom: calc(70px + env(safe-area-inset-bottom));
+    }
+  }
+}
+
+/* ===== Оптимизация форм ===== */
+@media (max-width: 767.98px) {
+  input,
+  textarea,
+  select,
+  .form-control {
+    font-size: 16px !important; /* Предотвращает зум на iOS */
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  
+  input[type="search"] {
+    -webkit-appearance: none;
+  }
+}
+
+/* ===== Perf-lite mode усиления ===== */
+.perf-lite * {
+  animation-duration: 0.01ms !important;
+  animation-delay: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0.01ms !important;
+}
+
+.perf-lite .hero-section::before,
+.perf-lite .hero-section::after,
+.perf-lite body::before,
+.perf-lite body::after {
+  display: none !important;
+}
+
+.perf-lite .particle,
+.perf-lite .spark,
+.perf-lite .glow,
+.perf-lite .floating-logo {
+  display: none !important;
+}
+
+/* ===== Улучшения для landscape ориентации ===== */
+@media (max-width: 767.98px) and (orientation: landscape) {
+  .hero-section {
+    min-height: 40vh;
+    padding: 1rem 0;
+  }
+  
+  .hero-title {
+    font-size: 1.5rem;
+  }
+  
+  .modal-dialog {
+    margin: 0.25rem;
+  }
+}
+
+/* ===== Оптимизация анимаций reveal ===== */
+@media (max-width: 767.98px) {
+  .reveal,
+  .reveal-fast,
+  .stagger-item {
+    --reveal-distance: 20px; /* Меньше для мобильных */
+    --reveal-duration: 0.4s; /* Быстрее */
+  }
+}
+
+/* Для устройств с prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ===== Оптимизация загрузки контента ===== */
+.loading-placeholder {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 25%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.05) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Оптимизация для очень маленьких экранов */
+@media (max-width: 359.98px) {
+  body {
+    font-size: 13px;
+  }
+  
+  .container-xxl,
+  .container {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  
+  .btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* ===== Оптимизация для больших мобильных (phablets) ===== */
+@media (min-width: 576px) and (max-width: 767.98px) {
+  .row-cols-2 > * {
+    width: 50%;
+  }
+  
+  .product-card {
+    font-size: 0.95rem;
+  }
+}
+
+/* ===== Критическая оптимизация памяти ===== */
+.is-mobile .product-card-wrap {
+  contain: strict; /* Максимальная изоляция */
+}
+
+.is-mobile .hero-particles .particle {
+  contain: strict;
+  will-change: auto;
+}
+
+/* Убираем тяжелые фильтры на слабых устройствах */
+.perf-lite img,
+.perf-lite .card,
+.perf-lite .btn {
+  filter: none !important;
+}
+
+/* ===== Accessibility improvements для touch ===== */
+.touch-device :focus {
+  outline: 2px solid rgba(139, 92, 246, 0.5);
+  outline-offset: 2px;
+}
+
+.touch-device :focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ===== Оптимизация для dark mode ===== */
+@media (prefers-color-scheme: dark) {
+  /* Уже используется темная тема, но добавим оптимизации */
+  .is-mobile {
+    color-scheme: dark;
+  }
+  
+  .is-mobile img {
+    opacity: 0.95; /* Немного приглушаем яркость изображений */
+  }
+}
+
+/* ===== Safe area для modern devices ===== */
+@supports (padding: max(0px)) {
+  .container-xxl,
+  .container {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+  
+  .navbar {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+}
+
