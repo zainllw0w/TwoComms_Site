@@ -150,14 +150,14 @@ from .admin import (
 # Это обеспечивает обратную совместимость во время рефакторинга
 import sys
 import os
-
-# Получаем путь к старому views.py (на уровень выше)
-parent_dir = os.path.dirname(os.path.dirname(__file__))
-sys.path.insert(0, parent_dir)
+import importlib.util
 
 try:
-    # Импортируем старый модуль views
-    from storefront import views as _old_views
+    # Явно импортируем старый views.py файл (не пакет views/)
+    views_py_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'views.py')
+    spec = importlib.util.spec_from_file_location("storefront.views_old", views_py_path)
+    _old_views = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(_old_views)
     
     # Список функций/классов для НЕ импорта (уже есть в новых модулях)
     _exclude = {
@@ -204,10 +204,11 @@ try:
         if not name.startswith('_') and name not in _exclude:
             globals()[name] = getattr(_old_views, name)
             
-finally:
-    # Убираем parent_dir из sys.path
-    if parent_dir in sys.path:
-        sys.path.remove(parent_dir)
+except Exception as e:
+    # Если не удалось импортировать старый views.py, это нормально
+    # (например, если его уже удалили после полной миграции)
+    import warnings
+    warnings.warn(f"Could not import old views.py: {e}")
 
 
 # ==================== АЛИАСЫ ДЛЯ ОБРАТНОЙ СОВМЕСТИМОСТИ ====================
