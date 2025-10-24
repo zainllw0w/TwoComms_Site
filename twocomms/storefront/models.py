@@ -2,20 +2,24 @@ from django.db import models
 from django.contrib.auth.models import User
 
 class Category(models.Model):
-    name=models.CharField(max_length=100, unique=True)
-    slug=models.SlugField(unique=True)
-    icon=models.ImageField(upload_to='category_icons/', blank=True, null=True)
-    cover=models.ImageField(upload_to='category_covers/', blank=True, null=True)
-    order=models.PositiveIntegerField(default=0)
-    description=models.TextField(blank=True, null=True)
-    is_active=models.BooleanField(default=True)
-    is_featured=models.BooleanField(default=False)
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(unique=True)
+    icon = models.ImageField(upload_to='category_icons/', blank=True, null=True)
+    cover = models.ImageField(upload_to='category_covers/', blank=True, null=True)
+    order = models.PositiveIntegerField(default=0)
+    description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    is_featured = models.BooleanField(default=False)
     # AI-generated content fields
-    ai_keywords=models.TextField(blank=True, null=True, verbose_name='AI-ключові слова')
-    ai_description=models.TextField(blank=True, null=True, verbose_name='AI-опис')
-    ai_content_generated=models.BooleanField(default=False, verbose_name='AI-контент згенеровано')
-    class Meta: ordering=['order','name']
-    def __str__(self): return self.name
+    ai_keywords = models.TextField(blank=True, null=True, verbose_name='AI-ключові слова')
+    ai_description = models.TextField(blank=True, null=True, verbose_name='AI-опис')
+    ai_content_generated = models.BooleanField(default=False, verbose_name='AI-контент згенеровано')
+    
+    class Meta:
+        ordering = ['order', 'name']
+    
+    def __str__(self):
+        return self.name
 
 
 class PrintProposal(models.Model):
@@ -50,33 +54,34 @@ class PrintProposal(models.Model):
         return base
 
 class Product(models.Model):
-    title=models.CharField(max_length=200)
-    slug=models.SlugField(unique=True)
-    category=models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products')
-    price=models.PositiveIntegerField()
-    has_discount=models.BooleanField(default=False)
-    discount_percent=models.PositiveIntegerField(blank=True, null=True)
-    featured=models.BooleanField(default=False)
-    description=models.TextField(blank=True)
-    main_image=models.ImageField(upload_to='products/', blank=True, null=True)
-    main_image_alt=models.CharField(max_length=200, blank=True, null=True, verbose_name='Alt-текст головного зображення')
-    points_reward=models.PositiveIntegerField(default=0, verbose_name='Бали за покупку')
+    title = models.CharField(max_length=200)
+    slug = models.SlugField(unique=True)
+    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products')
+    price = models.PositiveIntegerField()
+    # has_discount field removed - see migration 0008_remove_has_discount_field
+    # has_discount is now a property (see @property below)
+    discount_percent = models.PositiveIntegerField(blank=True, null=True)
+    featured = models.BooleanField(default=False)
+    description = models.TextField(blank=True)
+    main_image = models.ImageField(upload_to='products/', blank=True, null=True)
+    main_image_alt = models.CharField(max_length=200, blank=True, null=True, verbose_name='Alt-текст головного зображення')
+    points_reward = models.PositiveIntegerField(default=0, verbose_name='Бали за покупку')
     
     # Дропшип цены
-    drop_price=models.PositiveIntegerField(default=0, verbose_name='Ціна дропа (грн)')
-    recommended_price=models.PositiveIntegerField(default=0, verbose_name='Рекомендована ціна (грн)')
+    drop_price = models.PositiveIntegerField(default=0, verbose_name='Ціна дропа (грн)')
+    recommended_price = models.PositiveIntegerField(default=0, verbose_name='Рекомендована ціна (грн)')
     
     # Оптовые цены для дропшипа
-    wholesale_price=models.PositiveIntegerField(default=0, verbose_name='Оптова ціна (грн)')
+    wholesale_price = models.PositiveIntegerField(default=0, verbose_name='Оптова ціна (грн)')
     
     # Поля для определения участия в дропшипе
-    is_dropship_available=models.BooleanField(default=True, verbose_name='Доступний для дропшипа')
-    dropship_note=models.CharField(max_length=200, blank=True, null=True, verbose_name='Примітка для дропшипа')
+    is_dropship_available = models.BooleanField(default=True, verbose_name='Доступний для дропшипа')
+    dropship_note = models.CharField(max_length=200, blank=True, null=True, verbose_name='Примітка для дропшипа')
     
     # AI-generated content fields
-    ai_keywords=models.TextField(blank=True, null=True, verbose_name='AI-ключові слова')
-    ai_description=models.TextField(blank=True, null=True, verbose_name='AI-опис')
-    ai_content_generated=models.BooleanField(default=False, verbose_name='AI-контент згенеровано')
+    ai_keywords = models.TextField(blank=True, null=True, verbose_name='AI-ключові слова')
+    ai_description = models.TextField(blank=True, null=True, verbose_name='AI-опис')
+    ai_content_generated = models.BooleanField(default=False, verbose_name='AI-контент згенеровано')
     @property
     def has_discount(self):
         """Автоматически определяет, есть ли скидка"""
@@ -103,7 +108,8 @@ class Product(models.Model):
         
         return None
     
-    def __str__(self): return self.title
+    def __str__(self):
+        return self.title
     
     def get_drop_price(self, dropshipper=None):
         """Получить цену дропа (оптовая цена) с учетом скидки за успешные дропы"""
@@ -181,10 +187,12 @@ class Product(models.Model):
         ]
 
 class ProductImage(models.Model):
-    product=models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
-    image=models.ImageField(upload_to='products/extra/')
-    alt_text=models.CharField(max_length=200, blank=True, null=True, verbose_name='Alt-текст зображення')
-    def __str__(self): return f'Image for {self.product_id}'
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
+    image = models.ImageField(upload_to='products/extra/')
+    alt_text = models.CharField(max_length=200, blank=True, null=True, verbose_name='Alt-текст зображення')
+    
+    def __str__(self):
+        return f'Image for {self.product_id}'
 
 class PromoCode(models.Model):
     DISCOUNT_TYPES = [
