@@ -1,0 +1,12 @@
+90eb2bd3c9bfb7b46682380ca6d16726815a24f7|fix: добавлен color_label в checkout.py и удален дубликат импорта
+382014787053b7b221af3607e7d31de8c41bd01b|fix: КРИТИЧЕСКИЕ исправления корзины и checkout
+0348005053d5be3125af72dd9b2e9b03216fda08|fix: CRITICAL - исправлены проблемы с корзиной и checkout
+98a8991d28185b7af79ccdc0d43538d79d549cf8|merge: complete fix for monobank_webhook recursion
+25ef13d43f7b70786b3684d235b7183a2fb89fcb|fix: КРИТИЧЕСКОЕ исправление checkout.py order_success
+a93cc488d1e491306f1960b1440b5463ce7ef918|fix: устранена рекурсия в monobank_webhook (checkout.py)
+1917085efe6328866025f38779458915d9b65333|fix: Critical fixes - checkout data structure, remove fallbacks, add Monobank helpers
+3ab8f5d78dbb59f7b205c24eea6ecedf8d060966|fix: исправлена рекурсивная ошибка в monobank_webhook
+d384c035c38fbcfce114c155fba386b2ef80849f|Add migration for monobank_invoice_id field
+e84900563acc602800b9d7c44f32552b57d5c13c|Major UI improvements: widen dropshipper layout, add data-animate-early for payment section, compact all payment & practice cards, redesign progress & payouts blocks with modern gradients and icons
+b63a1a875afbd15237fb6c4197fd27e406ad6077|Fix layout grids: payment options, loyalty cards, practice section all in 3 columns; calculate margin with loyalty discount
+2c0b5cac2af944596a812c903ed2f25b16e4cdc7|Improve payment details form: dynamic update, auto-init, validation patterns

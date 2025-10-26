@@ -1,0 +1,175 @@
+7876cea Code optimization: Fix critical bugs, add indexes, improve performance
+diff --git a/twocomms/storefront/models.py b/twocomms/storefront/models.py
+index 74e14ab..b9df422 100644
+--- a/twocomms/storefront/models.py
++++ b/twocomms/storefront/models.py
+@@ -2,20 +2,29 @@ from django.db import models
+ from django.contrib.auth.models import User
+ 
+ class Category(models.Model):
+-    name=models.CharField(max_length=100, unique=True)
+-    slug=models.SlugField(unique=True)
+-    icon=models.ImageField(upload_to='category_icons/', blank=True, null=True)
+-    cover=models.ImageField(upload_to='category_covers/', blank=True, null=True)
+-    order=models.PositiveIntegerField(default=0)
+-    description=models.TextField(blank=True, null=True)
+-    is_active=models.BooleanField(default=True)
+-    is_featured=models.BooleanField(default=False)
++    name = models.CharField(max_length=100, unique=True)
++    slug = models.SlugField(unique=True)
++    icon = models.ImageField(upload_to='category_icons/', blank=True, null=True)
++    cover = models.ImageField(upload_to='category_covers/', blank=True, null=True)
++    order = models.PositiveIntegerField(default=0)
++    description = models.TextField(blank=True, null=True)
++    is_active = models.BooleanField(default=True)
++    is_featured = models.BooleanField(default=False)
+     # AI-generated content fields
+-    ai_keywords=models.TextField(blank=True, null=True, verbose_name='AI-ключові слова')
+-    ai_description=models.TextField(blank=True, null=True, verbose_name='AI-опис')
+-    ai_content_generated=models.BooleanField(default=False, verbose_name='AI-контент згенеровано')
+-    class Meta: ordering=['order','name']
+-    def __str__(self): return self.name
++    ai_keywords = models.TextField(blank=True, null=True, verbose_name='AI-ключові слова')
++    ai_description = models.TextField(blank=True, null=True, verbose_name='AI-опис')
++    ai_content_generated = models.BooleanField(default=False, verbose_name='AI-контент згенеровано')
++    
++    class Meta:
++        ordering = ['order', 'name']
++        indexes = [
++            models.Index(fields=['is_active'], name='idx_category_active'),
++            models.Index(fields=['is_featured'], name='idx_category_featured'),
++            models.Index(fields=['order'], name='idx_category_order'),
++        ]
++    
++    def __str__(self):
++        return self.name
+ 
+ 
+ class PrintProposal(models.Model):
+@@ -50,33 +59,34 @@ class PrintProposal(models.Model):
+         return base
+ 
+ class Product(models.Model):
+-    title=models.CharField(max_length=200)
+-    slug=models.SlugField(unique=True)
+-    category=models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products')
+-    price=models.PositiveIntegerField()
+-    has_discount=models.BooleanField(default=False)
+-    discount_percent=models.PositiveIntegerField(blank=True, null=True)
+-    featured=models.BooleanField(default=False)
+-    description=models.TextField(blank=True)
+-    main_image=models.ImageField(upload_to='products/', blank=True, null=True)
+-    main_image_alt=models.CharField(max_length=200, blank=True, null=True, verbose_name='Alt-текст головного зображення')
+-    points_reward=models.PositiveIntegerField(default=0, verbose_name='Бали за покупку')
++    title = models.CharField(max_length=200)
++    slug = models.SlugField(unique=True)
++    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products')
++    price = models.PositiveIntegerField()
++    # has_discount field removed - see migration 0008_remove_has_discount_field
++    # Use @property has_discount below instead (auto-calculated from discount_percent)
++    discount_percent = models.PositiveIntegerField(blank=True, null=True)
++    featured = models.BooleanField(default=False)
++    description = models.TextField(blank=True)
++    main_image = models.ImageField(upload_to='products/', blank=True, null=True)
++    main_image_alt = models.CharField(max_length=200, blank=True, null=True, verbose_name='Alt-текст головного зображення')
++    points_reward = models.PositiveIntegerField(default=0, verbose_name='Бали за покупку')
+     
+     # Дропшип цены
+-    drop_price=models.PositiveIntegerField(default=0, verbose_name='Ціна дропа (грн)')
+-    recommended_price=models.PositiveIntegerField(default=0, verbose_name='Рекомендована ціна (грн)')
++    drop_price = models.PositiveIntegerField(default=0, verbose_name='Ціна дропа (грн)')
++    recommended_price = models.PositiveIntegerField(default=0, verbose_name='Рекомендована ціна (грн)')
+     
+     # Оптовые цены для дропшипа
+-    wholesale_price=models.PositiveIntegerField(default=0, verbose_name='Оптова ціна (грн)')
++    wholesale_price = models.PositiveIntegerField(default=0, verbose_name='Оптова ціна (грн)')
+     
+     # Поля для определения участия в дропшипе
+-    is_dropship_available=models.BooleanField(default=True, verbose_name='Доступний для дропшипа')
+-    dropship_note=models.CharField(max_length=200, blank=True, null=True, verbose_name='Примітка для дропшипа')
++    is_dropship_available = models.BooleanField(default=True, verbose_name='Доступний для дропшипа')
++    dropship_note = models.CharField(max_length=200, blank=True, null=True, verbose_name='Примітка для дропшипа')
+     
+     # AI-generated content fields
+-    ai_keywords=models.TextField(blank=True, null=True, verbose_name='AI-ключові слова')
+-    ai_description=models.TextField(blank=True, null=True, verbose_name='AI-опис')
+-    ai_content_generated=models.BooleanField(default=False, verbose_name='AI-контент згенеровано')
++    ai_keywords = models.TextField(blank=True, null=True, verbose_name='AI-ключові слова')
++    ai_description = models.TextField(blank=True, null=True, verbose_name='AI-опис')
++    ai_content_generated = models.BooleanField(default=False, verbose_name='AI-контент згенеровано')
+     @property
+     def has_discount(self):
+         """Автоматически определяет, есть ли скидка"""
+@@ -103,7 +113,8 @@ class Product(models.Model):
+         
+         return None
+     
+-    def __str__(self): return self.title
++    def __str__(self):
++        return self.title
+     
+     def get_drop_price(self, dropshipper=None):
+         """Получить цену дропа (оптовая цена) с учетом скидки за успешные дропы"""
+@@ -178,13 +189,18 @@ class Product(models.Model):
+     class Meta:
+         indexes = [
+             models.Index(fields=['-id'], name='idx_product_id_desc'),
++            models.Index(fields=['featured'], name='idx_product_featured'),
++            models.Index(fields=['is_dropship_available'], name='idx_product_dropship'),
++            models.Index(fields=['category', '-id'], name='idx_product_category_id'),
+         ]
+ 
+ class ProductImage(models.Model):
+-    product=models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
+-    image=models.ImageField(upload_to='products/extra/')
+-    alt_text=models.CharField(max_length=200, blank=True, null=True, verbose_name='Alt-текст зображення')
+-    def __str__(self): return f'Image for {self.product_id}'
++    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
++    image = models.ImageField(upload_to='products/extra/')
++    alt_text = models.CharField(max_length=200, blank=True, null=True, verbose_name='Alt-текст зображення')
++    
++    def __str__(self):
++        return f'Image for {self.product_id}'
+ 
+ class PromoCode(models.Model):
+     DISCOUNT_TYPES = [
+@@ -205,6 +221,9 @@ class PromoCode(models.Model):
+         verbose_name = 'Промокод'
+         verbose_name_plural = 'Промокоди'
+         ordering = ['-created_at']
++        indexes = [
++            models.Index(fields=['is_active', '-created_at'], name='idx_promo_active_created'),
++        ]
+     
+     def __str__(self):
+         return f'{self.code} - {self.get_discount_display()}'
+@@ -286,6 +305,9 @@ class OfflineStore(models.Model):
+         verbose_name = 'Оффлайн магазин'
+         verbose_name_plural = 'Оффлайн магазини'
+         ordering = ['order', 'name']
++        indexes = [
++            models.Index(fields=['is_active', 'order'], name='idx_store_active_order'),
++        ]
+     
+     def __str__(self):
+         return self.name
+@@ -310,6 +332,9 @@ class SiteSession(models.Model):
+ 
+     class Meta:
+         ordering = ['-last_seen']
++        indexes = [
++            models.Index(fields=['is_bot', '-last_seen'], name='idx_session_bot_seen'),
++        ]
+ 
+     def __str__(self) -> str:
+         return f"{self.session_key} ({'bot' if self.is_bot else 'user'})"
+@@ -326,6 +351,9 @@ class PageView(models.Model):
+ 
+     class Meta:
+         ordering = ['-when']
++        indexes = [
++            models.Index(fields=['is_bot', '-when'], name='idx_pageview_bot_when'),
++        ]
+ 
+     def __str__(self) -> str:
+         return f"{self.path} @ {self.when}"

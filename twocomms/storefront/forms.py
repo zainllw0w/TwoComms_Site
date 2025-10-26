@@ -50,9 +50,8 @@ class ProductForm(forms.ModelForm):
 
     def clean(self):
         data = super().clean()
-        # Обов'язково вимагати головне зображення під час створення товару
-        if not self.instance.pk and not data.get("main_image"):
-            self.add_error("main_image", "Головне зображення є обов'язковим")
+        # Главное изображение необязательно - оно может быть взято из цветовых вариантов
+        # или добавлено позже через редактирование товара
         
         # Валидация цены
         price = data.get('price')

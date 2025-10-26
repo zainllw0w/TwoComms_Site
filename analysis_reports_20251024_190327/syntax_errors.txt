@@ -1,0 +1,4 @@
+65b03cf75e5c3e2e9f17238efdb74bfa7321e25e|docs: отчет о критическом исправлении IndentationError
+eab4837011353f901a0847743e82a11582d4e924|fix: CRITICAL - исправлена IndentationError в storefront/views/utils.py line 128
+21c6002a08f16c07ca86eebef55ff68e9badabd0|fix: критическая ошибка IndentationError в utils.py (строка 128)
+6e8970445aebe485ac6397df456e6f700e37fec9|fix: CRITICAL - исправлена IndentationError в utils.py строка 128

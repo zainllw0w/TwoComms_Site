@@ -1,0 +1,5 @@
+0ba05d6bd9cb53194b43b656727d97b05df357a5|2025-10-23 08:46:13 +0300|Update payout request: remove crypto/cash, add card/IBAN options with dynamic form changes
+41965586daa5f55e54b2f2f2479c5f6c9bb9d282|2025-10-23 08:20:01 +0300|Add complete admin payout management system with proper CSS classes (no inline Django conditions)
+4e588c437401e6b2eb1c212772fef9ccc5f16cfc|2025-10-23 07:27:11 +0300|Implement full payout system: dropshipper tab, request functionality, Telegram notifications
+a994ca1ce312e7276b63bf7bee89ecad140a1741|2025-10-23 07:21:31 +0300|Auto-set payment_status to paid when status is confirmed; add admin control for payment_status
+c4b5e52707d0579ae7b771c2d320ae095d6888c5|2025-10-23 07:12:25 +0300|Add available_for_payout logic: field in DropshipperStats, automatic updates on payout processing
