@@ -1506,13 +1506,6 @@ document.addEventListener('DOMContentLoaded', function(){
     else { setTimeout(run, 0); }
   }
   window.equalizeCardHeights = equalizeCardHeights;
-  equalizeCardHeights();
-  window.addEventListener('load', equalizeCardHeights);
-  const debouncedEqualize = debounce(equalizeCardHeights, 160);
-  window.addEventListener('resize', debouncedEqualize);
-  const mqHandler = ()=> debouncedEqualize();
-  if(equalizeMq.addEventListener){ equalizeMq.addEventListener('change', mqHandler); }
-  else if(equalizeMq.addListener){ equalizeMq.addListener(mqHandler); }
 
   // ===== Выравнивание заголовков товаров в одной строке =====
   let titleEqScheduled = false;
@@ -1576,7 +1569,7 @@ document.addEventListener('DOMContentLoaded', function(){
   
   // Вызываем обе функции выравнивания
   const equalizeAll = ()=>{
-    equalizeCardHeights();
+  equalizeCardHeights();
     setTimeout(equalizeProductTitles, 50);
   };
   
