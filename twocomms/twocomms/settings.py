@@ -557,8 +557,11 @@ CONTENT_SECURITY_POLICY = os.environ.get('CONTENT_SECURITY_POLICY', _CSP_DEFAULT
 X_XSS_PROTECTION = os.environ.get('X_XSS_PROTECTION', '1; mode=block')
 
 # Дополнительные настройки безопасности
-SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
-SECURE_CROSS_ORIGIN_EMBEDDER_POLICY = 'require-corp'
+# COEP/COOP отключены, чтобы не блокировать сторонние виджеты/пиксели (Meta Pixel, GA4, Clarity)
+# Эти заголовки требуют, чтобы все ресурсы явно разрешали встраивание через CORS,
+# что несовместимо с Meta Pixel и другими аналитическими скриптами
+SECURE_CROSS_ORIGIN_OPENER_POLICY = None
+SECURE_CROSS_ORIGIN_EMBEDDER_POLICY = None
 
 # Настройки для продакшена
 if not DEBUG:

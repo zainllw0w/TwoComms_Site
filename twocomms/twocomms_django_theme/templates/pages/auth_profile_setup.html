@@ -769,5 +769,19 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 });
+
+// Track CompleteRegistration event for new users
+(function(){
+  try{
+    {% if just_registered %}
+    if(window.trackEvent){
+      window.trackEvent('CompleteRegistration', {
+        content_name: 'profile_setup',
+        status: 'completed'
+      });
+    }
+    {% endif %}
+  }catch(_){}
+})();
 </script>
 {% endblock %}

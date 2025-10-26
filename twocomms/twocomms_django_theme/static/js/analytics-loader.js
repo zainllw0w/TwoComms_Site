@@ -45,20 +45,63 @@
       return;
     }
     win.YM_ID = YM_ID ? parseInt(YM_ID, 10) || 0 : 0;
+    
+    // Event queue for Meta Pixel events that fire before fbq is loaded
+    var pixelEventQueue = [];
+    var pixelReady = false;
+    
+    // Function to flush queued events when pixel becomes ready
+    function flushPixelQueue() {
+      if (!pixelReady && win.fbq) {
+        pixelReady = true;
+        while (pixelEventQueue.length > 0) {
+          var evt = pixelEventQueue.shift();
+          try {
+            win.fbq('track', evt.name, evt.payload);
+          } catch (err) {
+            if (console && console.debug) {
+              console.debug('Meta Pixel queued event error', err);
+            }
+          }
+        }
+      }
+    }
+    
+    // Check for pixel readiness periodically
+    var checkInterval = setInterval(function() {
+      if (win.fbq) {
+        flushPixelQueue();
+        clearInterval(checkInterval);
+      }
+    }, 100);
+    
+    // Clear interval after 10 seconds to avoid memory leak
+    setTimeout(function() {
+      clearInterval(checkInterval);
+    }, 10000);
+    
     win.trackEvent = function (eventName, payload) {
       if (!eventName) {
         return;
       }
       payload = payload || {};
+      
+      // Meta Pixel with queueing support
       try {
         if (win.fbq) {
           win.fbq('track', eventName, payload);
+          pixelReady = true;
+        } else if (PIXEL_ID) {
+          // Queue event if pixel will be loaded
+          pixelEventQueue.push({ name: eventName, payload: payload });
         }
       } catch (err1) {
         if (console && console.debug) {
           console.debug('Meta Pixel track error', err1);
         }
       }
+      
+      // Google Analytics
       try {
         if (win.gtag) {
           win.gtag('event', eventName, payload);
@@ -68,6 +111,8 @@
           console.debug('GA track error', err2);
         }
       }
+      
+      // Yandex Metrika
       try {
         if (win.ym && win.YM_ID) {
           win.ym(win.YM_ID, 'reachGoal', eventName, payload);
