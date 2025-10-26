@@ -1,0 +1,53 @@
+2d36468019268c1d4d240e5e9940b08d51dd4f9d|merge: prices fix
+1190e2e9d3f001f00455bc7b240f7d41fe719688|fix: цены не отображались в корзине - добавлено unit_price
+1b6f682857519187ab52344e8ae1ab5cbf3366ef|merge: cart fixes
+2d2d9cd33890f7c8189b90e646c34f4507594677|fix: add UTF-8 encoding declaration to manage.py - CRITICAL
+90eb2bd3c9bfb7b46682380ca6d16726815a24f7|fix: добавлен color_label в checkout.py и удален дубликат импорта
+382014787053b7b221af3607e7d31de8c41bd01b|fix: КРИТИЧЕСКИЕ исправления корзины и checkout
+0348005053d5be3125af72dd9b2e9b03216fda08|fix: CRITICAL - исправлены проблемы с корзиной и checkout
+f0ea4a88298de5688af835d3799e38247b64832e|merge: критическое исправление корзины
+f7c144d92518b842dd0ffc497c38d573238d4ae0|fix: корзина не отображала товары - неправильное имя переменной в контексте
+f8ec51b28b686e31c6a0a658f4f3a4a213c7bfb2|merge: fix cache_utils imports
+8abf1433df5567e2c7937c503ad8df439cec5829|fix: CRITICAL - исправлен неправильный импорт cache_utils
+44971905c7803ba2d8922a8a4ba23a97560f2aec|docs: критический отчет о проблемах и исправлениях
+65b03cf75e5c3e2e9f17238efdb74bfa7321e25e|docs: отчет о критическом исправлении IndentationError
+981893918f48a9742a07356d967ca2b950d179c7|fix: удалены merge conflict markers из utils.py
+4edbd36dd2a956b2564aa42921c83bf5329e63f6|merge: accept fixed utils.py from chore-page-audit-oUIHu
+eab4837011353f901a0847743e82a11582d4e924|fix: CRITICAL - исправлена IndentationError в storefront/views/utils.py line 128
+21c6002a08f16c07ca86eebef55ff68e9badabd0|fix: критическая ошибка IndentationError в utils.py (строка 128)
+6e8970445aebe485ac6397df456e6f700e37fec9|fix: CRITICAL - исправлена IndentationError в utils.py строка 128
+98a8991d28185b7af79ccdc0d43538d79d549cf8|merge: complete fix for monobank_webhook recursion
+25ef13d43f7b70786b3684d235b7183a2fb89fcb|fix: КРИТИЧЕСКОЕ исправление checkout.py order_success
+a93cc488d1e491306f1960b1440b5463ce7ef918|fix: устранена рекурсия в monobank_webhook (checkout.py)
+1917085efe6328866025f38779458915d9b65333|fix: Critical fixes - checkout data structure, remove fallbacks, add Monobank helpers
+0eef07728e7776e19769faf15121a25b5012e1ae|merge: resolve conflicts - use fixed versions from 2025-10-24-0589-YRHvS
+a07cceab4508e3e8e17dbe9e07a9602c1fb58dd2|fix: КРИТИЧЕСКИЕ БАГИ в модульной миграции корзины
+fc347f2013b07dd71b96e08055f919484d30eef3|fix: критическое исправление calculate_cart_total и update_cart
+a25d237e633ac241720dd342a08ea342c05abab4|fix: Views migration - fix syntax errors, eliminate duplication, restore fallback
+fe2cfba1378974034831948c8fa8eabab0906ac9|fix: восстановлена рабочая логика корзины из старого views.py
+3610a82716e9b29367fa80a2a83903f4a09abd1b|fix: критическое исправление корзины - товары теперь добавляются и удаляются
+3ab8f5d78dbb59f7b205c24eea6ecedf8d060966|fix: исправлена рекурсивная ошибка в monobank_webhook
+634a43228b411d44294edcd0f02000700c8604a7|fix: исправлены критические ошибки после миграций
+06b12662cd38bd1f41563b05734c00c02632aecd|fix: correct migration dependency from 0030 to 0028 in orders/0031
+e6634e26c2a2934c0595fc6649b55c73de216d98|Merge audit fixes: performance, security, and code quality improvements
+9144c54f3b9407ca68a72b9807f2b1c146fb29e6|Fix django-ratelimit version to 4.1.0 (5.0.0 doesn't exist)
+7876cea3be66be9f38fd5903676d08a7eca22fd8|Code optimization: Fix critical bugs, add indexes, improve performance
+dcb783e66e8a6c56b08b603ff1dadfed8825583d|fix: добавлен SECRET_KEY для test_settings
+54593456fb8b70a0b885a41cde8a45c14cae9905|Fix critical audit issues: performance, security, and code quality
+833332d4f187dd36d37bcbd29e90dd6972ccba75|fix: удален TestProductViewSet, проблема решена через tmp/restart.txt
+0d633cde6daf06512d239fda012b8d26e074d37e|fix: добавлен queryset attribute в TestProductViewSet
+8477a822c957cddb75d133d412d023f8de6345f5|debug: добавлен TestProductViewSet для изоляции проблемы
+e43d8fbf8ccba32d1a3cee7b4d779eceaaf1fae9|fix: убрал DEFAULT_FILTER_BACKENDS из DRF settings
+01019e576545fa0d601445d22c7ca29b0938d690|fix: убрал несуществующие поля is_active, in_stock, retail_price
+df4ef09f175a0eb81cbcd5a3e9a7465248e6bd35|fix: ProductColor -> ProductColorVariant в serializers
+2262b5853464f9bd11ed67a089cddb0ca475fba5|Fix: Import old views.py explicitly using importlib
+7965a5dc819fb2fadf93820efb96481941cfcc4e|Fix: Import ProfileSetupForm from .auth instead of ..forms
+91afcb1f25e335a99db8ca2e28c9d70744af4a0f|Fix: Correct all imports in __init__.py to match actual function names
+9fb4182c0eaf263b3158f5bd6196f713cb663576|Fix: Add all module imports to views/__init__.py
+3b1ed30e06dcb697bb71ab480f4ef225b41b4e4f|Fix stats calculation: use 'received' status instead of 'delivered', add detailed logging for payouts and profit
+5ff1145d417ac956fcac9b97dffe8c0d158f239a|Fix progress block: remove duplicate 'completed orders', replace 'drop cost' with 'net profit', fix payout stats calculation
+194f44027c589234adff4faeaba8e4e26ed6c68d|Fix: make data-animate-early blocks visible immediately (opacity: 1) to prevent black empty space
+f83932c28deee42244859740e1b0b0c3fe221785|Fix data-animate-early: add immediate visibility check for blocks already in viewport, increase rootMargin to 200px
+1f9a386a7bd98f66677c3ac8cbd8e43cf702a2ba|Fix FieldError: use requested_at instead of created_at in DropshipperPayout filter
+10d673db3097e431707c52fa99ae3e5ce49b5b89|Add loyalty discount to product API; fix animations to trigger earlier (threshold 0.05)
+b63a1a875afbd15237fb6c4197fd27e406ad6077|Fix layout grids: payment options, loyalty cards, practice section all in 3 columns; calculate margin with loyalty discount

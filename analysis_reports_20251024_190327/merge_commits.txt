@@ -1,0 +1,15 @@
+2d36468019268c1d4d240e5e9940b08d51dd4f9d|merge: prices fix
+aa59a26b41433a0f14de29deb423b5bb95704c60|merge: resolve conflicts
+1b6f682857519187ab52344e8ae1ab5cbf3366ef|merge: cart fixes
+62744d1ed9b0cfc5e7acb9eaea09a570f4ef6205|merge: исправление корзины
+f0ea4a88298de5688af835d3799e38247b64832e|merge: критическое исправление корзины
+f8ec51b28b686e31c6a0a658f4f3a4a213c7bfb2|merge: fix cache_utils imports
+4edbd36dd2a956b2564aa42921c83bf5329e63f6|merge: accept fixed utils.py from chore-page-audit-oUIHu
+98a8991d28185b7af79ccdc0d43538d79d549cf8|merge: complete fix for monobank_webhook recursion
+c8ce2ecc1ccf6d07155287f7412dfa10847fbd5b|merge: resolve conflict - use latest version from 2025-10-24-0589-YRHvS
+c6ba803f9ff612fe67bbf5546a8b0e3f9fef5a18|Merge remote-tracking branch 'origin/2025-10-24-0589-YRHvS'
+d9b889a245e6accb3dca63b445b650c1a7ff8686|Merge branch '2025-10-24-ik1w-0H25_' into main - accept incoming changes
+0eef07728e7776e19769faf15121a25b5012e1ae|merge: resolve conflicts - use fixed versions from 2025-10-24-0589-YRHvS
+e6634e26c2a2934c0595fc6649b55c73de216d98|Merge audit fixes: performance, security, and code quality improvements
+25b58e2826ec6ebaa6df617fe4c1ee6015999a28|Merge: Database indexes and color utilities optimization
+8df82eb2960f78590facb1502a67f3424b84cf8c|docs: отчет о миграции AJAX endpoints на DRF
