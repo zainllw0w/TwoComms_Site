@@ -40,6 +40,10 @@
     }
   }
 
+  // Event buffer to queue events before pixel loads
+  win._fbqBuffer = win._fbqBuffer || [];
+  win._fbqLoaded = false;
+
   function setupGlobalEventBridge() {
     if (typeof win.trackEvent === 'function') {
       return;
@@ -50,15 +54,21 @@
         return;
       }
       payload = payload || {};
+      
+      // Buffer Meta Pixel events until loaded
       try {
-        if (win.fbq) {
+        if (win.fbq && win._fbqLoaded) {
           win.fbq('track', eventName, payload);
+        } else if (PIXEL_ID) {
+          // Queue event for later
+          win._fbqBuffer.push({ event: eventName, data: payload });
         }
       } catch (err1) {
         if (console && console.debug) {
           console.debug('Meta Pixel track error', err1);
         }
       }
+      
       try {
         if (win.gtag) {
           win.gtag('event', eventName, payload);
@@ -207,10 +217,28 @@
         console.debug('Meta Pixel track error', errTrack);
       }
     }
+    
+    // Mark pixel as loaded and process buffered events
+    win._fbqLoaded = true;
+    if (win._fbqBuffer && win._fbqBuffer.length > 0) {
+      if (console && console.log) {
+        console.log('Meta Pixel: Processing ' + win._fbqBuffer.length + ' buffered events');
+      }
+      win._fbqBuffer.forEach(function(buffered) {
+        try {
+          win.fbq('track', buffered.event, buffered.data);
+        } catch (err) {
+          if (console && console.debug) {
+            console.debug('Meta Pixel buffered event error', err);
+          }
+        }
+      });
+      win._fbqBuffer = []; // Clear buffer
+    }
   }
 
   setupGlobalEventBridge();
   schedule(loadGoogleAnalytics, 2000);
   schedule(loadClarity, 3000);
-  schedule(loadMetaPixel, 2500);
+  schedule(loadMetaPixel, 500);  // Reduced from 2500ms to 500ms for faster event capture
 })(window, document);

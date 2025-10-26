@@ -875,7 +875,7 @@
               }catch(_){ window.location.reload(); }
             }
           }catch(_){}
-          try{ if(window.fbq){ fbq('track','AddToCart',{content_ids:[String(productId)], content_type:'product'}); } }catch(_){}
+          // AddToCart tracking handled by main.js to avoid duplication
         } else {
           console.error('Add to cart failed:', d);
         }
