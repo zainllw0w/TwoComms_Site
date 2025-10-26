@@ -1513,6 +1513,77 @@ document.addEventListener('DOMContentLoaded', function(){
   const mqHandler = ()=> debouncedEqualize();
   if(equalizeMq.addEventListener){ equalizeMq.addEventListener('change', mqHandler); }
   else if(equalizeMq.addListener){ equalizeMq.addListener(mqHandler); }
+
+  // ===== Выравнивание заголовков товаров в одной строке =====
+  let titleEqScheduled = false;
+  function equalizeProductTitles(){
+    if(titleEqScheduled) return;
+    titleEqScheduled = true;
+    const run = ()=>{
+      rows.forEach(row=>{
+        const cards = row.querySelectorAll('.card.product');
+        if(!cards.length) return;
+        
+        // Сначала сбрасываем все высоты заголовков
+        const titles = [];
+        cards.forEach(card=>{
+          const title = card.querySelector('.product-title');
+          if(title){
+            title.style.height = '';
+            title.style.minHeight = '';
+            title.style.maxHeight = '';
+            titles.push(title);
+          }
+        });
+        
+        if(!titles.length) return;
+        
+        // Ждем следующий фрейм для получения правильных размеров
+        requestAnimationFrame(()=>{
+          // Группируем заголовки по рядам (по offsetTop)
+          const rowGroups = new Map();
+          titles.forEach(title=>{
+            const top = title.getBoundingClientRect().top;
+            const roundedTop = Math.round(top / 10) * 10; // Группируем с точностью до 10px
+            if(!rowGroups.has(roundedTop)){
+              rowGroups.set(roundedTop, []);
+            }
+            rowGroups.get(roundedTop).push(title);
+          });
+          
+          // Для каждой группы находим максимальную высоту и применяем ко всем
+          rowGroups.forEach(groupTitles=>{
+            let maxHeight = 0;
+            groupTitles.forEach(title=>{
+              const h = title.getBoundingClientRect().height;
+              if(h > maxHeight) maxHeight = h;
+            });
+            
+            const targetHeight = Math.ceil(maxHeight);
+            groupTitles.forEach(title=>{
+              title.style.minHeight = targetHeight + 'px';
+            });
+          });
+        });
+      });
+      titleEqScheduled = false;
+    };
+    if('requestAnimationFrame' in window){ requestAnimationFrame(run); }
+    else { setTimeout(run, 0); }
+  }
+  
+  window.equalizeProductTitles = equalizeProductTitles;
+  
+  // Вызываем обе функции выравнивания
+  const equalizeAll = ()=>{
+    equalizeCardHeights();
+    setTimeout(equalizeProductTitles, 50);
+  };
+  
+  equalizeAll();
+  window.addEventListener('load', equalizeAll);
+  const debouncedEqualizeAll = debounce(equalizeAll, 160);
+  window.addEventListener('resize', debouncedEqualizeAll);
 });
 
 // ====== PRODUCT DETAIL: цвета и галерея ======
