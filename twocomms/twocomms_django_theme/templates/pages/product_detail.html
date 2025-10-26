@@ -337,6 +337,22 @@
         document.querySelectorAll('#color-picker .color-swatch').forEach(function(b){ b.classList.remove('active'); });
         btn.classList.add('active');
         rebuildCarousel(v.images || []);
+        
+        // Track ColorSwitch event
+        try{
+          if(window.trackEvent){
+            var pe = document.getElementById('product-analytics-payload');
+            if(pe){
+              window.trackEvent('ColorSwitch', {
+                content_ids: [pe.dataset.id],
+                content_name: pe.dataset.title,
+                variant_id: String(id),
+                variant_name: v.title || 'Unknown',
+                content_type: 'product'
+              });
+            }
+          }
+        }catch(_){}
       }
 
       // Ініціалізація
