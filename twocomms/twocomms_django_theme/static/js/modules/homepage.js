@@ -160,6 +160,9 @@ export function initHomepagePagination() {
                 if (window.equalizeCardHeights) {
                   window.equalizeCardHeights();
                 }
+                if (window.equalizeProductTitles) {
+                  setTimeout(() => window.equalizeProductTitles(), 50);
+                }
               } catch (_) {}
             }, 200);
             setTimeout(() => {
