@@ -41,11 +41,23 @@ Fix Meta Pixel tracking for e-commerce events on TwoComms website
 - [x] **FIX**: Added event queueing for timing issues - ✅ FIXED
 - [x] **FIX**: Fixed COEP/COOP blocking Meta Pixel - ✅ FIXED
 
-### Phase 4: Testing & Verification
-- [ ] Use Meta Events Manager to verify
-- [ ] Test on all key pages
-- [ ] Verify server-side security allows pixel
-- [ ] Document final implementation
+### Phase 4: Deployment - COMPLETED ✅
+- [x] Files deployed to live server via SCP
+- [x] Application restarted successfully
+- [x] All fixes are now live
+
+### Phase 5: Testing & Verification (Ready for Testing)
+- [ ] Open Meta Events Manager (https://business.facebook.com/events_manager2/)
+- [ ] Test PageView event on homepage
+- [ ] Test ViewContent event on product pages
+- [ ] Test AddToCart event by adding product to cart
+- [ ] Test AddToWishlist event by favoriting a product
+- [ ] Test InitiateCheckout event on cart page
+- [ ] Test ViewCategory event on catalog pages
+- [ ] Test Search event by searching for products
+- [ ] Test CompleteRegistration by creating new account
+- [ ] Test Purchase event by completing an order
+- [ ] Verify all events show correct data in Events Manager
 
 ## Findings Log
 
