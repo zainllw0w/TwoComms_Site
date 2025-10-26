@@ -4182,6 +4182,20 @@ function payInvoice(invoiceId) {
                 btn.style.textOverflow = 'ellipsis';
             }
             
+            // Track StartPayment event for wholesale invoice
+            try{
+                if(window.trackEvent){
+                    window.trackEvent('StartPayment', {
+                        value: totalAmount,
+                        currency: 'UAH',
+                        payment_method: 'monobank',
+                        invoice_id: String(invoiceId),
+                        invoice_type: 'wholesale',
+                        content_type: 'invoice'
+                    });
+                }
+            }catch(_){}
+            
             // Перенаправляем на страницу оплаты Monobank
             window.open(data.payment_url, '_blank');
             showNotification('Перенаправлення на сторінку оплати...', 'success');
