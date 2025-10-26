@@ -178,7 +178,13 @@ def profile_setup(request):
         }
         form = ProfileSetupForm(initial=initial)
     
-    return render(request, 'pages/auth_profile_setup.html', {'form': form})
+    # Передаем флаг just_registered в контекст, а затем очищаем его
+    context = {
+        'form': form,
+        'just_registered': request.session.pop('just_registered', False)
+    }
+    
+    return render(request, 'pages/auth_profile_setup.html', context)
 
 
 @login_required

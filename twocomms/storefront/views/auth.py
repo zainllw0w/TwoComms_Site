@@ -257,6 +257,10 @@ def register_view(request):
                 del request.session['favorites']
                 request.session.modified = True
             
+            # Флаг для отслеживания события CompleteRegistration
+            request.session['just_registered'] = True
+            request.session.modified = True
+            
             return redirect('profile_setup')
     
     return render(request, 'pages/auth_register.html', {'form': form})

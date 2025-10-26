@@ -167,3 +167,23 @@
   {% endif %}
 </div>
 {% endblock %}
+
+{% block extra_js %}
+<script>
+// Track ViewCategory event for catalog pages
+(function(){
+  try{
+    {% if category %}
+    var categoryData = {
+      content_category: '{{ category.name|escapejs }}',
+      content_ids: [{% for p in products|slice:":20" %}'{{ p.id }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+      content_type: 'product_group'
+    };
+    if(window.trackEvent){
+      window.trackEvent('ViewCategory', categoryData);
+    }
+    {% endif %}
+  }catch(_){}
+})();
+</script>
+{% endblock %}
