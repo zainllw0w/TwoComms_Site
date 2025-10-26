@@ -40,20 +40,6 @@ class UserProfile(models.Model):
         return f'Profile for {self.user.username}'
 
 
-# Signal to create UserProfile and UserPoints when a new User is created
-@receiver(post_save, sender=User)
-def create_user_related_models(sender, instance, created, **kwargs):
-    """
-    Automatically creates UserProfile and UserPoints for new users.
-    
-    Note: UserProfile is linked via OneToOneField, so it will be auto-created
-    if accessed via instance.userprofile. However, we create it explicitly here
-    to ensure it exists immediately after user creation.
-    """
-    if created:
-        UserProfile.objects.get_or_create(user=instance)
-        UserPoints.objects.get_or_create(user=instance)
-
 class UserPoints(models.Model):
     """Модель для хранения баллов пользователей"""
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='points')
@@ -146,3 +132,18 @@ class FavoriteProduct(models.Model):
 
     def __str__(self):
         return f'{self.user.username} - {self.product.title}'
+
+
+# Signal to create UserProfile and UserPoints when a new User is created
+@receiver(post_save, sender=User)
+def create_user_related_models(sender, instance, created, **kwargs):
+    """
+    Automatically creates UserProfile and UserPoints for new users.
+    
+    Note: UserProfile is linked via OneToOneField, so it will be auto-created
+    if accessed via instance.userprofile. However, we create it explicitly here
+    to ensure it exists immediately after user creation.
+    """
+    if created:
+        UserProfile.objects.get_or_create(user=instance)
+        UserPoints.objects.get_or_create(user=instance)
