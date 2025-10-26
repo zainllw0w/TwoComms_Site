@@ -558,6 +558,25 @@ document.addEventListener('DOMContentLoaded', function() {
             if (formTypeInput) {
                 formTypeInput.value = 'order_create';
             }
+            
+            // Track StartPayment event
+            try{
+              var payloadEl = document.getElementById('checkout-payload');
+              if(payloadEl && window.trackEvent){
+                var value = parseFloat(payloadEl.dataset.value || '0');
+                var currency = payloadEl.dataset.currency || 'UAH';
+                var numItems = parseInt(payloadEl.dataset.numItems || '0', 10);
+                var paymentMethod = document.querySelector('input[name="pay_type"]:checked')?.value || 'unknown';
+                
+                window.trackEvent('StartPayment', {
+                  value: value,
+                  currency: currency,
+                  num_items: numItems,
+                  payment_method: paymentMethod,
+                  content_type: 'product'
+                });
+              }
+            }catch(_){}
         });
     }
     

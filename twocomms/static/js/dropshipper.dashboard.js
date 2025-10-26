@@ -883,6 +883,20 @@ function renderOrderItems() {
         const data = await response.json();
         
         if (data.success && data.page_url) {
+          // Track StartPayment event for dropshipper order
+          try{
+            if(window.trackEvent){
+              window.trackEvent('StartPayment', {
+                value: parseFloat(paymentAmount) || 0,
+                currency: 'UAH',
+                payment_method: 'monobank',
+                order_id: String(orderId),
+                order_type: 'dropshipper',
+                content_type: 'order'
+              });
+            }
+          }catch(_){}
+          
           // Перенаправляем на страницу оплаты Monobank
           window.location.href = data.page_url;
         } else {
