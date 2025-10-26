@@ -1561,7 +1561,7 @@ document.addEventListener('DOMContentLoaded', function(){
             
             const targetHeight = Math.ceil(maxHeight);
             groupTitles.forEach(title=>{
-              title.style.minHeight = targetHeight + 'px';
+              title.style.height = targetHeight + 'px';
             });
           });
         });
