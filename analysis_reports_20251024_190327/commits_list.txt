@@ -1,0 +1,165 @@
+2d36468019268c1d4d240e5e9940b08d51dd4f9d|2025-10-24 18:13:27 +0300|zainllw0w|merge: prices fix
+aa59a26b41433a0f14de29deb423b5bb95704c60|2025-10-24 18:13:27 +0300|zainllw0w|merge: resolve conflicts
+1190e2e9d3f001f00455bc7b240f7d41fe719688|2025-10-24 18:12:51 +0300|zainllw0w|fix: цены не отображались в корзине - добавлено unit_price
+1b6f682857519187ab52344e8ae1ab5cbf3366ef|2025-10-24 18:12:28 +0300|zainllw0w|merge: cart fixes
+2d2d9cd33890f7c8189b90e646c34f4507594677|2025-10-24 18:01:42 +0300|zainllw0w|fix: add UTF-8 encoding declaration to manage.py - CRITICAL
+90eb2bd3c9bfb7b46682380ca6d16726815a24f7|2025-10-24 18:08:13 +0300|zainllw0w|fix: добавлен color_label в checkout.py и удален дубликат импорта
+382014787053b7b221af3607e7d31de8c41bd01b|2025-10-24 18:07:44 +0300|zainllw0w|fix: КРИТИЧЕСКИЕ исправления корзины и checkout
+62744d1ed9b0cfc5e7acb9eaea09a570f4ef6205|2025-10-24 18:05:32 +0300|zainllw0w|merge: исправление корзины
+2d36b663d5aaabfdc382b0f539f97258e785346f|2025-10-24 18:05:20 +0300|zainllw0w|docs: детальный отчет об исправлении отображения корзины
+0348005053d5be3125af72dd9b2e9b03216fda08|2025-10-24 18:04:17 +0300|zainllw0w|fix: CRITICAL - исправлены проблемы с корзиной и checkout
+f0ea4a88298de5688af835d3799e38247b64832e|2025-10-24 18:03:46 +0300|zainllw0w|merge: критическое исправление корзины
+f7c144d92518b842dd0ffc497c38d573238d4ae0|2025-10-24 18:03:39 +0300|zainllw0w|fix: корзина не отображала товары - неправильное имя переменной в контексте
+f8ec51b28b686e31c6a0a658f4f3a4a213c7bfb2|2025-10-24 17:45:33 +0300|zainllw0w|merge: fix cache_utils imports
+8abf1433df5567e2c7937c503ad8df439cec5829|2025-10-24 17:45:14 +0300|zainllw0w|fix: CRITICAL - исправлен неправильный импорт cache_utils
+44971905c7803ba2d8922a8a4ba23a97560f2aec|2025-10-24 17:44:20 +0300|zainllw0w|docs: критический отчет о проблемах и исправлениях
+65b03cf75e5c3e2e9f17238efdb74bfa7321e25e|2025-10-24 17:43:26 +0300|zainllw0w|docs: отчет о критическом исправлении IndentationError
+981893918f48a9742a07356d967ca2b950d179c7|2025-10-24 17:42:00 +0300|zainllw0w|fix: удалены merge conflict markers из utils.py
+4edbd36dd2a956b2564aa42921c83bf5329e63f6|2025-10-24 17:41:03 +0300|zainllw0w|merge: accept fixed utils.py from chore-page-audit-oUIHu
+eab4837011353f901a0847743e82a11582d4e924|2025-10-24 17:40:18 +0300|zainllw0w|fix: CRITICAL - исправлена IndentationError в storefront/views/utils.py line 128
+21c6002a08f16c07ca86eebef55ff68e9badabd0|2025-10-24 17:40:05 +0300|zainllw0w|fix: критическая ошибка IndentationError в utils.py (строка 128)
+6e8970445aebe485ac6397df456e6f700e37fec9|2025-10-24 17:39:20 +0300|zainllw0w|fix: CRITICAL - исправлена IndentationError в utils.py строка 128
+98a8991d28185b7af79ccdc0d43538d79d549cf8|2025-10-24 17:37:09 +0300|zainllw0w|merge: complete fix for monobank_webhook recursion
+073c9122dc4c455bf0deb67709ee9d892f3eb265|2025-10-24 17:35:15 +0300|zainllw0w|docs: полное финальное резюме всей работы
+25ef13d43f7b70786b3684d235b7183a2fb89fcb|2025-10-24 17:33:31 +0300|zainllw0w|fix: КРИТИЧЕСКОЕ исправление checkout.py order_success
+c8ce2ecc1ccf6d07155287f7412dfa10847fbd5b|2025-10-24 17:33:10 +0300|zainllw0w|merge: resolve conflict - use latest version from 2025-10-24-0589-YRHvS
+e09c76cf00e66bc394f2b0dff3a998d5fd39fb1e|2025-10-24 17:32:52 +0300|zainllw0w|feat: улучшенная безопасность сессий + Django best practices
+a93cc488d1e491306f1960b1440b5463ce7ef918|2025-10-24 17:28:21 +0300|zainllw0w|fix: устранена рекурсия в monobank_webhook (checkout.py)
+c6ba803f9ff612fe67bbf5546a8b0e3f9fef5a18|2025-10-24 17:28:10 +0300|zainllw0w|Merge remote-tracking branch 'origin/2025-10-24-0589-YRHvS'
+fd20541ade79aa56221cf5a91f18c81775236490|2025-10-24 17:28:00 +0300|zainllw0w|docs: финальный отчет по глубокой проверке миграции
+aed9f8f5c3a35212e981cb27076dce3d98d5adc1|2025-10-24 17:27:42 +0300|zainllw0w|docs: детальный отчет о глубокой проверке миграции views
+d9b889a245e6accb3dca63b445b650c1a7ff8686|2025-10-24 17:22:49 +0300|zainllw0w|Merge branch '2025-10-24-ik1w-0H25_' into main - accept incoming changes
+44ab26eabee2f1c3dd16af2e4cc11864c751ad14|2025-10-24 17:22:20 +0300|zainllw0w|docs: полный анализ миграции views модулей
+1917085efe6328866025f38779458915d9b65333|2025-10-24 17:21:29 +0300|zainllw0w|fix: Critical fixes - checkout data structure, remove fallbacks, add Monobank helpers
+0eef07728e7776e19769faf15121a25b5012e1ae|2025-10-24 17:17:59 +0300|zainllw0w|merge: resolve conflicts - use fixed versions from 2025-10-24-0589-YRHvS
+a07cceab4508e3e8e17dbe9e07a9602c1fb58dd2|2025-10-24 17:17:17 +0300|zainllw0w|fix: КРИТИЧЕСКИЕ БАГИ в модульной миграции корзины
+fc347f2013b07dd71b96e08055f919484d30eef3|2025-10-24 17:17:17 +0300|zainllw0w|fix: критическое исправление calculate_cart_total и update_cart
+a25d237e633ac241720dd342a08ea342c05abab4|2025-10-24 17:08:53 +0300|zainllw0w|fix: Views migration - fix syntax errors, eliminate duplication, restore fallback
+aa3cc91feac51f7299346e9fd1468e40936eb598|2025-10-24 16:02:59 +0300|zainllw0w|docs: отчет о восстановлении рабочей логики корзины
+fe2cfba1378974034831948c8fa8eabab0906ac9|2025-10-24 16:01:26 +0300|zainllw0w|fix: восстановлена рабочая логика корзины из старого views.py
+f6952add5456047b02c8909718978eacfb96eca4|2025-10-24 14:47:08 +0300|zainllw0w|docs: добавлен детальный отчет об исправлениях корзины
+3610a82716e9b29367fa80a2a83903f4a09abd1b|2025-10-24 14:45:18 +0300|zainllw0w|fix: критическое исправление корзины - товары теперь добавляются и удаляются
+8ac1394b7951df0dbfa3d1f98de18addf746af6d|2025-10-24 14:31:06 +0300|zainllw0w|docs: добавлен полный отчет о проверке сайта после миграций
+3ab8f5d78dbb59f7b205c24eea6ecedf8d060966|2025-10-24 14:28:39 +0300|zainllw0w|fix: исправлена рекурсивная ошибка в monobank_webhook
+634a43228b411d44294edcd0f02000700c8604a7|2025-10-24 14:26:10 +0300|zainllw0w|fix: исправлены критические ошибки после миграций
+d384c035c38fbcfce114c155fba386b2ef80849f|2025-10-24 13:04:37 +0300|zainllw0w|Add migration for monobank_invoice_id field
+06b12662cd38bd1f41563b05734c00c02632aecd|2025-10-24 12:24:29 +0300|zainllw0w|fix: correct migration dependency from 0030 to 0028 in orders/0031
+e6634e26c2a2934c0595fc6649b55c73de216d98|2025-10-24 09:43:44 +0300|zainllw0w|Merge audit fixes: performance, security, and code quality improvements
+9144c54f3b9407ca68a72b9807f2b1c146fb29e6|2025-10-24 09:38:36 +0300|zainllw0w|Fix django-ratelimit version to 4.1.0 (5.0.0 doesn't exist)
+25b58e2826ec6ebaa6df617fe4c1ee6015999a28|2025-10-24 09:25:30 +0300|zainllw0w|Merge: Database indexes and color utilities optimization
+3b332438580f4f207be2701ffbf89b8f7eceec86|2025-10-24 09:24:50 +0300|zainllw0w|feat: Add database indexes and centralize color utilities
+7876cea3be66be9f38fd5903676d08a7eca22fd8|2025-10-24 09:23:56 +0300|zainllw0w|Code optimization: Fix critical bugs, add indexes, improve performance
+531eebe0d824d6b5868b443e27ab56b03cd8ca7f|2025-10-24 09:15:13 +0300|zainllw0w|docs: create migration guide for remaining functions
+dbff8052cfc3002f6b3df98a3521870c2f3238ac|2025-10-24 09:10:37 +0300|zainllw0w|feat: migrate user points functions to profile.py
+4c2f94a9c546c039d42f4c89e7bc7f8c101e9d4e|2025-10-24 09:04:41 +0300|zainllw0w|feat: migrate favorites functions to profile.py
+12f73821c76f384a0fdf9967943f9cf3d1a7a45e|2025-10-24 08:39:15 +0300|zainllw0w|feat: migrate cart_summary and cart_mini to cart.py
+3e05c821a73c9f7edace753cf52dfb9b3a52a214|2025-10-24 08:28:05 +0300|zainllw0w|docs: результаты анализа test coverage
+dcb783e66e8a6c56b08b603ff1dadfed8825583d|2025-10-24 08:25:56 +0300|zainllw0w|fix: добавлен SECRET_KEY для test_settings
+a9bb7b8eea295240d83e3a45358784a08811ea32|2025-10-24 08:21:43 +0300|zainllw0w|test: добавлен test_settings.py для запуска тестов с SQLite
+6b7b7eab851e82682cd48e20fab38e77ab313423|2025-10-24 08:20:43 +0300|zainllw0w|chore: добавлен coverage.py для test coverage анализа
+8df82eb2960f78590facb1502a67f3424b84cf8c|2025-10-24 08:14:38 +0300|zainllw0w|docs: отчет о миграции AJAX endpoints на DRF
+54593456fb8b70a0b885a41cde8a45c14cae9905|2025-10-24 07:59:40 +0300|zainllw0w|Fix critical audit issues: performance, security, and code quality
+94beea9aac957b025c480429031533d7dccf6968|2025-10-24 07:58:37 +0300|zainllw0w|feat: миграция AJAX endpoints на DRF
+202e607a042a62d4edcefac48533f1039fec7d95|2025-10-24 07:39:12 +0300|zainllw0w|docs: отчет о успешной интеграции DRF
+833332d4f187dd36d37bcbd29e90dd6972ccba75|2025-10-24 07:32:52 +0300|zainllw0w|fix: удален TestProductViewSet, проблема решена через tmp/restart.txt
+0d633cde6daf06512d239fda012b8d26e074d37e|2025-10-24 07:24:02 +0300|zainllw0w|fix: добавлен queryset attribute в TestProductViewSet
+8477a822c957cddb75d133d412d023f8de6345f5|2025-10-24 07:22:25 +0300|zainllw0w|debug: добавлен TestProductViewSet для изоляции проблемы
+e43d8fbf8ccba32d1a3cee7b4d779eceaaf1fae9|2025-10-24 07:15:34 +0300|zainllw0w|fix: убрал DEFAULT_FILTER_BACKENDS из DRF settings
+01019e576545fa0d601445d22c7ca29b0938d690|2025-10-24 07:13:01 +0300|zainllw0w|fix: убрал несуществующие поля is_active, in_stock, retail_price
+df4ef09f175a0eb81cbcd5a3e9a7465248e6bd35|2025-10-24 07:10:07 +0300|zainllw0w|fix: ProductColor -> ProductColorVariant в serializers
+f33229edb82063447b55b8396c35686f7328b151|2025-10-24 07:06:37 +0300|zainllw0w|feat: Django REST Framework integration + API documentation
+8cda04247ef80ed12f21c3ff7f214d6b780ff8af|2025-10-24 06:47:57 +0300|zainllw0w|feat: Добавлено 103+ unit tests и исправлены импорты
+2262b5853464f9bd11ed67a089cddb0ca475fba5|2025-10-24 04:14:34 +0300|zainllw0w|Fix: Import old views.py explicitly using importlib
+0f80fa62239c3f12be625960f90688c8203c2eca|2025-10-24 04:13:02 +0300|zainllw0w|Add backward compatibility aliases for old function names
+7965a5dc819fb2fadf93820efb96481941cfcc4e|2025-10-24 04:11:24 +0300|zainllw0w|Fix: Import ProfileSetupForm from .auth instead of ..forms
+91afcb1f25e335a99db8ca2e28c9d70744af4a0f|2025-10-24 04:09:59 +0300|zainllw0w|Fix: Correct all imports in __init__.py to match actual function names
+9fb4182c0eaf263b3158f5bd6196f713cb663576|2025-10-24 04:06:54 +0300|zainllw0w|Fix: Add all module imports to views/__init__.py
+6b21d10ccec616b16d70c66cda3b2bbe04d2e5ba|2025-10-24 04:05:06 +0300|zainllw0w|Refactor: Split storefront/views.py into 10 modular files
+666ba377ad08d0fa57831442f0154b6e03832888|2025-10-24 03:18:27 +0300|zainllw0w|Remove net profit block from progress section
+3b1ed30e06dcb697bb71ab480f4ef225b41b4e4f|2025-10-24 03:15:08 +0300|zainllw0w|Fix stats calculation: use 'received' status instead of 'delivered', add detailed logging for payouts and profit
+5ff1145d417ac956fcac9b97dffe8c0d158f239a|2025-10-24 03:02:34 +0300|zainllw0w|Fix progress block: remove duplicate 'completed orders', replace 'drop cost' with 'net profit', fix payout stats calculation
+284ad3ed1d4fe3879322e5f62f5895ba191c06eb|2025-10-24 02:43:38 +0300|zainllw0w|Update practical examples with exact catalog prices and add loyalty system explanation
+19d0f1474bb669a286daca1f3c5cffb0aff6869a|2025-10-24 02:33:11 +0300|zainllw0w|Update practical examples with real product prices (футболка 570/950 грн, худі 1350/1900 грн)
+5d427afd30e01381d141aaa347e5ef91a76d8aea|2025-10-24 02:21:49 +0300|zainllw0w|Change products grid to 2 columns layout
+623c13495d6e5ac2eaa918e69a00b4bfda748dfe|2025-10-24 02:16:50 +0300|zainllw0w|Remove horizontal padding from ds-shell to eliminate dark gaps on sides
+9d064ab81915d8be8dde8744fb51800ec87ff333|2025-10-24 02:11:55 +0300|zainllw0w|Expand dropshipper layout to the left: add max-width 1920px, center with margin auto, add horizontal padding
+2f2aabef8d0bb6a8e86f46f4c96ac5879894fe75|2025-10-24 02:07:30 +0300|zainllw0w|Update JS version to force cache refresh
+03b7dca4495386e4091ff075b139fa5348f71094|2025-10-24 02:05:33 +0300|zainllw0w|Restore smooth animation for data-animate-early with 300px rootMargin to trigger earlier
+194f44027c589234adff4faeaba8e4e26ed6c68d|2025-10-24 02:04:41 +0300|zainllw0w|Fix: make data-animate-early blocks visible immediately (opacity: 1) to prevent black empty space
+f83932c28deee42244859740e1b0b0c3fe221785|2025-10-24 02:03:21 +0300|zainllw0w|Fix data-animate-early: add immediate visibility check for blocks already in viewport, increase rootMargin to 200px
+e84900563acc602800b9d7c44f32552b57d5c13c|2025-10-24 01:57:30 +0300|zainllw0w|Major UI improvements: widen dropshipper layout, add data-animate-early for payment section, compact all payment & practice cards, redesign progress & payouts blocks with modern gradients and icons
+1f9a386a7bd98f66677c3ac8cbd8e43cf702a2ba|2025-10-24 01:43:09 +0300|zainllw0w|Fix FieldError: use requested_at instead of created_at in DropshipperPayout filter
+fc2755208958c2da384a787c4f113b898d659e85|2025-10-24 01:41:35 +0300|zainllw0w|Add functional progress and payout stats to dashboard; add loyalty info to progress block; verify payout logic is correct
+10d673db3097e431707c52fa99ae3e5ce49b5b89|2025-10-24 01:39:57 +0300|zainllw0w|Add loyalty discount to product API; fix animations to trigger earlier (threshold 0.05)
+fed46d13d03fa9da850b25d5ff0c3a4b8c7e51d8|2025-10-24 01:35:52 +0300|zainllw0w|Replace product count block with beautiful loyalty system block, add loyalty stats display
+b63a1a875afbd15237fb6c4197fd27e406ad6077|2025-10-24 01:34:26 +0300|zainllw0w|Fix layout grids: payment options, loyalty cards, practice section all in 3 columns; calculate margin with loyalty discount
+2c0b5cac2af944596a812c903ed2f25b16e4cdc7|2025-10-24 01:22:03 +0300|zainllw0w|Improve payment details form: dynamic update, auto-init, validation patterns
+79c9223192796f13543429be8ab2534d25591e78|2025-10-24 01:21:26 +0300|zainllw0w|Add beautiful loyalty system section to dropshipper dashboard
+b1fb1383f730a32cdf5da1d13b7cf86cd8dec833|2025-10-23 18:25:13 +0300|zainllw0w|Fix migration: rename to 0033 and update dependencies
+d15f4c3e6a1d1290ce97b4fdf8d38f7335030615|2025-10-23 18:24:40 +0300|zainllw0w|Add loyalty discount display in product cards
+e6c5ffa42f55a037e17bc2f7ba8820f5de9a5877|2025-10-23 18:23:56 +0300|zainllw0w|Add loyalty system: -10 UAH per successful order (max -120 UAH), Telegram notifications for payouts
+996aabfb397ef995dca872747a5a8dee637c1675|2025-10-23 08:56:55 +0300|zainllw0w|Fix migration: rename to 0013 and update dependencies
+7c1f4641b1d3cc47ed22e6b69076ed856455ad48|2025-10-23 08:56:15 +0300|zainllw0w|Fix payout request: add payment_method to profile, dynamic form in company settings, proper API validation
+0ba05d6bd9cb53194b43b656727d97b05df357a5|2025-10-23 08:46:13 +0300|zainllw0w|Update payout request: remove crypto/cash, add card/IBAN options with dynamic form changes
+3e09dc0045837312ef04f1c175a7258286c14971|2025-10-23 08:43:01 +0300|zainllw0w|Fix: Sort orders from newest to oldest (newest on top) and temporarily disable XXL size in order modal
+8e345a379cf94075ea7be15783fc956803a378ad|2025-10-23 08:34:08 +0300|zainllw0w|Fix payout logic: profit is always the same, 200 UAH for COD is our insurance, not deducted from dropshipper profit
+4db1f8977d4a1c300c061d03b7fa48c4e2f3b2a4|2025-10-23 08:23:11 +0300|zainllw0w|Fix: Add missing staff_member_required import
+41965586daa5f55e54b2f2f2479c5f6c9bb9d282|2025-10-23 08:20:01 +0300|zainllw0w|Add complete admin payout management system with proper CSS classes (no inline Django conditions)
+62a307314db50e9e3550000d8a977b4e8423d125|2025-10-23 08:06:00 +0300|zainllw0w|Fix payout processing: improved calculation logic and auto-process on received status
+4e588c437401e6b2eb1c212772fef9ccc5f16cfc|2025-10-23 07:27:11 +0300|zainllw0w|Implement full payout system: dropshipper tab, request functionality, Telegram notifications
+c87f35a3f76ec7174af031938143d4b4c29a49bc|2025-10-23 07:25:10 +0300|zainllw0w|Fix linter errors in admin_collaboration_section.html
+b6bae29c9067a6ee03a75b3d7e3e5646485a0e74|2025-10-23 07:22:36 +0300|zainllw0w|Fix: payment_status stays 'paid' for all statuses after confirmed until admin changes it manually
+a994ca1ce312e7276b63bf7bee89ecad140a1741|2025-10-23 07:21:31 +0300|zainllw0w|Auto-set payment_status to paid when status is confirmed; add admin control for payment_status
+c4b5e52707d0579ae7b771c2d320ae095d6888c5|2025-10-23 07:12:25 +0300|zainllw0w|Add available_for_payout logic: field in DropshipperStats, automatic updates on payout processing
+441927e31f3296215a13afa42b5ffa77245cec9c|2025-10-23 07:09:29 +0300|zainllw0w|Update payment button UI: hide after confirmed, show checkmark and 'Оплачено' text
+3ebe9a3f384faeb9628d4ec045a8e3a800270033|2025-10-23 07:08:34 +0300|zainllw0w|Add notes and order_source display in dropshipper and admin panels, and Telegram notifications
+d9efb0b4f10685ab8369cd74241c632d887f8191|2025-10-23 06:47:23 +0300|zainllw0w|Add admin notification on dropshipper order status change
+53e3ba340d6066655e4bd6a031560d7ca4abc405|2025-10-23 06:44:28 +0300|zainllw0w|Add detailed logging to admin message sending for debugging
+a4c5663826a86fc0aca4e0f764c0e6f984730d02|2025-10-23 06:41:30 +0300|zainllw0w|Send payment notifications to BOTH admin AND dropshipper with detailed logging
+bb568e6864299cb20e9abc691318a7542b7fbede|2025-10-23 06:38:27 +0300|zainllw0w|Add detailed logging to dropshipper status change notifications
+514956921d86e0a65d0a9b3f235801d4eae17a7c|2025-10-23 06:37:45 +0300|zainllw0w|Add detailed logging to dropshipper Telegram notifications for debugging
+38c6d71a3d90e9e52a338326e5a8c460b752d332|2025-10-23 06:32:04 +0300|zainllw0w|Add detailed logging to Telegram bot webhook processing for debugging
+d36079be9794984f83066ae8b56bd0f8811b34f2|2025-10-23 06:26:01 +0300|zainllw0w|Move confirmDropshipperTelegram and all Telegram linking functions to dropshipper.js
+5a728e01321da6ce58d017cd77413ed351693f18|2025-10-23 06:21:01 +0300|zainllw0w|Update dropshipper.js cache version to force reload with resetDropshipperTelegram function
+42f3c644f4c68e1127db90a768172f6e91dd991a|2025-10-23 06:06:14 +0300|zainllw0w|Move resetDropshipperTelegram to dropshipper.js - fix AJAX-loaded partial template script execution
+672033e852eb0322791c7b1904c02436b57d13c8|2025-10-23 06:03:19 +0300|zainllw0w|Move resetDropshipperTelegram definition to top of template before button HTML
+0a42b10e6673e4122163a58a484fe181f478ba51|2025-10-23 06:01:30 +0300|zainllw0w|Fix Telegram reset button - define function in global scope with window.resetDropshipperTelegram
+c8bccff28b6c7c1d61ffe094ce69712107a63c9a|2025-10-23 05:59:17 +0300|zainllw0w|Add detailed console logging to debug Telegram unlink button
+e3b6090ad4d0adfe99c34241c418112e6c6ea6a1|2025-10-23 05:56:55 +0300|zainllw0w|Fix resetDropshipperTelegram undefined error - use event listener instead of onclick
+803c4d805743cfefc5819ba35b7a7eb7f6d2fcd9|2025-10-23 05:51:02 +0300|zainllw0w|Add reset Telegram button (X) for unlinking - dropshipper company and user profile
+94b8e0c4a93a7bd4a78f8017eb8bc2e05089a0f2|2025-10-23 05:46:17 +0300|zainllw0w|Add detailed console logging for Telegram button reset debugging
+698bdd3b7a3f4c670edef4df4bdb4b9a570a6210|2025-10-23 05:44:25 +0300|zainllw0w|Fix instant Telegram username change detection - remove trim() to catch ANY change including single character
+179c5a0cf6f125ec6ef6789e713213b491a54d88|2025-10-23 05:42:15 +0300|zainllw0w|Add Telegram username change detection - reset button to 'Підтвердити' when username is modified
+fc36f0746ceec9ee63a98330df3d4c6ef97d06bc|2025-10-23 05:35:02 +0300|zainllw0w|Make Telegram label wider with grid-column: span 2
+a3d49119724ff416f9923271c59c0c14a7fa2bea|2025-10-23 05:33:46 +0300|zainllw0w|Perfect solution: flexbox with proper spacing, button aligned with input
+a3ebcfaf849f7701a3becf0931ec97e13b312d6e|2025-10-23 05:25:52 +0300|zainllw0w|Fix: use absolute positioning for Telegram button, keep field in grid
+1978cfd443932d6ee04d871c37e75e7eb3936622|2025-10-23 05:22:38 +0300|zainllw0w|Fix: grid-column 1/-1 to span full width for Telegram field
+0e00080f2e994c99d6d52f0a6492481e0a2ce36a|2025-10-23 05:19:01 +0300|zainllw0w|Telegram button inside label with grid-column span 2
+43e9e409b091554278096aad3647adebcaf16cd3|2025-10-23 05:16:57 +0300|zainllw0w|Force perfect alignment with CSS Grid and important overrides
+8f199305644cccb2908a9dd0da6ccbd1e0d3d51d|2025-10-23 05:14:08 +0300|zainllw0w|Perfect center alignment for Telegram button
+b2030289a8d816c7f5dc9bf016654ced32300b89|2025-10-23 05:12:22 +0300|zainllw0w|Fix Telegram button vertical alignment - align stretch
+baf6c24594172487dc7feb34f6e3ecd425d351e5|2025-10-23 05:10:10 +0300|zainllw0w|Fix Telegram button layout - button now next to input field
+7b1419a44f2035abde4f1e6142bb9a662cb7781a|2025-10-23 05:07:31 +0300|zainllw0w|Telegram integration for dropshippers: linking, notifications, status updates
+a6cdf310e4e5096c8800a54cf2183cb7946d7996|2025-10-23 04:42:38 +0300|zainllw0w|✅ Управление кнопкой оплаты и уведомления
+a7a4a7e68371d363a4cdd9bf22a4ae54a8dd5ba5|2025-10-23 04:29:49 +0300|zainllw0w|🔧 FIX: Переименована функция для избежания конфликта
+238bd7f218bb59fece532c7c572cc7d12907cd70|2025-10-23 04:27:50 +0300|zainllw0w|🐛 FIX: Найдена и исправлена проблема с 'undefined' в диалоге
+797604e0f9ca4a49dca3f9bcfe46039939381ee0|2025-10-23 04:23:28 +0300|zainllw0w|🐛 DEBUG: Улучшено логирование updateOrderStatus
+8913ae74b66c809eda6cc9b91881a789c0abd1cb|2025-10-23 04:20:29 +0300|zainllw0w|✨ PERFECT: Все ошибки линтера исправлены! (49 → 0)
+5ca25e88fe47db48be9775bc76c7fe8efe7f683a|2025-10-23 04:18:25 +0300|zainllw0w|🔧 FIX: Значительно уменьшены ошибки линтера (49 → 17)
+d95b6ac7a73c3fe43c9b4a3dc73a3160747c744d|2025-10-23 04:15:59 +0300|zainllw0w|🔧 FIX: Исправлены linter warnings для background-clip
+08d91bd2a4f409f64f9adc5a1fad6b035d35d24b|2025-10-23 04:14:29 +0300|zainllw0w|🐛 DEBUG: Добавлено подробное логирование для updateOrderStatus
+b5005ebfd55a2dea1a1f1a3822251cb68500a641|2025-10-23 03:59:02 +0300|zainllw0w|✨ ПОЛНАЯ РЕАЛИЗАЦИЯ: Система управления статусами дропшип заказов в админке
+4ceb65ac776214086bcbf6a4f4482488b92587a0|2025-10-23 03:53:28 +0300|zainllw0w|🐛 FIX: Переименовал миграцию 0029 в 0031 чтобы избежать конфликта с 0030
+d811fb25fea9c251f8e598c26b449edf667705f6|2025-10-23 03:52:58 +0300|zainllw0w|🐛 FIX: Увеличен max_length для status до 35 символов
+30d0532ef49a0037f61e314aeabaf3a299460504|2025-10-23 03:52:22 +0300|zainllw0w|✨ РЕАЛИЗАЦИЯ: Новые статусы заказов, интеграция НП API, автоматические выплаты
+2d3c450114ec1d48d0dc0a0c117b94e2edeb09fc|2025-10-23 03:27:31 +0300|zainllw0w|✨ УЛУЧШЕНИЕ: Monobank платеж теперь показывает фото товара, размер, цвет и правильное описание (Передоплата/Повна оплата дропшипу)
+6c09bfffd94ddf382ecf67c33afd03c7e2779591|2025-10-23 03:20:34 +0300|zainllw0w|✅ ИСПРАВЛЕНИЕ: Используем правильный Monobank API endpoint (/api/merchant/invoice/create) вместо /personal/checkout/order
+a849f8121eee3000f6f10547f0e3d8dc3ec4e4c3|2025-10-23 03:17:46 +0300|zainllw0w|✅ ИСПРАВЛЕНИЕ: Используем делегирование событий для кнопок оплаты (event delegation) - теперь работает с динамическим контентом
+94170922a44cfa47ccd8db2828e79c62314fe794|2025-10-23 03:14:48 +0300|zainllw0w|🐛 DEBUG: Добавлено подробное логирование для кнопок оплаты + предотвращение двойной привязки
+2311080f2071b0d765b2b868bfc2809ec183c146|2025-10-23 03:10:50 +0300|zainllw0w|🐛 КРИТИЧЕСКИЕ ИСПРАВЛЕНИЯ: 1) Monobank API использует правильный токен (MONOBANK_TOKEN) 2) Заказы появляются сразу после создания без перезагрузки
+9426f89b1b60c1ba0301837e8769a476c5aea453|2025-10-23 01:49:48 +0300|zainllw0w|🐛 ИСПРАВЛЕНИЕ: bindDropshipperPaymentButtons вызывается ПОСЛЕ загрузки заказов через loadExistingOrders
+a814b9ec62cc1790922635bf178463524ec1d29a|2025-10-23 01:47:23 +0300|zainllw0w|🐛 ИСПРАВЛЕНИЕ КНОПОК ОПЛАТЫ: Перенесён обработчик из inline script в dropshipper.dashboard.js (inline scripts не выполняются при AJAX загрузке)
+7fbf0aed7e28726a3c8cf834c83c655d1a743de1|2025-10-23 01:36:17 +0300|zainllw0w|🐛 ИСПРАВЛЕНИЕ СЧЁТЧИКА: Убрано автообновление счётчика из loadExistingOrders которое сбрасывало значение
+18a13dc3e2680ca694d1de2bc79cc7870a4da2a0|2025-10-23 01:28:21 +0300|zainllw0w|🐛 ИСПРАВЛЕНИЯ: 1) Delegation отображается корректно 2) Счётчик заказов показывает правильное количество 3) Модальное окно закрывается для всех способов оплаты
+b69d7297f4264dd04dd53b8dc1d296e0ab8622eb|2025-10-23 01:23:22 +0300|zainllw0w|✅ КНОПКИ ОПЛАТЫ: Добавлены кнопки оплаты на карточки заказов вместо автоматического перенаправления
+5be4476c1fe99a86ac861a53beabd0097560e018|2025-10-23 00:48:59 +0300|zainllw0w|✅ ПОЛНАЯ ИНТЕГРАЦИЯ ДРОПШИПЕРА: Telegram уведомления, 3 способа оплаты, Monobank интеграция, убраны кнопки управления статусами

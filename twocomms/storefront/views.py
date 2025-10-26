@@ -626,7 +626,8 @@ def add_product(request):
     """Добавление нового товара через унифицированный интерфейс"""
     if request.method == 'POST':
         # Обработка основной информации о товаре
-        if 'form_type' in request.POST and request.POST['form_type'] == 'main_info':
+        # Принимаем как 'main_info', так и 'product' для обратной совместимости
+        if 'form_type' in request.POST and request.POST['form_type'] in ['main_info', 'product']:
             form = ProductForm(request.POST, request.FILES)
             if form.is_valid():
                 product = form.save(commit=False)
@@ -635,9 +636,22 @@ def add_product(request):
                     base = slugify(product.title or '')
                     product.slug = unique_slugify(Product, base)
                 product.save()
-                return JsonResponse({'success': True, 'product_id': product.id})
+                
+                # Если это AJAX-запрос, возвращаем JSON
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({'success': True, 'product_id': product.id, 'message': 'Товар успішно створено!'})
+                else:
+                    return redirect('product', slug=product.slug)
             else:
-                return JsonResponse({'success': False, 'errors': form.errors})
+                # Если это AJAX-запрос с ошибками, возвращаем JSON с ошибками
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({'success': False, 'errors': form.errors, 'message': 'Помилка валідації форми'})
+                else:
+                    return render(request, 'pages/add_product_new.html', {
+                        'form': form,
+                        'product': None,
+                        'is_new': True
+                    })
         
         # Обработка цветов
         elif 'form_type' in request.POST and request.POST['form_type'] == 'colors':

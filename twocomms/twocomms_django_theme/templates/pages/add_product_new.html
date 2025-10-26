@@ -600,7 +600,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 showNotification('Товар успішно створено!', 'success');
             } else {
                 console.error('Product creation failed:', data);
-                showNotification('Помилка створення товару: ' + (data.message || 'Невідома помилка'), 'error');
+                
+                // Выводим детальные ошибки валидации
+                let errorMessage = 'Помилка створення товару:\n';
+                if (data.errors) {
+                    for (const [field, errors] of Object.entries(data.errors)) {
+                        if (Array.isArray(errors)) {
+                            errorMessage += `\n${field}: ${errors.join(', ')}`;
+                        } else {
+                            errorMessage += `\n${field}: ${errors}`;
+                        }
+                    }
+                } else if (data.message) {
+                    errorMessage = data.message;
+                } else {
+                    errorMessage = 'Невідома помилка';
+                }
+                
+                showNotification(errorMessage, 'error');
             }
             return data;
         });
