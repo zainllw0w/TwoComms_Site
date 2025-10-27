@@ -1556,6 +1556,161 @@
     padding: 0.5rem 1rem;
   }
 }
+
+/* ==================== GROUP COLOR INDICATORS ==================== */
+
+/* Маркер кольору групи на картці промокода */
+.promo-group-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  border-radius: 12px 0 0 12px;
+  transition: all 0.3s ease;
+  z-index: 1;
+}
+
+.ds-promo-card:hover .promo-group-marker {
+  width: 6px;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Маркер кольору на картці групи */
+.group-color-marker {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 0.75rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.ds-group-card:hover .group-color-marker {
+  transform: scale(1.3);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* Анімація pulse для активних груп */
+@keyframes colorPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+.ds-group-card.is-drag-over .group-color-marker {
+  animation: colorPulse 1s infinite;
+}
+
+/* Підсвічування промокодів при hover на групі */
+.ds-promo-card[data-group-id]:hover .promo-group-marker {
+  animation: colorPulse 2s infinite;
+}
+
+/* Легенда кольорів (для майбутнього використання) */
+.group-color-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 1rem 0;
+  padding: 1rem;
+  background: var(--ds-bg-soft);
+  border-radius: 12px;
+}
+
+.group-color-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--ds-card-bg);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--ds-text);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.group-color-legend-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.group-color-legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Адаптивність для маркерів */
+@media (max-width: 767.98px) {
+  .promo-group-marker {
+    width: 3px;
+  }
+  
+  .ds-promo-card:hover .promo-group-marker {
+    width: 4px;
+  }
+  
+  .group-color-marker {
+    width: 6px;
+    height: 6px;
+  }
+}
+
+/* ==================== COUNTER ANIMATIONS ==================== */
+
+/* Анімація оновлення лічильника */
+@keyframes counterUpdate {
+  0% {
+    transform: scale(1);
+    color: var(--ds-text);
+  }
+  50% {
+    transform: scale(1.2);
+    color: var(--ds-primary);
+  }
+  100% {
+    transform: scale(1);
+    color: var(--ds-text);
+  }
+}
+
+/* Анімація pulse для badge */
+@keyframes badgePulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+    box-shadow: 0 0 12px var(--ds-primary);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Підсвічування метрик при hover */
+.ds-metric__value {
+  transition: all 0.3s ease;
+}
+
+.ds-metric:hover .ds-metric__value {
+  color: var(--ds-primary);
+  transform: scale(1.1);
+}
+
+.ds-sidebar__badge {
+  transition: all 0.3s ease;
+}
 </style>
 
 <script>
@@ -2173,6 +2328,19 @@ async function handleGroupDrop(event) {
       // Оновити групу в DOM
       draggedPromoEl.dataset.groupId = targetGroupId;
       
+      // Оновити кольоровий маркер
+      const oldMarker = draggedPromoEl.querySelector('.promo-group-marker');
+      if (oldMarker) {
+        oldMarker.remove();
+      }
+      
+      const newColor = getGroupColor(parseInt(targetGroupId));
+      const newMarker = document.createElement('div');
+      newMarker.className = 'promo-group-marker';
+      newMarker.style.background = newColor;
+      newMarker.title = 'Група: ' + data.group_name;
+      draggedPromoEl.prepend(newMarker);
+      
       // Оновити відображення групи в картці промокода
       const groupEl = draggedPromoEl.querySelector('.ds-promo-card__group');
       if (groupEl) {
@@ -2198,6 +2366,12 @@ async function handleGroupDrop(event) {
         }
       }
       
+      // Оновити лічильник промокодів в групі
+      updateGroupCounter(targetGroupId);
+      if (currentGroupId && currentGroupId !== '') {
+        updateGroupCounter(currentGroupId);
+      }
+      
       // Анімація успіху
       draggedPromoEl.classList.add('drop-success');
       setTimeout(() => {
@@ -2215,6 +2389,130 @@ async function handleGroupDrop(event) {
   return false;
 }
 
+// ==================== ВІЗУАЛЬНА ІНДИКАЦІЯ ГРУП ====================
+
+// Генерація кольору на основі ID групи (детермінований)
+function getGroupColor(groupId) {
+  const colors = [
+    '#667eea', // Purple
+    '#f093fb', // Pink
+    '#4facfe', // Blue
+    '#43e97b', // Green
+    '#fa709a', // Rose
+    '#feca57', // Yellow
+    '#ff6b6b', // Red
+    '#4ecdc4', // Teal
+    '#a29bfe', // Lavender
+    '#fd79a8', // Hot Pink
+    '#fdcb6e', // Orange
+    '#00b894', // Emerald
+  ];
+  
+  return colors[groupId % colors.length];
+}
+
+// Застосувати кольори до груп та промокодів
+function applyGroupColors() {
+  // Додати кольорові індикатори до group cards
+  document.querySelectorAll('.ds-group-card[data-group-id]').forEach(card => {
+    const groupId = parseInt(card.dataset.groupId);
+    const color = getGroupColor(groupId);
+    
+    // Додати кольоровий маркер
+    if (!card.querySelector('.group-color-marker')) {
+      const marker = document.createElement('div');
+      marker.className = 'group-color-marker';
+      marker.style.background = color;
+      card.querySelector('.ds-group-card__header').prepend(marker);
+    }
+  });
+  
+  // Додати кольорові маркери до promo cards
+  document.querySelectorAll('.ds-promo-card[data-group-id]').forEach(card => {
+    const groupId = card.dataset.groupId;
+    if (groupId && groupId !== '') {
+      const color = getGroupColor(parseInt(groupId));
+      
+      // Додати кольоровий маркер якщо його ще немає
+      if (!card.querySelector('.promo-group-marker')) {
+        const marker = document.createElement('div');
+        marker.className = 'promo-group-marker';
+        marker.style.background = color;
+        marker.title = 'Група: ' + (card.querySelector('.ds-promo-card__group')?.textContent.trim() || '');
+        card.prepend(marker);
+      }
+    }
+  });
+}
+
+// Ініціалізувати кольори при завантаженні
+document.addEventListener('DOMContentLoaded', applyGroupColors);
+
+// ==================== ЛІЧИЛЬНИК ПРОМОКОДІВ В ГРУПІ ====================
+
+// Оновити лічильник промокодів в групі реального часу
+function updateGroupCounter(groupId) {
+  const groupCard = document.querySelector(`.ds-group-card[data-group-id="${groupId}"]`);
+  if (!groupCard) return;
+  
+  // Порахувати промокоди в цій групі
+  const totalPromos = document.querySelectorAll(`.ds-promo-card[data-group-id="${groupId}"]`).length;
+  const activePromos = document.querySelectorAll(`.ds-promo-card[data-group-id="${groupId}"]:not(.is-inactive)`).length;
+  
+  // Оновити відображення
+  const totalCounter = groupCard.querySelector('.ds-metric:first-child .ds-metric__value');
+  const activeCounter = groupCard.querySelector('.ds-metric:nth-child(2) .ds-metric__value');
+  
+  if (totalCounter) {
+    const oldValue = parseInt(totalCounter.textContent);
+    totalCounter.textContent = totalPromos;
+    
+    // Анімація при зміні
+    if (oldValue !== totalPromos) {
+      totalCounter.style.animation = 'none';
+      setTimeout(() => {
+        totalCounter.style.animation = 'counterUpdate 0.5s ease';
+      }, 10);
+    }
+  }
+  
+  if (activeCounter) {
+    const oldValue = parseInt(activeCounter.textContent);
+    activeCounter.textContent = activePromos;
+    
+    // Анімація при зміні
+    if (oldValue !== activePromos) {
+      activeCounter.style.animation = 'none';
+      setTimeout(() => {
+        activeCounter.style.animation = 'counterUpdate 0.5s ease';
+      }, 10);
+    }
+  }
+  
+  // Оновити badge в sidebar з загальною кількістю
+  updateSidebarBadges();
+}
+
+// Оновити badges в sidebar
+function updateSidebarBadges() {
+  const totalPromos = document.querySelectorAll('.ds-promo-card').length;
+  const totalGroups = document.querySelectorAll('.ds-group-card').length;
+  
+  const promosBadge = document.querySelector('.ds-sidebar__link[href*="tab=promocodes"] .ds-sidebar__badge');
+  const groupsBadge = document.querySelector('.ds-sidebar__link[href*="tab=groups"] .ds-sidebar__badge');
+  
+  if (promosBadge) {
+    promosBadge.textContent = totalPromos;
+    promosBadge.style.animation = 'badgePulse 0.5s ease';
+  }
+  
+  if (groupsBadge) {
+    groupsBadge.textContent = totalGroups;
+  }
+}
+
 console.log('✅ Promo Modals & AJAX initialized successfully!');
 console.log('✅ Drag & Drop functionality enabled!');
+console.log('✅ Group color indicators applied!');
+console.log('✅ Real-time group counters active!');
 </script>
