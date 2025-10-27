@@ -221,7 +221,7 @@ def admin_promocode_create(request):
                 promocode.code = PromoCode.generate_code()
             
             promocode.save()
-            return redirect('admin_promocodes')
+            return redirect('/admin-panel/?section=promocodes&tab=promocodes')
     else:
         form = PromoCodeForm()
     
@@ -250,7 +250,7 @@ def admin_promocode_edit(request, pk):
                 edited_promocode.code = PromoCode.generate_code()
             
             edited_promocode.save()
-            return redirect('admin_promocodes')
+            return redirect('/admin-panel/?section=promocodes&tab=promocodes')
     else:
         form = PromoCodeForm(instance=promocode)
     
@@ -272,7 +272,7 @@ def admin_promocode_toggle(request, pk):
     promocode.is_active = not promocode.is_active
     promocode.save()
     
-    return redirect('admin_promocodes')
+    return redirect('/admin-panel/?section=promocodes&tab=promocodes')
 
 
 @login_required
@@ -284,7 +284,7 @@ def admin_promocode_delete(request, pk):
     promocode = get_object_or_404(PromoCode, pk=pk)
     promocode.delete()
     
-    return redirect('admin_promocodes')
+    return redirect('/admin-panel/?section=promocodes&tab=promocodes')
 
 
 # ==================== PROMO CODE GROUPS ====================
@@ -292,7 +292,7 @@ def admin_promocode_delete(request, pk):
 @login_required
 def admin_promo_groups(request):
     """Редирект на единую панель промокодов (таб Групи)"""
-    return redirect('/admin-panel/promocodes/?tab=groups')
+    return redirect('/admin-panel/?section=promocodes&tab=groups')
 
 
 @login_required
@@ -305,7 +305,7 @@ def admin_promo_group_create(request):
         form = PromoCodeGroupForm(request.POST)
         if form.is_valid():
             form.save()
-            return redirect('/admin-panel/promocodes/?tab=groups')
+            return redirect('/admin-panel/?section=promocodes&tab=groups')
     else:
         form = PromoCodeGroupForm()
     
@@ -328,7 +328,7 @@ def admin_promo_group_edit(request, pk):
         form = PromoCodeGroupForm(request.POST, instance=group)
         if form.is_valid():
             form.save()
-            return redirect('/admin-panel/promocodes/?tab=groups')
+            return redirect('/admin-panel/?section=promocodes&tab=groups')
     else:
         form = PromoCodeGroupForm(instance=group)
     
@@ -357,7 +357,7 @@ def admin_promo_group_delete(request, pk):
     
     group.delete()
     
-    return redirect('/admin-panel/promocodes/?tab=groups')
+    return redirect('/admin-panel/?section=promocodes&tab=groups')
 
 
 # ==================== STATISTICS ====================
@@ -365,5 +365,5 @@ def admin_promo_group_delete(request, pk):
 @login_required
 def admin_promo_stats(request):
     """Редирект на единую панель промокодов (таб Статистика)"""
-    return redirect('/admin-panel/promocodes/?tab=stats')
+    return redirect('/admin-panel/?section=promocodes&tab=stats')
 
