@@ -11,6 +11,7 @@ Promo codes views - Управление промокодами.
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
+from django.http import JsonResponse
 from django import forms
 
 from ..models import PromoCode, PromoCodeGroup, PromoCodeUsage
@@ -207,8 +208,10 @@ def admin_promocodes(request):
 
 @login_required
 def admin_promocode_create(request):
-    """Создание нового промокода"""
+    """Создание нового промокода (поддержка AJAX)"""
     if not request.user.is_staff:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Доступ заборонено'}, status=403)
         return redirect('home')
     
     if request.method == 'POST':
@@ -221,7 +224,25 @@ def admin_promocode_create(request):
                 promocode.code = PromoCode.generate_code()
             
             promocode.save()
+            
+            # AJAX ответ
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Промокод успішно створено',
+                    'promo_id': promocode.id,
+                    'promo_code': promocode.code
+                })
+            
             return redirect('/admin-panel/?section=promocodes&tab=promocodes')
+        else:
+            # AJAX ответ с ошибками
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Помилка валідації',
+                    'errors': form.errors
+                }, status=400)
     else:
         form = PromoCodeForm()
     
@@ -297,15 +318,35 @@ def admin_promo_groups(request):
 
 @login_required
 def admin_promo_group_create(request):
-    """Создание новой группы промокодов"""
+    """Создание новой группы промокодов (поддержка AJAX)"""
     if not request.user.is_staff:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Доступ заборонено'}, status=403)
         return redirect('home')
     
     if request.method == 'POST':
         form = PromoCodeGroupForm(request.POST)
         if form.is_valid():
-            form.save()
+            group = form.save()
+            
+            # AJAX ответ
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Групу успішно створено',
+                    'group_id': group.id,
+                    'group_name': group.name
+                })
+            
             return redirect('/admin-panel/?section=promocodes&tab=groups')
+        else:
+            # AJAX ответ с ошибками
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Помилка валідації',
+                    'errors': form.errors
+                }, status=400)
     else:
         form = PromoCodeGroupForm()
     
@@ -366,4 +407,157 @@ def admin_promo_group_delete(request, pk):
 def admin_promo_stats(request):
     """Редирект на единую панель промокодов (таб Статистика)"""
     return redirect('/admin-panel/?section=promocodes&tab=stats')
+
+
+# ==================== AJAX ENDPOINTS ====================
+
+@login_required
+def admin_promocode_get_form(request, pk):
+    """
+    AJAX endpoint: Получить данные промокода для формы редактирования
+    GET /admin-panel/promocode/<id>/get-form/
+    """
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Доступ заборонено'}, status=403)
+    
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return JsonResponse({'success': False, 'error': 'Тільки AJAX запити'}, status=400)
+    
+    promocode = get_object_or_404(PromoCode, pk=pk)
+    groups = PromoCodeGroup.objects.filter(is_active=True)
+    
+    # Преобразуем даты в ISO формат для datetime-local input
+    valid_from = promocode.valid_from.strftime('%Y-%m-%dT%H:%M') if promocode.valid_from else ''
+    valid_until = promocode.valid_until.strftime('%Y-%m-%dT%H:%M') if promocode.valid_until else ''
+    
+    return JsonResponse({
+        'success': True,
+        'promo': {
+            'id': promocode.id,
+            'code': promocode.code,
+            'promo_type': promocode.promo_type,
+            'discount': float(promocode.discount) if promocode.discount else None,
+            'fixed_amount': float(promocode.fixed_amount) if promocode.fixed_amount else None,
+            'description': promocode.description or '',
+            'group_id': promocode.group.id if promocode.group else None,
+            'min_order_amount': float(promocode.min_order_amount) if promocode.min_order_amount else None,
+            'usage_limit': promocode.usage_limit,
+            'one_time_per_user': promocode.one_time_per_user,
+            'valid_from': valid_from,
+            'valid_until': valid_until,
+            'is_active': promocode.is_active,
+        },
+        'groups': [{'id': g.id, 'name': g.name} for g in groups]
+    })
+
+
+@login_required
+def admin_promocode_edit_ajax(request, pk):
+    """
+    AJAX endpoint: Обновить промокод
+    POST /admin-panel/promocode/<id>/edit-ajax/
+    """
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Доступ заборонено'}, status=403)
+    
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return JsonResponse({'success': False, 'error': 'Тільки AJAX запити'}, status=400)
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Тільки POST запити'}, status=405)
+    
+    promocode = get_object_or_404(PromoCode, pk=pk)
+    form = PromoCodeForm(request.POST, instance=promocode)
+    
+    if form.is_valid():
+        updated_promo = form.save(commit=False)
+        
+        # Если код пустой, генерируем
+        if not updated_promo.code or updated_promo.code.strip() == '':
+            updated_promo.code = PromoCode.generate_code()
+        
+        updated_promo.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Промокод успішно оновлено',
+            'promo_id': updated_promo.id,
+            'promo_code': updated_promo.code
+        })
+    else:
+        return JsonResponse({
+            'success': False,
+            'error': 'Помилка валідації',
+            'errors': form.errors
+        }, status=400)
+
+
+@login_required
+def admin_promo_group_get_form(request, pk):
+    """
+    AJAX endpoint: Получить данные группы для формы редактирования
+    GET /admin-panel/promo-group/<id>/get-form/
+    """
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Доступ заборонено'}, status=403)
+    
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return JsonResponse({'success': False, 'error': 'Тільки AJAX запити'}, status=400)
+    
+    group = get_object_or_404(PromoCodeGroup, pk=pk)
+    promocodes = PromoCode.objects.filter(group=group).order_by('-created_at')
+    
+    return JsonResponse({
+        'success': True,
+        'group': {
+            'id': group.id,
+            'name': group.name,
+            'description': group.description or '',
+            'one_per_account': group.one_per_account,
+            'is_active': group.is_active,
+        },
+        'promocodes': [{
+            'id': p.id,
+            'code': p.code,
+            'is_active': p.is_active,
+            'times_used': p.times_used,
+            'usage_limit': p.usage_limit,
+            'promo_type': p.promo_type,
+        } for p in promocodes]
+    })
+
+
+@login_required
+def admin_promo_group_edit_ajax(request, pk):
+    """
+    AJAX endpoint: Обновить группу промокодов
+    POST /admin-panel/promo-group/<id>/edit-ajax/
+    """
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Доступ заборонено'}, status=403)
+    
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return JsonResponse({'success': False, 'error': 'Тільки AJAX запити'}, status=400)
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Тільки POST запити'}, status=405)
+    
+    group = get_object_or_404(PromoCodeGroup, pk=pk)
+    form = PromoCodeGroupForm(request.POST, instance=group)
+    
+    if form.is_valid():
+        updated_group = form.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Групу успішно оновлено',
+            'group_id': updated_group.id,
+            'group_name': updated_group.name
+        })
+    else:
+        return JsonResponse({
+            'success': False,
+            'error': 'Помилка валідації',
+            'errors': form.errors
+        }, status=400)
 

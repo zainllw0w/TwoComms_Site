@@ -69,7 +69,7 @@
       </div>
     </div>
   </aside>
-
+    
   <!-- Main контент -->
   <main class="ds-main">
     
@@ -95,10 +95,10 @@
                 Створюйте гнучкі системи знижок для ваших клієнтів. Групові акції, ваучери та індивідуальні пропозиції.
               </p>
               <div class="ds-actions ds-actions--hero">
-                <a href="{% url 'admin_promocode_create' %}" class="ds-btn ds-btn--primary">
+                <button type="button" class="ds-btn ds-btn--primary" data-bs-toggle="modal" data-bs-target="#createPromoModal">
                   <i class="fas fa-plus"></i>
                   <span>Створити промокод</span>
-                </a>
+                </button>
               </div>
             </div>
           </div>
@@ -168,9 +168,9 @@
               {% endif %}
 
               <div class="ds-promo-card__actions">
-                <a href="{% url 'admin_promocode_edit' promo.id %}" class="ds-action-btn ds-action-btn--edit" title="Редагувати">
+                <button type="button" class="ds-action-btn ds-action-btn--edit" title="Редагувати" onclick="openEditPromoModal({{ promo.id }})">
                   <i class="fas fa-edit"></i>
-                </a>
+                </button>
                 <a href="{% url 'admin_promocode_toggle' promo.id %}" class="ds-action-btn ds-action-btn--toggle" title="{% if promo.is_active %}Деактивувати{% else %}Активувати{% endif %}">
                   <i class="fas fa-{% if promo.is_active %}pause{% else %}play{% endif %}"></i>
                 </a>
@@ -189,10 +189,10 @@
               </div>
               <h3 class="ds-empty-state__title">Немає промокодів</h3>
               <p class="ds-empty-state__text">Створіть перший промокод для ваших клієнтів</p>
-              <a href="{% url 'admin_promocode_create' %}" class="ds-btn ds-btn--primary">
+              <button type="button" class="ds-btn ds-btn--primary" data-bs-toggle="modal" data-bs-target="#createPromoModal">
                 <i class="fas fa-plus"></i>
                 <span>Створити промокод</span>
-              </a>
+              </button>
             </div>
           {% endif %}
         </div>
@@ -221,10 +221,10 @@
                 Групуйте промокоди за кампаніями. Встановлюйте обмеження "один на аккаунт" для рекламних акцій.
               </p>
               <div class="ds-actions ds-actions--hero">
-                <a href="{% url 'admin_promo_group_create' %}" class="ds-btn ds-btn--primary">
+                <button type="button" class="ds-btn ds-btn--primary" data-bs-toggle="modal" data-bs-target="#createGroupModal">
                   <i class="fas fa-plus"></i>
                   <span>Створити групу</span>
-                </a>
+                </button>
               </div>
             </div>
           </div>
@@ -268,9 +268,9 @@
                 <a href="?section=promocodes&tab=promocodes&group={{ group.id }}" class="ds-action-btn ds-action-btn--view" title="Переглянути промокоди">
                   <i class="fas fa-eye"></i>
                 </a>
-                <a href="{% url 'admin_promo_group_edit' group.id %}" class="ds-action-btn ds-action-btn--edit" title="Редагувати">
+                <button type="button" class="ds-action-btn ds-action-btn--edit" title="Редагувати" onclick="openEditGroupModal({{ group.id }})">
                   <i class="fas fa-edit"></i>
-                </a>
+                </button>
                 <a href="{% url 'admin_promo_group_delete' group.id %}" class="ds-action-btn ds-action-btn--delete" title="Видалити" onclick="return confirm('Видалити групу?')">
                   <i class="fas fa-trash"></i>
                 </a>
@@ -286,10 +286,10 @@
               </div>
               <h3 class="ds-empty-state__title">Немає груп</h3>
               <p class="ds-empty-state__text">Створіть групу для організації промокодів</p>
-              <a href="{% url 'admin_promo_group_create' %}" class="ds-btn ds-btn--primary">
+              <button type="button" class="ds-btn ds-btn--primary" data-bs-toggle="modal" data-bs-target="#createGroupModal">
                 <i class="fas fa-plus"></i>
                 <span>Створити групу</span>
-              </a>
+              </button>
             </div>
           {% endif %}
         </div>
@@ -408,6 +408,357 @@
     {% endif %}
 
   </main>
+</div>
+
+<!-- ==================== МОДАЛЬНІ ВІКНА ==================== -->
+
+<!-- Modal: Створення промокода -->
+<div class="modal fade" id="createPromoModal" tabindex="-1" aria-labelledby="createPromoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content" style="border: 1px solid var(--ds-border); background: var(--ds-card-bg);">
+      <div class="modal-header" style="border-bottom: 1px solid var(--ds-border); background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <h5 class="modal-title" id="createPromoModalLabel" style="color: white; font-weight: 600;">
+          <i class="fas fa-plus-circle"></i> Створити промокод
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" style="padding: 2rem;">
+        <form id="createPromoForm" class="needs-validation" novalidate>
+          {% csrf_token %}
+          
+          <div class="row g-3">
+            <!-- Код промокода -->
+            <div class="col-md-6">
+              <label for="promo_code" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+                <i class="fas fa-tag"></i> Код промокода
+              </label>
+              <input type="text" 
+                     class="form-control" 
+                     id="promo_code" 
+                     name="code" 
+                     placeholder="SALE2025 (залиште порожнім для автогенерації)" 
+                     pattern="[A-Z0-9_-]+"
+                     style="border: 1px solid var(--ds-border);">
+              <div class="form-text" style="color: var(--ds-text-muted);">
+                Тільки великі літери, цифри, дефіс та підкреслення
+              </div>
+              <div class="invalid-feedback">Введіть коректний код промокода</div>
+            </div>
+
+            <!-- Тип промокода -->
+            <div class="col-md-6">
+              <label for="promo_type" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+                <i class="fas fa-shapes"></i> Тип промокода
+              </label>
+              <select class="form-select" id="promo_type" name="promo_type" required style="border: 1px solid var(--ds-border);">
+                <option value="regular">Звичайний промокод</option>
+                <option value="auction">Аукціон/Реклама</option>
+                <option value="voucher">Ваучер (фіксована сума)</option>
+              </select>
+              <div class="invalid-feedback">Оберіть тип промокода</div>
+            </div>
+
+            <!-- Знижка (%) -->
+            <div class="col-md-6">
+              <label for="promo_discount" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+                <i class="fas fa-percent"></i> Знижка (%)
+              </label>
+              <input type="number" 
+                     class="form-control" 
+                     id="promo_discount" 
+                     name="discount" 
+                     min="0" 
+                     max="100" 
+                     step="0.01"
+                     placeholder="10"
+                     style="border: 1px solid var(--ds-border);">
+              <div class="invalid-feedback">Введіть знижку від 0 до 100</div>
+            </div>
+
+            <!-- Фіксована сума -->
+            <div class="col-md-6">
+              <label for="promo_fixed_amount" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+                <i class="fas fa-money-bill-wave"></i> Фіксована сума (₴)
+              </label>
+              <input type="number" 
+                     class="form-control" 
+                     id="promo_fixed_amount" 
+                     name="fixed_amount" 
+                     min="0" 
+                     step="0.01"
+                     placeholder="100"
+                     style="border: 1px solid var(--ds-border);">
+              <div class="form-text" style="color: var(--ds-text-muted);">
+                Для ваучерів вказуйте фіксовану суму
+              </div>
+            </div>
+
+            <!-- Група -->
+            <div class="col-md-6">
+              <label for="promo_group" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+                <i class="fas fa-layer-group"></i> Група
+              </label>
+              <select class="form-select" id="promo_group" name="group" style="border: 1px solid var(--ds-border);">
+                <option value="">Без групи</option>
+                {% for group in groups %}
+                  <option value="{{ group.id }}">{{ group.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- Мінімальна сума замовлення -->
+            <div class="col-md-6">
+              <label for="promo_min_order" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+                <i class="fas fa-shopping-cart"></i> Мінімальна сума замовлення (₴)
+              </label>
+              <input type="number" 
+                     class="form-control" 
+                     id="promo_min_order" 
+                     name="min_order_amount" 
+                     min="0" 
+                     step="0.01"
+                     placeholder="0"
+                     style="border: 1px solid var(--ds-border);">
+            </div>
+
+            <!-- Кількість використань -->
+            <div class="col-md-6">
+              <label for="promo_uses" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+                <i class="fas fa-hashtag"></i> Кількість використань
+              </label>
+              <input type="number" 
+                     class="form-control" 
+                     id="promo_uses" 
+                     name="usage_limit" 
+                     min="0"
+                     placeholder="0 (необмежено)"
+                     style="border: 1px solid var(--ds-border);">
+            </div>
+
+            <!-- Один раз на користувача -->
+            <div class="col-md-6">
+              <div class="form-check" style="margin-top: 2rem;">
+                <input class="form-check-input" 
+                       type="checkbox" 
+                       id="promo_one_time" 
+                       name="one_time_per_user"
+                       style="border: 1px solid var(--ds-border);">
+                <label class="form-check-label" for="promo_one_time" style="color: var(--ds-text);">
+                  <i class="fas fa-user-check"></i> Один раз на користувача
+                </label>
+              </div>
+            </div>
+
+            <!-- Дата початку -->
+            <div class="col-md-6">
+              <label for="promo_valid_from" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+                <i class="fas fa-calendar-alt"></i> Діє з
+              </label>
+              <input type="datetime-local" 
+                     class="form-control" 
+                     id="promo_valid_from" 
+                     name="valid_from"
+                     style="border: 1px solid var(--ds-border);">
+            </div>
+
+            <!-- Дата закінчення -->
+            <div class="col-md-6">
+              <label for="promo_valid_until" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+                <i class="fas fa-calendar-times"></i> Діє до
+              </label>
+              <input type="datetime-local" 
+                     class="form-control" 
+                     id="promo_valid_until" 
+                     name="valid_until"
+                     style="border: 1px solid var(--ds-border);">
+            </div>
+
+            <!-- Опис -->
+            <div class="col-12">
+              <label for="promo_description" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+                <i class="fas fa-align-left"></i> Опис
+              </label>
+              <textarea class="form-control" 
+                        id="promo_description" 
+                        name="description" 
+                        rows="3"
+                        placeholder="Опис промокода для внутрішнього використання"
+                        style="border: 1px solid var(--ds-border);"></textarea>
+            </div>
+
+            <!-- Активний -->
+            <div class="col-12">
+              <div class="form-check">
+                <input class="form-check-input" 
+                       type="checkbox" 
+                       id="promo_is_active" 
+                       name="is_active"
+                       checked
+                       style="border: 1px solid var(--ds-border);">
+                <label class="form-check-label" for="promo_is_active" style="color: var(--ds-text);">
+                  <i class="fas fa-check-circle"></i> Активний промокод
+                </label>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer" style="border-top: 1px solid var(--ds-border); background: var(--ds-bg-soft);">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="fas fa-times"></i> Скасувати
+        </button>
+        <button type="submit" form="createPromoForm" class="btn btn-primary" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none;">
+          <i class="fas fa-save"></i> Створити промокод
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Редагування промокода -->
+<div class="modal fade" id="editPromoModal" tabindex="-1" aria-labelledby="editPromoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content" style="border: 1px solid var(--ds-border); background: var(--ds-card-bg);">
+      <div class="modal-header" style="border-bottom: 1px solid var(--ds-border); background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <h5 class="modal-title" id="editPromoModalLabel" style="color: white; font-weight: 600;">
+          <i class="fas fa-edit"></i> Редагувати промокод
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="editPromoModalBody" style="padding: 2rem;">
+        <!-- Контент завантажується через AJAX -->
+        <div class="text-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Завантаження...</span>
+          </div>
+          <p class="mt-3" style="color: var(--ds-text-muted);">Завантаження даних промокода...</p>
+        </div>
+      </div>
+      <div class="modal-footer" style="border-top: 1px solid var(--ds-border); background: var(--ds-bg-soft);">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="fas fa-times"></i> Скасувати
+        </button>
+        <button type="submit" id="editPromoSubmitBtn" form="editPromoForm" class="btn btn-primary" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none;" disabled>
+          <i class="fas fa-save"></i> Зберегти зміни
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Створення групи -->
+<div class="modal fade" id="createGroupModal" tabindex="-1" aria-labelledby="createGroupModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content" style="border: 1px solid var(--ds-border); background: var(--ds-card-bg);">
+      <div class="modal-header" style="border-bottom: 1px solid var(--ds-border); background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+        <h5 class="modal-title" id="createGroupModalLabel" style="color: white; font-weight: 600;">
+          <i class="fas fa-plus-circle"></i> Створити групу промокодів
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" style="padding: 2rem;">
+        <form id="createGroupForm" class="needs-validation" novalidate>
+          {% csrf_token %}
+          
+          <!-- Назва групи -->
+          <div class="mb-3">
+            <label for="group_name" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+              <i class="fas fa-tag"></i> Назва групи
+            </label>
+            <input type="text" 
+                   class="form-control" 
+                   id="group_name" 
+                   name="name" 
+                   placeholder="Instagram Реклама"
+                   required
+                   style="border: 1px solid var(--ds-border);">
+            <div class="invalid-feedback">Введіть назву групи</div>
+          </div>
+
+          <!-- Опис -->
+          <div class="mb-3">
+            <label for="group_description" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+              <i class="fas fa-align-left"></i> Опис
+            </label>
+            <textarea class="form-control" 
+                      id="group_description" 
+                      name="description" 
+                      rows="3"
+                      placeholder="Промокоди для рекламної кампанії в Instagram"
+                      style="border: 1px solid var(--ds-border);"></textarea>
+          </div>
+
+          <!-- Один на аккаунт -->
+          <div class="mb-3">
+            <div class="form-check">
+              <input class="form-check-input" 
+                     type="checkbox" 
+                     id="group_one_per_account" 
+                     name="one_per_account"
+                     style="border: 1px solid var(--ds-border);">
+              <label class="form-check-label" for="group_one_per_account" style="color: var(--ds-text);">
+                <i class="fas fa-user-lock"></i> Один промокод з групи на акаунт
+              </label>
+              <div class="form-text" style="color: var(--ds-text-muted);">
+                Користувач зможе використати тільки один промокод з цієї групи
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer" style="border-top: 1px solid var(--ds-border); background: var(--ds-bg-soft);">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="fas fa-times"></i> Скасувати
+        </button>
+        <button type="submit" form="createGroupForm" class="btn btn-primary" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border: none;">
+          <i class="fas fa-save"></i> Створити групу
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Редагування групи -->
+<div class="modal fade" id="editGroupModal" tabindex="-1" aria-labelledby="editGroupModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content" style="border: 1px solid var(--ds-border); background: var(--ds-card-bg);">
+      <div class="modal-header" style="border-bottom: 1px solid var(--ds-border); background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+        <h5 class="modal-title" id="editGroupModalLabel" style="color: white; font-weight: 600;">
+          <i class="fas fa-edit"></i> Редагувати групу
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="editGroupModalBody" style="padding: 2rem;">
+        <!-- Контент завантажується через AJAX -->
+        <div class="text-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Завантаження...</span>
+          </div>
+          <p class="mt-3" style="color: var(--ds-text-muted);">Завантаження даних групи...</p>
+        </div>
+      </div>
+      <div class="modal-footer" style="border-top: 1px solid var(--ds-border); background: var(--ds-bg-soft);">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="fas fa-times"></i> Скасувати
+        </button>
+        <button type="submit" id="editGroupSubmitBtn" form="editGroupForm" class="btn btn-primary" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border: none;" disabled>
+          <i class="fas fa-save"></i> Зберегти зміни
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
+  <div id="promoToast" class="toast align-items-center border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body" id="promoToastBody" style="color: white;">
+        <!-- Повідомлення -->
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
 </div>
 
 <style>
@@ -928,3 +1279,538 @@
   color: white;
 }
 </style>
+
+<script>
+// ==================== ПРОМОКОДИ: AJAX & MODALS ====================
+
+// Допоміжна функція: показати toast повідомлення
+function showToast(message, type = 'success') {
+  const toastEl = document.getElementById('promoToast');
+  const toastBody = document.getElementById('promoToastBody');
+  
+  // Встановити колір залежно від типу
+  const colors = {
+    success: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    error: 'linear-gradient(135deg, #f5576c 0%, #c0392b 100%)',
+    warning: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+    info: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)'
+  };
+  
+  toastEl.style.background = colors[type] || colors.success;
+  toastBody.textContent = message;
+  
+  const toast = new bootstrap.Toast(toastEl, {
+    animation: true,
+    autohide: true,
+    delay: 4000
+  });
+  toast.show();
+}
+
+// Допоміжна функція: отримати CSRF токен
+function getCSRFToken() {
+  return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+
+// ==================== СТВОРЕННЯ ПРОМОКОДА ====================
+
+document.getElementById('createPromoForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  
+  // Валідація Bootstrap
+  if (!this.checkValidity()) {
+    e.stopPropagation();
+    this.classList.add('was-validated');
+    return;
+  }
+  
+  const formData = new FormData(this);
+  const submitBtn = this.querySelector('button[type="submit"]');
+  const originalBtnText = submitBtn.innerHTML;
+  
+  // Показати індикатор завантаження
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Створення...';
+  
+  try {
+    const response = await fetch('{% url "admin_promocode_create" %}', {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCSRFToken(),
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: formData
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      showToast('✅ Промокод успішно створено!', 'success');
+      
+      // Закрити модалку
+      const modal = bootstrap.Modal.getInstance(document.getElementById('createPromoModal'));
+      modal.hide();
+      
+      // Очистити форму
+      this.reset();
+      this.classList.remove('was-validated');
+      
+      // Перезавантажити сторінку для оновлення списку
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } else {
+      showToast('❌ Помилка: ' + (data.error || 'Невідома помилка'), 'error');
+      
+      // Показати помилки полів
+      if (data.errors) {
+        Object.keys(data.errors).forEach(field => {
+          const input = this.querySelector(`[name="${field}"]`);
+          if (input) {
+            input.classList.add('is-invalid');
+            const feedback = input.nextElementSibling;
+            if (feedback && feedback.classList.contains('invalid-feedback')) {
+              feedback.textContent = data.errors[field][0];
+            }
+          }
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Помилка створення промокода:', error);
+    showToast('❌ Помилка з\'єднання з сервером', 'error');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = originalBtnText;
+  }
+});
+
+// ==================== РЕДАГУВАННЯ ПРОМОКОДА ====================
+
+async function openEditPromoModal(promoId) {
+  const modal = new bootstrap.Modal(document.getElementById('editPromoModal'));
+  const modalBody = document.getElementById('editPromoModalBody');
+  const submitBtn = document.getElementById('editPromoSubmitBtn');
+  
+  // Показати skeleton loader
+  modalBody.innerHTML = `
+    <div class="text-center py-5">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Завантаження...</span>
+      </div>
+      <p class="mt-3" style="color: var(--ds-text-muted);">Завантаження даних промокода...</p>
+    </div>
+  `;
+  
+  submitBtn.disabled = true;
+  modal.show();
+  
+  try {
+    const response = await fetch(`/admin-panel/promocode/${promoId}/get-form/`, {
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    });
+    
+    if (!response.ok) throw new Error('Помилка завантаження');
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      // Заповнити форму даними
+      modalBody.innerHTML = `
+        <form id="editPromoForm" class="needs-validation" novalidate>
+          ${document.querySelector('[name=csrfmiddlewaretoken]').outerHTML}
+          <input type="hidden" name="promo_id" value="${promoId}">
+          
+          <div class="row g-3">
+            <!-- Аналогічні поля як у createPromoForm -->
+            <div class="col-md-6">
+              <label for="edit_promo_code" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+                <i class="fas fa-tag"></i> Код промокода
+              </label>
+              <input type="text" class="form-control" id="edit_promo_code" name="code" 
+                     value="${data.promo.code || ''}" pattern="[A-Z0-9_-]+" required
+                     style="border: 1px solid var(--ds-border);">
+            </div>
+            
+            <div class="col-md-6">
+              <label for="edit_promo_type" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+                <i class="fas fa-shapes"></i> Тип промокода
+              </label>
+              <select class="form-select" id="edit_promo_type" name="promo_type" required style="border: 1px solid var(--ds-border);">
+                <option value="regular" ${data.promo.promo_type === 'regular' ? 'selected' : ''}>Звичайний промокод</option>
+                <option value="auction" ${data.promo.promo_type === 'auction' ? 'selected' : ''}>Аукціон/Реклама</option>
+                <option value="voucher" ${data.promo.promo_type === 'voucher' ? 'selected' : ''}>Ваучер</option>
+              </select>
+            </div>
+            
+            <div class="col-md-6">
+              <label for="edit_promo_discount" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+                <i class="fas fa-percent"></i> Знижка (%)
+              </label>
+              <input type="number" class="form-control" id="edit_promo_discount" name="discount" 
+                     value="${data.promo.discount || ''}" min="0" max="100" step="0.01"
+                     style="border: 1px solid var(--ds-border);">
+            </div>
+            
+            <div class="col-md-6">
+              <label for="edit_promo_fixed_amount" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+                <i class="fas fa-money-bill-wave"></i> Фіксована сума (₴)
+              </label>
+              <input type="number" class="form-control" id="edit_promo_fixed_amount" name="fixed_amount" 
+                     value="${data.promo.fixed_amount || ''}" min="0" step="0.01"
+                     style="border: 1px solid var(--ds-border);">
+            </div>
+            
+            <div class="col-md-6">
+              <label for="edit_promo_group" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+                <i class="fas fa-layer-group"></i> Група
+              </label>
+              <select class="form-select" id="edit_promo_group" name="group" style="border: 1px solid var(--ds-border);">
+                <option value="">Без групи</option>
+                ${data.groups.map(g => `<option value="${g.id}" ${g.id === data.promo.group_id ? 'selected' : ''}>${g.name}</option>`).join('')}
+              </select>
+            </div>
+            
+            <div class="col-md-6">
+              <label for="edit_promo_min_order" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+                <i class="fas fa-shopping-cart"></i> Мінімальна сума замовлення (₴)
+              </label>
+              <input type="number" class="form-control" id="edit_promo_min_order" name="min_order_amount" 
+                     value="${data.promo.min_order_amount || ''}" min="0" step="0.01"
+                     style="border: 1px solid var(--ds-border);">
+            </div>
+            
+            <div class="col-md-6">
+              <label for="edit_promo_uses" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+                <i class="fas fa-hashtag"></i> Кількість використань
+              </label>
+              <input type="number" class="form-control" id="edit_promo_uses" name="usage_limit" 
+                     value="${data.promo.usage_limit || ''}" min="0"
+                     style="border: 1px solid var(--ds-border);">
+            </div>
+            
+            <div class="col-md-6">
+              <div class="form-check" style="margin-top: 2rem;">
+                <input class="form-check-input" type="checkbox" id="edit_promo_one_time" name="one_time_per_user"
+                       ${data.promo.one_time_per_user ? 'checked' : ''} style="border: 1px solid var(--ds-border);">
+                <label class="form-check-label" for="edit_promo_one_time" style="color: var(--ds-text);">
+                  <i class="fas fa-user-check"></i> Один раз на користувача
+                </label>
+              </div>
+            </div>
+            
+            <div class="col-md-6">
+              <label for="edit_promo_valid_from" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+                <i class="fas fa-calendar-alt"></i> Діє з
+              </label>
+              <input type="datetime-local" class="form-control" id="edit_promo_valid_from" name="valid_from"
+                     value="${data.promo.valid_from || ''}" style="border: 1px solid var(--ds-border);">
+            </div>
+            
+            <div class="col-md-6">
+              <label for="edit_promo_valid_until" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+                <i class="fas fa-calendar-times"></i> Діє до
+              </label>
+              <input type="datetime-local" class="form-control" id="edit_promo_valid_until" name="valid_until"
+                     value="${data.promo.valid_until || ''}" style="border: 1px solid var(--ds-border);">
+            </div>
+            
+            <div class="col-12">
+              <label for="edit_promo_description" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+                <i class="fas fa-align-left"></i> Опис
+              </label>
+              <textarea class="form-control" id="edit_promo_description" name="description" rows="3"
+                        style="border: 1px solid var(--ds-border);">${data.promo.description || ''}</textarea>
+            </div>
+            
+            <div class="col-12">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="edit_promo_is_active" name="is_active"
+                       ${data.promo.is_active ? 'checked' : ''} style="border: 1px solid var(--ds-border);">
+                <label class="form-check-label" for="edit_promo_is_active" style="color: var(--ds-text);">
+                  <i class="fas fa-check-circle"></i> Активний промокод
+                </label>
+              </div>
+            </div>
+          </div>
+        </form>
+      `;
+      
+      submitBtn.disabled = false;
+      
+      // Додати обробник submit для editPromoForm
+      document.getElementById('editPromoForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        if (!this.checkValidity()) {
+          e.stopPropagation();
+          this.classList.add('was-validated');
+          return;
+        }
+        
+        const formData = new FormData(this);
+        submitBtn.disabled = true;
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Збереження...';
+        
+        try {
+          const response = await fetch(`/admin-panel/promocode/${promoId}/edit-ajax/`, {
+            method: 'POST',
+            headers: {
+              'X-CSRFToken': getCSRFToken(),
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+          });
+          
+          const result = await response.json();
+          
+          if (result.success) {
+            showToast('✅ Промокод успішно оновлено!', 'success');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editPromoModal'));
+            modal.hide();
+            setTimeout(() => window.location.reload(), 1000);
+          } else {
+            showToast('❌ Помилка: ' + (result.error || 'Невідома помилка'), 'error');
+          }
+        } catch (error) {
+          console.error('Помилка оновлення промокода:', error);
+          showToast('❌ Помилка з\'єднання', 'error');
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalText;
+        }
+      });
+      
+    } else {
+      throw new Error(data.error || 'Помилка завантаження даних');
+    }
+  } catch (error) {
+    console.error('Помилка завантаження форми:', error);
+    modalBody.innerHTML = `
+      <div class="alert alert-danger">
+        <i class="fas fa-exclamation-triangle"></i> Помилка завантаження даних промокода
+      </div>
+    `;
+    showToast('❌ Не вдалося завантажити дані', 'error');
+  }
+}
+
+// ==================== СТВОРЕННЯ ГРУПИ ====================
+
+document.getElementById('createGroupForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  
+  if (!this.checkValidity()) {
+    e.stopPropagation();
+    this.classList.add('was-validated');
+    return;
+  }
+  
+  const formData = new FormData(this);
+  const submitBtn = this.querySelector('button[type="submit"]');
+  const originalBtnText = submitBtn.innerHTML;
+  
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Створення...';
+  
+  try {
+    const response = await fetch('{% url "admin_promo_group_create" %}', {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCSRFToken(),
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: formData
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      showToast('✅ Групу успішно створено!', 'success');
+      const modal = bootstrap.Modal.getInstance(document.getElementById('createGroupModal'));
+      modal.hide();
+      this.reset();
+      this.classList.remove('was-validated');
+      setTimeout(() => window.location.reload(), 1000);
+    } else {
+      showToast('❌ Помилка: ' + (data.error || 'Невідома помилка'), 'error');
+    }
+  } catch (error) {
+    console.error('Помилка створення групи:', error);
+    showToast('❌ Помилка з\'єднання з сервером', 'error');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = originalBtnText;
+  }
+});
+
+// ==================== РЕДАГУВАННЯ ГРУПИ ====================
+
+async function openEditGroupModal(groupId) {
+  const modal = new bootstrap.Modal(document.getElementById('editGroupModal'));
+  const modalBody = document.getElementById('editGroupModalBody');
+  const submitBtn = document.getElementById('editGroupSubmitBtn');
+  
+  modalBody.innerHTML = `
+    <div class="text-center py-5">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Завантаження...</span>
+      </div>
+      <p class="mt-3" style="color: var(--ds-text-muted);">Завантаження даних групи...</p>
+    </div>
+  `;
+  
+  submitBtn.disabled = true;
+  modal.show();
+  
+  try {
+    const response = await fetch(`/admin-panel/promo-group/${groupId}/get-form/`, {
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    });
+    
+    if (!response.ok) throw new Error('Помилка завантаження');
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      modalBody.innerHTML = `
+        <form id="editGroupForm" class="needs-validation" novalidate>
+          ${document.querySelector('[name=csrfmiddlewaretoken]').outerHTML}
+          <input type="hidden" name="group_id" value="${groupId}">
+          
+          <div class="mb-3">
+            <label for="edit_group_name" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+              <i class="fas fa-tag"></i> Назва групи
+            </label>
+            <input type="text" class="form-control" id="edit_group_name" name="name" 
+                   value="${data.group.name || ''}" required style="border: 1px solid var(--ds-border);">
+            <div class="invalid-feedback">Введіть назву групи</div>
+          </div>
+          
+          <div class="mb-3">
+            <label for="edit_group_description" class="form-label" style="color: var(--ds-text); font-weight: 500;">
+              <i class="fas fa-align-left"></i> Опис
+            </label>
+            <textarea class="form-control" id="edit_group_description" name="description" rows="3"
+                      style="border: 1px solid var(--ds-border);">${data.group.description || ''}</textarea>
+          </div>
+          
+          <div class="mb-3">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="edit_group_one_per_account" name="one_per_account"
+                     ${data.group.one_per_account ? 'checked' : ''} style="border: 1px solid var(--ds-border);">
+              <label class="form-check-label" for="edit_group_one_per_account" style="color: var(--ds-text);">
+                <i class="fas fa-user-lock"></i> Один промокод з групи на акаунт
+              </label>
+              <div class="form-text" style="color: var(--ds-text-muted);">
+                Користувач зможе використати тільки один промокод з цієї групи
+              </div>
+            </div>
+          </div>
+          
+          ${data.promocodes.length > 0 ? `
+            <div class="mb-3">
+              <label class="form-label" style="color: var(--ds-text); font-weight: 500;">
+                <i class="fas fa-list"></i> Промокоди в групі (${data.promocodes.length})
+              </label>
+              <div class="list-group">
+                ${data.promocodes.map(p => `
+                  <div class="list-group-item d-flex justify-content-between align-items-center" 
+                       style="background: var(--ds-bg-soft); border: 1px solid var(--ds-border);">
+                    <div>
+                      <strong style="color: var(--ds-primary);">${p.code}</strong>
+                      <span class="badge ${p.is_active ? 'bg-success' : 'bg-secondary'} ms-2">
+                        ${p.is_active ? 'Активний' : 'Неактивний'}
+                      </span>
+                    </div>
+                    <small style="color: var(--ds-text-muted);">
+                      Використань: ${p.times_used}${p.usage_limit ? '/' + p.usage_limit : ''}
+                    </small>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : '<p style="color: var(--ds-text-muted);"><i>Немає промокодів у цій групі</i></p>'}
+        </form>
+      `;
+      
+      submitBtn.disabled = false;
+      
+      document.getElementById('editGroupForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        if (!this.checkValidity()) {
+          e.stopPropagation();
+          this.classList.add('was-validated');
+          return;
+        }
+        
+        const formData = new FormData(this);
+        submitBtn.disabled = true;
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Збереження...';
+        
+        try {
+          const response = await fetch(`/admin-panel/promo-group/${groupId}/edit-ajax/`, {
+            method: 'POST',
+            headers: {
+              'X-CSRFToken': getCSRFToken(),
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+          });
+          
+          const result = await response.json();
+          
+          if (result.success) {
+            showToast('✅ Групу успішно оновлено!', 'success');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editGroupModal'));
+            modal.hide();
+            setTimeout(() => window.location.reload(), 1000);
+          } else {
+            showToast('❌ Помилка: ' + (result.error || 'Невідома помилка'), 'error');
+          }
+        } catch (error) {
+          console.error('Помилка оновлення групи:', error);
+          showToast('❌ Помилка з\'єднання', 'error');
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalText;
+        }
+      });
+      
+    } else {
+      throw new Error(data.error || 'Помилка завантаження даних');
+    }
+  } catch (error) {
+    console.error('Помилка завантаження форми групи:', error);
+    modalBody.innerHTML = `
+      <div class="alert alert-danger">
+        <i class="fas fa-exclamation-triangle"></i> Помилка завантаження даних групи
+      </div>
+    `;
+    showToast('❌ Не вдалося завантажити дані', 'error');
+  }
+}
+
+// ==================== ОЧИЩЕННЯ ФОРМ ПРИ ЗАКРИТТІ МОДАЛОК ====================
+
+document.getElementById('createPromoModal').addEventListener('hidden.bs.modal', function () {
+  const form = document.getElementById('createPromoForm');
+  form.reset();
+  form.classList.remove('was-validated');
+});
+
+document.getElementById('createGroupModal').addEventListener('hidden.bs.modal', function () {
+  const form = document.getElementById('createGroupForm');
+  form.reset();
+  form.classList.remove('was-validated');
+});
+
+console.log('✅ Promo Modals & AJAX initialized successfully!');
+</script>
