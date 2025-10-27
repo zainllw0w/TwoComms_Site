@@ -115,6 +115,8 @@ from .profile import (
 
 # Промокоды
 from .promo import (
+    # Helper functions
+    get_promo_admin_context,
     # Forms
     PromoCodeForm,
     PromoCodeGroupForm,
