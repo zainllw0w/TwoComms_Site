@@ -74,7 +74,7 @@ class RegisterForm(forms.Form):
         
         if password1 and password2:
             if password1 != password2:
-            self.add_error("password2", "Паролі не співпадають")
+                self.add_error("password2", "Паролі не співпадають")
         
         return data
 
@@ -265,36 +265,36 @@ def register_view(request):
                 # Это предотвратит ошибки при создании пользователя
                 validate_password(password, user=None)
                 
-            # Создаем пользователя
-            user = User.objects.create_user(
+                # Создаем пользователя
+                user = User.objects.create_user(
                     username=username,
                     password=password
-            )
+                )
                 
                 logger.info(f"New user registered: {username}")
-            
-            # Автоматически авторизуем
-            login(request, user)
-            
-            # Переносим избранные товары из сессии в базу данных
-            session_favorites = request.session.get('favorites', [])
-            if session_favorites:
-                for product_id in session_favorites:
-                    try:
-                        product = Product.objects.get(id=product_id)
-                        FavoriteProduct.objects.get_or_create(
-                            user=user,
-                            product=product
-                        )
-                    except Product.DoesNotExist:
-                        # Товар был удален, пропускаем
-                        continue
                 
-                # Очищаем сессию
-                del request.session['favorites']
-                request.session.modified = True
-            
-            return redirect('profile_setup')
+                # Автоматически авторизуем
+                login(request, user)
+                
+                # Переносим избранные товары из сессии в базу данных
+                session_favorites = request.session.get('favorites', [])
+                if session_favorites:
+                    for product_id in session_favorites:
+                        try:
+                            product = Product.objects.get(id=product_id)
+                            FavoriteProduct.objects.get_or_create(
+                                user=user,
+                                product=product
+                            )
+                        except Product.DoesNotExist:
+                            # Товар был удален, пропускаем
+                            continue
+                    
+                    # Очищаем сессию
+                    del request.session['favorites']
+                    request.session.modified = True
+                
+                return redirect('profile_setup')
                 
             except ValidationError as e:
                 # Обрабатываем ошибки валидации пароля
