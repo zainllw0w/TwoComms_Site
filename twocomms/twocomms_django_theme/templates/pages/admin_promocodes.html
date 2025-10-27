@@ -344,6 +344,44 @@
                 Детальний аналіз ефективності промокодів та груп
               </p>
             </div>
+            
+            <!-- Фільтри по датах -->
+            <div class="ds-date-filters">
+              <div class="ds-date-filter-pills">
+                <button type="button" class="ds-date-pill is-active" data-period="all">
+                  <i class="fas fa-infinity"></i> Весь час
+                </button>
+                <button type="button" class="ds-date-pill" data-period="today">
+                  <i class="fas fa-calendar-day"></i> Сьогодні
+                </button>
+                <button type="button" class="ds-date-pill" data-period="week">
+                  <i class="fas fa-calendar-week"></i> Тиждень
+                </button>
+                <button type="button" class="ds-date-pill" data-period="month">
+                  <i class="fas fa-calendar-alt"></i> Місяць
+                </button>
+                <button type="button" class="ds-date-pill" data-period="custom">
+                  <i class="fas fa-calendar-range"></i> Кастомний
+                </button>
+              </div>
+              
+              <!-- Datepicker для кастомного періоду -->
+              <div id="customDateRange" class="ds-custom-date-range" style="display: none;">
+                <div class="ds-date-inputs">
+                  <div class="ds-date-input-group">
+                    <label for="dateFrom">Від:</label>
+                    <input type="date" id="dateFrom" class="ds-date-input">
+                  </div>
+                  <div class="ds-date-input-group">
+                    <label for="dateTo">До:</label>
+                    <input type="date" id="dateTo" class="ds-date-input">
+                  </div>
+                  <button type="button" id="applyCustomDates" class="ds-btn ds-btn--apply">
+                    <i class="fas fa-check"></i> Застосувати
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -1391,6 +1429,148 @@
   
   .ds-chart-card__body {
     min-height: 200px;
+  }
+}
+
+/* Date Filters */
+.ds-date-filters {
+  margin-top: 1.5rem;
+}
+
+.ds-date-filter-pills {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.ds-date-pill {
+  padding: 0.75rem 1.5rem;
+  border: 2px solid var(--ds-border);
+  border-radius: 12px;
+  background: var(--ds-card-bg);
+  color: var(--ds-text);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.ds-date-pill:hover {
+  border-color: var(--ds-primary);
+  background: var(--ds-bg-soft);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
+.ds-date-pill.is-active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: var(--ds-primary);
+  color: white;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+}
+
+.ds-date-pill i {
+  font-size: 1rem;
+}
+
+/* Custom Date Range */
+.ds-custom-date-range {
+  margin-top: 1rem;
+  animation: slideDown 0.3s ease;
+}
+
+.ds-date-inputs {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.ds-date-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ds-date-input-group label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--ds-text-muted);
+}
+
+.ds-date-input {
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--ds-border);
+  border-radius: 8px;
+  background: var(--ds-card-bg);
+  color: var(--ds-text);
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  min-width: 160px;
+}
+
+.ds-date-input:focus {
+  outline: none;
+  border-color: var(--ds-primary);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.ds-btn--apply {
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ds-btn--apply:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+}
+
+.ds-btn--apply:active {
+  transform: translateY(0);
+}
+
+/* Responsive для date filters */
+@media (max-width: 767.98px) {
+  .ds-date-filter-pills {
+    flex-direction: column;
+  }
+  
+  .ds-date-pill {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .ds-date-inputs {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .ds-date-input-group {
+    width: 100%;
+  }
+  
+  .ds-date-input {
+    width: 100%;
+  }
+  
+  .ds-btn--apply {
+    width: 100%;
+    justify-content: center;
   }
 }
 
@@ -3334,4 +3514,170 @@ if (isStatsTab) {
   
   console.log('✅ Chart.js graphs initialized!');
 }
+
+// ==================== ФІЛЬТРИ ПО ДАТАХ ====================
+
+const datePills = document.querySelectorAll('.ds-date-pill');
+const customDateRange = document.getElementById('customDateRange');
+const dateFromInput = document.getElementById('dateFrom');
+const dateToInput = document.getElementById('dateTo');
+const applyCustomDatesBtn = document.getElementById('applyCustomDates');
+
+let currentPeriod = 'all';
+let customDates = null;
+
+// Обробка кліків на date pills
+datePills.forEach(pill => {
+  pill.addEventListener('click', function() {
+    // Деактивувати всі pills
+    datePills.forEach(p => p.classList.remove('is-active'));
+    
+    // Активувати поточний
+    this.classList.add('is-active');
+    
+    const period = this.dataset.period;
+    currentPeriod = period;
+    
+    // Показати/приховати custom date range
+    if (period === 'custom') {
+      customDateRange.style.display = 'block';
+      
+      // Встановити дефолтні дати (поточний місяць)
+      const today = new Date();
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      
+      dateFromInput.valueAsDate = firstDay;
+      dateToInput.valueAsDate = today;
+    } else {
+      customDateRange.style.display = 'none';
+      customDates = null;
+      
+      // Застосувати фільтр
+      applyDateFilter(period);
+    }
+  });
+});
+
+// Застосувати custom dates
+if (applyCustomDatesBtn) {
+  applyCustomDatesBtn.addEventListener('click', function() {
+    const dateFrom = dateFromInput.value;
+    const dateTo = dateToInput.value;
+    
+    if (!dateFrom || !dateTo) {
+      showToast('Будь ласка, оберіть обидві дати', 'warning');
+      return;
+    }
+    
+    if (new Date(dateFrom) > new Date(dateTo)) {
+      showToast('Дата початку не може бути пізніше дати кінця', 'error');
+      return;
+    }
+    
+    customDates = { from: dateFrom, to: dateTo };
+    applyDateFilter('custom', customDates);
+    
+    showToast(`Фільтр застосовано: ${formatDate(dateFrom)} - ${formatDate(dateTo)}`, 'success');
+  });
+}
+
+// Функція застосування фільтра
+function applyDateFilter(period, customDates = null) {
+  console.log(`Applying date filter: ${period}`, customDates);
+  
+  // Тут має бути AJAX запит на backend для отримання відфільтрованих даних
+  // Поки що просто оновлюємо графіки з наявними даними
+  
+  // Приклад: фільтрувати дані по періоду
+  const { startDate, endDate } = getDateRange(period, customDates);
+  
+  console.log(`Date range: ${startDate} - ${endDate}`);
+  
+  // Показати індикатор активного фільтра
+  showActiveFilterIndicator(period, customDates);
+  
+  // TODO: Оновити графіки з новими даними
+  // refreshCharts(startDate, endDate);
+}
+
+// Отримати діапазон дат для періоду
+function getDateRange(period, customDates = null) {
+  const today = new Date();
+  let startDate, endDate = today;
+  
+  switch (period) {
+    case 'today':
+      startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      break;
+    case 'week':
+      startDate = new Date(today);
+      startDate.setDate(today.getDate() - 7);
+      break;
+    case 'month':
+      startDate = new Date(today);
+      startDate.setMonth(today.getMonth() - 1);
+      break;
+    case 'custom':
+      if (customDates) {
+        startDate = new Date(customDates.from);
+        endDate = new Date(customDates.to);
+      }
+      break;
+    default: // 'all'
+      startDate = new Date(0); // Unix epoch
+      break;
+  }
+  
+  return { startDate, endDate };
+}
+
+// Показати індикатор активного фільтра
+function showActiveFilterIndicator(period, customDates = null) {
+  let indicatorText = '';
+  
+  switch (period) {
+    case 'today':
+      indicatorText = 'Сьогодні';
+      break;
+    case 'week':
+      indicatorText = 'Останній тиждень';
+      break;
+    case 'month':
+      indicatorText = 'Останній місяць';
+      break;
+    case 'custom':
+      if (customDates) {
+        indicatorText = `${formatDate(customDates.from)} - ${formatDate(customDates.to)}`;
+      }
+      break;
+    default:
+      indicatorText = 'Весь час';
+      break;
+  }
+  
+  // Оновити заголовок секції
+  const heroLead = document.querySelector('.ds-hero__lead');
+  if (heroLead && period !== 'all') {
+    heroLead.innerHTML = `
+      Детальний аналіз ефективності промокодів та груп
+      <br><small style="color: var(--ds-primary); font-weight: 600;">
+        <i class="fas fa-filter"></i> Період: ${indicatorText}
+      </small>
+    `;
+  } else if (heroLead) {
+    heroLead.textContent = 'Детальний аналіз ефективності промокодів та груп';
+  }
+}
+
+// Форматувати дату
+function formatDate(dateString) {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('uk-UA', { 
+    day: 'numeric', 
+    month: 'long', 
+    year: 'numeric' 
+  });
+}
+
+console.log('✅ Date filters initialized!');
 </script>
