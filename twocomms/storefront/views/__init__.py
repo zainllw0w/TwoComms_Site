@@ -138,6 +138,7 @@ from .promo import (
     admin_promocode_edit_ajax,
     admin_promo_group_get_form,
     admin_promo_group_edit_ajax,
+    admin_promocode_change_group,
 )
 
 # API endpoints
@@ -231,6 +232,7 @@ try:
         'admin_promo_group_delete', 'admin_promo_stats',
         'admin_promocode_get_form', 'admin_promocode_edit_ajax',
         'admin_promo_group_get_form', 'admin_promo_group_edit_ajax',
+        'admin_promocode_change_group',
         # api.py
         'get_product_json', 'get_categories_json', 'track_event', 'search_suggestions',
         'product_availability', 'get_related_products', 'newsletter_subscribe', 'contact_form',
@@ -332,6 +334,7 @@ __all__ = [
     'admin_promo_group_delete', 'admin_promo_stats',
     'admin_promocode_get_form', 'admin_promocode_edit_ajax',
     'admin_promo_group_get_form', 'admin_promo_group_edit_ajax',
+    'admin_promocode_change_group',
     
     # API
     'get_product_json', 'get_categories_json', 'track_event', 'search_suggestions',
