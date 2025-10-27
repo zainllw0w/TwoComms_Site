@@ -283,20 +283,8 @@ def admin_promocode_delete(request, pk):
 
 @login_required
 def admin_promo_groups(request):
-    """Список групп промокодов"""
-    if not request.user.is_staff:
-        return redirect('home')
-    
-    groups = PromoCodeGroup.objects.prefetch_related('promo_codes').annotate(
-        codes_count=Count('promo_codes'),
-        active_codes_count=Count('promo_codes', filter=Q(promo_codes__is_active=True)),
-        total_usages=Count('usages')
-    )
-    
-    return render(request, 'pages/admin_promo_groups.html', {
-        'groups': groups,
-        'section': 'promocodes'
-    })
+    """Редирект на единую панель промокодов (таб Групи)"""
+    return redirect('/admin-panel/promocodes/?tab=groups')
 
 
 @login_required
@@ -309,7 +297,7 @@ def admin_promo_group_create(request):
         form = PromoCodeGroupForm(request.POST)
         if form.is_valid():
             form.save()
-            return redirect('admin_promo_groups')
+            return redirect('/admin-panel/promocodes/?tab=groups')
     else:
         form = PromoCodeGroupForm()
     
@@ -332,7 +320,7 @@ def admin_promo_group_edit(request, pk):
         form = PromoCodeGroupForm(request.POST, instance=group)
         if form.is_valid():
             form.save()
-            return redirect('admin_promo_groups')
+            return redirect('/admin-panel/promocodes/?tab=groups')
     else:
         form = PromoCodeGroupForm(instance=group)
     
@@ -361,42 +349,13 @@ def admin_promo_group_delete(request, pk):
     
     group.delete()
     
-    return redirect('admin_promo_groups')
+    return redirect('/admin-panel/promocodes/?tab=groups')
 
 
 # ==================== STATISTICS ====================
 
 @login_required
 def admin_promo_stats(request):
-    """Статистика использования промокодов"""
-    if not request.user.is_staff:
-        return redirect('home')
-    
-    # Последние использования
-    recent_usages = PromoCodeUsage.objects.select_related(
-        'user', 'promo_code', 'group', 'order'
-    ).order_by('-used_at')[:50]
-    
-    # Топ промокодов по использованию
-    top_promos = PromoCode.objects.annotate(
-        usage_count=Count('usages')
-    ).order_by('-usage_count')[:10]
-    
-    # Топ групп по использованию
-    top_groups = PromoCodeGroup.objects.annotate(
-        usage_count=Count('usages')
-    ).order_by('-usage_count')[:10]
-    
-    # Общая статистика
-    total_usages = PromoCodeUsage.objects.count()
-    unique_users = PromoCodeUsage.objects.values('user').distinct().count()
-    
-    return render(request, 'pages/admin_promo_stats.html', {
-        'recent_usages': recent_usages,
-        'top_promos': top_promos,
-        'top_groups': top_groups,
-        'total_usages': total_usages,
-        'unique_users': unique_users,
-        'section': 'promocodes'
-    })
+    """Редирект на единую панель промокодов (таб Статистика)"""
+    return redirect('/admin-panel/promocodes/?tab=stats')
 
