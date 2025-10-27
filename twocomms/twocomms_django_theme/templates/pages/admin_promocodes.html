@@ -345,6 +345,11 @@
               </p>
             </div>
             
+            <!-- Dark Mode Toggle -->
+            <button type="button" id="darkModeToggle" class="ds-dark-mode-toggle" title="Перемкнути тему">
+              <i class="fas fa-moon" id="darkModeIcon"></i>
+            </button>
+            
             <!-- Кнопки експорту -->
             <div class="ds-export-actions">
               <button type="button" class="ds-export-btn ds-export-btn--csv" onclick="exportStats('csv')">
@@ -1443,6 +1448,93 @@
   .ds-chart-card__body {
     min-height: 200px;
   }
+}
+
+/* Dark Mode Toggle */
+.ds-dark-mode-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  color: white;
+  font-size: 1.2rem;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+  transition: all 0.3s ease;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ds-dark-mode-toggle:hover {
+  transform: scale(1.1) rotate(15deg);
+  box-shadow: 0 6px 24px rgba(102, 126, 234, 0.6);
+}
+
+.ds-dark-mode-toggle:active {
+  transform: scale(0.95);
+}
+
+/* Dark Mode Variables */
+:root {
+  --ds-bg: #f8f9fa;
+  --ds-bg-soft: #f1f3f4;
+  --ds-text: #1a202c;
+  --ds-text-muted: #718096;
+  --ds-card-bg: #ffffff;
+  --ds-border: #e2e8f0;
+  --ds-panel: rgba(255, 255, 255, 0.9);
+  --ds-primary: #667eea;
+  --ds-radius-lg: 16px;
+}
+
+body.dark-mode {
+  --ds-bg: #1a202c;
+  --ds-bg-soft: #2d3748;
+  --ds-text: #f7fafc;
+  --ds-text-muted: #a0aec0;
+  --ds-card-bg: #2d3748;
+  --ds-border: #4a5568;
+  --ds-panel: rgba(45, 55, 72, 0.9);
+}
+
+body.dark-mode .ds-container {
+  background: var(--ds-bg);
+}
+
+body.dark-mode .ds-promo-card,
+body.dark-mode .ds-group-card,
+body.dark-mode .ds-stat-card,
+body.dark-mode .ds-chart-card,
+body.dark-mode .ds-overview-card {
+  background: var(--ds-card-bg);
+  border-color: var(--ds-border);
+}
+
+body.dark-mode .ds-hero {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+body.dark-mode .modal-content {
+  background: var(--ds-card-bg) !important;
+  border-color: var(--ds-border) !important;
+}
+
+body.dark-mode .form-control,
+body.dark-mode .form-select,
+body.dark-mode .ds-date-input {
+  background: var(--ds-bg-soft) !important;
+  border-color: var(--ds-border) !important;
+  color: var(--ds-text) !important;
+}
+
+body.dark-mode .ds-dark-mode-toggle {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
 }
 
 /* Fade-in animations */
@@ -3834,4 +3926,81 @@ function exportStats(format) {
 }
 
 console.log('✅ Export functions ready!');
+
+// ==================== BOOTSTRAP TOOLTIPS ====================
+
+// Ініціалізувати всі tooltips
+document.addEventListener('DOMContentLoaded', function() {
+  // Bootstrap 5 tooltips
+  const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"], [title]'));
+  tooltipTriggerList.forEach(function (tooltipTriggerEl) {
+    // Додати data-bs-toggle якщо є title але немає атрибута
+    if (tooltipTriggerEl.hasAttribute('title') && !tooltipTriggerEl.hasAttribute('data-bs-toggle')) {
+      tooltipTriggerEl.setAttribute('data-bs-toggle', 'tooltip');
+    }
+    
+    // Ініціалізувати tooltip
+    new bootstrap.Tooltip(tooltipTriggerEl, {
+      placement: 'top',
+      trigger: 'hover',
+      delay: { show: 300, hide: 100 },
+      animation: true,
+    });
+  });
+  
+  console.log(`✅ ${tooltipTriggerList.length} tooltips initialized!`);
+});
+
+// ==================== DARK MODE ====================
+
+const darkModeToggle = document.getElementById('darkModeToggle');
+const darkModeIcon = document.getElementById('darkModeIcon');
+
+// Перевірити збережену тему
+const savedTheme = localStorage.getItem('promoTheme');
+if (savedTheme === 'dark') {
+  document.body.classList.add('dark-mode');
+  darkModeIcon.classList.remove('fa-moon');
+  darkModeIcon.classList.add('fa-sun');
+}
+
+// Перемикач теми
+if (darkModeToggle) {
+  darkModeToggle.addEventListener('click', function() {
+    document.body.classList.toggle('dark-mode');
+    
+    const isDark = document.body.classList.contains('dark-mode');
+    
+    // Змінити іконку
+    if (isDark) {
+      darkModeIcon.classList.remove('fa-moon');
+      darkModeIcon.classList.add('fa-sun');
+      localStorage.setItem('promoTheme', 'dark');
+      showToast('🌙 Темний режим активовано', 'info');
+    } else {
+      darkModeIcon.classList.remove('fa-sun');
+      darkModeIcon.classList.add('fa-moon');
+      localStorage.setItem('promoTheme', 'light');
+      showToast('☀️ Світлий режим активовано', 'info');
+    }
+    
+    // Анімація перемикання
+    darkModeToggle.style.animation = 'spin 0.5s ease';
+    setTimeout(() => {
+      darkModeToggle.style.animation = '';
+    }, 500);
+  });
+}
+
+// Анімація обертання
+const spinStyle = document.createElement('style');
+spinStyle.textContent = `
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+`;
+document.head.appendChild(spinStyle);
+
+console.log('✅ Dark mode initialized!');
 </script>
