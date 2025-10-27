@@ -10,7 +10,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('orders', '0035_dropshipperorder_monobank_invoice_id'),
         ('storefront', '0030_add_performance_indexes'),
     ]
 
