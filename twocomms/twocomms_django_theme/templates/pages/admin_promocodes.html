@@ -140,10 +140,10 @@
   </div>
 
   <!-- Список промокодов -->
-        <div class="ds-grid">
+        <div class="ds-grid ds-fade-in-grid">
     {% if promocodes %}
       {% for promo in promocodes %}
-            <article class="ds-promo-card {% if not promo.is_active %}is-inactive{% endif %}" 
+            <article class="ds-promo-card ds-fade-in-item {% if not promo.is_active %}is-inactive{% endif %}" 
                      draggable="true" 
                      data-promo-id="{{ promo.id }}"
                      data-group-id="{{ promo.group.id|default:'' }}"
@@ -1443,6 +1443,39 @@
   .ds-chart-card__body {
     min-height: 200px;
   }
+}
+
+/* Fade-in animations */
+.ds-fade-in-item {
+  animation: fadeInUp 0.6s ease forwards;
+  opacity: 0;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ds-fade-in-grid .ds-fade-in-item:nth-child(1) { animation-delay: 0.05s; }
+.ds-fade-in-grid .ds-fade-in-item:nth-child(2) { animation-delay: 0.1s; }
+.ds-fade-in-grid .ds-fade-in-item:nth-child(3) { animation-delay: 0.15s; }
+.ds-fade-in-grid .ds-fade-in-item:nth-child(4) { animation-delay: 0.2s; }
+.ds-fade-in-grid .ds-fade-in-item:nth-child(5) { animation-delay: 0.25s; }
+.ds-fade-in-grid .ds-fade-in-item:nth-child(6) { animation-delay: 0.3s; }
+.ds-fade-in-grid .ds-fade-in-item:nth-child(n+7) { animation-delay: 0.35s; }
+
+/* Smooth transitions */
+.ds-promo-card,
+.ds-group-card,
+.ds-stat-card,
+.ds-chart-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Export Actions */
