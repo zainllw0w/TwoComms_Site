@@ -363,6 +363,76 @@
             <div class="ds-overview-card__value">{{ unique_users|default:0 }}</div>
             <div class="ds-overview-card__label">Унікальних користувачів</div>
           </div>
+          <div class="ds-overview-card ds-overview-card--success">
+            <div class="ds-overview-card__icon">
+              <i class="fas fa-percentage"></i>
+            </div>
+            <div class="ds-overview-card__value">{{ conversion_rate|default:0 }}%</div>
+            <div class="ds-overview-card__label">Конверсія промокодів</div>
+            <div class="ds-overview-card__meta">
+              {{ used_promocodes_count }}/{{ total_promocodes }} використано
+            </div>
+          </div>
+          <div class="ds-overview-card ds-overview-card--warning">
+            <div class="ds-overview-card__icon">
+              <i class="fas fa-money-bill-wave"></i>
+            </div>
+            <div class="ds-overview-card__value">{{ total_savings|floatformat:2 }} ₴</div>
+            <div class="ds-overview-card__label">Загальна економія</div>
+            <div class="ds-overview-card__meta">
+              Фіксовані знижки
+            </div>
+          </div>
+        </div>
+        
+        <!-- Розширена статистика -->
+        <div class="ds-stats-extended">
+          <div class="ds-stat-card">
+            <div class="ds-stat-card__header">
+              <i class="fas fa-tag"></i>
+              <h3>Середні знижки</h3>
+            </div>
+            <div class="ds-stat-card__body">
+              <div class="ds-stat-row">
+                <span class="ds-stat-label">Відсоткові промокоди:</span>
+                <span class="ds-stat-value">{{ avg_discount_percent|floatformat:1 }}%</span>
+              </div>
+              <div class="ds-stat-row">
+                <span class="ds-stat-label">Фіксовані промокоди:</span>
+                <span class="ds-stat-value">{{ avg_discount_fixed|floatformat:2 }} ₴</span>
+              </div>
+              <div class="ds-stat-row">
+                <span class="ds-stat-label">Середнє використань/промокод:</span>
+                <span class="ds-stat-value">{{ avg_usages_per_promo|floatformat:2 }}</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="ds-stat-card ds-stat-card--highlight">
+            <div class="ds-stat-card__header">
+              <i class="fas fa-crown"></i>
+              <h3>Лідери</h3>
+            </div>
+            <div class="ds-stat-card__body">
+              {% if most_popular_promo %}
+                <div class="ds-stat-row ds-stat-row--large">
+                  <span class="ds-stat-label">Найпопулярніший промокод:</span>
+                  <span class="ds-stat-value"><code>{{ most_popular_promo.code }}</code></span>
+                </div>
+                <div class="ds-stat-row ds-stat-row--muted">
+                  <span class="ds-stat-label">Використань:</span>
+                  <span class="ds-stat-value">{{ most_popular_promo.usages.count }}</span>
+                </div>
+              {% endif %}
+              
+              {% if most_successful_group %}
+                <div class="ds-stat-row ds-stat-row--large" style="margin-top: 1rem;">
+                  <span class="ds-stat-label">Найуспішніша група:</span>
+                  <span class="ds-stat-value">{{ most_successful_group.name }}</span>
+                </div>
+              {% endif %}
+            </div>
+          </div>
         </div>
 
         <!-- Топ промокодов -->
@@ -1094,6 +1164,124 @@
   color: var(--ds-text-muted);
   margin-top: 0.5rem;
   font-size: 0.9rem;
+}
+
+.ds-overview-card__meta {
+  color: var(--ds-text-muted);
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+/* Overview card variants */
+.ds-overview-card--success {
+  border-color: rgba(76, 175, 80, 0.3);
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.05) 0%, rgba(76, 175, 80, 0.1) 100%);
+}
+
+.ds-overview-card--success .ds-overview-card__icon {
+  color: #4caf50;
+}
+
+.ds-overview-card--warning {
+  border-color: rgba(255, 193, 7, 0.3);
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.05) 0%, rgba(255, 193, 7, 0.1) 100%);
+}
+
+.ds-overview-card--warning .ds-overview-card__icon {
+  color: #ffc107;
+}
+
+/* Extended stats */
+.ds-stats-extended {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.ds-stat-card {
+  background: var(--ds-panel);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  padding: 1.5rem;
+  backdrop-filter: blur(20px);
+  transition: all 0.3s ease;
+}
+
+.ds-stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  border-color: var(--ds-primary);
+}
+
+.ds-stat-card--highlight {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+  border-color: var(--ds-primary);
+}
+
+.ds-stat-card__header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--ds-border);
+}
+
+.ds-stat-card__header i {
+  color: var(--ds-primary);
+  font-size: 1.2rem;
+}
+
+.ds-stat-card__header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--ds-text);
+}
+
+.ds-stat-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ds-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.ds-stat-row:last-child {
+  border-bottom: none;
+}
+
+.ds-stat-row--large {
+  padding: 0.75rem 0;
+}
+
+.ds-stat-row--muted {
+  opacity: 0.7;
+  font-size: 0.9rem;
+}
+
+.ds-stat-label {
+  color: var(--ds-text-muted);
+  font-size: 0.9rem;
+}
+
+.ds-stat-value {
+  font-weight: 600;
+  color: var(--ds-text);
+  font-size: 1rem;
+}
+
+.ds-stat-row--large .ds-stat-value {
+  font-size: 1.1rem;
+  color: var(--ds-primary);
 }
 
 .ds-section {
