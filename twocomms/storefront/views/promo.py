@@ -631,6 +631,180 @@ def admin_promo_group_edit_ajax(request, pk):
 
 
 @login_required
+def admin_promo_export(request):
+    """
+    Експорт статистики промокодів (CSV/Excel/PDF)
+    GET /admin-panel/promo-export/?format=csv&period=all
+    """
+    if not request.user.is_staff:
+        return JsonResponse({'error': 'Доступ заборонено'}, status=403)
+    
+    import csv
+    from django.http import HttpResponse
+    from datetime import datetime, timedelta
+    
+    export_format = request.GET.get('format', 'csv')
+    period = request.GET.get('period', 'all')
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+    
+    # Визначити діапазон дат
+    queryset = PromoCode.objects.all()
+    
+    if period == 'today':
+        today = datetime.now().date()
+        queryset = queryset.filter(created_at__date=today)
+    elif period == 'week':
+        week_ago = datetime.now() - timedelta(days=7)
+        queryset = queryset.filter(created_at__gte=week_ago)
+    elif period == 'month':
+        month_ago = datetime.now() - timedelta(days=30)
+        queryset = queryset.filter(created_at__gte=month_ago)
+    elif period == 'custom' and date_from and date_to:
+        queryset = queryset.filter(created_at__date__range=[date_from, date_to])
+    
+    # CSV експорт
+    if export_format == 'csv':
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="promo_stats_{datetime.now().strftime("%Y%m%d")}.csv"'
+        
+        # Додати BOM для правильного відображення UTF-8 в Excel
+        response.write('\ufeff')
+        
+        writer = csv.writer(response)
+        writer.writerow(['Код', 'Тип', 'Знижка', 'Група', 'Використань', 'Макс. використань', 'Активний', 'Створено'])
+        
+        for promo in queryset:
+            writer.writerow([
+                promo.code,
+                promo.get_promo_type_display(),
+                promo.get_discount_display(),
+                promo.group.name if promo.group else '-',
+                promo.current_uses,
+                promo.max_uses if promo.max_uses > 0 else '∞',
+                'Так' if promo.is_active else 'Ні',
+                promo.created_at.strftime('%d.%m.%Y %H:%M'),
+            ])
+        
+        return response
+    
+    # Excel експорт (потребує openpyxl)
+    elif export_format == 'excel':
+        try:
+            from openpyxl import Workbook
+            from openpyxl.styles import Font, PatternFill, Alignment
+            
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Промокоди"
+            
+            # Заголовки
+            headers = ['Код', 'Тип', 'Знижка', 'Група', 'Використань', 'Макс. використань', 'Активний', 'Створено']
+            ws.append(headers)
+            
+            # Стилізація заголовків
+            header_fill = PatternFill(start_color="667eea", end_color="667eea", fill_type="solid")
+            header_font = Font(bold=True, color="FFFFFF")
+            
+            for cell in ws[1]:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal='center')
+            
+            # Дані
+            for promo in queryset:
+                ws.append([
+                    promo.code,
+                    promo.get_promo_type_display(),
+                    promo.get_discount_display(),
+                    promo.group.name if promo.group else '-',
+                    promo.current_uses,
+                    promo.max_uses if promo.max_uses > 0 else '∞',
+                    'Так' if promo.is_active else 'Ні',
+                    promo.created_at.strftime('%d.%m.%Y %H:%M'),
+                ])
+            
+            # Автоширина колонок
+            for column in ws.columns:
+                max_length = 0
+                column_letter = column[0].column_letter
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(cell.value)
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 50)
+                ws.column_dimensions[column_letter].width = adjusted_width
+            
+            response = HttpResponse(
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            response['Content-Disposition'] = f'attachment; filename="promo_stats_{datetime.now().strftime("%Y%m%d")}.xlsx"'
+            
+            wb.save(response)
+            return response
+            
+        except ImportError:
+            return HttpResponse("Excel export requires 'openpyxl' library. Please install it.", status=500)
+    
+    # PDF експорт (потребує reportlab)
+    elif export_format == 'pdf':
+        try:
+            from reportlab.lib import colors
+            from reportlab.lib.pagesizes import letter, A4
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+            from reportlab.lib.styles import getSampleStyleSheet
+            from io import BytesIO
+            
+            buffer = BytesIO()
+            doc = SimpleDocTemplate(buffer, pagesize=A4)
+            elements = []
+            
+            # Дані для таблиці
+            data = [['Код', 'Тип', 'Знижка', 'Група', 'Використань', 'Активний']]
+            
+            for promo in queryset[:50]:  # Обмежуємо до 50 для PDF
+                data.append([
+                    promo.code,
+                    promo.get_promo_type_display(),
+                    promo.get_discount_display(),
+                    promo.group.name if promo.group else '-',
+                    f"{promo.current_uses}/{promo.max_uses if promo.max_uses > 0 else '∞'}",
+                    'Так' if promo.is_active else 'Ні',
+                ])
+            
+            table = Table(data)
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#667eea')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            
+            elements.append(table)
+            doc.build(elements)
+            
+            pdf = buffer.getvalue()
+            buffer.close()
+            
+            response = HttpResponse(content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="promo_stats_{datetime.now().strftime("%Y%m%d")}.pdf"'
+            response.write(pdf)
+            
+            return response
+            
+        except ImportError:
+            return HttpResponse("PDF export requires 'reportlab' library. Please install it.", status=500)
+    
+    return HttpResponse("Invalid format", status=400)
+
+
+@login_required
 def admin_promocode_change_group(request, pk):
     """
     AJAX endpoint: Змінити групу промокода (Drag & Drop)
