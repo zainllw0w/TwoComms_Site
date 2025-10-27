@@ -1,5 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.conf import settings
+from django.utils import timezone
 
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -202,17 +204,73 @@ class ProductImage(models.Model):
     def __str__(self):
         return f'Image for {self.product_id}'
 
+class PromoCodeGroup(models.Model):
+    """Группа промокодов с ограничением 'один на аккаунт'"""
+    name = models.CharField(max_length=100, verbose_name='Назва групи')
+    description = models.TextField(blank=True, null=True, verbose_name='Опис групи')
+    one_per_account = models.BooleanField(default=True, verbose_name='Один промокод на акаунт з групи')
+    is_active = models.BooleanField(default=True, verbose_name='Активна')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Створено')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Оновлено')
+    
+    class Meta:
+        verbose_name = 'Група промокодів'
+        verbose_name_plural = 'Групи промокодів'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['is_active', '-created_at'], name='idx_promo_group_active'),
+        ]
+    
+    def __str__(self):
+        return f'{self.name} {"(один на акаунт)" if self.one_per_account else ""}'
+
+
 class PromoCode(models.Model):
     DISCOUNT_TYPES = [
         ('percentage', 'Відсоток'),
         ('fixed', 'Фіксована сума'),
     ]
     
+    PROMO_TYPES = [
+        ('regular', 'Звичайний промокод'),
+        ('voucher', 'Ваучер (фіксована сума)'),
+        ('grouped', 'Груповий промокод'),
+    ]
+    
+    # Основні поля
     code = models.CharField(max_length=20, unique=True, blank=True, verbose_name='Код промокоду')
+    promo_type = models.CharField(max_length=10, choices=PROMO_TYPES, default='regular', verbose_name='Тип промокоду')
     discount_type = models.CharField(max_length=10, choices=DISCOUNT_TYPES, verbose_name='Тип знижки')
     discount_value = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Значення знижки')
+    description = models.TextField(blank=True, null=True, verbose_name='Опис')
+    
+    # Группировка
+    group = models.ForeignKey(
+        PromoCodeGroup, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='promo_codes',
+        verbose_name='Група'
+    )
+    
+    # Ограничения использования
     max_uses = models.PositiveIntegerField(default=0, verbose_name='Максимальна кількість використань (0 = безліміт)')
     current_uses = models.PositiveIntegerField(default=0, verbose_name='Поточна кількість використань')
+    one_time_per_user = models.BooleanField(default=False, verbose_name='Одноразове використання на користувача')
+    min_order_amount = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        null=True, 
+        blank=True, 
+        verbose_name='Мінімальна сума замовлення'
+    )
+    
+    # Период действия
+    valid_from = models.DateTimeField(null=True, blank=True, verbose_name='Дійсний з')
+    valid_until = models.DateTimeField(null=True, blank=True, verbose_name='Дійсний до')
+    
+    # Статус
     is_active = models.BooleanField(default=True, verbose_name='Активний')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Створено')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Оновлено')
@@ -223,10 +281,14 @@ class PromoCode(models.Model):
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['is_active', '-created_at'], name='idx_promo_active_created'),
+            models.Index(fields=['group', 'is_active'], name='idx_promo_group_active'),
+            models.Index(fields=['promo_type', 'is_active'], name='idx_promo_type_active'),
+            models.Index(fields=['code'], name='idx_promo_code'),
         ]
     
     def __str__(self):
-        return f'{self.code} - {self.get_discount_display()}'
+        type_label = dict(self.PROMO_TYPES).get(self.promo_type, 'Промокод')
+        return f'{self.code} ({type_label}) - {self.get_discount_display()}'
     
     def get_discount_display(self):
         """Возвращает отображаемое значение скидки"""
@@ -235,35 +297,92 @@ class PromoCode(models.Model):
         else:
             return f'{self.discount_value} грн'
     
+    def is_valid_now(self):
+        """Проверяет, действителен ли промокод по времени"""
+        now = timezone.now()
+        if self.valid_from and now < self.valid_from:
+            return False
+        if self.valid_until and now > self.valid_until:
+            return False
+        return True
+    
     def can_be_used(self):
-        """Проверяет, можно ли использовать промокод"""
+        """Проверяет, можно ли использовать промокод (без проверки пользователя)"""
         if not self.is_active:
+            return False
+        if not self.is_valid_now():
             return False
         if self.max_uses > 0 and self.current_uses >= self.max_uses:
             return False
         return True
     
+    def can_be_used_by_user(self, user):
+        """Проверяет, может ли конкретный пользователь использовать промокод"""
+        if not user or not user.is_authenticated:
+            return False, 'Промокоди доступні тільки для зареєстрованих користувачів'
+        
+        if not self.can_be_used():
+            if not self.is_active:
+                return False, 'Промокод неактивний'
+            if not self.is_valid_now():
+                return False, 'Промокод недійсний за часом'
+            if self.max_uses > 0 and self.current_uses >= self.max_uses:
+                return False, 'Промокод вичерпано'
+            return False, 'Промокод неактивний або вичерпаний'
+        
+        # Проверка one_time_per_user
+        if self.one_time_per_user:
+            if PromoCodeUsage.objects.filter(user=user, promo_code=self).exists():
+                return False, 'Ви вже використали цей промокод'
+        
+        # Проверка группы (one_per_account)
+        if self.group and self.group.one_per_account:
+            # Проверяем, использовал ли пользователь какой-либо промокод из этой группы
+            if PromoCodeUsage.objects.filter(user=user, group=self.group).exists():
+                return False, f'Ви вже використали промокод з групи "{self.group.name}"'
+        
+        return True, 'OK'
+    
     def use(self):
-        """Использует промокод"""
+        """Использует промокод (увеличивает счетчик)"""
         if self.can_be_used():
             self.current_uses += 1
             self.save()
             return True
         return False
     
+    def record_usage(self, user, order=None):
+        """Записывает использование промокода пользователем"""
+        if not user or not user.is_authenticated:
+            return None
+        
+        usage = PromoCodeUsage.objects.create(
+            user=user,
+            promo_code=self,
+            group=self.group,
+            order=order
+        )
+        self.use()
+        return usage
+    
     def calculate_discount(self, total_amount):
         """Рассчитывает скидку для указанной суммы"""
         if not self.can_be_used():
             return 0
         
-        # Преобразуем в Decimal для точных вычислений
+        # Проверяем минимальную сумму заказа
         from decimal import Decimal
         total = Decimal(str(total_amount))
+        
+        if self.min_order_amount and total < self.min_order_amount:
+            return 0
+        
         discount_value = Decimal(str(self.discount_value))
         
         if self.discount_type == 'percentage':
             return (total * discount_value) / 100
         else:
+            # Для ваучеров и фиксированной скидки
             return min(discount_value, total)
     
     def get_purchases_count(self):
@@ -286,6 +405,52 @@ class PromoCode(models.Model):
             # Проверяем, что код уникален
             if not cls.objects.filter(code=code).exists():
                 return code
+
+
+class PromoCodeUsage(models.Model):
+    """История использования промокодов пользователями"""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='promo_usages',
+        verbose_name='Користувач'
+    )
+    promo_code = models.ForeignKey(
+        PromoCode, 
+        on_delete=models.CASCADE, 
+        related_name='usages',
+        verbose_name='Промокод'
+    )
+    group = models.ForeignKey(
+        PromoCodeGroup, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='usages',
+        verbose_name='Група'
+    )
+    order = models.ForeignKey(
+        'orders.Order',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='promo_usages',
+        verbose_name='Замовлення'
+    )
+    used_at = models.DateTimeField(auto_now_add=True, verbose_name='Використано')
+    
+    class Meta:
+        verbose_name = 'Використання промокоду'
+        verbose_name_plural = 'Використання промокодів'
+        ordering = ['-used_at']
+        indexes = [
+            models.Index(fields=['user', 'promo_code'], name='idx_usage_user_promo'),
+            models.Index(fields=['user', 'group'], name='idx_usage_user_group'),
+            models.Index(fields=['-used_at'], name='idx_usage_date'),
+        ]
+    
+    def __str__(self):
+        return f'{self.user.username} - {self.promo_code.code} ({self.used_at.strftime("%Y-%m-%d %H:%M")})'
 
 
 class OfflineStore(models.Model):

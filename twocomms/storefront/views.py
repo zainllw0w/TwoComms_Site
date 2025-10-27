@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db import transaction
-from django.db.models import Sum, F, ExpressionWrapper, FloatField, IntegerField
+from django.db.models import Sum, F, ExpressionWrapper, FloatField, IntegerField, Q, Count
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
@@ -3492,22 +3492,48 @@ def user_points(request):
 class PromoCodeForm(forms.ModelForm):
     class Meta:
         model = PromoCode
-        fields = ['code', 'discount_type', 'discount_value', 'max_uses', 'is_active']
+        fields = [
+            'code', 'promo_type', 'discount_type', 'discount_value', 
+            'description', 'group', 'max_uses', 'one_time_per_user',
+            'min_order_amount', 'valid_from', 'valid_until', 'is_active'
+        ]
         widgets = {
             'code': forms.TextInput(attrs={
                 'class': 'form-control bg-elevate',
                 'placeholder': 'Введіть код або залиште порожнім для автогенерації'
             }),
+            'promo_type': forms.Select(attrs={'class': 'form-select bg-elevate'}),
             'discount_type': forms.Select(attrs={'class': 'form-select bg-elevate'}),
             'discount_value': forms.NumberInput(attrs={
                 'class': 'form-control bg-elevate',
                 'step': '0.01',
                 'min': '0'
             }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control bg-elevate',
+                'rows': 3,
+                'placeholder': 'Опис промокоду (необов\'язково)'
+            }),
+            'group': forms.Select(attrs={'class': 'form-select bg-elevate'}),
             'max_uses': forms.NumberInput(attrs={
                 'class': 'form-control bg-elevate',
                 'min': '0',
                 'placeholder': '0 = безліміт'
+            }),
+            'one_time_per_user': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'min_order_amount': forms.NumberInput(attrs={
+                'class': 'form-control bg-elevate',
+                'step': '0.01',
+                'min': '0',
+                'placeholder': 'Мінімальна сума (необов\'язково)'
+            }),
+            'valid_from': forms.DateTimeInput(attrs={
+                'class': 'form-control bg-elevate',
+                'type': 'datetime-local'
+            }),
+            'valid_until': forms.DateTimeInput(attrs={
+                'class': 'form-control bg-elevate',
+                'type': 'datetime-local'
             }),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
@@ -3532,21 +3558,54 @@ class PromoCodeForm(forms.ModelForm):
 
 @login_required
 def admin_promocodes(request):
-    """Список промокодов"""
+    """Список промокодов с поддержкой групп и фильтрации"""
     if not request.user.is_staff:
         return redirect('home')
     
-    from .models import PromoCode
-    promocodes = PromoCode.objects.all()
+    from .models import PromoCode, PromoCodeGroup, PromoCodeUsage
+    
+    # Получаем параметры фильтрации
+    view_type = request.GET.get('view', 'all')  # all, groups, vouchers
+    group_id = request.GET.get('group')
+    
+    # Базовый запрос
+    promocodes = PromoCode.objects.select_related('group').prefetch_related('usages').all()
+    
+    # Фильтрация по типу
+    if view_type == 'vouchers':
+        promocodes = promocodes.filter(promo_type='voucher')
+    elif view_type == 'grouped':
+        promocodes = promocodes.filter(promo_type='grouped', group__isnull=False)
+    elif view_type == 'regular':
+        promocodes = promocodes.filter(promo_type='regular')
+    
+    # Фильтрация по группе
+    if group_id:
+        promocodes = promocodes.filter(group_id=group_id)
+    
+    # Получаем все группы
+    groups = PromoCodeGroup.objects.prefetch_related('promo_codes').annotate(
+        codes_count=Count('promo_codes'),
+        active_codes_count=Count('promo_codes', filter=Q(promo_codes__is_active=True))
+    )
     
     # Подсчитываем статистику
-    total_promocodes = promocodes.count()
-    active_promocodes = promocodes.filter(is_active=True).count()
+    total_promocodes = PromoCode.objects.count()
+    active_promocodes = PromoCode.objects.filter(is_active=True).count()
+    total_vouchers = PromoCode.objects.filter(promo_type='voucher').count()
+    total_groups = groups.count()
+    total_usages = PromoCodeUsage.objects.count()
     
     return render(request, 'pages/admin_promocodes.html', {
         'promocodes': promocodes,
+        'groups': groups,
         'total_promocodes': total_promocodes,
         'active_promocodes': active_promocodes,
+        'total_vouchers': total_vouchers,
+        'total_groups': total_groups,
+        'total_usages': total_usages,
+        'view_type': view_type,
+        'current_group_id': int(group_id) if group_id else None,
         'section': 'promocodes'
     })
 

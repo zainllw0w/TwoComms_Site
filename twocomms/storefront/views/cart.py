@@ -391,13 +391,13 @@ def get_cart_count(request):
 @require_POST
 def apply_promo_code(request):
     """
-    Применение промокода к корзине (AJAX).
+    Применение промокода к корзине (AJAX) с проверкой авторизации и групповых ограничений.
     
     POST params:
         promo_code: Код промокода
         
     Returns:
-        JsonResponse: success, discount, total, message
+        JsonResponse: success, discount, total, message, auth_required (если нужна авторизация)
     """
     try:
         code = request.POST.get('promo_code', '').strip().upper()
@@ -417,11 +417,22 @@ def apply_promo_code(request):
                 'error': 'Промокод не знайдено'
             }, status=404)
         
-        # Проверяем валидность
-        if not promo_code.can_be_used():
+        # НОВАЯ ЛОГИКА: Проверяем авторизацию и права пользователя
+        if not request.user.is_authenticated:
             return JsonResponse({
                 'success': False,
-                'error': 'Промокод більше не дійсний або вичерпано кількість використань'
+                'auth_required': True,
+                'error': 'Промокоди доступні тільки для зареєстрованих користувачів',
+                'message': 'Будь ласка, увійдіть в акаунт або зареєструйтесь, щоб використати промокод'
+            }, status=403)
+        
+        # Проверяем, может ли пользователь использовать этот промокод
+        can_use, error_message = promo_code.can_be_used_by_user(request.user)
+        
+        if not can_use:
+            return JsonResponse({
+                'success': False,
+                'error': error_message
             }, status=400)
         
         # Рассчитываем скидку
@@ -430,28 +441,66 @@ def apply_promo_code(request):
         discount = promo_code.calculate_discount(subtotal)
         
         if discount <= 0:
+            # Проверяем причину
+            if promo_code.min_order_amount and subtotal < promo_code.min_order_amount:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Мінімальна сума замовлення для цього промокоду: {promo_code.min_order_amount} грн'
+                }, status=400)
             return JsonResponse({
                 'success': False,
                 'error': 'Промокод не застосовується до цього замовлення'
             }, status=400)
         
-        # Сохраняем промокод в сессию
+        # Сохраняем промокод в сессию (временно, до создания заказа)
         request.session['promo_code_id'] = promo_code.id
+        request.session['promo_code_data'] = {
+            'code': promo_code.code,
+            'discount': float(discount),
+            'discount_type': promo_code.discount_type,
+            'promo_type': promo_code.promo_type
+        }
         request.session.modified = True
         
         total = subtotal - discount
         
+        # Формируем сообщение с учетом типа промокода
+        promo_type_label = dict(PromoCode.PROMO_TYPES).get(promo_code.promo_type, '')
+        message = f'Промокод застосовано! Знижка: {discount} грн'
+        
+        if promo_code.promo_type == 'voucher':
+            message = f'Ваучер застосовано! Знижка: {discount} грн'
+        elif promo_code.group:
+            message = f'Промокод з групи "{promo_code.group.name}" застосовано! Знижка: {discount} грн'
+        
+        cart_logger.info(
+            'promo_code_applied: user=%s promo_code=%s type=%s group=%s discount=%s',
+            request.user.id,
+            promo_code.code,
+            promo_code.promo_type,
+            promo_code.group.name if promo_code.group else None,
+            discount
+        )
+        
         return JsonResponse({
-            'ok': True,  # ИСПРАВЛЕНО: было 'success', изменено на 'ok'
+            'ok': True,
+            'success': True,
             'discount': float(discount),
             'total': float(total),
-            'message': f'Промокод застосовано! Знижка: {discount} грн'
+            'message': message,
+            'promo_code': promo_code.code
         })
         
     except Exception as e:
+        cart_logger.error(
+            'promo_code_error: user=%s code=%s error=%s',
+            request.user.id if request.user.is_authenticated else None,
+            code if 'code' in locals() else 'unknown',
+            str(e)
+        )
         return JsonResponse({
             'success': False,
-            'error': str(e)
+            'error': 'Помилка при застосуванні промокоду'
         }, status=400)
 
 
@@ -464,23 +513,42 @@ def remove_promo_code(request):
         JsonResponse: success, total, message
     """
     try:
+        # Удаляем все данные промокода из сессии
+        removed_code = None
+        if 'promo_code_data' in request.session:
+            removed_code = request.session['promo_code_data'].get('code')
+            del request.session['promo_code_data']
+        
         if 'promo_code_id' in request.session:
             del request.session['promo_code_id']
+            
             request.session.modified = True
         
         cart = get_cart_from_session(request)
         total = calculate_cart_total(cart)
         
+        cart_logger.info(
+            'promo_code_removed: user=%s code=%s',
+            request.user.id if request.user.is_authenticated else None,
+            removed_code
+        )
+        
         return JsonResponse({
-            'ok': True,  # ИСПРАВЛЕНО: было 'success', изменено на 'ok'
+            'ok': True,
+            'success': True,
             'total': float(total),
             'message': 'Промокод видалено'
         })
         
     except Exception as e:
+        cart_logger.error(
+            'promo_code_remove_error: user=%s error=%s',
+            request.user.id if request.user.is_authenticated else None,
+            str(e)
+        )
         return JsonResponse({
             'success': False,
-            'error': str(e)
+            'error': 'Помилка при видаленні промокоду'
         }, status=400)
 
 
