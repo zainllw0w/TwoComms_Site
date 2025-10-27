@@ -1,18 +1,18 @@
 # -*- coding: utf-8 -*-
 import re
-from pathlib import Path
+import os
 
 def get_functions_from_file(filepath):
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, 'r') as f:
             content = f.read()
         return set(re.findall(r'^def (\w+)\(', content, re.MULTILINE))
     except:
         return set()
 
 def get_exclude_list():
-    init_path = Path('storefront/views/__init__.py')
-    with open(init_path, 'r', encoding='utf-8') as f:
+    init_path = 'storefront/views/__init__.py'
+    with open(init_path, 'r') as f:
         content = f.read()
     exclude_match = re.search(r'_exclude = \{(.*?)\}', content, re.DOTALL)
     if exclude_match:
