@@ -1,382 +1,935 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Промокоди — TwoComms{% endblock %}
+{% block title %}Промокоди — Адмін-панель • TwoComms{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/dropshipper.css' %}?v=20251027promo" media="all">
+{% endblock %}
 
 {% block content %}
-<div class="promocodes-admin-section">
-  <!-- Заголовок секции -->
-  <div class="promocodes-header">
-    <div class="promocodes-title-section">
-      <h1 class="promocodes-title">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="me-2">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-        </svg>
-        Управління промокодами
-      </h1>
-      <div class="promocodes-stats">
-        <div class="stat-item">
-          <span class="stat-label">Всього:</span>
-          <span class="stat-value">{{ total_promocodes }}</span>
-        </div>
-        <div class="stat-item active">
-          <span class="stat-label">Активних:</span>
-          <span class="stat-value">{{ active_promocodes }}</span>
-        </div>
-        <div class="stat-item vouchers">
-          <span class="stat-label">Ваучерів:</span>
-          <span class="stat-value">{{ total_vouchers }}</span>
-        </div>
-        <div class="stat-item groups">
-          <span class="stat-label">Груп:</span>
-          <span class="stat-value">{{ total_groups }}</span>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Кнопки действий -->
-    <div class="promocodes-actions">
-      <a href="{% url 'admin_promo_groups' %}" class="promocode-groups-btn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
-        </svg>
-        Групи
-      </a>
-      <a href="{% url 'admin_promo_stats' %}" class="promocode-stats-btn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
-        </svg>
-        Статистика
-      </a>
-      <a href="{% url 'admin_promocode_create' %}" class="promocode-create-btn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-        </svg>
-        Створити промокод
-      </a>
-    </div>
-  </div>
-
-  <!-- Фильтры -->
-  <div class="promocodes-filters">
-    <div class="filter-tabs">
-      <a href="?view=all" class="filter-tab {% if view_type == 'all' %}active{% endif %}">
-        Всі промокоди
-      </a>
-      <a href="?view=grouped" class="filter-tab {% if view_type == 'grouped' %}active{% endif %}">
-        Групові
-      </a>
-      <a href="?view=vouchers" class="filter-tab {% if view_type == 'vouchers' %}active{% endif %}">
-        Ваучери
-      </a>
-      <a href="?view=regular" class="filter-tab {% if view_type == 'regular' %}active{% endif %}">
-        Звичайні
-      </a>
-    </div>
-    
-    {% if groups %}
-    <div class="group-filter">
-      <select class="form-select" onchange="location.href=this.value">
-        <option value="?view={{ view_type }}">Всі групи</option>
-        {% for group in groups %}
-        <option value="?view={{ view_type }}&group={{ group.id }}" {% if current_group_id == group.id %}selected{% endif %}>
-          {{ group.name }} ({{ group.active_codes_count }})
-        </option>
-        {% endfor %}
-      </select>
-    </div>
-    {% endif %}
-  </div>
-
-  <!-- Список промокодов -->
-  <div class="promocodes-list">
-    {% if promocodes %}
-      {% for promo in promocodes %}
-      <div class="promocode-card {% if not promo.is_active %}inactive{% endif %} {% if promo.promo_type == 'voucher' %}voucher{% elif promo.promo_type == 'grouped' %}grouped{% endif %}">
-        <!-- Основная информация -->
-        <div class="promocode-main-info">
-          <div class="promocode-header">
-            <div class="promocode-code-section">
-              <div class="promocode-code-wrapper">
-              <div class="promocode-code">{{ promo.code }}</div>
-                {% if promo.promo_type == 'voucher' %}
-                <span class="promo-badge voucher">Ваучер</span>
-                {% elif promo.promo_type == 'grouped' %}
-                <span class="promo-badge grouped">Груповий</span>
-                {% endif %}
-              </div>
-              <div class="promocode-meta">
-                <span class="promocode-date">{{ promo.created_at|date:"d.m.Y H:i" }}</span>
-                {% if promo.group %}
-                <span class="promocode-group">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
-                  </svg>
-                  {{ promo.group.name }}
-                </span>
-                {% endif %}
-              </div>
-            </div>
-            <div class="promocode-status-section">
-              <div class="promocode-status {% if promo.is_active %}active{% else %}inactive{% endif %}">
-                {% if promo.is_active %}
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                  </svg>
-                  Активний
-                {% else %}
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                  </svg>
-                  Неактивний
-                {% endif %}
-              </div>
-            </div>
-          </div>
-
-          {% if promo.description %}
-          <div class="promocode-description">
-            {{ promo.description }}
-          </div>
-          {% endif %}
-
-          <!-- Детали промокода -->
-          <div class="promocode-details">
-            <div class="promocode-discount">
-              <div class="discount-info">
-                <span class="discount-type">{{ promo.get_discount_type_display }}</span>
-                <span class="discount-value">{{ promo.get_discount_display }}</span>
-              </div>
-            </div>
-            
-            <div class="promocode-usage">
-              <div class="usage-info">
-                <span class="usage-label">Використань:</span>
-                <span class="usage-current">{{ promo.current_uses }}</span>
-                {% if promo.max_uses > 0 %}
-                  <span class="usage-separator">/</span>
-                  <span class="usage-max">{{ promo.max_uses }}</span>
-                {% else %}
-                  <span class="usage-unlimited">∞</span>
-                {% endif %}
-              </div>
-              
-              <!-- Прогресс-бар использования -->
-              {% if promo.max_uses > 0 %}
-                <div class="usage-progress">
-                  <div class="progress-bar">
-                    <div class="progress-fill" style="width: {% widthratio promo.current_uses promo.max_uses 100 %}%"></div>
-                  </div>
-                </div>
-              {% endif %}
-          </div>
-
-            <!-- Новые ограничения -->
-            <div class="promocode-restrictions">
-              {% if promo.one_time_per_user %}
-              <span class="restriction-badge">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                </svg>
-                1 раз на користувача
-              </span>
-              {% endif %}
-              {% if promo.min_order_amount %}
-              <span class="restriction-badge">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M11 15h2v2h-2zm0-8h2v6h-2zm.99-5C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>
-              </svg>
-                Мін. {{ promo.min_order_amount }} грн
-              </span>
-              {% endif %}
-              {% if promo.valid_until %}
-              <span class="restriction-badge time">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
-              </svg>
-                До {{ promo.valid_until|date:"d.m.Y" }}
-              </span>
-              {% endif %}
-            </div>
-          </div>
-        </div>
-
-        <!-- Действия -->
-        <div class="promocode-actions">
-          <a href="{% url 'admin_promocode_edit' promo.id %}" class="action-btn edit">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-            </svg>
-            Редагувати
-          </a>
-          
-          <a href="{% url 'admin_promocode_toggle' promo.id %}" class="action-btn toggle {% if promo.is_active %}deactivate{% else %}activate{% endif %}">
-            {% if promo.is_active %}
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-              </svg>
-              Деактивувати
-            {% else %}
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-              </svg>
-              Активувати
-            {% endif %}
-          </a>
-          
-          <a href="{% url 'admin_promocode_delete' promo.id %}" class="action-btn delete" onclick="return confirm('Видалити промокод {{ promo.code }}?')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-            </svg>
-            Видалити
-          </a>
-        </div>
-      </div>
-      {% endfor %}
-    {% else %}
-      <div class="no-promocodes">
-        <div class="no-promocodes-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+<div class="ds-shell">
+  <!-- Sidebar навигация -->
+  <aside class="ds-sidebar">
+    <div class="ds-sidebar__inner">
+      <div class="ds-sidebar__brand">
+        <div class="ds-sidebar__logo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="#8b5cf6">
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
           </svg>
         </div>
-        <div class="no-promocodes-text">Поки що немає промокодів</div>
-        <a href="{% url 'admin_promocode_create' %}" class="create-first-btn">
-          Створити перший промокод
-        </a>
+        <div>
+          <div class="ds-sidebar__title">Промокоди</div>
+          <div class="ds-sidebar__subtitle">Панель керування</div>
+        </div>
       </div>
-    {% endif %}
+
+      <nav class="ds-sidebar__nav">
+        <a href="?tab=promocodes" class="ds-sidebar__link {% if active_tab == 'promocodes' or not active_tab %}is-active{% endif %}" data-tab-link="promocodes">
+          <span class="ds-sidebar__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+          </span>
+          <span class="ds-sidebar__label">
+            Промокоди
+            <span class="ds-sidebar__badge">{{ total_promocodes }}</span>
+          </span>
+        </a>
+
+        <a href="?tab=groups" class="ds-sidebar__link {% if active_tab == 'groups' %}is-active{% endif %}" data-tab-link="groups">
+          <span class="ds-sidebar__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+            </svg>
+          </span>
+          <span class="ds-sidebar__label">
+            Групи
+            <span class="ds-sidebar__badge">{{ total_groups }}</span>
+          </span>
+        </a>
+
+        <a href="?tab=stats" class="ds-sidebar__link {% if active_tab == 'stats' %}is-active{% endif %}" data-tab-link="stats">
+          <span class="ds-sidebar__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+            </svg>
+          </span>
+          <span class="ds-sidebar__label">
+            Статистика
+          </span>
+        </a>
+      </nav>
+
+      <!-- Краткая статистика в сайдбаре -->
+      <div class="ds-sidebar__stats">
+        <div class="ds-sidebar__stat">
+          <div class="ds-sidebar__stat-value">{{ active_promocodes }}</div>
+          <div class="ds-sidebar__stat-label">Активних</div>
+        </div>
+        <div class="ds-sidebar__stat">
+          <div class="ds-sidebar__stat-value">{{ total_usages }}</div>
+          <div class="ds-sidebar__stat-label">Використань</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main контент -->
+  <main class="ds-main">
+    
+    <!-- ==================== ТАБ: ПРОМОКОДИ ==================== -->
+    {% if active_tab == 'promocodes' or not active_tab %}
+    <section class="ds-tab-panel is-active">
+      <div class="ds-container">
+        <!-- Hero секция -->
+        <section class="ds-hero" style="min-height: auto; padding: 2rem 0;">
+          <div class="ds-hero__background">
+            <span class="ds-hero__blur ds-hero__blur--left"></span>
+            <span class="ds-hero__blur ds-hero__blur--right"></span>
+            <span class="ds-hero__glow"></span>
+          </div>
+          <div class="ds-hero__body">
+            <div class="ds-hero__main">
+              <span class="ds-eyebrow ds-eyebrow--accent">
+                <i class="fas fa-star"></i>
+                Управління промокодами
+              </span>
+              <h1 class="ds-hero__title" style="font-size: 2.5rem;">Промокоди та знижки</h1>
+              <p class="ds-hero__lead">
+                Створюйте гнучкі системи знижок для ваших клієнтів. Групові акції, ваучери та індивідуальні пропозиції.
+              </p>
+              <div class="ds-actions ds-actions--hero">
+                <a href="{% url 'admin_promocode_create' %}" class="ds-btn ds-btn--primary">
+                  <i class="fas fa-plus"></i>
+                  <span>Створити промокод</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Фильтры -->
+        <div class="ds-filters">
+          <div class="ds-filter-pills">
+            <a href="?tab=promocodes&view=all" class="ds-pill {% if view_type == 'all' %}is-active{% endif %}">
+              Всі <span class="ds-pill__count">{{ total_promocodes }}</span>
+            </a>
+            <a href="?tab=promocodes&view=grouped" class="ds-pill {% if view_type == 'grouped' %}is-active{% endif %}">
+              Групові
+            </a>
+            <a href="?tab=promocodes&view=vouchers" class="ds-pill {% if view_type == 'vouchers' %}is-active{% endif %}">
+              Ваучери <span class="ds-pill__count">{{ total_vouchers }}</span>
+            </a>
+            <a href="?tab=promocodes&view=regular" class="ds-pill {% if view_type == 'regular' %}is-active{% endif %}">
+              Звичайні
+      </a>
+    </div>
   </div>
+
+  <!-- Список промокодов -->
+        <div class="ds-grid">
+    {% if promocodes %}
+      {% for promo in promocodes %}
+            <article class="ds-promo-card {% if not promo.is_active %}is-inactive{% endif %}">
+              <div class="ds-promo-card__header">
+                <div class="ds-promo-card__code">
+                  <code>{{ promo.code }}</code>
+                  {% if promo.promo_type == 'voucher' %}
+                    <span class="ds-badge ds-badge--voucher">Ваучер</span>
+                  {% elif promo.promo_type == 'grouped' %}
+                    <span class="ds-badge ds-badge--grouped">Груповий</span>
+                  {% endif %}
+                </div>
+                <div class="ds-promo-card__status">
+                  <span class="ds-status-dot {% if promo.is_active %}is-active{% else %}is-inactive{% endif %}"></span>
+                </div>
+              </div>
+
+              {% if promo.description %}
+              <p class="ds-promo-card__description">{{ promo.description|truncatewords:15 }}</p>
+              {% endif %}
+
+              <div class="ds-promo-card__stats">
+                <div class="ds-stat-item">
+                  <div class="ds-stat-item__label">Знижка</div>
+                  <div class="ds-stat-item__value">{{ promo.get_discount_display }}</div>
+                </div>
+                <div class="ds-stat-item">
+                  <div class="ds-stat-item__label">Використань</div>
+                  <div class="ds-stat-item__value">
+                    {{ promo.current_uses }}{% if promo.max_uses > 0 %}/{{ promo.max_uses }}{% else %}/∞{% endif %}
+                  </div>
+                </div>
+            </div>
+
+              {% if promo.group %}
+              <div class="ds-promo-card__group">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3z"/>
+                  </svg>
+                {{ promo.group.name }}
+              </div>
+              {% endif %}
+
+              <div class="ds-promo-card__actions">
+                <a href="{% url 'admin_promocode_edit' promo.id %}" class="ds-action-btn ds-action-btn--edit" title="Редагувати">
+                  <i class="fas fa-edit"></i>
+                </a>
+                <a href="{% url 'admin_promocode_toggle' promo.id %}" class="ds-action-btn ds-action-btn--toggle" title="{% if promo.is_active %}Деактивувати{% else %}Активувати{% endif %}">
+                  <i class="fas fa-{% if promo.is_active %}pause{% else %}play{% endif %}"></i>
+                </a>
+                <a href="{% url 'admin_promocode_delete' promo.id %}" class="ds-action-btn ds-action-btn--delete" title="Видалити" onclick="return confirm('Видалити промокод?')">
+                  <i class="fas fa-trash"></i>
+                </a>
+              </div>
+            </article>
+            {% endfor %}
+                {% else %}
+            <div class="ds-empty-state">
+              <div class="ds-empty-state__icon">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+              </div>
+              <h3 class="ds-empty-state__title">Немає промокодів</h3>
+              <p class="ds-empty-state__text">Створіть перший промокод для ваших клієнтів</p>
+              <a href="{% url 'admin_promocode_create' %}" class="ds-btn ds-btn--primary">
+                <i class="fas fa-plus"></i>
+                <span>Створити промокод</span>
+              </a>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+    {% endif %}
+
+    <!-- ==================== ТАБ: ГРУПИ ==================== -->
+    {% if active_tab == 'groups' %}
+    <section class="ds-tab-panel is-active">
+      <div class="ds-container">
+        <!-- Hero -->
+        <section class="ds-hero" style="min-height: auto; padding: 2rem 0;">
+          <div class="ds-hero__background">
+            <span class="ds-hero__blur ds-hero__blur--left"></span>
+            <span class="ds-hero__blur ds-hero__blur--right"></span>
+          </div>
+          <div class="ds-hero__body">
+            <div class="ds-hero__main">
+              <span class="ds-eyebrow ds-eyebrow--accent">
+                <i class="fas fa-users"></i>
+                Групи промокодів
+              </span>
+              <h1 class="ds-hero__title" style="font-size: 2.5rem;">Організація акцій</h1>
+              <p class="ds-hero__lead">
+                Групуйте промокоди за кампаніями. Встановлюйте обмеження "один на аккаунт" для рекламних акцій.
+              </p>
+              <div class="ds-actions ds-actions--hero">
+                <a href="{% url 'admin_promo_group_create' %}" class="ds-btn ds-btn--primary">
+                  <i class="fas fa-plus"></i>
+                  <span>Створити групу</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Список групп -->
+        <div class="ds-grid">
+          {% if groups %}
+            {% for group in groups %}
+            <article class="ds-group-card {% if not group.is_active %}is-inactive{% endif %}">
+              <div class="ds-group-card__header">
+                <h3 class="ds-group-card__title">
+                  {{ group.name }}
+                  {% if group.one_per_account %}
+                    <span class="ds-badge ds-badge--info">1 на акаунт</span>
+                {% endif %}
+                </h3>
+                <span class="ds-status-dot {% if group.is_active %}is-active{% else %}is-inactive{% endif %}"></span>
+              </div>
+              
+              {% if group.description %}
+              <p class="ds-group-card__description">{{ group.description|truncatewords:20 }}</p>
+              {% endif %}
+
+              <div class="ds-group-card__metrics">
+                <div class="ds-metric">
+                  <div class="ds-metric__value">{{ group.codes_count }}</div>
+                  <div class="ds-metric__label">Промокодів</div>
+                </div>
+                <div class="ds-metric">
+                  <div class="ds-metric__value">{{ group.active_codes_count }}</div>
+                  <div class="ds-metric__label">Активних</div>
+                  </div>
+                <div class="ds-metric">
+                  <div class="ds-metric__value">{{ group.total_usages|default:0 }}</div>
+                  <div class="ds-metric__label">Використань</div>
+                </div>
+              </div>
+
+              <div class="ds-group-card__actions">
+                <a href="?tab=promocodes&group={{ group.id }}" class="ds-action-btn ds-action-btn--view" title="Переглянути промокоди">
+                  <i class="fas fa-eye"></i>
+                </a>
+                <a href="{% url 'admin_promo_group_edit' group.id %}" class="ds-action-btn ds-action-btn--edit" title="Редагувати">
+                  <i class="fas fa-edit"></i>
+                </a>
+                <a href="{% url 'admin_promo_group_delete' group.id %}" class="ds-action-btn ds-action-btn--delete" title="Видалити" onclick="return confirm('Видалити групу?')">
+                  <i class="fas fa-trash"></i>
+                </a>
+              </div>
+            </article>
+            {% endfor %}
+          {% else %}
+            <div class="ds-empty-state">
+              <div class="ds-empty-state__icon">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3z"/>
+                </svg>
+              </div>
+              <h3 class="ds-empty-state__title">Немає груп</h3>
+              <p class="ds-empty-state__text">Створіть групу для організації промокодів</p>
+              <a href="{% url 'admin_promo_group_create' %}" class="ds-btn ds-btn--primary">
+                <i class="fas fa-plus"></i>
+                <span>Створити групу</span>
+              </a>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+              {% endif %}
+
+    <!-- ==================== ТАБ: СТАТИСТИКА ==================== -->
+    {% if active_tab == 'stats' %}
+    <section class="ds-tab-panel is-active">
+      <div class="ds-container">
+        <!-- Hero -->
+        <section class="ds-hero" style="min-height: auto; padding: 2rem 0;">
+          <div class="ds-hero__background">
+            <span class="ds-hero__blur ds-hero__blur--left"></span>
+            <span class="ds-hero__blur ds-hero__blur--right"></span>
+          </div>
+          <div class="ds-hero__body">
+            <div class="ds-hero__main">
+              <span class="ds-eyebrow ds-eyebrow--accent">
+                <i class="fas fa-chart-line"></i>
+                Аналітика
+              </span>
+              <h1 class="ds-hero__title" style="font-size: 2.5rem;">Статистика використання</h1>
+              <p class="ds-hero__lead">
+                Детальний аналіз ефективності промокодів та груп
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Общая статистика -->
+        <div class="ds-stats-overview">
+          <div class="ds-overview-card">
+            <div class="ds-overview-card__icon">
+              <i class="fas fa-chart-line"></i>
+            </div>
+            <div class="ds-overview-card__value">{{ total_usages }}</div>
+            <div class="ds-overview-card__label">Всього використань</div>
+          </div>
+          <div class="ds-overview-card">
+            <div class="ds-overview-card__icon">
+              <i class="fas fa-users"></i>
+            </div>
+            <div class="ds-overview-card__value">{{ unique_users }}</div>
+            <div class="ds-overview-card__label">Унікальних користувачів</div>
+          </div>
+        </div>
+
+        <!-- Топ промокодов -->
+        <div class="ds-section">
+          <h2 class="ds-section__title">
+            <i class="fas fa-trophy"></i>
+            Топ-10 промокодів
+          </h2>
+          <div class="ds-leaderboard">
+            {% for promo in top_promos %}
+            <div class="ds-leader-item">
+              <div class="ds-leader-rank">#{{ forloop.counter }}</div>
+              <div class="ds-leader-info">
+                <div class="ds-leader-name"><code>{{ promo.code }}</code></div>
+                <div class="ds-leader-meta">{{ promo.get_discount_display }}</div>
+              </div>
+              <div class="ds-leader-value">{{ promo.usage_count }}</div>
+            </div>
+            {% empty %}
+            <p class="ds-no-data">Немає даних</p>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Топ групп -->
+        {% if top_groups %}
+        <div class="ds-section">
+          <h2 class="ds-section__title">
+            <i class="fas fa-users"></i>
+            Топ-10 груп
+          </h2>
+          <div class="ds-leaderboard">
+            {% for group in top_groups %}
+            <div class="ds-leader-item">
+              <div class="ds-leader-rank">#{{ forloop.counter }}</div>
+              <div class="ds-leader-info">
+                <div class="ds-leader-name">{{ group.name }}</div>
+              </div>
+              <div class="ds-leader-value">{{ group.usage_count }}</div>
+      </div>
+      {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Последние использования -->
+        <div class="ds-section">
+          <h2 class="ds-section__title">
+            <i class="fas fa-clock"></i>
+            Останні 50 використань
+          </h2>
+          <div class="ds-usage-log">
+            {% for usage in recent_usages %}
+            <div class="ds-usage-row">
+              <div class="ds-usage-date">{{ usage.used_at|date:"d.m.Y H:i" }}</div>
+              <div class="ds-usage-user">{{ usage.user.username }}</div>
+              <div class="ds-usage-code"><code>{{ usage.promo_code.code }}</code></div>
+              <div class="ds-usage-group">
+                {% if usage.group %}{{ usage.group.name }}{% else %}—{% endif %}
+              </div>
+            </div>
+            {% empty %}
+            <p class="ds-no-data">Немає використань</p>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </section>
+    {% endif %}
+
+  </main>
 </div>
 
 <style>
-.promocodes-filters {
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin-bottom: 2rem;
+/* Дополнительные стили для промокодов */
+.ds-filters {
+  margin: 2rem 0;
+}
+
+.ds-filter-pills {
   display: flex;
-  gap: 2rem;
-  align-items: center;
+  gap: 0.75rem;
   flex-wrap: wrap;
 }
 
-.filter-tabs {
+.ds-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  background: var(--ds-bg-elevated);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-sm);
+  color: var(--ds-text-muted);
+  text-decoration: none;
+  font-weight: 500;
+  transition: all var(--ds-transition);
+}
+
+.ds-pill:hover {
+  border-color: var(--ds-border-strong);
+  color: var(--ds-text);
+  transform: translateY(-2px);
+}
+
+.ds-pill.is-active {
+  background: var(--ds-primary);
+  border-color: var(--ds-primary);
+  color: white;
+}
+
+.ds-pill__count {
+  padding: 0.2rem 0.5rem;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.ds-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+/* Промо карточка */
+.ds-promo-card, .ds-group-card {
+  background: var(--ds-panel);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  padding: 1.5rem;
+  backdrop-filter: blur(20px);
+  transition: all var(--ds-transition);
+}
+
+.ds-promo-card:hover, .ds-group-card:hover {
+  border-color: var(--ds-border-strong);
+  transform: translateY(-4px);
+  box-shadow: var(--ds-shadow-soft);
+}
+
+.ds-promo-card.is-inactive, .ds-group-card.is-inactive {
+  opacity: 0.6;
+}
+
+.ds-promo-card__header, .ds-group-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.ds-promo-card__code {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.ds-promo-card__code code {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--ds-primary);
+  font-family: 'Courier New', monospace;
+  padding: 0.25rem 0.5rem;
+  background: rgba(139, 92, 246, 0.1);
+  border-radius: 6px;
+}
+
+.ds-badge {
+  padding: 0.3rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ds-badge--voucher {
+  background: rgba(249, 115, 22, 0.15);
+  color: var(--ds-accent);
+}
+
+.ds-badge--grouped {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.ds-badge--info {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--ds-success);
+}
+
+.ds-status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ds-status-dot.is-active {
+  background: var(--ds-success);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+}
+
+.ds-status-dot.is-inactive {
+  background: var(--ds-danger);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
+}
+
+.ds-promo-card__description, .ds-group-card__description {
+  color: var(--ds-text-muted);
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+.ds-promo-card__stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--ds-radius-sm);
+  margin-bottom: 1rem;
+}
+
+.ds-stat-item {
+  text-align: center;
+}
+
+.ds-stat-item__label {
+  font-size: 0.75rem;
+  color: var(--ds-text-soft);
+  margin-bottom: 0.25rem;
+}
+
+.ds-stat-item__value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ds-text);
+}
+
+.ds-promo-card__group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border-radius: var(--ds-radius-sm);
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.ds-promo-card__actions, .ds-group-card__actions {
   display: flex;
   gap: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--ds-border);
+}
+
+.ds-action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.7rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-sm);
+  color: var(--ds-text-muted);
+  text-decoration: none;
+  transition: all var(--ds-transition);
+}
+
+.ds-action-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--ds-border-strong);
+  color: var(--ds-text);
+  transform: translateY(-2px);
+}
+
+.ds-action-btn--edit:hover {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: var(--ds-success);
+  color: var(--ds-success);
+}
+
+.ds-action-btn--delete:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: var(--ds-danger);
+  color: var(--ds-danger);
+}
+
+.ds-action-btn--view:hover {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.ds-action-btn--toggle:hover {
+  background: rgba(249, 115, 22, 0.15);
+  border-color: var(--ds-accent);
+  color: var(--ds-accent);
+}
+
+/* Группы */
+.ds-group-card__title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ds-text);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ds-group-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.ds-metric {
+  text-align: center;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--ds-radius-sm);
+}
+
+.ds-metric__value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--ds-text);
+  line-height: 1;
+}
+
+.ds-metric__label {
+  font-size: 0.75rem;
+  color: var(--ds-text-soft);
+  margin-top: 0.25rem;
+}
+
+/* Статистика */
+.ds-stats-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.ds-overview-card {
+  background: var(--ds-panel);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  padding: 2rem;
+  text-align: center;
+  backdrop-filter: blur(20px);
+}
+
+.ds-overview-card__icon {
+  font-size: 2rem;
+  color: var(--ds-primary);
+  margin-bottom: 1rem;
+}
+
+.ds-overview-card__value {
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--ds-text);
+  line-height: 1;
+}
+
+.ds-overview-card__label {
+  color: var(--ds-text-muted);
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.ds-section {
+  background: var(--ds-panel);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  padding: 2rem;
+  margin-bottom: 2rem;
+  backdrop-filter: blur(20px);
+}
+
+.ds-section__title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--ds-text);
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ds-section__title i {
+  color: var(--ds-primary);
+}
+
+.ds-leaderboard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ds-leader-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-sm);
+  transition: all var(--ds-transition);
+}
+
+.ds-leader-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--ds-border-strong);
+  transform: translateX(4px);
+}
+
+.ds-leader-rank {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--ds-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.ds-leader-item:nth-child(1) .ds-leader-rank {
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+  color: #000;
+}
+
+.ds-leader-item:nth-child(2) .ds-leader-rank {
+  background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 100%);
+  color: #000;
+}
+
+.ds-leader-item:nth-child(3) .ds-leader-rank {
+  background: linear-gradient(135deg, #cd7f32 0%, #d4a574 100%);
+}
+
+.ds-leader-info {
   flex: 1;
 }
 
-.filter-tab {
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.7);
-  text-decoration: none;
-  transition: all 0.2s;
-  font-size: 0.9rem;
-}
-
-.filter-tab:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.filter-tab.active {
-  background: var(--accent-color, #7C3AED);
-  color: white;
-}
-
-.group-filter select {
-  min-width: 200px;
-}
-
-.promo-badge {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
+.ds-leader-name {
   font-weight: 600;
-  margin-left: 0.5rem;
+  color: var(--ds-text);
 }
 
-.promo-badge.voucher {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  color: white;
+.ds-leader-name code {
+  background: rgba(139, 92, 246, 0.1);
+  color: var(--ds-primary);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
 }
 
-.promo-badge.grouped {
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-  color: white;
-}
-
-.promocode-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  color: rgba(255, 255, 255, 0.6);
+.ds-leader-meta {
   font-size: 0.85rem;
-  margin-left: 1rem;
+  color: var(--ds-text-soft);
+  margin-top: 0.25rem;
 }
 
-.promocode-description {
-  margin: 0.75rem 0;
-  padding: 0.75rem;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.7);
+.ds-leader-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--ds-text);
+}
+
+.ds-usage-log {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ds-usage-row {
+  display: grid;
+  grid-template-columns: 150px 200px 150px 1fr;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--ds-radius-sm);
+  color: var(--ds-text-muted);
   font-size: 0.9rem;
+  transition: all var(--ds-transition);
+}
+
+.ds-usage-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.ds-usage-code code {
+  background: rgba(139, 92, 246, 0.1);
+  color: var(--ds-primary);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.ds-no-data {
+  text-align: center;
+  color: var(--ds-text-soft);
+  padding: 2rem;
   font-style: italic;
 }
 
-.promocode-restrictions {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-top: 0.75rem;
+/* Empty state */
+.ds-empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 4rem 2rem;
+  background: var(--ds-panel);
+  border: 2px dashed var(--ds-border);
+  border-radius: var(--ds-radius-lg);
 }
 
-.restriction-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.35rem 0.75rem;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 6px;
+.ds-empty-state__icon {
+  opacity: 0.3;
+  margin-bottom: 1.5rem;
+  color: var(--ds-primary);
+}
+
+.ds-empty-state__title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--ds-text);
+  margin-bottom: 0.5rem;
+}
+
+.ds-empty-state__text {
+  color: var(--ds-text-muted);
+  margin-bottom: 2rem;
+}
+
+/* Sidebar стили */
+.ds-sidebar__stats {
+  padding-top: 1.5rem;
+  margin-top: auto;
+  border-top: 1px solid var(--ds-border);
+}
+
+.ds-sidebar__stat {
+  text-align: center;
+  padding: 0.75rem;
+}
+
+.ds-sidebar__stat:not(:last-child) {
+  margin-bottom: 0.5rem;
+}
+
+.ds-sidebar__stat-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--ds-text);
+  line-height: 1;
+}
+
+.ds-sidebar__stat-label {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--ds-text-soft);
+  margin-top: 0.25rem;
 }
 
-.restriction-badge svg {
-  opacity: 0.7;
-}
-
-.promocode-card.voucher {
-  border-left: 3px solid #f5576c;
-}
-
-.promocode-card.grouped {
-  border-left: 3px solid #00f2fe;
-}
-
-.promocodes-groups-btn,
-.promocode-stats-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background: rgba(255, 255, 255, 0.05);
-  color: white;
-  text-decoration: none;
+.ds-sidebar__badge {
+  padding: 0.2rem 0.5rem;
+  background: var(--ds-primary-soft);
+  color: var(--ds-primary);
   border-radius: 8px;
-  transition: all 0.2s;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
+  font-weight: 600;
 }
 
-.promocodes-groups-btn:hover,
-.promocode-stats-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  transform: translateY(-2px);
+.ds-sidebar__link.is-active .ds-sidebar__badge {
+  background: rgba(255, 255, 255, 0.2);
   color: white;
 }
 </style>
