@@ -133,6 +133,11 @@ from .promo import (
     admin_promo_group_delete,
     # Statistics
     admin_promo_stats,
+    # AJAX endpoints
+    admin_promocode_get_form,
+    admin_promocode_edit_ajax,
+    admin_promo_group_get_form,
+    admin_promo_group_edit_ajax,
 )
 
 # API endpoints
@@ -219,11 +224,13 @@ try:
         'points_history', 'settings',
         'user_points', 'my_promocodes', 'buy_with_points', 'purchase_with_points',
         # promo.py
-        'PromoCodeForm', 'PromoCodeGroupForm',
+        'PromoCodeForm', 'PromoCodeGroupForm', 'get_promo_admin_context',
         'admin_promocodes', 'admin_promocode_create', 'admin_promocode_edit',
         'admin_promocode_toggle', 'admin_promocode_delete',
         'admin_promo_groups', 'admin_promo_group_create', 'admin_promo_group_edit',
         'admin_promo_group_delete', 'admin_promo_stats',
+        'admin_promocode_get_form', 'admin_promocode_edit_ajax',
+        'admin_promo_group_get_form', 'admin_promo_group_edit_ajax',
         # api.py
         'get_product_json', 'get_categories_json', 'track_event', 'search_suggestions',
         'product_availability', 'get_related_products', 'newsletter_subscribe', 'contact_form',
@@ -318,11 +325,13 @@ __all__ = [
     'user_points', 'my_promocodes', 'buy_with_points', 'purchase_with_points',
     
     # Promo Codes
-    'PromoCodeForm', 'PromoCodeGroupForm',
+    'PromoCodeForm', 'PromoCodeGroupForm', 'get_promo_admin_context',
     'admin_promocodes', 'admin_promocode_create', 'admin_promocode_edit',
     'admin_promocode_toggle', 'admin_promocode_delete',
     'admin_promo_groups', 'admin_promo_group_create', 'admin_promo_group_edit',
     'admin_promo_group_delete', 'admin_promo_stats',
+    'admin_promocode_get_form', 'admin_promocode_edit_ajax',
+    'admin_promo_group_get_form', 'admin_promo_group_edit_ajax',
     
     # API
     'get_product_json', 'get_categories_json', 'track_event', 'search_suggestions',
