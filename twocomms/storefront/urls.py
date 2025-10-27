@@ -66,6 +66,11 @@ urlpatterns=[
     path('admin-panel/promo-group/<int:pk>/delete/', views.admin_promo_group_delete, name='admin_promo_group_delete'),
     # promo statistics
     path('admin-panel/promo-stats/', views.admin_promo_stats, name='admin_promo_stats'),
+    # promo AJAX endpoints
+    path('admin-panel/promocode/<int:pk>/get-form/', views.admin_promocode_get_form, name='admin_promocode_get_form'),
+    path('admin-panel/promocode/<int:pk>/edit-ajax/', views.admin_promocode_edit_ajax, name='admin_promocode_edit_ajax'),
+    path('admin-panel/promo-group/<int:pk>/get-form/', views.admin_promo_group_get_form, name='admin_promo_group_get_form'),
+    path('admin-panel/promo-group/<int:pk>/edit-ajax/', views.admin_promo_group_edit_ajax, name='admin_promo_group_edit_ajax'),
     # offline stores
     path('admin-panel/offline-stores/', views.admin_offline_stores, name='admin_offline_stores'),
     path('admin-panel/offline-store/create/', views.admin_offline_store_create, name='admin_offline_store_create'),
