@@ -196,9 +196,9 @@
                 <a href="{% url 'admin_promocode_toggle' promo.id %}" class="ds-action-btn ds-action-btn--toggle" title="{% if promo.is_active %}Деактивувати{% else %}Активувати{% endif %}">
                   <i class="fas fa-{% if promo.is_active %}pause{% else %}play{% endif %}"></i>
                 </a>
-                <a href="{% url 'admin_promocode_delete' promo.id %}" class="ds-action-btn ds-action-btn--delete" title="Видалити" onclick="return confirm('Видалити промокод?')">
+                <button type="button" class="ds-action-btn ds-action-btn--delete" title="Видалити" onclick="confirmDelete('promo', {{ promo.id }}, '{{ promo.code }}')">
                   <i class="fas fa-trash"></i>
-                </a>
+                </button>
               </div>
             </article>
             {% endfor %}
@@ -931,6 +931,42 @@
         </button>
         <button type="submit" id="editGroupSubmitBtn" form="editGroupForm" class="btn btn-primary" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border: none;" disabled>
           <i class="fas fa-save"></i> Зберегти зміни
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Delete Modal -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border: 1px solid var(--ds-border); background: var(--ds-card-bg);">
+      <div class="modal-header" style="border-bottom: 1px solid var(--ds-border); background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+        <h5 class="modal-title" style="color: white; font-weight: 600;">
+          <i class="fas fa-exclamation-triangle"></i> Підтвердження видалення
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" style="padding: 2rem;">
+        <div style="text-align: center; margin-bottom: 1.5rem;">
+          <i class="fas fa-trash-alt" style="font-size: 3rem; color: #ef4444;"></i>
+        </div>
+        <p style="text-align: center; font-size: 1.1rem; margin-bottom: 0.5rem; font-weight: 600;" id="confirmDeleteTitle">
+          Ви впевнені?
+        </p>
+        <p style="text-align: center; color: var(--ds-text-muted); margin-bottom: 1.5rem;" id="confirmDeleteMessage">
+          Ця дія незворотна
+        </p>
+        <div style="background: rgba(239, 68, 68, 0.1); padding: 1rem; border-radius: 8px; border-left: 4px solid #ef4444;">
+          <strong style="color: #ef4444;">Увага!</strong> Після видалення відновити дані буде неможливо.
+        </div>
+      </div>
+      <div class="modal-footer" style="border-top: 1px solid var(--ds-border); padding: 1rem 2rem;">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="padding: 0.75rem 1.5rem;">
+          <i class="fas fa-times"></i> Скасувати
+        </button>
+        <button type="button" id="confirmDeleteBtn" class="btn btn-danger" style="padding: 0.75rem 1.5rem;">
+          <i class="fas fa-trash"></i> Так, видалити
         </button>
       </div>
     </div>
@@ -4003,4 +4039,48 @@ spinStyle.textContent = `
 document.head.appendChild(spinStyle);
 
 console.log('✅ Dark mode initialized!');
+
+// ==================== CONFIRM DELETE ====================
+
+let deleteTarget = null;
+
+function confirmDelete(type, id, name) {
+  deleteTarget = { type, id, name };
+  
+  const modal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
+  const title = document.getElementById('confirmDeleteTitle');
+  const message = document.getElementById('confirmDeleteMessage');
+  
+  if (type === 'promo') {
+    title.textContent = `Видалити промокод "${name}"?`;
+    message.textContent = `Промокод "${name}" та всі пов'язані дані будуть видалені назавжди.`;
+  } else if (type === 'group') {
+    title.textContent = `Видалити групу "${name}"?`;
+    message.textContent = `Група "${name}" буде видалена. Промокоди в групі залишаться.`;
+  }
+  
+  modal.show();
+}
+
+document.getElementById('confirmDeleteBtn')?.addEventListener('click', function() {
+  if (!deleteTarget) return;
+  
+  const { type, id } = deleteTarget;
+  let url = '';
+  
+  if (type === 'promo') {
+    url = `/admin-panel/promocode/${id}/delete/`;
+  } else if (type === 'group') {
+    url = `/admin-panel/promo-group/${id}/delete/`;
+  }
+  
+  // Показати loading
+  this.disabled = true;
+  this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Видалення...';
+  
+  // Редірект на URL видалення
+  window.location.href = url;
+});
+
+console.log('✅ Confirm delete initialized!');
 </script>
