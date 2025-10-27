@@ -23,11 +23,31 @@
           <span class="stat-label">Активних:</span>
           <span class="stat-value">{{ active_promocodes }}</span>
         </div>
+        <div class="stat-item vouchers">
+          <span class="stat-label">Ваучерів:</span>
+          <span class="stat-value">{{ total_vouchers }}</span>
+        </div>
+        <div class="stat-item groups">
+          <span class="stat-label">Груп:</span>
+          <span class="stat-value">{{ total_groups }}</span>
+        </div>
       </div>
     </div>
     
-    <!-- Кнопка создания -->
+    <!-- Кнопки действий -->
     <div class="promocodes-actions">
+      <a href="{% url 'admin_promo_groups' %}" class="promocode-groups-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+        </svg>
+        Групи
+      </a>
+      <a href="{% url 'admin_promo_stats' %}" class="promocode-stats-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+        </svg>
+        Статистика
+      </a>
       <a href="{% url 'admin_promocode_create' %}" class="promocode-create-btn">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
           <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
@@ -37,17 +57,65 @@
     </div>
   </div>
 
+  <!-- Фильтры -->
+  <div class="promocodes-filters">
+    <div class="filter-tabs">
+      <a href="?view=all" class="filter-tab {% if view_type == 'all' %}active{% endif %}">
+        Всі промокоди
+      </a>
+      <a href="?view=grouped" class="filter-tab {% if view_type == 'grouped' %}active{% endif %}">
+        Групові
+      </a>
+      <a href="?view=vouchers" class="filter-tab {% if view_type == 'vouchers' %}active{% endif %}">
+        Ваучери
+      </a>
+      <a href="?view=regular" class="filter-tab {% if view_type == 'regular' %}active{% endif %}">
+        Звичайні
+      </a>
+    </div>
+    
+    {% if groups %}
+    <div class="group-filter">
+      <select class="form-select" onchange="location.href=this.value">
+        <option value="?view={{ view_type }}">Всі групи</option>
+        {% for group in groups %}
+        <option value="?view={{ view_type }}&group={{ group.id }}" {% if current_group_id == group.id %}selected{% endif %}>
+          {{ group.name }} ({{ group.active_codes_count }})
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+  </div>
+
   <!-- Список промокодов -->
   <div class="promocodes-list">
     {% if promocodes %}
       {% for promo in promocodes %}
-      <div class="promocode-card {% if not promo.is_active %}inactive{% endif %}">
+      <div class="promocode-card {% if not promo.is_active %}inactive{% endif %} {% if promo.promo_type == 'voucher' %}voucher{% elif promo.promo_type == 'grouped' %}grouped{% endif %}">
         <!-- Основная информация -->
         <div class="promocode-main-info">
           <div class="promocode-header">
             <div class="promocode-code-section">
+              <div class="promocode-code-wrapper">
               <div class="promocode-code">{{ promo.code }}</div>
-              <div class="promocode-date">Створено: {{ promo.created_at|date:"d.m.Y H:i" }}</div>
+                {% if promo.promo_type == 'voucher' %}
+                <span class="promo-badge voucher">Ваучер</span>
+                {% elif promo.promo_type == 'grouped' %}
+                <span class="promo-badge grouped">Груповий</span>
+                {% endif %}
+              </div>
+              <div class="promocode-meta">
+                <span class="promocode-date">{{ promo.created_at|date:"d.m.Y H:i" }}</span>
+                {% if promo.group %}
+                <span class="promocode-group">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+                  </svg>
+                  {{ promo.group.name }}
+                </span>
+                {% endif %}
+              </div>
             </div>
             <div class="promocode-status-section">
               <div class="promocode-status {% if promo.is_active %}active{% else %}inactive{% endif %}">
@@ -65,6 +133,12 @@
               </div>
             </div>
           </div>
+
+          {% if promo.description %}
+          <div class="promocode-description">
+            {{ promo.description }}
+          </div>
+          {% endif %}
 
           <!-- Детали промокода -->
           <div class="promocode-details">
@@ -95,22 +169,34 @@
                   </div>
                 </div>
               {% endif %}
-            </div>
           </div>
 
-          <!-- Статистика использования -->
-          <div class="promocode-stats">
-            <div class="stat-item">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/>
+            <!-- Новые ограничения -->
+            <div class="promocode-restrictions">
+              {% if promo.one_time_per_user %}
+              <span class="restriction-badge">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                1 раз на користувача
+              </span>
+              {% endif %}
+              {% if promo.min_order_amount %}
+              <span class="restriction-badge">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M11 15h2v2h-2zm0-8h2v6h-2zm.99-5C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>
               </svg>
-              <span>Кількість використань: <strong>{{ promo.current_uses }}</strong></span>
-            </div>
-            <div class="stat-item">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                Мін. {{ promo.min_order_amount }} грн
+              </span>
+              {% endif %}
+              {% if promo.valid_until %}
+              <span class="restriction-badge time">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
               </svg>
-              <span>Куплено товарів: <strong>{{ promo.get_purchases_count }}</strong></span>
+                До {{ promo.valid_until|date:"d.m.Y" }}
+              </span>
+              {% endif %}
             </div>
           </div>
         </div>
@@ -162,4 +248,136 @@
     {% endif %}
   </div>
 </div>
+
+<style>
+.promocodes-filters {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filter-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.filter-tab {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.filter-tab:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.filter-tab.active {
+  background: var(--accent-color, #7C3AED);
+  color: white;
+}
+
+.group-filter select {
+  min-width: 200px;
+}
+
+.promo-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 0.5rem;
+}
+
+.promo-badge.voucher {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+}
+
+.promo-badge.grouped {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  color: white;
+}
+
+.promocode-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+  margin-left: 1rem;
+}
+
+.promocode-description {
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+.promocode-restrictions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+}
+
+.restriction-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.restriction-badge svg {
+  opacity: 0.7;
+}
+
+.promocode-card.voucher {
+  border-left: 3px solid #f5576c;
+}
+
+.promocode-card.grouped {
+  border-left: 3px solid #00f2fe;
+}
+
+.promocodes-groups-btn,
+.promocode-stats-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  transition: all 0.2s;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.promocodes-groups-btn:hover,
+.promocode-stats-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+  color: white;
+}
+</style>
 {% endblock %}
