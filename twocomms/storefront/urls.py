@@ -59,6 +59,13 @@ urlpatterns=[
     path('admin-panel/promocode/<int:pk>/edit/', views.admin_promocode_edit, name='admin_promocode_edit'),
     path('admin-panel/promocode/<int:pk>/toggle/', views.admin_promocode_toggle, name='admin_promocode_toggle'),
     path('admin-panel/promocode/<int:pk>/delete/', views.admin_promocode_delete, name='admin_promocode_delete'),
+    # promo groups
+    path('admin-panel/promo-groups/', views.admin_promo_groups, name='admin_promo_groups'),
+    path('admin-panel/promo-group/create/', views.admin_promo_group_create, name='admin_promo_group_create'),
+    path('admin-panel/promo-group/<int:pk>/edit/', views.admin_promo_group_edit, name='admin_promo_group_edit'),
+    path('admin-panel/promo-group/<int:pk>/delete/', views.admin_promo_group_delete, name='admin_promo_group_delete'),
+    # promo statistics
+    path('admin-panel/promo-stats/', views.admin_promo_stats, name='admin_promo_stats'),
     # offline stores
     path('admin-panel/offline-stores/', views.admin_offline_stores, name='admin_offline_stores'),
     path('admin-panel/offline-store/create/', views.admin_offline_store_create, name='admin_offline_store_create'),
