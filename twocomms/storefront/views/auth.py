@@ -4,13 +4,19 @@ Authentication views для storefront приложения.
 Содержит views для login, register, logout и связанные формы.
 """
 
+import re
+import logging
 from django import forms
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 
 from ..models import Product
 from accounts.models import UserProfile, FavoriteProduct
+
+logger = logging.getLogger(__name__)
 
 
 # ==================== FORMS ====================
@@ -46,10 +52,30 @@ class RegisterForm(forms.Form):
         widget=forms.PasswordInput(attrs={"class": "form-control bg-elevate"})
     )
     
+    def clean_username(self):
+        """Проверка username на корректность."""
+        username = self.cleaned_data.get('username', '')
+        
+        # Минимальная длина
+        if len(username) < 3:
+            raise ValidationError("Логін повинен містити мінімум 3 символи")
+        
+        # Проверка на допустимые символы (латиница, цифры, . _ -)
+        if not re.match(r'^[a-zA-Z0-9._-]+$', username):
+            raise ValidationError("Логін може містити тільки латинські літери, цифри та символи ._-")
+        
+        return username
+    
     def clean(self):
+        """Проверка совпадения паролей."""
         data = super().clean()
-        if data.get("password1") != data.get("password2"):
+        password1 = data.get("password1")
+        password2 = data.get("password2")
+        
+        if password1 and password2:
+            if password1 != password2:
             self.add_error("password2", "Паролі не співпадають")
+        
         return data
 
 
@@ -215,6 +241,7 @@ def register_view(request):
     
     Features:
     - Проверяет уникальность username
+    - Валидирует пароль согласно Django password validators
     - Создает нового пользователя
     - Автоматически авторизует после регистрации
     - Переносит избранные товары из сессии
@@ -226,15 +253,25 @@ def register_view(request):
     form = RegisterForm(request.POST or None)
     
     if request.method == 'POST' and form.is_valid():
+        username = form.cleaned_data['username']
+        password = form.cleaned_data['password1']
+        
         # Проверяем уникальность username
-        if User.objects.filter(username=form.cleaned_data['username']).exists():
+        if User.objects.filter(username=username).exists():
             form.add_error('username', 'Користувач з таким логіном вже існує')
         else:
+            try:
+                # КРИТИЧЕСКОЕ: Валидируем пароль ПЕРЕД созданием пользователя
+                # Это предотвратит ошибки при создании пользователя
+                validate_password(password, user=None)
+                
             # Создаем пользователя
             user = User.objects.create_user(
-                username=form.cleaned_data['username'],
-                password=form.cleaned_data['password1']
+                    username=username,
+                    password=password
             )
+                
+                logger.info(f"New user registered: {username}")
             
             # Автоматически авторизуем
             login(request, user)
@@ -258,6 +295,40 @@ def register_view(request):
                 request.session.modified = True
             
             return redirect('profile_setup')
+                
+            except ValidationError as e:
+                # Обрабатываем ошибки валидации пароля
+                logger.warning(f"Password validation failed for user {username}: {e}")
+                
+                # ValidationError может содержать список сообщений или одно сообщение
+                if hasattr(e, 'error_list'):
+                    for error in e.error_list:
+                        form.add_error('password1', error.message)
+                else:
+                    # Переводим стандартные ошибки Django на украинский
+                    error_messages = {
+                        'This password is too short': 'Пароль занадто короткий. Мінімум 8 символів.',
+                        'This password is too common': 'Цей пароль занадто простий. Оберіть складніший пароль.',
+                        'This password is entirely numeric': 'Пароль не може складатися лише з цифр.',
+                        'The password is too similar to the': 'Пароль занадто схожий на логін.',
+                    }
+                    
+                    error_text = str(e)
+                    translated = False
+                    for eng, ukr in error_messages.items():
+                        if eng in error_text:
+                            form.add_error('password1', ukr)
+                            translated = True
+                            break
+                    
+                    if not translated:
+                        # Если не нашли перевод, показываем оригинальную ошибку
+                        form.add_error('password1', error_text)
+                        
+            except Exception as e:
+                # Логируем неожиданные ошибки
+                logger.error(f"Unexpected error during registration: {e}", exc_info=True)
+                form.add_error(None, 'Виникла помилка при реєстрації. Спробуйте ще раз або зверніться до підтримки.')
     
     return render(request, 'pages/auth_register.html', {'form': form})
 
