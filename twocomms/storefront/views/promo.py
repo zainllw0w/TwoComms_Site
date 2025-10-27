@@ -111,15 +111,18 @@ class PromoCodeForm(forms.ModelForm):
 
 @login_required
 def admin_promocodes(request):
-    """Список промокодов с поддержкой групп и фильтрации"""
+    """Единая админ-панель промокодов с табами"""
     if not request.user.is_staff:
         return redirect('home')
     
-    # Получаем параметры фильтрации
+    # Получаем текущий таб
+    active_tab = request.GET.get('tab', 'promocodes')  # promocodes, groups, stats
+    
+    # Получаем параметры фильтрации для промокодов
     view_type = request.GET.get('view', 'all')  # all, groups, vouchers
     group_id = request.GET.get('group')
     
-    # Базовый запрос
+    # ===== ТАБ 1: ПРОМОКОДЫ =====
     promocodes = PromoCode.objects.select_related('group').prefetch_related('usages').all()
     
     # Фильтрация по типу
@@ -134,29 +137,62 @@ def admin_promocodes(request):
     if group_id:
         promocodes = promocodes.filter(group_id=group_id)
     
-    # Получаем все группы
+    # ===== ТАБ 2: ГРУППЫ =====
     groups = PromoCodeGroup.objects.prefetch_related('promo_codes').annotate(
         codes_count=Count('promo_codes'),
-        active_codes_count=Count('promo_codes', filter=Q(promo_codes__is_active=True))
+        active_codes_count=Count('promo_codes', filter=Q(promo_codes__is_active=True)),
+        total_usages=Count('usages')
     )
     
-    # Подсчитываем статистику
+    # ===== ТАБ 3: СТАТИСТИКА =====
+    # Последние использования
+    recent_usages = PromoCodeUsage.objects.select_related(
+        'user', 'promo_code', 'group', 'order'
+    ).order_by('-used_at')[:50]
+    
+    # Топ промокодов
+    top_promos = PromoCode.objects.annotate(
+        usage_count=Count('usages')
+    ).filter(usage_count__gt=0).order_by('-usage_count')[:10]
+    
+    # Топ групп
+    top_groups = PromoCodeGroup.objects.annotate(
+        usage_count=Count('usages')
+    ).filter(usage_count__gt=0).order_by('-usage_count')[:10]
+    
+    # ===== ОБЩАЯ СТАТИСТИКА =====
     total_promocodes = PromoCode.objects.count()
     active_promocodes = PromoCode.objects.filter(is_active=True).count()
     total_vouchers = PromoCode.objects.filter(promo_type='voucher').count()
     total_groups = groups.count()
     total_usages = PromoCodeUsage.objects.count()
+    unique_users = PromoCodeUsage.objects.values('user').distinct().count()
     
     return render(request, 'pages/admin_promocodes.html', {
+        # Навигация
+        'active_tab': active_tab,
+        'view_type': view_type,
+        'current_group_id': int(group_id) if group_id else None,
+        
+        # Таб 1: Промокоды
         'promocodes': promocodes,
+        
+        # Таб 2: Группы
         'groups': groups,
+        
+        # Таб 3: Статистика
+        'recent_usages': recent_usages,
+        'top_promos': top_promos,
+        'top_groups': top_groups,
+        
+        # Общая статистика
         'total_promocodes': total_promocodes,
         'active_promocodes': active_promocodes,
         'total_vouchers': total_vouchers,
         'total_groups': total_groups,
         'total_usages': total_usages,
-        'view_type': view_type,
-        'current_group_id': int(group_id) if group_id else None,
+        'unique_users': unique_users,
+        
         'section': 'promocodes'
     })
 
