@@ -1,0 +1,467 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Статистика промокодів — TwoComms{% endblock %}
+
+{% block content %}
+<div class="promo-stats-section">
+  <!-- Заголовок -->
+  <div class="promo-stats-header">
+    <div class="stats-title-section">
+      <h1 class="stats-title">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="me-2">
+          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+        </svg>
+        Статистика використання промокодів
+      </h1>
+      <div class="stats-subtitle">
+        Детальний аналіз використання промокодів та їх ефективності
+      </div>
+    </div>
+    
+    <div class="stats-actions">
+      <a href="{% url 'admin_promocodes' %}" class="back-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+        </svg>
+        До промокодів
+      </a>
+    </div>
+  </div>
+
+  <!-- Общая статистика -->
+  <div class="stats-overview">
+    <div class="stat-card total">
+      <div class="stat-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/>
+        </svg>
+      </div>
+      <div class="stat-content">
+        <div class="stat-value">{{ total_usages }}</div>
+        <div class="stat-label">Всього використань</div>
+      </div>
+    </div>
+
+    <div class="stat-card users">
+      <div class="stat-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+        </svg>
+      </div>
+      <div class="stat-content">
+        <div class="stat-value">{{ unique_users }}</div>
+        <div class="stat-label">Унікальних користувачів</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Топ промокодов -->
+  <div class="stats-section">
+    <h2 class="section-title">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+      </svg>
+      Топ-10 промокодів за використанням
+    </h2>
+    <div class="promo-leaderboard">
+      {% if top_promos %}
+        {% for promo in top_promos %}
+        <div class="leaderboard-item" style="--rank: {{ forloop.counter }}">
+          <div class="rank-badge">#{{ forloop.counter }}</div>
+          <div class="promo-info">
+            <div class="promo-code">{{ promo.code }}</div>
+            <div class="promo-details">
+              <span class="detail-item">{{ promo.get_discount_display }}</span>
+              {% if promo.group %}
+                <span class="detail-item group">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3z"/>
+                  </svg>
+                  {{ promo.group.name }}
+                </span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="usage-count">
+            <div class="count-value">{{ promo.usage_count }}</div>
+            <div class="count-label">використань</div>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="no-data">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+          </svg>
+          <p>Немає даних про використання</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Топ групп -->
+  {% if top_groups %}
+  <div class="stats-section">
+    <h2 class="section-title">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+      </svg>
+      Топ-10 груп за використанням
+    </h2>
+    <div class="group-leaderboard">
+      {% for group in top_groups %}
+      <div class="leaderboard-item group-item">
+        <div class="rank-badge">#{{ forloop.counter }}</div>
+        <div class="group-info">
+          <div class="group-name">{{ group.name }}</div>
+          {% if group.description %}
+          <div class="group-description">{{ group.description|truncatewords:15 }}</div>
+          {% endif %}
+          {% if group.one_per_account %}
+          <span class="group-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            1 на акаунт
+          </span>
+          {% endif %}
+        </div>
+        <div class="usage-count">
+          <div class="count-value">{{ group.usage_count }}</div>
+          <div class="count-label">використань</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Недавние использования -->
+  <div class="stats-section">
+    <h2 class="section-title">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+      </svg>
+      Останні використання (50 записів)
+    </h2>
+    <div class="recent-usages">
+      {% if recent_usages %}
+        <div class="usage-table">
+          <div class="table-header">
+            <div class="th date">Дата</div>
+            <div class="th user">Користувач</div>
+            <div class="th promo">Промокод</div>
+            <div class="th group">Група</div>
+            <div class="th order">Замовлення</div>
+          </div>
+          <div class="table-body">
+            {% for usage in recent_usages %}
+            <div class="table-row">
+              <div class="td date">{{ usage.used_at|date:"d.m.Y H:i" }}</div>
+              <div class="td user">{{ usage.user.username }}</div>
+              <div class="td promo">
+                <code>{{ usage.promo_code.code }}</code>
+              </div>
+              <div class="td group">
+                {% if usage.group %}
+                  <span class="group-tag">{{ usage.group.name }}</span>
+                {% else %}
+                  <span class="no-group">—</span>
+                {% endif %}
+              </div>
+              <div class="td order">
+                {% if usage.order %}
+                  <a href="#" class="order-link">#{{ usage.order.id }}</a>
+                {% else %}
+                  <span class="no-order">—</span>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% else %}
+        <div class="no-data">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>
+          </svg>
+          <p>Немає даних про використання</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<style>
+.promo-stats-section {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.promo-stats-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2.5rem;
+}
+
+.stats-title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  color: white;
+}
+
+.stats-subtitle {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.95rem;
+}
+
+.stats-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border-radius: 16px;
+  padding: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.stat-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-card.total .stat-icon {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.stat-card.users .stat-icon {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.stat-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: white;
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 0.5rem;
+}
+
+.stats-section {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 16px;
+  padding: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 2rem;
+}
+
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: white;
+}
+
+.promo-leaderboard,
+.group-leaderboard {
+  display: grid;
+  gap: 1rem;
+}
+
+.leaderboard-item {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  padding: 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  transition: all 0.2s;
+}
+
+.leaderboard-item:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateX(4px);
+}
+
+.rank-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.leaderboard-item:nth-child(1) .rank-badge {
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+  color: #000;
+}
+
+.leaderboard-item:nth-child(2) .rank-badge {
+  background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 100%);
+  color: #000;
+}
+
+.leaderboard-item:nth-child(3) .rank-badge {
+  background: linear-gradient(135deg, #cd7f32 0%, #d4a574 100%);
+  color: #fff;
+}
+
+.promo-info,
+.group-info {
+  flex: 1;
+}
+
+.promo-code,
+.group-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: white;
+  margin-bottom: 0.25rem;
+  font-family: 'Courier New', monospace;
+}
+
+.promo-details,
+.group-description {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+}
+
+.group-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.6rem;
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.usage-count {
+  text-align: right;
+}
+
+.count-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: white;
+  line-height: 1;
+}
+
+.count-label {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 0.25rem;
+}
+
+.usage-table {
+  overflow-x: auto;
+}
+
+.table-header {
+  display: grid;
+  grid-template-columns: 150px 200px 150px 200px 100px;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.table-row {
+  display: grid;
+  grid-template-columns: 150px 200px 150px 200px 100px;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  color: rgba(255, 255, 255, 0.7);
+  transition: all 0.2s;
+}
+
+.table-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.table-row code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  color: #3b82f6;
+}
+
+.group-tag {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.no-group,
+.no-order {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.order-link {
+  color: #3b82f6;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.order-link:hover {
+  text-decoration: underline;
+}
+
+.no-data {
+  text-align: center;
+  padding: 3rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.no-data svg {
+  opacity: 0.2;
+  margin-bottom: 1rem;
+}
+</style>
+{% endblock %}
+
