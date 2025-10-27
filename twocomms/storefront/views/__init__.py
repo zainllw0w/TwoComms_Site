@@ -113,6 +113,26 @@ from .profile import (
     purchase_with_points,
 )
 
+# Промокоды
+from .promo import (
+    # Forms
+    PromoCodeForm,
+    PromoCodeGroupForm,
+    # Admin views
+    admin_promocodes,
+    admin_promocode_create,
+    admin_promocode_edit,
+    admin_promocode_toggle,
+    admin_promocode_delete,
+    # Groups
+    admin_promo_groups,
+    admin_promo_group_create,
+    admin_promo_group_edit,
+    admin_promo_group_delete,
+    # Statistics
+    admin_promo_stats,
+)
+
 # API endpoints
 from .api import (
     get_product_json,
@@ -196,6 +216,12 @@ try:
         'remove_from_favorites', 'check_favorite_status', 'favorites_count', 
         'points_history', 'settings',
         'user_points', 'my_promocodes', 'buy_with_points', 'purchase_with_points',
+        # promo.py
+        'PromoCodeForm', 'PromoCodeGroupForm',
+        'admin_promocodes', 'admin_promocode_create', 'admin_promocode_edit',
+        'admin_promocode_toggle', 'admin_promocode_delete',
+        'admin_promo_groups', 'admin_promo_group_create', 'admin_promo_group_edit',
+        'admin_promo_group_delete', 'admin_promo_stats',
         # api.py
         'get_product_json', 'get_categories_json', 'track_event', 'search_suggestions',
         'product_availability', 'get_related_products', 'newsletter_subscribe', 'contact_form',
@@ -288,6 +314,13 @@ __all__ = [
     'remove_from_favorites', 'check_favorite_status', 'favorites_count', 
     'points_history', 'settings',
     'user_points', 'my_promocodes', 'buy_with_points', 'purchase_with_points',
+    
+    # Promo Codes
+    'PromoCodeForm', 'PromoCodeGroupForm',
+    'admin_promocodes', 'admin_promocode_create', 'admin_promocode_edit',
+    'admin_promocode_toggle', 'admin_promocode_delete',
+    'admin_promo_groups', 'admin_promo_group_create', 'admin_promo_group_edit',
+    'admin_promo_group_delete', 'admin_promo_stats',
     
     # API
     'get_product_json', 'get_categories_json', 'track_event', 'search_suggestions',
