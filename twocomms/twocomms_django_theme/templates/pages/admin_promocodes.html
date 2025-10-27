@@ -146,6 +146,23 @@
               <i class="fas fa-times"></i>
             </button>
           </div>
+          
+          <!-- Сортування -->
+          <div class="ds-sort-box">
+            <label for="promoSort" class="ds-sort-label">
+              <i class="fas fa-sort"></i> Сортувати:
+            </label>
+            <select id="promoSort" class="ds-sort-select">
+              <option value="newest">Нові спочатку</option>
+              <option value="oldest">Старі спочатку</option>
+              <option value="discount-high">Знижка (висока → низька)</option>
+              <option value="discount-low">Знижка (низька → висока)</option>
+              <option value="usage-high">Використання (багато → мало)</option>
+              <option value="usage-low">Використання (мало → багато)</option>
+              <option value="code-az">Код (A → Z)</option>
+              <option value="code-za">Код (Z → A)</option>
+            </select>
+          </div>
   </div>
 
   <!-- Список промокодов -->
@@ -1640,6 +1657,50 @@ body.dark-mode .ds-dark-mode-toggle {
   padding: 0.2rem 0.4rem;
   border-radius: 4px;
   font-weight: 600;
+}
+
+/* Sort Box */
+.ds-sort-box {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.ds-sort-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ds-text);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.ds-sort-select {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--ds-border);
+  border-radius: 8px;
+  background: var(--ds-card-bg);
+  color: var(--ds-text);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ds-sort-select:focus {
+  outline: none;
+  border-color: var(--ds-primary);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+@media (max-width: 767.98px) {
+  .ds-sort-box {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 /* Fade-in animations */
@@ -4244,4 +4305,75 @@ function removeHighlight(element) {
 }
 
 console.log('✅ Search initialized!');
+
+// ==================== СОРТУВАННЯ ====================
+
+const sortSelect = document.getElementById('promoSort');
+
+if (sortSelect) {
+  sortSelect.addEventListener('change', function() {
+    const sortType = this.value;
+    sortPromos(sortType);
+    showToast(`Сортування: ${this.options[this.selectedIndex].text}`, 'info');
+  });
+}
+
+function sortPromos(sortType) {
+  const grid = document.querySelector('.ds-grid');
+  const promoCards = Array.from(document.querySelectorAll('.ds-promo-card'));
+  
+  promoCards.sort((a, b) => {
+    switch (sortType) {
+      case 'newest':
+        // За датою створення (нові → старі)
+        return parseInt(b.dataset.promoId) - parseInt(a.dataset.promoId);
+      
+      case 'oldest':
+        // За датою створення (старі → нові)
+        return parseInt(a.dataset.promoId) - parseInt(b.dataset.promoId);
+      
+      case 'discount-high':
+      case 'discount-low': {
+        // За знижкою
+        const aDiscount = parseFloat(a.querySelector('.ds-promo-card__value')?.textContent) || 0;
+        const bDiscount = parseFloat(b.querySelector('.ds-promo-card__value')?.textContent) || 0;
+        return sortType === 'discount-high' ? bDiscount - aDiscount : aDiscount - bDiscount;
+      }
+      
+      case 'usage-high':
+      case 'usage-low': {
+        // За використанням
+        const aUsage = parseInt(a.querySelector('.ds-stat__value')?.textContent) || 0;
+        const bUsage = parseInt(b.querySelector('.ds-stat__value')?.textContent) || 0;
+        return sortType === 'usage-high' ? bUsage - aUsage : aUsage - bUsage;
+      }
+      
+      case 'code-az':
+      case 'code-za': {
+        // За кодом
+        const aCode = a.querySelector('.ds-promo-card__code')?.textContent || '';
+        const bCode = b.querySelector('.ds-promo-card__code')?.textContent || '';
+        return sortType === 'code-az' 
+          ? aCode.localeCompare(bCode) 
+          : bCode.localeCompare(aCode);
+      }
+      
+      default:
+        return 0;
+    }
+  });
+  
+  // Пере-додати картки в новому порядку
+  promoCards.forEach(card => grid.appendChild(card));
+  
+  // Анімація
+  promoCards.forEach((card, index) => {
+    card.style.animation = 'none';
+    setTimeout(() => {
+      card.style.animation = '';
+    }, 10);
+  });
+}
+
+console.log('✅ Sorting initialized!');
 </script>
