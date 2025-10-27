@@ -414,7 +414,7 @@
 
 <!-- Modal: Створення промокода -->
 <div class="modal fade" id="createPromoModal" tabindex="-1" aria-labelledby="createPromoModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
+  <div class="modal-dialog modal-lg modal-fullscreen-md-down">
     <div class="modal-content" style="border: 1px solid var(--ds-border); background: var(--ds-card-bg);">
       <div class="modal-header" style="border-bottom: 1px solid var(--ds-border); background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
         <h5 class="modal-title" id="createPromoModalLabel" style="color: white; font-weight: 600;">
@@ -617,7 +617,7 @@
 
 <!-- Modal: Редагування промокода -->
 <div class="modal fade" id="editPromoModal" tabindex="-1" aria-labelledby="editPromoModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
+  <div class="modal-dialog modal-lg modal-fullscreen-md-down">
     <div class="modal-content" style="border: 1px solid var(--ds-border); background: var(--ds-card-bg);">
       <div class="modal-header" style="border-bottom: 1px solid var(--ds-border); background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
         <h5 class="modal-title" id="editPromoModalLabel" style="color: white; font-weight: 600;">
@@ -1277,6 +1277,174 @@
 .ds-sidebar__link.is-active .ds-sidebar__badge {
   background: rgba(255, 255, 255, 0.2);
   color: white;
+}
+
+/* ==================== RESPONSIVE STYLES ==================== */
+
+/* Mobile optimizations (< 768px) */
+@media (max-width: 767.98px) {
+  /* Модальні вікна - fullscreen на мобільних */
+  .modal-fullscreen-md-down .modal-body {
+    padding: 1rem !important;
+  }
+  
+  .modal-fullscreen-md-down .modal-header,
+  .modal-fullscreen-md-down .modal-footer {
+    padding: 0.75rem 1rem !important;
+  }
+  
+  .modal-fullscreen-md-down .modal-title {
+    font-size: 1.1rem !important;
+  }
+  
+  /* Форми в модалках */
+  .modal-fullscreen-md-down .form-label {
+    font-size: 0.9rem !important;
+    margin-bottom: 0.3rem !important;
+  }
+  
+  .modal-fullscreen-md-down .form-control,
+  .modal-fullscreen-md-down .form-select {
+    font-size: 0.95rem !important;
+    padding: 0.5rem !important;
+  }
+  
+  .modal-fullscreen-md-down .btn {
+    padding: 0.6rem 1rem !important;
+    font-size: 0.95rem !important;
+  }
+  
+  /* Toast на мобільних - зверху по центру */
+  .toast-container {
+    top: 1rem !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: 90% !important;
+    max-width: 400px !important;
+  }
+  
+  /* Sidebar та main content */
+  .ds-sidebar {
+    position: relative !important;
+    width: 100% !important;
+    min-height: auto !important;
+  }
+  
+  .ds-main {
+    padding: 1rem !important;
+  }
+  
+  /* Promo cards на мобільних */
+  .ds-promo-card {
+    padding: 1rem !important;
+  }
+  
+  .ds-promo-card__header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.5rem !important;
+  }
+  
+  .ds-promo-card__code {
+    font-size: 1.1rem !important;
+  }
+  
+  .ds-promo-card__actions {
+    width: 100% !important;
+    justify-content: space-around !important;
+    margin-top: 0.5rem !important;
+  }
+  
+  /* Hero section на мобільних */
+  .ds-hero__title {
+    font-size: 1.8rem !important;
+  }
+  
+  .ds-hero__lead {
+    font-size: 0.95rem !important;
+  }
+  
+  /* Фільтри */
+  .ds-filter-pills {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+  
+  .ds-pill {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+}
+
+/* Tablet optimizations (768px - 991px) */
+@media (min-width: 768px) and (max-width: 991.98px) {
+  .modal-lg {
+    max-width: 90% !important;
+  }
+  
+  .ds-promo-card {
+    padding: 1.25rem !important;
+  }
+  
+  .ds-hero__title {
+    font-size: 2rem !important;
+  }
+}
+
+/* Large desktop optimizations (> 1200px) */
+@media (min-width: 1200px) {
+  .modal-lg {
+    max-width: 900px !important;
+  }
+  
+  .ds-container {
+    max-width: 1400px !important;
+  }
+}
+
+/* Small mobile (< 576px) - extra optimizations */
+@media (max-width: 575.98px) {
+  .modal-fullscreen-md-down .row.g-3 {
+    gap: 0.75rem !important;
+  }
+  
+  .modal-fullscreen-md-down .col-md-6 {
+    padding: 0 !important;
+  }
+  
+  .ds-action-btn {
+    padding: 0.4rem !important;
+    font-size: 0.9rem !important;
+  }
+  
+  .ds-btn {
+    width: 100% !important;
+    margin-bottom: 0.5rem !important;
+  }
+  
+  .ds-sidebar__nav {
+    flex-direction: column !important;
+  }
+  
+  .ds-sidebar__link {
+    justify-content: flex-start !important;
+    padding: 0.75rem !important;
+  }
+}
+
+/* Print styles */
+@media print {
+  .modal,
+  .toast-container,
+  .ds-sidebar,
+  .ds-actions {
+    display: none !important;
+  }
+  
+  .ds-main {
+    padding: 0 !important;
+  }
 }
 </style>
 
