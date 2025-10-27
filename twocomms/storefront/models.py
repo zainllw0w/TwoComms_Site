@@ -218,7 +218,7 @@ class PromoCodeGroup(models.Model):
         verbose_name_plural = 'Групи промокодів'
         ordering = ['-created_at']
         indexes = [
-            models.Index(fields=['is_active', '-created_at'], name='idx_promo_group_active'),
+            models.Index(fields=['is_active', '-created_at'], name='idx_group_active_created'),
         ]
     
     def __str__(self):
