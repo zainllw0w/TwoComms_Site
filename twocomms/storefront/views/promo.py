@@ -107,19 +107,17 @@ class PromoCodeForm(forms.ModelForm):
         return code
 
 
-# ==================== ADMIN VIEWS ====================
+# ==================== HELPER FUNCTIONS ====================
 
-@login_required
-def admin_promocodes(request):
-    """Единая админ-панель промокодов с табами"""
-    if not request.user.is_staff:
-        return redirect('home')
+def get_promo_admin_context(request):
+    """Функція для отримання контексту промокодів для адмін-панелі"""
+    from django.db.models import Q, Count
     
     # Получаем текущий таб
-    active_tab = request.GET.get('tab', 'promocodes')  # promocodes, groups, stats
+    promo_tab = request.GET.get('tab', 'promocodes')
     
     # Получаем параметры фильтрации для промокодов
-    view_type = request.GET.get('view', 'all')  # all, groups, vouchers
+    view_type = request.GET.get('view', 'all')
     group_id = request.GET.get('group')
     
     # ===== ТАБ 1: ПРОМОКОДЫ =====
@@ -168,9 +166,9 @@ def admin_promocodes(request):
     total_usages = PromoCodeUsage.objects.count()
     unique_users = PromoCodeUsage.objects.values('user').distinct().count()
     
-    return render(request, 'pages/admin_promocodes.html', {
+    return {
         # Навигация
-        'active_tab': active_tab,
+        'promo_tab': promo_tab,
         'view_type': view_type,
         'current_group_id': int(group_id) if group_id else None,
         
@@ -192,9 +190,19 @@ def admin_promocodes(request):
         'total_groups': total_groups,
         'total_usages': total_usages,
         'unique_users': unique_users,
-        
-        'section': 'promocodes'
-    })
+    }
+
+
+# ==================== ADMIN VIEWS ====================
+
+@login_required
+def admin_promocodes(request):
+    """
+    DEPRECATED: Ця view більше не використовується.
+    Промокоди тепер в головній адмін-панелі через ?section=promocodes
+    Редирект для backward compatibility
+    """
+    return redirect('/admin-panel/?section=promocodes')
 
 
 @login_required
