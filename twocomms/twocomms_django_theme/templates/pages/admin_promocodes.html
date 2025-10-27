@@ -345,6 +345,19 @@
               </p>
             </div>
             
+            <!-- Кнопки експорту -->
+            <div class="ds-export-actions">
+              <button type="button" class="ds-export-btn ds-export-btn--csv" onclick="exportStats('csv')">
+                <i class="fas fa-file-csv"></i> Експорт CSV
+              </button>
+              <button type="button" class="ds-export-btn ds-export-btn--excel" onclick="exportStats('excel')">
+                <i class="fas fa-file-excel"></i> Експорт Excel
+              </button>
+              <button type="button" class="ds-export-btn ds-export-btn--pdf" onclick="exportStats('pdf')">
+                <i class="fas fa-file-pdf"></i> Експорт PDF
+              </button>
+            </div>
+            
             <!-- Фільтри по датах -->
             <div class="ds-date-filters">
               <div class="ds-date-filter-pills">
@@ -1429,6 +1442,78 @@
   
   .ds-chart-card__body {
     min-height: 200px;
+  }
+}
+
+/* Export Actions */
+.ds-export-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.ds-export-btn {
+  padding: 0.75rem 1.5rem;
+  border: 2px solid var(--ds-border);
+  border-radius: 8px;
+  background: var(--ds-card-bg);
+  color: var(--ds-text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ds-export-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.ds-export-btn--csv {
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.ds-export-btn--csv:hover {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border-color: #10b981;
+}
+
+.ds-export-btn--excel {
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.ds-export-btn--excel:hover {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border-color: #3b82f6;
+}
+
+.ds-export-btn--pdf {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.ds-export-btn--pdf:hover {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  border-color: #ef4444;
+}
+
+@media (max-width: 767.98px) {
+  .ds-export-actions {
+    flex-direction: column;
+  }
+  
+  .ds-export-btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 
@@ -3680,4 +3765,40 @@ function formatDate(dateString) {
 }
 
 console.log('✅ Date filters initialized!');
+
+// ==================== ЕКСПОРТ СТАТИСТИКИ ====================
+
+function exportStats(format) {
+  showToast(`Експорт ${format.toUpperCase()}...`, 'info');
+  
+  // Параметри експорту
+  const params = new URLSearchParams({
+    format: format,
+    period: currentPeriod,
+  });
+  
+  // Додати кастомні дати якщо є
+  if (currentPeriod === 'custom' && customDates) {
+    params.append('date_from', customDates.from);
+    params.append('date_to', customDates.to);
+  }
+  
+  // Створити посилання на завантаження
+  const url = `/admin-panel/promo-export/?${params.toString()}`;
+  
+  // Створити тимчасове посилання та клікнути
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `promo_stats_${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : format}`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  // Показати успіх через секунду
+  setTimeout(() => {
+    showToast(`✅ ${format.toUpperCase()} файл завантажено!`, 'success');
+  }, 1000);
+}
+
+console.log('✅ Export functions ready!');
 </script>

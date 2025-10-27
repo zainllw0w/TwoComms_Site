@@ -66,6 +66,8 @@ urlpatterns=[
     path('admin-panel/promo-group/<int:pk>/delete/', views.admin_promo_group_delete, name='admin_promo_group_delete'),
     # promo statistics
     path('admin-panel/promo-stats/', views.admin_promo_stats, name='admin_promo_stats'),
+    # promo export
+    path('admin-panel/promo-export/', views.admin_promo_export, name='admin_promo_export'),
     # promo AJAX endpoints
     path('admin-panel/promocode/<int:pk>/get-form/', views.admin_promocode_get_form, name='admin_promocode_get_form'),
     path('admin-panel/promocode/<int:pk>/edit-ajax/', views.admin_promocode_edit_ajax, name='admin_promocode_edit_ajax'),
