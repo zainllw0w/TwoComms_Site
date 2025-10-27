@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+  {% if mode == 'create' %}Створити групу промокодів{% else %}Редагувати групу{% endif %} — TwoComms
+{% endblock %}
+
+{% block content %}
+<div class="promo-group-form-section">
+  <!-- Заголовок -->
+  <div class="promo-group-form-header">
+    <div class="form-title-section">
+      <h1 class="form-title">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="me-2">
+          <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+        </svg>
+        {% if mode == 'create' %}
+          Створити нову групу промокодів
+        {% else %}
+          Редагувати групу {{ group.name }}
+        {% endif %}
+      </h1>
+      <div class="form-subtitle">
+        {% if mode == 'create' %}
+          Створіть групу для організації промокодів за кампаніями
+        {% else %}
+          Внесіть зміни до існуючої групи
+        {% endif %}
+      </div>
+    </div>
+    
+    <div class="form-actions">
+      <a href="{% url 'admin_promo_groups' %}" class="back-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+        </svg>
+        Назад до груп
+      </a>
+    </div>
+  </div>
+
+  <!-- Форма -->
+  <div class="promo-group-form-container">
+    <form method="post" class="promo-group-form">
+      {% csrf_token %}
+      
+      <div class="form-section">
+        <h3 class="section-title">Основна інформація</h3>
+        
+        <!-- Назва группы -->
+        <div class="form-group">
+          <label for="{{ form.name.id_for_label }}" class="form-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+            </svg>
+            Назва групи
+          </label>
+          {{ form.name }}
+          <div class="form-help">
+            Наприклад: "Instagram реклама", "Весняна акція", "Партнерські коди"
+          </div>
+          {% if form.name.errors %}
+            <div class="form-error">{{ form.name.errors.0 }}</div>
+          {% endif %}
+        </div>
+
+        <!-- Описание -->
+        <div class="form-group">
+          <label for="{{ form.description.id_for_label }}" class="form-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+            </svg>
+            Опис групи
+          </label>
+          {{ form.description }}
+          <div class="form-help">
+            Необов'язково. Опис призначення цієї групи промокодів
+          </div>
+          {% if form.description.errors %}
+            <div class="form-error">{{ form.description.errors.0 }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3 class="section-title">Налаштування обмежень</h3>
+        
+        <!-- Один промокод на аккаунт -->
+        <div class="form-group checkbox-group">
+          <div class="checkbox-wrapper">
+            {{ form.one_per_account }}
+            <label for="{{ form.one_per_account.id_for_label }}" class="checkbox-label">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              Один промокод на акаунт з цієї групи
+            </label>
+          </div>
+          <div class="form-help alert-info">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M11 15h2v2h-2zm0-8h2v6h-2zm.99-5C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>
+            </svg>
+            Якщо активовано: користувач зможе використати тільки ОДИН промокод з усієї групи. Наприклад, для рекламних кампаній, де потрібно обмежити кількість використань на особу.
+          </div>
+        </div>
+
+        <!-- Активность -->
+        <div class="form-group checkbox-group">
+          <div class="checkbox-wrapper">
+            {{ form.is_active }}
+            <label for="{{ form.is_active.id_for_label }}" class="checkbox-label">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              Активна група
+            </label>
+          </div>
+          <div class="form-help">
+            Неактивні групи не впливають на промокоди, але зберігаються в історії
+          </div>
+        </div>
+      </div>
+
+      {% if mode == 'edit' and promocodes %}
+      <div class="form-section">
+        <h3 class="section-title">Промокоди в групі ({{ promocodes.count }})</h3>
+        <div class="promocodes-in-group">
+          {% for promo in promocodes %}
+          <div class="promo-item {% if not promo.is_active %}inactive{% endif %}">
+            <div class="promo-code">{{ promo.code }}</div>
+            <div class="promo-discount">{{ promo.get_discount_display }}</div>
+            <div class="promo-status">
+              {% if promo.is_active %}
+                <span class="badge active">Активний</span>
+              {% else %}
+                <span class="badge inactive">Неактивний</span>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Кнопки действий -->
+      <div class="form-actions-bottom">
+        <button type="submit" class="submit-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+          </svg>
+          {% if mode == 'create' %}
+            Створити групу
+          {% else %}
+            Зберегти зміни
+          {% endif %}
+        </button>
+        
+        <a href="{% url 'admin_promo_groups' %}" class="cancel-btn">
+          Скасувати
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+.alert-info {
+  background: rgba(59, 130, 246, 0.1);
+  border-left: 3px solid #3b82f6;
+  padding: 0.75rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin-top: 0.5rem;
+}
+
+.alert-info svg {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  opacity: 0.7;
+}
+
+.promocodes-in-group {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.promo-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.promo-item.inactive {
+  opacity: 0.5;
+}
+
+.promo-code {
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+  color: white;
+  flex: 1;
+}
+
+.promo-discount {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.promo-status .badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.promo-status .badge.active {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+}
+
+.promo-status .badge.inactive {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+</style>
+{% endblock %}
+
