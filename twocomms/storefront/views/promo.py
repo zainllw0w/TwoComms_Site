@@ -561,3 +561,54 @@ def admin_promo_group_edit_ajax(request, pk):
             'errors': form.errors
         }, status=400)
 
+
+@login_required
+def admin_promocode_change_group(request, pk):
+    """
+    AJAX endpoint: Змінити групу промокода (Drag & Drop)
+    POST /admin-panel/promocode/<id>/change-group/
+    """
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Доступ заборонено'}, status=403)
+    
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return JsonResponse({'success': False, 'error': 'Тільки AJAX запити'}, status=400)
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Тільки POST запити'}, status=405)
+    
+    promocode = get_object_or_404(PromoCode, pk=pk)
+    
+    try:
+        import json
+        data = json.loads(request.body)
+        group_id = data.get('group_id')
+        
+        if group_id:
+            group = get_object_or_404(PromoCodeGroup, pk=group_id)
+            promocode.group = group
+            promocode.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Промокод переміщено до групи "{group.name}"',
+                'group_id': group.id,
+                'group_name': group.name
+            })
+        else:
+            # Прибрати з групи
+            promocode.group = None
+            promocode.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Промокод прибрано з групи',
+                'group_id': None,
+                'group_name': None
+            })
+            
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Невірний JSON'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+

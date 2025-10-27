@@ -69,6 +69,7 @@ urlpatterns=[
     # promo AJAX endpoints
     path('admin-panel/promocode/<int:pk>/get-form/', views.admin_promocode_get_form, name='admin_promocode_get_form'),
     path('admin-panel/promocode/<int:pk>/edit-ajax/', views.admin_promocode_edit_ajax, name='admin_promocode_edit_ajax'),
+    path('admin-panel/promocode/<int:pk>/change-group/', views.admin_promocode_change_group, name='admin_promocode_change_group'),
     path('admin-panel/promo-group/<int:pk>/get-form/', views.admin_promo_group_get_form, name='admin_promo_group_get_form'),
     path('admin-panel/promo-group/<int:pk>/edit-ajax/', views.admin_promo_group_edit_ajax, name='admin_promo_group_edit_ajax'),
     # offline stores
