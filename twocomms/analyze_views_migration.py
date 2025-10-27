@@ -1,13 +1,8 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Анализ какие функции все еще в views.py и не перенесены в модули
-"""
 import re
 from pathlib import Path
 
 def get_functions_from_file(filepath):
-    """Получить все функции"""
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -16,29 +11,23 @@ def get_functions_from_file(filepath):
         return set()
 
 def get_exclude_list():
-    """Получить список исключений из __init__.py"""
     init_path = Path('storefront/views/__init__.py')
     with open(init_path, 'r', encoding='utf-8') as f:
         content = f.read()
-    
-    # Найти _exclude = {...}
     exclude_match = re.search(r'_exclude = \{(.*?)\}', content, re.DOTALL)
     if exclude_match:
         exclude_str = exclude_match.group(1)
-        # Извлечь все строки в кавычках
         return set(re.findall(r"'([^']+)'", exclude_str))
     return set()
 
 def main():
     print("="*70)
-    print("АНАЛИЗ МІГРАЦІЇ views.py -> модулі")
+    print("VIEWS MIGRATION ANALYSIS")
     print("="*70)
     
-    # 1. Функции из views.py
     views_py_funcs = get_functions_from_file('storefront/views.py')
-    print(f"\n📄 views.py: {len(views_py_funcs)} функцій")
+    print("\n[*] views.py: {} functions".format(len(views_py_funcs)))
     
-    # 2. Функции из модулей
     modules = {
         'views/cart.py': get_functions_from_file('storefront/views/cart.py'),
         'views/promo.py': get_functions_from_file('storefront/views/promo.py'),
@@ -54,27 +43,24 @@ def main():
     }
     
     all_module_funcs = set()
-    print("\n📦 Модулі:")
+    print("\n[*] Modules:")
     for module_name, funcs in modules.items():
         if funcs:
-            print(f"  ✅ {module_name}: {len(funcs)} функцій")
+            print("  [+] {}: {} functions".format(module_name, len(funcs)))
             all_module_funcs.update(funcs)
         else:
-            print(f"  ❌ {module_name}: файл не знайдено або порожній")
+            print("  [-] {}: not found or empty".format(module_name))
     
-    print(f"\n  Всього в модулях: {len(all_module_funcs)} функцій")
+    print("\n  Total in modules: {} functions".format(len(all_module_funcs)))
     
-    # 3. Exclude list
     exclude_list = get_exclude_list()
-    print(f"\n🚫 _exclude список: {len(exclude_list)} елементів")
+    print("\n[*] _exclude list: {} items".format(len(exclude_list)))
     
-    # 4. Функции которые ВСЕ ЕЩЕ в views.py и НЕ в модулях
     still_in_views_py = views_py_funcs - all_module_funcs - exclude_list
     
-    print(f"\n⚠️  ФУНКЦІЇ ЯКІ ВСЕ ЩЕ ТІЛЬКИ В views.py: {len(still_in_views_py)}")
+    print("\n[!] FUNCTIONS STILL ONLY IN views.py: {}".format(len(still_in_views_py)))
     
     if still_in_views_py:
-        # Группируем по категориям
         categories = {
             'Admin': [],
             'Order/Checkout': [],
@@ -100,38 +86,36 @@ def main():
         
         for category, funcs in categories.items():
             if funcs:
-                print(f"\n  📁 {category} ({len(funcs)}):")
-                for func in funcs:
-                    print(f"     - {func}")
+                print("\n  [>] {} ({}):".format(category, len(funcs)))
+                for func in funcs[:10]:  # First 10 only
+                    print("     - {}".format(func))
+                if len(funcs) > 10:
+                    print("     ... and {} more".format(len(funcs) - 10))
     
-    # 5. Рекомендации
     print("\n" + "="*70)
-    print("РЕКОМЕНДАЦІЇ")
+    print("RECOMMENDATIONS")
     print("="*70)
     
     if not still_in_views_py:
-        print("\n✅ ВСІ ФУНКЦІЇ ПЕРЕНЕСЕНІ В МОДУЛІ!")
-        print("   Можна:")
-        print("   1. Видалити блок import з views.py в __init__.py (рядки 179-254)")
-        print("   2. Видалити сам views.py")
+        print("\n[YES] ALL FUNCTIONS MIGRATED TO MODULES!")
+        print("   Can:")
+        print("   1. Remove import block from views.py in __init__.py (lines 179-254)")
+        print("   2. Delete views.py itself")
     else:
-        print(f"\n⚠️  {len(still_in_views_py)} функцій все ще потрібно перенести")
-        print("   Потрібно:")
-        print("   1. Перенести функції в відповідні модулі")
-        print("   2. Додати їх в _exclude список")
-        print("   3. Тоді можна видалити views.py")
+        print("\n[NO] {} functions still need to be migrated".format(len(still_in_views_py)))
+        print("   Need to:")
+        print("   1. Move functions to appropriate modules")
+        print("   2. Add them to _exclude list")
+        print("   3. Then can delete views.py")
     
-    # 6. Функции которые в модулях И в views.py (дублікати)
     duplicates = views_py_funcs & all_module_funcs
     if duplicates:
-        print(f"\n⚠️  ДУБЛІКАТИ (в views.py І в модулях): {len(duplicates)}")
-        for func in sorted(duplicates):
-            # Знайти в якому модулі
+        print("\n[!] DUPLICATES (in views.py AND modules): {}".format(len(duplicates)))
+        for func in sorted(list(duplicates)[:5]):
             for module_name, funcs in modules.items():
                 if func in funcs:
-                    print(f"     - {func} (в {module_name})")
+                    print("     - {} (in {})".format(func, module_name))
                     break
 
 if __name__ == '__main__':
     main()
-
