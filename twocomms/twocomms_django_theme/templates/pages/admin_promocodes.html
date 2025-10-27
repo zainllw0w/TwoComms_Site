@@ -1012,6 +1012,84 @@
 </div>
 
 <style>
+/* Background styling для всієї панелі */
+.ds-shell {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  min-height: 100vh;
+  position: relative;
+}
+
+.ds-shell::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(circle at 20% 50%, rgba(139, 92, 246, 0.2) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(102, 126, 234, 0.2) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ds-shell > * {
+  position: relative;
+  z-index: 1;
+}
+
+.ds-container {
+  background: transparent !important;
+}
+
+/* Sidebar glassmorphism */
+.ds-sidebar {
+  background: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Overview cards на градієнті */
+.ds-overview-card {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
+}
+
+/* Stat cards */
+.ds-stat-card, .ds-chart-card {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
+}
+
+/* Dark mode override */
+body.dark-mode .ds-shell {
+  background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%) !important;
+}
+
+body.dark-mode .ds-shell::before {
+  background: 
+    radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
+}
+
+body.dark-mode .ds-sidebar {
+  background: rgba(26, 32, 44, 0.8) !important;
+  border-right-color: rgba(255, 255, 255, 0.1);
+}
+
+body.dark-mode .ds-promo-card,
+body.dark-mode .ds-group-card,
+body.dark-mode .ds-stat-card,
+body.dark-mode .ds-chart-card,
+body.dark-mode .ds-overview-card {
+  background: rgba(45, 55, 72, 0.95);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
 /* Дополнительные стили для промокодов */
 .ds-filters {
   margin: 2rem 0;
@@ -1065,18 +1143,20 @@
 
 /* Промо карточка */
 .ds-promo-card, .ds-group-card {
-  background: var(--ds-panel);
-  border: 1px solid var(--ds-border);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: var(--ds-radius-lg);
   padding: 1.5rem;
   backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
   transition: all var(--ds-transition);
 }
 
 .ds-promo-card:hover, .ds-group-card:hover {
-  border-color: var(--ds-border-strong);
+  border-color: rgba(102, 126, 234, 0.5);
   transform: translateY(-4px);
-  box-shadow: var(--ds-shadow-soft);
+  box-shadow: 0 12px 48px rgba(102, 126, 234, 0.3);
+  background: rgba(255, 255, 255, 1);
 }
 
 .ds-promo-card.is-inactive, .ds-group-card.is-inactive {
@@ -1566,16 +1646,7 @@ body.dark-mode {
 }
 
 body.dark-mode .ds-container {
-  background: var(--ds-bg);
-}
-
-body.dark-mode .ds-promo-card,
-body.dark-mode .ds-group-card,
-body.dark-mode .ds-stat-card,
-body.dark-mode .ds-chart-card,
-body.dark-mode .ds-overview-card {
-  background: var(--ds-card-bg);
-  border-color: var(--ds-border);
+  background: transparent !important;
 }
 
 body.dark-mode .ds-hero {
@@ -1583,15 +1654,16 @@ body.dark-mode .ds-hero {
 }
 
 body.dark-mode .modal-content {
-  background: var(--ds-card-bg) !important;
-  border-color: var(--ds-border) !important;
+  background: rgba(45, 55, 72, 0.98) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(20px);
 }
 
 body.dark-mode .form-control,
 body.dark-mode .form-select,
 body.dark-mode .ds-date-input {
-  background: var(--ds-bg-soft) !important;
-  border-color: var(--ds-border) !important;
+  background: rgba(26, 32, 44, 0.8) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
   color: var(--ds-text) !important;
 }
 
