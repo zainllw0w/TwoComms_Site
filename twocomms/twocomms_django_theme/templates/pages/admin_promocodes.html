@@ -137,6 +137,15 @@
               <i class="fas fa-times"></i>
             </button>
           </div>
+          
+          <!-- Швидкий пошук -->
+          <div class="ds-search-box">
+            <i class="fas fa-search ds-search-icon"></i>
+            <input type="text" id="promoSearch" class="ds-search-input" placeholder="Швидкий пошук промокодів...">
+            <button type="button" id="clearSearch" class="ds-search-clear" style="display: none;">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
   </div>
 
   <!-- Список промокодов -->
@@ -1571,6 +1580,66 @@ body.dark-mode .ds-date-input {
 
 body.dark-mode .ds-dark-mode-toggle {
   background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+}
+
+/* Search Box */
+.ds-search-box {
+  position: relative;
+  margin-top: 1rem;
+}
+
+.ds-search-icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ds-text-muted);
+  font-size: 1rem;
+}
+
+.ds-search-input {
+  width: 100%;
+  padding: 0.75rem 3rem 0.75rem 3rem;
+  border: 2px solid var(--ds-border);
+  border-radius: 12px;
+  background: var(--ds-card-bg);
+  color: var(--ds-text);
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+}
+
+.ds-search-input:focus {
+  outline: none;
+  border-color: var(--ds-primary);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.ds-search-clear {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--ds-text-muted);
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.ds-search-clear:hover {
+  background: var(--ds-bg-soft);
+  color: var(--ds-text);
+}
+
+/* Highlight search results */
+.promo-highlight {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: white;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-weight: 600;
 }
 
 /* Fade-in animations */
@@ -4083,4 +4152,96 @@ document.getElementById('confirmDeleteBtn')?.addEventListener('click', function(
 });
 
 console.log('✅ Confirm delete initialized!');
+
+// ==================== ШВИДКИЙ ПОШУК ====================
+
+const searchInput = document.getElementById('promoSearch');
+const clearSearchBtn = document.getElementById('clearSearch');
+let searchTimeout;
+
+if (searchInput) {
+  searchInput.addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    const searchTerm = this.value.toLowerCase().trim();
+    
+    // Debounce для продуктивності
+    searchTimeout = setTimeout(() => {
+      filterPromos(searchTerm);
+      
+      // Показати/приховати кнопку очищення
+      if (searchTerm) {
+        clearSearchBtn.style.display = 'flex';
+      } else {
+        clearSearchBtn.style.display = 'none';
+      }
+    }, 300);
+  });
+}
+
+if (clearSearchBtn) {
+  clearSearchBtn.addEventListener('click', function() {
+    searchInput.value = '';
+    filterPromos('');
+    this.style.display = 'none';
+    searchInput.focus();
+  });
+}
+
+function filterPromos(searchTerm) {
+  const promoCards = document.querySelectorAll('.ds-promo-card');
+  let visibleCount = 0;
+  
+  promoCards.forEach(card => {
+    // Отримати текст для пошуку
+    const code = card.querySelector('.ds-promo-card__code')?.textContent.toLowerCase() || '';
+    const desc = card.querySelector('.ds-promo-card__desc')?.textContent.toLowerCase() || '';
+    const discount = card.querySelector('.ds-promo-card__value')?.textContent.toLowerCase() || '';
+    
+    const searchableText = `${code} ${desc} ${discount}`;
+    
+    if (!searchTerm || searchableText.includes(searchTerm)) {
+      card.style.display = '';
+      visibleCount++;
+      
+      // Highlight matches
+      if (searchTerm) {
+        highlightText(card, searchTerm);
+      } else {
+        removeHighlight(card);
+      }
+    } else {
+      card.style.display = 'none';
+      removeHighlight(card);
+    }
+  });
+  
+  // Показати результати
+  if (searchTerm) {
+    showToast(`Знайдено: ${visibleCount} з ${promoCards.length}`, 'info');
+  }
+  
+  // Оновити sidebar
+  updateSidebarBadges();
+}
+
+function highlightText(element, searchTerm) {
+  const codeEl = element.querySelector('.ds-promo-card__code');
+  if (codeEl && !codeEl.querySelector('.promo-highlight')) {
+    const originalText = codeEl.textContent;
+    const regex = new RegExp(`(${searchTerm})`, 'gi');
+    codeEl.innerHTML = originalText.replace(regex, '<span class="promo-highlight">$1</span>');
+  }
+}
+
+function removeHighlight(element) {
+  const codeEl = element.querySelector('.ds-promo-card__code');
+  if (codeEl) {
+    const highlightEl = codeEl.querySelector('.promo-highlight');
+    if (highlightEl) {
+      codeEl.textContent = codeEl.textContent;
+    }
+  }
+}
+
+console.log('✅ Search initialized!');
 </script>

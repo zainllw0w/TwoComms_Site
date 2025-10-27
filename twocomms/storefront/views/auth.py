@@ -331,8 +331,6 @@ def register_view(request):
                 form.add_error(None, 'Виникла помилка при реєстрації. Спробуйте ще раз або зверніться до підтримки.')
     
     return render(request, 'pages/auth_register.html', {'form': form})
-
-
 def logout_view(request):
     """
     View для выхода из системы.
@@ -341,19 +339,3 @@ def logout_view(request):
     """
     logout(request)
     return redirect('home')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
