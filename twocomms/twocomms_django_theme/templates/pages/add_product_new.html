@@ -119,11 +119,11 @@
                   
                   <!-- Категория и название -->
                   <div class="info-row">
-                    <div class="info-group category">
-                      <label class="form-label">
-                        <i class="fas fa-folder me-2"></i>Категорія
-                      </label>
-                      {{ form.category }}
+                  <div class="info-group category">
+                    <label class="form-label">
+                      <i class="fas fa-folder me-2"></i>Категорія
+                    </label>
+                    {{ form.category }}
                       <div class="form-hint">
                         <i class="fas fa-sitemap me-1"></i>Оберіть категорію товару
                       </div>
@@ -133,11 +133,11 @@
                         <i class="fas fa-tag me-2"></i>Назва товару
                       </label>
                       {{ form.title }}
-                      <div class="form-hint">
-                        <i class="fas fa-lightbulb me-1"></i>Унікальна назва товару
-                      </div>
+                    <div class="form-hint">
+                      <i class="fas fa-lightbulb me-1"></i>Унікальна назва товару
                     </div>
-                    <div class="info-group featured">
+                  </div>
+                  <div class="info-group featured">
                       <label class="form-label">
                         <i class="fas fa-star me-2"></i>Рекомендований товар
                       </label>
@@ -147,16 +147,37 @@
                           <label class="form-check-label" for="{{ form.featured.id_for_label }}">
                             <span class="toggle-label">Рекомендувати клієнтам</span>
                           </label>
-                        </div>
                       </div>
                     </div>
                   </div>
+                </div>
 
-                  <!-- Цена, балы и скидка -->
-                  <div class="info-row pricing-section">
-                    <div class="info-group price">
-                      <label class="form-label">
-                        <i class="fas fa-hryvnia me-2"></i>Ціна (грн)
+                <div class="info-row">
+                  <div class="info-group">
+                    <label class="form-label">
+                      <i class="fas fa-toggle-on me-2"></i>Статус публікації
+                    </label>
+                    {{ form.status }}
+                    <div class="form-hint">
+                      <i class="fas fa-info-circle me-1"></i>Оберіть, чи це чернетка, на модерації, чи вже опублікований товар.
+                    </div>
+                  </div>
+                  <div class="info-group">
+                    <label class="form-label">
+                      <i class="fas fa-sort-amount-up-alt me-2"></i>Пріоритет показу
+                    </label>
+                    {{ form.priority }}
+                    <div class="form-hint">
+                      <i class="fas fa-lightbulb me-1"></i>Чим більше значення, тим вище товар у списках. За замовчуванням 0.
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Цена, балы и скидка -->
+                <div class="info-row pricing-section">
+                  <div class="info-group price">
+                    <label class="form-label">
+                      <i class="fas fa-hryvnia me-2"></i>Ціна (грн)
                       </label>
                       {{ form.price }}
                       <div class="form-hint">
@@ -183,15 +204,27 @@
                     </div>
                   </div>
 
-                  <!-- Описание -->
+                  <!-- Опис -->
                   <div class="info-row description">
+                    <div class="info-group">
+                      <label class="form-label">
+                        <i class="fas fa-align-left me-2"></i>Короткий опис
+                      </label>
+                      {{ form.short_description }}
+                      <div class="form-hint d-flex align-items-center justify-content-between">
+                        <span><i class="fas fa-lightbulb me-1"></i>До 300 символів. Використовується у списках товарів.</span>
+                        <button type="button" class="btn btn-outline-light btn-sm" id="copy-full-to-short">
+                          <i class="fas fa-level-down-alt me-1"></i>Заповнити з повного
+                        </button>
+                      </div>
+                    </div>
                     <div class="info-group full-width">
                       <label class="form-label">
-                        <i class="fas fa-align-left me-2"></i>Опис товару
+                        <i class="fas fa-align-justify me-2"></i>Повний опис
                       </label>
-                      {{ form.description }}
+                      {{ form.full_description }}
                       <div class="form-hint">
-                        <i class="fas fa-edit me-1"></i>Детальний опис товару для клієнтів
+                        <i class="fas fa-edit me-1"></i>Детальний опис товару, допускається HTML-розмітка.
                       </div>
                     </div>
                   </div>
@@ -561,6 +594,18 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentProductId = null;
     let colorsCount = 0;
     let imagesCount = 0;
+
+    const shortDescriptionField = document.getElementById('{{ form.short_description.id_for_label }}');
+    const fullDescriptionField = document.getElementById('{{ form.full_description.id_for_label }}');
+    const copyDescriptionBtn = document.getElementById('copy-full-to-short');
+
+    if (copyDescriptionBtn && shortDescriptionField && fullDescriptionField) {
+        copyDescriptionBtn.addEventListener('click', () => {
+            shortDescriptionField.value = fullDescriptionField.value;
+            shortDescriptionField.dispatchEvent(new Event('input', { bubbles: true }));
+            showNotification('Короткий опис оновлено з повного опису.', 'success');
+        });
+    }
 
     // Функция создания товара
     function createProduct() {
