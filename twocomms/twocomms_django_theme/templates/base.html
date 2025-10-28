@@ -362,7 +362,21 @@
   /></noscript>
   <!-- End Meta Pixel Code -->
   {% block structured_data %}{% endblock %}
-</head><body class='bg-body text-body' style='font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;'>{% include 'partials/header.html' %}<main class='container-xxl py-4 py-md-5'>{% block breadcrumbs %}{% endblock %}{% block content %}{% endblock %}</main>{% block modals %}{% endblock %}{% cache 86400 footer_block %}{% include 'partials/footer.html' %}{% endcache %}
+  
+  <!-- Google Tag Manager -->
+  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+  })(window,document,'script','dataLayer','GTM-PRLLBF9H');</script>
+  <!-- End Google Tag Manager -->
+</head>
+<body class='bg-body text-body' style='font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;'>
+  <!-- Google Tag Manager (noscript) -->
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PRLLBF9H"
+  height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+  <!-- End Google Tag Manager (noscript) -->
+  {% include 'partials/header.html' %}<main class='container-xxl py-4 py-md-5'>{% block breadcrumbs %}{% endblock %}{% block content %}{% endblock %}</main>{% block modals %}{% endblock %}{% cache 86400 footer_block %}{% include 'partials/footer.html' %}{% endcache %}
 
 <!-- Мобильные мини-панели (только для мобильной версии) -->
 <div id="mini-cart-panel-mobile" class="cart-panel d-none d-md-none">
