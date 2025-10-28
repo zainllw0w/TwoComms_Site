@@ -436,16 +436,33 @@ def google_merchant_feed(request):
     Путь: /google-merchant-feed.xml (и альтернативы)
     """
     from django.conf import settings
+    
+    # Приоритет поиска: сначала media (автоматически обновляется), потом static
+    media_root = getattr(settings, 'MEDIA_ROOT', os.path.join(settings.BASE_DIR, 'media'))
     candidates = [
+        os.path.join(media_root, 'google-merchant-v3.xml'),
+        os.path.join(media_root, 'google_merchant_feed.xml'),
         os.path.join(settings.BASE_DIR, 'twocomms', 'static', 'google_merchant_feed.xml'),
         os.path.join(settings.BASE_DIR, 'static', 'google_merchant_feed.xml'),
     ]
+    
     # Попробуем также STATIC_ROOT, если настроен
     static_root = getattr(settings, 'STATIC_ROOT', None)
     if static_root:
         candidates.append(os.path.join(static_root, 'google_merchant_feed.xml'))
 
     existing = [(p, os.path.getmtime(p)) for p in candidates if os.path.exists(p)]
+    if not existing:
+        # Если файл не найден, попробуем сгенерировать его
+        try:
+            from django.core.management import call_command
+            output_path = os.path.join(media_root, 'google-merchant-v3.xml')
+            call_command('generate_google_merchant_feed', output=output_path, verbosity=0)
+            if os.path.exists(output_path):
+                existing = [(output_path, os.path.getmtime(output_path))]
+        except Exception:
+            pass
+    
     if not existing:
         raise Http404("Feed file not found")
 

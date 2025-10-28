@@ -21,3 +21,9 @@ class StorefrontConfig(AppConfig):
             from . import cache_signals  # noqa: F401
         except Exception:
             pass
+        
+        # Сигналы для автоматического обновления Google Merchant feed
+        try:
+            from . import signals  # noqa: F401
+        except Exception:
+            pass
