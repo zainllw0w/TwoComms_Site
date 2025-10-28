@@ -546,7 +546,7 @@ _CSP_DEFAULT = (
     "https://analytics.google.com https://www.facebook.com https://connect.facebook.net "
     "https://graph.facebook.com https://www.clarity.ms https://scripts.clarity.ms https://*.clarity.ms "
     "https://cdn.jsdelivr.net; "
-    "frame-src 'self' https://www.facebook.com https://connect.facebook.net; "
+    "frame-src 'self' https://www.googletagmanager.com https://www.facebook.com https://connect.facebook.net; "
     "object-src 'none'; "
     "base-uri 'self'; "
     "form-action 'self'; "
