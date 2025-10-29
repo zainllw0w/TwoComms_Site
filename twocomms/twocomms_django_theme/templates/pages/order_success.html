@@ -211,8 +211,31 @@
     // Сохраняем флаг что событие отправлено
     sessionStorage.setItem(storageKey, 'true');
     
-    // Facebook Pixel (оставляем для обратной совместимости)
+    // Meta Pixel (Facebook Pixel) Purchase с Advanced Matching
     if (window.fbq) {
+      // Подготавливаем данные для Advanced Matching
+      var fbUserData = {};
+      
+      if (email) {
+        fbUserData.em = email.toLowerCase(); // Email
+      }
+      if (phone) {
+        fbUserData.ph = phone.replace(/\D/g, ''); // Phone (только цифры)
+      }
+      if (fullName) {
+        var nameParts = fullName.trim().split(/\s+/);
+        if (nameParts.length >= 1) {
+          fbUserData.fn = nameParts[0].toLowerCase(); // First Name
+        }
+        if (nameParts.length >= 2) {
+          fbUserData.ln = nameParts[nameParts.length - 1].toLowerCase(); // Last Name
+        }
+      }
+      if (city) {
+        fbUserData.ct = city.toLowerCase(); // City
+      }
+      
+      // Отправляем Purchase event с Advanced Matching
       fbq('track', 'Purchase', {
         value: value,
         currency: currency,
@@ -223,9 +246,10 @@
           };
         }),
         content_type: 'product'
-      });
-      console.log('Facebook Pixel Purchase event sent');
-    }
+      }, fbUserData);
+      
+      console.log('Meta Pixel Purchase event sent with Advanced Matching:', fbUserData);
+  }
     
   } catch(e) {
     console.error('Error in purchase tracking:', e);
