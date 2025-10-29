@@ -6,9 +6,16 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/dropshipper.css' %}?v=20251024clean" media="all">
+<link rel="stylesheet" href="{% static 'css/dropshipper-auth-modal.css' %}" media="all">
 {% endblock %}
 
 {% block content %}
+{% if is_locked %}
+  {# Заблокированная версия для неавторизованных #}
+  {% include "partials/dropshipper_dashboard_locked.html" %}
+  {% include "partials/dropshipper_auth_modal.html" %}
+{% else %}
+  {# Обычная версия для авторизованных #}
 <div class="ds-shell">
   {% include "partials/dropshipper_sidebar.html" with active_tab="dashboard" %}
 
@@ -1005,18 +1012,25 @@
     </section>
   </main>
 </div>
+{% endif %}{# Конец условия is_locked #}
 {% endblock %}
 
 {% block modals %}
 <!-- Модальные окна - ВНЕ main, прямо в body -->
+{% if not is_locked %}
 {% include "partials/dropshipper_modals.html" %}
 <!-- Модальное окно добавления товара создается динамически через dropshipper-product-modal.js -->
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
 {% compress js %}
 <script src="{% static 'js/dropshipper.js' %}?v=20251023early" defer></script>
+{% if not is_locked %}
 <script src="{% static 'js/dropshipper.dashboard.js' %}?v=20251023delegate" defer></script>
 <script src="{% static 'js/dropshipper-product-modal.js' %}?v=20251023delegate" defer></script>
+{% else %}
+<script src="{% static 'js/dropshipper-auth-modal.js' %}" defer></script>
+{% endif %}
 {% endcompress %}
 {% endblock %}

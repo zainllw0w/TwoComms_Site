@@ -1,0 +1,235 @@
+{% load static %}
+
+<!-- Модальное окно авторизации/регистрации для дропшипа -->
+<div class="ds-auth-modal" id="dsAuthModal" style="display: none;">
+  <div class="ds-auth-overlay" data-close-modal></div>
+  
+  <div class="ds-auth-container">
+    <button type="button" class="ds-auth-close" data-close-modal aria-label="Закрити">
+      <i class="fas fa-times"></i>
+    </button>
+
+    <!-- Форма входа -->
+    <div class="ds-auth-form" id="dsLoginForm" data-auth-form="login">
+      <div class="ds-auth-header">
+        <div class="ds-auth-icon">
+          <i class="fas fa-sign-in-alt"></i>
+        </div>
+        <h2 class="ds-auth-title">Вхід до кабінету дропшипера</h2>
+        <p class="ds-auth-subtitle">Отримайте доступ до всіх функцій та замовлень</p>
+      </div>
+
+      <!-- Вход через Google -->
+      <a href="/oauth/login/google-oauth2/?next={{ request.path }}" class="ds-auth-google-btn">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
+          <path d="M9 18c2.43 0 4.467-.806 5.956-2.183l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill="#34A853"/>
+          <path d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707 0-.593.102-1.167.282-1.707V4.961H.957C.347 6.175 0 7.55 0 9s.348 2.825.957 4.039l3.007-2.332z" fill="#FBBC05"/>
+          <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+        </svg>
+        <span>Увійти через Google</span>
+      </a>
+
+      <div class="ds-auth-divider">
+        <span>або</span>
+      </div>
+
+      <!-- Форма входа по логину/паролю -->
+      <form method="post" action="/login/" class="ds-auth-inputs" id="loginFormSubmit">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.path }}">
+        
+        <div class="ds-auth-field">
+          <label for="loginUsername" class="ds-auth-label">
+            <i class="fas fa-user"></i>
+            <span>Логін або Email</span>
+          </label>
+          <input 
+            type="text" 
+            id="loginUsername" 
+            name="username" 
+            class="ds-auth-input" 
+            placeholder="Введіть ваш логін"
+            autocomplete="username"
+            required
+          >
+        </div>
+
+        <div class="ds-auth-field">
+          <label for="loginPassword" class="ds-auth-label">
+            <i class="fas fa-lock"></i>
+            <span>Пароль</span>
+          </label>
+          <div class="ds-auth-password-wrapper">
+            <input 
+              type="password" 
+              id="loginPassword" 
+              name="password" 
+              class="ds-auth-input" 
+              placeholder="Введіть ваш пароль"
+              autocomplete="current-password"
+              required
+            >
+            <button type="button" class="ds-auth-password-toggle" data-toggle-password="loginPassword">
+              <i class="fas fa-eye"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="ds-auth-error" id="loginError" style="display: none;"></div>
+
+        <button type="submit" class="ds-auth-submit">
+          <i class="fas fa-sign-in-alt"></i>
+          <span>Увійти</span>
+          <div class="ds-auth-submit-loader" style="display: none;">
+            <i class="fas fa-spinner fa-spin"></i>
+          </div>
+        </button>
+      </form>
+
+      <div class="ds-auth-footer">
+        <p>Немає облікового запису?</p>
+        <button type="button" class="ds-auth-switch" data-switch-to="register">
+          Зареєструватися
+          <i class="fas fa-arrow-right"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Форма регистрации -->
+    <div class="ds-auth-form" id="dsRegisterForm" data-auth-form="register" style="display: none;">
+      <div class="ds-auth-header">
+        <div class="ds-auth-icon ds-auth-icon--register">
+          <i class="fas fa-user-plus"></i>
+        </div>
+        <h2 class="ds-auth-title">Реєстрація дропшипера</h2>
+        <p class="ds-auth-subtitle">Створіть акаунт та починайте заробляти</p>
+      </div>
+
+      <!-- Регистрация через Google -->
+      <a href="/oauth/login/google-oauth2/?next={{ request.path }}" class="ds-auth-google-btn">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
+          <path d="M9 18c2.43 0 4.467-.806 5.956-2.183l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill="#34A853"/>
+          <path d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707 0-.593.102-1.167.282-1.707V4.961H.957C.347 6.175 0 7.55 0 9s.348 2.825.957 4.039l3.007-2.332z" fill="#FBBC05"/>
+          <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+        </svg>
+        <span>Зареєструватися через Google</span>
+      </a>
+
+      <div class="ds-auth-divider">
+        <span>або</span>
+      </div>
+
+      <!-- Форма регистрации -->
+      <form method="post" action="/register/" class="ds-auth-inputs" id="registerFormSubmit">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.path }}">
+        
+        <div class="ds-auth-field">
+          <label for="registerUsername" class="ds-auth-label">
+            <i class="fas fa-user"></i>
+            <span>Логін</span>
+          </label>
+          <input 
+            type="text" 
+            id="registerUsername" 
+            name="username" 
+            class="ds-auth-input" 
+            placeholder="Оберіть унікальний логін"
+            autocomplete="username"
+            required
+            pattern="[a-zA-Z0-9_]{3,30}"
+            title="Логін: 3-30 символів, тільки латиниця, цифри та підкреслення"
+          >
+          <small class="ds-auth-hint">Тільки латиниця, цифри та підкреслення (3-30 символів)</small>
+        </div>
+
+        <div class="ds-auth-field">
+          <label for="registerEmail" class="ds-auth-label">
+            <i class="fas fa-envelope"></i>
+            <span>Email</span>
+          </label>
+          <input 
+            type="email" 
+            id="registerEmail" 
+            name="email" 
+            class="ds-auth-input" 
+            placeholder="your@email.com"
+            autocomplete="email"
+            required
+          >
+        </div>
+
+        <div class="ds-auth-field">
+          <label for="registerPassword" class="ds-auth-label">
+            <i class="fas fa-lock"></i>
+            <span>Пароль</span>
+          </label>
+          <div class="ds-auth-password-wrapper">
+            <input 
+              type="password" 
+              id="registerPassword" 
+              name="password1" 
+              class="ds-auth-input" 
+              placeholder="Створіть надійний пароль"
+              autocomplete="new-password"
+              required
+              minlength="8"
+            >
+            <button type="button" class="ds-auth-password-toggle" data-toggle-password="registerPassword">
+              <i class="fas fa-eye"></i>
+            </button>
+          </div>
+          <div class="ds-auth-password-strength" id="passwordStrength">
+            <div class="ds-auth-password-strength-bar">
+              <div class="ds-auth-password-strength-fill" id="passwordStrengthFill"></div>
+            </div>
+            <small class="ds-auth-password-strength-text" id="passwordStrengthText">Введіть пароль</small>
+          </div>
+          <small class="ds-auth-hint">Мінімум 8 символів, використовуйте великі/малі літери, цифри та спецсимволи</small>
+        </div>
+
+        <div class="ds-auth-field">
+          <label for="registerPassword2" class="ds-auth-label">
+            <i class="fas fa-lock"></i>
+            <span>Підтвердження пароля</span>
+          </label>
+          <div class="ds-auth-password-wrapper">
+            <input 
+              type="password" 
+              id="registerPassword2" 
+              name="password2" 
+              class="ds-auth-input" 
+              placeholder="Повторіть пароль"
+              autocomplete="new-password"
+              required
+            >
+            <button type="button" class="ds-auth-password-toggle" data-toggle-password="registerPassword2">
+              <i class="fas fa-eye"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="ds-auth-error" id="registerError" style="display: none;"></div>
+
+        <button type="submit" class="ds-auth-submit ds-auth-submit--register">
+          <i class="fas fa-user-plus"></i>
+          <span>Зареєструватися</span>
+          <div class="ds-auth-submit-loader" style="display: none;">
+            <i class="fas fa-spinner fa-spin"></i>
+          </div>
+        </button>
+      </form>
+
+      <div class="ds-auth-footer">
+        <p>Вже є акаунт?</p>
+        <button type="button" class="ds-auth-switch" data-switch-to="login">
+          Увійти
+          <i class="fas fa-arrow-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+

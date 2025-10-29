@@ -161,9 +161,11 @@ def _build_products_context(request, *, per_page=None):
 
 def dropshipper_dashboard(request):
     """Главная страница дропшипера с вкладками"""
-    # Если пользователь не авторизован, показываем приветственную страницу
+    # Для неавторизованных показываем красивую страницу с заблокированным контентом
     if not request.user.is_authenticated:
-        return render(request, 'pages/dropshipper_welcome.html')
+        return render(request, 'pages/dropshipper_dashboard.html', {
+            'is_locked': True  # Флаг для шаблона
+        })
     
     # Получаем или создаем статистику дропшипера
     stats, created = DropshipperStats.objects.get_or_create(dropshipper=request.user)
@@ -217,6 +219,7 @@ def dropshipper_dashboard(request):
     monobank_logger.info(f"💰 Stats for {request.user.username}: total_profit={stats.total_profit}, total_revenue={stats.total_revenue}, total_drop_cost={stats.total_drop_cost}")
 
     context = {
+        'is_locked': False,
         'stats': stats,
         'recent_orders': recent_orders,
         'total_orders_count': total_orders_count,
