@@ -171,6 +171,7 @@ from .admin import (
     admin_dashboard,
     manage_products,
     add_product,
+    admin_product_builder,
     add_category,
     add_print,
     manage_print_proposals,
@@ -353,4 +354,3 @@ __all__ = [
     # Aliases (для обратной совместимости)
     'cart', 'cart_remove', 'clean_cart', 'profile_setup_db', 'order_create', 'register_view_new',
 ]
-
