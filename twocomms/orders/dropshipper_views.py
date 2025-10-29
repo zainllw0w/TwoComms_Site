@@ -236,9 +236,8 @@ def dropshipper_dashboard(request):
     return render(request, 'pages/dropshipper_dashboard.html', context)
 
 
-@login_required
 def dropshipper_products(request):
-    """Страница с товарами для дропшиперов - показываем все товары без пагинации"""
+    """Страница с товарами для дропшиперов - показываем все товары без пагинации (доступна всем)"""
     products_context = _build_products_context(request, per_page=None)  # per_page=None показывает все товары
     
     context = {
