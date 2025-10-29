@@ -17580,6 +17580,13 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.subsection-header .subsection-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .subsection-header h3 {
   display: flex;
   align-items: center;
@@ -17618,6 +17625,19 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 .add-btn svg {
   width: 16px;
   height: 16px;
+}
+
+.add-btn-outline {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  box-shadow: none;
+}
+
+.add-btn-outline:hover {
+  background: rgba(16, 185, 129, 0.2);
+  color: #065f46;
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.25);
 }
 
 /* Categories Grid */
@@ -21691,6 +21711,19 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   height: 20px;
 }
 
+.btn-create-category-beta {
+  background: rgba(139, 92, 246, 0.12);
+  color: #5b21b6;
+  box-shadow: none;
+  border: 1px dashed rgba(139, 92, 246, 0.45);
+}
+
+.btn-create-category-beta:hover {
+  background: rgba(129, 80, 236, 0.18);
+  color: #4c1d95;
+  box-shadow: 0 6px 18px rgba(139, 92, 246, 0.25);
+}
+
 .btn-create-category-empty {
   display: flex;
   align-items: center;
@@ -21715,6 +21748,44 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
   background: linear-gradient(135deg, #7c3aed, #6d28d9);
   color: white;
   text-decoration: none;
+}
+
+.btn-create-category-empty-beta {
+  background: rgba(139, 92, 246, 0.12);
+  border: 1px dashed rgba(139, 92, 246, 0.45);
+  color: #5b21b6;
+  margin-top: 1rem;
+}
+
+.btn-create-category-empty-beta:hover {
+  background: rgba(129, 80, 236, 0.2);
+  color: #4c1d95;
+}
+
+.btn-empty-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.12);
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.btn-empty-new:hover {
+  background: rgba(59, 130, 246, 0.2);
+  color: #1e40af;
+  text-decoration: none;
+}
+
+.btn-empty-new svg {
+  width: 16px;
+  height: 16px;
 }
 
 .btn-create-category-empty svg {

@@ -412,7 +412,8 @@ def payment_callback(request):
         order = Order.objects.get(order_number=order_number)
         
         if status == 'success':
-            return redirect('order_success', order_number=order_number)
+            # ИСПРАВЛЕНО: Редирект с order_id вместо order_number
+            return redirect('order_success', order_id=order.id)
         else:
             return redirect('order_failed')
             

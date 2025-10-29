@@ -58,6 +58,17 @@
               </div>
             </div>
             
+            {% if user.is_authenticated %}
+            <div class="auth-suggestion">
+              <div class="auth-suggestion-content">
+                <h4>✅ Дякуємо за покупку!</h4>
+                <p>Ви можете переглянути це та інші замовлення у вашому особистому кабінеті.</p>
+                <div class="auth-buttons">
+                  <a href="{% url 'my_orders' %}" class="btn btn-primary">Мої замовлення</a>
+                </div>
+              </div>
+            </div>
+            {% else %}
             <div class="auth-suggestion">
               <div class="auth-suggestion-content">
                 <h4>🔐 Створіть акаунт для зручності</h4>
@@ -77,6 +88,7 @@
                 </div>
               </div>
             </div>
+            {% endif %}
             
             <div class="order-success-actions">
               <a href="{% url 'home' %}" class="btn btn-cta">Повернутись на головну</a>
@@ -92,19 +104,132 @@
 
 {% block extra_js %}
 <div id="purchase-payload"
+     data-order-id="{{ order.id }}"
+     data-order-number="{{ order.order_number }}"
      data-value="{{ order.total_sum|floatformat:2 }}"
      data-currency="UAH"
-     data-contents='[{% for item in order.items.all %}{"id":"{{ item.product.id }}","quantity":{{ item.qty }}}{% if not forloop.last %},{% endif %}{% endfor %}]'>
+     data-full-name="{{ order.full_name }}"
+     data-phone="{{ order.phone }}"
+     data-city="{{ order.city }}"
+     {% if user.is_authenticated and user.userprofile.email %}data-email="{{ user.userprofile.email }}"{% endif %}
+     data-contents='[{% for item in order.items.all %}{"id":"{{ item.product.id }}","quantity":{{ item.qty }},"price":{{ item.unit_price|floatformat:2 }},"name":"{{ item.title|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]'>
 </div>
+
 <script>
-try{
-  var el=document.getElementById('purchase-payload');
-  if(el && window.fbq){
-    var value=parseFloat(el.dataset.value||'0');
-    var currency=el.dataset.currency||'UAH';
-    var contents=[]; try{ contents=JSON.parse(el.dataset.contents||'[]'); }catch(_){ contents=[]; }
-    fbq('track','Purchase',{ value:value, currency:currency, contents:contents, content_type:'product' });
+(function() {
+  'use strict';
+  
+  try {
+    var el = document.getElementById('purchase-payload');
+    if (!el) return;
+    
+    // Защита от дублирования: проверяем был ли уже отправлен event для этого заказа
+    var orderId = el.dataset.orderId;
+    var storageKey = 'gtm_purchase_' + orderId;
+    
+    if (sessionStorage.getItem(storageKey)) {
+      console.log('GTM Purchase event already sent for order:', orderId);
+      return;
+    }
+    
+    // Парсим данные
+    var orderNumber = el.dataset.orderNumber || '';
+    var value = parseFloat(el.dataset.value || '0');
+    var currency = el.dataset.currency || 'UAH';
+    var fullName = el.dataset.fullName || '';
+    var phone = el.dataset.phone || '';
+    var city = el.dataset.city || '';
+    var email = el.dataset.email || '';
+    var contents = [];
+    
+    try {
+      contents = JSON.parse(el.dataset.contents || '[]');
+    } catch(e) {
+      console.error('Error parsing contents:', e);
+      contents = [];
+    }
+    
+    // Подготавливаем данные для GTM
+    var purchaseData = {
+      event: 'purchase',
+      ecommerce: {
+        transaction_id: orderNumber,
+        value: value,
+        currency: currency,
+        items: contents.map(function(item) {
+          return {
+            item_id: item.id,
+            item_name: item.name || 'Product ' + item.id,
+            quantity: item.quantity,
+            price: item.price || 0
+          };
+        })
+      }
+    };
+    
+    // Enhanced Conversions данные
+    var userData = {};
+    
+    // Разбиваем ФИО на части (если есть)
+    if (fullName) {
+      var nameParts = fullName.trim().split(/\s+/);
+      if (nameParts.length >= 2) {
+        userData.first_name = nameParts[0];
+        userData.last_name = nameParts[nameParts.length - 1];
+      } else {
+        userData.first_name = fullName;
+      }
+    }
+    
+    if (phone) {
+      userData.phone_number = phone;
+    }
+    
+    if (email) {
+      userData.email = email;
+    }
+    
+    if (city) {
+      userData.address = {
+        city: city
+      };
+    }
+    
+    // Добавляем userData если есть хотя бы одно поле
+    if (Object.keys(userData).length > 0) {
+      purchaseData.user_data = userData;
+    }
+    
+    // Инициализируем dataLayer если его нет
+    window.dataLayer = window.dataLayer || [];
+    
+    // Отправляем событие в GTM
+    window.dataLayer.push(purchaseData);
+    
+    console.log('GTM Purchase event sent:', purchaseData);
+    
+    // Сохраняем флаг что событие отправлено
+    sessionStorage.setItem(storageKey, 'true');
+    
+    // Facebook Pixel (оставляем для обратной совместимости)
+    if (window.fbq) {
+      fbq('track', 'Purchase', {
+        value: value,
+        currency: currency,
+        contents: contents.map(function(item) {
+          return {
+            id: item.id,
+            quantity: item.quantity
+          };
+        }),
+        content_type: 'product'
+      });
+      console.log('Facebook Pixel Purchase event sent');
+    }
+    
+  } catch(e) {
+    console.error('Error in purchase tracking:', e);
   }
-}catch(e){}
+})();
 </script>
 {% endblock %}

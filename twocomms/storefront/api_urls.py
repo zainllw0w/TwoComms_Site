@@ -12,7 +12,8 @@ from .viewsets import (
     ProductViewSet,
     CartViewSet,
     AnalyticsViewSet,
-    CommunicationViewSet
+    CommunicationViewSet,
+    AdminProductBuilderViewSet,
 )
 
 
@@ -25,6 +26,7 @@ router.register(r'products', ProductViewSet, basename='api-product')
 router.register(r'cart', CartViewSet, basename='api-cart')
 router.register(r'analytics', AnalyticsViewSet, basename='api-analytics')
 router.register(r'communication', CommunicationViewSet, basename='api-communication')
+router.register(r'admin/product-builder', AdminProductBuilderViewSet, basename='api-admin-product-builder')
 
 # URL patterns
 urlpatterns = [
@@ -42,4 +44,3 @@ urlpatterns = [
 # POST   /api/cart/add/                      - Добавить в корзину
 # POST   /api/cart/remove/                   - Удалить из корзины
 # POST   /api/cart/clear/                    - Очистить корзину
-

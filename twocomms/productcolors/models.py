@@ -25,10 +25,24 @@ class ProductColorVariant(models.Model):
     color = models.ForeignKey(Color, on_delete=models.PROTECT, related_name='variants')
     is_default = models.BooleanField(default=False)
     order = models.PositiveIntegerField(default=0)
+    sku = models.CharField(max_length=64, blank=True, verbose_name='SKU')
+    barcode = models.CharField(max_length=64, blank=True, verbose_name='Штрих-код')
+    stock = models.PositiveIntegerField(default=0, verbose_name='Залишок')
+    price_override = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        verbose_name='Ціна для варіанту (грн)'
+    )
+    metadata = models.JSONField(blank=True, default=dict, verbose_name='Додаткові дані')
 
     class Meta:
         ordering = ['order', 'id']
         unique_together = (('product', 'color'),)
+        indexes = [
+            models.Index(fields=['product', 'order'], name='idx_variant_product_order'),
+            models.Index(fields=['product', 'is_default'], name='idx_variant_default'),
+            models.Index(fields=['sku'], name='idx_variant_sku'),
+        ]
 
     def __str__(self):
         return f'{self.product.title} [{self.color}]'

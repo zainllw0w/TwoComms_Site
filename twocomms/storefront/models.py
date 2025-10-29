@@ -1,7 +1,10 @@
+from decimal import Decimal
+
 from django.db import models
 from django.contrib.auth.models import User
 from django.conf import settings
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -27,6 +30,118 @@ class Category(models.Model):
     
     def __str__(self):
         return self.name
+
+
+class Catalog(models.Model):
+    name = models.CharField(max_length=200, verbose_name='Назва каталогу')
+    slug = models.SlugField(unique=True, verbose_name='URL slug')
+    description = models.TextField(blank=True, verbose_name='Опис каталогу')
+    order = models.PositiveIntegerField(default=0, verbose_name='Порядок')
+    is_active = models.BooleanField(default=True, verbose_name='Активний')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Створено')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Оновлено')
+
+    class Meta:
+        verbose_name = 'Каталог'
+        verbose_name_plural = 'Каталоги'
+        ordering = ['order', 'name']
+        indexes = [
+            models.Index(fields=['is_active'], name='idx_catalog_active'),
+            models.Index(fields=['order', 'name'], name='idx_catalog_order_name'),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class CatalogOption(models.Model):
+    class OptionType(models.TextChoices):
+        SIZE = 'size', _('Розмір')
+        MATERIAL = 'material', _('Матеріал')
+        COLOR = 'color', _('Колір')
+        CUSTOM = 'custom', _('Кастомна опція')
+
+    catalog = models.ForeignKey(Catalog, on_delete=models.CASCADE, related_name='options', verbose_name='Каталог')
+    name = models.CharField(max_length=200, verbose_name='Назва опції')
+    option_type = models.CharField(
+        max_length=50,
+        choices=OptionType.choices,
+        default=OptionType.CUSTOM,
+        verbose_name='Тип опції'
+    )
+    is_required = models.BooleanField(default=True, verbose_name="Обов'язкова")
+    is_additional_cost = models.BooleanField(default=False, verbose_name='Додаткова вартість')
+    additional_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name='Додаткова ціна (грн)'
+    )
+    help_text = models.CharField(max_length=255, blank=True, verbose_name='Підказка')
+    order = models.PositiveIntegerField(default=0, verbose_name='Порядок')
+
+    class Meta:
+        verbose_name = 'Опція каталогу'
+        verbose_name_plural = 'Опції каталогу'
+        ordering = ['order', 'id']
+        indexes = [
+            models.Index(fields=['catalog', 'order'], name='idx_catalog_option_order'),
+            models.Index(fields=['catalog', 'option_type'], name='idx_catalog_option_type'),
+        ]
+        unique_together = ('catalog', 'name')
+
+    def __str__(self):
+        return f'{self.catalog.name}: {self.name}'
+
+
+class CatalogOptionValue(models.Model):
+    option = models.ForeignKey(CatalogOption, on_delete=models.CASCADE, related_name='values', verbose_name='Опція')
+    value = models.CharField(max_length=200, verbose_name='Значення')
+    display_name = models.CharField(max_length=200, verbose_name='Назва для відображення')
+    image = models.ImageField(upload_to='catalog_options/', blank=True, null=True, verbose_name='Зображення')
+    order = models.PositiveIntegerField(default=0, verbose_name='Порядок')
+    is_default = models.BooleanField(default=False, verbose_name='За замовчуванням')
+    metadata = models.JSONField(default=dict, blank=True, verbose_name='Додаткові дані')
+
+    class Meta:
+        verbose_name = 'Значення опції'
+        verbose_name_plural = 'Значення опцій'
+        ordering = ['order', 'id']
+        indexes = [
+            models.Index(fields=['option', 'order'], name='idx_option_value_order'),
+        ]
+        unique_together = ('option', 'value')
+
+    def __str__(self):
+        return f'{self.display_name} ({self.option.name})'
+
+
+class SizeGrid(models.Model):
+    catalog = models.ForeignKey(
+        Catalog,
+        on_delete=models.CASCADE,
+        related_name='size_grids',
+        verbose_name='Каталог'
+    )
+    name = models.CharField(max_length=200, verbose_name='Назва сітки розмірів')
+    image = models.ImageField(upload_to='size_grids/', blank=True, null=True, verbose_name='Зображення сітки розмірів')
+    description = models.TextField(blank=True, verbose_name='Опис сітки')
+    is_active = models.BooleanField(default=True, verbose_name='Активна')
+    order = models.PositiveIntegerField(default=0, verbose_name='Порядок')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Створено')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Оновлено')
+
+    class Meta:
+        verbose_name = 'Сітка розмірів'
+        verbose_name_plural = 'Сітки розмірів'
+        ordering = ['order', 'name']
+        indexes = [
+            models.Index(fields=['catalog', 'order'], name='idx_size_grid_catalog_order'),
+            models.Index(fields=['is_active'], name='idx_size_grid_active'),
+        ]
+
+    def __str__(self):
+        return f'{self.catalog.name}: {self.name}'
 
 
 class PrintProposal(models.Model):
@@ -60,19 +175,60 @@ class PrintProposal(models.Model):
             base += f" (+{self.awarded_points} б.)"
         return base
 
+class ProductStatus(models.TextChoices):
+    DRAFT = 'draft', _('Чернетка')
+    REVIEW = 'review', _('На модерації')
+    SCHEDULED = 'scheduled', _('Заплановано')
+    PUBLISHED = 'published', _('Опубліковано')
+    ARCHIVED = 'archived', _('Архів')
+
+
 class Product(models.Model):
     title = models.CharField(max_length=200)
     slug = models.SlugField(unique=True)
     category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products')
-    price = models.PositiveIntegerField()
+    catalog = models.ForeignKey(
+        Catalog,
+        on_delete=models.PROTECT,
+        related_name='products',
+        null=True,
+        blank=True,
+        verbose_name='Каталог'
+    )
+    size_grid = models.ForeignKey(
+        SizeGrid,
+        on_delete=models.SET_NULL,
+        related_name='products',
+        null=True,
+        blank=True,
+        verbose_name='Сітка розмірів'
+    )
+    price = models.PositiveIntegerField(verbose_name='Ціна (грн)')
     # has_discount field removed - see migration 0008_remove_has_discount_field
     # Use @property has_discount below instead (auto-calculated from discount_percent)
     discount_percent = models.PositiveIntegerField(blank=True, null=True)
     featured = models.BooleanField(default=False)
-    description = models.TextField(blank=True)
+    short_description = models.CharField(max_length=300, blank=True, verbose_name='Короткий опис')
+    description = models.TextField(blank=True, verbose_name='Опис (legacy)')
+    full_description = models.TextField(blank=True, verbose_name='Повний опис')
     main_image = models.ImageField(upload_to='products/', blank=True, null=True)
     main_image_alt = models.CharField(max_length=200, blank=True, null=True, verbose_name='Alt-текст головного зображення')
     points_reward = models.PositiveIntegerField(default=0, verbose_name='Бали за покупку')
+    status = models.CharField(
+        max_length=20,
+        choices=ProductStatus.choices,
+        default=ProductStatus.DRAFT,
+        verbose_name='Статус публікації'
+    )
+    priority = models.PositiveIntegerField(default=0, verbose_name='Пріоритет показу')
+    published_at = models.DateTimeField(blank=True, null=True, verbose_name='Опубліковано')
+    unpublished_reason = models.CharField(max_length=200, blank=True, verbose_name='Причина відключення')
+    last_reviewed_at = models.DateTimeField(blank=True, null=True, verbose_name='Остання модерація')
+    seo_title = models.CharField(max_length=160, blank=True, verbose_name='SEO Title')
+    seo_description = models.CharField(max_length=320, blank=True, verbose_name='SEO Description')
+    seo_keywords = models.CharField(max_length=300, blank=True, verbose_name='SEO ключові слова')
+    seo_schema = models.JSONField(blank=True, default=dict, verbose_name='Structured data')
+    recommendation_tags = models.JSONField(blank=True, default=list, verbose_name='Теги рекомендацій')
     
     # Дропшип цены
     drop_price = models.PositiveIntegerField(default=0, verbose_name='Ціна дропа (грн)')
@@ -89,6 +245,20 @@ class Product(models.Model):
     ai_keywords = models.TextField(blank=True, null=True, verbose_name='AI-ключові слова')
     ai_description = models.TextField(blank=True, null=True, verbose_name='AI-опис')
     ai_content_generated = models.BooleanField(default=False, verbose_name='AI-контент згенеровано')
+
+    def save(self, *args, **kwargs):
+        # Синхронизуем legacy-описание с новым полем
+        if self.full_description and not self.description:
+            self.description = self.full_description
+        if self.description and not self.full_description:
+            self.full_description = self.description
+        if self.full_description and not self.short_description:
+            plain = self.full_description.strip()
+            if len(plain) > 300:
+                self.short_description = plain[:297].rstrip() + '...'
+            else:
+                self.short_description = plain
+        super().save(*args, **kwargs)
     @property
     def has_discount(self):
         """Автоматически определяет, есть ли скидка"""
@@ -194,6 +364,10 @@ class Product(models.Model):
             models.Index(fields=['featured'], name='idx_product_featured'),
             models.Index(fields=['is_dropship_available'], name='idx_product_dropship'),
             models.Index(fields=['category', '-id'], name='idx_product_category_id'),
+            models.Index(fields=['catalog', 'status'], name='idx_product_catalog_status'),
+            models.Index(fields=['status', '-id'], name='idx_product_status_id'),
+            models.Index(fields=['priority', '-id'], name='idx_product_priority_id'),
+            models.Index(fields=['published_at'], name='idx_product_published_at'),
         ]
 
 class ProductImage(models.Model):
