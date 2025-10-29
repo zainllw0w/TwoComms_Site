@@ -10,12 +10,6 @@
 {% endblock %}
 
 {% block content %}
-{% if is_locked %}
-  {# Заблокированная версия для неавторизованных #}
-  {% include "partials/dropshipper_dashboard_locked.html" %}
-  {% include "partials/dropshipper_auth_modal.html" %}
-{% else %}
-  {# Обычная версия для авторизованных #}
 <div class="ds-shell">
   {% include "partials/dropshipper_sidebar.html" with active_tab="dashboard" %}
 
@@ -56,7 +50,7 @@
                 </span>
               </div>
               <div class="ds-actions ds-actions--hero">
-                <button type="button" class="ds-btn ds-btn--primary js-open-order-modal">
+                <button type="button" class="ds-btn ds-btn--primary {% if user.is_authenticated %}js-open-order-modal{% endif %}" {% if not user.is_authenticated %}data-require-auth="true" data-open-auth-modal="login"{% endif %}>
                   <i class="fas fa-plus" aria-hidden="true"></i>
                   <span>Створити замовлення</span>
                 </button>
@@ -869,7 +863,7 @@
               <i class="fas fa-inbox" aria-hidden="true"></i>
               <h3 class="ds-empty__title">Замовлень поки немає</h3>
               <p class="ds-empty__text">Створіть перше замовлення — і ми одразу покажемо його прогрес.</p>
-              <button type="button" class="ds-btn ds-btn--primary js-open-order-modal">
+              <button type="button" class="ds-btn ds-btn--primary {% if user.is_authenticated %}js-open-order-modal{% endif %}" {% if not user.is_authenticated %}data-require-auth="true" data-open-auth-modal="login"{% endif %}>
                 <i class="fas fa-plus" aria-hidden="true"></i>
                 <span>Створити замовлення</span>
               </button>
@@ -1012,26 +1006,26 @@
     </section>
   </main>
 </div>
-{% endif %}{# Конец условия is_locked #}
 {% endblock %}
 
 {% block modals %}
 <!-- Модальные окна - ВНЕ main, прямо в body -->
-{% if not is_locked %}
+{% if user.is_authenticated %}
 {% include "partials/dropshipper_modals.html" %}
 <!-- Модальное окно добавления товара создается динамически через dropshipper-product-modal.js -->
+{% else %}
+  {% include "partials/dropshipper_auth_modal.html" %}
 {% endif %}
 {% endblock %}
 
 {% block extra_js %}
-{% if not is_locked %}
+{% if user.is_authenticated %}
 {% compress js %}
 <script src="{% static 'js/dropshipper.js' %}?v=20251023early" defer></script>
 <script src="{% static 'js/dropshipper.dashboard.js' %}?v=20251023delegate" defer></script>
 <script src="{% static 'js/dropshipper-product-modal.js' %}?v=20251023delegate" defer></script>
 {% endcompress %}
 {% else %}
-<!-- Для заблокированной версии без compress -->
-<script src="{% static 'js/dropshipper-auth-modal.js' %}" defer></script>
+  <script src="{% static 'js/dropshipper-auth-modal.js' %}" defer></script>
 {% endif %}
 {% endblock %}
