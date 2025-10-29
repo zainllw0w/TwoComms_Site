@@ -1019,15 +1019,13 @@
 {% endblock %}
 
 {% block extra_js %}
-{% compress js %}
-<script src="{% static 'js/dropshipper.js' %}?v=20251023early" defer></script>
-{% endcompress %}
+<script src="{% static 'js/dropshipper.js' %}?v=20251029fix" defer></script>
 {% if user.is_authenticated %}
-  {% compress js %}
+{% compress js %}
 <script src="{% static 'js/dropshipper.dashboard.js' %}?v=20251023delegate" defer></script>
 <script src="{% static 'js/dropshipper-product-modal.js' %}?v=20251023delegate" defer></script>
 {% endcompress %}
 {% else %}
-  <script src="{% static 'js/dropshipper-auth-modal.js' %}" defer></script>
+  <script src="{% static 'js/dropshipper-auth-modal.js' %}?v=20251029fix" defer></script>
 {% endif %}
 {% endblock %}
