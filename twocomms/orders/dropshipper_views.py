@@ -125,7 +125,9 @@ def _build_products_context(request, *, per_page=None):
     # Если per_page не указан, показываем все товары
     if per_page is None:
         all_products = list(products_qs)
-        enriched = [_enrich_product(product, request.user) for product in all_products]
+        # Передаем None для анонимных пользователей
+        dropshipper = request.user if request.user.is_authenticated else None
+        enriched = [_enrich_product(product, dropshipper) for product in all_products]
         
         categories = _get_dropship_categories()
         inactive_categories = [category for category in categories if category['disabled']]
@@ -144,7 +146,9 @@ def _build_products_context(request, *, per_page=None):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    enriched = [_enrich_product(product, request.user) for product in page_obj.object_list]
+    # Передаем None для анонимных пользователей
+    dropshipper = request.user if request.user.is_authenticated else None
+    enriched = [_enrich_product(product, dropshipper) for product in page_obj.object_list]
     page_obj.object_list = enriched
 
     categories = _get_dropship_categories()
