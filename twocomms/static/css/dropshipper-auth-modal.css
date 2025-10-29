@@ -1,0 +1,435 @@
+/* Модальное окно авторизации для дропшипа */
+
+.ds-auth-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: dsAuthFadeIn 0.3s ease-out;
+}
+
+.ds-auth-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+}
+
+.ds-auth-container {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98));
+  border: 2px solid rgba(139,92,246,.3);
+  border-radius: 24px;
+  padding: 48px 40px;
+  box-shadow: 0 30px 100px rgba(139,92,246,.4);
+  animation: dsAuthSlideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Кнопка закрытия */
+.ds-auth-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(229,231,235,.6);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 18px;
+}
+
+.ds-auth-close:hover {
+  background: rgba(255,255,255,.1);
+  color: #e5e7eb;
+  transform: rotate(90deg);
+}
+
+/* Заголовок */
+.ds-auth-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.ds-auth-icon {
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  font-size: 28px;
+  color: white;
+  box-shadow: 0 8px 24px rgba(139,92,246,.4);
+}
+
+.ds-auth-icon--register {
+  background: linear-gradient(135deg, #10b981, #059669);
+  box-shadow: 0 8px 24px rgba(16,185,129,.4);
+}
+
+.ds-auth-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #e5e7eb;
+  margin: 0 0 8px;
+}
+
+.ds-auth-subtitle {
+  color: rgba(229,231,235,.6);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+/* Google кнопка */
+.ds-auth-google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 24px;
+  background: white;
+  border: 1px solid rgba(0,0,0,.1);
+  border-radius: 12px;
+  color: #333;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  margin-bottom: 24px;
+}
+
+.ds-auth-google-btn:hover {
+  background: #f8f9fa;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.1);
+}
+
+/* Divider */
+.ds-auth-divider {
+  display: flex;
+  align-items: center;
+  margin: 24px 0;
+  color: rgba(229,231,235,.4);
+  font-size: 0.85rem;
+}
+
+.ds-auth-divider::before,
+.ds-auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255,255,255,.1);
+}
+
+.ds-auth-divider span {
+  padding: 0 16px;
+}
+
+/* Форма */
+.ds-auth-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ds-auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ds-auth-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(229,231,235,.85);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.ds-auth-label i {
+  color: #8b5cf6;
+  font-size: 14px;
+}
+
+.ds-auth-input {
+  width: 100%;
+  padding: 14px 16px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 10px;
+  color: #e5e7eb;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+}
+
+.ds-auth-input:focus {
+  outline: none;
+  background: rgba(255,255,255,.08);
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139,92,246,.2);
+}
+
+.ds-auth-input::placeholder {
+  color: rgba(229,231,235,.4);
+}
+
+/* Password wrapper */
+.ds-auth-password-wrapper {
+  position: relative;
+}
+
+.ds-auth-password-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: rgba(229,231,235,.5);
+  cursor: pointer;
+  padding: 8px;
+  transition: color 0.2s;
+}
+
+.ds-auth-password-toggle:hover {
+  color: #8b5cf6;
+}
+
+/* Password strength */
+.ds-auth-password-strength {
+  margin-top: 8px;
+}
+
+.ds-auth-password-strength-bar {
+  height: 4px;
+  background: rgba(255,255,255,.1);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.ds-auth-password-strength-fill {
+  height: 100%;
+  width: 0;
+  transition: all 0.3s;
+  border-radius: 2px;
+}
+
+.ds-auth-password-strength-fill.weak {
+  width: 33%;
+  background: #ef4444;
+}
+
+.ds-auth-password-strength-fill.medium {
+  width: 66%;
+  background: #f59e0b;
+}
+
+.ds-auth-password-strength-fill.strong {
+  width: 100%;
+  background: #10b981;
+}
+
+.ds-auth-password-strength-text {
+  font-size: 0.8rem;
+  color: rgba(229,231,235,.5);
+}
+
+.ds-auth-hint {
+  font-size: 0.8rem;
+  color: rgba(229,231,235,.5);
+  margin: 4px 0 0;
+}
+
+/* Error message */
+.ds-auth-error {
+  padding: 12px 16px;
+  background: rgba(239,68,68,.1);
+  border: 1px solid rgba(239,68,68,.3);
+  border-radius: 10px;
+  color: #fca5a5;
+  font-size: 0.9rem;
+}
+
+/* Submit button */
+.ds-auth-submit {
+  position: relative;
+  width: 100%;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.ds-auth-submit--register {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.ds-auth-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(139,92,246,.4);
+}
+
+.ds-auth-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ds-auth-submit-loader {
+  position: absolute;
+  right: 20px;
+}
+
+/* Footer */
+.ds-auth-footer {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255,255,255,.1);
+  text-align: center;
+}
+
+.ds-auth-footer p {
+  color: rgba(229,231,235,.6);
+  font-size: 0.9rem;
+  margin: 0 0 12px;
+}
+
+.ds-auth-switch {
+  background: transparent;
+  border: none;
+  color: #8b5cf6;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ds-auth-switch:hover {
+  color: #a78bfa;
+  gap: 10px;
+}
+
+/* Animations */
+@keyframes dsAuthFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dsAuthSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Form switching animation */
+.ds-auth-form.ds-auth-form--exiting {
+  animation: dsAuthFormExit 0.3s ease-out forwards;
+}
+
+.ds-auth-form.ds-auth-form--entering {
+  animation: dsAuthFormEnter 0.3s ease-out forwards;
+}
+
+@keyframes dsAuthFormExit {
+  to {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+}
+
+@keyframes dsAuthFormEnter {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .ds-auth-container {
+    padding: 32px 24px;
+    max-height: 95vh;
+  }
+
+  .ds-auth-title {
+    font-size: 1.5rem;
+  }
+
+  .ds-auth-icon {
+    width: 56px;
+    height: 56px;
+    font-size: 24px;
+  }
+}
+
+/* Scrollbar styling */
+.ds-auth-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ds-auth-container::-webkit-scrollbar-track {
+  background: rgba(255,255,255,.05);
+  border-radius: 4px;
+}
+
+.ds-auth-container::-webkit-scrollbar-thumb {
+  background: rgba(139,92,246,.3);
+  border-radius: 4px;
+}
+
+.ds-auth-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(139,92,246,.5);
+}
+

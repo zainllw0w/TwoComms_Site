@@ -1,0 +1,347 @@
+{% load static %}
+
+<!-- Заблокированная версия дропшип дашборда для неавторизованных пользователей -->
+<div class="ds-shell">
+  <!-- Sidebar с призывом войти -->
+  <aside class="ds-sidebar">
+    <div style="padding: 24px 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,.1);">
+      <div style="width: 56px; height: 56px; background: linear-gradient(135deg, #8b5cf6, #6366f1); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; box-shadow: 0 8px 24px rgba(139,92,246,.4);">
+        <i class="fas fa-rocket" style="font-size: 24px; color: white;"></i>
+      </div>
+      <h2 style="font-size: 1.3rem; font-weight: 800; color: #e5e7eb; margin: 0 0 8px;">TwoComms Dropship</h2>
+      <p style="font-size: 0.85rem; color: rgba(229,231,235,.6); margin: 0 0 16px;">Заробляйте без вкладень</p>
+      
+      <button type="button" class="ds-btn ds-btn--primary" data-open-auth-modal="login" style="width: 100%; margin-bottom: 8px;">
+        <i class="fas fa-sign-in-alt"></i>
+        <span>Увійти</span>
+      </button>
+      
+      <button type="button" class="ds-btn ds-btn--ghost" data-open-auth-modal="register" style="width: 100%;">
+        <i class="fas fa-user-plus"></i>
+        <span>Реєстрація</span>
+      </button>
+    </div>
+
+    <nav class="ds-sidebar__menu">
+      <button class="ds-sidebar__link is-active" disabled>
+        <i class="fas fa-home"></i>
+        <span>Головна</span>
+      </button>
+      <button class="ds-sidebar__link" disabled>
+        <i class="fas fa-lock"></i>
+        <span>Товари</span>
+      </button>
+      <button class="ds-sidebar__link" disabled>
+        <i class="fas fa-lock"></i>
+        <span>Замовлення</span>
+      </button>
+      <button class="ds-sidebar__link" disabled>
+        <i class="fas fa-lock"></i>
+        <span>Статистика</span>
+      </button>
+      <button class="ds-sidebar__link" disabled>
+        <i class="fas fa-lock"></i>
+        <span>Виплати</span>
+      </button>
+      <button class="ds-sidebar__link" disabled>
+        <i class="fas fa-lock"></i>
+        <span>Компанія</span>
+      </button>
+    </nav>
+
+    <div style="margin-top: auto; padding: 20px; border-top: 1px solid rgba(255,255,255,.1);">
+      <p style="font-size: 0.8rem; color: rgba(229,231,235,.5); text-align: center; margin: 0;">Увійдіть, щоб отримати доступ до всіх функцій</p>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="ds-main" style="padding: 40px;">
+    <!-- Hero блок -->
+    <section class="ds-locked-hero" style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 2px solid rgba(139,92,246,.3); border-radius: 24px; padding: 48px; margin-bottom: 32px; position: relative; overflow: hidden;">
+      <div style="position: absolute; top: -40px; right: -40px; width: 200px; height: 200px; background: radial-gradient(circle, rgba(139,92,246,.15), transparent); border-radius: 50%;"></div>
+      
+      <div style="position: relative; z-index: 1; text-align: center; max-width: 700px; margin: 0 auto;">
+        <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #8b5cf6, #6366f1); border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; box-shadow: 0 12px 40px rgba(139,92,246,.5);">
+          <i class="fas fa-rocket" style="font-size: 36px; color: white;"></i>
+        </div>
+        
+        <h1 style="font-size: 2.5rem; font-weight: 900; color: #e5e7eb; margin: 0 0 16px; background: linear-gradient(135deg, #ffffff, #a78bfa); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+          Дропшипінг без вкладень
+        </h1>
+        
+        <p style="font-size: 1.15rem; color: rgba(229,231,235,.7); margin: 0 0 32px; line-height: 1.6;">
+          Продавайте товари TwoComms та заробляйте від 200 до 400 грн з кожного замовлення. Ми беремо на себе виробництво та логістику.
+        </p>
+        
+        <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
+          <button type="button" class="ds-btn ds-btn--primary" data-open-auth-modal="register" style="padding: 18px 32px; font-size: 1.1rem;">
+            <i class="fas fa-rocket"></i>
+            <span>Почати зараз</span>
+          </button>
+          
+          <button type="button" class="ds-btn ds-btn--ghost" data-open-auth-modal="login" style="padding: 18px 32px; font-size: 1.1rem;">
+            <i class="fas fa-sign-in-alt"></i>
+            <span>Вже є акаунт</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Заблокированные блоки -->
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-bottom: 32px;">
+      <!-- Заказы (заблокировано) -->
+      <div class="ds-locked-block">
+        <div class="ds-locked-block__overlay">
+          <i class="fas fa-lock"></i>
+          <h3>Ваші замовлення</h3>
+          <p>Увійдіть, щоб переглянути</p>
+          <button type="button" class="ds-btn ds-btn--primary" data-open-auth-modal="login">
+            <i class="fas fa-sign-in-alt"></i>
+            <span>Увійти</span>
+          </button>
+        </div>
+        
+        <div class="ds-locked-block__content">
+          <div style="padding: 32px;">
+            <h3 style="font-size: 1.5rem; font-weight: 800; color: #e5e7eb; margin: 0 0 20px;">
+              <i class="fas fa-shopping-bag" style="color: #8b5cf6;"></i>
+              Останні замовлення
+            </h3>
+            
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+              <div style="background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 12px; padding: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <span style="color: #a78bfa; font-weight: 700;">#DS-0001</span>
+                  <span style="background: rgba(16,185,129,.2); color: #34d399; padding: 4px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">Доставлено</span>
+                </div>
+                <div style="color: rgba(229,231,235,.7); font-size: 0.9rem;">Клієнт: Іван Петренко</div>
+                <div style="color: #10b981; font-weight: 700; margin-top: 8px;">1,200 грн</div>
+              </div>
+              
+              <div style="background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 12px; padding: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <span style="color: #a78bfa; font-weight: 700;">#DS-0002</span>
+                  <span style="background: rgba(251,191,36,.2); color: #fbbf24; padding: 4px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">В обробці</span>
+                </div>
+                <div style="color: rgba(229,231,235,.7); font-size: 0.9rem;">Клієнт: Марія Сидоренко</div>
+                <div style="color: #10b981; font-weight: 700; margin-top: 8px;">950 грн</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Статистика (заблокировано) -->
+      <div class="ds-locked-block">
+        <div class="ds-locked-block__overlay">
+          <i class="fas fa-lock"></i>
+          <h3>Ваша статистика</h3>
+          <p>Увійдіть, щоб переглянути</p>
+          <button type="button" class="ds-btn ds-btn--primary" data-open-auth-modal="login">
+            <i class="fas fa-sign-in-alt"></i>
+            <span>Увійти</span>
+          </button>
+        </div>
+        
+        <div class="ds-locked-block__content">
+          <div style="padding: 32px;">
+            <h3 style="font-size: 1.5rem; font-weight: 800; color: #e5e7eb; margin: 0 0 20px;">
+              <i class="fas fa-chart-line" style="color: #8b5cf6;"></i>
+              Ваш прогрес
+            </h3>
+            
+            <div style="display: grid; gap: 16px;">
+              <div style="background: rgba(16,185,129,.12); border: 1px solid rgba(16,185,129,.25); border-radius: 12px; padding: 20px;">
+                <div style="color: rgba(229,231,235,.85); margin-bottom: 8px;">Успішних замовлень</div>
+                <div style="font-size: 2.5rem; font-weight: 900; color: #10b981;">12</div>
+              </div>
+              
+              <div style="background: rgba(139,92,246,.12); border: 1px solid rgba(139,92,246,.25); border-radius: 12px; padding: 20px;">
+                <div style="color: rgba(229,231,235,.85); margin-bottom: 8px;">Загальний прибуток</div>
+                <div style="font-size: 2.5rem; font-weight: 900; color: #8b5cf6;">4,800 грн</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Выплаты и компания -->
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px;">
+      <!-- Выплаты (заблокировано) -->
+      <div class="ds-locked-block">
+        <div class="ds-locked-block__overlay">
+          <i class="fas fa-lock"></i>
+          <h3>Ваші виплати</h3>
+          <p>Увійдіть, щоб переглянути</p>
+          <button type="button" class="ds-btn ds-btn--primary" data-open-auth-modal="login">
+            <i class="fas fa-sign-in-alt"></i>
+            <span>Увійти</span>
+          </button>
+        </div>
+        
+        <div class="ds-locked-block__content">
+          <div style="padding: 32px;">
+            <h3 style="font-size: 1.5rem; font-weight: 800; color: #e5e7eb; margin: 0 0 20px;">
+              <i class="fas fa-wallet" style="color: #10b981;"></i>
+              Фінанси
+            </h3>
+            
+            <div style="background: rgba(16,185,129,.1); border: 2px solid rgba(16,185,129,.3); border-radius: 14px; padding: 20px; margin-bottom: 16px;">
+              <div style="color: rgba(229,231,235,.7); font-size: 0.9rem; margin-bottom: 8px;">Доступно для виплати</div>
+              <div style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #10b981, #059669); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">2,400 грн</div>
+            </div>
+            
+            <button style="width: 100%; background: linear-gradient(135deg, #10b981, #059669); border: none; border-radius: 12px; padding: 14px; color: white; font-weight: 700; cursor: not-allowed; opacity: 0.5;">
+              <i class="fas fa-wallet"></i>
+              Запросити виплату
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Компания (заблокировано) -->
+      <div class="ds-locked-block">
+        <div class="ds-locked-block__overlay">
+          <i class="fas fa-lock"></i>
+          <h3>Дані компанії</h3>
+          <p>Увійдіть, щоб налаштувати</p>
+          <button type="button" class="ds-btn ds-btn--primary" data-open-auth-modal="login">
+            <i class="fas fa-sign-in-alt"></i>
+            <span>Увійти</span>
+          </button>
+        </div>
+        
+        <div class="ds-locked-block__content">
+          <div style="padding: 32px;">
+            <h3 style="font-size: 1.5rem; font-weight: 800; color: #e5e7eb; margin: 0 0 20px;">
+              <i class="fas fa-building" style="color: #8b5cf6;"></i>
+              Налаштування
+            </h3>
+            
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <div style="background: rgba(255,255,255,.05); border-radius: 10px; padding: 16px;">
+                <div style="color: rgba(229,231,235,.6); font-size: 0.85rem; margin-bottom: 4px;">Назва компанії</div>
+                <div style="color: #e5e7eb; font-weight: 600;">Ваша Компанія ТОВ</div>
+              </div>
+              
+              <div style="background: rgba(255,255,255,.05); border-radius: 10px; padding: 16px;">
+                <div style="color: rgba(229,231,235,.6); font-size: 0.85rem; margin-bottom: 4px;">Телефон</div>
+                <div style="color: #e5e7eb; font-weight: 600;">+380 XX XXX XX XX</div>
+              </div>
+              
+              <div style="background: rgba(255,255,255,.05); border-radius: 10px; padding: 16px;">
+                <div style="color: rgba(229,231,235,.6); font-size: 0.85rem; margin-bottom: 4px;">Email</div>
+                <div style="color: #e5e7eb; font-weight: 600;">your@email.com</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CTA блок -->
+    <section style="background: linear-gradient(145deg, rgba(139,92,246,.15), rgba(99,102,241,.15)); border: 2px solid rgba(139,92,246,.3); border-radius: 24px; padding: 48px; text-align: center; margin-top: 32px;">
+      <h2 style="font-size: 2rem; font-weight: 900; color: #e5e7eb; margin: 0 0 12px;">Готові почати заробляти?</h2>
+      <p style="font-size: 1.1rem; color: rgba(229,231,235,.7); margin: 0 0 32px;">Зареєструйтесь зараз та отримайте доступ до всіх функцій дропшипінгу</p>
+      
+      <button type="button" class="ds-btn ds-btn--primary" data-open-auth-modal="register" style="padding: 18px 40px; font-size: 1.1rem;">
+        <i class="fas fa-rocket"></i>
+        <span>Зареєструватися безкоштовно</span>
+      </button>
+    </section>
+  </main>
+</div>
+
+<style>
+/* Стили для заблокированных блоков */
+.ds-locked-block {
+  position: relative;
+  background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98));
+  border: 2px solid rgba(139,92,246,.2);
+  border-radius: 20px;
+  overflow: hidden;
+  min-height: 300px;
+}
+
+.ds-locked-block__content {
+  filter: blur(6px);
+  opacity: 0.3;
+  pointer-events: none;
+  user-select: none;
+}
+
+.ds-locked-block__overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle, rgba(139,92,246,.15) 0%, transparent 70%);
+  padding: 40px;
+  text-align: center;
+}
+
+.ds-locked-block__overlay i.fa-lock {
+  font-size: 3rem;
+  color: #8b5cf6;
+  margin-bottom: 20px;
+  animation: lockPulse 2s ease-in-out infinite;
+}
+
+.ds-locked-block__overlay h3 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #e5e7eb;
+  margin: 0 0 8px;
+}
+
+.ds-locked-block__overlay p {
+  color: rgba(229,231,235,.6);
+  font-size: 1rem;
+  margin: 0 0 24px;
+}
+
+@keyframes lockPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+.ds-locked-hero {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .ds-main {
+    padding: 24px !important;
+  }
+  
+  .ds-main > div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+</style>
+
