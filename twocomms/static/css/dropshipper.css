@@ -128,6 +128,30 @@ body.ds-modal-open .ds-panel::before {
   flex-direction: column;
   gap: 22px;
   height: 100%;
+  max-height: calc(100vh - 88px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  
+  /* Custom scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
+}
+
+.ds-sidebar__inner::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ds-sidebar__inner::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ds-sidebar__inner::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.3);
+  border-radius: 3px;
+}
+
+.ds-sidebar__inner::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.5);
 }
 
 .ds-sidebar__brand {
@@ -411,6 +435,73 @@ body.ds-modal-open .ds-panel::before {
 
 .ds-grid--four {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+/* Auth Block for Unauthenticated Users */
+.ds-sidebar__auth {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px 20px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(99, 102, 241, 0.08) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.ds-sidebar__auth::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top left, rgba(139, 92, 246, 0.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.ds-sidebar__auth-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.15));
+  border-radius: 12px;
+  font-size: 1.5rem;
+  color: #a78bfa;
+  box-shadow: 0 8px 16px rgba(139, 92, 246, 0.2);
+  position: relative;
+  z-index: 1;
+}
+
+.ds-sidebar__auth-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #e5e7eb;
+  margin: 0;
+  position: relative;
+  z-index: 1;
+  letter-spacing: -0.01em;
+}
+
+.ds-sidebar__auth-text {
+  font-size: 0.9rem;
+  color: rgba(229, 231, 235, 0.7);
+  line-height: 1.5;
+  margin: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.ds-sidebar__auth .ds-btn {
+  position: relative;
+  z-index: 1;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.ds-sidebar__auth .ds-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3);
 }
 
 .ds-card {
