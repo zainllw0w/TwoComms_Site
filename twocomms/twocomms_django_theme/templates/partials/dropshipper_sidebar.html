@@ -11,6 +11,7 @@
       </div>
     </header>
 
+    {% if user.is_authenticated %}
     {% with profile=request.user.userprofile %}
     <div class="ds-sidebar__company ds-sidebar__company--featured" data-company-sidebar>
       <div class="ds-sidebar__company-bg" aria-hidden="true">
@@ -69,6 +70,24 @@
       </div>
     </div>
     {% endwith %}
+    {% else %}
+      {# Блок для незареєстрованих користувачів #}
+      <div class="ds-sidebar__auth">
+        <div class="ds-sidebar__auth-icon">
+          <i class="fas fa-rocket" aria-hidden="true"></i>
+        </div>
+        <h3 class="ds-sidebar__auth-title">Почніть заробляти</h3>
+        <p class="ds-sidebar__auth-text">Увійдіть щоб отримати доступ до всіх функцій</p>
+        <button type="button" class="ds-btn ds-btn--primary ds-btn--block" data-open-auth-modal="login">
+          <i class="fas fa-sign-in-alt" aria-hidden="true"></i>
+          <span>Увійти</span>
+        </button>
+        <button type="button" class="ds-btn ds-btn--ghost ds-btn--block" data-open-auth-modal="register">
+          <i class="fas fa-user-plus" aria-hidden="true"></i>
+          <span>Реєстрація</span>
+        </button>
+      </div>
+    {% endif %}
 
     <nav class="ds-sidebar__nav" role="tablist">
       <a class="ds-sidebar__link {% if active_tab == 'dashboard' %}is-active{% endif %}"
@@ -92,19 +111,21 @@
       <a class="ds-sidebar__link {% if active_tab == 'orders' %}is-active{% endif %}"
          href="{% url 'orders:dropshipper_orders' %}"
          data-tab-target="orders"
-         data-orders-link>
+         data-orders-link
+         {% if not user.is_authenticated %}data-require-auth="true"{% endif %}>
         <span class="ds-sidebar__icon">
           <i class="fas fa-shopping-cart" aria-hidden="true"></i>
         </span>
         <span class="ds-sidebar__label">
           Замовлення
-          <span class="ds-sidebar__badge" data-orders-badge {% if not total_orders_count or total_orders_count == 0 %}hidden{% endif %}>{{ total_orders_count|default:0 }}</span>
+          {% if user.is_authenticated %}<span class="ds-sidebar__badge" data-orders-badge {% if not total_orders_count or total_orders_count == 0 %}hidden{% endif %}>{{ total_orders_count|default:0 }}</span>{% endif %}
         </span>
       </a>
 
       <a class="ds-sidebar__link {% if active_tab == 'statistics' %}is-active{% endif %}"
          href="{% url 'orders:dropshipper_statistics' %}"
-         data-tab-target="statistics">
+         data-tab-target="statistics"
+         {% if not user.is_authenticated %}data-require-auth="true"{% endif %}>
         <span class="ds-sidebar__icon">
           <i class="fas fa-chart-line" aria-hidden="true"></i>
         </span>
@@ -113,7 +134,8 @@
 
       <a class="ds-sidebar__link {% if active_tab == 'payouts' %}is-active{% endif %}"
          href="{% url 'orders:dropshipper_payouts' %}"
-         data-tab-target="payouts">
+         data-tab-target="payouts"
+         {% if not user.is_authenticated %}data-require-auth="true"{% endif %}>
         <span class="ds-sidebar__icon">
           <i class="fas fa-money-bill-wave" aria-hidden="true"></i>
         </span>

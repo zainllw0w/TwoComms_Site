@@ -258,11 +258,21 @@
 
   // Открыть модальное окно при клике на кнопки входа
   document.addEventListener('click', (e) => {
+    // Обработка кнопок с data-open-auth-modal
     if (e.target.matches('[data-open-auth-modal]') || e.target.closest('[data-open-auth-modal]')) {
       e.preventDefault();
       const btn = e.target.matches('[data-open-auth-modal]') ? e.target : e.target.closest('[data-open-auth-modal]');
       const mode = btn.dataset.openAuthModal || 'login';
       openDsAuthModal(mode);
+      return;
+    }
+    
+    // Обработка элементов с data-require-auth (защищенные кнопки/ссылки)
+    if (e.target.matches('[data-require-auth="true"]') || e.target.closest('[data-require-auth="true"]')) {
+      e.preventDefault();
+      e.stopPropagation();
+      openDsAuthModal('login');
+      return;
     }
   });
 
