@@ -367,6 +367,7 @@ if (!document.getElementById('dropshipper-spinner-styles')) {
       panel.classList.add('is-loading');
 
       fetch(panel.dataset.tabAutoload, {
+        credentials: 'same-origin',
         headers: {
           'X-Requested-With': 'XMLHttpRequest',
         },
