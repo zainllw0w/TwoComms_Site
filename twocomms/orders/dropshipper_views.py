@@ -10,14 +10,20 @@ from django.utils import timezone
 from django.core.paginator import Paginator
 from django.db.models import Q, Sum, Count
 from django.db.models.functions import TruncMonth
+from django.conf import settings
 from decimal import Decimal, ROUND_HALF_UP
 import json
+import logging
+import requests
 
 from .models import DropshipperOrder, DropshipperOrderItem, DropshipperStats, DropshipperPayout
 from storefront.models import Product, Category
 from productcolors.models import ProductColorVariant
 from .forms import CompanyProfileForm
 from accounts.models import UserProfile
+
+# Инициализация логгера
+monobank_logger = logging.getLogger('monobank')
 
 
 LONG_SLEEVE_SLUG = 'long-sleeve'
@@ -864,11 +870,7 @@ def get_product_details(request, product_id):
 # MONOBANK ОПЛАТА ДЛЯ ДРОПШИПЕРОВ
 # =============================================================================
 
-import logging
-from django.conf import settings
-import requests
-
-monobank_logger = logging.getLogger('monobank')
+# Logging уже импортирован в начале файла
 
 
 class MonobankAPIError(Exception):
