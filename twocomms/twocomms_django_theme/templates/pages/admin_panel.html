@@ -1415,12 +1415,20 @@
               </svg>
               Категорії ({{ categories|length }})
             </h3>
-            <a href="{% url 'add_category' %}" class="btn-create-category-new">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-              </svg>
-              Додати категорію
-            </a>
+            <div class="subsection-actions">
+              <a href="{% url 'add_category' %}" class="btn-create-category-new">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+                Додати категорію
+              </a>
+              <a href="#" class="btn-create-category-new btn-create-category-beta" data-beta-hint="Нова форма керування категоріями ще в розробці.">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+                Додати категорію (new)
+              </a>
+            </div>
           </div>
           
           <div class="categories-grid">
@@ -1488,6 +1496,12 @@
                   </svg>
                   Додати категорію
                 </a>
+                <a href="#" class="btn-create-category-empty btn-create-category-empty-beta" data-beta-hint="Нова форма категорій (new) буде доступна найближчим часом.">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                  </svg>
+                  Додати категорію (new)
+                </a>
                         </div>
                       {% endfor %}
                     </div>
@@ -1502,12 +1516,20 @@
               </svg>
               Товари ({{ products|length }})
             </h3>
-            <a href="{% url 'admin_product_new' %}" class="add-btn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-              </svg>
-              Додати товар
-            </a>
+            <div class="subsection-actions">
+              <a href="{% url 'admin_product_new' %}" class="add-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+                Додати товар
+              </a>
+              <a href="{% url 'admin_product_builder' %}" class="add-btn add-btn-outline">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2в6h6в2z"/>
+                </svg>
+                Додати товар (new)
+              </a>
+            </div>
           </div>
           
           <div class="products-grid">
@@ -1598,6 +1620,12 @@
                     <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
                   </svg>
                   Додати товар
+                </a>
+                <a href="{% url 'admin_product_builder' %}" class="btn btn-outline-light btn-empty-new">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                  </svg>
+                  Додати товар (new)
                 </a>
               </div>
                 {% endfor %}
@@ -2204,7 +2232,16 @@
       </div>
 
       <script>
-      async function updateInvoiceStatus(e,id,status){ e.preventDefault(); const res = await fetch(`/admin-panel/invoices/update-status/${id}/`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')},body:JSON.stringify({status})}); if(res.ok){ location.reload(); } else { alert('Помилка оновлення статусу'); } return false; }
+      document.addEventListener('click', function(event) {
+        const target = event.target.closest('[data-beta-hint]');
+        if (!target) {
+          return;
+        }
+        event.preventDefault();
+        alert(target.dataset.betaHint || 'Функція в розробці.');
+      });
+
+            async function updateInvoiceStatus(e,id,status){ e.preventDefault(); const res = await fetch(`/admin-panel/invoices/update-status/${id}/`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')},body:JSON.stringify({status})}); if(res.ok){ location.reload(); } else { alert('Помилка оновлення статусу'); } return false; }
       async function toggleInvoiceApproval(e,id,approved){ e.preventDefault(); const res = await fetch(`/admin-panel/invoices/toggle-approval/${id}/`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')},body:JSON.stringify({is_approved:approved})}); if(res.ok){ location.reload(); } else { alert('Помилка оновлення одобрения'); } return false; }
 
 async function toggleInvoicePayment(e,id,status){ e.preventDefault(); const res = await fetch(`/admin-panel/invoices/toggle-payment/${id}/`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')},body:JSON.stringify({payment_status:status})}); if(res.ok){ location.reload(); } else { alert('Помилка оновлення статусу оплати'); } return false; }

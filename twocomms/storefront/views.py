@@ -2637,7 +2637,8 @@ def order_create(request):
     from django.contrib import messages
     messages.success(request, f'Замовлення #{order.order_number} успішно створено!')
 
-    return redirect('my_orders')
+    # ИСПРАВЛЕНО: Перенаправляем на order_success для GTM tracking
+    return redirect('order_success', order_id=order.id)
 
 def order_success(request, order_id):
     """
