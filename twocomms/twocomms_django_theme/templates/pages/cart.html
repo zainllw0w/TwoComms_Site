@@ -575,7 +575,10 @@
   </div>
 </div>
 
-<!-- Модальное окно консультации (вне extra_js для правильной работы) -->
+{% endblock %}
+
+{% block modals %}
+<!-- Модальное окно консультации (ВНЕ main контейнера для правильного позиционирования!) -->
 <div id="contactManagerModal" class="contact-modal-overlay" aria-hidden="true" role="dialog" aria-labelledby="contactModalTitle">
   <div class="contact-modal-container">
     <div class="contact-modal-header">
@@ -653,7 +656,6 @@
     </div>
   </div>
 </div>
-
 {% endblock %}
 
 {% block extra_js %}
@@ -753,7 +755,7 @@ function initCartPage() {
           prepayNoteEl.classList.toggle('d-none', !isPrepay);
         }
       }
-      
+
       function updateOrderButtonText(payType) {
         const btn = activeOrderBtn;
         if (!btn) {
@@ -778,19 +780,14 @@ function initCartPage() {
             newText = 'Внести передплату 200 грн';
             break;
           default:
-            // Определяем дефолтный текст
-            if (placeOrderBtn) {
-              newText = 'Оформити замовлення';
-            } else {
-              newText = 'Замовити як гість';
-            }
+            newText = placeOrderBtn ? 'Оформити замовлення' : 'Замовити як гість';
         }
         
         btnTextSpan.textContent = newText;
         console.log('✅ Button text updated to:', newText);
         updatePaymentSummary(payType);
       }
-      
+
       // Обработчик изменения pay_type
       if (activePayTypeSelect) {
         activePayTypeSelect.addEventListener('change', function() {
@@ -810,7 +807,6 @@ function initCartPage() {
         console.error('❌ Pay type select not found!');
         updatePaymentSummary('online_full');
             }
-      
       console.log('✅ Dynamic button text initialized successfully!');
     } catch (error) {
       console.error('❌ Error initializing dynamic button text:', error);
@@ -1209,21 +1205,33 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   };
   
-  // ==================== МОДАЛЬНОЕ ОКНО СВЯЗИ С МЕНЕДЖЕРОМ ====================
+  // ==================== МОДАЛЬНОЕ ОКНО КОНСУЛЬТАЦИИ (КАК В DROPSHIPPER) ====================
   const contactBtns = document.querySelectorAll('#contactManagerBtn, #contactManagerBtnGuest');
   const modal = document.getElementById('contactManagerModal');
   const modalClose = document.querySelector('.contact-modal-close');
   const modalForm = document.getElementById('contactManagerForm');
   
-  // Открытие модалки
-  contactBtns.forEach(btn => {
-    btn.addEventListener('click', function() {
-      // Автозаполнение из формы доставки
-      const isAuth = document.getElementById('pay_type_auth') !== null;
+  // Функция открытия модального окна с анимацией
+  function openContactModal() {
+    // Автозаполнение из формы доставки
+    const isAuth = document.getElementById('pay_type_auth') !== null;
+    
+    if (isAuth) {
+      const fullNameInput = document.querySelector('[name="full_name"]');
+      const phoneInput = document.querySelector('[name="phone"]');
       
-      if (isAuth) {
-        const fullNameInput = document.querySelector('[name="full_name"]');
-        const phoneInput = document.querySelector('[name="phone"]');
+      if (fullNameInput && fullNameInput.value) {
+        document.getElementById('contactModalFullName').value = fullNameInput.value;
+      }
+      if (phoneInput && phoneInput.value) {
+        document.getElementById('contactModalPhone').value = phoneInput.value;
+      }
+    } else {
+      // Для гостей из guest-form
+      const guestForm = document.getElementById('guest-form');
+      if (guestForm) {
+        const fullNameInput = guestForm.querySelector('[name="full_name"]');
+        const phoneInput = guestForm.querySelector('[name="phone"]');
         
         if (fullNameInput && fullNameInput.value) {
           document.getElementById('contactModalFullName').value = fullNameInput.value;
@@ -1231,40 +1239,52 @@ document.addEventListener('DOMContentLoaded', function() {
         if (phoneInput && phoneInput.value) {
           document.getElementById('contactModalPhone').value = phoneInput.value;
         }
-      } else {
-        // Для гостей из guest-form
-        const guestForm = document.getElementById('guest-form');
-        if (guestForm) {
-          const fullNameInput = guestForm.querySelector('[name="full_name"]');
-          const phoneInput = guestForm.querySelector('[name="phone"]');
-          
-          if (fullNameInput && fullNameInput.value) {
-            document.getElementById('contactModalFullName').value = fullNameInput.value;
-          }
-          if (phoneInput && phoneInput.value) {
-            document.getElementById('contactModalPhone').value = phoneInput.value;
-          }
-        }
       }
-      
-      modal.style.display = 'flex';
-      document.body.style.overflow = 'hidden';
-    });
+    }
+    
+    // КРИТИЧНО: Добавляем класс на body который убирает position: relative у контейнеров
+    // Это позволяет модальному окну с position: fixed позиционироваться относительно viewport
+    document.body.classList.add('contact-modal-open');
+    
+    // Показываем модальное окно
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    
+    // Добавляем класс для анимации (после небольшой задержки для срабатывания CSS transition)
+    setTimeout(() => {
+      modal.classList.add('modal-active');
+    }, 10);
+  }
+  
+  // Функция закрытия модального окна с анимацией
+  function closeContactModal() {
+    // Убираем класс для анимации закрытия
+    modal.classList.remove('modal-active');
+    
+    // КРИТИЧНО: Убираем класс с body чтобы вернуть position: relative контейнерам
+    document.body.classList.remove('contact-modal-open');
+    
+    // Ждем завершения анимации (300ms) перед скрытием
+    setTimeout(() => {
+      modal.style.display = 'none';
+      document.body.style.overflow = 'auto';
+    }, 300);
+  }
+  
+  // Открытие модалки
+  contactBtns.forEach(btn => {
+    btn.addEventListener('click', openContactModal);
   });
   
   // Закрытие модалки
   if (modalClose) {
-    modalClose.addEventListener('click', function() {
-      modal.style.display = 'none';
-      document.body.style.overflow = 'auto';
-    });
+    modalClose.addEventListener('click', closeContactModal);
   }
   
   // Закрытие по клику вне модалки
   window.addEventListener('click', function(event) {
     if (event.target === modal) {
-      modal.style.display = 'none';
-      document.body.style.overflow = 'auto';
+      closeContactModal();
     }
   });
   
@@ -1291,8 +1311,7 @@ document.addEventListener('DOMContentLoaded', function() {
       .then(data => {
         if (data.success) {
           alert('✅ Дякуємо! Менеджер зв\'яжеться з вами найближчим часом.');
-          modal.style.display = 'none';
-          document.body.style.overflow = 'auto';
+          closeContactModal();
           modalForm.reset();
         } else {
           alert('❌ Помилка: ' + (data.error || 'Спробуйте ще раз'));
@@ -1340,6 +1359,29 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 /* Модальное окно */
+/* ========== МОДАЛЬНОЕ ОКНО КОНСУЛЬТАЦИИ (ТЕМНЫЙ ДИЗАЙН КАК DROPSHIPPER) ========== */
+
+/* КРИТИЧНО: Убираем position: relative у ВСЕХ контейнеров когда модальное окно открыто */
+/* Это позволяет модальному окну с position: fixed позиционироваться относительно viewport, а не контейнера */
+body.contact-modal-open,
+body.contact-modal-open .cart-page-container,
+body.contact-modal-open .cart-container,
+body.contact-modal-open main,
+body.contact-modal-open .container,
+body.contact-modal-open .container-fluid,
+body.contact-modal-open .container-xxl,
+body.contact-modal-open [class*="container"] {
+  position: static !important;
+}
+
+/* Убираем псевдоэлементы которые могут использовать position: fixed */
+body.contact-modal-open .cart-page-container::before,
+body.contact-modal-open .cart-page-container::after,
+body.contact-modal-open .cart-container::before,
+body.contact-modal-open .cart-container::after {
+  display: none !important;
+}
+
 .contact-modal-overlay {
   display: none;
   position: fixed;
@@ -1347,54 +1389,83 @@ document.addEventListener('DOMContentLoaded', function() {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(5px);
-  z-index: 9999;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  z-index: 10000;
   align-items: center;
   justify-content: center;
   padding: 20px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.contact-modal-overlay.modal-active {
+  opacity: 1;
 }
 
 .contact-modal-container {
-  background: white;
+  position: relative;
+  background: linear-gradient(135deg, rgba(20,22,27,.98), rgba(14,16,22,.98));
+  border: 1px solid rgba(255,255,255,.1);
   border-radius: 20px;
   max-width: 500px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  animation: modalSlideIn 0.3s ease-out;
+  box-shadow: 
+    0 25px 60px rgba(0,0,0,.6),
+    0 0 80px rgba(139, 92, 246, 0.15),
+    inset 0 1px 0 rgba(255,255,255,.05);
+  color: #e5e7eb;
+  transform: scale(0.8);
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@keyframes modalSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-50px) scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.contact-modal-overlay.modal-active .contact-modal-container {
+  transform: scale(1);
+  opacity: 1;
+}
+
+/* Кастомный скроллбар */
+.contact-modal-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.contact-modal-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+.contact-modal-container::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.5);
+  border-radius: 10px;
+}
+
+.contact-modal-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.7);
 }
 
 .contact-modal-header {
   padding: 30px 30px 20px;
-  border-bottom: 2px solid #f0f0f0;
+  border-bottom: 1px solid rgba(255,255,255,.08);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.08) 0%, transparent 100%);
 }
 
 .contact-modal-header h3 {
   margin: 0;
   font-size: 24px;
   font-weight: 700;
-  color: #2d3748;
+  color: #e5e7eb;
+  text-shadow: 0 2px 10px rgba(139, 92, 246, 0.3);
 }
 
 .contact-modal-close {
-  background: #f7fafc;
-  border: none;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -1404,17 +1475,27 @@ document.addEventListener('DOMContentLoaded', function() {
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
-  color: #718096;
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .contact-modal-close:hover {
-  background: #e2e8f0;
-  color: #2d3748;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
   transform: rotate(90deg);
+  border-color: rgba(139, 92, 246, 0.5);
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
 }
 
 .contact-modal-body {
   padding: 30px;
+}
+
+.contact-modal-body > p {
+  margin-bottom: 1.5rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .contact-modal-form-group {
@@ -1425,60 +1506,99 @@ document.addEventListener('DOMContentLoaded', function() {
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: #2d3748;
+  color: rgba(255, 255, 255, 0.9);
   font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 12px;
+}
+
+.contact-modal-label span {
+  color: #ef4444;
 }
 
 .contact-modal-input {
   width: 100%;
-  padding: 12px 16px;
-  border: 2px solid #e2e8f0;
-  border-radius: 10px;
+  padding: 14px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
   font-size: 15px;
   transition: all 0.3s ease;
-  background: #f7fafc;
+  background: rgba(255, 255, 255, 0.05);
+  color: #e5e7eb;
+  font-family: inherit;
 }
 
 .contact-modal-input:focus {
   outline: none;
-  border-color: #667eea;
-  background: white;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: rgba(139, 92, 246, 0.6);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 
+    0 0 0 3px rgba(139, 92, 246, 0.15),
+    0 0 20px rgba(139, 92, 246, 0.2);
+  transform: translateY(-1px);
 }
 
 .contact-modal-input::placeholder {
-  color: #a0aec0;
+  color: rgba(255, 255, 255, 0.35);
 }
 
 .contact-modal-help-text {
-  font-size: 13px;
-  color: #718096;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
   margin-top: 6px;
+  font-style: italic;
 }
 
 .contact-modal-submit-btn {
   width: 100%;
-  padding: 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
   color: white;
   border: none;
   border-radius: 12px;
   font-size: 16px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 4px 15px rgba(139, 92, 246, 0.4),
+    0 0 30px rgba(139, 92, 246, 0.2);
   margin-top: 10px;
+  position: relative;
+  overflow: hidden;
+}
+
+.contact-modal-submit-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.5s;
+}
+
+.contact-modal-submit-btn:hover::before {
+  left: 100%;
 }
 
 .contact-modal-submit-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  box-shadow: 
+    0 8px 25px rgba(139, 92, 246, 0.5),
+    0 0 40px rgba(139, 92, 246, 0.3);
+}
+
+.contact-modal-submit-btn:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .contact-modal-submit-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
 
 /* Адаптивность */
@@ -1486,6 +1606,7 @@ document.addEventListener('DOMContentLoaded', function() {
   .contact-modal-container {
     border-radius: 20px 20px 0 0;
     max-height: 85vh;
+    max-width: 100%;
   }
   
   .contact-modal-header {
@@ -1498,6 +1619,14 @@ document.addEventListener('DOMContentLoaded', function() {
   
   .contact-modal-body {
     padding: 20px;
+  }
+  
+  .contact-modal-input {
+    padding: 12px 16px;
+  }
+  
+  .contact-modal-submit-btn {
+    padding: 14px 20px;
   }
 }
 </style>
