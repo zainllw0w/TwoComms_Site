@@ -2,7 +2,6 @@
 {% load responsive_images %}
 {# form_filters удалён #}
 {% with animate=animate|default_if_none:True %}
-<div class="col">
   <div class="card product h-100 hover-raise glass {% if animate %}{% if stagger %}reveal-stagger stagger-item{% else %}reveal-fast{% endif %}{% else %}no-reveal{% endif %}" data-product-id="{{ p.id }}" data-product-title="{{ p.title|escapejs }}">
     <div class="ratio ratio-product rounded-top-4 overflow-hidden bg-elevate position-relative">
       
@@ -88,7 +87,6 @@
           <span class="points-text-small text-secondary">Переглянути</span>
         </div>
         {% endif %}
-      </div>
     </div>
   </div>
 </div>

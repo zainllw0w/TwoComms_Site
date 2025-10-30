@@ -73,6 +73,7 @@ from .cart import (
     remove_promo_code,
     cart_summary,
     cart_mini,
+    contact_manager,
 )
 
 # Статические страницы
