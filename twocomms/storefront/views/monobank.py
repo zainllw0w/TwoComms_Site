@@ -233,5 +233,57 @@ def _validate_checkout_payload(raw_payload):
 
 # ==================== MONOBANK API REQUESTS ====================
 
+class MonobankAPIError(Exception):
+    """Ошибка API Monobank"""
+    pass
+
+
+def _monobank_api_request(method, endpoint, json_payload=None):
+    """
+    Выполняет запрос к API Monobank.
+    
+    Args:
+        method (str): HTTP метод ('GET' или 'POST')
+        endpoint (str): API endpoint (напр. '/api/merchant/invoice/create')
+        json_payload (dict): JSON данные для POST запроса
+        
+    Returns:
+        dict: Ответ от API
+        
+    Raises:
+        MonobankAPIError: При ошибке API
+    """
+    token = getattr(settings, 'MONOBANK_TOKEN', None)
+    if not token:
+        raise MonobankAPIError('Monobank API token не налаштований')
+    
+    base_url = getattr(settings, 'MONOBANK_API_BASE', 'https://api.monobank.ua').rstrip('/')
+    url = f"{base_url}{endpoint}"
+    
+    headers = {
+        'X-Token': token,
+        'Content-Type': 'application/json'
+    }
+    
+    try:
+        if method.upper() == 'POST':
+            response = requests.post(url, json=json_payload, headers=headers, timeout=30)
+        else:
+            response = requests.get(url, headers=headers, timeout=30)
+        
+        data = response.json()
+        monobank_logger.info(f'Monobank API {method} {endpoint}: status={response.status_code}')
+        
+        if response.status_code >= 400:
+            error_msg = data.get('errText', data.get('errorDescription', 'Unknown error'))
+            raise MonobankAPIError(f'Monobank API error: {error_msg}')
+        
+        return data
+    
+    except requests.exceptions.Timeout:
+        raise MonobankAPIError('Timeout при з\'єднанні з Monobank')
+    except requests.exceptions.RequestException as e:
+        raise MonobankAPIError(f'Помилка з\'єднання з Monobank: {str(e)}')
+
 
 
