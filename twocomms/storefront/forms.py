@@ -54,41 +54,27 @@ class ProductForm(forms.ModelForm):
     class Meta:
         model = Product
         fields = [
+            # Поля которые РЕАЛЬНО отправляет шаблон admin_product_edit_unified.html
             "title",
             "slug",
             "category",
-            "catalog",
-            "size_grid",
             "price",
             "discount_percent",
             "featured",
-            "description",  # Legacy поле для обратной совместимости с шаблонами
+            "description",
+            "main_image",
+            "points_reward",
+            # Дополнительные поля для других шаблонов (опциональные)
+            "catalog",
+            "size_grid",
             "short_description",
             "full_description",
-            "main_image",
             "main_image_alt",
-            "points_reward",
-            "status",
-            "priority",
-            # Дропшип поля
-            "drop_price",
-            "recommended_price",
-            "wholesale_price",
-            "is_dropship_available",
-            "dropship_note",
-            # Публикация
-            "published_at",
-            "unpublished_reason",
-            "last_reviewed_at",
-            # Рекомендации
-            "recommendation_tags",
         ]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 6, "class": "form-control"}),
             "short_description": forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
             "full_description": forms.Textarea(attrs={"rows": 6, "class": "form-control"}),
-            "status": forms.Select(attrs={"class": "form-control"}),
-            "priority": forms.NumberInput(attrs={"class": "form-control", "min": "0", "value": "0"}),
             "title": forms.TextInput(attrs={"class": "form-control"}),
             "slug": forms.TextInput(attrs={"class": "form-control"}),
             "category": forms.Select(attrs={"class": "form-control"}),
@@ -100,18 +86,6 @@ class ProductForm(forms.ModelForm):
             "main_image": forms.FileInput(attrs={"class": "form-control", "accept": "image/*"}),
             "main_image_alt": forms.TextInput(attrs={"class": "form-control"}),
             "points_reward": forms.NumberInput(attrs={"class": "form-control", "min": "0", "value": "0"}),
-            # Дропшип
-            "drop_price": forms.NumberInput(attrs={"class": "form-control", "min": "0"}),
-            "recommended_price": forms.NumberInput(attrs={"class": "form-control", "min": "0"}),
-            "wholesale_price": forms.NumberInput(attrs={"class": "form-control", "min": "0"}),
-            "is_dropship_available": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-            "dropship_note": forms.TextInput(attrs={"class": "form-control"}),
-            # Публикация
-            "published_at": forms.DateTimeInput(attrs={"class": "form-control", "type": "datetime-local"}),
-            "unpublished_reason": forms.TextInput(attrs={"class": "form-control"}),
-            "last_reviewed_at": forms.DateTimeInput(attrs={"class": "form-control", "type": "datetime-local"}),
-            # Рекомендации (JSON поле)
-            "recommendation_tags": forms.Textarea(attrs={"rows": 3, "class": "form-control", "placeholder": '["tag1", "tag2"]'}),
         }
 
     def clean(self):
