@@ -51,7 +51,6 @@
 {% endblock %}
 
 {% block modals %}
-{{ block.super }}
 {% if user.is_authenticated %}
 {% include "partials/dropshipper_modals.html" %}
 <!-- Модальное окно добавления товара создается динамически через dropshipper-product-modal.js -->
