@@ -320,6 +320,7 @@ def monobank_create_invoice(request):
         body = {}
     
     monobank_logger.info(f'Request body: {body}')
+    monobank_logger.info(f'pay_type from body: {body.get("pay_type")}')
     
     # Получаем cart
     cart = get_cart_from_session(request)
@@ -338,7 +339,9 @@ def monobank_create_invoice(request):
             phone = prof.phone
             city = prof.city
             np_office = prof.np_office
+            # ВАЖНО: Приоритет body.pay_type над prof.pay_type!
             pay_type = body.get('pay_type') or prof.pay_type or 'online_full'
+            monobank_logger.info(f'Auth user: pay_type from body={body.get("pay_type")}, from profile={prof.pay_type}, final={pay_type}')
         except Exception as e:
             monobank_logger.error(f'Error getting user profile: {e}')
             return JsonResponse({
@@ -352,6 +355,7 @@ def monobank_create_invoice(request):
         city = body.get('city', '').strip()
         np_office = body.get('np_office', '').strip()
         pay_type = body.get('pay_type', 'online_full')
+        monobank_logger.info(f'Guest user: pay_type={pay_type}')
         
         # Валидация для гостей
         if not all([full_name, phone, city, np_office]):
