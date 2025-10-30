@@ -697,6 +697,16 @@ function requestMonobankPay(){
       pay_type: getPayType()
     };
   }
+  // ИСПРАВЛЕНИЕ: Напрямую используем pay_type из селекта, без промежуточных mode
+  const effectivePayType = getPayType();
+
+  if(!payload || typeof payload !== 'object'){
+    payload = {};
+  }
+  payload.pay_type = effectivePayType;
+
+  console.log('🚚 Preparing MonoPay payload:', payload);
+
   return fetch('/cart/monobank/create-invoice/', {
     method: 'POST',
     headers: {
@@ -713,6 +723,7 @@ function startMonobankPay(button, statusEl){
   setMonoCheckoutStatus(statusEl, '', '');
   toggleMonoCheckoutLoading(button, true);
 
+  // ИСПРАВЛЕНИЕ: Убрана зависимость от data-monobank-pay-mode
   return requestMonobankPay()
     .then(result => {
       const data = result.data || {};
