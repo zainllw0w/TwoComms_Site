@@ -594,7 +594,7 @@ def catalog(request, cat_slug=None):
 
 @cache_page_for_anon(600)  # Кэшируем карточку товара на 10 минут для анонимов
 def product_detail(request, slug):
-    product = get_object_or_404(Product, slug=slug)
+    product = get_object_or_404(Product.objects.select_related('category'), slug=slug)
     images = product.images.all()
     # Варианты цветов с изображениями (если есть приложение и данные)
     color_variants = get_detailed_color_variants(product)
