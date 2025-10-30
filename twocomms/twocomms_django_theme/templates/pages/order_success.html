@@ -250,7 +250,10 @@
           fbUserData.ct = city.toLowerCase();
       }
       
-        // Отправляем Purchase event
+        // Генерируем event_id для дедупликации
+      var eventId = '{{ order.get_facebook_event_id }}';
+      
+        // Отправляем Purchase event с eventID для дедупликации
       fbq('track', 'Purchase', {
         value: value,
         currency: currency,
@@ -261,9 +264,17 @@
           };
         }),
         content_type: 'product'
-      }, fbUserData);
+      }, {
+        eventID: eventId,
+        // Advanced Matching
+        em: fbUserData.em,
+        ph: fbUserData.ph,
+        fn: fbUserData.fn,
+        ln: fbUserData.ln,
+        ct: fbUserData.ct
+      });
       
-        console.log('✅ Meta Pixel Purchase event sent (PAID) with Advanced Matching:', fbUserData);
+        console.log('✅ Meta Pixel Purchase event sent (PAID) with eventID:', eventId, 'and Advanced Matching:', fbUserData);
   }
       
     } else {
@@ -315,15 +326,26 @@
           fbUserData.ct = city.toLowerCase();
         }
         
-        // Отправляем Lead event
+        // Генерируем event_id для дедупликации (добавляем _lead для уникальности)
+        var leadEventId = '{{ order.get_facebook_event_id }}_lead';
+        
+        // Отправляем Lead event с eventID
         fbq('track', 'Lead', {
           value: value,
           currency: currency,
           content_name: 'Order ' + orderNumber,
           content_category: 'order_lead'
-        }, fbUserData);
+        }, {
+          eventID: leadEventId,
+          // Advanced Matching
+          em: fbUserData.em,
+          ph: fbUserData.ph,
+          fn: fbUserData.fn,
+          ln: fbUserData.ln,
+          ct: fbUserData.ct
+        });
         
-        console.log('📋 Meta Pixel Lead event sent (UNPAID) with Advanced Matching:', fbUserData);
+        console.log('📋 Meta Pixel Lead event sent (UNPAID) with eventID:', leadEventId, 'and Advanced Matching:', fbUserData);
       }
     }
     

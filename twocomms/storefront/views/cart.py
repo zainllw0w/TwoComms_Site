@@ -682,6 +682,120 @@ def cart_mini(request):
     })
 
 
+@require_POST
+def contact_manager(request):
+    """
+    Обработка формы связи с менеджером из модального окна.
+    
+    Отправляет Telegram сообщение администратору с:
+    - Контактными данными клиента (ПІБ, телефон, Telegram, WhatsApp)
+    - Содержимым корзины
+    
+    POST params:
+        full_name: ПІБ клиента
+        phone: Телефон (обязательно)
+        telegram: Telegram login (опционально)
+        whatsapp: WhatsApp (опционально)
+        
+    Returns:
+        JsonResponse: {'success': True/False, 'error': 'message'}
+    """
+    try:
+        # Получаем данные из формы
+        full_name = request.POST.get('full_name', '').strip()
+        phone = request.POST.get('phone', '').strip()
+        telegram = request.POST.get('telegram', '').strip()
+        whatsapp = request.POST.get('whatsapp', '').strip()
+        
+        # Валидация обязательных полей
+        if not full_name or len(full_name) < 3:
+            return JsonResponse({
+                'success': False,
+                'error': 'ПІБ повинно містити мінімум 3 символи'
+            })
+        
+        if not phone or len(phone) < 10:
+            return JsonResponse({
+                'success': False,
+                'error': 'Введіть коректний номер телефону'
+            })
+        
+        # Получаем корзину
+        cart = get_cart_from_session(request)
+        
+        if not cart:
+            return JsonResponse({
+                'success': False,
+                'error': 'Кошик порожній'
+            })
+        
+        # Получаем товары из БД
+        ids = [item['product_id'] for item in cart.values()]
+        products = Product.objects.in_bulk(ids)
+        
+        # Формируем сообщение для Telegram
+        message = f"""📞 <b>ЗАПИТ ЗВ'ЯЗКУ З МЕНЕДЖЕРОМ</b>
+
+👤 <b>Клієнт:</b> {full_name}
+📱 <b>Телефон:</b> {phone}"""
+        
+        if telegram:
+            message += f"\n💬 <b>Telegram:</b> @{telegram}"
+        
+        if whatsapp:
+            message += f"\n📲 <b>WhatsApp:</b> {whatsapp}"
+        
+        message += "\n\n🛒 <b>КОШИК:</b>\n"
+        
+        total_sum = Decimal('0')
+        
+        # Добавляем товары
+        for key, item_data in cart.items():
+            product = products.get(item_data['product_id'])
+            if not product:
+                continue
+            
+            qty = item_data.get('qty', 1)
+            unit_price = product.final_price
+            line_total = unit_price * qty
+            total_sum += line_total
+            
+            # Информация о размере и цвете
+            size_info = f" ({item_data.get('size')})" if item_data.get('size') else ""
+            
+            message += f"• {product.title}{size_info} x {qty} шт = {line_total} грн\n"
+        
+        message += f"\n💰 <b>Всього:</b> {total_sum} грн"
+        message += "\n\n<i>Клієнт очікує на зв'язок менеджера!</i>"
+        
+        # Отправляем в Telegram
+        try:
+            from orders.telegram_notifications import TelegramNotifier
+            notifier = TelegramNotifier()
+            notifier.send_admin_message(message)
+            
+            cart_logger.info(
+                f"Contact manager request sent: {full_name} ({phone}), cart total: {total_sum} UAH"
+            )
+            
+            return JsonResponse({'success': True})
+            
+        except Exception as telegram_error:
+            cart_logger.error(
+                f"Failed to send Telegram notification for contact request: {telegram_error}",
+                exc_info=True
+            )
+            return JsonResponse({
+                'success': False,
+                'error': 'Не вдалося відправити повідомлення. Спробуйте пізніше'
+            })
+    
+    except Exception as e:
+        cart_logger.error(f"Error processing contact manager request: {e}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': 'Сталася помилка. Спробуйте ще раз'
+        })
 
 
 
