@@ -1,6 +1,6 @@
 {% load static %}
 {% for p in products %}
-<div class="product-card-wrap">
+<div class="col product-card-wrap">
   {% include "partials/product_card.html" with p=p stagger=False eager=False %}
   {% if p.colors_preview %}
   <div class="product-card-dots">
