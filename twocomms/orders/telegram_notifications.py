@@ -54,6 +54,20 @@ class TelegramNotifier:
             print(f"❌ Exception in send_message to admin: {e}")
             return False
     
+    def send_admin_message(self, message, parse_mode='HTML'):
+        """
+        Псевдоним для send_message для единообразия API.
+        Отправляет сообщение администратору.
+        
+        Args:
+            message (str): Текст сообщения
+            parse_mode (str): Режим парсинга ('HTML' или 'Markdown')
+            
+        Returns:
+            bool: True если сообщение отправлено успешно
+        """
+        return self.send_message(message, parse_mode)
+    
     def send_personal_message(self, telegram_id, message, parse_mode='HTML'):
         """Отправляет личное сообщение пользователю по telegram_id"""
         print(f"🔵 send_personal_message: telegram_id={telegram_id}, bot_token={'SET' if self.bot_token else 'NOT SET'}")
@@ -85,6 +99,71 @@ class TelegramNotifier:
             print(f"❌ Exception in send_personal_message: {e}")
             return False
     
+    def _format_payment_info(self, order):
+        """
+        Форматирует информацию об оплате в зависимости от pay_type и payment_status
+        
+        Args:
+            order: Объект заказа
+            
+        Returns:
+            str: Отформатированная информация об оплате
+        """
+        payment_info = "│  💳 ОПЛАТА:\n"
+        
+        # Получаем pay_type и payment_status
+        pay_type = getattr(order, 'pay_type', 'online_full')
+        payment_status = getattr(order, 'payment_status', 'unpaid')
+        
+        # Определяем тип оплаты
+        if pay_type == 'online_full' or pay_type == 'full':
+            payment_info += "│     Тип: Онлайн оплата (повна сума)\n"
+            
+            if payment_status == 'paid':
+                payment_info += "│     ✅ ОПЛАЧЕНО ПОВНІСТЮ\n"
+                payment_info += f"│     💰 Сума: {order.total_sum} грн\n"
+            elif payment_status == 'checking':
+                payment_info += "│     ⏳ НА ПЕРЕВІРЦІ\n"
+                payment_info += f"│     💰 Сума: {order.total_sum} грн\n"
+            else:
+                payment_info += "│     ⏳ Очікується оплата\n"
+                payment_info += f"│     💰 До сплати: {order.total_sum} грн\n"
+                
+        elif pay_type == 'prepay_200' or pay_type == 'partial':
+            payment_info += "│     Тип: Передплата 200 грн\n"
+            
+            prepay_amount = order.get_prepayment_amount() if hasattr(order, 'get_prepayment_amount') else 200
+            remaining = order.get_remaining_amount() if hasattr(order, 'get_remaining_amount') else (order.total_sum - prepay_amount)
+            
+            if payment_status == 'prepaid' or payment_status == 'partial':
+                payment_info += f"│     ✅ ПЕРЕДПЛАТА ВНЕСЕНА: {prepay_amount} грн\n"
+                payment_info += f"│     📦 Залишок (при отриманні): {remaining} грн\n"
+                payment_info += f"│     💰 Всього: {order.total_sum} грн\n"
+            elif payment_status == 'paid':
+                payment_info += f"│     ✅ ОПЛАЧЕНО ПОВНІСТЮ: {order.total_sum} грн\n"
+                payment_info += "│     (Передплата + залишок при отриманні)\n"
+            else:
+                payment_info += f"│     ⏳ Очікується передплата: {prepay_amount} грн\n"
+                payment_info += f"│     📦 Залишок (при отриманні): {remaining} грн\n"
+                payment_info += f"│     💰 Всього: {order.total_sum} грн\n"
+                
+        elif pay_type == 'cod':
+            payment_info += "│     Тип: Оплата при отриманні\n"
+            
+            if payment_status == 'paid':
+                payment_info += "│     ✅ ОПЛАЧЕНО\n"
+                payment_info += f"│     💰 Сума: {order.total_sum} грн\n"
+            else:
+                payment_info += "│     📦 Накладений платіж\n"
+                payment_info += f"│     💰 До сплати: {order.total_sum} грн\n"
+        else:
+            # Fallback для неизвестных типов
+            payment_info += f"│     Тип: {pay_type}\n"
+            payment_info += f"│     Статус: {order.get_payment_status_display()}\n"
+            payment_info += f"│     💰 Сума: {order.total_sum} грн\n"
+        
+        return payment_info
+    
     def format_order_message(self, order):
         """Форматирует HTML сообщение о заказе с поддержкой Telegram"""
         # Основная информация о заказе
@@ -97,6 +176,9 @@ class TelegramNotifier:
         for item in order.items.all():
             total_items += item.qty
             subtotal += item.line_total
+        
+        # Форматируем информацию об оплате
+        payment_info = self._format_payment_info(order)
         
         # Создаем единый блок с всей информацией
         full_block = f"""
@@ -114,6 +196,8 @@ class TelegramNotifier:
 │     Статус оплаты: {order.get_payment_status_display()}
 │     Статус заказа: {order.get_status_display()}
 │     Время создания: {order.created.strftime('%d.%m.%Y %H:%M')}
+├─────────────────────────────────────────┤
+{payment_info}
 ├─────────────────────────────────────────┤
 │  📦 ТОВАРЫ В ЗАКАЗЕ ({order.items.count()} позиций):
 """
