@@ -3339,12 +3339,21 @@ def admin_product_edit_unified(request, pk):
     obj = get_object_or_404(Product, pk=pk)
     
     if request.method == 'POST':
+        # DEBUG: Log what form_type we receive
+        import logging
+        logger = logging.getLogger(__name__)
         form_type = request.POST.get('form_type')
+        logger.info(f"[UNIFIED DEBUG] form_type: {form_type}")
+        logger.info(f"[UNIFIED DEBUG] POST keys: {list(request.POST.keys())[:15]}")
+        logger.info(f"[UNIFIED DEBUG] Title in POST: {request.POST.get('title', 'NOT FOUND')}")
         
         if form_type == 'product':
             form = ProductForm(request.POST, request.FILES, instance=obj)
             
             if form.is_valid():
+                logger.info(f"[UNIFIED DEBUG] Form is valid! Changed data: {form.changed_data}")
+                logger.info(f"[UNIFIED DEBUG] Title from cleaned_data: {form.cleaned_data.get('title')}")
+                
                 product = form.save(commit=False)
                 
                 # Автогенерація slug, якщо порожній
@@ -3361,11 +3370,13 @@ def admin_product_edit_unified(request, pk):
                             product.main_image = first_image.image
                 
                 product.save()
+                logger.info(f"[UNIFIED DEBUG] Product saved! New title: {product.title}")
                 
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return JsonResponse({'success': True, 'message': 'Товар успішно збережено!'})
                 return redirect('/admin-panel/?section=catalogs')
             else:
+                logger.error(f"[UNIFIED DEBUG] Form validation FAILED! Errors: {form.errors}")
                 # Возвращаем форму с ошибками для отображения пользователю
                 return render(request, 'pages/admin_product_edit_unified.html', {
                     'form': form, 
@@ -3434,6 +3445,9 @@ def admin_product_edit_unified(request, pk):
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'success': True, 'message': f'Додано зображень: {created}'})
             return redirect(request.path)
+        else:
+            # DEBUG: Unknown form_type
+            logger.warning(f"[UNIFIED DEBUG] Unknown or missing form_type: '{form_type}'. Request not processed!")
     
     form = ProductForm(instance=obj)
     
