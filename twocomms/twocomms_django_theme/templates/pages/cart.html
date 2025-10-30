@@ -248,11 +248,21 @@
               <div class="cart-form-input-wrapper">
                 <select name="pay_type" class="cart-form-select" id="pay_type_auth" required aria-label="Тип оплати">
                   <option value="">Оберіть тип оплати</option>
-                  <option value="partial" {% if prof.pay_type == 'partial' %}selected{% endif %}>Часткова передоплата</option>
-                  <option value="full" {% if prof.pay_type == 'full' %}selected{% endif %}>Повна передоплата</option>
+                  <option value="online_full" {% if prof.pay_type == 'online_full' or prof.pay_type == 'full' %}selected{% endif %}>Онлайн оплата (повна сума)</option>
+                  <option value="prepay_200" {% if prof.pay_type == 'prepay_200' or prof.pay_type == 'partial' %}selected{% endif %}>Передплата 200 грн (решта при отриманні)</option>
                 </select>
                 <div class="cart-form-input-glow"></div>
               </div>
+            </div>
+            
+            <!-- Кнопка связи с менеджером -->
+            <div class="cart-form-group">
+              <button type="button" class="btn-contact-manager" id="contactManagerBtn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 8px;">
+                  <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56-.35-.12-.74-.03-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/>
+                </svg>
+                Зв'язатися з менеджером
+              </button>
             </div>
             
             <button type="submit" class="cart-form-save-btn">
@@ -342,14 +352,24 @@
               <div class="cart-form-input-wrapper">
                 <select name="pay_type" class="cart-form-select" id="pay_type_guest" required aria-label="Тип оплати">
                   <option value="">Оберіть тип оплати</option>
-                  <option value="partial">Часткова передоплата</option>
-                  <option value="full">Повна передоплата</option>
+                  <option value="online_full">Онлайн оплата (повна сума)</option>
+                  <option value="prepay_200">Передплата 200 грн (решта при отриманні)</option>
                 </select>
                 <div class="cart-form-input-glow"></div>
               </div>
               {% if guest_form.pay_type.errors %}
                 <div class="cart-form-error">{{ guest_form.pay_type.errors.0 }}</div>
               {% endif %}
+            </div>
+            
+            <!-- Кнопка связи с менеджером -->
+            <div class="cart-form-group">
+              <button type="button" class="btn-contact-manager" id="contactManagerBtnGuest">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 8px;">
+                  <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56-.35-.12-.74-.03-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/>
+                </svg>
+                Зв'язатися з менеджером
+              </button>
             </div>
           </form>
         </div>
@@ -946,9 +966,419 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   };
+  
+  // ==================== ДИНАМИЧЕСКИЕ КНОПКИ ====================
+  // Меняем текст кнопки "Оформити замовлення" в зависимости от выбранного типа оплаты
+  const payTypeSelects = document.querySelectorAll('#pay_type_auth, #pay_type_guest');
+  const placeOrderBtn = document.getElementById('placeOrderBtn');
+  const guestOrderBtn = document.querySelector('.cart-checkout-btn-guest');
+  
+  function updateOrderButtonText(payType) {
+    const btn = placeOrderBtn || guestOrderBtn;
+    if (!btn) return;
+    
+    const btnTextSpan = btn.querySelector('span');
+    if (!btnTextSpan) return;
+    
+    switch(payType) {
+      case 'online_full':
+        btnTextSpan.textContent = 'Перейти до оплати';
+        break;
+      case 'prepay_200':
+        btnTextSpan.textContent = 'Внести передплату 200 грн';
+        break;
+      default:
+        if (placeOrderBtn) {
+          btnTextSpan.textContent = 'Оформити замовлення';
+        } else {
+          btnTextSpan.textContent = 'Замовити як гість';
+        }
+    }
+  }
+  
+  // Обработчики изменения pay_type
+  payTypeSelects.forEach(select => {
+    select.addEventListener('change', function() {
+      updateOrderButtonText(this.value);
+    });
+    
+    // Устанавливаем начальное значение при загрузке
+    if (select.value) {
+      updateOrderButtonText(select.value);
+    }
+  });
+  
+  // ==================== МОДАЛЬНОЕ ОКНО СВЯЗИ С МЕНЕДЖЕРОМ ====================
+  const contactBtns = document.querySelectorAll('#contactManagerBtn, #contactManagerBtnGuest');
+  const modal = document.getElementById('contactManagerModal');
+  const modalClose = document.querySelector('.contact-modal-close');
+  const modalForm = document.getElementById('contactManagerForm');
+  
+  // Открытие модалки
+  contactBtns.forEach(btn => {
+    btn.addEventListener('click', function() {
+      // Автозаполнение из формы доставки
+      const isAuth = document.getElementById('pay_type_auth') !== null;
+      
+      if (isAuth) {
+        const fullNameInput = document.querySelector('[name="full_name"]');
+        const phoneInput = document.querySelector('[name="phone"]');
+        
+        if (fullNameInput && fullNameInput.value) {
+          document.getElementById('contactModalFullName').value = fullNameInput.value;
+        }
+        if (phoneInput && phoneInput.value) {
+          document.getElementById('contactModalPhone').value = phoneInput.value;
+        }
+      } else {
+        // Для гостей из guest-form
+        const guestForm = document.getElementById('guest-form');
+        if (guestForm) {
+          const fullNameInput = guestForm.querySelector('[name="full_name"]');
+          const phoneInput = guestForm.querySelector('[name="phone"]');
+          
+          if (fullNameInput && fullNameInput.value) {
+            document.getElementById('contactModalFullName').value = fullNameInput.value;
+          }
+          if (phoneInput && phoneInput.value) {
+            document.getElementById('contactModalPhone').value = phoneInput.value;
+          }
+        }
+      }
+      
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    });
+  });
+  
+  // Закрытие модалки
+  if (modalClose) {
+    modalClose.addEventListener('click', function() {
+      modal.style.display = 'none';
+      document.body.style.overflow = 'auto';
+    });
+  }
+  
+  // Закрытие по клику вне модалки
+  window.addEventListener('click', function(event) {
+    if (event.target === modal) {
+      modal.style.display = 'none';
+      document.body.style.overflow = 'auto';
+    }
+  });
+  
+  // Отправка формы связи с менеджером
+  if (modalForm) {
+    modalForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const formData = new FormData(modalForm);
+      const submitBtn = modalForm.querySelector('button[type="submit"]');
+      const originalText = submitBtn.textContent;
+      
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Відправляємо...';
+      
+      fetch('{% url "contact_manager" %}', {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert('✅ Дякуємо! Менеджер зв\'яжеться з вами найближчим часом.');
+          modal.style.display = 'none';
+          document.body.style.overflow = 'auto';
+          modalForm.reset();
+        } else {
+          alert('❌ Помилка: ' + (data.error || 'Спробуйте ще раз'));
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Помилка з\'єднання. Спробуйте ще раз.');
+      })
+      .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+      });
+    });
+  }
 });
 </script>
 
+<!-- Стили для кнопки связи с менеджером и модального окна -->
+<style>
+.btn-contact-manager {
+  width: 100%;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.btn-contact-manager:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn-contact-manager:active {
+  transform: translateY(0);
+}
+
+/* Модальное окно */
+.contact-modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(5px);
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.contact-modal-container {
+  background: white;
+  border-radius: 20px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.contact-modal-header {
+  padding: 30px 30px 20px;
+  border-bottom: 2px solid #f0f0f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.contact-modal-header h3 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #2d3748;
+}
+
+.contact-modal-close {
+  background: #f7fafc;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  color: #718096;
+}
+
+.contact-modal-close:hover {
+  background: #e2e8f0;
+  color: #2d3748;
+  transform: rotate(90deg);
+}
+
+.contact-modal-body {
+  padding: 30px;
+}
+
+.contact-modal-form-group {
+  margin-bottom: 20px;
+}
+
+.contact-modal-label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #2d3748;
+  font-size: 14px;
+}
+
+.contact-modal-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 15px;
+  transition: all 0.3s ease;
+  background: #f7fafc;
+}
+
+.contact-modal-input:focus {
+  outline: none;
+  border-color: #667eea;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.contact-modal-input::placeholder {
+  color: #a0aec0;
+}
+
+.contact-modal-help-text {
+  font-size: 13px;
+  color: #718096;
+  margin-top: 6px;
+}
+
+.contact-modal-submit-btn {
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  margin-top: 10px;
+}
+
+.contact-modal-submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.contact-modal-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .contact-modal-container {
+    border-radius: 20px 20px 0 0;
+    max-height: 85vh;
+  }
+  
+  .contact-modal-header {
+    padding: 20px 20px 15px;
+  }
+  
+  .contact-modal-header h3 {
+    font-size: 20px;
+  }
+  
+  .contact-modal-body {
+    padding: 20px;
+  }
+}
+</style>
+
 {% endblock %}
+
+<!-- Модальное окно связи с менеджером -->
+<div id="contactManagerModal" class="contact-modal-overlay">
+  <div class="contact-modal-container">
+    <div class="contact-modal-header">
+      <h3>📞 Зв'язатися з менеджером</h3>
+      <button type="button" class="contact-modal-close" aria-label="Закрити">&times;</button>
+    </div>
+    <div class="contact-modal-body">
+      <form id="contactManagerForm">
+        {% csrf_token %}
+        
+        <div class="contact-modal-form-group">
+          <label class="contact-modal-label" for="contactModalFullName">
+            ПІБ <span style="color: #e53e3e;">*</span>
+          </label>
+          <input 
+            type="text" 
+            id="contactModalFullName" 
+            name="full_name" 
+            class="contact-modal-input" 
+            placeholder="Введіть ваше ПІБ" 
+            required
+            minlength="3"
+          >
+        </div>
+        
+        <div class="contact-modal-form-group">
+          <label class="contact-modal-label" for="contactModalPhone">
+            Телефон <span style="color: #e53e3e;">*</span>
+          </label>
+          <input 
+            type="tel" 
+            id="contactModalPhone" 
+            name="phone" 
+            class="contact-modal-input" 
+            placeholder="+380 XX XXX XX XX" 
+            required
+            pattern="[+]?[0-9\s\-\(\)]+"
+          >
+        </div>
+        
+        <div class="contact-modal-form-group">
+          <label class="contact-modal-label" for="contactModalTelegram">
+            Telegram
+          </label>
+          <input 
+            type="text" 
+            id="contactModalTelegram" 
+            name="telegram" 
+            class="contact-modal-input" 
+            placeholder="@username або номер телефону"
+          >
+          <div class="contact-modal-help-text">Опціонально, але допоможе зв'язатися швидше</div>
+        </div>
+        
+        <div class="contact-modal-form-group">
+          <label class="contact-modal-label" for="contactModalWhatsApp">
+            WhatsApp
+          </label>
+          <input 
+            type="tel" 
+            id="contactModalWhatsApp" 
+            name="whatsapp" 
+            class="contact-modal-input" 
+            placeholder="+380 XX XXX XX XX"
+            pattern="[+]?[0-9\s\-\(\)]+"
+          >
+          <div class="contact-modal-help-text">Опціонально</div>
+        </div>
+        
+        <button type="submit" class="contact-modal-submit-btn">
+          📲 Зв'язатися зі мною
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
 
 {% endblock %}

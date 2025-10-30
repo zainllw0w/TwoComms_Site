@@ -103,6 +103,8 @@ urlpatterns=[
     # promocodes in cart
     path('cart/apply-promo/', views.apply_promo_code, name='apply_promo_code'),
     path('cart/remove-promo/', views.remove_promo_code, name='remove_promo_code'),
+    # Contact manager
+    path('cart/contact-manager/', views.contact_manager, name='contact_manager'),
     # Monobank acquiring
     path('cart/monobank/create-invoice/', views.monobank_create_invoice, name='monobank_create_invoice'),
     path('cart/monobank/quick/', views.monobank_create_checkout, name='monobank_quick_invoice'),
