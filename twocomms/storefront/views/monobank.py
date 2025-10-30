@@ -515,6 +515,54 @@ def monobank_create_invoice(request):
             # Формируем basket для Monobank
             monobank_logger.info(f'🔍 Building basket entries for pay_type={pay_type}')
             basket_entries = []
+            
+            # Для предоплаты собираем список ВСЕХ товаров
+            if pay_type == 'prepay_200':
+                product_names = []
+                first_icon_url = ''
+                
+                for item in order_items[:10]:  # Максимум 10 товаров
+                    try:
+                        # Запоминаем иконку первого товара
+                        if not first_icon_url and item.product.main_image:
+                            first_icon_url = request.build_absolute_uri(item.product.main_image.url)
+                        
+                        # Добавляем название товара в список
+                        product_name = f'{item.title}'
+                        if item.size:
+                            product_name += f' ({item.size})'
+                        if item.qty > 1:
+                            product_name += f' x{item.qty}'
+                        
+                        product_names.append(product_name)
+                    except Exception as e:
+                        monobank_logger.warning(f'Error processing item for prepay: {e}')
+                
+                # Формируем общее описание со всеми товарами
+                if len(product_names) == 1:
+                    # Один товар
+                    full_description = f'Передплата за товар {product_names[0]}'
+                else:
+                    # Несколько товаров
+                    products_list = ', '.join(product_names)
+                    full_description = f'Передплата за замовлення ({products_list})'
+                
+                basket_sum_kopecks = int(payment_amount * 100)
+                monobank_logger.info(f'🔍 PREPAY mode: Creating basket entry with ALL products')
+                monobank_logger.info(f'🔍 - name: {full_description}')
+                monobank_logger.info(f'🔍 - products count: {len(product_names)}')
+                monobank_logger.info(f'🔍 - qty: 1')
+                monobank_logger.info(f'🔍 - sum: {basket_sum_kopecks} kopecks ({payment_amount} UAH)')
+                
+                basket_entries.append({
+                    'name': full_description,
+                    'qty': 1,
+                    'sum': basket_sum_kopecks,  # в копейках (всегда 20000 = 200 грн)
+                    'icon': first_icon_url,
+                    'unit': 'шт'
+                })
+            else:
+                # Для полной оплаты показываем все товары отдельными позициями
             for item in order_items[:10]:  # Максимум 10 товаров
                 try:
                     # Получаем URL изображения
@@ -522,24 +570,6 @@ def monobank_create_invoice(request):
                     if item.product.main_image:
                         icon_url = request.build_absolute_uri(item.product.main_image.url)
                     
-                    # Для предоплаты показываем один товар "Передплата"
-                    if pay_type == 'prepay_200':
-                        basket_sum_kopecks = int(payment_amount * 100)
-                        monobank_logger.info(f'🔍 PREPAY mode: Creating basket entry')
-                        monobank_logger.info(f'🔍 - name: {prepay_label}')
-                        monobank_logger.info(f'🔍 - qty: 1')
-                        monobank_logger.info(f'🔍 - sum: {basket_sum_kopecks} kopecks ({payment_amount} UAH)')
-                        
-                        basket_entries.append({
-                            'name': prepay_label,
-                            'qty': 1,
-                            'sum': basket_sum_kopecks,  # в копейках
-                            'icon': icon_url,
-                            'unit': 'шт'
-                        })
-                        break  # Один товар достаточно
-                    else:
-                        # Для полной оплаты показываем все товары
                         basket_sum_kopecks = int(item.line_total * 100)
                         monobank_logger.info(f'🔍 FULL mode: Adding item {item.title}')
                         monobank_logger.info(f'🔍 - qty: {item.qty}')
