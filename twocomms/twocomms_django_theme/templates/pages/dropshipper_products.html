@@ -6,6 +6,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/dropshipper.css' %}?v=20251022fix" media="all">
+<link rel="stylesheet" href="{% static 'css/dropshipper-auth-modal.css' %}" media="all">
 {% endblock %}
 
 {% block content %}
@@ -64,6 +65,6 @@
 <script src="{% static 'js/dropshipper-product-modal.js' %}?v=20251023delegate" defer></script>
 {% endcompress %}
 {% else %}
-  <script src="{% static 'js/dropshipper-auth-modal.js' %}?v=20251030authfix" defer></script>
+  <script src="{% static 'js/dropshipper-auth-modal.js' %}?v=20251030fixed" defer></script>
 {% endif %}
 {% endblock %}
