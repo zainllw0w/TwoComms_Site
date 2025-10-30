@@ -1,5 +1,8 @@
 from django.urls import path
 from . import views
+# Import auth views from the modular auth.py module
+from .views import auth as auth_views
+
 urlpatterns=[
     path('', views.home, name='home'),
     path('load-more-products/', views.load_more_products, name='load_more_products'),
@@ -17,10 +20,10 @@ urlpatterns=[
     path('cart/mini/', views.cart_mini, name='cart_mini'),
     path('cart/clean/', views.clean_cart, name='clean_cart'),
     path('checkout/', views.checkout, name='checkout'),
-    # auth
-    path('login/', views.login_view, name='login'),
-    path('logout/', views.logout_view, name='logout'),
-    path('register/', views.register_view_new, name='register'),
+    # auth - using modular auth views with proper password validation
+    path('login/', auth_views.login_view, name='login'),
+    path('logout/', auth_views.logout_view, name='logout'),
+    path('register/', auth_views.register_view, name='register'),
     path('profile/setup/', views.profile_setup_db, name='profile_setup'),
     # admin panel
     path('admin-panel/', views.admin_panel, name='admin_panel'),
