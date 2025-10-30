@@ -3343,25 +3343,42 @@ def admin_product_edit_unified(request, pk):
         
         import logging
         import sys
+        import os
+        from datetime import datetime
         logger = logging.getLogger(__name__)
         
-        # DEBUG LOG
-        print(f"\n=== PRODUCT EDIT DEBUG ===", file=sys.stderr)
-        print(f"form_type: {form_type}", file=sys.stderr)
-        print(f"Product ID: {obj.id}", file=sys.stderr)
-        print(f"Current title: {obj.title}", file=sys.stderr)
-        print(f"POST title: {request.POST.get('title')}", file=sys.stderr)
+        # DEBUG LOG to file
+        debug_file = '/home/qlknpodo/TWC/TwoComms_Site/twocomms/debug_product_save.txt'
+        try:
+            with open(debug_file, 'a') as f:
+                f.write(f"\n{'='*60}\n")
+                f.write(f"Time: {datetime.now()}\n")
+                f.write(f"form_type: {form_type}\n")
+                f.write(f"Product ID: {obj.id}\n")
+                f.write(f"Current title: {obj.title}\n")
+                f.write(f"POST title: {request.POST.get('title')}\n")
+        except Exception as e:
+            pass
         
         if form_type == 'product':
             form = ProductForm(request.POST, request.FILES, instance=obj)
             
-            print(f"Form is_valid: {form.is_valid()}", file=sys.stderr)
-            if not form.is_valid():
-                print(f"Form errors: {form.errors}", file=sys.stderr)
+            is_valid = form.is_valid()
+            try:
+                with open(debug_file, 'a') as f:
+                    f.write(f"Form is_valid: {is_valid}\n")
+                    if not is_valid:
+                        f.write(f"Form errors: {dict(form.errors)}\n")
+            except:
+                pass
             
-            if form.is_valid():
-                print(f"Changed fields: {form.changed_data}", file=sys.stderr)
-                print(f"Title from cleaned_data: {form.cleaned_data.get('title')}", file=sys.stderr)
+            if is_valid:
+                try:
+                    with open(debug_file, 'a') as f:
+                        f.write(f"Changed fields: {form.changed_data}\n")
+                        f.write(f"Title from cleaned_data: {form.cleaned_data.get('title')}\n")
+                except:
+                    pass
                 
                 product = form.save(commit=False)
                 
@@ -3381,11 +3398,14 @@ def admin_product_edit_unified(request, pk):
                 product.save()
                 
                 # Проверяем что сохранилось
-                from django.db import connection
                 product.refresh_from_db()
-                print(f"After save - title in DB: {product.title}", file=sys.stderr)
-                print(f"After save - ID: {product.id}", file=sys.stderr)
-                print(f"=== END DEBUG ===\n", file=sys.stderr)
+                try:
+                    with open(debug_file, 'a') as f:
+                        f.write(f"After save - title in DB: {product.title}\n")
+                        f.write(f"After save - ID: {product.id}\n")
+                        f.write(f"{'='*60}\n")
+                except:
+                    pass
                 
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return JsonResponse({'success': True, 'message': 'Товар успішно збережено!'})
