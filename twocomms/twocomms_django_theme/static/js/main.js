@@ -520,7 +520,7 @@ function requestMonoCheckout(){
       phone: getAnyVal('phone'),
       city: getAnyVal('city'),
       np_office: getAnyVal('np_office'),
-      pay_type: getAnyVal('pay_type') || 'full'
+      pay_type: getAnyVal('pay_type') || 'online_full'
     };
   }
   return fetch('/cart/monobank/quick/', {
@@ -563,7 +563,7 @@ function requestMonoCheckoutSingleProduct(button){
     payload.phone = getAnyVal('phone');
     payload.city = getAnyVal('city');
     payload.np_office = getAnyVal('np_office');
-    payload.pay_type = getAnyVal('pay_type') || 'full';
+    payload.pay_type = getAnyVal('pay_type') || 'online_full';
   }
 
   return fetch('/cart/monobank/quick/', {
@@ -684,7 +684,7 @@ function requestMonobankPay(){
       phone: getAnyVal('phone'),
       city: getAnyVal('city'),
       np_office: getAnyVal('np_office'),
-      pay_type: getAnyVal('pay_type') || 'full'
+      pay_type: getAnyVal('pay_type') || 'online_full'
     };
   }
   return fetch('/cart/monobank/create-invoice/', {
