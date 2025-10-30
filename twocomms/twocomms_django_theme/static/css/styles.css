@@ -714,13 +714,14 @@ body::after {
     align-items: stretch !important;
   }
   
+  /* Price row базовые стили (переопределяются ниже для visual dividers) */
   .card.product .price-row {
     column-gap: 0.03rem !important;
     max-width: 100% !important;
     overflow: visible !important;
     flex-wrap: nowrap !important;
-    padding: 0 !important;
-    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
   }
 
   .card.product .price-row .fw-semibold.price-text {
