@@ -67,7 +67,7 @@ class UserAdmin(BaseUserAdmin):
     def user_points(self, obj):
         """Отображает баллы пользователя."""
         try:
-            points = obj.points.balance
+            points = obj.points.points
             return format_html(
                 '<span style="color: #10b981; font-weight: 600;">{} балів</span>',
                 points
