@@ -332,22 +332,39 @@ def monobank_create_invoice(request):
     
     # Получаем данные клиента
     if request.user.is_authenticated:
-        # Для зарегистрированных пользователей - из профиля
         try:
             prof = request.user.userprofile
-            full_name = prof.full_name or request.user.username
-            phone = prof.phone
-            city = prof.city
-            np_office = prof.np_office
-            # ВАЖНО: Приоритет body.pay_type над prof.pay_type!
-            pay_type = body.get('pay_type') or prof.pay_type or 'online_full'
-            monobank_logger.info(f'Auth user: pay_type from body={body.get("pay_type")}, from profile={prof.pay_type}, final={pay_type}')
         except Exception as e:
             monobank_logger.error(f'Error getting user profile: {e}')
             return JsonResponse({
                 'success': False,
                 'error': 'Будь ласка, заповніть профіль доставки!'
             })
+
+        def _body_override(field, default_value):
+            value = body.get(field)
+            if value is None:
+                return default_value
+            if isinstance(value, str):
+                cleaned = value.strip()
+                return cleaned or default_value
+            return value or default_value
+
+        full_name = _body_override('full_name', prof.full_name or request.user.username)
+        phone = _body_override('phone', prof.phone)
+        city = _body_override('city', prof.city)
+        np_office = _body_override('np_office', prof.np_office)
+
+        pay_type_raw = (body.get('pay_type') or prof.pay_type or 'online_full')
+        normalized_pay_type = (pay_type_raw or '').strip().lower()
+        if normalized_pay_type in {'prepay_200', 'prepay', 'prepaid', 'partial', 'partial_payment', 'prepay200', 'cod'}:
+            pay_type = 'prepay_200'
+        else:
+            pay_type = 'online_full'
+
+        monobank_logger.info(
+            f"Auth user: pay_type raw={body.get('pay_type')}, profile={prof.pay_type}, normalized={pay_type}"
+        )
     else:
         # Для гостей - из POST body
         full_name = body.get('full_name', '').strip()
@@ -367,10 +384,14 @@ def monobank_create_invoice(request):
     monobank_logger.info(f'Customer data: full_name={full_name}, pay_type={pay_type}')
     
     # Нормализуем pay_type
+    monobank_logger.info(f'🔍 BEFORE normalization: pay_type={pay_type}')
     if pay_type in ['partial', 'prepaid']:
         pay_type = 'prepay_200'
+        monobank_logger.info(f'✅ Normalized partial/prepaid to prepay_200')
     elif pay_type in ['full']:
         pay_type = 'online_full'
+        monobank_logger.info(f'✅ Normalized full to online_full')
+    monobank_logger.info(f'🔍 AFTER normalization: pay_type={pay_type}')
     
     # Создаем заказ в транзакции
     try:
@@ -410,6 +431,8 @@ def monobank_create_invoice(request):
             )
             
             monobank_logger.info(f'Order created: {order.order_number} (ID: {order.id})')
+            monobank_logger.info(f'🔍 Order.pay_type = {order.pay_type}')
+            monobank_logger.info(f'🔍 Order.total_sum = {order.total_sum}')
             
             # Создаем OrderItem'ы
             order_items = []
@@ -453,18 +476,44 @@ def monobank_create_invoice(request):
                     monobank_logger.warning(f'Error applying promo code: {e}')
             
             # Определяем сумму для оплаты в зависимости от pay_type
+            monobank_logger.info(f'🔍 Determining payment amount. pay_type={pay_type}, order.pay_type={order.pay_type}')
+            
             if pay_type == 'prepay_200':
-                # Предоплата 200 грн
-                payment_amount = order.get_prepayment_amount()  # 200.00
-                payment_description = f'Передплата за замовлення {order.order_number}'
+                monobank_logger.info(f'✅ pay_type is prepay_200! Calculating prepayment...')
+                first_item = order_items[0] if order_items else None
+                product_label = ''
+                if first_item:
+                    product_label = (first_item.title or '').strip()
+                    if first_item.size:
+                        size_clean = str(first_item.size).strip()
+                        if size_clean:
+                            product_label = f'{product_label} ({size_clean})' if product_label else size_clean
+                if not product_label:
+                    product_label = f'замовлення {order.order_number}'
+
+                prepay_label = f'Передплата за товар "{product_label}"'
+                
+                # КРИТИЧЕСКАЯ ТОЧКА: Вызов get_prepayment_amount()
+                monobank_logger.info(f'🔍 Calling order.get_prepayment_amount()...')
+                monobank_logger.info(f'🔍 order.pay_type before call: {order.pay_type}')
+                payment_amount = order.get_prepayment_amount()
+                monobank_logger.info(f'🔍 order.get_prepayment_amount() returned: {payment_amount}')
+                monobank_logger.info(f'🔍 Type: {type(payment_amount)}, Value: {payment_amount}')
+                
+                payment_description = f'{prepay_label} - замовлення {order.order_number}'
+                monobank_logger.info(f'✅ Prepayment amount set to: {payment_amount} UAH')
             else:
+                monobank_logger.info(f'✅ pay_type is NOT prepay_200 (it is {pay_type}). Using full amount.')
                 # Полная оплата
                 payment_amount = order.total_sum - order.discount_amount
                 payment_description = f'Оплата замовлення {order.order_number}'
+                monobank_logger.info(f'✅ Full payment amount: {payment_amount} UAH')
             
-            monobank_logger.info(f'Payment amount: {payment_amount} (pay_type={pay_type})')
+            monobank_logger.info(f'🔍 FINAL payment_amount: {payment_amount} (pay_type={pay_type})')
+            monobank_logger.info(f'🔍 payment_amount in kopecks: {int(payment_amount * 100)}')
             
             # Формируем basket для Monobank
+            monobank_logger.info(f'🔍 Building basket entries for pay_type={pay_type}')
             basket_entries = []
             for item in order_items[:10]:  # Максимум 10 товаров
                 try:
@@ -475,20 +524,31 @@ def monobank_create_invoice(request):
                     
                     # Для предоплаты показываем один товар "Передплата"
                     if pay_type == 'prepay_200':
+                        basket_sum_kopecks = int(payment_amount * 100)
+                        monobank_logger.info(f'🔍 PREPAY mode: Creating basket entry')
+                        monobank_logger.info(f'🔍 - name: {prepay_label}')
+                        monobank_logger.info(f'🔍 - qty: 1')
+                        monobank_logger.info(f'🔍 - sum: {basket_sum_kopecks} kopecks ({payment_amount} UAH)')
+                        
                         basket_entries.append({
-                            'name': f'Передплата за замовлення {order.order_number}',
+                            'name': prepay_label,
                             'qty': 1,
-                            'sum': int(payment_amount * 100),  # в копейках
+                            'sum': basket_sum_kopecks,  # в копейках
                             'icon': icon_url,
                             'unit': 'шт'
                         })
                         break  # Один товар достаточно
                     else:
                         # Для полной оплаты показываем все товары
+                        basket_sum_kopecks = int(item.line_total * 100)
+                        monobank_logger.info(f'🔍 FULL mode: Adding item {item.title}')
+                        monobank_logger.info(f'🔍 - qty: {item.qty}')
+                        monobank_logger.info(f'🔍 - sum: {basket_sum_kopecks} kopecks ({item.line_total} UAH)')
+                        
                         basket_entries.append({
                             'name': f'{item.title} {item.size}'.strip(),
                             'qty': item.qty,
-                            'sum': int(item.line_total * 100),  # в копейках
+                            'sum': basket_sum_kopecks,  # в копейках
                             'icon': icon_url,
                             'unit': 'шт'
                         })
@@ -591,6 +651,3 @@ def monobank_create_invoice(request):
             'success': False,
             'error': 'Сталася помилка. Спробуйте ще раз.'
         })
-
-
-
