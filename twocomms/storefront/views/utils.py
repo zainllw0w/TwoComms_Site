@@ -374,7 +374,7 @@ def _record_monobank_status(order, payload, source='api'):
             order.payment_status = 'prepaid'
             monobank_logger.info(f'✅ Order {order.order_number}: prepayment successful → payment_status=prepaid')
         else:
-        order.payment_status = 'paid'
+            order.payment_status = 'paid'
             monobank_logger.info(f'✅ Order {order.order_number}: full payment successful → payment_status=paid')
         
         update_fields.append('payment_status')
