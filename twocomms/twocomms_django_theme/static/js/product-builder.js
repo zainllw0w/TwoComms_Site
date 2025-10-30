@@ -53,6 +53,11 @@ class ProductBuilder {
     this.initialPercent = Number(root.dataset.progressPercent || 0);
     this.endpoints = this.readEndpoints();
 
+    // Инициализация width прогресс-бара из data-width атрибута
+    if (this.progressBar && this.progressBar.dataset.width) {
+      this.progressBar.style.width = `${this.progressBar.dataset.width}%`;
+    }
+
     this.autosavePending = false;
 
     this.variantZone = null;
