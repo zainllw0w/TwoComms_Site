@@ -769,10 +769,21 @@
       }).then(function(d){
         if(d&&d.ok){
           try{ if(window.updateCartBadge) window.updateCartBadge(d.count); }catch(_){ }
+          
+          // Удаляем элемент из DOM
           if(el){
             var row=el.closest('[data-cart-row]')||el.closest('.d-flex');
-            if(row&&row.parentElement) row.parentElement.removeChild(row);
+            if(row&&row.parentElement) {
+              row.style.opacity = '0';
+              row.style.transform = 'translateX(-20px)';
+              row.style.transition = 'all 0.3s ease';
+              setTimeout(function(){ 
+                if(row.parentElement) row.parentElement.removeChild(row); 
+              }, 300);
+            }
           }
+          
+          // Обновляем мини-корзину
           var miniPromise = null;
           try{ if(window.refreshMiniCart) miniPromise = window.refreshMiniCart(); }catch(_){ }
           var reopen = function(){ try{ if(window.openMiniCart){ window.openMiniCart({skipRefresh:true}); } }catch(_){ } };
@@ -784,11 +795,41 @@
             try{ if(window.refreshCartSummary) window.refreshCartSummary(); }catch(_){ }
             reopen();
           }
-          if(document.getElementById('cart-list')) location.reload();
+          
+          // Обновляем UI страницы корзины БЕЗ перезагрузки
+          var cartList = document.getElementById('cart-list');
+          if(cartList){
+            // Обновляем итоговую сумму
+            var summaryValue = document.querySelector('.cart-summary-row:first-child .cart-summary-value');
+            var summaryLabel = document.querySelector('.cart-summary-row:first-child .cart-summary-label');
+            var payNowAmount = document.getElementById('pay-now-amount');
+            
+            if(summaryValue && d.total !== undefined) {
+              summaryValue.textContent = d.total + ' грн';
+            }
+            if(summaryLabel && d.count !== undefined) {
+              summaryLabel.textContent = 'Товари (' + d.count + '):';
+            }
+            if(payNowAmount && d.total !== undefined) {
+              payNowAmount.textContent = d.total + ' грн';
+              payNowAmount.setAttribute('data-total', d.total);
+            }
+            
+            // Если корзина пуста - показываем сообщение
+            if(d.count === 0) {
+              setTimeout(function(){
+                var mainSection = document.querySelector('.cart-main-section');
+                if(mainSection) {
+                  mainSection.innerHTML = '<div class="cart-empty"><div class="cart-empty-icon"><svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg></div><h2 class="cart-empty-title">Кошик порожній</h2><p class="cart-empty-text">Додайте товари до кошика, щоб зробити замовлення</p><a href="/" class="cart-empty-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>Перейти до покупок</a></div>';
+                }
+              }, 350);
+            }
+          }
+          
           try{ if(window.trackEvent){ window.trackEvent('RemoveFromCart', {content_ids:[String(key.split(':')[0])], content_type:'product'}); } }catch(_){ }
         }
       }).catch(function(error){
-        // Тихая обработка ошибок - просто перезагружаем страницу
+        // Тихая обработка ошибок - перезагружаем только если на странице корзины
         if(document.getElementById('cart-list')) {
           location.reload();
         }
