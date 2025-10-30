@@ -55,6 +55,14 @@
       }
       payload = payload || {};
       
+      // Meta Pixel standard e-commerce events that support value/currency
+      var ecommerceEvents = [
+        'ViewContent', 'AddToCart', 'InitiateCheckout', 'Purchase',
+        'AddPaymentInfo', 'AddToWishlist', 'Lead', 'CompleteRegistration',
+        'Subscribe', 'StartTrial'
+      ];
+      var isEcommerceEvent = ecommerceEvents.indexOf(eventName) !== -1;
+      
       // Validate and sanitize payload for Meta Pixel
       var fbPayload = {};
       for (var key in payload) {
@@ -63,6 +71,12 @@
           // Skip undefined/null values
           if (value === undefined || value === null) {
             continue;
+          }
+          // Only include value/currency for e-commerce events
+          if (key === 'value' || key === 'currency') {
+            if (!isEcommerceEvent) {
+              continue; // Skip these params for non-ecommerce events
+            }
           }
           // Validate numeric values
           if (key === 'value') {
