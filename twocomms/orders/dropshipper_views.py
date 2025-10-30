@@ -1367,11 +1367,17 @@ def request_payout(request):
         stats.available_for_payout = 0
         stats.save(update_fields=['available_for_payout'])
         
+        # Получаем профиль пользователя для уведомлений
+        try:
+            profile = request.user.userprofile
+        except UserProfile.DoesNotExist:
+            profile = None
+        
         # Отправляем уведомления в Telegram (админу и дропшиперу)
         try:
             from .telegram_notifications import telegram_notifier
             
-            company_name = profile.company_name if profile.company_name else request.user.username
+            company_name = profile.company_name if profile and profile.company_name else request.user.username
             payment_method_display = 'На картку' if payout.payment_method == 'card' else 'IBAN'
             
             # Уведомление админу
@@ -1385,8 +1391,8 @@ def request_payout(request):
 <b>Реквізити:</b>
 {payout.payment_details}
 
-<b>Телефон:</b> {profile.phone if profile.phone else 'Не вказано'}
-<b>Email:</b> {profile.email if profile.email else 'Не вказано'}
+<b>Телефон:</b> {profile.phone if profile and profile.phone else 'Не вказано'}
+<b>Email:</b> {profile.email if profile and profile.email else 'Не вказано'}
 
 🔗 <a href="https://twocomms.shop/admin-panel/?section=collaboration&mode=payouts">Переглянути в адмін-панелі</a>"""
             
@@ -1394,7 +1400,7 @@ def request_payout(request):
             monobank_logger.info(f"✅ Telegram уведомление админу о запросе выплаты отправлено для {request.user.username}")
             
             # Уведомление дропшиперу
-            dropshipper_telegram_id = profile.telegram_id
+            dropshipper_telegram_id = profile.telegram_id if profile else None
             if dropshipper_telegram_id:
                 dropshipper_message = f"""✅ <b>ЗАПИТ НА ВИПЛАТУ СТВОРЕНО</b>
 
