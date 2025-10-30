@@ -340,7 +340,7 @@ def monobank_create_invoice(request):
             city = prof.city
             np_office = prof.np_office
             # ВАЖНО: Приоритет body.pay_type над prof.pay_type!
-            pay_type = body.get('pay_type') or prof.pay_type or 'online_full'
+            pay_type = (body.get('pay_type') or prof.pay_type or 'online_full').strip()
             monobank_logger.info(f'Auth user: pay_type from body={body.get("pay_type")}, from profile={prof.pay_type}, final={pay_type}')
         except Exception as e:
             monobank_logger.error(f'Error getting user profile: {e}')
@@ -354,7 +354,7 @@ def monobank_create_invoice(request):
         phone = body.get('phone', '').strip()
         city = body.get('city', '').strip()
         np_office = body.get('np_office', '').strip()
-        pay_type = body.get('pay_type', 'online_full')
+        pay_type = (body.get('pay_type') or 'online_full').strip()
         monobank_logger.info(f'Guest user: pay_type={pay_type}')
         
         # Валидация для гостей
@@ -455,9 +455,16 @@ def monobank_create_invoice(request):
             # Определяем сумму для оплаты в зависимости от pay_type
             if pay_type == 'prepay_200':
                 # Предоплата 200 грн
-                payment_amount = order.get_prepayment_amount()  # 200.00
+                prepay_amount = min(order.get_prepayment_amount(), total_sum)
+                if prepay_amount <= 0:
+                    prepay_amount = min(Decimal('200.00'), total_sum)
+                order.prepayment_amount = prepay_amount
+                order.save(update_fields=['prepayment_amount'])
+                payment_amount = prepay_amount  # обычно 200.00
                 payment_description = f'Передплата за замовлення {order.order_number}'
             else:
+                order.prepayment_amount = Decimal('0.00')
+                order.save(update_fields=['prepayment_amount'])
                 # Полная оплата
                 payment_amount = order.total_sum - order.discount_amount
                 payment_description = f'Оплата замовлення {order.order_number}'
@@ -475,8 +482,9 @@ def monobank_create_invoice(request):
                     
                     # Для предоплаты показываем один товар "Передплата"
                     if pay_type == 'prepay_200':
+                        primary_title = order_items[0].title if order_items else f'Замовлення {order.order_number}'
                         basket_entries.append({
-                            'name': f'Передплата за замовлення {order.order_number}',
+                            'name': f'{primary_title} (передоплата 200 грн)',
                             'qty': 1,
                             'sum': int(payment_amount * 100),  # в копейках
                             'icon': icon_url,
@@ -496,8 +504,11 @@ def monobank_create_invoice(request):
                     monobank_logger.warning(f'Error formatting basket item: {e}')
             
             if not basket_entries:
+                fallback_name = payment_description
+                if pay_type == 'prepay_200':
+                    fallback_name = f'{payment_description} (передоплата 200 грн)'
                 basket_entries.append({
-                    'name': payment_description,
+                    'name': fallback_name,
                     'qty': 1,
                     'sum': int(payment_amount * 100),
                     'icon': '',
@@ -591,6 +602,4 @@ def monobank_create_invoice(request):
             'success': False,
             'error': 'Сталася помилка. Спробуйте ще раз.'
         })
-
-
 
