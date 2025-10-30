@@ -209,17 +209,10 @@ def admin_product_builder(request, product_id=None):
     seo_form_valid = None
 
     if request.method == 'POST':
-        # DEBUG: Log POST data
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"[PRODUCT SAVE DEBUG] POST keys: {list(request.POST.keys())[:10]}")
-        logger.info(f"[PRODUCT SAVE DEBUG] Title in POST: {request.POST.get('product-title', 'NOT FOUND')}")
-        
         product_form_valid = product_form.is_valid()
         if product_form_valid:
             catalog_instance = product_form.cleaned_data.get('catalog')
         else:
-            logger.error(f"[PRODUCT SAVE DEBUG] Form errors: {product_form.errors}")
             catalog_id = product_form.data.get('product-catalog')
             if catalog_id:
                 catalog_instance = Catalog.objects.filter(pk=catalog_id).first()
@@ -308,13 +301,6 @@ def admin_product_builder(request, product_id=None):
 
         if product_form_valid and seo_form_valid and color_formset_valid and images_valid and size_grid_form_valid and option_formset_valid:
             with transaction.atomic():
-                # DEBUG: Log what's being saved
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.info(f"[PRODUCT SAVE DEBUG] Form changed data: {product_form.changed_data}")
-                logger.info(f"[PRODUCT SAVE DEBUG] Title from form: {product_form.cleaned_data.get('title')}")
-                logger.info(f"[PRODUCT SAVE DEBUG] Original product title: {product.title if product.pk else 'NEW'}")
-                
                 product_obj = product_form.save(commit=False)
                 # Генерация slug, если не задан або змінено
                 desired_slug = product_obj.slug or slugify(product_obj.title or '')
@@ -342,7 +328,6 @@ def admin_product_builder(request, product_id=None):
 
                 product_obj.size_grid = size_grid_obj
                 product_obj.save()
-                logger.info(f"[PRODUCT SAVE DEBUG] Product saved with title: {product_obj.title}")
                 product_form.save_m2m()
 
                 # SEO поля
