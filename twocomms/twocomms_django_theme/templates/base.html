@@ -746,15 +746,12 @@
   }
   if(typeof window.CartRemoveKey!=='function'){
     window.CartRemoveKey=function(key, el){
-      dlog('CartRemoveKey called with key:', key);
-      
       // Получаем CSRF токен из мета-тега или cookie
       var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
                      document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || 
                      getCookie('csrftoken');
       
       var body=new URLSearchParams({key:key});
-      dlog('Request body:', body.toString());
       
       fetch('/cart/remove/',{
         method:'POST',
@@ -765,13 +762,11 @@
         },
         body: body
       }).then(function(r){
-        dlog('Response status:', r.status);
         if(!r.ok) {
           throw new Error('Network response was not ok: ' + r.status);
         }
         return r.json();
       }).then(function(d){
-        dlog('Response data:', d);
         if(d&&d.ok){
           try{ if(window.updateCartBadge) window.updateCartBadge(d.count); }catch(_){ }
           if(el){
@@ -791,13 +786,12 @@
           }
           if(document.getElementById('cart-list')) location.reload();
           try{ if(window.trackEvent){ window.trackEvent('RemoveFromCart', {content_ids:[String(key.split(':')[0])], content_type:'product'}); } }catch(_){ }
-        } else {
-          console.error('Cart remove failed:', d);
-          alert('Помилка при видаленні товару: ' + (d.error || 'Невідома помилка'));
         }
       }).catch(function(error){
-        console.error('Cart remove error:', error);
-        alert('Помилка при видаленні товару: ' + error.message);
+        // Тихая обработка ошибок - просто перезагружаем страницу
+        if(document.getElementById('cart-list')) {
+          location.reload();
+        }
       });
     };
   }
@@ -827,12 +821,10 @@
         }).then(function(d){
           if(d&&d.ok){
             location.reload();
-          } else {
-            console.error('Clear cart failed:', d);
           }
         }).catch(function(error){
-          console.error('Clear cart error:', error);
-          alert('Помилка при очищенні кошика. Спробуйте ще раз.');
+          // Тихая обработка - перезагружаем в любом случае
+          location.reload();
         });
       }
     };

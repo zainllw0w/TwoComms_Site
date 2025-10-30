@@ -159,7 +159,7 @@
                   <span class="cart-item-total-label">Разом:</span>
                   <span class="cart-item-total-value">{{ it.line_total }} грн</span>
                 </div>
-                <button type="button" class="cart-item-remove-btn" onclick="CartRemoveKey('{{ it.key }}', this); return false;" data-key="{{ it.key }}" onmouseenter="console.log('Mouse enter button:', '{{ it.key }}')" onmouseleave="console.log('Mouse leave button:', '{{ it.key }}')">
+                <button type="button" class="cart-item-remove-btn" onclick="CartRemoveKey('{{ it.key }}', this); return false;" data-key="{{ it.key }}">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                   </svg>
@@ -668,8 +668,6 @@ function initCartPage() {
     // ==================== ДИНАМИЧЕСКИЕ КНОПКИ (ПРИОРИТЕТ #1) ====================
     // ВАЖНО: Этот код ДОЛЖЕН выполниться первым, поэтому он в самом начале!
     try {
-      console.log('🚀 Initializing dynamic button text...');
-      
       // Находим кнопку (либо для авторизованных, либо для гостей)
     const placeOrderBtn = document.getElementById('placeOrderBtn');
       const guestOrderBtn = document.getElementById('guestOrderBtn');
@@ -679,15 +677,6 @@ function initCartPage() {
       const payTypeAuthSelect = document.getElementById('pay_type_auth');
       const payTypeGuestSelect = document.getElementById('pay_type_guest');
       const activePayTypeSelect = payTypeAuthSelect || payTypeGuestSelect;
-      
-      console.log('🔍 Cart button initialization:', {
-        placeOrderBtn: !!placeOrderBtn,
-        guestOrderBtn: !!guestOrderBtn,
-        activeOrderBtn: !!activeOrderBtn,
-        payTypeAuthSelect: !!payTypeAuthSelect,
-        payTypeGuestSelect: !!payTypeGuestSelect,
-        activePayTypeSelect: !!activePayTypeSelect
-      });
       
       const payNowAmountEl = document.getElementById('pay-now-amount');
       const payNowLabelEl = document.getElementById('pay-now-label');
@@ -759,17 +748,13 @@ function initCartPage() {
       function updateOrderButtonText(payType) {
         const btn = activeOrderBtn;
         if (!btn) {
-          console.error('❌ Button not found!');
           return;
         }
         
         const btnTextSpan = btn.querySelector('span');
         if (!btnTextSpan) {
-          console.error('❌ Button span not found!');
           return;
         }
-        
-        console.log('🔄 Updating button text for pay_type:', payType);
         
         let newText = '';
         switch(payType) {
@@ -784,32 +769,26 @@ function initCartPage() {
         }
         
         btnTextSpan.textContent = newText;
-        console.log('✅ Button text updated to:', newText);
         updatePaymentSummary(payType);
       }
 
       // Обработчик изменения pay_type
       if (activePayTypeSelect) {
         activePayTypeSelect.addEventListener('change', function() {
-          console.log('📝 Pay type changed to:', this.value);
           updateOrderButtonText(this.value);
         });
         
         // Устанавливаем начальное значение при загрузке
         if (activePayTypeSelect.value) {
-          console.log('🎬 Initial pay_type:', activePayTypeSelect.value);
           updateOrderButtonText(activePayTypeSelect.value);
         } else {
-          console.log('⚠️ No initial pay_type selected');
           updatePaymentSummary('online_full');
         }
       } else {
-        console.error('❌ Pay type select not found!');
         updatePaymentSummary('online_full');
             }
-      console.log('✅ Dynamic button text initialized successfully!');
     } catch (error) {
-      console.error('❌ Error initializing dynamic button text:', error);
+      // Тихая обработка ошибок
     }
     // ==================== END ДИНАМИЧЕСКИЕ КНОПКИ ====================
     
@@ -1111,7 +1090,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const promoMessage = document.getElementById('promo-message');
     
     if (!promoInput || !promoMessage) {
-      console.error('Promo code elements not found');
       return;
     }
     
@@ -1162,7 +1140,6 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     })
     .catch(error => {
-      console.error('Error applying promo code:', error);
       promoMessage.textContent = 'Помилка з\'єднання. Спробуйте ще раз.';
       promoMessage.className = 'cart-promo-message cart-promo-message-error';
       promoMessage.style.display = 'block';
@@ -1196,7 +1173,6 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     })
     .catch(error => {
-      console.error('Error removing promo code:', error);
       if (promoMessage) {
         promoMessage.textContent = 'Помилка з\'єднання';
         promoMessage.className = 'cart-promo-message cart-promo-message-error';
@@ -1318,7 +1294,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       })
       .catch(error => {
-        console.error('Error:', error);
         alert('❌ Помилка з\'єднання. Спробуйте ще раз.');
       })
       .finally(() => {
