@@ -704,13 +704,24 @@ body::after {
 }
 
 @media (max-width: 576px) {
+  /* Правильная структура card-body с разделением на блоки */
+  .card.product .card-body {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 0.75rem !important;
+    gap: 0 !important; /* Используем индивидуальные margin для точного контроля */
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+  }
+  
+  /* Price row базовые стили (переопределяются ниже для visual dividers) */
   .card.product .price-row {
     column-gap: 0.03rem !important;
     max-width: 100% !important;
     overflow: visible !important;
     flex-wrap: nowrap !important;
-    padding: 0 !important;
-    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
   }
 
   .card.product .price-row .fw-semibold.price-text {
@@ -754,19 +765,39 @@ body::after {
     margin: 0 !important;
   }
 
+  /* ВАРИАНТ 1: Фиксированная высота заголовка с визуальным разделением */
   .card.product .product-title {
-    font-size: 0.8rem !important;
-    height: auto !important;
-    min-height: 2.0em !important;
-    max-height: none !important;
-    line-height: 1.2 !important;
-    margin-bottom: 0.3rem !important;
-    overflow: visible !important;
-    text-overflow: unset !important;
+    font-size: 0.75rem !important;
+    height: 5.6em !important; /* 4 строки × 1.4 line-height = 5.6em */
+    min-height: 5.6em !important;
+    max-height: 5.6em !important;
+    line-height: 1.4 !important;
+    margin-bottom: 0.6rem !important;
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 4 !important; /* До 4 строк */
+    line-clamp: 4 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
     white-space: normal !important;
     word-wrap: break-word !important;
     word-break: break-word !important;
     hyphens: auto !important;
+    flex-shrink: 0 !important;
+  }
+  
+  /* Категория с отступом */
+  .card.product .small.text-secondary {
+    margin-bottom: 0.4rem !important;
+    flex-shrink: 0 !important;
+  }
+  
+  /* Визуальный разделитель перед ценами */
+  .card.product .price-row {
+    border-top: 1px solid rgba(255, 215, 0, 0.15) !important;
+    padding-top: 0.5rem !important;
+    margin-top: 0 !important;
+    margin-bottom: 0.5rem !important;
   }
 
   .card.product .text-decoration-line-through {
@@ -788,12 +819,12 @@ body::after {
     padding: 0.08rem 0.25rem !important;
   }
 
-  /* Делаем карточки товаров шире на мобильных */
-  .row[data-stagger-grid] > .product-card-wrap {
-    flex: 0 0 calc(60% - 0.2rem) !important;
-    max-width: calc(60% - 0.2rem) !important;
-    width: calc(60% - 0.2rem) !important;
-    min-width: calc(60% - 0.2rem) !important;
+  /* Визуальный разделитель перед баллами */
+  .card.product .points-reward-card {
+    border-top: 1px solid rgba(255, 215, 0, 0.1) !important;
+    padding-top: 0.5rem !important;
+    margin-top: auto !important;
+    flex-shrink: 0 !important;
   }
 }
 
@@ -845,13 +876,23 @@ body::after {
   }
 
   .card.product .product-title {
-    font-size: 0.75rem !important;
-    overflow: visible !important;
-    text-overflow: unset !important;
+    font-size: 0.7rem !important;
+    height: 5.2em !important; /* 4 строки для маленьких экранов */
+    min-height: 5.2em !important;
+    max-height: 5.2em !important;
+    line-height: 1.3 !important;
+    margin-bottom: 0.5rem !important;
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 4 !important;
+    line-clamp: 4 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
     white-space: normal !important;
     word-wrap: break-word !important;
     word-break: break-word !important;
     hyphens: auto !important;
+    flex-shrink: 0 !important;
   }
 }
 
