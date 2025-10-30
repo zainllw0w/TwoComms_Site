@@ -28,6 +28,12 @@
               <h3>✅ Оплата успішно пройшла!</h3>
               <p>Дякуємо за покупку! Ваше замовлення оплачено через Monobank та відправлено в обробку. Ми розпочнемо підготовку вашого замовлення найближчим часом.</p>
             </div>
+            {% elif order.payment_status == 'prepaid' %}
+            <div class="success-message">
+              <h3>✅ Передплата внесена!</h3>
+              <p>Дякуємо! Ви внесли передплату {{ order.get_prepayment_amount }} грн. Залишок <strong>{{ order.get_remaining_amount }} грн</strong> необхідно оплатити при отриманні посилки на відділенні Нової Пошти.</p>
+              <p>Ми розпочнемо підготовку вашого замовлення та найближчим часом відправимо його на вказане відділення.</p>
+            </div>
             {% else %}
             <div class="success-message">
               <h3>Ваша заявка відправлена в обробку</h3>
@@ -55,12 +61,44 @@
                   <span class="info-value">{{ order.np_office }}</span>
                 </div>
                 <div class="info-row">
+                  <span class="info-label">Тип оплати:</span>
+                  <span class="info-value">
+                    {% if order.pay_type == 'prepay_200' %}
+                      Передплата 200 грн
+                    {% elif order.pay_type == 'online_full' or order.pay_type == 'full' %}
+                      Онлайн оплата (повна сума)
+                    {% elif order.pay_type == 'cod' %}
+                      Оплата при отриманні
+                    {% else %}
+                      {{ order.get_pay_type_display|default:order.pay_type }}
+                    {% endif %}
+                  </span>
+                </div>
+                <div class="info-row">
                   <span class="info-label">Сума замовлення:</span>
                   <span class="info-value">{{ order.total_sum }} грн</span>
                 </div>
+                {% if order.pay_type == 'prepay_200' and order.payment_status == 'prepaid' %}
+                <div class="info-row">
+                  <span class="info-label">Внесена передплата:</span>
+                  <span class="info-value" style="color: #10b981; font-weight: 600;">{{ order.get_prepayment_amount }} грн ✅</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Залишок (при отриманні):</span>
+                  <span class="info-value" style="font-weight: 600;">{{ order.get_remaining_amount }} грн</span>
+                </div>
+                {% endif %}
                 <div class="info-row">
                   <span class="info-label">Статус оплати:</span>
-                  <span class="info-value">{% if order.payment_status == 'paid' %}<span class="badge bg-success">Оплачено</span>{% else %}{{ order.get_payment_status_display|default:order.payment_status }}{% endif %}</span>
+                  <span class="info-value">
+                    {% if order.payment_status == 'paid' %}
+                      <span class="badge bg-success">Оплачено повністю</span>
+                    {% elif order.payment_status == 'prepaid' %}
+                      <span class="badge bg-info">Внесена передплата</span>
+                    {% else %}
+                      {{ order.get_payment_status_display|default:order.payment_status }}
+                    {% endif %}
+                  </span>
                 </div>
               </div>
             </div>
