@@ -532,7 +532,7 @@
 
 
           {% if request.user.is_authenticated %}
-            <button type="button" class="cart-checkout-btn" id="placeOrderBtn">
+            <button type="button" class="cart-checkout-btn" id="placeOrderBtn" data-monobank-pay-trigger="cart">
               <div class="cart-checkout-btn-content">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
@@ -540,10 +540,9 @@
                 <span>Оформити замовлення</span>
               </div>
               <div class="cart-checkout-btn-glow"></div>
-              <span class="cart-monobank-spinner" style="display: none;" aria-hidden="true"></span>
             </button>
           {% else %}
-            <button type="button" class="cart-checkout-btn cart-checkout-btn-guest" id="guestOrderBtn">
+            <button type="button" class="cart-checkout-btn cart-checkout-btn-guest" id="guestOrderBtn" data-monobank-pay-trigger="cart">
               <div class="cart-checkout-btn-content">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 2l3.09 6.26L22 9.27л-5 4.87 1.18 6.88L12 17.77л-6.18 3.25Л7 14.14 2 9.27л6.91-1.01L12 2z"/>
@@ -551,7 +550,6 @@
                 <span>Замовити як гість</span>
               </div>
               <div class="cart-checkout-btn-glow"></div>
-              <span class="cart-monobank-spinner" style="display: none;" aria-hidden="true"></span>
             </button>
           {% endif %}
           <div class="cart-checkout-note text-secondary mt-3">
@@ -571,96 +569,6 @@
 document.addEventListener('DOMContentLoaded', function() {
     const guestForm = document.getElementById('guest-form');
     const deliveryForm = document.getElementById('deliveryForm');
-    
-    // ==================== ОБРАБОТЧИКИ КНОПОК ОПЛАТЫ ====================
-    // Для зарегистрированных пользователей
-    const placeOrderBtn = document.getElementById('placeOrderBtn');
-    const guestOrderBtn = document.getElementById('guestOrderBtn');
-    
-    if (placeOrderBtn && deliveryForm) {
-        placeOrderBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            
-            // Валидация формы
-            if (!deliveryForm.checkValidity()) {
-                deliveryForm.reportValidity();
-                return;
-            }
-            
-            // Получаем выбранный тип оплаты
-            const payTypeSelect = document.getElementById('pay_type_auth');
-            const payType = payTypeSelect ? payTypeSelect.value : '';
-            
-            if (!payType) {
-                alert('Будь ласка, оберіть тип оплати!');
-                return;
-            }
-            
-            // Оба варианта (online_full и prepay_200) требуют MonoPay
-            const statusEl = document.getElementById('monobank-pay-status') || 
-                            placeOrderBtn.querySelector('.cart-monobank-status');
-            
-            // Показываем spinner
-            const spinner = placeOrderBtn.querySelector('.cart-monobank-spinner');
-            if (spinner) {
-                spinner.style.display = 'inline-block';
-            }
-            placeOrderBtn.disabled = true;
-            
-            // Вызываем MonoPay
-            if (typeof startMonobankPay === 'function') {
-                startMonobankPay(placeOrderBtn, statusEl);
-            } else {
-                console.error('startMonobankPay function not found');
-                alert('Помилка: функція оплати не знайдена');
-                placeOrderBtn.disabled = false;
-                if (spinner) spinner.style.display = 'none';
-            }
-        });
-    }
-    
-    // Для гостей
-    if (guestOrderBtn && guestForm) {
-        guestOrderBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            
-            // Валидация формы
-            if (!guestForm.checkValidity()) {
-                guestForm.reportValidity();
-                return;
-            }
-            
-            // Получаем выбранный тип оплаты
-            const payTypeSelect = document.getElementById('pay_type_guest');
-            const payType = payTypeSelect ? payTypeSelect.value : '';
-            
-            if (!payType) {
-                alert('Будь ласка, оберіть тип оплати!');
-                return;
-            }
-            
-            // Оба варианта требуют MonoPay
-            const statusEl = document.getElementById('monobank-pay-status') || 
-                            guestOrderBtn.querySelector('.cart-monobank-status');
-            
-            // Показываем spinner
-            const spinner = guestOrderBtn.querySelector('.cart-monobank-spinner');
-            if (spinner) {
-                spinner.style.display = 'inline-block';
-            }
-            guestOrderBtn.disabled = true;
-            
-            // Вызываем MonoPay
-            if (typeof startMonobankPay === 'function') {
-                startMonobankPay(guestOrderBtn, statusEl);
-            } else {
-                console.error('startMonobankPay function not found');
-                alert('Помилка: функція оплати не знайдена');
-                guestOrderBtn.disabled = false;
-                if (spinner) spinner.style.display = 'none';
-            }
-        });
-    }
     
     // Функция для валидации формы
     function setupFormValidation(form) {
