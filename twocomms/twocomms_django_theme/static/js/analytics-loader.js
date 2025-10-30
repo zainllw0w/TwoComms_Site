@@ -55,13 +55,42 @@
       }
       payload = payload || {};
       
+      // Validate and sanitize payload for Meta Pixel
+      var fbPayload = {};
+      for (var key in payload) {
+        if (payload.hasOwnProperty(key)) {
+          var value = payload[key];
+          // Skip undefined/null values
+          if (value === undefined || value === null) {
+            continue;
+          }
+          // Validate numeric values
+          if (key === 'value') {
+            var numValue = parseFloat(value);
+            if (!isNaN(numValue) && numValue >= 0) {
+              fbPayload[key] = numValue;
+            }
+          }
+          // Validate currency
+          else if (key === 'currency') {
+            if (typeof value === 'string' && value.length > 0) {
+              fbPayload[key] = value.toUpperCase();
+            }
+          }
+          // Copy other values as-is
+          else {
+            fbPayload[key] = value;
+          }
+        }
+      }
+      
       // Buffer Meta Pixel events until loaded
       try {
         if (win.fbq && win._fbqLoaded) {
-          win.fbq('track', eventName, payload);
+          win.fbq('track', eventName, fbPayload);
         } else if (PIXEL_ID) {
           // Queue event for later
-          win._fbqBuffer.push({ event: eventName, data: payload });
+          win._fbqBuffer.push({ event: eventName, data: fbPayload });
         }
       } catch (err1) {
         if (console && console.debug) {

@@ -680,6 +680,10 @@ document.addEventListener('DOMContentLoaded', function() {
       var title = pe.dataset.title;
       var category = pe.dataset.category;
       var price = parseFloat(pe.dataset.price||'0');
+      // Ensure price is valid and positive
+      if (isNaN(price) || price < 0) {
+        price = 0;
+      }
       window.trackEvent('ViewContent', {
         content_ids: [String(pid)],
         content_name: title,
