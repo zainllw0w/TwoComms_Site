@@ -246,9 +246,14 @@ def dropshipper_products(request):
     
     context = {
         **products_context,
+    }
+    
+    # Добавляем дополнительный контекст только для зарегистрированных
+    if request.user.is_authenticated:
+        context.update({
         'payout_methods': DropshipperPayout.PAYMENT_METHOD_CHOICES,
         'payment_method_choices': DropshipperPayout.PAYMENT_METHOD_CHOICES,
-    }
+        })
 
     template_name = 'pages/dropshipper_products.html'
     if request.GET.get('partial'):
