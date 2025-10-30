@@ -3341,8 +3341,28 @@ def admin_product_edit_unified(request, pk):
     if request.method == 'POST':
         # DEBUG: Log what form_type we receive
         import logging
+        import sys
         logger = logging.getLogger(__name__)
         form_type = request.POST.get('form_type')
+        
+        # Force output to stderr which always shows in logs
+        print(f"[UNIFIED DEBUG] form_type: {form_type}", file=sys.stderr)
+        print(f"[UNIFIED DEBUG] POST keys: {list(request.POST.keys())[:15]}", file=sys.stderr)
+        print(f"[UNIFIED DEBUG] Title in POST: {request.POST.get('title', 'NOT FOUND')}", file=sys.stderr)
+        
+        # Also write to a debug file
+        try:
+            import os
+            debug_file = os.path.join(os.path.dirname(__file__), '..', 'product_save_debug.txt')
+            with open(debug_file, 'a') as f:
+                from datetime import datetime
+                f.write(f"\n=== {datetime.now()} ===\n")
+                f.write(f"form_type: {form_type}\n")
+                f.write(f"POST keys: {list(request.POST.keys())}\n")
+                f.write(f"Title: {request.POST.get('title', 'NOT FOUND')}\n")
+        except Exception as e:
+            print(f"[DEBUG] Failed to write debug file: {e}", file=sys.stderr)
+        
         logger.info(f"[UNIFIED DEBUG] form_type: {form_type}")
         logger.info(f"[UNIFIED DEBUG] POST keys: {list(request.POST.keys())[:15]}")
         logger.info(f"[UNIFIED DEBUG] Title in POST: {request.POST.get('title', 'NOT FOUND')}")
