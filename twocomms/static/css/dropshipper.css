@@ -442,11 +442,11 @@ body.ds-modal-open .ds-panel::before {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 24px 20px;
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(99, 102, 241, 0.08) 100%);
-  border: 1px solid rgba(139, 92, 246, 0.2);
-  border-radius: 16px;
+  gap: 10px;
+  padding: 16px 14px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(99, 102, 241, 0.06) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.18);
+  border-radius: 12px;
   overflow: hidden;
 }
 
@@ -454,40 +454,41 @@ body.ds-modal-open .ds-panel::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at top left, rgba(139, 92, 246, 0.15) 0%, transparent 70%);
+  background: radial-gradient(circle at top left, rgba(139, 92, 246, 0.12) 0%, transparent 70%);
   pointer-events: none;
 }
 
-.ds-sidebar__auth-icon {
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.15));
-  border-radius: 12px;
-  font-size: 1.5rem;
-  color: #a78bfa;
-  box-shadow: 0 8px 16px rgba(139, 92, 246, 0.2);
-  position: relative;
-  z-index: 1;
-}
-
 .ds-sidebar__auth-title {
-  font-size: 1.25rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #e5e7eb;
   margin: 0;
   position: relative;
   z-index: 1;
   letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ds-sidebar__auth-title i {
+  font-size: 1.1rem;
+  color: #a78bfa;
 }
 
 .ds-sidebar__auth-text {
-  font-size: 0.9rem;
-  color: rgba(229, 231, 235, 0.7);
-  line-height: 1.5;
+  font-size: 0.8rem;
+  color: rgba(229, 231, 235, 0.65);
+  line-height: 1.4;
   margin: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.ds-sidebar__auth-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
   position: relative;
   z-index: 1;
 }
@@ -500,8 +501,17 @@ body.ds-modal-open .ds-panel::before {
 }
 
 .ds-sidebar__auth .ds-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(139, 92, 246, 0.25);
+}
+
+.ds-btn--sm {
+  padding: 8px 12px !important;
+  font-size: 0.85rem !important;
+}
+
+.ds-btn--sm i {
+  font-size: 0.9rem !important;
 }
 
 .ds-card {
