@@ -680,12 +680,22 @@ function requestMonobankPay(){
   };
   // Специальная функция для pay_type - учитываем pay_type_auth и pay_type_guest
   const getPayType = ()=>{
+    console.log('🔍 getPayType() called');
     if(guestForm){
       const guestPayType = document.getElementById('pay_type_guest');
-      if(guestPayType && guestPayType.value) return guestPayType.value.trim();
+      console.log('🔍 Guest form found, pay_type_guest element:', guestPayType);
+      if(guestPayType && guestPayType.value) {
+        console.log('✅ Returning guest pay_type:', guestPayType.value.trim());
+        return guestPayType.value.trim();
+      }
     }
     const authPayType = document.getElementById('pay_type_auth');
-    if(authPayType && authPayType.value) return authPayType.value.trim();
+    console.log('🔍 Auth pay_type_auth element:', authPayType);
+    if(authPayType && authPayType.value) {
+      console.log('✅ Returning auth pay_type:', authPayType.value.trim());
+      return authPayType.value.trim();
+    }
+    console.log('⚠️ No pay_type found, returning default: online_full');
     return 'online_full';
   };
   if(guestForm || document.querySelector('[name="full_name"]') || document.querySelector('[name="phone"]')){
@@ -698,14 +708,19 @@ function requestMonobankPay(){
     };
   }
   // ИСПРАВЛЕНИЕ: Напрямую используем pay_type из селекта, без промежуточных mode
+  console.log('🔍 About to call getPayType()...');
   const effectivePayType = getPayType();
+  console.log('🔍 getPayType() returned:', effectivePayType);
 
   if(!payload || typeof payload !== 'object'){
     payload = {};
   }
   payload.pay_type = effectivePayType;
 
-  console.log('🚚 Preparing MonoPay payload:', payload);
+  console.log('🚚 Preparing MonoPay payload:', JSON.stringify(payload, null, 2));
+  console.log('🔍 pay_type in payload:', payload.pay_type);
+  console.log('🔍 payload.pay_type === "prepay_200":', payload.pay_type === 'prepay_200');
+  console.log('🔍 payload.pay_type === "online_full":', payload.pay_type === 'online_full');
 
   return fetch('/cart/monobank/create-invoice/', {
     method: 'POST',
