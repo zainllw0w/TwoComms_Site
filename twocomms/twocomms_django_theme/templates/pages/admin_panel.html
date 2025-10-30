@@ -1093,7 +1093,7 @@
                       </svg>
                     </div>
                     <div class="stat-content-compact">
-                                              <div class="stat-value-compact">{{ user.points.points|default:0 }}</div>
+                                              <div class="stat-value-compact">{% if user.points %}{{ user.points.points }}{% else %}0{% endif %}</div>
                       <div class="stat-label-compact">Балів зараз</div>
                     </div>
                   </div>
@@ -1127,7 +1127,7 @@
                       </svg>
                     </div>
                     <div class="points-display-content">
-                                              <div class="points-display-value">{{ user.points.points|default:0 }}</div>
+                                              <div class="points-display-value">{% if user.points %}{{ user.points.points }}{% else %}0{% endif %}</div>
                       <div class="points-display-label">Поточні бали</div>
                     </div>
                   </div>
