@@ -3320,6 +3320,29 @@ body::after {
   color: #22c55e;
 }
 
+.cart-summary-prepay {
+  border-bottom: none;
+  padding-top: 0.75rem;
+  font-size: 0.95rem;
+}
+
+.cart-summary-prepay .cart-summary-label {
+  color: rgba(226, 232, 240, 0.8);
+  font-weight: 500;
+}
+
+.cart-summary-prepay .cart-summary-value {
+  color: #bfdbfe;
+  font-weight: 600;
+}
+
+.cart-summary-note {
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+  color: #93c5fd;
+  line-height: 1.5;
+}
+
 /* Информация о баллах */
 .cart-points-summary {
   margin-bottom: 2rem;
@@ -22430,4 +22453,3 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
     padding: 0 0.7rem;
   }
 }
-
