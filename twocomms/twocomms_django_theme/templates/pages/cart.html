@@ -255,13 +255,14 @@
               </div>
             </div>
             
-            <!-- Кнопка связи с менеджером -->
+            <!-- Кнопка консультации -->
             <div class="cart-form-group">
               <button type="button" class="btn-contact-manager" id="contactManagerBtn">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 8px;">
-                  <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56-.35-.12-.74-.03-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/>
+                  <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+                  <path d="M7 9h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z"/>
                 </svg>
-                Зв'язатися з менеджером
+                💬 Потрібна консультація?
               </button>
             </div>
             
@@ -362,13 +363,14 @@
               {% endif %}
             </div>
             
-            <!-- Кнопка связи с менеджером -->
+            <!-- Кнопка консультации -->
             <div class="cart-form-group">
               <button type="button" class="btn-contact-manager" id="contactManagerBtnGuest">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 8px;">
-                  <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56-.35-.12-.74-.03-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/>
+                  <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+                  <path d="M7 9h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z"/>
                 </svg>
-                Зв'язатися з менеджером
+                💬 Потрібна консультація?
               </button>
             </div>
           </form>
@@ -573,6 +575,87 @@
   </div>
 </div>
 
+<!-- Модальное окно консультации (вне extra_js для правильной работы) -->
+<div id="contactManagerModal" class="contact-modal-overlay" aria-hidden="true" role="dialog" aria-labelledby="contactModalTitle">
+  <div class="contact-modal-container">
+    <div class="contact-modal-header">
+      <h3 id="contactModalTitle">💬 Безкоштовна консультація</h3>
+      <button type="button" class="contact-modal-close" aria-label="Закрити">&times;</button>
+    </div>
+    <div class="contact-modal-body">
+      <p style="margin-bottom: 1.5rem; color: #64748b; text-align: center;">Залиште свої контактні дані, і наш менеджер зв'яжеться з вами найближчим часом для консультації</p>
+      <form id="contactManagerForm">
+        {% csrf_token %}
+        
+        <div class="contact-modal-form-group">
+          <label class="contact-modal-label" for="contactModalFullName">
+            ПІБ <span style="color: #e53e3e;">*</span>
+          </label>
+          <input 
+            type="text" 
+            id="contactModalFullName" 
+            name="full_name" 
+            class="contact-modal-input" 
+            placeholder="Введіть ваше ПІБ" 
+            required
+            minlength="3"
+          >
+        </div>
+        
+        <div class="contact-modal-form-group">
+          <label class="contact-modal-label" for="contactModalPhone">
+            Телефон <span style="color: #e53e3e;">*</span>
+          </label>
+          <input 
+            type="tel" 
+            id="contactModalPhone" 
+            name="phone" 
+            class="contact-modal-input" 
+            placeholder="+380 XX XXX XX XX" 
+            required
+            pattern="[+]?[0-9\s\-\(\)]+"
+          >
+        </div>
+        
+        <div class="contact-modal-form-group">
+          <label class="contact-modal-label" for="contactModalTelegram">
+            Telegram
+          </label>
+          <input 
+            type="text" 
+            id="contactModalTelegram" 
+            name="telegram" 
+            class="contact-modal-input" 
+            placeholder="@username або номер телефону"
+          >
+          <div class="contact-modal-help-text">Опціонально, але допоможе зв'язатися швидше</div>
+        </div>
+        
+        <div class="contact-modal-form-group">
+          <label class="contact-modal-label" for="contactModalWhatsApp">
+            WhatsApp
+          </label>
+          <input 
+            type="tel" 
+            id="contactModalWhatsApp" 
+            name="whatsapp" 
+            class="contact-modal-input" 
+            placeholder="+380 XX XXX XX XX"
+            pattern="[+]?[0-9\s\-\(\)]+"
+          >
+          <div class="contact-modal-help-text">Опціонально</div>
+        </div>
+        
+        <button type="submit" class="contact-modal-submit-btn">
+          📲 Зв'язатися зі мною
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
 {% block extra_js %}
 <script>
 // Валидация форм, промокоды и удаление строк перенесены в main.js
@@ -726,7 +809,7 @@ function initCartPage() {
       } else {
         console.error('❌ Pay type select not found!');
         updatePaymentSummary('online_full');
-      }
+            }
       
       console.log('✅ Dynamic button text initialized successfully!');
     } catch (error) {
@@ -1418,85 +1501,5 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 }
 </style>
-
-{% endblock %}
-
-<!-- Модальное окно связи с менеджером -->
-<div id="contactManagerModal" class="contact-modal-overlay">
-  <div class="contact-modal-container">
-    <div class="contact-modal-header">
-      <h3>📞 Зв'язатися з менеджером</h3>
-      <button type="button" class="contact-modal-close" aria-label="Закрити">&times;</button>
-    </div>
-    <div class="contact-modal-body">
-      <form id="contactManagerForm">
-        {% csrf_token %}
-        
-        <div class="contact-modal-form-group">
-          <label class="contact-modal-label" for="contactModalFullName">
-            ПІБ <span style="color: #e53e3e;">*</span>
-          </label>
-          <input 
-            type="text" 
-            id="contactModalFullName" 
-            name="full_name" 
-            class="contact-modal-input" 
-            placeholder="Введіть ваше ПІБ" 
-            required
-            minlength="3"
-          >
-        </div>
-        
-        <div class="contact-modal-form-group">
-          <label class="contact-modal-label" for="contactModalPhone">
-            Телефон <span style="color: #e53e3e;">*</span>
-          </label>
-          <input 
-            type="tel" 
-            id="contactModalPhone" 
-            name="phone" 
-            class="contact-modal-input" 
-            placeholder="+380 XX XXX XX XX" 
-            required
-            pattern="[+]?[0-9\s\-\(\)]+"
-          >
-        </div>
-        
-        <div class="contact-modal-form-group">
-          <label class="contact-modal-label" for="contactModalTelegram">
-            Telegram
-          </label>
-          <input 
-            type="text" 
-            id="contactModalTelegram" 
-            name="telegram" 
-            class="contact-modal-input" 
-            placeholder="@username або номер телефону"
-          >
-          <div class="contact-modal-help-text">Опціонально, але допоможе зв'язатися швидше</div>
-        </div>
-        
-        <div class="contact-modal-form-group">
-          <label class="contact-modal-label" for="contactModalWhatsApp">
-            WhatsApp
-          </label>
-          <input 
-            type="tel" 
-            id="contactModalWhatsApp" 
-            name="whatsapp" 
-            class="contact-modal-input" 
-            placeholder="+380 XX XXX XX XX"
-            pattern="[+]?[0-9\s\-\(\)]+"
-          >
-          <div class="contact-modal-help-text">Опціонально</div>
-        </div>
-        
-        <button type="submit" class="contact-modal-submit-btn">
-          📲 Зв'язатися зі мною
-        </button>
-      </form>
-    </div>
-  </div>
-</div>
 
 {% endblock %}
