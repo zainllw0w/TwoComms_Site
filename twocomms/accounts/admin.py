@@ -32,8 +32,8 @@ class UserPointsInline(admin.TabularInline):
     can_delete = False
     verbose_name = 'Бали користувача'
     verbose_name_plural = 'Бали'
-    readonly_fields = ('balance', 'total_earned', 'total_spent')
-    fields = ('balance', 'total_earned', 'total_spent')
+    readonly_fields = ('points', 'total_earned', 'total_spent')
+    fields = ('points', 'total_earned', 'total_spent')
     max_num = 1
 
 
@@ -43,8 +43,8 @@ class FavoriteProductInline(admin.TabularInline):
     extra = 0
     verbose_name = 'Обраний товар'
     verbose_name_plural = 'Обрані товари'
-    readonly_fields = ('product', 'added_at')
-    fields = ('product', 'added_at')
+    readonly_fields = ('product', 'created_at')
+    fields = ('product', 'created_at')
     can_delete = True
 
 
@@ -121,21 +121,21 @@ class UserProfileAdmin(admin.ModelAdmin):
 @admin.register(FavoriteProduct)
 class FavoriteProductAdmin(admin.ModelAdmin):
     """Административная панель для избранных товаров."""
-    list_display = ('user', 'product', 'added_at')
-    list_filter = ('added_at',)
+    list_display = ('user', 'product', 'created_at')
+    list_filter = ('created_at',)
     search_fields = ('user__username', 'product__title')
-    readonly_fields = ('added_at',)
-    date_hierarchy = 'added_at'
+    readonly_fields = ('created_at',)
+    date_hierarchy = 'created_at'
 
 
 @admin.register(UserPoints)
 class UserPointsAdmin(admin.ModelAdmin):
     """Административная панель для баллов пользователей."""
-    list_display = ('user', 'balance_display', 'total_earned', 'total_spent', 
+    list_display = ('user', 'points_display', 'total_earned', 'total_spent', 
                    'updated_at')
     list_filter = ('updated_at',)
     search_fields = ('user__username',)
-    readonly_fields = ('user', 'balance', 'total_earned', 'total_spent', 
+    readonly_fields = ('user', 'points', 'total_earned', 'total_spent', 
                       'created_at', 'updated_at')
     
     fieldsets = (
@@ -143,21 +143,21 @@ class UserPointsAdmin(admin.ModelAdmin):
             'fields': ('user',)
         }),
         ('Баланс балів', {
-            'fields': ('balance', 'total_earned', 'total_spent')
+            'fields': ('points', 'total_earned', 'total_spent')
         }),
         ('Дати', {
             'fields': ('created_at', 'updated_at')
         }),
     )
     
-    def balance_display(self, obj):
+    def points_display(self, obj):
         """Отображает баланс с форматированием."""
-        color = '#10b981' if obj.balance > 0 else '#6b7280'
+        color = '#10b981' if obj.points > 0 else '#6b7280'
         return format_html(
             '<span style="color: {}; font-weight: 700; font-size: 14px;">{} балів</span>',
-            color, obj.balance
+            color, obj.points
         )
-    balance_display.short_description = 'Баланс'
+    points_display.short_description = 'Баланс'
     
     def has_add_permission(self, request):
         """Запрещаем ручное создание (создаются автоматически)."""
