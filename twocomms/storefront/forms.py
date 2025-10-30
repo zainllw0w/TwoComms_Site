@@ -62,6 +62,7 @@ class ProductForm(forms.ModelForm):
             "price",
             "discount_percent",
             "featured",
+            "description",  # Legacy поле для обратной совместимости с шаблонами
             "short_description",
             "full_description",
             "main_image",
@@ -83,6 +84,7 @@ class ProductForm(forms.ModelForm):
             "recommendation_tags",
         ]
         widgets = {
+            "description": forms.Textarea(attrs={"rows": 6, "class": "form-control"}),
             "short_description": forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
             "full_description": forms.Textarea(attrs={"rows": 6, "class": "form-control"}),
             "status": forms.Select(attrs={"class": "form-control"}),
