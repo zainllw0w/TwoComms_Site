@@ -958,44 +958,79 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // ==================== ДИНАМИЧЕСКИЕ КНОПКИ ====================
   // Меняем текст кнопки "Оформити замовлення" в зависимости от выбранного типа оплаты
-  const payTypeSelects = document.querySelectorAll('#pay_type_auth, #pay_type_guest');
+  
+  // Находим кнопку (либо для авторизованных, либо для гостей)
   const placeOrderBtn = document.getElementById('placeOrderBtn');
-  const guestOrderBtn = document.querySelector('.cart-checkout-btn-guest');
+  const guestOrderBtn = document.getElementById('guestOrderBtn');
+  const activeOrderBtn = placeOrderBtn || guestOrderBtn;
+  
+  // Находим селект pay_type (либо auth, либо guest)
+  const payTypeAuthSelect = document.getElementById('pay_type_auth');
+  const payTypeGuestSelect = document.getElementById('pay_type_guest');
+  const activePayTypeSelect = payTypeAuthSelect || payTypeGuestSelect;
+  
+  console.log('🔍 Cart button initialization:', {
+    placeOrderBtn: !!placeOrderBtn,
+    guestOrderBtn: !!guestOrderBtn,
+    activeOrderBtn: !!activeOrderBtn,
+    payTypeAuthSelect: !!payTypeAuthSelect,
+    payTypeGuestSelect: !!payTypeGuestSelect,
+    activePayTypeSelect: !!activePayTypeSelect
+  });
   
   function updateOrderButtonText(payType) {
-    const btn = placeOrderBtn || guestOrderBtn;
-    if (!btn) return;
+    const btn = activeOrderBtn;
+    if (!btn) {
+      console.error('❌ Button not found!');
+      return;
+    }
     
     const btnTextSpan = btn.querySelector('span');
-    if (!btnTextSpan) return;
+    if (!btnTextSpan) {
+      console.error('❌ Button span not found!');
+      return;
+    }
     
+    console.log('🔄 Updating button text for pay_type:', payType);
+    
+    let newText = '';
     switch(payType) {
       case 'online_full':
-        btnTextSpan.textContent = 'Перейти до оплати';
+        newText = 'Перейти до оплати';
         break;
       case 'prepay_200':
-        btnTextSpan.textContent = 'Внести передплату 200 грн';
+        newText = 'Внести передплату 200 грн';
         break;
       default:
+        // Определяем дефолтный текст
         if (placeOrderBtn) {
-          btnTextSpan.textContent = 'Оформити замовлення';
+          newText = 'Оформити замовлення';
         } else {
-          btnTextSpan.textContent = 'Замовити як гість';
+          newText = 'Замовити як гість';
         }
     }
+    
+    btnTextSpan.textContent = newText;
+    console.log('✅ Button text updated to:', newText);
   }
   
-  // Обработчики изменения pay_type
-  payTypeSelects.forEach(select => {
-    select.addEventListener('change', function() {
+  // Обработчик изменения pay_type
+  if (activePayTypeSelect) {
+    activePayTypeSelect.addEventListener('change', function() {
+      console.log('📝 Pay type changed to:', this.value);
       updateOrderButtonText(this.value);
     });
     
     // Устанавливаем начальное значение при загрузке
-    if (select.value) {
-      updateOrderButtonText(select.value);
+    if (activePayTypeSelect.value) {
+      console.log('🎬 Initial pay_type:', activePayTypeSelect.value);
+      updateOrderButtonText(activePayTypeSelect.value);
+    } else {
+      console.log('⚠️ No initial pay_type selected');
     }
-  });
+  } else {
+    console.error('❌ Pay type select not found!');
+  }
   
   // ==================== МОДАЛЬНОЕ ОКНО СВЯЗИ С МЕНЕДЖЕРОМ ====================
   const contactBtns = document.querySelectorAll('#contactManagerBtn, #contactManagerBtnGuest');
