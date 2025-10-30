@@ -704,6 +704,16 @@ body::after {
 }
 
 @media (max-width: 576px) {
+  /* Правильная структура card-body с разделением на блоки */
+  .card.product .card-body {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 0.75rem !important;
+    gap: 0 !important; /* Используем индивидуальные margin для точного контроля */
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+  }
+  
   .card.product .price-row {
     column-gap: 0.03rem !important;
     max-width: 100% !important;
@@ -976,35 +986,6 @@ body::after {
 }
 
 /* Bootstrap grid handles responsive columns - no overrides needed */
-
-/* Ensure proper spacing on mobile to prevent card overlap */
-@media (max-width: 576px) {
-  .row[data-stagger-grid] {
-    gap: 1.5rem 0.75rem !important; /* Larger vertical and horizontal gap on mobile */
-  }
-  
-  .card.product .card-body {
-    gap: 0.35rem !important; /* More space between elements on mobile */
-    padding: 0.6rem !important;
-  }
-  
-  .card.product .card-body > * {
-    flex-shrink: 0 !important; /* Prevent elements from shrinking */
-  }
-  
-  .card.product .small {
-    flex-shrink: 0 !important;
-  }
-  
-  .card.product .price-row {
-    flex-shrink: 0 !important;
-  }
-  
-  .card.product .points-reward-card {
-    flex-shrink: 0 !important;
-    margin-top: auto !important;
-  }
-}
 
 /* ===== МИНИ-ПРОФИЛЬ ===== */
 .user-profile-container {
