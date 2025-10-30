@@ -48,14 +48,22 @@
   </main>
 </div>
 
+{% if user.is_authenticated %}
 {% include "partials/dropshipper_modals.html" %}
 <!-- Модальное окно добавления товара создается динамически через dropshipper-product-modal.js -->
+{% else %}
+  {% include "partials/dropshipper_auth_modal.html" %}
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
-{% compress js %}
 <script src="{% static 'js/dropshipper.js' %}?v=20251023delegate" defer></script>
+{% if user.is_authenticated %}
+  {% compress js %}
 <script src="{% static 'js/dropshipper.dashboard.js' %}?v=20251023delegate" defer></script>
 <script src="{% static 'js/dropshipper-product-modal.js' %}?v=20251023delegate" defer></script>
 {% endcompress %}
+{% else %}
+  <script src="{% static 'js/dropshipper-auth-modal.js' %}?v=20251029fix" defer></script>
+{% endif %}
 {% endblock %}
