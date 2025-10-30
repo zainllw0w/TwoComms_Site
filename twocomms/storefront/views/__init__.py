@@ -19,6 +19,9 @@ Storefront views package.
 - static_pages.py - Статические страницы (в разработке)
 """
 
+from django.shortcuts import redirect
+from django.contrib.auth.decorators import login_required
+
 # ==================== НОВЫЕ МОДУЛИ ====================
 
 # Утилиты
@@ -199,6 +202,9 @@ import sys
 import os
 import importlib.util
 
+# КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Инициализируем _old_views=None чтобы избежать NameError
+_old_views = None
+
 try:
     # Явно импортируем старый views.py файл (не пакет views/)
     views_py_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'views.py')
@@ -251,6 +257,8 @@ try:
         'admin_dashboard', 'manage_products', 'add_product', 'add_category', 'add_print',
         'manage_print_proposals', 'manage_promo_codes', 'generate_seo_content',
         'generate_alt_texts', 'manage_orders', 'sales_statistics', 'inventory_management',
+        # monobank.py
+        'monobank_create_invoice',
         # Aliases (чтобы не конфликтовали)
         'cart', 'cart_remove', 'clean_cart', 'profile_setup_db', 'order_create', 'register_view_new',
         # Технические атрибуты Python
@@ -259,15 +267,17 @@ try:
     }
     
     # Импортируем все остальное из старого views
-    for name in dir(_old_views):
-        if not name.startswith('_') and name not in _exclude:
-            globals()[name] = getattr(_old_views, name)
+    if _old_views:
+        for name in dir(_old_views):
+            if not name.startswith('_') and name not in _exclude:
+                globals()[name] = getattr(_old_views, name)
             
 except Exception as e:
     # Если не удалось импортировать старый views.py, это нормально
     # (например, если его уже удалили после полной миграции)
     import warnings
     warnings.warn(f"Could not import old views.py: {e}")
+    _old_views = None  # Убеждаемся что _old_views определен
 
 
 # ==================== АЛИАСЫ ДЛЯ ОБРАТНОЙ СОВМЕСТИМОСТИ ====================
@@ -276,7 +286,7 @@ except Exception as e:
 # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Используем старую cart() из views.py, т.к. она обрабатывает POST
 # view_cart() из cart.py НЕ обрабатывает form_type и создание заказов!
 try:
-    cart = _old_views.cart  # Старая функция с POST обработкой
+    cart = _old_views.cart if _old_views else view_cart  # Старая функция с POST обработкой
 except (NameError, AttributeError):
     cart = view_cart  # Fallback на новую если старая недоступна
 
@@ -290,11 +300,73 @@ profile_setup_db = profile_setup  # для urls.py: views.profile_setup_db
 # Checkout aliases  
 # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Используем старую order_create() из views.py
 try:
-    order_create = _old_views.order_create  # Старая функция с правильной логикой
+    order_create = _old_views.order_create if _old_views else create_order  # Старая функция с правильной логикой
 except (NameError, AttributeError):
     order_create = create_order  # Fallback на новую
 
 # Admin aliases (если нужны)
+try:
+    admin_panel = _old_views.admin_panel if _old_views else None
+    if not admin_panel:
+        raise AttributeError
+except (NameError, AttributeError):
+    @login_required
+    def admin_panel(request):
+        return redirect('admin_dashboard')
+
+# Admin fallbacks for legacy logic (until fully modularized)
+def _legacy_or_stub(name):
+    try:
+        legacy = getattr(_old_views, name) if _old_views else None
+    except (NameError, AttributeError):
+        legacy = None
+
+    if legacy:
+        return legacy
+
+    @login_required
+    def _stub(request, *args, **kwargs):
+        return redirect('admin_panel')
+
+    return _stub
+
+
+admin_update_user = _legacy_or_stub('admin_update_user')
+admin_order_update = _legacy_or_stub('admin_order_update')
+admin_update_payment_status = _legacy_or_stub('admin_update_payment_status')
+admin_approve_payment = _legacy_or_stub('admin_approve_payment')
+admin_order_delete = _legacy_or_stub('admin_order_delete')
+confirm_payment = _legacy_or_stub('confirm_payment')
+admin_category_new = _legacy_or_stub('admin_category_new')
+admin_category_edit = _legacy_or_stub('admin_category_edit')
+admin_category_delete = _legacy_or_stub('admin_category_delete')
+admin_product_new = _legacy_or_stub('admin_product_new')
+admin_product_builder = _legacy_or_stub('admin_product_builder')
+admin_product_edit = _legacy_or_stub('admin_product_edit')
+admin_product_edit_simple = _legacy_or_stub('admin_product_edit_simple')
+admin_product_edit_unified = _legacy_or_stub('admin_product_edit_unified')
+admin_product_delete = _legacy_or_stub('admin_product_delete')
+admin_product_colors = _legacy_or_stub('admin_product_colors')
+admin_product_color_delete = _legacy_or_stub('admin_product_color_delete')
+admin_product_image_delete = _legacy_or_stub('admin_product_image_delete')
+admin_offline_stores = _legacy_or_stub('admin_offline_stores')
+admin_offline_store_create = _legacy_or_stub('admin_offline_store_create')
+admin_offline_store_edit = _legacy_or_stub('admin_offline_store_edit')
+admin_offline_store_toggle = _legacy_or_stub('admin_offline_store_toggle')
+admin_offline_store_delete = _legacy_or_stub('admin_offline_store_delete')
+admin_store_management = _legacy_or_stub('admin_store_management')
+admin_store_add_product_to_order = _legacy_or_stub('admin_store_add_product_to_order')
+admin_store_get_order_items = _legacy_or_stub('admin_store_get_order_items')
+admin_store_get_product_colors = _legacy_or_stub('admin_store_get_product_colors')
+admin_store_remove_product_from_order = _legacy_or_stub('admin_store_remove_product_from_order')
+admin_store_add_products_to_store = _legacy_or_stub('admin_store_add_products_to_store')
+admin_store_generate_invoice = _legacy_or_stub('admin_store_generate_invoice')
+admin_store_update_product = _legacy_or_stub('admin_store_update_product')
+admin_store_mark_product_sold = _legacy_or_stub('admin_store_mark_product_sold')
+admin_store_remove_product = _legacy_or_stub('admin_store_remove_product')
+admin_print_proposal_update_status = _legacy_or_stub('admin_print_proposal_update_status')
+admin_print_proposal_award_points = _legacy_or_stub('admin_print_proposal_award_points')
+admin_print_proposal_award_promocode = _legacy_or_stub('admin_print_proposal_award_promocode')
 
 # Auth aliases (если нужны)
 register_view_new = register_view  # для urls.py: views.register_view_new
@@ -353,10 +425,19 @@ __all__ = [
     'order_success', 'order_failed', 'calculate_shipping',
     
     # Admin
-    'admin_dashboard', 'manage_products', 'add_product', 'add_category', 'add_print',
+    'admin_panel', 'admin_dashboard', 'manage_products', 'add_product', 'add_category', 'add_print',
     'manage_print_proposals', 'manage_promo_codes', 'generate_seo_content',
     'generate_alt_texts', 'manage_orders', 'sales_statistics', 'inventory_management',
     
     # Aliases (для обратной совместимости)
     'cart', 'cart_remove', 'clean_cart', 'profile_setup_db', 'order_create', 'register_view_new',
 ]
+
+
+def __getattr__(name):
+    try:
+        if _old_views:
+            return getattr(_old_views, name)
+        raise AttributeError(f"module 'storefront.views' has no attribute '{name}'")
+    except (NameError, AttributeError):
+        raise AttributeError(f"module 'storefront.views' has no attribute '{name}'")

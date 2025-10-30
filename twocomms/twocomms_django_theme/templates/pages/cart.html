@@ -451,10 +451,20 @@
           </div>
           {% endif %}
           
-          <div class="cart-summary-row cart-summary-total">
-            <span class="cart-summary-label">До сплати:</span>
-            <span class="cart-summary-value">{{ grand_total }} грн</span>
+          <div class="cart-summary-row cart-summary-total" id="pay-now-row">
+            <span class="cart-summary-label" id="pay-now-label">До сплати:</span>
+            <span class="cart-summary-value"
+                  id="pay-now-amount"
+                  data-total="{{ grand_total|floatformat:'2' }}"
+                  data-prepay="200">{{ grand_total }} грн</span>
           </div>
+          <div class="cart-summary-row cart-summary-prepay d-none" id="prepay-remaining-row">
+            <span class="cart-summary-label">Залишок при отриманні:</span>
+            <span class="cart-summary-value" id="prepay-remaining-amount">{{ grand_total }} грн</span>
+          </div>
+          <p class="cart-summary-note d-none" id="prepay-note">
+            Це додаткова передоплата для вас — решту сплатите при отриманні.
+          </p>
         </div>
         
         <!-- Информация о баллах -->
@@ -566,7 +576,7 @@
 {% block extra_js %}
 <script>
 // Валидация форм, промокоды и удаление строк перенесены в main.js
-document.addEventListener('DOMContentLoaded', function() {
+function initCartPage() {
     const guestForm = document.getElementById('guest-form');
     const deliveryForm = document.getElementById('deliveryForm');
     
@@ -593,6 +603,73 @@ document.addEventListener('DOMContentLoaded', function() {
         payTypeGuestSelect: !!payTypeGuestSelect,
         activePayTypeSelect: !!activePayTypeSelect
       });
+      
+      const payNowAmountEl = document.getElementById('pay-now-amount');
+      const payNowLabelEl = document.getElementById('pay-now-label');
+      const prepayRemainingRow = document.getElementById('prepay-remaining-row');
+      const prepayRemainingAmountEl = document.getElementById('prepay-remaining-amount');
+      const prepayNoteEl = document.getElementById('prepay-note');
+      const parseNumeric = (raw) => {
+        if (raw == null) {
+          return NaN;
+        }
+        const cleaned = String(raw)
+          .replace(/\u00A0/g, '')
+          .replace(/\s/g, '')
+          .replace(',', '.');
+        const parsed = Number.parseFloat(cleaned);
+        return Number.isFinite(parsed) ? parsed : NaN;
+      };
+      
+      const paymentSummary = {
+        total: payNowAmountEl ? parseNumeric(payNowAmountEl.dataset.total || '0') : 0,
+        prepay: payNowAmountEl ? parseNumeric(payNowAmountEl.dataset.prepay || '200') : 200
+      };
+      
+      if (!Number.isFinite(paymentSummary.total)) {
+        paymentSummary.total = 0;
+      }
+      if (!Number.isFinite(paymentSummary.prepay) || paymentSummary.prepay <= 0) {
+        paymentSummary.prepay = 200;
+      }
+      
+      function formatUAH(amount) {
+        const normalized = Number.isFinite(amount) ? amount : 0;
+        const opts = (Math.abs(normalized % 1) < 1e-9)
+          ? {minimumFractionDigits: 0, maximumFractionDigits: 0}
+          : {minimumFractionDigits: 2, maximumFractionDigits: 2};
+        return normalized.toLocaleString('uk-UA', opts) + ' грн';
+      }
+      
+      function updatePaymentSummary(payType) {
+        if (!payNowAmountEl) {
+          return;
+        }
+        
+        const isPrepay = payType === 'prepay_200';
+        const payNow = isPrepay ? Math.min(paymentSummary.prepay, paymentSummary.total || paymentSummary.prepay) : paymentSummary.total;
+        const remaining = Math.max((paymentSummary.total || 0) - (paymentSummary.prepay || 0), 0);
+        
+        if (payNowLabelEl) {
+          payNowLabelEl.textContent = isPrepay ? 'До сплати зараз:' : 'До сплати:';
+        }
+        payNowAmountEl.textContent = formatUAH(payNow);
+        
+        if (prepayRemainingRow) {
+          if (isPrepay) {
+            prepayRemainingRow.classList.remove('d-none');
+            if (prepayRemainingAmountEl) {
+              prepayRemainingAmountEl.textContent = formatUAH(remaining);
+            }
+          } else {
+            prepayRemainingRow.classList.add('d-none');
+          }
+        }
+        
+        if (prepayNoteEl) {
+          prepayNoteEl.classList.toggle('d-none', !isPrepay);
+        }
+      }
       
       function updateOrderButtonText(payType) {
         const btn = activeOrderBtn;
@@ -628,6 +705,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         btnTextSpan.textContent = newText;
         console.log('✅ Button text updated to:', newText);
+        updatePaymentSummary(payType);
       }
       
       // Обработчик изменения pay_type
@@ -643,10 +721,12 @@ document.addEventListener('DOMContentLoaded', function() {
           updateOrderButtonText(activePayTypeSelect.value);
         } else {
           console.log('⚠️ No initial pay_type selected');
+          updatePaymentSummary('online_full');
         }
       } else {
         console.error('❌ Pay type select not found!');
-            }
+        updatePaymentSummary('online_full');
+      }
       
       console.log('✅ Dynamic button text initialized successfully!');
     } catch (error) {
@@ -825,7 +905,13 @@ document.addEventListener('DOMContentLoaded', function() {
             errorAlert.remove();
         }, 5000);
     }
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initCartPage);
+} else {
+  initCartPage();
+}
 </script>
 {% if items %}
 <div id="checkout-payload"
