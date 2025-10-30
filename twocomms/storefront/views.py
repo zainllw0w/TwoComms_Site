@@ -53,39 +53,7 @@ from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.exceptions import InvalidSignature
 
-from .monobank import monobank_create_invoice as monobank_create_invoice_new
-
 HOME_PRODUCTS_PER_PAGE = 8
-
-PAY_TYPE_ALLOWED_VALUES = {'online_full', 'prepay_200'}
-PAY_TYPE_LEGACY_MAP = {
-    'full': 'online_full',
-    'partial': 'prepay_200',
-    'prepaid': 'prepay_200',
-    'online': 'online_full',
-    'online-full': 'online_full',
-    'online_full_payment': 'online_full',
-    'partial_payment': 'prepay_200',
-    'prepay': 'prepay_200',
-    'prepay200': 'prepay_200',
-    'cod': 'prepay_200',
-    'Оплата повністю': 'online_full',
-    'Оплатити повністю': 'online_full',
-    'Внести передплату 200 грн': 'prepay_200',
-    'Передплата 200 грн': 'prepay_200',
-    'Онлайн оплата (повна сума)': 'online_full',
-    'Передплата 200 грн (решта при отриманні)': 'prepay_200'
-}
-
-
-def _normalize_pay_type(value: str) -> str:
-    """Normalizes pay_type to a canonical value accepted by the Order model."""
-    if not value:
-        return 'online_full'
-    normalized = PAY_TYPE_LEGACY_MAP.get(value, PAY_TYPE_LEGACY_MAP.get(value.strip(), value.strip()))
-    if normalized not in PAY_TYPE_ALLOWED_VALUES:
-        return 'online_full'
-    return normalized
 
 def unique_slugify(model, base_slug):
     """
@@ -1237,8 +1205,7 @@ def process_guest_order(request):
     phone = request.POST.get('phone', '').strip()
     city = request.POST.get('city', '').strip()
     np_office = request.POST.get('np_office', '').strip()
-    raw_pay_type = request.POST.get('pay_type')
-    pay_type = _normalize_pay_type(raw_pay_type)
+    pay_type = request.POST.get('pay_type', '')
     
     # Проверяем обязательные поля
     if not full_name or len(full_name) < 3:
@@ -1261,7 +1228,7 @@ def process_guest_order(request):
         messages.error(request, 'Введіть адресу відділення!')
         return redirect('cart')
     
-    if not (raw_pay_type and raw_pay_type.strip()):
+    if not pay_type:
         from django.contrib import messages
         messages.error(request, 'Оберіть тип оплати!')
         return redirect('cart')
@@ -1491,8 +1458,7 @@ def cart(request):
                 prof.phone = request.POST.get('phone', '')
                 prof.city = request.POST.get('city', '')
                 prof.np_office = request.POST.get('np_office', '')
-                pay_type_value = _normalize_pay_type(request.POST.get('pay_type'))
-                prof.pay_type = pay_type_value
+                prof.pay_type = request.POST.get('pay_type', 'full')
                 prof.save()
                 
                 # Показываем сообщение об успехе
@@ -2510,8 +2476,7 @@ def order_create(request):
         phone = request.POST.get('phone', '').strip()
         city = request.POST.get('city', '').strip()
         np_office = request.POST.get('np_office', '').strip()
-        pay_type_raw = request.POST.get('pay_type')
-        pay_type = _normalize_pay_type(pay_type_raw)
+        pay_type = request.POST.get('pay_type', '')
         
         # Валидация данных из формы
         if not full_name or len(full_name) < 3:
@@ -2534,7 +2499,7 @@ def order_create(request):
             messages.error(request, 'Введіть адресу відділення!')
             return redirect('cart')
         
-        if not (pay_type_raw and pay_type_raw.strip()):
+        if not pay_type:
             from django.contrib import messages
             messages.error(request, 'Оберіть тип оплати!')
             return redirect('cart')
@@ -2553,10 +2518,7 @@ def order_create(request):
         phone = prof.phone
         city = prof.city
         np_office = prof.np_office
-        pay_type = _normalize_pay_type(prof.pay_type)
-        if prof.pay_type != pay_type:
-            prof.pay_type = pay_type
-            prof.save(update_fields=['pay_type'])
+        pay_type = prof.pay_type
         
         # Проверяем обязательные поля с более строгой валидацией
         if not phone or len(phone.strip()) < 10:
@@ -5277,8 +5239,7 @@ def _validate_checkout_payload(raw_payload):
     phone = (raw_payload.get('phone') or '').strip()
     city = (raw_payload.get('city') or '').strip()
     np_office = (raw_payload.get('np_office') or '').strip()
-    pay_type_raw = raw_payload.get('pay_type')
-    pay_type = _normalize_pay_type(pay_type_raw)
+    pay_type = (raw_payload.get('pay_type') or 'full').strip().lower() or 'full'
 
     errors = []
     if len(full_name) < 3:
@@ -5294,15 +5255,18 @@ def _validate_checkout_payload(raw_payload):
     if len(np_office) < 1:
         errors.append('Введіть адресу відділення або поштомата.')
 
-    if pay_type_raw and pay_type_raw.strip() and pay_type not in PAY_TYPE_ALLOWED_VALUES:
+    if pay_type not in ('full', 'partial'):
         errors.append('Невідомий тип оплати.')
+
+    if pay_type != 'full':
+        errors.append('Для онлайн-оплати карткою потрібно обрати «Повна передоплата».')
 
     cleaned = {
         'full_name': full_name,
         'phone': phone,
         'city': city,
         'np_office': np_office,
-        'pay_type': pay_type
+        'pay_type': 'full'
     }
     return errors, cleaned
 
@@ -5327,8 +5291,6 @@ def _create_or_update_monobank_order(request, customer_data):
         monobank_logger.info('Discarding leftover pending Monobank order %s', pending_order_id)
         _drop_pending_monobank_order(request)
 
-    customer_pay_type = _normalize_pay_type(customer_data.get('pay_type'))
-
     with transaction.atomic():
         if order is None:
             order = Order.objects.create(
@@ -5338,7 +5300,7 @@ def _create_or_update_monobank_order(request, customer_data):
                 phone=customer_data['phone'],
                 city=customer_data['city'],
                 np_office=customer_data['np_office'],
-                pay_type=customer_pay_type,
+                pay_type='full',
                 status='new',
                 payment_status='checking',
                 total_sum=Decimal('0'),
@@ -5350,7 +5312,7 @@ def _create_or_update_monobank_order(request, customer_data):
             order.phone = customer_data['phone']
             order.city = customer_data['city']
             order.np_office = customer_data['np_office']
-            order.pay_type = customer_pay_type
+            order.pay_type = 'full'
             order.session_key = session_key
             order.payment_status = 'checking'
             order.discount_amount = Decimal('0')
@@ -5496,16 +5458,12 @@ def _prepare_checkout_customer_data(request):
     if request.user.is_authenticated:
         try:
             profile = request.user.userprofile
-            pay_type = _normalize_pay_type(profile.pay_type)
-            if profile.pay_type != pay_type:
-                profile.pay_type = pay_type
-                profile.save(update_fields=['pay_type'])
             return {
                 'full_name': profile.full_name or f'{request.user.first_name} {request.user.last_name}'.strip() or 'Користувач',
                 'phone': profile.phone or '',
                 'city': profile.city or '',
                 'np_office': profile.np_office or '',
-                'pay_type': pay_type,
+                'pay_type': profile.pay_type or 'full',
                 'user': request.user
             }
         except:
@@ -5517,7 +5475,7 @@ def _prepare_checkout_customer_data(request):
         'phone': '',
         'city': '',
         'np_office': '',
-        'pay_type': 'online_full',
+        'pay_type': 'full',
         'user': None
     }
 
@@ -5576,8 +5534,146 @@ def _record_monobank_status(order, payload, source='api'):
 
 @require_POST
 def monobank_create_invoice(request):
-    """Proxy to the modular monobank_create_invoice implementation."""
-    return monobank_create_invoice_new(request)
+    """Create Monobank pay invoice and return redirect URL."""
+    _cleanup_expired_monobank_orders()
+    _drop_pending_monobank_order(request)
+    try:
+        # Try to take guest checkout fields from JSON body when user is not authenticated
+        body = {}
+        try:
+            body = json.loads(request.body.decode('utf-8')) if request.body else {}
+        except Exception:
+            body = {}
+
+        if not request.user.is_authenticated and any(k in (body or {}) for k in ('full_name','phone','city','np_office','pay_type')):
+            errors, cleaned = _validate_checkout_payload(body or {})
+            if errors:
+                return JsonResponse({'success': False, 'error': '\n'.join(errors)})
+            customer = {
+                'full_name': cleaned['full_name'],
+                'phone': cleaned['phone'],
+                'city': cleaned['city'],
+                'np_office': cleaned['np_office'],
+                'pay_type': cleaned['pay_type'],
+                'user': None
+            }
+        else:
+            customer = _prepare_checkout_customer_data(request)
+        order, amount_decimal, _ = _create_or_update_monobank_order(request, customer)
+    except ValueError:
+        _reset_monobank_session(request, drop_pending=True)
+        return JsonResponse({'success': False, 'error': 'Кошик порожній. Додайте товари перед оплатою.'})
+
+    items_qs = list(order.items.select_related('product', 'color_variant__color'))
+    total_qty = sum(item.qty for item in items_qs)
+    if total_qty <= 0 or amount_decimal <= 0:
+        _reset_monobank_session(request, drop_pending=True)
+        return JsonResponse({'success': False, 'error': 'Сума для оплати повинна бути більшою за 0.'})
+
+    try:
+        basket_entries = []
+        for item in items_qs:
+            name_parts = [item.product.title]
+            if item.size:
+                name_parts.append(f"розмір {item.size}")
+            color_name = getattr(item, 'color_name', None)
+            if color_name:
+                name_parts.append(color_name)
+            display_name = ' • '.join(filter(None, name_parts))[:128]
+            try:
+                line_total_minor = int(Decimal(str(item.line_total)) * 100)
+            except (InvalidOperation, TypeError, ValueError):
+                monobank_logger.warning('Skipping item %s in Mono Pay basket: invalid line total %s', item.id, item.line_total)
+                continue
+
+            icon_url = ''
+            try:
+                image_obj = None
+                if getattr(item, 'color_variant', None) and item.color_variant.images.exists():
+                    image_obj = item.color_variant.images.first().image
+                elif item.product.main_image:
+                    image_obj = item.product.main_image
+                if image_obj and hasattr(image_obj, 'url'):
+                    icon_url = request.build_absolute_uri(image_obj.url)
+                    if icon_url.startswith('http://'):
+                        icon_url = 'https://' + icon_url[len('http://'):]
+            except Exception:
+                icon_url = ''
+
+            try:
+                qty_minor = max(int(getattr(item, 'qty', 1) or 1), 1)
+            except (TypeError, ValueError):
+                qty_minor = 1
+
+            basket_entries.append({
+                'name': display_name or item.product.title[:128],
+                'qty': qty_minor,
+                'sum': line_total_minor,
+                'icon': icon_url
+            })
+
+        if not basket_entries:
+            _reset_monobank_session(request, drop_pending=True)
+            return JsonResponse({'success': False, 'error': 'Кошик порожній. Додайте товари перед оплатою.'})
+
+        # Для Monobank Pay используем API эквайринга
+        payload = {
+            'amount': int(amount_decimal * 100),  # сумма в копейках
+            'ccy': 980,  # гривна
+            'merchantPaymInfo': {
+                'reference': order.order_number,
+                'destination': f'Оплата замовлення {order.order_number}',
+                'basketOrder': basket_entries
+            },
+            'redirectUrl': request.build_absolute_uri('/payments/monobank/return/'),
+            'webHookUrl': request.build_absolute_uri('/payments/monobank/webhook/'),
+        }
+        
+        creation_data = _monobank_api_request('POST', '/api/merchant/invoice/create', json_payload=payload)
+    except MonobankAPIError as exc:
+        monobank_logger.warning('Monobank pay invoice creation failed: %s', exc)
+        _reset_monobank_session(request, drop_pending=True)
+        return JsonResponse({'success': False, 'error': str(exc)})
+    except Exception as exc:
+        monobank_logger.exception('Failed to build Mono Pay payload: %s', exc)
+        _reset_monobank_session(request, drop_pending=True)
+        return JsonResponse({'success': False, 'error': 'Не вдалося підготувати дані для платежу. Спробуйте ще раз.'})
+
+    result = creation_data.get('result') or creation_data
+    invoice_id = result.get('invoiceId')
+    invoice_url = result.get('pageUrl')
+
+    if not invoice_id or not invoice_url:
+        _reset_monobank_session(request, drop_pending=True)
+        return JsonResponse({'success': False, 'error': 'Не вдалося створити платіж. Спробуйте пізніше.'})
+
+    payment_payload = {
+        'request': payload,
+        'create': creation_data,
+        'history': []
+    }
+    order.payment_invoice_id = invoice_id
+    order.payment_payload = payment_payload
+    order.payment_status = 'checking'
+    order.payment_provider = 'monobank_pay'
+    order.save(update_fields=['payment_invoice_id', 'payment_payload', 'payment_status', 'payment_provider'])
+
+    request.session['monobank_invoice_id'] = invoice_id
+    request.session['monobank_pending_order_id'] = order.id
+    request.session.modified = True
+
+    try:
+        _notify_monobank_order(order, 'Mono Pay')
+    except Exception:
+        pass
+
+    return JsonResponse({
+        'success': True,
+        'invoice_url': invoice_url,
+        'invoice_id': invoice_id,
+        'order_id': order.id,
+        'order_ref': order.order_number
+    })
 
 
 def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, items=None):
