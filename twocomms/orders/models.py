@@ -12,6 +12,25 @@ class Order(models.Model):
         ('done', 'Отримано'),
         ('cancelled', 'Скасовано'),
     ]
+    
+    PAY_TYPE_CHOICES = [
+        ('online_full', 'Онлайн оплата (повна сума)'),
+        ('prepay_200', 'Передплата 200 грн'),
+        ('cod', 'Оплата при отриманні'),
+        # Legacy values (для обратной совместимости)
+        ('full', 'Повна оплата'),
+        ('partial', 'Часткова оплата'),
+    ]
+    
+    PAYMENT_STATUS_CHOICES = [
+        ('unpaid', 'Не оплачено'),
+        ('checking', 'На перевірці'),
+        ('prepaid', 'Внесена передплата'),  # Было 'partial'
+        ('paid', 'Оплачено повністю'),
+        # Legacy value (для обратной совместимости)
+        ('partial', 'Внесена передплата (старе)'),
+    ]
+    
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='orders', null=True, blank=True)
     order_number = models.CharField(max_length=20, unique=True, blank=True)
     session_key = models.CharField(max_length=40, blank=True, null=True)
@@ -19,13 +38,8 @@ class Order(models.Model):
     phone = models.CharField(max_length=32)
     city = models.CharField(max_length=100)
     np_office = models.CharField(max_length=200)
-    pay_type = models.CharField(max_length=10, default='full')
-    payment_status = models.CharField(max_length=20, choices=[
-        ('unpaid', 'Не оплачено'),
-        ('checking', 'На перевірці'),
-        ('partial', 'Внесена передплата'),
-        ('paid', 'Оплачено повністю'),
-    ], default='unpaid')
+    pay_type = models.CharField(max_length=20, choices=PAY_TYPE_CHOICES, default='online_full')
+    payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='unpaid')
     total_sum = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='Сума знижки')
     promo_code = models.ForeignKey(PromoCode, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Використаний промокод')
@@ -91,10 +105,39 @@ class Order(models.Model):
         payment_status_choices = dict([
             ('unpaid', 'Не оплачено'),
             ('checking', 'На перевірці'),
-            ('partial', 'Внесена передплата'),
+            ('prepaid', 'Внесена передплата'),
             ('paid', 'Оплачено повністю'),
+            # Legacy
+            ('partial', 'Внесена передплата'),
         ])
         return payment_status_choices.get(self.payment_status, self.payment_status)
+    
+    def get_facebook_event_id(self):
+        """
+        Генерирует уникальный event_id для Facebook Pixel/Conversions API.
+        Используется для дедупликации событий между браузером и сервером.
+        
+        Format: {order_number}_{timestamp}
+        Example: TWC30102025N01_1730304000
+        """
+        import hashlib
+        import time
+        # Используем order_number + timestamp создания как уникальный идентификатор
+        timestamp = int(self.created.timestamp()) if self.created else int(time.time())
+        return f"{self.order_number}_{timestamp}"
+    
+    def get_prepayment_amount(self):
+        """Возвращает сумму предоплаты для pay_type=prepay_200"""
+        from decimal import Decimal
+        if self.pay_type == 'prepay_200':
+            return Decimal('200.00')
+        return Decimal('0.00')
+    
+    def get_remaining_amount(self):
+        """Возвращает остаток к оплате после предоплаты"""
+        if self.pay_type == 'prepay_200':
+            return self.total_sum - self.get_prepayment_amount()
+        return self.total_sum
     
     @classmethod
     def get_processing_count(cls):
