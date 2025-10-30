@@ -73,19 +73,21 @@
     {% else %}
       {# Блок для незареєстрованих користувачів #}
       <div class="ds-sidebar__auth">
-        <div class="ds-sidebar__auth-icon">
+        <h3 class="ds-sidebar__auth-title">
           <i class="fas fa-rocket" aria-hidden="true"></i>
+          Почніть заробляти
+        </h3>
+        <p class="ds-sidebar__auth-text">Увійдіть для доступу до всіх функцій</p>
+        <div class="ds-sidebar__auth-actions">
+          <button type="button" class="ds-btn ds-btn--primary ds-btn--sm" data-open-auth-modal="login">
+            <i class="fas fa-sign-in-alt" aria-hidden="true"></i>
+            <span>Увійти</span>
+          </button>
+          <button type="button" class="ds-btn ds-btn--ghost ds-btn--sm" data-open-auth-modal="register">
+            <i class="fas fa-user-plus" aria-hidden="true"></i>
+            <span>Реєстрація</span>
+          </button>
         </div>
-        <h3 class="ds-sidebar__auth-title">Почніть заробляти</h3>
-        <p class="ds-sidebar__auth-text">Увійдіть щоб отримати доступ до всіх функцій</p>
-        <button type="button" class="ds-btn ds-btn--primary ds-btn--block" data-open-auth-modal="login">
-          <i class="fas fa-sign-in-alt" aria-hidden="true"></i>
-          <span>Увійти</span>
-        </button>
-        <button type="button" class="ds-btn ds-btn--ghost ds-btn--block" data-open-auth-modal="register">
-          <i class="fas fa-user-plus" aria-hidden="true"></i>
-          <span>Реєстрація</span>
-        </button>
       </div>
     {% endif %}
 
