@@ -180,18 +180,6 @@ def add_to_cart(request):
         if p:
             total_sum += i['qty'] * p.final_price
 
-    cart_logger.info(
-        'add_to_cart: session=%s user=%s key=%s product=%s size=%s color=%s qty=%s cart_keys=%s',
-        request.session.session_key,
-        request.user.id if request.user.is_authenticated else None,
-        key,
-        product.id,
-        size,
-        color_variant_id,
-        item['qty'],
-        list(cart.keys())
-    )
-
     return JsonResponse({'ok': True, 'count': total_qty, 'total': total_sum})
 
 
@@ -342,20 +330,6 @@ def remove_from_cart(request):
         if p:
             total_sum += i['qty'] * p.final_price
 
-    try:
-        cart_logger.info(
-            'cart_remove: session=%s user=%s key=%s pid=%s size=%s removed=%s remaining_keys=%s',
-            request.session.session_key,
-            request.user.id if request.user.is_authenticated else None,
-            key,
-            pid,
-            size,
-            removed,
-            list(cart.keys())
-        )
-    except Exception:
-        pass
-
     return JsonResponse({'ok': True, 'count': total_qty, 'total': total_sum, 'removed': removed, 'keys': list(cart.keys())})
 
 
@@ -473,15 +447,6 @@ def apply_promo_code(request):
         elif promo_code.group:
             message = f'Промокод з групи "{promo_code.group.name}" застосовано! Знижка: {discount} грн'
         
-        cart_logger.info(
-            'promo_code_applied: user=%s promo_code=%s type=%s group=%s discount=%s',
-            request.user.id,
-            promo_code.code,
-            promo_code.promo_type,
-            promo_code.group.name if promo_code.group else None,
-            discount
-        )
-        
         return JsonResponse({
             'ok': True,
             'success': True,
@@ -526,12 +491,6 @@ def remove_promo_code(request):
         
         cart = get_cart_from_session(request)
         total = calculate_cart_total(cart)
-        
-        cart_logger.info(
-            'promo_code_removed: user=%s code=%s',
-            request.user.id if request.user.is_authenticated else None,
-            removed_code
-        )
         
         return JsonResponse({
             'ok': True,
@@ -586,13 +545,6 @@ def cart_summary(request):
         _reset_monobank_session(request, drop_pending=True)
         request.session['cart'] = cart
         request.session.modified = True
-        cart_logger.warning(
-            'cart_summary_cleanup: session=%s user=%s removed_products=%s remaining_keys=%s',
-            request.session.session_key,
-            request.user.id if request.user.is_authenticated else None,
-            list(missing_products),
-            list(cart.keys())
-        )
     
     # Пересчитываем с очищенной корзиной
     total_qty = sum(i['qty'] for i in cart.values())
@@ -633,13 +585,6 @@ def cart_mini(request):
         _reset_monobank_session(request, drop_pending=True)
         request.session['cart'] = cart_sess
         request.session.modified = True
-        cart_logger.warning(
-            'cart_mini_cleanup: session=%s user=%s removed_products=%s remaining_keys=%s',
-            request.session.session_key,
-            request.user.id if request.user.is_authenticated else None,
-            list(missing_products),
-            list(cart_sess.keys())
-        )
     
     items = []
     total = 0
@@ -773,10 +718,6 @@ def contact_manager(request):
             from orders.telegram_notifications import TelegramNotifier
             notifier = TelegramNotifier()
             notifier.send_admin_message(message)
-            
-            cart_logger.info(
-                f"Contact manager request sent: {full_name} ({phone}), cart total: {total_sum} UAH"
-            )
             
             return JsonResponse({'success': True})
             
