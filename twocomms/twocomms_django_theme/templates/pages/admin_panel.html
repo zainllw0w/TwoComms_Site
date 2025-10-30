@@ -2014,19 +2014,19 @@
       {# Общая статистика #}
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px;">
         <div style="background: linear-gradient(145deg, rgba(139,92,246,.15), rgba(99,102,241,.15)); border: 1px solid rgba(139,92,246,.3); border-radius: 16px; padding: 24px; transition: all 0.3s;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 30px rgba(139,92,246,.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-          <div style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #8b5cf6, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">{{ total_dropship_orders|default:0 }}</div>
+          <div style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #8b5cf6, #6366f1); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">{{ total_dropship_orders|default:0 }}</div>
           <div style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Всього дропшип-замовлень</div>
         </div>
         <div style="background: linear-gradient(145deg, rgba(139,92,246,.15), rgba(99,102,241,.15)); border: 1px solid rgba(139,92,246,.3); border-radius: 16px; padding: 24px; transition: all 0.3s;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 30px rgba(139,92,246,.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-          <div style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #8b5cf6, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">{{ pending_orders|default:0 }}</div>
+          <div style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #8b5cf6, #6366f1); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">{{ pending_orders|default:0 }}</div>
           <div style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Очікують обробки</div>
         </div>
         <div style="background: linear-gradient(145deg, rgba(139,92,246,.15), rgba(99,102,241,.15)); border: 1px solid rgba(139,92,246,.3); border-radius: 16px; padding: 24px; transition: all 0.3s;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 30px rgba(139,92,246,.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-          <div style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #8b5cf6, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">{{ total_dropship_revenue|floatformat:0 }} грн</div>
+          <div style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #8b5cf6, #6366f1); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">{{ total_dropship_revenue|floatformat:0 }} грн</div>
           <div style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Загальний оборот</div>
         </div>
         <div style="background: linear-gradient(145deg, rgba(139,92,246,.15), rgba(99,102,241,.15)); border: 1px solid rgba(139,92,246,.3); border-radius: 16px; padding: 24px; transition: all 0.3s;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 30px rgba(139,92,246,.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-          <div style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #8b5cf6, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">{{ total_dropship_profit|floatformat:0 }} грн</div>
+          <div style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #8b5cf6, #6366f1); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">{{ total_dropship_profit|floatformat:0 }} грн</div>
           <div style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Загальний прибуток</div>
         </div>
       </div>
@@ -2047,7 +2047,7 @@
       {# Дропшипінг #}
       <div id="collab-content-dropship">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 2px solid rgba(139,92,246,.3);">
-          <h2 style="font-size: 1.8rem; font-weight: 800; background: linear-gradient(135deg, #8b5cf6, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;">Замовлення дропшиперів</h2>
+          <h2 style="font-size: 1.8rem; font-weight: 800; background: linear-gradient(135deg, #8b5cf6, #6366f1); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;">Замовлення дропшиперів</h2>
           <a href="/admin/orders/dropshipperorder/" style="background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 0.85rem; transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(139,92,246,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
             <i class="fas fa-cog"></i> Django Admin
           </a>
@@ -2097,9 +2097,9 @@
 
                 <div style="display: flex; flex-direction: column; gap: 8px;">
                   <a href="/admin/orders/dropshipperorder/{{ order.id }}/change/" style="padding: 8px 16px; border-radius: 8px; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white; text-decoration: none; font-weight: 700; font-size: 0.85rem; text-align: center;"><i class="fas fa-edit"></i> Редагувати</a>
-                  {% if order.status == 'draft' %}<button onclick="updateDropshipStatus({{ order.id }}, 'confirmed')" style="padding: 8px 16px; border-radius: 8px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-weight: 700; font-size: 0.85rem; cursor: pointer;"><i class="fas fa-check"></i> Підтвердити</button>
-                  {% elif order.status == 'confirmed' %}<button onclick="updateDropshipStatus({{ order.id }}, 'processing')" style="padding: 8px 16px; border-radius: 8px; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; font-weight: 700; font-size: 0.85rem; cursor: pointer;"><i class="fas fa-cog"></i> В обробку</button>
-                  {% elif order.status == 'processing' %}<button onclick="updateDropshipStatus({{ order.id }}, 'shipped')" style="padding: 8px 16px; border-radius: 8px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-weight: 700; font-size: 0.85rem; cursor: pointer;"><i class="fas fa-shipping-fast"></i> Відправлено</button>{% endif %}
+                  {% if order.status == 'draft' %}<button data-action="update-dropship-status" data-order-id="{{ order.id }}" data-status="confirmed" style="padding: 8px 16px; border-radius: 8px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-weight: 700; font-size: 0.85rem; cursor: pointer;"><i class="fas fa-check"></i> Підтвердити</button>
+                  {% elif order.status == 'confirmed' %}<button data-action="update-dropship-status" data-order-id="{{ order.id }}" data-status="processing" style="padding: 8px 16px; border-radius: 8px; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; font-weight: 700; font-size: 0.85rem; cursor: pointer;"><i class="fas fa-cog"></i> В обробку</button>
+                  {% elif order.status == 'processing' %}<button data-action="update-dropship-status" data-order-id="{{ order.id }}" data-status="shipped" style="padding: 8px 16px; border-radius: 8px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-weight: 700; font-size: 0.85rem; cursor: pointer;"><i class="fas fa-shipping-fast"></i> Відправлено</button>{% endif %}
                 </div>
               </div>
               <div style="font-size: 0.85rem; color: rgba(229,231,235,.5);"><i class="far fa-clock"></i> {{ order.created_at|date:"d.m.Y H:i" }}</div>
@@ -2116,7 +2116,7 @@
       {# Оптові накладні #}
       <div id="collab-content-wholesale" style="display: none;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 2px solid rgba(139,92,246,.3);">
-          <h2 style="font-size: 1.8rem; font-weight: 800; background: linear-gradient(135deg, #8b5cf6, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;">Оптові накладні</h2>
+          <h2 style="font-size: 1.8rem; font-weight: 800; background: linear-gradient(135deg, #8b5cf6, #6366f1); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;">Оптові накладні</h2>
         </div>
 
         <div class="row g-3">
@@ -2150,30 +2150,30 @@
                 <div class="d-flex gap-2 flex-wrap">
                   <!-- Кнопка одобрения накладной -->
                   {% if not inv.is_approved %}
-                    <form onsubmit="return toggleInvoiceApproval(event, {{ inv.id }}, true)"><button class="btn btn-sm btn-outline-success" type="submit">Одобрити для оплаты</button></form>
+                    <form data-action="toggle-invoice-approval" data-invoice-id="{{ inv.id }}" data-approved="true"><button class="btn btn-sm btn-outline-success" type="submit">Одобрити для оплаты</button></form>
                   {% else %}
-                    <form onsubmit="return toggleInvoiceApproval(event, {{ inv.id }}, false)"><button class="btn btn-sm btn-outline-warning" type="submit">Отменить одобрение</button></form>
+                    <form data-action="toggle-invoice-approval" data-invoice-id="{{ inv.id }}" data-approved="false"><button class="btn btn-sm btn-outline-warning" type="submit">Отменить одобрение</button></form>
                   {% endif %}
                   
                   <!-- Кнопки статуса оплаты -->
                   {% if inv.payment_status != 'paid' %}
-                    <form onsubmit="return toggleInvoicePayment(event, {{ inv.id }}, 'paid')"><button class="btn btn-sm btn-outline-success" type="submit">Відмітити як оплачену</button></form>
+                    <form data-action="toggle-invoice-payment" data-invoice-id="{{ inv.id }}" data-payment-status="paid"><button class="btn btn-sm btn-outline-success" type="submit">Відмітити як оплачену</button></form>
                   {% endif %}
                   {% if inv.payment_status != 'not_paid' %}
-                    <form onsubmit="return toggleInvoicePayment(event, {{ inv.id }}, 'not_paid')"><button class="btn btn-sm btn-outline-secondary" type="submit">Скинути оплату</button></form>
+                    <form data-action="toggle-invoice-payment" data-invoice-id="{{ inv.id }}" data-payment-status="not_paid"><button class="btn btn-sm btn-outline-secondary" type="submit">Скинути оплату</button></form>
                   {% endif %}
                   
                   {% if inv.status == 'pending' %}
-                    <form onsubmit="return updateInvoiceStatus(event, {{ inv.id }}, 'processing')"><button class="btn btn-sm btn-outline-warning" type="submit">Прийнято в обробку</button></form>
+                    <form data-action="update-invoice-status" data-invoice-id="{{ inv.id }}" data-new-status="processing"><button class="btn btn-sm btn-outline-warning" type="submit">Прийнято в обробку</button></form>
                   {% endif %}
                   {% if inv.status == 'processing' %}
-                    <form onsubmit="return updateInvoiceStatus(event, {{ inv.id }}, 'shipped')"><button class="btn btn-sm btn-outline-success" type="submit">Готується до відправки</button></form>
+                    <form data-action="update-invoice-status" data-invoice-id="{{ inv.id }}" data-new-status="shipped"><button class="btn btn-sm btn-outline-success" type="submit">Готується до відправки</button></form>
                   {% endif %}
                   {% if inv.status == 'shipped' %}
-                    <form onsubmit="return updateInvoiceStatus(event, {{ inv.id }}, 'delivered')"><button class="btn btn-sm btn-outline-primary" type="submit">Товари відправлені</button></form>
+                    <form data-action="update-invoice-status" data-invoice-id="{{ inv.id }}" data-new-status="delivered"><button class="btn btn-sm btn-outline-primary" type="submit">Товари відправлені</button></form>
                   {% endif %}
                   {% if inv.status in 'pending,processing,shipped' %}
-                    <form onsubmit="return updateInvoiceStatus(event, {{ inv.id }}, 'cancelled')"><button class="btn btn-sm btn-outline-danger" type="submit">Скасувати</button></form>
+                    <form data-action="update-invoice-status" data-invoice-id="{{ inv.id }}" data-new-status="cancelled"><button class="btn btn-sm btn-outline-danger" type="submit">Скасувати</button></form>
                   {% endif %}
                 </div>
               </div>
@@ -2190,7 +2190,7 @@
       {# Статистика дропшиперів #}
       <div id="collab-content-stats" style="display: none;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 2px solid rgba(139,92,246,.3);">
-          <h2 style="font-size: 1.8rem; font-weight: 800; background: linear-gradient(135deg, #8b5cf6, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;">Топ дропшиперів</h2>
+          <h2 style="font-size: 1.8rem; font-weight: 800; background: linear-gradient(135deg, #8b5cf6, #6366f1); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;">Топ дропшиперів</h2>
         </div>
 
         {% if dropshipper_stats %}
@@ -2288,6 +2288,43 @@ async function toggleInvoicePayment(e,id,status){ e.preventDefault(); const res 
       }
       
       function getCookie(name){const v=`; ${document.cookie}`.split(`; ${name}=`);if(v.length===2) return v.pop().split(';').shift();}
+      
+      // Event delegation для кнопок с data-action
+      document.addEventListener('DOMContentLoaded', function() {
+        // Обработка кликов на кнопки обновления статуса дропшип-заказов
+        document.addEventListener('click', function(e) {
+          const btn = e.target.closest('button[data-action="update-dropship-status"]');
+          if (btn) {
+            e.preventDefault();
+            const orderId = btn.dataset.orderId;
+            const status = btn.dataset.status;
+            updateDropshipStatus(orderId, status);
+          }
+        });
+        
+        // Обработка submit форм с data-action
+        document.addEventListener('submit', function(e) {
+          const form = e.target.closest('form[data-action]');
+          if (!form) return;
+          
+          e.preventDefault();
+          const action = form.dataset.action;
+          
+          if (action === 'toggle-invoice-approval') {
+            const invoiceId = form.dataset.invoiceId;
+            const approved = form.dataset.approved === 'true';
+            toggleInvoiceApproval(e, invoiceId, approved);
+          } else if (action === 'toggle-invoice-payment') {
+            const invoiceId = form.dataset.invoiceId;
+            const paymentStatus = form.dataset.paymentStatus;
+            toggleInvoicePayment(e, invoiceId, paymentStatus);
+          } else if (action === 'update-invoice-status') {
+            const invoiceId = form.dataset.invoiceId;
+            const newStatus = form.dataset.newStatus;
+            updateInvoiceStatus(e, invoiceId, newStatus);
+          }
+        });
+      });
       </script>
     {% endif %}
   </div>
