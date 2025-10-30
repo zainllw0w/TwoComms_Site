@@ -555,7 +555,7 @@ _CSP_DEFAULT = (
     "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
     # Fonts
     "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; "
-    # AJAX/Fetch connections: Enhanced Conversions API, Analytics, Facebook CAPI
+    # AJAX/Fetch connections: Enhanced Conversions API, Analytics, Facebook CAPI, Service Worker
     "connect-src 'self' "
     "https://www.google-analytics.com https://ssl.google-analytics.com https://analytics.google.com "
     "https://region1.analytics.google.com https://region1.google-analytics.com "
@@ -564,7 +564,8 @@ _CSP_DEFAULT = (
     "https://www.google.com https://*.google.com "
     "https://www.facebook.com https://connect.facebook.net https://graph.facebook.com https://*.facebook.com "
     "https://www.clarity.ms https://scripts.clarity.ms https://*.clarity.ms "
-    "https://cdn.jsdelivr.net; "
+    "https://fonts.googleapis.com https://fonts.gstatic.com "
+    "https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
     # Frames/iframes: GTM preview, Facebook
     "frame-src 'self' https://www.googletagmanager.com https://googletagmanager.com "
     "https://td.doubleclick.net https://bid.g.doubleclick.net "
