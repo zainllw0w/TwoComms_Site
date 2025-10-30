@@ -652,10 +652,8 @@ def monobank_create_invoice(request):
             request.session['monobank_pending_order_id'] = order.id
             request.session.modified = True
             
-            # Очищаем корзину
-            request.session['cart'] = {}
-            request.session.pop('promo_code_id', None)
-            request.session.modified = True
+            # НЕ очищаем корзину здесь - корзина будет очищена ТОЛЬКО после успешной оплаты
+            # в monobank_return или через webhook
             
             # Отправляем Telegram уведомление
             try:
