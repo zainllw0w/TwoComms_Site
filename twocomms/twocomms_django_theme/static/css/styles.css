@@ -791,14 +791,6 @@ body::after {
     font-size: 0.6rem !important;
     padding: 0.08rem 0.25rem !important;
   }
-
-  /* Делаем карточки товаров шире на мобильных */
-  .row[data-stagger-grid] > .product-card-wrap {
-    flex: 0 0 calc(60% - 0.2rem) !important;
-    max-width: calc(60% - 0.2rem) !important;
-    width: calc(60% - 0.2rem) !important;
-    min-width: calc(60% - 0.2rem) !important;
-  }
 }
 
 /* Дополнительные стили для очень маленьких экранов */
@@ -953,102 +945,12 @@ body::after {
   white-space: normal !important;
 }
 
-/* Принудительное переопределение Bootstrap классов */
-.row[data-stagger-grid] > .product-card-wrap {
-  flex: 0 0 calc(50% - 0.25rem) !important;
-  max-width: calc(50% - 0.25rem) !important;
-  width: calc(50% - 0.25rem) !important;
-  min-width: calc(50% - 0.25rem) !important;
-}
+/* Bootstrap grid handles responsive columns - no overrides needed */
 
-.row[data-stagger-grid] > .product-card-wrap > .col {
-  flex: 0 0 100% !important;
-  max-width: 100% !important;
-  width: 100% !important;
-  min-width: 100% !important;
-}
-
-/* Средние экраны (планшеты вертикально): 2 колонки */
-@media (min-width: 576px) and (max-width: 768px) {
-  .row[data-stagger-grid] > .product-card-wrap {
-    flex: 0 0 calc(50% - 0.25rem) !important;
-    max-width: calc(50% - 0.25rem) !important;
-    width: calc(50% - 0.25rem) !important;
-    min-width: calc(50% - 0.25rem) !important;
-  }
-}
-
-/* Планшеты горизонтально: 3 колонки */
-@media (min-width: 769px) and (max-width: 1024px) {
-  .row[data-stagger-grid] > .product-card-wrap {
-    flex: 0 0 calc(33.333333% - 0.333rem) !important;
-    max-width: calc(33.333333% - 0.333rem) !important;
-    width: calc(33.333333% - 0.333rem) !important;
-    min-width: calc(33.333333% - 0.333rem) !important;
-  }
-}
-
-/* Большие экраны: 4 колонки */
-@media (min-width: 1025px) {
-  .row[data-stagger-grid] > .product-card-wrap {
-    flex: 0 0 calc(25% - 0.375rem) !important;
-    max-width: calc(25% - 0.375rem) !important;
-    width: calc(25% - 0.375rem) !important;
-    min-width: calc(25% - 0.375rem) !important;
-  }
-}
-
-/* Дополнительные переопределения для мобильных устройств */
-@media (max-width: 480px) {
-  .row[data-stagger-grid] > .product-card-wrap {
-    flex: 0 0 calc(50% - 0.125rem) !important;
-    max-width: calc(50% - 0.125rem) !important;
-    width: calc(50% - 0.125rem) !important;
-    min-width: calc(50% - 0.125rem) !important;
-  }
-}
-
-/* Агрессивное переопределение Bootstrap */
-.row.row-cols-2.row-cols-md-3.row-cols-lg-4[data-stagger-grid] > .product-card-wrap {
-  flex: 0 0 calc(50% - 0.25rem) !important;
-  max-width: calc(50% - 0.25rem) !important;
-  width: calc(50% - 0.25rem) !important;
-  min-width: calc(50% - 0.25rem) !important;
-}
-
-@media (min-width: 769px) and (max-width: 1024px) {
-  .row.row-cols-2.row-cols-md-3.row-cols-lg-4[data-stagger-grid] > .product-card-wrap {
-    flex: 0 0 calc(33.333333% - 0.333rem) !important;
-    max-width: calc(33.333333% - 0.333rem) !important;
-    width: calc(33.333333% - 0.333rem) !important;
-    min-width: calc(33.333333% - 0.333rem) !important;
-  }
-}
-
-@media (min-width: 1025px) {
-  .row.row-cols-2.row-cols-md-3.row-cols-lg-4[data-stagger-grid] > .product-card-wrap {
-    flex: 0 0 calc(25% - 0.375rem) !important;
-    max-width: calc(25% - 0.375rem) !important;
-    width: calc(25% - 0.375rem) !important;
-    min-width: calc(25% - 0.375rem) !important;
-  }
-}
-
-@media (min-width: 769px) {
-  .row.row-cols-2.row-cols-md-3.row-cols-lg-4[data-stagger-grid] > .col {
-    flex: 0 0 calc(33.333333% - 0.667rem) !important;
-    max-width: calc(33.333333% - 0.667rem) !important;
-    width: calc(33.333333% - 0.667rem) !important;
-    min-width: calc(33.333333% - 0.667rem) !important;
-  }
-}
-
-@media (min-width: 1025px) {
-  .row.row-cols-2.row-cols-md-3.row-cols-lg-4[data-stagger-grid] > .col {
-    flex: 0 0 calc(25% - 0.75rem) !important;
-    max-width: calc(25% - 0.75rem) !important;
-    width: calc(25% - 0.75rem) !important;
-    min-width: calc(25% - 0.75rem) !important;
+/* Ensure proper spacing on mobile to prevent card overlap */
+@media (max-width: 576px) {
+  .row[data-stagger-grid] {
+    gap: 1rem 0.5rem !important; /* Larger vertical gap on mobile */
   }
 }
 
@@ -9936,21 +9838,7 @@ body::after {
 
 /* Адаптивность для карточек товаров на мобильных устройствах */
 @media (max-width: 768px) {
-  /* Выравнивание сетки на мобильных */
-  .row[data-stagger-grid] {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 0.75rem !important;
-    align-items: stretch !important;
-  }
-  
-  .row[data-stagger-grid] .col {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    padding: 0 !important;
-    margin: 0 !important;
-  }
+  /* Grid gap handled by base styles */
   
   /* Фиксированная высота карточек */
   .card.product {
@@ -10079,21 +9967,7 @@ body::after {
 
 /* Еще более компактно для очень маленьких экранов */
 @media (max-width: 480px) {
-  /* Выравнивание сетки на маленьких экранах */
-  .row[data-stagger-grid] {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 0.5rem !important;
-    align-items: stretch !important;
-  }
-  
-  .row[data-stagger-grid] .col {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    padding: 0 !important;
-    margin: 0 !important;
-  }
+  /* Grid gap handled by base styles */
   
   /* Фиксированная высота карточек */
   .card.product {
@@ -10216,21 +10090,7 @@ body::after {
 
 /* Дополнительные улучшения для планшетов */
 @media (min-width: 769px) and (max-width: 1024px) {
-  /* Выравнивание сетки на планшетах */
-  .row[data-stagger-grid] {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 1rem !important;
-    align-items: stretch !important;
-  }
-  
-  .row[data-stagger-grid] .col {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    padding: 0 !important;
-    margin: 0 !important;
-  }
+  /* Grid gap handled by base styles */
   
   /* Фиксированная высота карточек */
   .card.product {
