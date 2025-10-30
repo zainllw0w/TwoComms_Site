@@ -23,10 +23,17 @@
           </div>
           
           <div class="order-success-content">
+            {% if order.payment_status == 'paid' %}
+            <div class="success-message">
+              <h3>✅ Оплата успішно пройшла!</h3>
+              <p>Дякуємо за покупку! Ваше замовлення оплачено через Monobank та відправлено в обробку. Ми розпочнемо підготовку вашого замовлення найближчим часом.</p>
+            </div>
+            {% else %}
             <div class="success-message">
               <h3>Ваша заявка відправлена в обробку</h3>
               <p>Менеджер зв'яжеться з вами найближчим часом для підтвердження замовлення та уточнення деталей доставки.</p>
             </div>
+            {% endif %}
             
             <div class="order-details">
               <h4>Деталі замовлення:</h4>
@@ -108,6 +115,7 @@
      data-order-number="{{ order.order_number }}"
      data-value="{{ order.total_sum|floatformat:2 }}"
      data-currency="UAH"
+     data-payment-status="{{ order.payment_status }}"
      data-full-name="{{ order.full_name }}"
      data-phone="{{ order.phone }}"
      data-city="{{ order.city }}"
@@ -123,12 +131,17 @@
     var el = document.getElementById('purchase-payload');
     if (!el) return;
     
+    // Получаем статус оплаты
+    var paymentStatus = el.dataset.paymentStatus || 'unpaid';
+    var isPaid = paymentStatus === 'paid';
+    
     // Защита от дублирования: проверяем был ли уже отправлен event для этого заказа
     var orderId = el.dataset.orderId;
-    var storageKey = 'gtm_purchase_' + orderId;
+    var eventType = isPaid ? 'purchase' : 'lead';
+    var storageKey = 'gtm_' + eventType + '_' + orderId;
     
     if (sessionStorage.getItem(storageKey)) {
-      console.log('GTM Purchase event already sent for order:', orderId);
+      console.log('GTM ' + eventType + ' event already sent for order:', orderId);
       return;
     }
     
@@ -149,25 +162,7 @@
       contents = [];
     }
     
-    // Подготавливаем данные для GTM
-    var purchaseData = {
-      event: 'purchase',
-      ecommerce: {
-        transaction_id: orderNumber,
-        value: value,
-        currency: currency,
-        items: contents.map(function(item) {
-          return {
-            item_id: item.id,
-            item_name: item.name || 'Product ' + item.id,
-            quantity: item.quantity,
-            price: item.price || 0
-          };
-        })
-      }
-    };
-    
-    // Enhanced Conversions данные
+    // Enhanced Conversions / Advanced Matching данные (общие для GTM и FB)
     var userData = {};
     
     // Разбиваем ФИО на части (если есть)
@@ -195,21 +190,41 @@
       };
     }
     
-    // Добавляем userData если есть хотя бы одно поле
-    if (Object.keys(userData).length > 0) {
-      purchaseData.user_data = userData;
-    }
-    
     // Инициализируем dataLayer если его нет
     window.dataLayer = window.dataLayer || [];
     
-    // Отправляем событие в GTM
+    // РАЗДЕЛЯЕМ ЛОГИКУ: Purchase vs Lead
+    if (isPaid) {
+      // ========================================
+      // ОПЛАЧЕННЫЙ ЗАКАЗ → PURCHASE
+      // ========================================
+      
+      // Подготавливаем данные для GTM Purchase
+      var purchaseData = {
+        event: 'purchase',
+        ecommerce: {
+          transaction_id: orderNumber,
+          value: value,
+          currency: currency,
+          items: contents.map(function(item) {
+            return {
+              item_id: item.id,
+              item_name: item.name || 'Product ' + item.id,
+              quantity: item.quantity,
+              price: item.price || 0
+            };
+          })
+        }
+      };
+      
+      // Добавляем userData если есть хотя бы одно поле
+      if (Object.keys(userData).length > 0) {
+        purchaseData.user_data = userData;
+      }
+      
+      // Отправляем событие Purchase в GTM
     window.dataLayer.push(purchaseData);
-    
-    console.log('GTM Purchase event sent:', purchaseData);
-    
-    // Сохраняем флаг что событие отправлено
-    sessionStorage.setItem(storageKey, 'true');
+      console.log('✅ GTM Purchase event sent (PAID):', purchaseData);
     
     // Meta Pixel (Facebook Pixel) Purchase с Advanced Matching
     if (window.fbq) {
@@ -217,25 +232,25 @@
       var fbUserData = {};
       
       if (email) {
-        fbUserData.em = email.toLowerCase(); // Email
+          fbUserData.em = email.toLowerCase();
       }
       if (phone) {
-        fbUserData.ph = phone.replace(/\D/g, ''); // Phone (только цифры)
+          fbUserData.ph = phone.replace(/\D/g, ''); // только цифры
       }
       if (fullName) {
         var nameParts = fullName.trim().split(/\s+/);
         if (nameParts.length >= 1) {
-          fbUserData.fn = nameParts[0].toLowerCase(); // First Name
+            fbUserData.fn = nameParts[0].toLowerCase();
         }
         if (nameParts.length >= 2) {
-          fbUserData.ln = nameParts[nameParts.length - 1].toLowerCase(); // Last Name
+            fbUserData.ln = nameParts[nameParts.length - 1].toLowerCase();
         }
       }
       if (city) {
-        fbUserData.ct = city.toLowerCase(); // City
+          fbUserData.ct = city.toLowerCase();
       }
       
-      // Отправляем Purchase event с Advanced Matching
+        // Отправляем Purchase event
       fbq('track', 'Purchase', {
         value: value,
         currency: currency,
@@ -248,11 +263,75 @@
         content_type: 'product'
       }, fbUserData);
       
-      console.log('Meta Pixel Purchase event sent with Advanced Matching:', fbUserData);
+        console.log('✅ Meta Pixel Purchase event sent (PAID) with Advanced Matching:', fbUserData);
   }
+      
+    } else {
+      // ========================================
+      // НЕОПЛАЧЕННЫЙ ЗАКАЗ → LEAD
+      // ========================================
+      
+      // Подготавливаем данные для GTM Lead
+      var leadData = {
+        event: 'lead',
+        lead_data: {
+          order_id: orderNumber,
+          value: value,
+          currency: currency,
+          payment_status: paymentStatus
+        }
+      };
+      
+      // Добавляем userData если есть хотя бы одно поле
+      if (Object.keys(userData).length > 0) {
+        leadData.user_data = userData;
+      }
+      
+      // Отправляем событие Lead в GTM
+      window.dataLayer.push(leadData);
+      console.log('📋 GTM Lead event sent (UNPAID):', leadData);
+      
+      // Meta Pixel (Facebook Pixel) Lead с Advanced Matching
+      if (window.fbq) {
+        // Подготавливаем данные для Advanced Matching
+        var fbUserData = {};
+        
+        if (email) {
+          fbUserData.em = email.toLowerCase();
+        }
+        if (phone) {
+          fbUserData.ph = phone.replace(/\D/g, '');
+        }
+        if (fullName) {
+          var nameParts = fullName.trim().split(/\s+/);
+          if (nameParts.length >= 1) {
+            fbUserData.fn = nameParts[0].toLowerCase();
+          }
+          if (nameParts.length >= 2) {
+            fbUserData.ln = nameParts[nameParts.length - 1].toLowerCase();
+          }
+        }
+        if (city) {
+          fbUserData.ct = city.toLowerCase();
+        }
+        
+        // Отправляем Lead event
+        fbq('track', 'Lead', {
+          value: value,
+          currency: currency,
+          content_name: 'Order ' + orderNumber,
+          content_category: 'order_lead'
+        }, fbUserData);
+        
+        console.log('📋 Meta Pixel Lead event sent (UNPAID) with Advanced Matching:', fbUserData);
+      }
+    }
+    
+    // Сохраняем флаг что событие отправлено
+    sessionStorage.setItem(storageKey, 'true');
     
   } catch(e) {
-    console.error('Error in purchase tracking:', e);
+    console.error('Error in conversion tracking:', e);
   }
 })();
 </script>
