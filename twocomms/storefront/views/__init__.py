@@ -167,6 +167,11 @@ from .checkout import (
     calculate_shipping,
 )
 
+# Monobank оплата
+from .monobank import (
+    monobank_create_invoice,
+)
+
 # Админка
 from .admin import (
     admin_dashboard,

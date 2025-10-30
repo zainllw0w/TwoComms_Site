@@ -31,10 +31,11 @@ from django.db import transaction
 
 import requests
 
-from ..models import Product, Order
-from orders.models import Order as OrderModel
+from ..models import Product, Order, PromoCode
+from orders.models import Order as OrderModel, OrderItem
 from productcolors.models import ProductColorVariant
-from .utils import _reset_monobank_session
+from accounts.models import UserProfile
+from .utils import _reset_monobank_session, get_cart_from_session, _get_color_variant_safe
 
 
 # Loggers
@@ -284,6 +285,308 @@ def _monobank_api_request(method, endpoint, json_payload=None):
         raise MonobankAPIError('Timeout при з\'єднанні з Monobank')
     except requests.exceptions.RequestException as e:
         raise MonobankAPIError(f'Помилка з\'єднання з Monobank: {str(e)}')
+
+
+# ==================== MONOBANK CREATE INVOICE ====================
+
+@require_POST
+def monobank_create_invoice(request):
+    """
+    Создание MonoPay инвойса для оплаты заказа из корзины.
+    
+    Поддерживает два типа оплаты:
+    1. prepay_200 - предоплата 200 грн (остальное при получении)
+    2. online_full - полная оплата онлайн
+    
+    POST params (JSON или из профиля):
+        full_name: ПІБ клиента
+        phone: Телефон
+        city: Город
+        np_office: Отделение Новой Почты
+        pay_type: Тип оплаты ('prepay_200' или 'online_full')
+        
+    Returns:
+        JsonResponse: 
+            success=True: {invoice_url, invoice_id, order_id, order_ref}
+            success=False: {error: 'message'}
+    """
+    monobank_logger.info(f'=== monobank_create_invoice called ===')
+    monobank_logger.info(f'User authenticated: {request.user.is_authenticated}')
+    
+    # Получаем данные из POST (для гостей) или из профиля (для зарегистрированных)
+    try:
+        body = json.loads(request.body.decode('utf-8')) if request.body else {}
+    except Exception:
+        body = {}
+    
+    monobank_logger.info(f'Request body: {body}')
+    
+    # Получаем cart
+    cart = get_cart_from_session(request)
+    if not cart:
+        return JsonResponse({
+            'success': False,
+            'error': 'Кошик порожній. Додайте товари перед оплатою.'
+        })
+    
+    # Получаем данные клиента
+    if request.user.is_authenticated:
+        # Для зарегистрированных пользователей - из профиля
+        try:
+            prof = request.user.userprofile
+            full_name = prof.full_name or request.user.username
+            phone = prof.phone
+            city = prof.city
+            np_office = prof.np_office
+            pay_type = body.get('pay_type') or prof.pay_type or 'online_full'
+        except Exception as e:
+            monobank_logger.error(f'Error getting user profile: {e}')
+            return JsonResponse({
+                'success': False,
+                'error': 'Будь ласка, заповніть профіль доставки!'
+            })
+    else:
+        # Для гостей - из POST body
+        full_name = body.get('full_name', '').strip()
+        phone = body.get('phone', '').strip()
+        city = body.get('city', '').strip()
+        np_office = body.get('np_office', '').strip()
+        pay_type = body.get('pay_type', 'online_full')
+        
+        # Валидация для гостей
+        if not all([full_name, phone, city, np_office]):
+            return JsonResponse({
+                'success': False,
+                'error': 'Будь ласка, заповніть всі обов\'язкові поля!'
+            })
+    
+    monobank_logger.info(f'Customer data: full_name={full_name}, pay_type={pay_type}')
+    
+    # Нормализуем pay_type
+    if pay_type in ['partial', 'prepaid']:
+        pay_type = 'prepay_200'
+    elif pay_type in ['full']:
+        pay_type = 'online_full'
+    
+    # Создаем заказ в транзакции
+    try:
+        with transaction.atomic():
+            # Получаем товары из БД
+            ids = [item['product_id'] for item in cart.values()]
+            prods = Product.objects.in_bulk(ids)
+            
+            # Подсчитываем общую сумму
+            total_sum = Decimal('0')
+            for key, it in cart.items():
+                p = prods.get(it['product_id'])
+                if not p:
+                    continue
+                unit = p.final_price
+                line = unit * it['qty']
+                total_sum += line
+            
+            if total_sum <= 0:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Сума замовлення повинна бути більше 0'
+                })
+            
+            # Создаем Order
+            order = OrderModel.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                full_name=full_name,
+                phone=phone,
+                city=city,
+                np_office=np_office,
+                pay_type=pay_type,
+                total_sum=total_sum,
+                status='new',
+                payment_status='unpaid',
+                payment_provider='monobank_pay'
+            )
+            
+            monobank_logger.info(f'Order created: {order.order_number} (ID: {order.id})')
+            
+            # Создаем OrderItem'ы
+            order_items = []
+            for key, it in cart.items():
+                p = prods.get(it['product_id'])
+                if not p:
+                    continue
+                
+                color_variant = _get_color_variant_safe(it.get('color_variant_id'))
+                unit = p.final_price
+                line = unit * it['qty']
+                
+                order_item = OrderItem(
+                    order=order,
+                    product=p,
+                    color_variant=color_variant,
+                    title=p.title,
+                    size=it.get('size', ''),
+                    qty=it['qty'],
+                    unit_price=unit,
+                    line_total=line
+                )
+                order_items.append(order_item)
+            
+            OrderItem.objects.bulk_create(order_items)
+            monobank_logger.info(f'Created {len(order_items)} order items')
+            
+            # Применяем промокод если есть
+            promo_code_id = request.session.get('promo_code_id')
+            if promo_code_id:
+                try:
+                    promo = PromoCode.objects.get(id=promo_code_id)
+                    if promo.can_be_used():
+                        discount = promo.calculate_discount(total_sum)
+                        order.discount_amount = discount
+                        order.promo_code = promo
+                        promo.use()
+                        order.save(update_fields=['discount_amount', 'promo_code'])
+                        monobank_logger.info(f'Promo code applied: {promo.code}, discount={discount}')
+                except Exception as e:
+                    monobank_logger.warning(f'Error applying promo code: {e}')
+            
+            # Определяем сумму для оплаты в зависимости от pay_type
+            if pay_type == 'prepay_200':
+                # Предоплата 200 грн
+                payment_amount = order.get_prepayment_amount()  # 200.00
+                payment_description = f'Передплата за замовлення {order.order_number}'
+            else:
+                # Полная оплата
+                payment_amount = order.total_sum - order.discount_amount
+                payment_description = f'Оплата замовлення {order.order_number}'
+            
+            monobank_logger.info(f'Payment amount: {payment_amount} (pay_type={pay_type})')
+            
+            # Формируем basket для Monobank
+            basket_entries = []
+            for item in order_items[:10]:  # Максимум 10 товаров
+                try:
+                    # Получаем URL изображения
+                    icon_url = ''
+                    if item.product.main_image:
+                        icon_url = request.build_absolute_uri(item.product.main_image.url)
+                    
+                    # Для предоплаты показываем один товар "Передплата"
+                    if pay_type == 'prepay_200':
+                        basket_entries.append({
+                            'name': f'Передплата за замовлення {order.order_number}',
+                            'qty': 1,
+                            'sum': int(payment_amount * 100),  # в копейках
+                            'icon': icon_url,
+                            'unit': 'шт'
+                        })
+                        break  # Один товар достаточно
+                    else:
+                        # Для полной оплаты показываем все товары
+                        basket_entries.append({
+                            'name': f'{item.title} {item.size}'.strip(),
+                            'qty': item.qty,
+                            'sum': int(item.line_total * 100),  # в копейках
+                            'icon': icon_url,
+                            'unit': 'шт'
+                        })
+                except Exception as e:
+                    monobank_logger.warning(f'Error formatting basket item: {e}')
+            
+            if not basket_entries:
+                basket_entries.append({
+                    'name': payment_description,
+                    'qty': 1,
+                    'sum': int(payment_amount * 100),
+                    'icon': '',
+                    'unit': 'шт'
+                })
+            
+            # Создаем Monobank инвойс
+            payload = {
+                'amount': int(payment_amount * 100),  # сумма в копейках
+                'ccy': 980,  # UAH
+                'merchantPaymInfo': {
+                    'reference': order.order_number,
+                    'destination': payment_description,
+                    'basketOrder': basket_entries
+                },
+                'redirectUrl': request.build_absolute_uri('/payments/monobank/return/'),
+                'webHookUrl': request.build_absolute_uri('/payments/monobank/webhook/'),
+            }
+            
+            monobank_logger.info(f'Creating Monobank invoice, payload: {json.dumps(payload, indent=2, ensure_ascii=False)}')
+            
+            try:
+                creation_data = _monobank_api_request('POST', '/api/merchant/invoice/create', json_payload=payload)
+                monobank_logger.info(f'Monobank response: {creation_data}')
+            except MonobankAPIError as exc:
+                monobank_logger.error(f'Monobank API error: {exc}')
+                # Удаляем созданный заказ при ошибке
+                order.delete()
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Помилка створення платежу: {str(exc)}'
+                })
+            
+            # Извлекаем данные из ответа
+            result = creation_data.get('result') or creation_data
+            invoice_id = result.get('invoiceId')
+            invoice_url = result.get('pageUrl')
+            
+            if not invoice_id or not invoice_url:
+                monobank_logger.error(f'Invalid Monobank response: {creation_data}')
+                order.delete()
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Не вдалося створити платіж. Спробуйте пізніше.'
+                })
+            
+            # Сохраняем данные платежа в Order
+            payment_payload = {
+                'request': payload,
+                'create': creation_data,
+                'history': []
+            }
+            order.payment_invoice_id = invoice_id
+            order.payment_payload = payment_payload
+            order.payment_status = 'checking'
+            order.save(update_fields=['payment_invoice_id', 'payment_payload', 'payment_status'])
+            
+            monobank_logger.info(f'Order {order.order_number} updated with invoice_id={invoice_id}')
+            
+            # Сохраняем в сессию
+            request.session['monobank_invoice_id'] = invoice_id
+            request.session['monobank_pending_order_id'] = order.id
+            request.session.modified = True
+            
+            # Очищаем корзину
+            request.session['cart'] = {}
+            request.session.pop('promo_code_id', None)
+            request.session.modified = True
+            
+            # Отправляем Telegram уведомление
+            try:
+                from orders.telegram_notifications import TelegramNotifier
+                notifier = TelegramNotifier()
+                notifier.send_new_order_notification(order)
+            except Exception as e:
+                monobank_logger.warning(f'Failed to send Telegram notification: {e}')
+            
+            monobank_logger.info(f'✅ Invoice created successfully: {invoice_url}')
+            
+            return JsonResponse({
+                'success': True,
+                'invoice_url': invoice_url,
+                'invoice_id': invoice_id,
+                'order_id': order.id,
+                'order_ref': order.order_number
+            })
+            
+    except Exception as e:
+        monobank_logger.error(f'Error creating order/invoice: {e}', exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': 'Сталася помилка. Спробуйте ще раз.'
+        })
 
 
 
