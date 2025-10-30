@@ -31,7 +31,7 @@ from django.db import transaction
 
 import requests
 
-from ..models import Product, Order, PromoCode
+from ..models import Product, PromoCode
 from orders.models import Order as OrderModel, OrderItem
 from productcolors.models import ProductColorVariant
 from accounts.models import UserProfile
