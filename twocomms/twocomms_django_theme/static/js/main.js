@@ -678,13 +678,23 @@ function requestMonobankPay(){
     const anywhere = document.querySelector(`[name="${name}"]`);
     return anywhere && 'value' in anywhere ? (anywhere.value||'').trim() : '';
   };
+  // Специальная функция для pay_type - учитываем pay_type_auth и pay_type_guest
+  const getPayType = ()=>{
+    if(guestForm){
+      const guestPayType = document.getElementById('pay_type_guest');
+      if(guestPayType && guestPayType.value) return guestPayType.value.trim();
+    }
+    const authPayType = document.getElementById('pay_type_auth');
+    if(authPayType && authPayType.value) return authPayType.value.trim();
+    return 'online_full';
+  };
   if(guestForm || document.querySelector('[name="full_name"]') || document.querySelector('[name="phone"]')){
     payload = {
       full_name: getAnyVal('full_name'),
       phone: getAnyVal('phone'),
       city: getAnyVal('city'),
       np_office: getAnyVal('np_office'),
-      pay_type: getAnyVal('pay_type') || 'online_full'
+      pay_type: getPayType()
     };
   }
   return fetch('/cart/monobank/create-invoice/', {
