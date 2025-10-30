@@ -78,8 +78,9 @@
       <div class="ds-actions">
         {% if show_quick_add|default:True %}
           <button type="button"
-                  class="ds-btn ds-btn--primary js-product-quick-add"
-                  data-product-name="{{ product.title }}">
+                  class="ds-btn ds-btn--primary {% if user.is_authenticated %}js-product-quick-add{% endif %}"
+                  data-product-name="{{ product.title }}"
+                  {% if not user.is_authenticated %}data-require-auth="true" data-open-auth-modal="login"{% endif %}>
             <i class="fas fa-cart-plus" aria-hidden="true"></i>
             <span>Додати до замовлення</span>
           </button>
