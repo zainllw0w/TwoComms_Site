@@ -118,7 +118,12 @@ class NovaPoshtaService:
     
     def _update_order_status_if_delivered(self, order, status, status_description):
         """
-        Автоматически меняет статус заказа на 'done' при получении посылки
+        Автоматически меняет статус заказа на 'done' при получении посылки.
+        
+        НОВАЯ ЛОГИКА (30.10.2024):
+        1. Меняет status на 'done' (получено)
+        2. Если payment_status != 'paid' → меняет на 'paid'
+        3. Отправляет Purchase событие в Facebook Conversions API
         
         Args:
             order (Order): Заказ
@@ -143,11 +148,51 @@ class NovaPoshtaService:
         # Если посылка получена и статус заказа еще не 'done'
         if is_delivered and order.status != 'done':
             old_order_status = order.status
+            old_payment_status = order.payment_status
+            
+            # 1. Меняем статус заказа
             order.status = 'done'
-            print(f"Заказ {order.order_number}: статус изменен с '{old_order_status}' на 'done' (посылка получена)")
+            print(f"✅ Заказ {order.order_number}: статус изменен с '{old_order_status}' на 'done' (посылка получена)")
+            
+            # 2. Автоматически меняем payment_status на 'paid' если не оплачено
+            if order.payment_status != 'paid':
+                order.payment_status = 'paid'
+                print(f"💰 Заказ {order.order_number}: payment_status изменен с '{old_payment_status}' на 'paid'")
+                
+                # 3. Отправляем Purchase событие в Facebook Conversions API
+                self._send_facebook_purchase_event(order)
+            
             return True
         
         return False
+    
+    def _send_facebook_purchase_event(self, order):
+        """
+        Отправляет Purchase событие в Facebook Conversions API.
+        
+        Вызывается автоматически когда:
+        - Посылка получена через Новую Почту
+        - payment_status изменен на 'paid'
+        
+        Args:
+            order (Order): Заказ для которого отправляется событие
+        """
+        try:
+            from .facebook_conversions_service import get_facebook_conversions_service
+            
+            fb_service = get_facebook_conversions_service()
+            
+            if fb_service.enabled:
+                success = fb_service.send_purchase_event(order)
+                if success:
+                    print(f"📊 Facebook Purchase event sent for order {order.order_number}")
+                else:
+                    print(f"⚠️ Failed to send Facebook Purchase event for order {order.order_number}")
+            else:
+                print(f"⚠️ Facebook Conversions API not enabled, skipping Purchase event")
+                
+        except Exception as e:
+            print(f"❌ Error sending Facebook Purchase event for order {order.order_number}: {e}")
     
     def _send_delivery_notification(self, order, shipment_status):
         """
