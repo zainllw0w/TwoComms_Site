@@ -439,10 +439,10 @@ def order_success(request, order_id):
     
     # Очищаем корзину ТОЛЬКО если оплата успешна
     if order.payment_status in ('paid', 'prepaid'):
-    request.session['cart'] = {}
-    if 'promo_code_id' in request.session:
-        del request.session['promo_code_id']
-    request.session.modified = True
+        request.session['cart'] = {}
+        if 'promo_code_id' in request.session:
+            del request.session['promo_code_id']
+        request.session.modified = True
     
     return render(
         request,
