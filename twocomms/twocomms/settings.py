@@ -659,3 +659,50 @@ SPECTACULAR_SETTINGS = {
     'SORT_OPERATIONS': True,
     'SORT_OPERATION_PARAMETERS': True,
 }
+
+# ==================== FACEBOOK CONVERSIONS API ====================
+
+# Facebook Pixel ID (находится в Events Manager)
+FACEBOOK_PIXEL_ID = os.environ.get('FACEBOOK_PIXEL_ID', '')
+
+# Facebook Conversions API Access Token
+# Получается в Events Manager → Settings → Conversions API → Generate Access Token
+FACEBOOK_CONVERSIONS_API_TOKEN = os.environ.get('FACEBOOK_CONVERSIONS_API_TOKEN', '')
+
+# Facebook App ID (опционально, для дополнительной аналитики)
+FACEBOOK_APP_ID = os.environ.get('FACEBOOK_APP_ID', '')
+
+# ==================== GOOGLE TAG MANAGER ====================
+
+# Google Tag Manager Container ID (GTM-XXXXXXX)
+GTM_CONTAINER_ID = os.environ.get('GTM_CONTAINER_ID', '')
+
+# ==================== TELEGRAM BOT ====================
+
+# Telegram Bot Token для уведомлений
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+
+# Telegram Chat ID для получения уведомлений о заказах
+TELEGRAM_ADMIN_CHAT_ID = os.environ.get('TELEGRAM_ADMIN_CHAT_ID', '')
+
+# ==================== MONOBANK / MONOPAY ====================
+
+# Monobank Token для API
+MONOBANK_TOKEN = os.environ.get('MONOBANK_TOKEN', '')
+
+# Monobank Merchant ID для Checkout
+MONOBANK_MERCHANT_ID = os.environ.get('MONOBANK_MERCHANT_ID', '')
+
+# Monobank API Base URL
+MONOBANK_API_URL = os.environ.get('MONOBANK_API_URL', 'https://api.monobank.ua')
+
+# ==================== NOVA POSHTA ====================
+
+# Nova Poshta API Key
+NOVA_POSHTA_API_KEY = os.environ.get('NOVA_POSHTA_API_KEY', '')
+
+# Nova Poshta API URL
+NOVA_POSHTA_API_URL = os.environ.get('NOVA_POSHTA_API_URL', 'https://api.novaposhta.ua/v2.0/json/')
+
+# Nova Poshta Auto-Update Interval (minutes)
+NOVA_POSHTA_UPDATE_INTERVAL = _env_int('NOVA_POSHTA_UPDATE_INTERVAL', 5)
