@@ -563,13 +563,13 @@ def monobank_create_invoice(request):
                 })
             else:
                 # Для полной оплаты показываем все товары отдельными позициями
-            for item in order_items[:10]:  # Максимум 10 товаров
-                try:
-                    # Получаем URL изображения
-                    icon_url = ''
-                    if item.product.main_image:
-                        icon_url = request.build_absolute_uri(item.product.main_image.url)
-                    
+                for item in order_items[:10]:  # Максимум 10 товаров
+                    try:
+                        # Получаем URL изображения
+                        icon_url = ''
+                        if item.product.main_image:
+                            icon_url = request.build_absolute_uri(item.product.main_image.url)
+                        
                         basket_sum_kopecks = int(item.line_total * 100)
                         monobank_logger.info(f'🔍 FULL mode: Adding item {item.title}')
                         monobank_logger.info(f'🔍 - qty: {item.qty}')
@@ -582,8 +582,8 @@ def monobank_create_invoice(request):
                             'icon': icon_url,
                             'unit': 'шт'
                         })
-                except Exception as e:
-                    monobank_logger.warning(f'Error formatting basket item: {e}')
+                    except Exception as e:
+                        monobank_logger.warning(f'Error formatting basket item: {e}')
             
             if not basket_entries:
                 basket_entries.append({
