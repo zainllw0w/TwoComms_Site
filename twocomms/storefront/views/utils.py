@@ -366,19 +366,59 @@ def _record_monobank_status(order, payload, source='api'):
 
     if status in MONOBANK_SUCCESS_STATUSES:
         previous_status = order.payment_status
+        
+        # НОВАЯ ЛОГИКА (30.10.2024):
+        # - prepay_200 → payment_status = 'prepaid' + Lead event
+        # - online_full → payment_status = 'paid' + Purchase event
+        if order.pay_type == 'prepay_200':
+            order.payment_status = 'prepaid'
+            monobank_logger.info(f'✅ Order {order.order_number}: prepayment successful → payment_status=prepaid')
+        else:
         order.payment_status = 'paid'
+            monobank_logger.info(f'✅ Order {order.order_number}: full payment successful → payment_status=paid')
+        
         update_fields.append('payment_status')
         try:
             order.save(update_fields=update_fields)
         except Exception:
             order.save()
-        if previous_status != 'paid':
+        
+        # Отправляем уведомления только если статус изменился
+        if previous_status != order.payment_status:
+            # 1. Telegram уведомление
             try:
                 from orders.telegram_notifications import TelegramNotifier
                 notifier = TelegramNotifier()
                 notifier.send_new_order_notification(order)
-            except Exception:
-                monobank_logger.exception('Failed to send Telegram notification for paid order %s', order.id)
+                monobank_logger.info(f'📱 Telegram notification sent for order {order.order_number}')
+            except Exception as e:
+                monobank_logger.exception(f'Failed to send Telegram notification for order {order.order_number}: {e}')
+            
+            # 2. Facebook событие
+            try:
+                from orders.facebook_conversions_service import get_facebook_conversions_service
+                fb_service = get_facebook_conversions_service()
+                
+                if fb_service.enabled:
+                    if order.payment_status == 'prepaid':
+                        # Предоплата → Lead event
+                        success = fb_service.send_lead_event(order)
+                        if success:
+                            monobank_logger.info(f'📊 Facebook Lead event sent for order {order.order_number} (prepayment)')
+                        else:
+                            monobank_logger.warning(f'⚠️ Failed to send Facebook Lead event for order {order.order_number}')
+                    elif order.payment_status == 'paid':
+                        # Полная оплата → Purchase event
+                        success = fb_service.send_purchase_event(order)
+                        if success:
+                            monobank_logger.info(f'📊 Facebook Purchase event sent for order {order.order_number} (full payment)')
+                        else:
+                            monobank_logger.warning(f'⚠️ Failed to send Facebook Purchase event for order {order.order_number}')
+                else:
+                    monobank_logger.warning(f'⚠️ Facebook Conversions API not enabled, skipping event')
+            except Exception as e:
+                monobank_logger.exception(f'Failed to send Facebook event for order {order.order_number}: {e}')
+        
         return
 
     if status in MONOBANK_PENDING_STATUSES:
