@@ -37,29 +37,12 @@
     }
 
     // Превью изображения при hover на свотч
-    const swatches = colorPicker.querySelectorAll('.product-color-swatch');
+    const swatches = colorPicker.querySelectorAll('.product-color-swatch, .product-color-swatch-compact');
     swatches.forEach(swatch => {
       const variantId = parseInt(swatch.getAttribute('data-variant') || '-1', 10);
       const variant = variants.find(v => v.id === variantId);
       
-      if (variant && variant.images && variant.images.length > 0) {
-        let previewTimeout;
-        
-        swatch.addEventListener('mouseenter', function() {
-          previewTimeout = setTimeout(() => {
-            if (variant.images[0]) {
-              showColorPreview(variant.images[0]);
-            }
-          }, 300);
-        });
-        
-        swatch.addEventListener('mouseleave', function() {
-          clearTimeout(previewTimeout);
-          hideColorPreview();
-        });
-      }
-
-      // Клик на свотч
+      // Клик на свотч (без превью при hover)
       swatch.addEventListener('click', function() {
         if (!variant) return;
         
@@ -461,7 +444,7 @@
         
         // Получаем выбранный цвет
         let colorVariantId = null;
-        const activeColorSwatch = document.querySelector('#colorPicker .product-color-swatch.active');
+        const activeColorSwatch = document.querySelector('#colorPicker .product-color-swatch.active, #colorPicker .product-color-swatch-compact.active');
         if (activeColorSwatch) {
           colorVariantId = activeColorSwatch.getAttribute('data-variant');
         }
