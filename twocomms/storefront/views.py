@@ -2896,6 +2896,19 @@ def admin_order_update(request):
         
         o.save()
         
+        # 🆕 ФИНАЛИЗАЦИЯ MONOBANK ИНВОЙСА при отправке заказа
+        if status == 'ship' and o.payment_provider.startswith('monobank'):
+            try:
+                from storefront.views.monobank import _monobank_finalize_invoice
+                finalize_result = _monobank_finalize_invoice(o)
+                if finalize_result:
+                    monobank_logger.info(f'✅ Invoice {o.payment_invoice_id} finalized for order {o.order_number}')
+                else:
+                    monobank_logger.warning(f'⚠️ Failed to finalize invoice {o.payment_invoice_id} for order {o.order_number}')
+            except Exception as e:
+                monobank_logger.error(f'Error finalizing invoice: {e}', exc_info=True)
+                # Не прерываем обновление статуса при ошибке финализации
+        
         # Обрабатываем баллы при изменении статуса
         if o.user:  # Только для авторизованных пользователей
             from accounts.models import UserPoints
@@ -5948,6 +5961,10 @@ def monobank_create_checkout(request):
                 }
             else:
                 customer = _prepare_checkout_customer_data(request)
+                # ВАЖНО: Для мини-корзины Mono Checkout всегда используем полную оплату
+                # независимо от настроек профиля пользователя
+                customer['pay_type'] = 'online_full'
+                monobank_logger.info('Forced full payment for mini cart checkout: %s', customer)
             order, amount_decimal, _ = _create_or_update_monobank_order(request, customer)
     except ValueError as e:
         _reset_monobank_session(request, drop_pending=True)
