@@ -277,7 +277,19 @@
 }
 
 .product-header-modern {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
+  animation: fadeInDown 0.5s ease-out;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .product-category-modern {
@@ -303,7 +315,7 @@
   margin-top: 0.5rem;
 }
 
-/* Карточки с эффектами глубины (как в dropship) */
+/* Карточки с эффектами глубины и анимациями появления */
 .product-card-modern {
   background: rgba(21, 21, 28, 0.85);
   backdrop-filter: blur(20px);
@@ -316,6 +328,24 @@
   overflow: hidden;
   box-shadow: 0 8px 24px rgba(12, 12, 18, 0.4), 
               0 0 0 1px rgba(255, 255, 255, 0.05);
+  animation: cardFadeIn 0.6s ease-out backwards;
+}
+
+.product-card-modern:nth-child(1) { animation-delay: 0.1s; }
+.product-card-modern:nth-child(2) { animation-delay: 0.2s; }
+.product-card-modern:nth-child(3) { animation-delay: 0.3s; }
+.product-card-modern:nth-child(4) { animation-delay: 0.4s; }
+.product-card-modern:nth-child(5) { animation-delay: 0.5s; }
+
+@keyframes cardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .product-card-modern::before {
@@ -333,6 +363,19 @@
   transition: opacity 0.3s ease;
 }
 
+.product-card-modern::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+
 .product-card-modern:hover {
   transform: translateY(-4px);
   border-color: rgba(139, 92, 246, 0.3);
@@ -346,9 +389,13 @@
   opacity: 1;
 }
 
+.product-card-modern:hover::after {
+  opacity: 1;
+}
+
 /* Цена с баллами */
 .product-price-card {
-  padding: 1.5rem;
+  padding: 1.25rem 1.5rem;
 }
 
 .product-price-main-row {
@@ -359,7 +406,7 @@
 }
 
 .product-price-current {
-  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  font-size: clamp(1.625rem, 4vw, 2rem);
   font-weight: 700;
   color: var(--pd-text);
   letter-spacing: -0.02em;
@@ -405,7 +452,8 @@
 .points-mini-btn:hover {
   background: rgba(139, 92, 246, 0.25);
   border-color: var(--pd-primary);
-  transform: translateY(-1px);
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
 }
 
 .points-mini-btn svg {
@@ -476,7 +524,7 @@
 /* Размеры */
 /* Блок выбора (размеры + цвета) */
 .product-selection-card {
-  padding: 1.25rem;
+  padding: 1.125rem 1.25rem;
 }
 
 .product-selection-row {
@@ -531,8 +579,10 @@
 }
 
 .product-size-btn-compact:hover {
-  border-color: var(--pd-border-strong);
-  transform: translateY(-1px);
+  border-color: var(--pd-primary);
+  background: rgba(139, 92, 246, 0.1);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);
 }
 
 .product-size-unavailable {
@@ -562,8 +612,10 @@
 }
 
 .product-color-swatch-compact:hover {
-  transform: scale(1.1);
-  border-color: var(--pd-border-strong);
+  transform: scale(1.15);
+  border-color: var(--pd-primary);
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.4),
+              0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 .product-color-swatch-compact.active {
@@ -730,7 +782,7 @@
 /* Действия */
 /* Блок действий (количество + кнопка) */
 .product-action-card {
-  padding: 1.25rem;
+  padding: 1.125rem 1.25rem;
 }
 
 .product-action-row {
@@ -765,8 +817,10 @@
 }
 
 .qty-btn-compact:hover {
-  background: rgba(139, 92, 246, 0.15);
+  background: rgba(139, 92, 246, 0.2);
   color: var(--pd-primary);
+  transform: scale(1.1);
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.3);
 }
 
 .qty-input-compact {
@@ -795,13 +849,43 @@
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all var(--pd-transition);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   min-height: 48px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3),
+              0 0 20px rgba(139, 92, 246, 0.1);
+}
+
+.product-add-to-cart-btn-compact::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s ease, height 0.6s ease;
 }
 
 .product-add-to-cart-btn-compact:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(139, 92, 246, 0.5),
+              0 0 30px rgba(139, 92, 246, 0.3),
+              inset 0 0 20px rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, #9d69f7, #8c4aed);
+}
+
+.product-add-to-cart-btn-compact:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.product-add-to-cart-btn-compact:active {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
 }
 
 .product-add-to-cart-btn-compact:active {
