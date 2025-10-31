@@ -583,16 +583,62 @@
 }
 
 .manager-title {
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   font-weight: 700;
-  margin: 0 0 0.5rem 0;
+  margin: 0 0 0.75rem 0;
   color: #ffffff;
+  background: linear-gradient(135deg, #ffffff 0%, #e0e7ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .manager-description {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 1rem 0;
+  line-height: 1.5;
+}
+
+.manager-actions {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.manager-question {
   font-size: 0.95rem;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 0.75rem 0;
+  font-weight: 500;
+}
+
+/* Telegram уведомления в блоке баллов */
+.telegram-notification-box {
+  background: rgba(0, 136, 204, 0.1);
+  border: 1px solid rgba(0, 136, 204, 0.2);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.telegram-notification-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.telegram-notification-text {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.95rem;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.telegram-notification-subtext {
   margin: 0;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .btn-manager-contact {
@@ -1241,13 +1287,25 @@
         <div>
           {% if order.payment_status == 'paid' %}
             <h2 class="status-title">✅ Оплата успішно пройшла!</h2>
-            <p class="status-text">Ваше замовлення оплачено через Monobank та відправлено в обробку. Ми розпочнемо підготовку вашого замовлення найближчим часом.</p>
+            {% if user.is_authenticated %}
+            <p class="status-text">Дякуємо, брат! Твоє замовлення оплачено та відправлено в обробку. Ми розпочнемо підготовку найближчим часом.</p>
+            {% else %}
+            <p class="status-text">Дякуємо за покупку! Твоє замовлення оплачено через Monobank та відправлено в обробку. Ми розпочнемо підготовку найближчим часом.</p>
+            {% endif %}
           {% elif order.payment_status == 'prepaid' %}
             <h2 class="status-title">✅ Передплата внесена!</h2>
-            <p class="status-text">Дякуємо! Ви внесли передплату. Залишок необхідно оплатити при отриманні посилки на відділенні Нової Пошти. Ми розпочнемо підготовку вашого замовлення та найближчим часом відправимо його на вказане відділення.</p>
+            {% if user.is_authenticated %}
+            <p class="status-text">Дякуємо, брат! Передплата внесена. Залишок оплатиш при отриманні на Новій Пошті. Ми розпочнемо підготовку та відправимо на вказане відділення.</p>
+            {% else %}
+            <p class="status-text">Дякуємо за покупку! Передплата внесена. Залишок необхідно оплатити при отриманні посилки на відділенні Нової Пошти. Ми розпочнемо підготовку та відправимо на вказане відділення.</p>
+            {% endif %}
           {% else %}
             <h2 class="status-title">Ваша заявка відправлена в обробку</h2>
-            <p class="status-text">Менеджер зв'яжеться з вами найближчим часом для підтвердження замовлення та уточнення деталей доставки.</p>
+            {% if user.is_authenticated %}
+            <p class="status-text">Дякуємо, брат! Замовлення відправлено в обробку. Статус надійде в Telegram.</p>
+            {% else %}
+            <p class="status-text">Дякуємо за замовлення! Заявка відправлена в обробку.</p>
+            {% endif %}
           {% endif %}
         </div>
       </div>
@@ -1266,24 +1324,27 @@
       {% endif %}
     </div>
 
-    <!-- Кнопка связи с менеджером -->
+    <!-- Блок благодарности и поддержки -->
     <div class="manager-contact-card">
       <div class="manager-contact-content">
         <div class="manager-icon-wrapper">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
           </svg>
         </div>
         <div class="manager-text">
-          <h3 class="manager-title">Менеджер зв'яжеться з вами найближчим часом</h3>
-          <p class="manager-description">Потрібна допомога або є питання? Напишіть менеджеру в Telegram</p>
+          <h3 class="manager-title">Дякуємо за вибір стилю TwoComms! 🎯</h3>
+          <p class="manager-description">Твій стиль — твоя сильна сторона. Ми цінуємо, що ти обрав саме нас для свого образу.</p>
         </div>
-        <a href="https://t.me/twocomms" target="_blank" rel="noopener noreferrer" class="btn-manager-contact">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-          </svg>
-          Написати менеджеру
-        </a>
+        <div class="manager-actions">
+          <p class="manager-question">Є питання чи потрібна допомога?</p>
+          <a href="https://t.me/twocomms" target="_blank" rel="noopener noreferrer" class="btn-manager-contact">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            Написати в Telegram
+          </a>
+        </div>
       </div>
     </div>
     {% else %}
@@ -1302,24 +1363,27 @@
       </div>
     </div>
 
-    <!-- Кнопка связи с менеджером для демо -->
+    <!-- Блок благодарности для демо -->
     <div class="manager-contact-card">
       <div class="manager-contact-content">
         <div class="manager-icon-wrapper">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
           </svg>
         </div>
         <div class="manager-text">
-          <h3 class="manager-title">Менеджер зв'яжеться з вами найближчим часом</h3>
-          <p class="manager-description">Потрібна допомога або є питання? Напишіть менеджеру в Telegram</p>
+          <h3 class="manager-title">Дякуємо за вибір стилю TwoComms! 🎯</h3>
+          <p class="manager-description">Твій стиль — твоя сильна сторона. Ми цінуємо, що ти обрав саме нас для свого образу.</p>
         </div>
-        <a href="https://t.me/twocomms" target="_blank" rel="noopener noreferrer" class="btn-manager-contact">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-          </svg>
-          Написати менеджеру
-        </a>
+        <div class="manager-actions">
+          <p class="manager-question">Є питання чи потрібна допомога?</p>
+          <a href="https://t.me/twocomms" target="_blank" rel="noopener noreferrer" class="btn-manager-contact">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            Написати в Telegram
+          </a>
+        </div>
       </div>
     </div>
     {% endif %}
@@ -1484,7 +1548,21 @@
         </div>
         
         {% if user.is_authenticated %}
-        <p class="points-text">Дякуємо за покупку! Бали за це замовлення будуть нараховані після отримання товару.</p>
+        <p class="points-text">Дякуємо, брат! Твоє замовлення оформлено. Бали будуть нараховані після отримання товару.</p>
+        
+        <!-- Telegram уведомления -->
+        <div class="telegram-notification-box">
+          <div class="telegram-notification-content">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="color: #0088cc; margin-right: 0.75rem;">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            <div>
+              <p class="telegram-notification-text"><strong>Статус замовлення приходить в Telegram</strong></p>
+              <p class="telegram-notification-subtext">Оновлення про твій замовлення надсилаються автоматично</p>
+            </div>
+          </div>
+        </div>
+        
         <div class="auth-buttons-group">
           <a href="{% url 'my_orders' %}" class="btn-auth btn-auth-primary">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
