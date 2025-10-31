@@ -100,7 +100,7 @@ def product_detail(request, slug):
     
     return render(
         request,
-        'pages/product_detail_new.html',
+        'pages/product_detail.html',
         {
             'product': product,
             'images': images,
