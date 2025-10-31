@@ -5678,53 +5678,11 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
     total_count = 0
 
     if is_prepay:
-        primary_item = items[0] if items else None
-        label_parts = []
-        icon_url = ''
-        if primary_item:
-            base_title = getattr(primary_item, 'title', '') or ''
-            if not base_title and getattr(primary_item, 'product', None):
-                base_title = getattr(primary_item.product, 'title', '') or ''
-            base_title = base_title.strip()
-            if base_title:
-                label_parts.append(base_title)
-            size_value = getattr(primary_item, 'size', None)
-            if size_value:
-                size_clean = str(size_value).strip()
-                if size_clean:
-                    label_parts.append(f'розмір {size_clean}')
-            color_name = getattr(primary_item, 'color_name', None)
-            if color_name:
-                label_parts.append(color_name)
-            try:
-                if primary_item.product.main_image:
-                    icon_url = request.build_absolute_uri(primary_item.product.main_image.url)
-            except Exception:
-                icon_url = ''
-        # Название просто от первого товара (как при полной оплате)
-        product_name = ' • '.join(label_parts) if label_parts else f'Замовлення {order.order_number}'
-        
-        # Формируем описание с деталями всех товаров
+        # Для предоплаты добавляем все товары отдельными позициями с полными ценами
         items_count = len(items)
         total_order_sum = order.total_sum + (order.discount_amount or Decimal('0'))
         remaining = total_order_sum - prepay_amount
         
-        # Краткое описание
-        if items_count > 1:
-            description = f'Передплата за {items_count} товарів. Залишок {remaining:.2f} грн — при отриманні на Новій Пошті'
-        else:
-            description = f'Залишок {remaining:.2f} грн — при отриманні на Новій Пошті'
-
-        product_entry = {
-            'name': product_name,
-            'cnt': 1,
-            'price': _as_number(prepay_amount),
-            'description': description
-        }
-        if icon_url:
-            product_entry['icon'] = icon_url
-        products.append(product_entry)
-        # Для предоплаты добавляем все товары отдельными позициями с полными ценами
         for idx, item in enumerate(items):
             qty_value = getattr(item, 'qty', None) or 1
             try:
@@ -5771,8 +5729,6 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
                     product_entry['description'] = f'Передплата 200 грн. Залишок {total_order_sum - prepay_amount:.2f} грн — при отриманні на Новій Пошті'
             
             products.append(product_entry)
-        total_amount_major = prepay_amount
-        total_count = 1
     else:
         for item in items:
             qty_value = getattr(item, 'qty', None)
