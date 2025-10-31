@@ -5701,14 +5701,25 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
                     icon_url = request.build_absolute_uri(primary_item.product.main_image.url)
             except Exception:
                 icon_url = ''
-        prepay_label = ' • '.join(label_parts) if label_parts else f'замовлення {order.order_number}'
-        product_name = f'Передплата за товар "{prepay_label}"'
+        # Название просто от первого товара (как при полной оплате)
+        product_name = ' • '.join(label_parts) if label_parts else f'Замовлення {order.order_number}'
+        
+        # Формируем описание с деталями всех товаров
+        items_count = len(items)
+        total_order_sum = order.total_sum + (order.discount_amount or Decimal('0'))
+        remaining = total_order_sum - prepay_amount
+        
+        # Краткое описание
+        if items_count > 1:
+            description = f'Передплата за {items_count} товарів. Залишок {remaining:.2f} грн — при отриманні на Новій Пошті'
+        else:
+            description = f'Залишок {remaining:.2f} грн — при отриманні на Новій Пошті'
 
         product_entry = {
             'name': product_name,
             'cnt': 1,
             'price': _as_number(prepay_amount),
-            'description': 'Передплата 200 грн'
+            'description': description
         }
         if icon_url:
             product_entry['icon'] = icon_url
