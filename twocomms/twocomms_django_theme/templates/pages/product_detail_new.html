@@ -1,0 +1,467 @@
+{% extends "base.html" %}{% load static %}{% load cache %}{% load seo_tags %}{% load responsive_images %}
+
+{% block title %}{% seo_title product=product %}{% endblock %}
+{% block description %}{% seo_description product=product %}{% endblock %}
+{% block keywords %}{% seo_keywords product=product %}{% endblock %}
+{% block og_type %}product{% endblock %}
+{% block og_title %}{% seo_title product=product %}{% endblock %}
+{% block og_description %}{% seo_description product=product %}{% endblock %}
+{% block og_image %}{% seo_og_image product=product %}{% endblock %}
+{% block twitter_title %}{% seo_title product=product %}{% endblock %}
+{% block twitter_description %}{% seo_description product=product %}{% endblock %}
+{% block twitter_image %}{% seo_og_image product=product %}{% endblock %}
+
+{% block structured_data %}
+  {% product_schema product %}
+  {% google_merchant_schema product %}
+  {% breadcrumb_schema breadcrumbs %}
+{% endblock %}
+
+{% block breadcrumbs %}
+  {% breadcrumbs request product=product %}
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
+<link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20250101">
+{% endblock %}
+
+{% block content %}
+<!-- Product Detail Page with Modern Design -->
+<div class="product-detail-page">
+  <!-- Фоновые эффекты -->
+  <div class="product-page-bg">
+    <div class="product-particles">
+      <div class="particle"></div>
+      <div class="particle"></div>
+      <div class="particle"></div>
+      <div class="particle"></div>
+    </div>
+    <div class="product-glow"></div>
+    <div class="product-gradient-1"></div>
+    <div class="product-gradient-2"></div>
+    <div class="floating-logos">
+      <div class="floating-logo logo-1">
+        <img src="{% static 'img/logo.svg' %}" alt="TwoComms" width="16" height="16">
+      </div>
+      <div class="floating-logo logo-2">
+        <img src="{% static 'img/logo.svg' %}" alt="TwoComms" width="14" height="14">
+      </div>
+      <div class="floating-logo logo-3">
+        <img src="{% static 'img/logo.svg' %}" alt="TwoComms" width="18" height="18">
+      </div>
+    </div>
+  </div>
+
+  <div class="container-xxl py-4 py-md-5">
+    <div class="row g-4 g-lg-5">
+      <!-- Левая колонка: Галерея -->
+      <div class="col-12 col-lg-6">
+        <div class="product-gallery-modern">
+          <!-- Основное изображение -->
+          <div class="product-main-image-wrapper" id="mainImageWrapper">
+            {% if product.main_image %}
+              <img
+                id="mainProductImage"
+                src="{{ product.main_image.url }}"
+                loading="eager"
+                decoding="async"
+                fetchpriority="high"
+                class="product-main-image"
+                alt="{{ product.title }}"
+                width="1080"
+                height="1350"
+                data-zoom="{{ product.main_image.url }}"
+              >
+            {% else %}
+              {% static 'img/placeholder.jpg' as ph_url %}
+              <img
+                id="mainProductImage"
+                src="{{ ph_url }}"
+                loading="eager"
+                decoding="async"
+                fetchpriority="high"
+                class="product-main-image"
+                alt="{{ product.title }}"
+                width="1080"
+                height="1350"
+              >
+            {% endif %}
+            
+            <!-- Кнопка избранного -->
+            <button type="button" class="product-favorite-btn" data-product-id="{{ product.id }}" onclick="event.stopPropagation(); toggleFavorite(this.getAttribute('data-product-id'), this);" aria-label="Додати до обраних">
+              <svg class="favorite-icon-empty" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+              </svg>
+              <svg class="favorite-icon-filled" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Миниатюры -->
+          <div class="product-thumbnails" id="productThumbnails">
+            <!-- Заполнится динамически через JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Правая колонка: Информация -->
+      <div class="col-12 col-lg-6">
+        <div class="product-info-modern">
+          <!-- Заголовок и категория -->
+          <div class="product-header-modern">
+            <div class="product-category-modern">{{ product.category.name }}</div>
+            <h1 class="product-title-modern">{{ product.title }}</h1>
+          </div>
+
+          <!-- Цена и информация -->
+          <div class="product-price-section">
+            <div class="product-price-row">
+              <div class="product-price-current">{{ product.final_price }} грн</div>
+              {% if product.has_discount %}
+                <div class="product-price-old">{{ product.price }} грн</div>
+                <span class="product-discount-badge">-{{ product.discount_percent }}%</span>
+              {% endif %}
+            </div>
+            
+            <!-- Блок с баллами и доставкой -->
+            <div class="product-extra-info">
+              {% if product.points_reward > 0 %}
+              <div class="product-points-block">
+                <button type="button" class="product-info-icon-btn" 
+                        data-bs-toggle="modal" data-bs-target="#pointsInfoModal"
+                        data-product-title="{{ product.title }}" data-points-amount="{{ product.points_reward }}"
+                        aria-label="Дізнатись про бали">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                  <span class="points-amount">{{ product.points_reward }} балів</span>
+                </button>
+              </div>
+              {% endif %}
+              
+              <!-- Иконка доставки -->
+              <button type="button" class="product-info-icon-btn" 
+                      data-bs-toggle="modal" data-bs-target="#deliveryInfoModal"
+                      aria-label="Інформація про доставку">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+                </svg>
+                <span>Доставка</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Размеры -->
+          <div class="product-section-modern">
+            <div class="product-section-label">Розмір</div>
+            <div class="product-sizes-grid">
+              <input type="radio" class="btn-check size-radio" name="size" id="size-s" value="S" autocomplete="off" {% if request.GET.size != 'M' and request.GET.size != 'L' and request.GET.size != 'XL' and request.GET.size != 'XXL' %}checked{% endif %}>
+              <label class="product-size-btn" for="size-s">S</label>
+
+              <input type="radio" class="btn-check size-radio" name="size" id="size-m" value="M" autocomplete="off" {% if request.GET.size == 'M' %}checked{% endif %}>
+              <label class="product-size-btn" for="size-m">M</label>
+
+              <input type="radio" class="btn-check size-radio" name="size" id="size-l" value="L" autocomplete="off" {% if request.GET.size == 'L' %}checked{% endif %}>
+              <label class="product-size-btn" for="size-l">L</label>
+
+              <input type="radio" class="btn-check size-radio" name="size" id="size-xl" value="XL" autocomplete="off" {% if request.GET.size == 'XL' %}checked{% endif %}>
+              <label class="product-size-btn" for="size-xl">XL</label>
+
+              <input type="radio" class="btn-check size-radio" name="size" id="size-xxl" value="XXL" autocomplete="off" disabled {% if request.GET.size == 'XXL' %}checked{% endif %}>
+              <label class="product-size-btn product-size-unavailable" for="size-xxl" title="Немає в наявності">XXL</label>
+            </div>
+          </div>
+
+          <!-- Цвета -->
+          {% if color_variants %}
+          <div class="product-section-modern">
+            <div class="product-section-label">Кольори</div>
+            <div class="product-colors-grid" id="colorPicker">
+              {% for v in color_variants %}
+                <button type="button"
+                        class="product-color-swatch{% if v.is_default %} active{% endif %}"
+                        data-variant="{{ v.id }}"
+                        data-primary="{{ v.primary_hex }}"
+                        data-secondary="{{ v.secondary_hex|default:'' }}"
+                        aria-label="Колір {{ v.primary_hex }}">
+                  <span class="color-swatch-inner" 
+                        style="--primary-color: {{ v.primary_hex }}; --secondary-color: {{ v.secondary_hex|default:'' }};">
+                    {% if v.secondary_hex %}
+                      <span class="color-divider"></span>
+                    {% endif %}
+                  </span>
+                  {% if v.is_default %}
+                    <span class="color-check-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                      </svg>
+                    </span>
+                  {% endif %}
+                </button>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Количество и кнопка -->
+          <div class="product-action-section">
+            <div class="product-qty-section">
+              <button type="button" class="qty-btn qty-minus" onclick="QtyDec('#productQty'); return false;" aria-label="Зменшити">−</button>
+              <input type="number" id="productQty" min="1" value="1" inputmode="numeric" class="qty-input">
+              <button type="button" class="qty-btn qty-plus" onclick="QtyInc('#productQty'); return false;" aria-label="Збільшити">+</button>
+            </div>
+            <button type="button" class="product-add-to-cart-btn" data-add-to-cart="{{ product.id }}" id="addToCartBtn">
+              <span class="btn-text">Додати в кошик</span>
+              <span class="btn-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+                </svg>
+              </span>
+            </button>
+          </div>
+
+          <!-- Кнопки шаринга -->
+          <div class="product-share-section">
+            <div class="product-section-label-small">Поділитися:</div>
+            <div class="product-share-buttons">
+              <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.build_absolute_uri|urlencode }}" 
+                 target="_blank" 
+                 rel="noopener noreferrer"
+                 class="share-btn share-facebook"
+                 aria-label="Поділитися у Facebook">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/>
+                </svg>
+              </a>
+              <a href="https://twitter.com/intent/tweet?url={{ request.build_absolute_uri|urlencode }}&text={{ product.title|urlencode }}" 
+                 target="_blank" 
+                 rel="noopener noreferrer"
+                 class="share-btn share-twitter"
+                 aria-label="Поділитися у Twitter">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z"/>
+                </svg>
+              </a>
+              <a href="https://t.me/share/url?url={{ request.build_absolute_uri|urlencode }}&text={{ product.title|urlencode }}" 
+                 target="_blank" 
+                 rel="noopener noreferrer"
+                 class="share-btn share-telegram"
+                 aria-label="Поділитися у Telegram">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.941z"/>
+                </svg>
+              </a>
+                <button type="button" 
+                      class="share-btn share-copy"
+                      onclick="navigator.clipboard.writeText('{{ request.build_absolute_uri }}'); this.classList.add('copied'); setTimeout(() => { this.classList.remove('copied'); }, 2000);"
+                      aria-label="Скопіювати посилання">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Вкладки описания -->
+          <div class="product-tabs-modern">
+            <div class="product-tabs-header-modern">
+              <button class="product-tab-btn-modern active" data-tab="desc">Опис</button>
+              <button class="product-tab-btn-modern" data-tab="size">Розмірна сітка</button>
+              <button class="product-tab-btn-modern" data-tab="care">Догляд</button>
+            </div>
+            <div class="product-tabs-content-modern">
+              <div id="tab-desc" class="product-tab-pane-modern active">
+                <div class="product-description-text">{{ product.description|default:'Опис товару буде додано найближчим часом.'|linebreaksbr }}</div>
+              </div>
+              <div id="tab-size" class="product-tab-pane-modern">
+                <div class="product-size-chart">
+                  <h6 class="size-chart-title">Таблиця розмірів</h6>
+                  <div class="table-responsive">
+                    <table class="size-table">
+                      <thead>
+                        <tr>
+                          <th>Розмір</th>
+                          <th>Груди (см)</th>
+                          <th>Талія (см)</th>
+                          <th>Стегна (см)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr><td class="fw-semibold">S</td><td>88-92</td><td>70-74</td><td>94-98</td></tr>
+                        <tr><td class="fw-semibold">M</td><td>92-96</td><td>74-78</td><td>98-102</td></tr>
+                        <tr><td class="fw-semibold">L</td><td>96-100</td><td>78-82</td><td>102-106</td></tr>
+                        <tr><td class="fw-semibold">XL</td><td>100-104</td><td>82-86</td><td>106-110</td></tr>
+                        <tr><td class="fw-semibold">XXL</td><td>104-108</td><td>86-90</td><td>110-114</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="size-measurement-info">
+                    <strong>Як виміряти:</strong><br>
+                    • Груди: навколо найширшої частини грудей<br>
+                    • Талія: навколо найвужчої частини талії<br>
+                    • Стегна: навколо найширшої частини стегон
+                  </div>
+                </div>
+              </div>
+              <div id="tab-care" class="product-tab-pane-modern">
+                <div class="product-care-info">
+                  <div class="care-item">
+                    <div class="care-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                      </svg>
+                    </div>
+                    <div class="care-text">
+                      <strong>Матеріал:</strong> 100% бавовна преміум-якості
+                    </div>
+                  </div>
+                  <div class="care-item">
+                    <div class="care-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M20 6h-2.18c.11-.31.18-.65.18-1a2.996 2.996 0 00-5.5-1.65l-.5.67-.5-.68C10.96 2.54 10.02 2 9 2 7.34 2 6 3.34 6 5c0 .35.07.69.18 1H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-5-2c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM9 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm11 15H4v-2h16v2zm0-5H4V8h5.08L7 10.83 8.62 12 11 8.76l1-1.36 1 1.36L15.38 12 17 10.83 14.92 8H20v6z"/>
+                      </svg>
+                    </div>
+                    <div class="care-text">
+                      <strong>Стирання:</strong> Машинне або ручне стирання при 30°C, не відбілювати
+                    </div>
+                  </div>
+                  <div class="care-item">
+                    <div class="care-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.01-4.65.51-6.9l-.77-.77-.77-.77c-.7-.7-1.84-.7-2.54 0l-.77.77-.77.77c-1.94 1.74-4.65 2.01-6.9.51l-.03.03L0 12l2.02 2.08.03-.03c1.74 1.94 4.65 2.01 6.9.51l.77.77.77.77c.7.7 1.84.7 2.54 0l.77-.77.77-.77c1.94-1.74 2.01-4.65.51-6.9l-.03-.03L12.87 15.07zM12 5c1.93 0 3.5 1.57 3.5 3.5S13.93 12 12 12 8.5 10.43 8.5 8.5 10.07 5 12 5z"/>
+                      </svg>
+                    </div>
+                    <div class="care-text">
+                      <strong>Прасування:</strong> Прасування на середній температурі, краще з вивороту
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Секция рекомендаций -->
+    {% if recommended_products %}
+    <section class="product-recommendations-section">
+      <div class="recommendations-header">
+        <h2 class="recommendations-title">Вам також сподобається</h2>
+      </div>
+      <div class="recommendations-carousel-wrapper">
+        <div class="swiper recommendations-swiper" id="recommendationsSwiper">
+          <div class="swiper-wrapper">
+            {% for rec_product in recommended_products %}
+            <div class="swiper-slide">
+              <div class="recommendation-card">
+                <a href="{% url 'product' rec_product.slug %}" class="recommendation-link">
+                  <div class="recommendation-image-wrapper">
+                    {% if rec_product.display_image %}
+                      <img src="{{ rec_product.display_image.url }}" 
+                           alt="{{ rec_product.title }}"
+                           class="recommendation-image"
+                           loading="lazy"
+                           width="400" height="500">
+                    {% else %}
+                      {% static 'img/placeholder.jpg' as ph_url %}
+                      <img src="{{ ph_url }}" 
+                           alt="{{ rec_product.title }}"
+                           class="recommendation-image"
+                           loading="lazy"
+                           width="400" height="500">
+                    {% endif %}
+                        {% if rec_product.has_discount and rec_product.discount_percent %}
+                      <span class="recommendation-badge">-{{ rec_product.discount_percent }}%</span>
+                    {% endif %}
+                  </div>
+                  <div class="recommendation-info">
+                    <div class="recommendation-title">{{ rec_product.title }}</div>
+                    <div class="recommendation-price-row">
+                      <span class="recommendation-price">{{ rec_product.final_price }} грн</span>
+                      {% if rec_product.has_discount %}
+                        <span class="recommendation-price-old">{{ rec_product.price }} грн</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                </a>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          <!-- Navigation -->
+          <div class="swiper-button-next recommendations-next"></div>
+          <div class="swiper-button-prev recommendations-prev"></div>
+        </div>
+      </div>
+    </section>
+    {% endif %}
+  </div>
+
+  <!-- Sticky кнопка для мобильных -->
+  <div class="product-sticky-mobile" id="productStickyMobile">
+    <div class="sticky-price">{{ product.final_price }} грн</div>
+    <button type="button" class="sticky-add-btn" data-add-to-cart="{{ product.id }}" id="stickyAddToCartBtn">
+      <span>Додати в кошик</span>
+    </button>
+  </div>
+</div>
+
+<!-- Модальное окно с информацией о баллах -->
+{% include 'partials/product_points_modal.html' with product=product %}
+
+<!-- Модальное окно с информацией о доставке -->
+{% include 'partials/product_delivery_modal.html' %}
+
+<!-- Данные для JS -->
+{{ color_variants|json_script:"variant-data" }}
+<div id="product-analytics-payload"
+     data-id="{{ product.id }}"
+     data-title="{{ product.title|escapejs }}"
+     data-category="{{ product.category.name|escapejs }}"
+     data-price="{{ product.final_price }}"
+     data-has_discount="{{ product.has_discount|yesno:'1,0' }}">
+</div>
+
+
+<!-- Дополнительные изображения -->
+{% if images %}
+<script id="product-extra-images" type="application/json">[
+  {% for ph in images %}{% if ph.image %}"{{ ph.image.url }}"{% else %}null{% endif %}{% if not forloop.last %},{% endif %}{% endfor %}
+]</script>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/medium-zoom@1.0.8/dist/medium-zoom.min.js"></script>
+<script src="{% static 'js/product-detail.js' %}?v=20250101"></script>
+
+<script>
+// Analytics tracking
+(function(){
+  try{
+    var pe=document.getElementById('product-analytics-payload');
+    if(pe && window.trackEvent){
+      var pid = pe.dataset.id;
+      var title = pe.dataset.title;
+      var category = pe.dataset.category;
+      var price = parseFloat(pe.dataset.price||'0');
+      if (isNaN(price) || price < 0) price = 0;
+      window.trackEvent('ViewContent', {
+        content_ids: [String(pid)],
+        content_name: title,
+        content_type: 'product',
+        content_category: category,
+        value: price,
+        currency: 'UAH'
+      });
+    }
+  }catch(_){ }
+})();
+</script>
+{% endblock %}
+
