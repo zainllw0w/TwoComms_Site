@@ -1,0 +1,101 @@
+<div class="modal fade" id="pointsInfoModal" tabindex="-1" aria-labelledby="pointsInfoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content points-info-modal-modern">
+      <div class="modal-header-modern">
+        <div class="modal-title-section-modern">
+          <div class="modal-icon-modern">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          </div>
+          <div class="modal-title-content-modern">
+            <h5 class="modal-title-modern" id="pointsInfoModalLabel">Система балів</h5>
+            <p class="modal-subtitle-modern">Як працюють бали за покупки</p>
+          </div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body-modern">
+        <div class="points-info-content-modern">
+          <div class="product-points-info-modern">
+            <div class="product-points-badge-modern">
+              <span class="points-amount-modern" id="modalPointsAmount">0</span>
+              <span class="points-label-modern">балів за цей товар</span>
+            </div>
+            <div class="product-title-modern-modal" id="modalProductTitle">Назва товару</div>
+          </div>
+          
+          <div class="points-explanation-modern">
+            <div class="explanation-item-modern">
+              <div class="explanation-icon-modern">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+              <div class="explanation-text-modern">
+                <strong>Нарахування балів:</strong> Бали нараховуються автоматично після підтвердження замовлення
+              </div>
+            </div>
+            
+            <div class="explanation-item-modern">
+              <div class="explanation-icon-modern">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
+                </svg>
+              </div>
+              <div class="explanation-text-modern">
+                <strong>Використання балів:</strong> Зареєстровані користувачі можуть витратити бали у кабінеті
+              </div>
+            </div>
+            
+            <div class="explanation-item-modern">
+              <div class="explanation-icon-modern">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+              </div>
+              <div class="explanation-text-modern">
+                <strong>Можливості:</strong> Обмін на промокоди або пожертвування на ЗСУ
+              </div>
+            </div>
+          </div>
+          
+          <div class="points-actions-modern">
+            {% if user.is_authenticated %}
+              <a href="{% url 'buy_with_points' %}" class="btn btn-primary-modern points-action-btn-modern">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                Перейти до балів
+              </a>
+            {% else %}
+              <a href="{% url 'login' %}" class="btn btn-outline-primary-modern points-action-btn-modern">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l6-6-6-6zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z"/>
+                </svg>
+                Увійти для накопичення балів
+              </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const pointsInfoModal = document.getElementById('pointsInfoModal');
+  if (pointsInfoModal) {
+    pointsInfoModal.addEventListener('show.bs.modal', function(event) {
+      const button = event.relatedTarget;
+      const productTitle = button.getAttribute('data-product-title');
+      const pointsAmount = button.getAttribute('data-points-amount');
+      
+      if (productTitle) document.getElementById('modalProductTitle').textContent = productTitle;
+      if (pointsAmount) document.getElementById('modalPointsAmount').textContent = pointsAmount;
+    });
+  }
+});
+</script>
+
