@@ -14,6 +14,7 @@ from django.urls import reverse
 
 from ..models import Product
 from ..services.catalog_helpers import get_detailed_color_variants
+from ..recommendations import ProductRecommendationEngine
 from .utils import cache_page_for_anon
 
 
@@ -86,15 +87,27 @@ def product_detail(request, slug):
         'url': reverse('product', kwargs={'slug': product.slug})
     })
     
+    # Получаем рекомендации товаров
+    recommendation_engine = ProductRecommendationEngine(user=request.user if hasattr(request, 'user') else None)
+    recommended_products = recommendation_engine.get_recommendations(product=product, limit=8)
+    
+    # Обрабатываем цветовые превью для рекомендаций
+    if recommended_products:
+        from ..services.catalog_helpers import build_color_preview_map
+        preview_map = build_color_preview_map(list(recommended_products))
+        for rec_product in recommended_products:
+            rec_product.colors_preview = preview_map.get(rec_product.id, [])
+    
     return render(
         request,
-        'pages/product_detail.html',
+        'pages/product_detail_new.html',
         {
             'product': product,
             'images': images,
             'color_variants': color_variants,
             'auto_select_first_color': auto_select_first_color,
-            'breadcrumbs': breadcrumbs
+            'breadcrumbs': breadcrumbs,
+            'recommended_products': recommended_products
         }
     )
 
