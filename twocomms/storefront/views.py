@@ -5724,6 +5724,53 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
         if icon_url:
             product_entry['icon'] = icon_url
         products.append(product_entry)
+        # Для предоплаты добавляем все товары отдельными позициями с полными ценами
+        for idx, item in enumerate(items):
+            qty_value = getattr(item, 'qty', None) or 1
+            try:
+                qty = int(qty_value)
+            except (TypeError, ValueError):
+                qty = 1
+            qty = max(qty, 1)
+            
+            # Формируем название товара
+            name_parts = [item.title or item.product.title]
+            if item.size:
+                name_parts.append(f"розмір {item.size}")
+            if item.color_name:
+                name_parts.append(item.color_name)
+            
+            product_name = ' • '.join(filter(None, name_parts))
+            
+            # Полная цена товара
+            try:
+                unit_price_major = Decimal(str(item.unit_price)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                line_total_major = Decimal(str(item.line_total)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            except Exception:
+                unit_price_major = Decimal('0')
+                line_total_major = Decimal('0')
+            
+            total_amount_major += line_total_major
+            total_count += qty
+            
+            product_entry = {
+                'name': product_name,
+                'cnt': qty,
+                'price': _as_number(unit_price_major),
+            }
+            
+            # Получаем изображение
+            if item.product.main_image:
+                product_entry['icon'] = request.build_absolute_uri(item.product.main_image.url)
+            
+            # Для последнего товара добавляем описание
+            if idx == len(items) - 1:
+                if len(items) > 1:
+                    product_entry['description'] = f'Передплата 200 грн за {len(items)} товарів. Залишок {total_order_sum - prepay_amount:.2f} грн — при отриманні на Новій Пошті'
+                else:
+                    product_entry['description'] = f'Передплата 200 грн. Залишок {total_order_sum - prepay_amount:.2f} грн — при отриманні на Новій Пошті'
+            
+            products.append(product_entry)
         total_amount_major = prepay_amount
         total_count = 1
     else:
