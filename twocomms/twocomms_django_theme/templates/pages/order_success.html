@@ -3,162 +3,1790 @@
 
 {% block title %}Замовлення оформлено — TwoComms{% endblock %}
 
+{% block extra_css %}
+<style>
+/* ==================== ОСНОВНЫЕ СТИЛИ ==================== */
+.order-success-page {
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  padding: 2rem 0;
+  background: linear-gradient(135deg, 
+    rgba(8, 8, 20, 0.98) 0%,
+    rgba(12, 12, 30, 0.95) 50%,
+    rgba(8, 8, 20, 0.98) 100%
+  );
+}
+
+/* Фоновые эффекты */
+.success-bg-effects {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.success-particles {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+
+.success-particles .particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: radial-gradient(circle, 
+    rgba(139, 92, 246, 0.8) 0%,
+    rgba(99, 102, 241, 0.6) 50%,
+    rgba(16, 185, 129, 0.4) 100%
+  );
+  border-radius: 50%;
+  animation: successParticleFloat 12s ease-in-out infinite;
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+}
+
+.success-particles .particle:nth-child(1) {
+  top: 15%;
+  left: 10%;
+  animation-delay: 0s;
+}
+
+.success-particles .particle:nth-child(2) {
+  top: 55%;
+  left: 80%;
+  animation-delay: 2s;
+}
+
+.success-particles .particle:nth-child(3) {
+  top: 75%;
+  left: 20%;
+  animation-delay: 4s;
+}
+
+.success-particles .particle:nth-child(4) {
+  top: 35%;
+  left: 60%;
+  animation-delay: 6s;
+}
+
+.success-particles .particle:nth-child(5) {
+  top: 85%;
+  left: 45%;
+  animation-delay: 8s;
+}
+
+@keyframes successParticleFloat {
+  0%, 100% { 
+    transform: translateY(0) translateX(0) scale(1);
+    opacity: 0.6;
+  }
+  50% { 
+    transform: translateY(-30px) translateX(20px) scale(1.2);
+    opacity: 1;
+  }
+}
+
+.success-gradient-1 {
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, 
+    rgba(139, 92, 246, 0.1) 0%,
+    rgba(99, 102, 241, 0.05) 40%,
+    transparent 70%
+  );
+  animation: successGradientRotate 20s linear infinite;
+}
+
+.success-gradient-2 {
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, 
+    rgba(16, 185, 129, 0.08) 0%,
+    rgba(139, 92, 246, 0.05) 40%,
+    transparent 70%
+  );
+  animation: successGradientRotate 25s linear infinite reverse;
+}
+
+@keyframes successGradientRotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.success-glow {
+  position: absolute;
+  top: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, 
+    rgba(139, 92, 246, 0.15) 0%,
+    rgba(99, 102, 241, 0.08) 30%,
+    transparent 70%
+  );
+  filter: blur(60px);
+  animation: successGlowPulse 4s ease-in-out infinite;
+}
+
+@keyframes successGlowPulse {
+  0%, 100% { opacity: 0.6; transform: translateX(-50%) scale(1); }
+  50% { opacity: 1; transform: translateX(-50%) scale(1.1); }
+}
+
+/* Контейнер контента */
+.success-content-wrapper {
+  position: relative;
+  z-index: 1;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* ==================== ЗАГОЛОВОК С ИКОНКОЙ ==================== */
+.success-header {
+  text-align: center;
+  margin-bottom: 3rem;
+  animation: successHeaderAppear 0.8s ease-out;
+}
+
+@keyframes successHeaderAppear {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.success-icon-wrapper {
+  position: relative;
+  display: inline-flex;
+  margin-bottom: 1.5rem;
+}
+
+.success-icon-circle {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, 
+    rgba(16, 185, 129, 0.2) 0%,
+    rgba(139, 92, 246, 0.2) 100%
+  );
+  border: 3px solid rgba(16, 185, 129, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  animation: successIconPulse 2s ease-in-out infinite;
+  box-shadow: 
+    0 0 40px rgba(16, 185, 129, 0.3),
+    0 0 80px rgba(139, 92, 246, 0.2),
+    inset 0 0 20px rgba(255, 255, 255, 0.1);
+}
+
+@keyframes successIconPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 
+      0 0 40px rgba(16, 185, 129, 0.3),
+      0 0 80px rgba(139, 92, 246, 0.2),
+      inset 0 0 20px rgba(255, 255, 255, 0.1);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 
+      0 0 60px rgba(16, 185, 129, 0.5),
+      0 0 120px rgba(139, 92, 246, 0.3),
+      inset 0 0 30px rgba(255, 255, 255, 0.15);
+  }
+}
+
+.success-icon {
+  width: 64px;
+  height: 64px;
+  color: #10b981;
+  animation: successCheckDraw 0.8s ease-out 0.3s both;
+}
+
+@keyframes successCheckDraw {
+  from {
+    stroke-dasharray: 0, 100;
+    opacity: 0;
+  }
+  to {
+    stroke-dasharray: 100, 0;
+    opacity: 1;
+  }
+}
+
+.success-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  margin: 0 0 0.5rem 0;
+  background: linear-gradient(135deg, 
+    #ffffff 0%,
+    #e0e7ff 30%,
+    #8b5cf6 60%,
+    #10b981 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.success-order-number {
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 1rem;
+}
+
+.success-order-number strong {
+  color: #8b5cf6;
+  font-weight: 700;
+  font-size: 1.5rem;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.success-view-details {
+  margin-top: 1.25rem;
+  animation: fadeInUp 0.6s ease-out 0.3s both;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.btn-view-details {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 10px;
+  color: #8b5cf6;
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.btn-view-details:hover {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);
+}
+
+/* ==================== КАРТОЧКА СТАТУСА ==================== */
+.status-card {
+  background: linear-gradient(135deg, 
+    rgba(8, 8, 20, 0.95) 0%,
+    rgba(12, 12, 30, 0.9) 100%
+  );
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 20px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  backdrop-filter: blur(20px);
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.5),
+    0 8px 25px rgba(139, 92, 246, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: cardAppear 0.6s ease-out 0.2s both;
+  position: relative;
+  overflow: hidden;
+}
+
+.status-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, 
+    transparent 0%,
+    var(--status-color, #8b5cf6) 50%,
+    transparent 100%
+  );
+}
+
+.status-card.paid::before {
+  --status-color: #10b981;
+}
+
+.status-card.prepaid::before {
+  --status-color: #8b5cf6;
+}
+
+@keyframes cardAppear {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.status-icon-text {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.status-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.status-card.paid .status-icon {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1));
+  color: #10b981;
+}
+
+.status-card.prepaid .status-icon {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(139, 92, 246, 0.1));
+  color: #8b5cf6;
+}
+
+.status-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+  color: #ffffff;
+}
+
+.status-text {
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.status-amount {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.amount-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.amount-label {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.95rem;
+}
+
+.amount-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.amount-value.highlight {
+  background: linear-gradient(135deg, #10b981 0%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ==================== ДЕТАЛИ ЗАКАЗА ==================== */
+.order-details-card {
+  background: linear-gradient(135deg, 
+    rgba(8, 8, 20, 0.95) 0%,
+    rgba(12, 12, 30, 0.9) 100%
+  );
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  border-radius: 20px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  backdrop-filter: blur(20px);
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.5),
+    0 8px 25px rgba(139, 92, 246, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: cardAppear 0.6s ease-out 0.4s both;
+}
+
+.details-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 1.5rem 0;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.details-title-icon {
+  width: 32px;
+  height: 32px;
+  color: #8b5cf6;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.25rem;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.detail-label {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.detail-value {
+  font-size: 1rem;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.detail-value.empty {
+  color: rgba(255, 255, 255, 0.4);
+  font-style: italic;
+}
+
+/* Список товаров */
+.order-items-list {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.items-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 1rem 0;
+  color: #ffffff;
+}
+
+.item-card {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(139, 92, 246, 0.05);
+  border: 1px solid rgba(139, 92, 246, 0.1);
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  transition: all 0.3s ease;
+}
+
+.item-card:hover {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.3);
+  transform: translateX(5px);
+}
+
+.item-image {
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 0.5rem 0;
+}
+
+.item-details {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 0.5rem;
+}
+
+.item-price {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #8b5cf6;
+}
+
+/* ==================== КНОПКА СВЯЗИ С МЕНЕДЖЕРОМ ==================== */
+.manager-contact-card {
+  background: linear-gradient(135deg, 
+    rgba(139, 92, 246, 0.15) 0%,
+    rgba(99, 102, 241, 0.1) 100%
+  );
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: 20px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  backdrop-filter: blur(20px);
+  animation: cardAppear 0.6s ease-out 0.5s both;
+  position: relative;
+  overflow: hidden;
+}
+
+.manager-contact-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, 
+    rgba(139, 92, 246, 0.15) 0%,
+    rgba(99, 102, 241, 0.08) 50%,
+    transparent 70%
+  );
+  animation: managerGlowRotate 12s linear infinite;
+}
+
+@keyframes managerGlowRotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.manager-contact-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.manager-icon-wrapper {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(99, 102, 241, 0.2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8b5cf6;
+  flex-shrink: 0;
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+}
+
+.manager-text {
+  flex: 1;
+  min-width: 200px;
+}
+
+.manager-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem 0;
+  color: #ffffff;
+  background: linear-gradient(135deg, #ffffff 0%, #e0e7ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.manager-description {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 1rem 0;
+  line-height: 1.5;
+}
+
+.manager-actions {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.manager-question {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 0.75rem 0;
+  font-weight: 500;
+}
+
+/* Telegram уведомления в блоке баллов */
+.telegram-notification-box {
+  background: rgba(0, 136, 204, 0.1);
+  border: 1px solid rgba(0, 136, 204, 0.2);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.telegram-notification-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.telegram-notification-text {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.95rem;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.telegram-notification-subtext {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.btn-manager-contact {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 2rem;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+}
+
+.btn-manager-contact:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+}
+
+/* ==================== БЛОК С БАЛЛАМИ (ЗОЛОТОЙ ДИЗАЙН) ==================== */
+.points-card {
+  background: linear-gradient(135deg, 
+    rgba(184, 134, 11, 0.12) 0%,
+    rgba(212, 175, 55, 0.08) 50%,
+    rgba(184, 134, 11, 0.12) 100%
+  );
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 24px;
+  padding: 2.5rem;
+  margin-bottom: 2rem;
+  backdrop-filter: blur(20px);
+  animation: cardAppear 0.6s ease-out 0.6s both;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.5),
+    0 8px 25px rgba(212, 175, 55, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.points-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, 
+    rgba(255, 215, 0, 0.15) 0%,
+    rgba(212, 175, 55, 0.1) 40%,
+    rgba(184, 134, 11, 0.05) 70%,
+    transparent 100%
+  );
+  animation: pointsGoldGlowRotate 15s linear infinite;
+}
+
+@keyframes pointsGoldGlowRotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Летающие логотипы для блока баллов */
+.points-floating-logos {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.points-floating-logo {
+  position: absolute;
+  opacity: 0.08;
+  animation: pointsLogoFloat 20s ease-in-out infinite;
+  filter: blur(1px);
+}
+
+.points-floating-logo img {
+  filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.3));
+}
+
+.points-logo-1 {
+  top: 15%;
+  left: 10%;
+  animation-delay: 0s;
+}
+
+.points-logo-2 {
+  top: 55%;
+  right: 12%;
+  animation-delay: 4s;
+}
+
+.points-logo-3 {
+  top: 75%;
+  left: 20%;
+  animation-delay: 8s;
+}
+
+.points-logo-4 {
+  top: 35%;
+  right: 25%;
+  animation-delay: 12s;
+}
+
+.points-logo-5 {
+  top: 85%;
+  left: 65%;
+  animation-delay: 16s;
+}
+
+@keyframes pointsLogoFloat {
+  0%, 100% { 
+    transform: translateY(0) translateX(0) rotate(0deg);
+    opacity: 0.05;
+  }
+  25% { 
+    transform: translateY(-15px) translateX(10px) rotate(90deg);
+    opacity: 0.12;
+  }
+  50% { 
+    transform: translateY(-30px) translateX(-10px) rotate(180deg);
+    opacity: 0.08;
+  }
+  75% { 
+    transform: translateY(-15px) translateX(5px) rotate(270deg);
+    opacity: 0.12;
+  }
+}
+
+.points-content {
+  position: relative;
+  z-index: 1;
+}
+
+.points-icon-title {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.points-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, 
+    rgba(255, 215, 0, 0.25) 0%,
+    rgba(212, 175, 55, 0.2) 50%,
+    rgba(184, 134, 11, 0.15) 100%
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFD700;
+  flex-shrink: 0;
+  box-shadow: 
+    0 4px 15px rgba(255, 215, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.points-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  margin: 0;
+  background: linear-gradient(135deg, 
+    #FFD700 0%,
+    #FFA500 50%,
+    #FFD700 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.01em;
+}
+
+.points-text {
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+.points-benefits {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.5rem 0;
+}
+
+.points-benefit {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.95rem;
+}
+
+.points-benefit-icon {
+  width: 24px;
+  height: 24px;
+  color: #FFD700;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.4));
+}
+
+.auth-buttons-group {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.btn-auth {
+  flex: 1;
+  min-width: 150px;
+  padding: 0.875rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  text-align: center;
+  transition: all 0.3s ease;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-auth-primary {
+  background: linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FFD700 100%);
+  color: #000000;
+  font-weight: 700;
+  box-shadow: 
+    0 4px 15px rgba(255, 215, 0, 0.4),
+    0 0 20px rgba(255, 215, 0, 0.2);
+}
+
+.btn-auth-primary:hover {
+  background: linear-gradient(135deg, #FFA500 0%, #FFD700 50%, #FFA500 100%);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 6px 20px rgba(255, 215, 0, 0.5),
+    0 0 30px rgba(255, 215, 0, 0.3);
+}
+
+.btn-auth-outline {
+  background: rgba(255, 215, 0, 0.1);
+  color: #FFD700;
+  border: 1px solid rgba(255, 215, 0, 0.4);
+}
+
+.btn-auth-outline:hover {
+  background: rgba(255, 215, 0, 0.2);
+  border-color: rgba(255, 215, 0, 0.6);
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+}
+
+/* ==================== EMAIL ЧЕК ==================== */
+.email-receipt-card {
+  background: linear-gradient(135deg, 
+    rgba(8, 8, 20, 0.95) 0%,
+    rgba(12, 12, 30, 0.9) 100%
+  );
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  border-radius: 20px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  backdrop-filter: blur(20px);
+  animation: cardAppear 0.6s ease-out 0.8s both;
+}
+
+.email-receipt-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 1rem 0;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.email-form-group {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.email-input {
+  flex: 1;
+  padding: 0.875rem 1.25rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: #ffffff;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.email-input:focus {
+  outline: none;
+  border-color: rgba(139, 92, 246, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.email-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.btn-send-receipt {
+  padding: 0.875rem 2rem;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+}
+
+.btn-send-receipt:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+}
+
+.btn-send-receipt:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ==================== INSTAGRAM ОТЗЫВ ==================== */
+.instagram-card {
+  background: linear-gradient(135deg, 
+    rgba(225, 48, 108, 0.1) 0%,
+    rgba(139, 92, 246, 0.1) 100%
+  );
+  border: 1px solid rgba(225, 48, 108, 0.2);
+  border-radius: 20px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  backdrop-filter: blur(20px);
+  animation: cardAppear 0.6s ease-out 1s both;
+  position: relative;
+  overflow: hidden;
+}
+
+.instagram-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, 
+    rgba(225, 48, 108, 0.1) 0%,
+    rgba(139, 92, 246, 0.05) 50%,
+    transparent 100%
+  );
+  animation: instagramGlowRotate 15s linear infinite;
+}
+
+@keyframes instagramGlowRotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.instagram-content {
+  position: relative;
+  z-index: 1;
+}
+
+.instagram-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.instagram-icon-wrapper {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, 
+    #833AB4 0%,
+    #E1306C 50%,
+    #FCAF45 100%
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 15px rgba(225, 48, 108, 0.3);
+}
+
+.instagram-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+  color: #ffffff;
+}
+
+.instagram-text {
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+.promo-code-box {
+  background: rgba(8, 8, 20, 0.6);
+  border: 2px dashed rgba(225, 48, 108, 0.4);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.promo-code-label {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.promo-code-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, 
+    #E1306C 0%,
+    #FCAF45 50%,
+    #833AB4 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.5rem;
+}
+
+.promo-code-discount {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.btn-instagram {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 2rem;
+  background: linear-gradient(135deg, #E1306C 0%, #833AB4 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(225, 48, 108, 0.3);
+}
+
+.btn-instagram:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(225, 48, 108, 0.4);
+}
+
+/* ==================== КНОПКИ ДЕЙСТВИЙ ==================== */
+.success-actions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 2rem;
+  animation: cardAppear 0.6s ease-out 1.2s both;
+}
+
+.btn-action {
+  flex: 1;
+  min-width: 180px;
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  text-align: center;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-action-primary {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+}
+
+.btn-action-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+}
+
+.btn-action-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-action-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ==================== АДАПТИВНОСТЬ ==================== */
+@media (max-width: 768px) {
+  .order-success-page {
+    padding: 1rem 0;
+  }
+
+  .success-content-wrapper {
+    padding: 0 0.75rem;
+  }
+
+  .success-title {
+    font-size: 2rem;
+  }
+
+  .success-icon-circle {
+    width: 100px;
+    height: 100px;
+  }
+
+  .success-icon {
+    width: 54px;
+    height: 54px;
+  }
+
+  .status-card,
+  .order-details-card,
+  .points-card,
+  .email-receipt-card,
+  .instagram-card {
+    padding: 1.5rem;
+  }
+
+  .details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .email-form-group {
+    flex-direction: column;
+  }
+
+  .auth-buttons-group,
+  .success-actions {
+    flex-direction: column;
+  }
+
+  .btn-action,
+  .btn-auth {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .success-title {
+    font-size: 1.75rem;
+  }
+
+  .status-title,
+  .points-title,
+  .instagram-title {
+    font-size: 1.25rem;
+  }
+
+  .item-card {
+    flex-direction: column;
+  }
+
+  .item-image {
+    width: 100%;
+    height: 200px;
+  }
+}
+</style>
+{% endblock %}
+
 {% block content %}
-<section class="order-success-section">
-  <div class="container">
-    <div class="row justify-content-center">
-      <div class="col-md-8 col-lg-6">
-        <div class="order-success-card">
-          <div class="order-success-header">
-            <div class="success-icon">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-              </svg>
-            </div>
-            <h1 class="order-success-title">Замовлення успішно оформлено!</h1>
-            <div class="order-number">
-              <span class="order-number-label">Номер замовлення:</span>
-              <span class="order-number-value">{{ order_number }}</span>
-            </div>
-          </div>
-          
-          <div class="order-success-content">
-            {% if order.payment_status == 'paid' %}
-            <div class="success-message">
-              <h3>✅ Оплата успішно пройшла!</h3>
-              <p>Дякуємо за покупку! Ваше замовлення оплачено через Monobank та відправлено в обробку. Ми розпочнемо підготовку вашого замовлення найближчим часом.</p>
-            </div>
-            {% elif order.payment_status == 'prepaid' %}
-            <div class="success-message">
-              <h3>✅ Передплата внесена!</h3>
-              <p>Дякуємо! Ви внесли передплату {{ order.get_prepayment_amount }} грн. Залишок <strong>{{ order.get_remaining_amount }} грн</strong> необхідно оплатити при отриманні посилки на відділенні Нової Пошти.</p>
-              <p>Ми розпочнемо підготовку вашого замовлення та найближчим часом відправимо його на вказане відділення.</p>
-            </div>
-            {% else %}
-            <div class="success-message">
-              <h3>Ваша заявка відправлена в обробку</h3>
-              <p>Менеджер зв'яжеться з вами найближчим часом для підтвердження замовлення та уточнення деталей доставки.</p>
-            </div>
-            {% endif %}
-            
-            <div class="order-details">
-              <h4>Деталі замовлення:</h4>
-              <div class="order-info">
-                <div class="info-row">
-                  <span class="info-label">ПІБ:</span>
-                  <span class="info-value">{{ order.full_name }}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Телефон:</span>
-                  <span class="info-value">{{ order.phone }}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Місто:</span>
-                  <span class="info-value">{{ order.city }}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Відділення НП:</span>
-                  <span class="info-value">{{ order.np_office }}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Тип оплати:</span>
-                  <span class="info-value">
-                    {% if order.pay_type == 'prepay_200' %}
-                      Передплата 200 грн
-                    {% elif order.pay_type == 'online_full' or order.pay_type == 'full' %}
-                      Онлайн оплата (повна сума)
-                    {% elif order.pay_type == 'cod' %}
-                      Оплата при отриманні
-                    {% else %}
-                      {{ order.get_pay_type_display|default:order.pay_type }}
-                    {% endif %}
-                  </span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Сума замовлення:</span>
-                  <span class="info-value">{{ order.total_sum }} грн</span>
-                </div>
-                {% if order.pay_type == 'prepay_200' and order.payment_status == 'prepaid' %}
-                <div class="info-row">
-                  <span class="info-label">Внесена передплата:</span>
-                  <span class="info-value" style="color: #10b981; font-weight: 600;">{{ order.get_prepayment_amount }} грн ✅</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Залишок (при отриманні):</span>
-                  <span class="info-value" style="font-weight: 600;">{{ order.get_remaining_amount }} грн</span>
-                </div>
-                {% endif %}
-                <div class="info-row">
-                  <span class="info-label">Статус оплати:</span>
-                  <span class="info-value">
-                    {% if order.payment_status == 'paid' %}
-                      <span class="badge bg-success">Оплачено повністю</span>
-                    {% elif order.payment_status == 'prepaid' %}
-                      <span class="badge bg-info">Внесена передплата</span>
-                    {% else %}
-                      {{ order.get_payment_status_display|default:order.payment_status }}
-                    {% endif %}
-                  </span>
-                </div>
-              </div>
-            </div>
-            
+<div class="order-success-page">
+  <!-- Фоновые эффекты -->
+  <div class="success-bg-effects">
+    <div class="success-particles">
+      <div class="particle"></div>
+      <div class="particle"></div>
+      <div class="particle"></div>
+      <div class="particle"></div>
+      <div class="particle"></div>
+    </div>
+    <div class="success-gradient-1"></div>
+    <div class="success-gradient-2"></div>
+    <div class="success-glow"></div>
+  </div>
+
+  <div class="success-content-wrapper">
+    <!-- Заголовок с иконкой -->
+    <div class="success-header">
+      <div class="success-icon-wrapper">
+        <div class="success-icon-circle">
+          <svg class="success-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 6L9 17l-5-5"/>
+          </svg>
+        </div>
+      </div>
+      <h1 class="success-title">Замовлення успішно оформлено!</h1>
+      {% if order %}
+      <div class="success-order-number">
+        Номер замовлення: <strong>{{ order.order_number }}</strong>
+      </div>
+      <div class="success-view-details">
+        <a href="#order-details" class="btn-view-details">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+          Переглянути деталі замовлення
+        </a>
+      </div>
+      {% else %}
+      <div class="success-order-number">
+        Номер замовлення: <strong>TEST-PREVIEW-001</strong>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Карточка статуса оплаты -->
+    {% if order %}
+    <div class="status-card {% if order.payment_status == 'paid' %}paid{% elif order.payment_status == 'prepaid' %}prepaid{% endif %}">
+      <div class="status-icon-text">
+        <div class="status-icon">
+          {% if order.payment_status == 'paid' %}
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M20 6L9 17l-5-5"/>
+            </svg>
+          {% elif order.payment_status == 'prepaid' %}
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+          {% endif %}
+        </div>
+        <div>
+          {% if order.payment_status == 'paid' %}
+            <h2 class="status-title">✅ Оплата успішно пройшла!</h2>
             {% if user.is_authenticated %}
-            <div class="auth-suggestion">
-              <div class="auth-suggestion-content">
-                <h4>✅ Дякуємо за покупку!</h4>
-                <p>Ви можете переглянути це та інші замовлення у вашому особистому кабінеті.</p>
-                <div class="auth-buttons">
-                  <a href="{% url 'my_orders' %}" class="btn btn-primary">Мої замовлення</a>
-                </div>
-              </div>
-            </div>
+            <p class="status-text">Дякуємо, брат! Твоє замовлення оплачено та відправлено в обробку. Ми розпочнемо підготовку найближчим часом.</p>
             {% else %}
-            <div class="auth-suggestion">
-              <div class="auth-suggestion-content">
-                <h4>🔐 Створіть акаунт для зручності</h4>
-                <p>Зареєструйтесь або увійдіть в систему, щоб:</p>
-                <ul class="auth-benefits">
-                  <li>📊 Накопичувати бали за покупки</li>
-                  <li>📈 Відстежувати статус замовлень</li>
-                  <li>💾 Зберігати історію покупок</li>
-                  <li>🎁 Отримувати персональні пропозиції</li>
-                </ul>
-                <div class="auth-buttons">
-                  <a href="{% url 'login' %}" class="btn btn-primary">Увійти</a>
-                  <a href="{% url 'register' %}" class="btn btn-outline-primary">Зареєструватись</a>
-                </div>
-                <div class="auth-note">
-                  <small>Якщо ви зареєструєтесь, це замовлення автоматично прив'яжеться до вашого акаунту</small>
-                </div>
-              </div>
-            </div>
+            <p class="status-text">Дякуємо за покупку! Твоє замовлення оплачено через Monobank та відправлено в обробку. Ми розпочнемо підготовку найближчим часом.</p>
             {% endif %}
-            
-            <div class="order-success-actions">
-              <a href="{% url 'home' %}" class="btn btn-cta">Повернутись на головну</a>
-              <a href="{% url 'catalog' %}" class="btn btn-outline-light">Переглянути каталог</a>
-            </div>
-          </div>
+          {% elif order.payment_status == 'prepaid' %}
+            <h2 class="status-title">✅ Передплата внесена!</h2>
+            {% if user.is_authenticated %}
+            <p class="status-text">Дякуємо, брат! Передплата внесена. Залишок оплатиш при отриманні на Новій Пошті. Ми розпочнемо підготовку та відправимо на вказане відділення.</p>
+            {% else %}
+            <p class="status-text">Дякуємо за покупку! Передплата внесена. Залишок необхідно оплатити при отриманні посилки на відділенні Нової Пошти. Ми розпочнемо підготовку та відправимо на вказане відділення.</p>
+            {% endif %}
+          {% else %}
+            <h2 class="status-title">Ваша заявка відправлена в обробку</h2>
+            {% if user.is_authenticated %}
+            <p class="status-text">Дякуємо, брат! Замовлення відправлено в обробку. Статус надійде в Telegram.</p>
+            {% else %}
+            <p class="status-text">Дякуємо за замовлення! Заявка відправлена в обробку.</p>
+            {% endif %}
+          {% endif %}
+        </div>
+      </div>
+      
+      {% if order.payment_status == 'prepaid' %}
+      <div class="status-amount">
+        <div class="amount-row">
+          <span class="amount-label">Внесена передплата:</span>
+          <span class="amount-value highlight">{{ order.get_prepayment_amount }} грн ✅</span>
+        </div>
+        <div class="amount-row">
+          <span class="amount-label">Залишок (при отриманні):</span>
+          <span class="amount-value">{{ order.get_remaining_amount }} грн</span>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Блок благодарности и поддержки -->
+    <div class="manager-contact-card">
+      <div class="manager-contact-content">
+        <div class="manager-icon-wrapper">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </div>
+        <div class="manager-text">
+          <h3 class="manager-title">Дякуємо за вибір стилю TwoComms! 🎯</h3>
+          <p class="manager-description">Твій стиль — твоя сильна сторона. Ми цінуємо, що ти обрав саме нас для свого образу.</p>
+        </div>
+        <div class="manager-actions">
+          <p class="manager-question">Є питання чи потрібна допомога?</p>
+          <a href="https://t.me/twocomms" target="_blank" rel="noopener noreferrer" class="btn-manager-contact">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            Написати в Telegram
+          </a>
         </div>
       </div>
     </div>
+    {% else %}
+    <!-- Демо режим - если нет заказа -->
+    <div class="status-card paid">
+      <div class="status-icon-text">
+        <div class="status-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M20 6L9 17l-5-5"/>
+          </svg>
+        </div>
+        <div>
+          <h2 class="status-title">✅ Демо режим</h2>
+          <p class="status-text">Це тестовий перегляд сторінки. Для реального замовлення дані будуть заповнені автоматично.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Блок благодарности для демо -->
+    <div class="manager-contact-card">
+      <div class="manager-contact-content">
+        <div class="manager-icon-wrapper">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </div>
+        <div class="manager-text">
+          <h3 class="manager-title">Дякуємо за вибір стилю TwoComms! 🎯</h3>
+          <p class="manager-description">Твій стиль — твоя сильна сторона. Ми цінуємо, що ти обрав саме нас для свого образу.</p>
+        </div>
+        <div class="manager-actions">
+          <p class="manager-question">Є питання чи потрібна допомога?</p>
+          <a href="https://t.me/twocomms" target="_blank" rel="noopener noreferrer" class="btn-manager-contact">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            Написати в Telegram
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Детали заказа -->
+    {% if order %}
+    <div class="order-details-card" id="order-details">
+      <h2 class="details-title">
+        <svg class="details-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        Деталі замовлення
+      </h2>
+      
+      <div class="details-grid">
+        <div class="detail-item">
+          <span class="detail-label">ПІБ</span>
+          <span class="detail-value {% if not order.full_name %}empty{% endif %}">
+            {{ order.full_name|default:"Не вказано" }}
+          </span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Телефон</span>
+          <span class="detail-value {% if not order.phone %}empty{% endif %}">
+            {{ order.phone|default:"Не вказано" }}
+          </span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Місто</span>
+          <span class="detail-value {% if not order.city %}empty{% endif %}">
+            {{ order.city|default:"Не вказано" }}
+          </span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Відділення НП</span>
+          <span class="detail-value {% if not order.np_office %}empty{% endif %}">
+            {{ order.np_office|default:"Не вказано" }}
+          </span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Тип оплати</span>
+          <span class="detail-value">
+            {% if order.pay_type == 'prepay_200' %}
+              Передплата 200 грн
+            {% elif order.pay_type == 'online_full' or order.pay_type == 'full' %}
+              Онлайн оплата (повна сума)
+            {% elif order.pay_type == 'cod' %}
+              Оплата при отриманні
+            {% else %}
+              {{ order.get_pay_type_display|default:order.pay_type }}
+            {% endif %}
+          </span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Сума замовлення</span>
+          <span class="detail-value">{{ order.total_sum }} грн</span>
+        </div>
+      </div>
+
+      <!-- Список товаров -->
+      {% if order.items.all %}
+      <div class="order-items-list">
+        <h3 class="items-title">Товари в замовленні:</h3>
+        {% for item in order.items.all %}
+        <div class="item-card">
+          {% if item.product.main_image %}
+          <img src="{{ item.product.main_image.url }}" alt="{{ item.title }}" class="item-image">
+          {% else %}
+          <div class="item-image" style="background: rgba(139, 92, 246, 0.1); display: flex; align-items: center; justify-content: center;">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(139, 92, 246, 0.5)" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <path d="M21 15l-5-5L5 21"/>
+            </svg>
+          </div>
+          {% endif %}
+          <div class="item-info">
+            <h4 class="item-title">{{ item.title }}</h4>
+            <div class="item-details">
+              {% if item.size %}Розмір: {{ item.size }}{% endif %}
+              {% if item.color_name %} • Колір: {{ item.color_name }}{% endif %}
+              • Кількість: {{ item.qty }}
+            </div>
+            <div class="item-price">{{ item.line_total }} грн</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <!-- Демо: Детали заказа -->
+    <div class="order-details-card">
+      <h2 class="details-title">
+        <svg class="details-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        Деталі замовлення (демо)
+      </h2>
+      <div class="details-grid">
+        <div class="detail-item">
+          <span class="detail-label">ПІБ</span>
+          <span class="detail-value">Іван Петренко</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Телефон</span>
+          <span class="detail-value">+380501234567</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Місто</span>
+          <span class="detail-value">Київ</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Відділення НП</span>
+          <span class="detail-value">Відділення №1, вул. Хрещатик, 1</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Тип оплати</span>
+          <span class="detail-value">Онлайн оплата (повна сума)</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Сума замовлення</span>
+          <span class="detail-value">1299.00 грн</span>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Блок с баллами -->
+    <div class="points-card">
+      <!-- Летающие логотипы -->
+      <div class="points-floating-logos">
+        <div class="points-floating-logo points-logo-1">
+          <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="20" height="20">
+        </div>
+        <div class="points-floating-logo points-logo-2">
+          <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="18" height="18">
+        </div>
+        <div class="points-floating-logo points-logo-3">
+          <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="22" height="22">
+        </div>
+        <div class="points-floating-logo points-logo-4">
+          <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="16" height="16">
+        </div>
+        <div class="points-floating-logo points-logo-5">
+          <img src="{% static 'img/logo.svg' %}" alt="TwoComms логотип" width="19" height="19">
+        </div>
+      </div>
+      
+      <div class="points-content">
+        <div class="points-icon-title">
+          <div class="points-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+          </div>
+          <h2 class="points-title">💰 Система балів</h2>
+        </div>
+        
+        {% if user.is_authenticated %}
+        <p class="points-text">Дякуємо, брат! Твоє замовлення оформлено. Бали будуть нараховані після отримання товару.</p>
+        
+        <!-- Telegram уведомления -->
+        <div class="telegram-notification-box">
+          <div class="telegram-notification-content">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="color: #0088cc; margin-right: 0.75rem;">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            <div>
+              <p class="telegram-notification-text"><strong>Статус замовлення приходить в Telegram</strong></p>
+              <p class="telegram-notification-subtext">Оновлення про твій замовлення надсилаються автоматично</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="auth-buttons-group">
+          <a href="{% url 'my_orders' %}" class="btn-auth btn-auth-primary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            Мої замовлення
+          </a>
+        </div>
+        {% else %}
+        <p class="points-text">Створіть акаунт або увійдіть в систему, щоб отримувати бали за покупки!</p>
+        <ul class="points-benefits">
+          <li class="points-benefit">
+            <svg class="points-benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+            Накопичувати бали за покупки
+          </li>
+          <li class="points-benefit">
+            <svg class="points-benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+            Відстежувати статус замовлень
+          </li>
+          <li class="points-benefit">
+            <svg class="points-benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Зберігати історію покупок
+          </li>
+          <li class="points-benefit">
+            <svg class="points-benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+            Отримувати персональні пропозиції
+          </li>
+        </ul>
+        <div class="auth-buttons-group">
+          <a href="{% url 'login' %}" class="btn-auth btn-auth-primary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/>
+            </svg>
+            Увійти
+          </a>
+          <a href="{% url 'register' %}" class="btn-auth btn-auth-outline">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <line x1="19" y1="8" x2="19" y2="14"/>
+              <line x1="22" y1="11" x2="16" y2="11"/>
+            </svg>
+            Зареєструватись
+          </a>
+        </div>
+        <p style="margin-top: 1rem; font-size: 0.875rem; color: rgba(255, 255, 255, 0.6); text-align: center;">
+          Якщо ви зареєструєтесь, це замовлення автоматично прив'яжеться до вашого акаунту
+        </p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Email чек -->
+    <div class="email-receipt-card">
+      <h2 class="email-receipt-title">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #8b5cf6;">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+          <polyline points="22,6 12,13 2,6"/>
+        </svg>
+        Отримати чек на email
+      </h2>
+      <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 1rem;">Введіть вашу email адресу, і ми надішлемо чек про оплату</p>
+      <div class="email-form-group">
+        <input type="email" class="email-input" placeholder="your.email@example.com" id="receipt-email-input">
+        <button type="button" class="btn-send-receipt" id="send-receipt-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; margin-right: 0.5rem;">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+          Відправити чек
+        </button>
+      </div>
+      <div id="receipt-message" style="margin-top: 1rem; display: none;"></div>
+    </div>
+
+    <!-- Instagram отзыв -->
+    <div class="instagram-card">
+      <div class="instagram-content">
+        <div class="instagram-header">
+          <div class="instagram-icon-wrapper">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" style="color: white;">
+              <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+            </svg>
+          </div>
+          <h2 class="instagram-title">Залиште відгук в Instagram</h2>
+        </div>
+        <p class="instagram-text">Поділіться своїми враженнями про покупку! Залиште відгук в Instagram з відміткою нашої сторінки, і ми даруємо вам промокод на знижку 10% на наступне замовлення!</p>
+        
+        <div class="promo-code-box">
+          <div class="promo-code-label">Ваш промокод на знижку</div>
+          <div class="promo-code-value">REVIEW10</div>
+          <div class="promo-code-discount">10% знижка на наступне замовлення</div>
+        </div>
+
+        <a href="https://www.instagram.com/twocomms/" class="btn-instagram" target="_blank" rel="noopener noreferrer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073z"/>
+          </svg>
+          Відкрити Instagram
+        </a>
+      </div>
+    </div>
+
+    <!-- Кнопки действий -->
+    <div class="success-actions">
+      <a href="{% url 'home' %}" class="btn-action btn-action-primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        Повернутись на головну
+      </a>
+      <a href="{% url 'catalog' %}" class="btn-action btn-action-secondary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7"/>
+          <rect x="14" y="3" width="7" height="7"/>
+          <rect x="14" y="14" width="7" height="7"/>
+          <rect x="3" y="14" width="7" height="7"/>
+        </svg>
+        Переглянути каталог
+      </a>
+    </div>
   </div>
-</section>
+</div>
+
+<script>
+// Email чек - UI пока, функционал позже
+document.addEventListener('DOMContentLoaded', function() {
+  const emailInput = document.getElementById('receipt-email-input');
+  const sendBtn = document.getElementById('send-receipt-btn');
+  const messageDiv = document.getElementById('receipt-message');
+  
+  if (sendBtn) {
+    sendBtn.addEventListener('click', function() {
+      const email = emailInput.value.trim();
+      if (!email || !email.includes('@')) {
+        messageDiv.style.display = 'block';
+        messageDiv.innerHTML = '<p style="color: #ef4444; margin: 0;">Будь ласка, введіть коректну email адресу</p>';
+        return;
+      }
+      
+      // UI показываем успех, функционал добавим позже
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Відправляється...';
+      messageDiv.style.display = 'block';
+      messageDiv.innerHTML = '<p style="color: #10b981; margin: 0;">✅ Чек буде відправлено на ' + email + '. Функціонал буде додано найближчим часом.</p>';
+    });
+  }
+});
+</script>
 {% endblock %}
 
 {% block extra_js %}
+<!-- Pixel tracking (существующий код из оригинального шаблона) -->
 <div id="purchase-payload"
      data-order-id="{{ order.id }}"
-     data-order-number="{{ order.order_number }}"
-     data-value="{{ order.total_sum|floatformat:2 }}"
+     {% if order %}data-order-number="{{ order.order_number }}"{% else %}data-order-number="TEST-PREVIEW"{% endif %}
+     {% if order %}data-value="{{ order.total_sum|floatformat:2 }}"{% else %}data-value="0"{% endif %}
      data-currency="UAH"
-     data-payment-status="{{ order.payment_status }}"
-     data-full-name="{{ order.full_name }}"
-     data-phone="{{ order.phone }}"
-     data-city="{{ order.city }}"
+     {% if order %}data-payment-status="{{ order.payment_status }}"{% else %}data-payment-status="paid"{% endif %}
+     {% if order %}data-full-name="{{ order.full_name }}"{% endif %}
+     {% if order %}data-phone="{{ order.phone }}"{% endif %}
+     {% if order %}data-city="{{ order.city }}"{% endif %}
      {% if user.is_authenticated and user.userprofile.email %}data-email="{{ user.userprofile.email }}"{% endif %}
-     data-contents='[{% for item in order.items.all %}{"id":"{{ item.product.id }}","quantity":{{ item.qty }},"price":{{ item.unit_price|floatformat:2 }},"name":"{{ item.title|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]'>
+     {% if order %}data-contents='[{% for item in order.items.all %}{"id":"{{ item.product.id }}","quantity":{{ item.qty }},"price":{{ item.unit_price|floatformat:2 }},"name":"{{ item.title|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]'{% else %}data-contents='[]'{% endif %}>
 </div>
 
 <script>
@@ -169,11 +1797,8 @@
     var el = document.getElementById('purchase-payload');
     if (!el) return;
     
-    // Получаем статус оплаты
     var paymentStatus = el.dataset.paymentStatus || 'unpaid';
     var isPaid = paymentStatus === 'paid';
-    
-    // Защита от дублирования: проверяем был ли уже отправлен event для этого заказа
     var orderId = el.dataset.orderId;
     var eventType = isPaid ? 'purchase' : 'lead';
     var storageKey = 'gtm_' + eventType + '_' + orderId;
@@ -183,7 +1808,6 @@
       return;
     }
     
-    // Парсим данные
     var orderNumber = el.dataset.orderNumber || '';
     var value = parseFloat(el.dataset.value || '0');
     var currency = el.dataset.currency || 'UAH';
@@ -200,10 +1824,7 @@
       contents = [];
     }
     
-    // Enhanced Conversions / Advanced Matching данные (общие для GTM и FB)
     var userData = {};
-    
-    // Разбиваем ФИО на части (если есть)
     if (fullName) {
       var nameParts = fullName.trim().split(/\s+/);
       if (nameParts.length >= 2) {
@@ -213,31 +1834,13 @@
         userData.first_name = fullName;
       }
     }
+    if (phone) userData.phone_number = phone;
+    if (email) userData.email = email;
+    if (city) userData.address = { city: city };
     
-    if (phone) {
-      userData.phone_number = phone;
-    }
-    
-    if (email) {
-      userData.email = email;
-    }
-    
-    if (city) {
-      userData.address = {
-        city: city
-      };
-    }
-    
-    // Инициализируем dataLayer если его нет
     window.dataLayer = window.dataLayer || [];
     
-    // РАЗДЕЛЯЕМ ЛОГИКУ: Purchase vs Lead
     if (isPaid) {
-      // ========================================
-      // ОПЛАЧЕННЫЙ ЗАКАЗ → PURCHASE
-      // ========================================
-      
-      // Подготавливаем данные для GTM Purchase
       var purchaseData = {
         event: 'purchase',
         ecommerce: {
@@ -255,72 +1858,43 @@
         }
       };
       
-      // Добавляем userData если есть хотя бы одно поле
       if (Object.keys(userData).length > 0) {
         purchaseData.user_data = userData;
       }
       
-      // Отправляем событие Purchase в GTM
-    window.dataLayer.push(purchaseData);
+      window.dataLayer.push(purchaseData);
       console.log('✅ GTM Purchase event sent (PAID):', purchaseData);
     
-    // Meta Pixel (Facebook Pixel) Purchase с Advanced Matching
-    if (window.fbq) {
-      // Подготавливаем данные для Advanced Matching
-      var fbUserData = {};
-      
-      if (email) {
-          fbUserData.em = email.toLowerCase();
-      }
-      if (phone) {
-          fbUserData.ph = phone.replace(/\D/g, ''); // только цифры
-      }
-      if (fullName) {
-        var nameParts = fullName.trim().split(/\s+/);
-        if (nameParts.length >= 1) {
-            fbUserData.fn = nameParts[0].toLowerCase();
+      if (window.fbq) {
+        var fbUserData = {};
+        if (email) fbUserData.em = email.toLowerCase();
+        if (phone) fbUserData.ph = phone.replace(/\D/g, '');
+        if (fullName) {
+          var nameParts = fullName.trim().split(/\s+/);
+          if (nameParts.length >= 1) fbUserData.fn = nameParts[0].toLowerCase();
+          if (nameParts.length >= 2) fbUserData.ln = nameParts[nameParts.length - 1].toLowerCase();
         }
-        if (nameParts.length >= 2) {
-            fbUserData.ln = nameParts[nameParts.length - 1].toLowerCase();
-        }
+        if (city) fbUserData.ct = city.toLowerCase();
+        
+        var eventId = '{{ order.get_facebook_event_id }}';
+        fbq('track', 'Purchase', {
+          value: value,
+          currency: currency,
+          contents: contents.map(function(item) {
+            return { id: item.id, quantity: item.quantity };
+          }),
+          content_type: 'product'
+        }, {
+          eventID: eventId,
+          em: fbUserData.em,
+          ph: fbUserData.ph,
+          fn: fbUserData.fn,
+          ln: fbUserData.ln,
+          ct: fbUserData.ct
+        });
+        console.log('✅ Meta Pixel Purchase event sent (PAID) with eventID:', eventId);
       }
-      if (city) {
-          fbUserData.ct = city.toLowerCase();
-      }
-      
-        // Генерируем event_id для дедупликации
-      var eventId = '{{ order.get_facebook_event_id }}';
-      
-        // Отправляем Purchase event с eventID для дедупликации
-      fbq('track', 'Purchase', {
-        value: value,
-        currency: currency,
-        contents: contents.map(function(item) {
-          return {
-            id: item.id,
-            quantity: item.quantity
-          };
-        }),
-        content_type: 'product'
-      }, {
-        eventID: eventId,
-        // Advanced Matching
-        em: fbUserData.em,
-        ph: fbUserData.ph,
-        fn: fbUserData.fn,
-        ln: fbUserData.ln,
-        ct: fbUserData.ct
-      });
-      
-        console.log('✅ Meta Pixel Purchase event sent (PAID) with eventID:', eventId, 'and Advanced Matching:', fbUserData);
-  }
-      
     } else {
-      // ========================================
-      // НЕОПЛАЧЕННЫЙ ЗАКАЗ → LEAD
-      // ========================================
-      
-      // Подготавливаем данные для GTM Lead
       var leadData = {
         event: 'lead',
         lead_data: {
@@ -331,43 +1905,25 @@
         }
       };
       
-      // Добавляем userData если есть хотя бы одно поле
       if (Object.keys(userData).length > 0) {
         leadData.user_data = userData;
       }
       
-      // Отправляем событие Lead в GTM
       window.dataLayer.push(leadData);
       console.log('📋 GTM Lead event sent (UNPAID):', leadData);
       
-      // Meta Pixel (Facebook Pixel) Lead с Advanced Matching
       if (window.fbq) {
-        // Подготавливаем данные для Advanced Matching
         var fbUserData = {};
-        
-        if (email) {
-          fbUserData.em = email.toLowerCase();
-        }
-        if (phone) {
-          fbUserData.ph = phone.replace(/\D/g, '');
-        }
+        if (email) fbUserData.em = email.toLowerCase();
+        if (phone) fbUserData.ph = phone.replace(/\D/g, '');
         if (fullName) {
           var nameParts = fullName.trim().split(/\s+/);
-          if (nameParts.length >= 1) {
-            fbUserData.fn = nameParts[0].toLowerCase();
-          }
-          if (nameParts.length >= 2) {
-            fbUserData.ln = nameParts[nameParts.length - 1].toLowerCase();
-          }
+          if (nameParts.length >= 1) fbUserData.fn = nameParts[0].toLowerCase();
+          if (nameParts.length >= 2) fbUserData.ln = nameParts[nameParts.length - 1].toLowerCase();
         }
-        if (city) {
-          fbUserData.ct = city.toLowerCase();
-        }
+        if (city) fbUserData.ct = city.toLowerCase();
         
-        // Генерируем event_id для дедупликации (добавляем _lead для уникальности)
         var leadEventId = '{{ order.get_facebook_event_id }}_lead';
-        
-        // Отправляем Lead event с eventID
         fbq('track', 'Lead', {
           value: value,
           currency: currency,
@@ -375,24 +1931,21 @@
           content_category: 'order_lead'
         }, {
           eventID: leadEventId,
-          // Advanced Matching
           em: fbUserData.em,
           ph: fbUserData.ph,
           fn: fbUserData.fn,
           ln: fbUserData.ln,
           ct: fbUserData.ct
         });
-        
-        console.log('📋 Meta Pixel Lead event sent (UNPAID) with eventID:', leadEventId, 'and Advanced Matching:', fbUserData);
+        console.log('📋 Meta Pixel Lead event sent (UNPAID) with eventID:', leadEventId);
       }
     }
     
-    // Сохраняем флаг что событие отправлено
     sessionStorage.setItem(storageKey, 'true');
-    
   } catch(e) {
     console.error('Error in conversion tracking:', e);
   }
 })();
 </script>
 {% endblock %}
+
