@@ -288,12 +288,14 @@
       slidesPerView: 1,
       spaceBetween: 20,
       autoplay: {
-        delay: 2500, // 2.5 секунды (быстро)
+        delay: 3000, // 3 секунды между слайдами
         disableOnInteraction: false,
         pauseOnMouseEnter: true
       },
       loop: true,
-      speed: 600,
+      speed: 1200, // Плавная прокрутка
+      effect: 'slide',
+      freeMode: false,
       breakpoints: {
         576: {
           slidesPerView: 2,
