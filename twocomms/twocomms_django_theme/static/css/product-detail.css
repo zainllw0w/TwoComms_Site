@@ -884,12 +884,8 @@
 }
 
 .product-add-to-cart-btn-compact:active {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
-}
-
-.product-add-to-cart-btn-compact:active {
   transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
 }
 
 .product-add-to-cart-btn-compact.loading {
