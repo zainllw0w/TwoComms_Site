@@ -3,12 +3,14 @@ Monobank payment integration - Интеграция платежей Monobank.
 
 Содержит views и helper функции для:
 - Создания инвойсов (invoice API)
+- Финализации инвойсов (invoice finalize API)
 - Checkout API (быстрые платежи)
 - Обработки webhooks
 - Проверки статусов платежей
 - Работы с Monobank API
 
 Monobank документация: https://api.monobank.ua/docs/
+API финализации: https://monobank.ua/api-docs/acquiring/methods/ia/post--api--merchant--invoice--finalize
 """
 
 import logging
@@ -480,18 +482,6 @@ def monobank_create_invoice(request):
             
             if pay_type == 'prepay_200':
                 monobank_logger.info(f'✅ pay_type is prepay_200! Calculating prepayment...')
-                first_item = order_items[0] if order_items else None
-                product_label = ''
-                if first_item:
-                    product_label = (first_item.title or '').strip()
-                    if first_item.size:
-                        size_clean = str(first_item.size).strip()
-                        if size_clean:
-                            product_label = f'{product_label} ({size_clean})' if product_label else size_clean
-                if not product_label:
-                    product_label = f'замовлення {order.order_number}'
-
-                prepay_label = f'Передплата за товар "{product_label}"'
                 
                 # КРИТИЧЕСКАЯ ТОЧКА: Вызов get_prepayment_amount()
                 monobank_logger.info(f'🔍 Calling order.get_prepayment_amount()...')
@@ -500,8 +490,16 @@ def monobank_create_invoice(request):
                 monobank_logger.info(f'🔍 order.get_prepayment_amount() returned: {payment_amount}')
                 monobank_logger.info(f'🔍 Type: {type(payment_amount)}, Value: {payment_amount}')
                 
-                payment_description = f'{prepay_label} - замовлення {order.order_number}'
+                # Формируем описание для предоплаты с номером заказа
+                total_sum_without_discount = order.total_sum + (order.discount_amount or Decimal('0'))
+                remaining_amount = total_sum_without_discount - payment_amount
+                payment_description = (
+                    f'Передплата 200 грн для замовлення {order.order_number}. '
+                    f'Повна сума: {total_sum_without_discount:.2f} грн. '
+                    f'Залишок {remaining_amount:.2f} грн оплачується при отриманні через Нову Пошту.'
+                )
                 monobank_logger.info(f'✅ Prepayment amount set to: {payment_amount} UAH')
+                monobank_logger.info(f'✅ Payment description: {payment_description}')
             else:
                 monobank_logger.info(f'✅ pay_type is NOT prepay_200 (it is {pay_type}). Using full amount.')
                 # Полная оплата
@@ -516,51 +514,92 @@ def monobank_create_invoice(request):
             monobank_logger.info(f'🔍 Building basket entries for pay_type={pay_type}')
             basket_entries = []
             
-            # Для предоплаты собираем список ВСЕХ товаров
+            # Для предоплаты показываем товары с полными ценами отдельными позициями
             if pay_type == 'prepay_200':
-                product_names = []
-                first_icon_url = ''
+                total_items_sum = Decimal('0')
                 
-                for item in order_items[:10]:  # Максимум 10 товаров
+                # Вычисляем остаток к доплате заранее
+                total_sum_without_discount = order.total_sum + (order.discount_amount or Decimal('0'))
+                remaining_amount = total_sum_without_discount - payment_amount
+                
+                # Добавляем все товары с их полными ценами
+                items_to_show = order_items[:10]  # Максимум 10 товаров
+                items_count = len(items_to_show)
+                
+                for idx, item in enumerate(items_to_show):
                     try:
-                        # Запоминаем иконку первого товара
-                        if not first_icon_url and item.product.main_image:
-                            first_icon_url = request.build_absolute_uri(item.product.main_image.url)
+                        # Получаем URL изображения
+                        icon_url = ''
+                        if item.product.main_image:
+                            icon_url = request.build_absolute_uri(item.product.main_image.url)
                         
-                        # Добавляем название товара в список
-                        product_name = f'{item.title}'
+                        # Используем полную стоимость товара (line_total)
+                        item_total_kopecks = int(item.line_total * 100)
+                        total_items_sum += item.line_total
+                        
+                        # Формируем название товара
+                        item_name = item.title
                         if item.size:
-                            product_name += f' ({item.size})'
-                        if item.qty > 1:
-                            product_name += f' x{item.qty}'
+                            item_name += f' ({item.size})'
                         
-                        product_names.append(product_name)
+                        monobank_logger.info(f'🔍 PREPAY mode: Adding item with FULL price')
+                        monobank_logger.info(f'🔍 - name: {item_name}')
+                        monobank_logger.info(f'🔍 - qty: {item.qty}')
+                        monobank_logger.info(f'🔍 - sum: {item_total_kopecks} kopecks ({item.line_total} UAH)')
+                        
+                        item_entry = {
+                            'name': item_name,
+                            'qty': item.qty,
+                            'sum': item_total_kopecks,  # полная цена товара в копейках
+                            'icon': icon_url,
+                            'unit': 'шт'
+                        }
+                        
+                        # Для последнего товара добавляем описание с информацией о предоплате
+                        if idx == len(items_to_show) - 1:
+                            if items_count > 1:
+                                item_entry['description'] = f'Передплата 200 грн за {items_count} товарів. Залишок {remaining_amount:.2f} грн — при отриманні на Новій Пошті'
+                            else:
+                                item_entry['description'] = f'Передплата 200 грн. Залишок {remaining_amount:.2f} грн — при отриманні на Новій Пошті'
+                        
+                        basket_entries.append(item_entry)
                     except Exception as e:
-                        monobank_logger.warning(f'Error processing item for prepay: {e}')
+                        monobank_logger.warning(f'Error processing item for prepay basket: {e}')
                 
-                # Формируем общее описание со всеми товарами
-                if len(product_names) == 1:
-                    # Один товар
-                    full_description = f'Передплата за товар {product_names[0]}'
+                # Добавляем позицию "Предоплата" с суммой, которая делает общую сумму basket = 200
+                # Если сумма товаров уже больше 200, добавляем отрицательную позицию для баланса
+                prepay_kopecks = int(payment_amount * 100)
+                current_basket_sum = int(total_items_sum * 100)
+                
+                if current_basket_sum > prepay_kopecks:
+                    # Добавляем отрицательную позицию для баланса
+                    balance_kopecks = prepay_kopecks - current_basket_sum
+                    monobank_logger.info(f'🔍 PREPAY mode: Adding balance entry')
+                    monobank_logger.info(f'🔍 - balance: {balance_kopecks} kopecks')
+                    
+                    basket_entries.append({
+                        'name': f'Часткова оплата (замовлення {order.order_number}). Залишок {remaining_amount:.2f} грн при отриманні через Нову Пошту',
+                        'qty': 1,
+                        'sum': balance_kopecks,  # отрицательная сумма для баланса
+                        'icon': '',
+                        'unit': 'шт'
+                    })
+                elif current_basket_sum < prepay_kopecks:
+                    # Добавляем позицию "Предоплата" с остаточной суммой
+                    remaining_prepay = prepay_kopecks - current_basket_sum
+                    monobank_logger.info(f'🔍 PREPAY mode: Adding prepayment entry')
+                    monobank_logger.info(f'🔍 - prepay: {remaining_prepay} kopecks')
+                    
+                    basket_entries.append({
+                        'name': f'Передплата (замовлення {order.order_number}). Залишок {remaining_amount:.2f} грн при отриманні через Нову Пошту',
+                        'qty': 1,
+                        'sum': remaining_prepay,
+                        'icon': '',
+                        'unit': 'шт'
+                    })
                 else:
-                    # Несколько товаров
-                    products_list = ', '.join(product_names)
-                    full_description = f'Передплата за замовлення ({products_list})'
-                
-                basket_sum_kopecks = int(payment_amount * 100)
-                monobank_logger.info(f'🔍 PREPAY mode: Creating basket entry with ALL products')
-                monobank_logger.info(f'🔍 - name: {full_description}')
-                monobank_logger.info(f'🔍 - products count: {len(product_names)}')
-                monobank_logger.info(f'🔍 - qty: 1')
-                monobank_logger.info(f'🔍 - sum: {basket_sum_kopecks} kopecks ({payment_amount} UAH)')
-                
-                basket_entries.append({
-                    'name': full_description,
-                    'qty': 1,
-                    'sum': basket_sum_kopecks,  # в копейках (всегда 20000 = 200 грн)
-                    'icon': first_icon_url,
-                    'unit': 'шт'
-                })
+                    # Суммы совпадают - описание уже добавлено к последнему товару
+                    monobank_logger.info(f'🔍 PREPAY mode: Sums match, description already added to last item')
             else:
                 # Для полной оплаты показываем все товары отдельными позициями
                 for item in order_items[:10]:  # Максимум 10 товаров
@@ -571,12 +610,18 @@ def monobank_create_invoice(request):
                             icon_url = request.build_absolute_uri(item.product.main_image.url)
                         
                         basket_sum_kopecks = int(item.line_total * 100)
-                        monobank_logger.info(f'🔍 FULL mode: Adding item {item.title}')
+                        
+                        # Добавляем информацию о промокоде к названию товара
+                        item_name = f'{item.title} {item.size}'.strip()
+                        if order.promo_code:
+                            item_name += f' [з промокодом {order.promo_code.code}]'
+                        
+                        monobank_logger.info(f'🔍 FULL mode: Adding item {item_name}')
                         monobank_logger.info(f'🔍 - qty: {item.qty}')
                         monobank_logger.info(f'🔍 - sum: {basket_sum_kopecks} kopecks ({item.line_total} UAH)')
                         
                         basket_entries.append({
-                            'name': f'{item.title} {item.size}'.strip(),
+                            'name': item_name,
                             'qty': item.qty,
                             'sum': basket_sum_kopecks,  # в копейках
                             'icon': icon_url,
@@ -584,6 +629,18 @@ def monobank_create_invoice(request):
                         })
                     except Exception as e:
                         monobank_logger.warning(f'Error formatting basket item: {e}')
+                
+                # Добавляем позицию со скидкой если есть промокод
+                if order.promo_code and order.discount_amount > 0:
+                    discount_kopecks = int(order.discount_amount * 100)
+                    monobank_logger.info(f'🔍 Adding discount entry: {discount_kopecks} kopecks')
+                    basket_entries.append({
+                        'name': f'Знижка по промокоду {order.promo_code.code}',
+                        'qty': 1,
+                        'sum': -discount_kopecks,  # отрицательная сумма
+                        'icon': '',
+                        'unit': 'шт'
+                    })
             
             if not basket_entries:
                 basket_entries.append({
@@ -679,3 +736,118 @@ def monobank_create_invoice(request):
             'success': False,
             'error': 'Сталася помилка. Спробуйте ще раз.'
         })
+
+
+# ==================== MONOBANK FINALIZE INVOICE ====================
+
+def _monobank_finalize_invoice(order, request=None):
+    """
+    Финализирует Monobank инвойс после отправки товаров.
+    
+    ВАЖНО: Финализация НЕ списывает деньги! Деньги уже списаны при оплате.
+    
+    Финализация нужна ТОЛЬКО для:
+    - Фискализации детальных данных в чеках Monobank
+    - Добавления детальной информации о товарах, промокодах, предоплатах
+    - Обновления налоговой отчетности
+    
+    Args:
+        order: Объект Order
+        request: HTTP request (опционально, для build_absolute_uri)
+    
+    Returns:
+        dict: Результат финализации или None при ошибке
+    """
+    if not order.payment_invoice_id:
+        monobank_logger.warning(f'Order {order.order_number} has no invoice_id, skipping finalization')
+        return None
+    
+    # Проверяем что заказ оплачен
+    if order.payment_status not in ['paid', 'prepaid']:
+        monobank_logger.warning(f'Order {order.order_number} payment_status={order.payment_status}, skipping finalization')
+        return None
+    
+    try:
+        # Формируем items для финализации
+        items = []
+        
+        # Добавляем товары
+        for item in order.items.all():
+            item_name = item.title
+            if item.size:
+                item_name += f' ({item.size})'
+            
+            items.append({
+                'name': item_name,
+                'qty': item.qty,
+                'sum': int(item.line_total * 100),  # в копейках
+                'icon': '',
+                'unit': 'шт'
+            })
+        
+        # Добавляем позицию со скидкой если есть промокод
+        if order.promo_code and order.discount_amount > 0:
+            items.append({
+                'name': f'Знижка по промокоду {order.promo_code.code}',
+                'qty': 1,
+                'sum': -int(order.discount_amount * 100),  # отрицательная сумма
+                'icon': '',
+                'unit': 'шт'
+            })
+        
+        # Добавляем комментарий о prepayment если есть
+        if order.pay_type == 'prepay_200':
+            prepay_amount = order.get_prepayment_amount()
+            remaining = order.total_sum - prepay_amount
+            items.append({
+                'name': f'Передплата 200 грн. Залишок {remaining:.2f} грн при отриманні через Нову Пошту',
+                'qty': 1,
+                'sum': 0,  # информационная позиция
+                'icon': '',
+                'unit': 'шт'
+            })
+        
+        # Определяем финальную сумму
+        final_amount = order.total_sum - order.discount_amount
+        
+        # Для prepayment финализируем только 200 грн (или факт. списанную сумму)
+        if order.pay_type == 'prepay_200':
+            # Используем ту сумму, которая была фактически оплачена
+            if order.payment_status == 'prepaid':
+                final_amount = order.get_prepayment_amount()
+            else:
+                final_amount = order.total_sum - order.discount_amount
+        
+        payload = {
+            'invoiceId': order.payment_invoice_id,
+            'amount': int(final_amount * 100),
+            'items': items
+        }
+        
+        monobank_logger.info(f'Finalizing invoice {order.payment_invoice_id} for order {order.order_number}')
+        monobank_logger.info(f'Final amount: {final_amount} UAH, items count: {len(items)}')
+        
+        try:
+            result = _monobank_api_request('POST', '/api/merchant/invoice/finalize', json_payload=payload)
+            
+            # Сохраняем результат в payment_payload
+            if order.payment_payload:
+                if 'finalize' not in order.payment_payload:
+                    order.payment_payload['finalize'] = []
+                order.payment_payload['finalize'].append({
+                    'timestamp': timezone.now().isoformat(),
+                    'payload': payload,
+                    'result': result
+                })
+                order.save(update_fields=['payment_payload'])
+            
+            monobank_logger.info(f'✅ Invoice {order.payment_invoice_id} finalized successfully')
+            return result
+            
+        except MonobankAPIError as e:
+            monobank_logger.error(f'Monobank finalize error for invoice {order.payment_invoice_id}: {e}')
+            return None
+            
+    except Exception as e:
+        monobank_logger.error(f'Error finalizing invoice {order.payment_invoice_id}: {e}', exc_info=True)
+        return None
