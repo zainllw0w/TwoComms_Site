@@ -7,6 +7,9 @@ from social_core.pipeline.user import user_details
 from social_core.exceptions import AuthException
 from django.contrib.auth.models import User
 from accounts.models import UserProfile
+import logging
+
+logger = logging.getLogger(__name__)
 
 def get_avatar_url(strategy, details, backend, user=None, social=None, *args, **kwargs):
     """Извлекает URL аватарки из Google"""
@@ -46,8 +49,8 @@ def create_or_update_profile(strategy, details, backend, user=None, social=None,
                 import requests
                 from django.core.files.base import ContentFile
                 
-                # Скачиваем аватарку
-                response = requests.get(avatar_url, timeout=10)
+                # Скачиваем аватарку с короткими таймаутами для быстрой отрисовки страницы
+                response = requests.get(avatar_url, timeout=(2, 5))  # connect=2, read=5
                 if response.status_code == 200:
                     # Удаляем старую аватарку если есть
                     if profile.avatar:
@@ -66,6 +69,8 @@ def create_or_update_profile(strategy, details, backend, user=None, social=None,
                         save=False  # Не сохраняем сразу, сохраним в конце
                     )
             except Exception as e:
+                # Тихая обработка ошибок - не блокируем авторизацию из-за проблем с аватаром
+                logger.debug(f"Failed to download avatar for user {user.username}: {e}")
                 pass
         
         # Сохраняем все изменения
