@@ -5711,7 +5711,7 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
             total_amount_major += line_total_major
             total_count += qty
 
-        product_entry = {
+            product_entry = {
             'name': product_name,
                 'cnt': qty,
                 'price': _as_number(unit_price_major),
@@ -5728,7 +5728,7 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
                 else:
                     product_entry['description'] = f'Передплата 200 грн. Залишок {total_order_sum - prepay_amount:.2f} грн — при отриманні на Новій Пошті'
             
-        products.append(product_entry)
+            products.append(product_entry)
     else:
         for item in items:
             qty_value = getattr(item, 'qty', None)
