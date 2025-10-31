@@ -1,23 +1,23 @@
 @charset "UTF-8";
 
 :root {
-  --pd-bg: #0c0c0f;
-  --pd-bg-elevated: rgba(21, 21, 27, 0.85);
-  --pd-panel: rgba(18, 18, 23, 0.7);
-  --pd-border: rgba(255, 255, 255, 0.08);
-  --pd-border-strong: rgba(255, 255, 255, 0.16);
-  --pd-text: rgba(255, 255, 255, 0.92);
-  --pd-text-muted: rgba(255, 255, 255, 0.65);
-  --pd-text-soft: rgba(255, 255, 255, 0.45);
+  --pd-bg: #0f0f14;
+  --pd-bg-elevated: rgba(26, 26, 32, 0.7);
+  --pd-panel: rgba(255, 255, 255, 0.05);
+  --pd-border: rgba(255, 255, 255, 0.12);
+  --pd-border-strong: rgba(255, 255, 255, 0.2);
+  --pd-text: rgba(255, 255, 255, 0.95);
+  --pd-text-muted: rgba(255, 255, 255, 0.7);
+  --pd-text-soft: rgba(255, 255, 255, 0.5);
   --pd-primary: #8b5cf6;
-  --pd-primary-soft: rgba(139, 92, 246, 0.25);
-  --pd-primary-strong: rgba(139, 92, 246, 0.55);
+  --pd-primary-soft: rgba(139, 92, 246, 0.2);
+  --pd-primary-strong: rgba(139, 92, 246, 0.4);
   --pd-accent: #f97316;
   --pd-success: #10b981;
-  --pd-radius-lg: 24px;
-  --pd-radius-md: 18px;
-  --pd-radius-sm: 12px;
-  --pd-transition: 180ms ease;
+  --pd-radius-lg: 20px;
+  --pd-radius-md: 16px;
+  --pd-radius-sm: 10px;
+  --pd-transition: 200ms ease;
   --accent-color: var(--pd-primary);
 }
 
@@ -315,19 +315,20 @@
   margin-top: 0.5rem;
 }
 
-/* Карточки с эффектами глубины и анимациями появления */
+/* Карточки с эффектами глубины и анимациями появления - светлее и воздушнее */
 .product-card-modern {
-  background: rgba(21, 21, 28, 0.85);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--pd-radius-md);
   padding: 1.5rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
-  box-shadow: 0 8px 24px rgba(12, 12, 18, 0.4), 
-              0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2),
+              0 0 0 1px rgba(255, 255, 255, 0.05),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1);
   animation: cardFadeIn 0.6s ease-out backwards;
 }
 
@@ -377,12 +378,13 @@
 }
 
 .product-card-modern:hover {
-  transform: translateY(-4px);
-  border-color: rgba(139, 92, 246, 0.3);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5),
-              0 0 0 1px rgba(139, 92, 246, 0.25),
-              0 0 30px rgba(139, 92, 246, 0.15);
-  background: rgba(21, 21, 28, 0.95);
+  transform: translateY(-3px);
+  border-color: rgba(139, 92, 246, 0.4);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3),
+              0 0 0 1px rgba(139, 92, 246, 0.3),
+              0 0 40px rgba(139, 92, 246, 0.2),
+              inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .product-card-modern:hover::before {
@@ -395,7 +397,8 @@
 
 /* Цена с баллами */
 .product-price-card {
-  padding: 1.25rem 1.5rem;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .product-price-main-row {
@@ -524,7 +527,8 @@
 /* Размеры */
 /* Блок выбора (размеры + цвета) */
 .product-selection-card {
-  padding: 1.125rem 1.25rem;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .product-selection-row {
@@ -561,21 +565,23 @@
   min-width: 44px;
   height: 44px;
   padding: 0 0.75rem;
-  background: var(--pd-bg-elevated);
-  border: 1px solid var(--pd-border);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: var(--pd-radius-sm);
   color: var(--pd-text);
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all var(--pd-transition);
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
 }
 
 .size-radio:checked + .product-size-btn-compact {
-  background: var(--pd-primary-soft);
+  background: rgba(139, 92, 246, 0.15);
   border-color: var(--pd-primary);
   color: var(--pd-primary);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2),
+              0 2px 8px rgba(139, 92, 246, 0.15);
 }
 
 .product-size-btn-compact:hover {
@@ -603,12 +609,13 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: 2px solid var(--pd-border);
+  border: 2px solid rgba(255, 255, 255, 0.15);
   cursor: pointer;
   padding: 0;
   background: transparent;
   overflow: visible;
-  transition: all var(--pd-transition);
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .product-color-swatch-compact:hover {
@@ -620,7 +627,8 @@
 
 .product-color-swatch-compact.active {
   border-color: var(--pd-primary);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3),
+              0 4px 12px rgba(139, 92, 246, 0.25);
   transform: scale(1.15);
 }
 
@@ -782,7 +790,8 @@
 /* Действия */
 /* Блок действий (количество + кнопка) */
 .product-action-card {
-  padding: 1.125rem 1.25rem;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .product-action-row {
@@ -795,10 +804,11 @@
 .product-qty-compact {
   display: flex;
   align-items: center;
-  background: var(--pd-bg-elevated);
-  border: 1px solid var(--pd-border);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: var(--pd-radius-sm);
   overflow: hidden;
+  backdrop-filter: blur(10px);
 }
 
 .qty-btn-compact {
@@ -908,12 +918,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(249, 115, 22, 0.15);
-  border: 1px solid rgba(249, 115, 22, 0.3);
+  background: rgba(249, 115, 22, 0.12);
+  border: 1px solid rgba(249, 115, 22, 0.25);
   color: var(--pd-accent);
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   padding: 0;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.15);
 }
 
 .delivery-icon-round:hover {
@@ -1589,7 +1601,8 @@
 
 /* Стили для карточек шаринга и вкладок */
 .product-share-card {
-  padding: 1.25rem;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .product-share-buttons {
