@@ -408,10 +408,18 @@ def _record_monobank_status(order, payload, source='api'):
                         else:
                             monobank_logger.warning(f'⚠️ Failed to send Facebook Lead event for order {order.order_number}')
                     elif order.payment_status == 'paid':
-                        # Полная оплата → Purchase event
-                        success = fb_service.send_purchase_event(order)
-                        if success:
-                            monobank_logger.info(f'📊 Facebook Purchase event sent for order {order.order_number} (full payment)')
+                        # Полная оплата → Lead + Purchase события сразу (не ждем получения товара)
+                        # Это позволяет оптимизировать рекламу на всех кто оплатил
+                        lead_success = fb_service.send_lead_event(order)
+                        purchase_success = fb_service.send_purchase_event(order)
+                        
+                        if lead_success:
+                            monobank_logger.info(f'📊 Facebook Lead event sent for order {order.order_number} (full payment)')
+                        else:
+                            monobank_logger.warning(f'⚠️ Failed to send Facebook Lead event for order {order.order_number}')
+                        
+                        if purchase_success:
+                            monobank_logger.info(f'✅ Facebook Purchase event sent for order {order.order_number} (full payment)')
                         else:
                             monobank_logger.warning(f'⚠️ Failed to send Facebook Purchase event for order {order.order_number}')
                 else:

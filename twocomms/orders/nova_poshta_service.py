@@ -155,12 +155,17 @@ class NovaPoshtaService:
             print(f"✅ Заказ {order.order_number}: статус изменен с '{old_order_status}' на 'done' (посылка получена)")
             
             # 2. Автоматически меняем payment_status на 'paid' если не оплачено
+            payment_status_changed = False
             if order.payment_status != 'paid':
                 order.payment_status = 'paid'
+                payment_status_changed = True
                 print(f"💰 Заказ {order.order_number}: payment_status изменен с '{old_payment_status}' на 'paid'")
                 
                 # 3. Отправляем Purchase событие в Facebook Conversions API
                 self._send_facebook_purchase_event(order)
+            
+            # 4. Отправляем уведомление админу об автоматическом изменении статуса
+            self._send_admin_delivery_notification(order, old_order_status, payment_status_changed)
             
             return True
         
@@ -194,6 +199,56 @@ class NovaPoshtaService:
         except Exception as e:
             print(f"❌ Error sending Facebook Purchase event for order {order.order_number}: {e}")
     
+    def _send_admin_delivery_notification(self, order, old_status, payment_status_changed):
+        """
+        Отправляет уведомление админу об автоматическом изменении статуса заказа
+        
+        Args:
+            order (Order): Заказ
+            old_status (str): Старый статус заказа
+            payment_status_changed (bool): Изменился ли payment_status
+        """
+        if not self.telegram_notifier.is_configured():
+            return
+            
+        status_display = {
+            'new': 'В обробці',
+            'prep': 'Готується до відправлення',
+            'ship': 'Відправлено',
+            'done': 'Отримано',
+            'cancelled': 'Скасовано',
+        }
+        
+        old_status_text = status_display.get(old_status, old_status)
+        new_status_text = status_display.get('done', 'Отримано')
+        
+        message = f"""🤖 <b>АВТОМАТИЧНЕ ОНОВЛЕННЯ СТАТУСУ</b>
+
+🆔 <b>Замовлення:</b> #{order.order_number}
+📋 <b>ТТН:</b> {order.tracking_number or 'Не вказано'}
+
+📊 <b>Статус замовлення:</b>
+├─ Було: {old_status_text}
+└─ Стало: <b>{new_status_text}</b>
+
+"""
+        
+        if payment_status_changed:
+            message += "💰 <b>Статус оплати:</b> автоматично змінено на <b>ОПЛАЧЕНО</b>\n"
+            message += "📊 <b>Facebook Pixel:</b> Purchase подія відправлена\n"
+            message += "\n"
+        
+        message += f"""👤 <b>Клієнт:</b> {order.full_name}
+📞 <b>Телефон:</b> {order.phone}
+🏙️ <b>Місто:</b> {order.city}
+💰 <b>Сума:</b> {order.total_sum} грн
+
+🕐 <b>Час оновлення:</b> {timezone.now().strftime('%d.%m.%Y %H:%M')}
+
+<i>Статус змінено автоматично через API Нової Пошти</i>"""
+        
+        self.telegram_notifier.send_admin_message(message)
+    
     def _send_delivery_notification(self, order, shipment_status):
         """
         Отправляет специальное уведомление о получении посылки
@@ -202,17 +257,22 @@ class NovaPoshtaService:
             order (Order): Заказ
             shipment_status (str): Статус посылки
         """
-        if not order.user or not order.user.userprofile.telegram_id:
+        if not order.user:
+            return
+            
+        # Проверяем есть ли telegram_id у пользователя
+        try:
+            telegram_id = order.user.userprofile.telegram_id if hasattr(order.user, 'userprofile') else None
+            if not telegram_id:
+                return
+        except:
             return
             
         # Формируем сообщение о доставке
         message = self._format_delivery_message(order, shipment_status)
         
         # Отправляем личное сообщение пользователю
-        self.telegram_notifier.send_personal_message(
-            order.user.userprofile.telegram_id, 
-            message
-        )
+        self.telegram_notifier.send_personal_message(telegram_id, message)
     
     def _send_status_notification(self, order, old_status, new_status):
         """

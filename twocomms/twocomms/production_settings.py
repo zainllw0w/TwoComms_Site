@@ -127,6 +127,7 @@ SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.user.user_details',
     'storefront.social_pipeline.get_avatar_url',
     'storefront.social_pipeline.create_or_update_profile',
+    'storefront.social_pipeline.set_auth_redirect',
 )
 
 # Дополнительные настройки для Google OAuth

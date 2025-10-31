@@ -99,35 +99,64 @@
       }
       
       // Buffer Meta Pixel events until loaded
+      // Защита от блокировки: проверяем что Pixel действительно доступен
       try {
-        if (win.fbq && win._fbqLoaded) {
+        if (PIXEL_ID && win.fbq && typeof win.fbq === 'function') {
+          // Проверяем что Pixel инициализирован
+          if (win._fbqLoaded) {
+            try {
           win.fbq('track', eventName, fbPayload);
+            } catch (fbErr) {
+              if (console && console.debug) {
+                console.debug('Meta Pixel track error (possible blocker):', fbErr);
+              }
+              // Fallback: буферизуем событие на случай если это временная ошибка
+              if (win._fbqBuffer) {
+                win._fbqBuffer.push({ event: eventName, data: fbPayload });
+              }
+            }
         } else if (PIXEL_ID) {
-          // Queue event for later
+            // Pixel еще не загружен - буферизуем
+            if (!win._fbqBuffer) {
+              win._fbqBuffer = [];
+            }
           win._fbqBuffer.push({ event: eventName, data: fbPayload });
+          }
         }
       } catch (err1) {
         if (console && console.debug) {
-          console.debug('Meta Pixel track error', err1);
+          console.debug('Meta Pixel track error (possible blocker):', err1);
         }
       }
       
+      // Отправка в Google Analytics через dataLayer (работает с GTM и GA4)
       try {
-        if (win.gtag) {
+        // ИСПРАВЛЕНИЕ: Используем существующий dataLayer от GTM
+        win.dataLayer = win.dataLayer || [];
+        
+        // Если есть gtag - используем его (GA4 direct)
+        if (win.gtag && typeof win.gtag === 'function') {
           win.gtag('event', eventName, payload);
+        } else {
+          // Fallback: отправляем напрямую в dataLayer (GTM подхватит)
+          win.dataLayer.push({
+            'event': eventName,
+            'eventParameters': payload
+          });
         }
       } catch (err2) {
         if (console && console.debug) {
-          console.debug('GA track error', err2);
+          console.debug('GA/GTM track error (possible blocker):', err2);
         }
       }
+      // Отправка в Yandex Metrika (если подключена)
       try {
-        if (win.ym && win.YM_ID) {
+        if (win.ym && typeof win.ym === 'function' && win.YM_ID) {
           win.ym(win.YM_ID, 'reachGoal', eventName, payload);
         }
       } catch (err3) {
         if (console && console.debug) {
-          console.debug('YM track error', err3);
+          console.debug('YM track error (possible blocker):', err3);
         }
       }
     };
@@ -137,18 +166,34 @@
     if (!GA_ID || win.__gaLoaded) {
       return;
     }
+    
+    // ИСПРАВЛЕНИЕ: Используем существующий dataLayer от GTM (не создаем новый)
+    // GTM уже создает dataLayer в base.html, используем его
     win.dataLayer = win.dataLayer || [];
-    win.gtag =
-      win.gtag ||
-      function () {
+    
+    // Создаем gtag функцию если её еще нет (GTM может её не создать)
+    if (!win.gtag) {
+      win.gtag = function () {
         win.dataLayer.push(arguments);
       };
+    }
 
+    // Защита от блокировки: проверяем что скрипт действительно загрузился
     var script = doc.createElement('script');
     script.async = true;
     script.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_ID;
     script.dataset.loader = 'ga4';
+    
+    var loadTimeout = setTimeout(function() {
+      if (!win.__gaLoaded) {
+        console.debug('GA4 script load timeout - possible ad blocker');
+      }
+    }, 5000);
+    
     script.onload = function () {
+      clearTimeout(loadTimeout);
+      // Проверяем что gtag действительно работает
+      try {
       win.__gaLoaded = true;
       win.gtag('js', new Date());
       win.gtag('config', GA_ID, {
@@ -158,14 +203,36 @@
         page_title: doc.title,
         page_location: win.location.href,
       });
+      } catch (err) {
+        if (console && console.debug) {
+          console.debug('GA4 initialization error (possible blocker):', err);
+        }
+      }
     };
+    
+    script.onerror = function() {
+      clearTimeout(loadTimeout);
+      if (console && console.debug) {
+        console.debug('GA4 script failed to load - possible ad blocker');
+      }
+    };
+    
+    try {
     doc.head.appendChild(script);
+    } catch (err) {
+      if (console && console.debug) {
+        console.debug('Failed to append GA4 script:', err);
+      }
+    }
   }
 
   function loadClarity() {
     if (!CLARITY_ID || win.__clarityLoaded) {
       return;
     }
+    
+    // Защита от блокировки: инициализируем Clarity с проверками
+    try {
     win.__clarityLoaded = true;
     (function (c, l, a, r, i, t, y) {
       c[a] =
@@ -176,9 +243,29 @@
       t = l.createElement(r);
       t.async = true;
       t.src = 'https://www.clarity.ms/tag/' + i;
+        
+        // Защита от блокировки: обработчик ошибок
+        t.onerror = function() {
+          if (console && console.debug) {
+            console.debug('Clarity script failed to load - possible ad blocker');
+          }
+          c.__clarityLoaded = false;
+        };
+        
       y = l.getElementsByTagName(r)[0];
+        if (y && y.parentNode) {
       y.parentNode.insertBefore(t, y);
+        } else {
+          // Fallback: добавляем в head
+          (l.head || l.getElementsByTagName('head')[0]).appendChild(t);
+        }
     })(win, doc, 'clarity', 'script', CLARITY_ID);
+    } catch (err) {
+      if (console && console.debug) {
+        console.debug('Clarity initialization error:', err);
+      }
+      win.__clarityLoaded = false;
+    }
   }
 
   function buildAdvancedMatchingMap() {
@@ -217,6 +304,9 @@
     if (!PIXEL_ID || (win.fbq && win.__fbPixelLoaded)) {
       return;
     }
+    
+    // Защита от блокировки: инициализируем Pixel с проверками
+    try {
     !function (f, b, e, v, n, t, s) {
       if (f.fbq) {
         return;
@@ -234,10 +324,32 @@
       t = b.createElement(e);
       t.async = true;
       t.src = v;
+        
+        // Защита от блокировки: добавляем onerror обработчик
+        t.onerror = function() {
+          if (console && console.debug) {
+            console.debug('Meta Pixel script failed to load - possible ad blocker');
+          }
+          // Помечаем что Pixel не загружен, но продолжаем работу
+          f._fbqLoaded = false;
+        };
+        
       s = b.getElementsByTagName(e)[0];
+        if (s && s.parentNode) {
       s.parentNode.insertBefore(t, s);
+        } else {
+          // Fallback: добавляем в head если script[0] не найден
+          (b.head || b.getElementsByTagName('head')[0]).appendChild(t);
+        }
     }(win, doc, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
+      
     win.__fbPixelLoaded = true;
+    } catch (err) {
+      if (console && console.debug) {
+        console.debug('Meta Pixel initialization error:', err);
+      }
+      win.__fbPixelLoaded = false;
+    }
     try {
       var advancedMatching = buildAdvancedMatchingMap();
       win.fbq('init', PIXEL_ID, advancedMatching);
