@@ -266,6 +266,44 @@
   background-clip: text;
 }
 
+.success-view-details {
+  margin-top: 1.25rem;
+  animation: fadeInUp 0.6s ease-out 0.3s both;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.btn-view-details {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 10px;
+  color: #8b5cf6;
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.btn-view-details:hover {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);
+}
+
 /* ==================== КАРТОЧКА СТАТУСА ==================== */
 .status-card {
   background: linear-gradient(135deg, 
@@ -1262,6 +1300,15 @@
       <div class="success-order-number">
         Номер замовлення: <strong>{{ order.order_number }}</strong>
       </div>
+      <div class="success-view-details">
+        <a href="#order-details" class="btn-view-details">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+          Переглянути деталі замовлення
+        </a>
+      </div>
       {% else %}
       <div class="success-order-number">
         Номер замовлення: <strong>TEST-PREVIEW-001</strong>
@@ -1390,7 +1437,7 @@
 
     <!-- Детали заказа -->
     {% if order %}
-    <div class="order-details-card">
+    <div class="order-details-card" id="order-details">
       <h2 class="details-title">
         <svg class="details-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
