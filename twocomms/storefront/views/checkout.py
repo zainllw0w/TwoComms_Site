@@ -460,107 +460,41 @@ def order_success_preview(request):
     Тестовый preview страницы успешного заказа с демо-данными.
     Только для просмотра дизайна без реального заказа.
     """
-    from orders.models import Order
+    from orders.models import Order, OrderItem
     from decimal import Decimal
     
     # Пытаемся получить реальный заказ, если есть
     try:
-        order = Order.objects.order_by('-id').first()
+        order = Order.objects.select_related().prefetch_related('items__product').order_by('-id').first()
         if not order:
-            # Создаем мок-заказ для демонстрации
-            order = type('MockOrder', (), {
-                'id': 999,
-                'order_number': 'TEST-2025-001',
-                'full_name': 'Іван Петренко',
-                'phone': '+380501234567',
-                'city': 'Київ',
-                'np_office': 'Відділення №1, вул. Хрещатик, 1',
-                'pay_type': 'online_full',
-                'payment_status': 'paid',
-                'total_sum': Decimal('1299.00'),
-                'discount_amount': Decimal('0.00'),
-                'get_prepayment_amount': lambda: Decimal('200.00'),
-                'get_remaining_amount': lambda: Decimal('1099.00'),
-                'get_facebook_event_id': lambda: 'test_999_1234567890',
-                'items': type('MockItems', (), {
-                    'all': lambda: [
-                        type('MockItem', (), {
-                            'title': 'Футболка "Слава Україні"',
-                            'product': type('MockProduct', (), {
-                                'id': 1,
-                                'main_image': type('MockImage', (), {'url': '/static/img/placeholder.jpg'})()
-                            })(),
-                            'size': 'L',
-                            'color_name': 'Чорний',
-                            'qty': 2,
-                            'unit_price': Decimal('599.00'),
-                            'line_total': Decimal('1198.00')
-                        })(),
-                        type('MockItem', (), {
-                            'title': 'Худі "Silent Winter"',
-                            'product': type('MockProduct', (), {
-                                'id': 2,
-                                'main_image': type('MockImage', (), {'url': '/static/img/placeholder.jpg'})()
-                            })(),
-                            'size': 'M',
-                            'color_name': 'Сірий',
-                            'qty': 1,
-                            'unit_price': Decimal('101.00'),
-                            'line_total': Decimal('101.00')
-                        })()
-                    ]
-                })()
-            })()
-    except Exception:
-        # Если ошибка - создаем мок
-        order = type('MockOrder', (), {
-            'id': 999,
-            'order_number': 'TEST-2025-001',
-            'full_name': 'Іван Петренко',
-            'phone': '+380501234567',
-            'city': 'Київ',
-            'np_office': 'Відділення №1, вул. Хрещатик, 1',
-            'pay_type': 'prepay_200',
-            'payment_status': 'prepaid',
-            'total_sum': Decimal('1299.00'),
-            'discount_amount': Decimal('0.00'),
-            'get_prepayment_amount': lambda: Decimal('200.00'),
-            'get_remaining_amount': lambda: Decimal('1099.00'),
-            'get_facebook_event_id': lambda: 'test_999_1234567890',
-            'items': type('MockItems', (), {
-                'all': lambda: [
-                    type('MockItem', (), {
-                        'title': 'Футболка "Слава Україні"',
-                        'product': type('MockProduct', (), {
-                            'id': 1,
-                            'main_image': type('MockImage', (), {'url': '/static/img/placeholder.jpg'})()
-                        })(),
-                        'size': 'L',
-                        'color_name': 'Чорний',
-                        'qty': 2,
-                        'unit_price': Decimal('599.00'),
-                        'line_total': Decimal('1198.00')
-                    })(),
-                    type('MockItem', (), {
-                        'title': 'Худі "Silent Winter"',
-                        'product': type('MockProduct', (), {
-                            'id': 2,
-                            'main_image': type('MockImage', (), {'url': '/static/img/placeholder.jpg'})()
-                        })(),
-                        'size': 'M',
-                        'color_name': 'Сірий',
-                        'qty': 1,
-                        'unit_price': Decimal('101.00'),
-                        'line_total': Decimal('101.00')
-                    })()
-                ]
-            })()
-        })()
+            # Если нет заказов, создаем минимальный демо-заказ используя реальную модель
+            # Но для preview лучше использовать существующий заказ или создать через админку
+            return render(
+                request,
+                'pages/order_success_test.html',
+                {
+                    'order': None,
+                    'demo_mode': True
+                }
+            )
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Error in order_success_preview: {e}')
+        return render(
+            request,
+            'pages/order_success_test.html',
+            {
+                'order': None,
+                'demo_mode': True,
+                'error': str(e)
+            }
+        )
     
     return render(
         request,
         'pages/order_success_test.html',
-        {'order': order}
+        {'order': order, 'demo_mode': False}
     )
 
 

@@ -770,6 +770,11 @@
         if(d&&d.ok){
           try{ if(window.updateCartBadge) window.updateCartBadge(d.count); }catch(_){ }
           
+          // Отправляем событие обновления корзины для страницы корзины
+          try{
+            document.dispatchEvent(new CustomEvent('cartUpdated', {detail: {action: 'remove', key: key}}));
+          }catch(_){}
+          
           // Удаляем элемент из DOM
           if(el){
             var row=el.closest('[data-cart-row]')||el.closest('.d-flex');
