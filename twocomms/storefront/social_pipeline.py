@@ -80,3 +80,39 @@ def require_email(strategy, details, backend, user=None, social=None, *args, **k
         if not details.get('email'):
             raise AuthException(backend, 'Email is required for registration')
     return kwargs
+
+def set_auth_redirect(strategy, details, backend, user=None, social=None, *args, **kwargs):
+    """
+    Добавляет параметр ?auth=success к redirect URL после успешной авторизации.
+    Это позволяет JavaScript определить, что авторизация прошла успешно.
+    """
+    from django.conf import settings
+    
+    # Получаем redirect URL из настроек
+    redirect_url = settings.SOCIAL_AUTH_LOGIN_REDIRECT_URL
+    
+    # Если пользователь новый, используем специальный URL для настройки профиля
+    if user and hasattr(user, 'userprofile'):
+        try:
+            profile = user.userprofile
+            if not profile.phone:
+                redirect_url = settings.SOCIAL_AUTH_NEW_USER_REDIRECT_URL
+        except:
+            redirect_url = settings.SOCIAL_AUTH_NEW_USER_REDIRECT_URL
+    else:
+        # Если пользователь еще не создан, будет использован NEW_USER_REDIRECT_URL
+        try:
+            redirect_url = settings.SOCIAL_AUTH_NEW_USER_REDIRECT_URL
+        except:
+            pass
+    
+    # Добавляем параметр ?auth=success
+    if '?' in redirect_url:
+        redirect_url += '&auth=success'
+    else:
+        redirect_url += '?auth=success'
+    
+    # Сохраняем в kwargs для использования в redirect
+    kwargs['redirect_url'] = redirect_url
+    
+    return kwargs

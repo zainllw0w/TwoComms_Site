@@ -135,6 +135,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "storefront.middleware.OAuthAuthSuccessMiddleware",  # Обработка OAuth redirect с параметром auth=success
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django.contrib.redirects.middleware.RedirectFallbackMiddleware",  # SEO редиректы
@@ -236,6 +237,7 @@ SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.user.user_details',
     'storefront.social_pipeline.get_avatar_url',
     'storefront.social_pipeline.create_or_update_profile',
+    'storefront.social_pipeline.set_auth_redirect',
 )
 
 # Дополнительные настройки для Google OAuth

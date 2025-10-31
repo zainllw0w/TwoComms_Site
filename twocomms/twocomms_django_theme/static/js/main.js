@@ -195,6 +195,54 @@ function refreshCartSummary(){
 }
 window.refreshCartSummary = refreshCartSummary;
 
+// Функция для обновления состояния авторизации
+let lastAuthState = null;
+
+function refreshAuthStatus(forceReload = false){
+  return fetch('/auth/status/',{
+    headers:{'X-Requested-With':'XMLHttpRequest'},
+    cache:'no-store'
+  })
+    .then(r=>r.ok?r.json():null)
+    .then(d=>{
+      if(!d) return;
+      
+      const currentState = d.is_authenticated;
+      const previousState = lastAuthState;
+      
+      // Инициализируем состояние если еще не было
+      if(lastAuthState === null){
+        lastAuthState = currentState;
+      }
+      
+      // Если состояние изменилось, обновляем UI
+      if(previousState !== null && previousState !== currentState){
+        // Состояние изменилось - перезагружаем страницу для надежности
+        if(forceReload || currentState){
+          window.location.reload();
+          return;
+        }
+      }
+      
+      lastAuthState = currentState;
+      
+      // Обновляем счетчик избранного если пользователь авторизован
+      if(currentState && d.username){
+        // Если пользователь авторизован, загружаем счетчик избранного
+        fetch('/favorites/count/',{headers:{'X-Requested-With':'XMLHttpRequest'}})
+          .then(r=>r.ok?r.json():null)
+          .then(favData=>{ 
+            if(favData&&favData.count !== undefined){ 
+              updateFavoritesBadge(favData.count); 
+            }
+          })
+          .catch(()=>{});
+      }
+    })
+    .catch(()=>{});
+}
+window.refreshAuthStatus = refreshAuthStatus;
+
 // Функция для обновления счетчика избранного
 function updateFavoritesBadge(count){
   const n = String(count||0);
@@ -859,6 +907,26 @@ document.addEventListener('DOMContentLoaded',()=>{
   // Отложим, чтобы не мешать первому рендеру
   scheduleIdle(()=>{
     refreshCartSummary();
+    
+    // Проверяем состояние авторизации при загрузке
+    // Инициализируем начальное состояние из sessionStorage
+    const storedAuthState = sessionStorage.getItem('lastAuthState');
+    if(storedAuthState !== null){
+      lastAuthState = storedAuthState === 'true';
+    }
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const authSuccess = urlParams.get('auth') === 'success';
+    
+    // Проверяем текущее состояние авторизации
+    refreshAuthStatus(authSuccess).then(()=>{
+      // Если есть параметр auth=success, убираем его из URL после обработки
+      if(authSuccess){
+        urlParams.delete('auth');
+        const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+        window.history.replaceState({}, '', newUrl);
+      }
+    });
 
     // Загружаем счетчик избранного для незарегистрированных пользователей
     fetch('/favorites/count/',{headers:{'X-Requested-With':'XMLHttpRequest'}})

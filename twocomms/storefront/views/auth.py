@@ -339,3 +339,52 @@ def logout_view(request):
     """
     logout(request)
     return redirect('home')
+
+
+def auth_status(request):
+    """
+    AJAX endpoint для проверки состояния авторизации.
+    
+    Returns:
+        JsonResponse с информацией об авторизации:
+        {
+            'is_authenticated': bool,
+            'username': str или None,
+            'avatar_url': str или None,
+            'phone': str или None
+        }
+    """
+    from django.http import JsonResponse
+    
+    data = {
+        'is_authenticated': request.user.is_authenticated,
+        'username': None,
+        'avatar_url': None,
+        'phone': None
+    }
+    
+    if request.user.is_authenticated:
+        data['username'] = request.user.username
+        
+        # Получаем аватар
+        try:
+            profile = request.user.userprofile
+            if profile and profile.avatar:
+                data['avatar_url'] = profile.avatar.url
+            elif request.session.get('profile_avatar'):
+                from django.conf import settings
+                data['avatar_url'] = f"{settings.MEDIA_URL}{request.session['profile_avatar']}"
+        except Exception:
+            pass
+        
+        # Получаем телефон
+        try:
+            profile = request.user.userprofile
+            if profile and profile.phone:
+                data['phone'] = profile.phone
+            elif request.session.get('profile_phone'):
+                data['phone'] = request.session['profile_phone']
+        except Exception:
+            pass
+    
+    return JsonResponse(data)

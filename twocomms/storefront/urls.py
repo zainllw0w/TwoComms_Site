@@ -25,6 +25,7 @@ urlpatterns=[
     path('login/', auth_views.login_view, name='login'),
     path('logout/', auth_views.logout_view, name='logout'),
     path('register/', auth_views.register_view, name='register'),
+    path('auth/status/', auth_views.auth_status, name='auth_status'),
     path('profile/setup/', views.profile_setup_db, name='profile_setup'),
     # admin panel
     path('admin-panel/', views.admin_panel, name='admin_panel'),
