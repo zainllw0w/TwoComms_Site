@@ -74,6 +74,7 @@ from .cart import (
     cart_summary,
     cart_mini,
     contact_manager,
+    cart_items_api,
 )
 
 # Статические страницы
@@ -163,6 +164,7 @@ from .checkout import (
     monobank_webhook,
     payment_callback,
     order_success,
+    order_success_preview,
     order_failed,
     calculate_shipping,
 )
@@ -170,6 +172,7 @@ from .checkout import (
 # Monobank оплата
 from .monobank import (
     monobank_create_invoice,
+    _monobank_finalize_invoice,
 )
 
 # Админка
@@ -221,7 +224,7 @@ try:
         'product_detail', 'get_product_images', 'get_product_variants', 'quick_view',
         # cart.py
         'view_cart', 'add_to_cart', 'update_cart', 'remove_from_cart', 'clear_cart',
-        'get_cart_count', 'apply_promo_code', 'remove_promo_code', 'cart_summary', 'cart_mini',
+        'get_cart_count', 'apply_promo_code', 'remove_promo_code', 'cart_summary', 'cart_mini', 'cart_items_api',
         # static_pages.py
         'robots_txt', 'static_sitemap', 'google_merchant_feed', 'uaprom_products_feed',
         'static_verification_file', 'about', 'contacts', 'delivery', 'returns',

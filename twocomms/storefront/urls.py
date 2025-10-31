@@ -18,6 +18,7 @@ urlpatterns=[
 
     path('cart/summary/', views.cart_summary, name='cart_summary'),
     path('cart/mini/', views.cart_mini, name='cart_mini'),
+    path('cart/items/', views.cart_items_api, name='cart_items_api'),
     path('cart/clean/', views.clean_cart, name='clean_cart'),
     path('checkout/', views.checkout, name='checkout'),
     # auth - using modular auth views with proper password validation
@@ -36,6 +37,7 @@ urlpatterns=[
     # orders
     path('orders/create/', views.order_create, name='order_create'),
     path('orders/success/<int:order_id>/', views.order_success, name='order_success'),
+    path('orders/success-preview/', views.order_success_preview, name='order_success_preview'),  # Тестовый preview
     path('my/orders/', views.my_orders, name='my_orders'),
     path('orders/update-payment-method/', views.update_payment_method, name='update_payment_method'),
     path('orders/confirm-payment/', views.confirm_payment, name='confirm_payment'),
