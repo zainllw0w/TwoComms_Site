@@ -444,21 +444,18 @@ def order_success(request, order_id):
             del request.session['promo_code_id']
         request.session.modified = True
     
-    # Проверяем, используется ли тестовый шаблон
-    use_test_template = request.GET.get('test', 'false').lower() == 'true'
-    template_name = 'pages/order_success_test.html' if use_test_template else 'pages/order_success.html'
-    
+    # Используем новый основной шаблон
     return render(
         request,
-        template_name,
+        'pages/order_success.html',
         {'order': order}
     )
 
 
 def order_success_preview(request):
     """
-    Тестовый preview страницы успешного заказа с демо-данными.
-    Только для просмотра дизайна без реального заказа.
+    Preview старого шаблона для сравнения (использует order_success_old.html).
+    Только для просмотра старого дизайна без реального заказа.
     """
     from orders.models import Order, OrderItem
     from decimal import Decimal
@@ -467,11 +464,9 @@ def order_success_preview(request):
     try:
         order = Order.objects.select_related().prefetch_related('items__product').order_by('-id').first()
         if not order:
-            # Если нет заказов, создаем минимальный демо-заказ используя реальную модель
-            # Но для preview лучше использовать существующий заказ или создать через админку
             return render(
                 request,
-                'pages/order_success_test.html',
+                'pages/order_success_old.html',
                 {
                     'order': None,
                     'demo_mode': True
@@ -483,7 +478,7 @@ def order_success_preview(request):
         logger.error(f'Error in order_success_preview: {e}')
         return render(
             request,
-            'pages/order_success_test.html',
+            'pages/order_success_old.html',
             {
                 'order': None,
                 'demo_mode': True,
@@ -493,7 +488,7 @@ def order_success_preview(request):
     
     return render(
         request,
-        'pages/order_success_test.html',
+        'pages/order_success_old.html',
         {'order': order, 'demo_mode': False}
     )
 
