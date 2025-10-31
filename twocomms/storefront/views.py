@@ -5710,9 +5710,9 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
             
             total_amount_major += line_total_major
             total_count += qty
-            
-            product_entry = {
-                'name': product_name,
+
+        product_entry = {
+            'name': product_name,
                 'cnt': qty,
                 'price': _as_number(unit_price_major),
             }
@@ -5728,7 +5728,7 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
                 else:
                     product_entry['description'] = f'Передплата 200 грн. Залишок {total_order_sum - prepay_amount:.2f} грн — при отриманні на Новій Пошті'
             
-            products.append(product_entry)
+        products.append(product_entry)
     else:
         for item in items:
             qty_value = getattr(item, 'qty', None)
@@ -6116,14 +6116,12 @@ def monobank_return(request):
     if status in MONOBANK_SUCCESS_STATUSES:
         _cleanup_after_success(request)
         messages.success(request, 'Оплату успішно отримано!')
-        if request.user.is_authenticated:
-            return redirect('my_orders')
+        # Редирект на страницу успеха для всех пользователей
         return redirect('order_success', order_id=order.id)
 
     if status in MONOBANK_PENDING_STATUSES:
         messages.info(request, 'Платіж обробляється. Ми повідомимо, щойно отримаємо підтвердження.')
-        if request.user.is_authenticated:
-            return redirect('my_orders')
+        # Редирект на страницу успеха для всех пользователей
         return redirect('order_success', order_id=order.id)
 
     messages.error(request, 'Оплату не завершено. Ви можете повторити спробу або обрати інший спосіб оплати.')
