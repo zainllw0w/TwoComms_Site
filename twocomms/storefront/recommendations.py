@@ -2,7 +2,7 @@
 Система рекомендаций товаров для увеличения конверсии
 """
 from django.db.models import Q, Count
-from .models import Product, Category
+from .models import Product, Category, ProductStatus
 from accounts.models import UserProfile, FavoriteProduct
 from orders.models import Order, OrderItem
 import random
@@ -44,7 +44,7 @@ class ProductRecommendationEngine:
         # 1. Товары из той же категории
         category_products = Product.objects.filter(
             category=product.category,
-            is_active=True
+            status=ProductStatus.PUBLISHED
         ).exclude(id=product.id)[:limit//2]
         
         recommendations.extend(category_products)
@@ -80,7 +80,7 @@ class ProductRecommendationEngine:
         # 3. Новые товары
         if len(recommendations) < limit:
             new_products = Product.objects.filter(
-                is_active=True
+                status=ProductStatus.PUBLISHED
             ).order_by('-id')[:limit - len(recommendations)]
             recommendations.extend(new_products)
         
@@ -105,7 +105,7 @@ class ProductRecommendationEngine:
         product_ids = [item['product'] for item in related_products]
         return Product.objects.filter(
             id__in=product_ids,
-            is_active=True
+            status=ProductStatus.PUBLISHED
         )[:limit]
     
     def _get_popular_products(self, limit):
@@ -113,7 +113,7 @@ class ProductRecommendationEngine:
         Популярные товары на основе количества заказов
         """
         popular_products = Product.objects.filter(
-            is_active=True
+            status=ProductStatus.PUBLISHED
         ).annotate(
             order_count=Count('orderitem')
         ).order_by('-order_count', '-id')[:limit]
@@ -137,7 +137,7 @@ class ProductRecommendationEngine:
         if favorite_categories:
             category_products = Product.objects.filter(
                 category__in=favorite_categories,
-                is_active=True
+                status=ProductStatus.PUBLISHED
             ).exclude(
                 id__in=FavoriteProduct.objects.filter(user=self.user).values_list('product_id', flat=True)
             )[:limit//2]
@@ -153,7 +153,7 @@ class ProductRecommendationEngine:
             if ordered_categories:
                 history_products = Product.objects.filter(
                     category__in=ordered_categories,
-                    is_active=True
+                    status=ProductStatus.PUBLISHED
                 ).exclude(
                     id__in=OrderItem.objects.filter(order__in=user_orders).values_list('product_id', flat=True)
                 )[:limit - len(recommendations)]
@@ -166,6 +166,7 @@ class ProductRecommendationEngine:
         Трендовые товары (популярные за последние 7 дней)
         """
         from datetime import datetime, timedelta
+        from django.utils import timezone
         
         cache_key = "trending_products"
         trending = self.cache.get(cache_key)
@@ -174,7 +175,7 @@ class ProductRecommendationEngine:
             week_ago = timezone.now() - timedelta(days=7)
             
             trending = Product.objects.filter(
-                is_active=True,
+                status=ProductStatus.PUBLISHED,
                 orderitem__order__created__gte=week_ago
             ).annotate(
                 recent_orders=Count('orderitem')
