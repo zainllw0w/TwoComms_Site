@@ -1425,6 +1425,12 @@ document.addEventListener('click', (e)=>{
         .then(()=>{ openMiniCart({skipRefresh:true}); })
         .catch(()=>{ openMiniCart({skipRefresh:true}); })
         .finally(()=>{ refreshCartSummary(); });
+      
+      // Отправляем событие обновления корзины для страницы корзины
+      try{
+        document.dispatchEvent(new CustomEvent('cartUpdated', {detail: {action: 'add', productId: productId}}));
+      }catch(_){}
+      
       try{ if(window.fbq){ fbq('track','AddToCart',{content_ids:[String(productId)], content_type:'product'}); } }catch(_){ }
       // Небольшой визуальный отклик
       btn.classList.add('btn-success');

@@ -1014,12 +1014,19 @@
         </div>
       </div>
       <h1 class="success-title">Замовлення успішно оформлено!</h1>
+      {% if order %}
       <div class="success-order-number">
         Номер замовлення: <strong>{{ order.order_number }}</strong>
       </div>
+      {% else %}
+      <div class="success-order-number">
+        Номер замовлення: <strong>TEST-PREVIEW-001</strong>
+      </div>
+      {% endif %}
     </div>
 
     <!-- Карточка статуса оплаты -->
+    {% if order %}
     <div class="status-card {% if order.payment_status == 'paid' %}paid{% elif order.payment_status == 'prepaid' %}prepaid{% endif %}">
       <div class="status-icon-text">
         <div class="status-icon">
@@ -1060,8 +1067,25 @@
       </div>
       {% endif %}
     </div>
+    {% else %}
+    <!-- Демо режим - если нет заказа -->
+    <div class="status-card paid">
+      <div class="status-icon-text">
+        <div class="status-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M20 6L9 17l-5-5"/>
+          </svg>
+        </div>
+        <div>
+          <h2 class="status-title">✅ Демо режим</h2>
+          <p class="status-text">Це тестовий перегляд сторінки. Для реального замовлення дані будуть заповнені автоматично.</p>
+        </div>
+      </div>
+    </div>
+    {% endif %}
 
     <!-- Детали заказа -->
+    {% if order %}
     <div class="order-details-card">
       <h2 class="details-title">
         <svg class="details-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1148,6 +1172,45 @@
       </div>
       {% endif %}
     </div>
+    {% else %}
+    <!-- Демо: Детали заказа -->
+    <div class="order-details-card">
+      <h2 class="details-title">
+        <svg class="details-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        Деталі замовлення (демо)
+      </h2>
+      <div class="details-grid">
+        <div class="detail-item">
+          <span class="detail-label">ПІБ</span>
+          <span class="detail-value">Іван Петренко</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Телефон</span>
+          <span class="detail-value">+380501234567</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Місто</span>
+          <span class="detail-value">Київ</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Відділення НП</span>
+          <span class="detail-value">Відділення №1, вул. Хрещатик, 1</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Тип оплати</span>
+          <span class="detail-value">Онлайн оплата (повна сума)</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Сума замовлення</span>
+          <span class="detail-value">1299.00 грн</span>
+        </div>
+      </div>
+    </div>
+    {% endif %}
 
     <!-- Блок с баллами -->
     <div class="points-card">
@@ -1331,15 +1394,15 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- Pixel tracking (существующий код из оригинального шаблона) -->
 <div id="purchase-payload"
      data-order-id="{{ order.id }}"
-     data-order-number="{{ order.order_number }}"
-     data-value="{{ order.total_sum|floatformat:2 }}"
+     {% if order %}data-order-number="{{ order.order_number }}"{% else %}data-order-number="TEST-PREVIEW"{% endif %}
+     {% if order %}data-value="{{ order.total_sum|floatformat:2 }}"{% else %}data-value="0"{% endif %}
      data-currency="UAH"
-     data-payment-status="{{ order.payment_status }}"
-     data-full-name="{{ order.full_name }}"
-     data-phone="{{ order.phone }}"
-     data-city="{{ order.city }}"
+     {% if order %}data-payment-status="{{ order.payment_status }}"{% else %}data-payment-status="paid"{% endif %}
+     {% if order %}data-full-name="{{ order.full_name }}"{% endif %}
+     {% if order %}data-phone="{{ order.phone }}"{% endif %}
+     {% if order %}data-city="{{ order.city }}"{% endif %}
      {% if user.is_authenticated and user.userprofile.email %}data-email="{{ user.userprofile.email }}"{% endif %}
-     data-contents='[{% for item in order.items.all %}{"id":"{{ item.product.id }}","quantity":{{ item.qty }},"price":{{ item.unit_price|floatformat:2 }},"name":"{{ item.title|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]'>
+     {% if order %}data-contents='[{% for item in order.items.all %}{"id":"{{ item.product.id }}","quantity":{{ item.qty }},"price":{{ item.unit_price|floatformat:2 }},"name":"{{ item.title|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]'{% else %}data-contents='[]'{% endif %}>
 </div>
 
 <script>

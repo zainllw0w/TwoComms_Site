@@ -665,6 +665,230 @@ function initCartPage() {
     const guestForm = document.getElementById('guest-form');
     const deliveryForm = document.getElementById('deliveryForm');
     
+    // ==================== АВТОМАТИЧЕСКОЕ ОБНОВЛЕНИЕ СПИСКА ТОВАРОВ ====================
+    let cartUpdateInProgress = false;
+    
+    function refreshCartItems() {
+        if (cartUpdateInProgress) return;
+        cartUpdateInProgress = true;
+        
+        fetch('/cart/items/', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Cache-Control': 'no-cache'
+            },
+            cache: 'no-store'
+        })
+        .then(response => response.json())
+        .then(data => {
+            cartUpdateInProgress = false;
+            if (data && data.ok && data.items) {
+                updateCartItemsList(data);
+                updateCartSummary(data);
+            }
+        })
+        .catch(error => {
+            cartUpdateInProgress = false;
+            console.error('Ошибка обновления корзины:', error);
+        });
+    }
+    
+    function updateCartItemsList(data) {
+        const cartListContainer = document.getElementById('cart-list');
+        if (!cartListContainer) return;
+        
+        // Если корзина пуста
+        if (!data.items || data.items.length === 0) {
+            const emptyCart = document.querySelector('.cart-empty');
+            if (!emptyCart) {
+                // Создаем сообщение о пустой корзине если его нет
+                const mainSection = document.querySelector('.cart-main-section');
+                if (mainSection) {
+                    mainSection.innerHTML = `
+                        <div class="cart-empty">
+                            <div class="cart-empty-icon">
+                                <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+                                </svg>
+                            </div>
+                            <h2 class="cart-empty-title">Кошик порожній</h2>
+                            <p class="cart-empty-text">Додайте товари до кошика, щоб зробити замовлення</p>
+                            <a href="{% url 'home' %}" class="cart-empty-btn">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                </svg>
+                                Перейти до покупок
+                            </a>
+                        </div>
+                    `;
+                }
+            }
+            return;
+        }
+        
+        // Обновляем список товаров
+        let itemsHTML = '';
+        const placeholderUrl = '{% static "img/placeholder.jpg" %}';
+        data.items.forEach(item => {
+            const imageUrl = item.image_url || placeholderUrl;
+            const colorSwatch = item.color_variant_id ? `
+                <div class="cart-item-detail">
+                    <span class="cart-item-label">Колір:</span>
+                    <div class="cart-item-color d-flex align-items-center gap-2">
+                        <span class="cart-item-swatch swatch" data-primary="#000" data-secondary=""></span>
+                        <span class="cart-item-color-name">${item.color_label || '—'}</span>
+                    </div>
+                </div>
+            ` : '';
+            
+            itemsHTML += `
+                <div class="cart-item" data-cart-row data-key="${item.key}">
+                    <div class="cart-item-sparks">
+                        <div class="cart-item-spark cart-item-spark-1"></div>
+                        <div class="cart-item-spark cart-item-spark-2"></div>
+                        <div class="cart-item-spark cart-item-spark-3"></div>
+                    </div>
+                    <div class="cart-item-image">
+                        <img src="${imageUrl}" 
+                             alt="${item.product_title}" 
+                             class="cart-item-img"
+                             width="80" height="80">
+                        <div class="cart-item-image-glow"></div>
+                    </div>
+                    <div class="cart-item-info">
+                        <h3 class="cart-item-title">${item.product_title}</h3>
+                        <div class="cart-item-details">
+                            <div class="cart-item-detail">
+                                <span class="cart-item-label">Розмір:</span>
+                                <span class="cart-item-value">${item.size || '—'}</span>
+                            </div>
+                            <div class="cart-item-detail">
+                                <span class="cart-item-label">Кількість:</span>
+                                <span class="cart-item-value">${item.qty}</span>
+                            </div>
+                            ${colorSwatch}
+                        </div>
+                        <div class="cart-item-price">
+                            <span class="cart-item-price-label">Ціна:</span>
+                            <span class="cart-item-price-value">${item.unit_price.toFixed(2)} грн</span>
+                        </div>
+                        ${item.points_reward > 0 ? `
+                        <div class="cart-item-points">
+                            <div class="cart-item-points-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                </svg>
+                            </div>
+                            <span class="cart-item-points-text">Заробите ${item.points_reward * item.qty} балів</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div class="cart-item-actions">
+                        <div class="cart-item-total">
+                            <span class="cart-item-total-label">Разом:</span>
+                            <span class="cart-item-total-value">${item.line_total.toFixed(2)} грн</span>
+                        </div>
+                        <button type="button" class="cart-item-remove-btn" onclick="CartRemoveKey('${item.key}', this); return false;" data-key="${item.key}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                            </svg>
+                            Видалити
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        const cartItemsBackground = document.querySelector('.cart-items-background');
+        if (cartItemsBackground) {
+            cartListContainer.innerHTML = itemsHTML;
+        } else {
+            // Создаем структуру если её нет
+            const mainSection = document.querySelector('.cart-main-section');
+            if (mainSection) {
+                mainSection.innerHTML = `
+                    <div class="cart-items-background">
+                        <div class="cart-items-pattern"></div>
+                    </div>
+                    <div class="cart-items-container" id="cart-list">
+                        ${itemsHTML}
+                    </div>
+                `;
+            }
+        }
+        
+        // Обновляем checkout-payload если есть
+        const checkoutPayload = document.getElementById('checkout-payload');
+        if (checkoutPayload) {
+            const ids = data.items.map(item => `"${item.product_id}"`).join(',');
+            const contents = data.items.map(item => 
+                `{"id":"${item.product_id}","quantity":${item.qty},"item_price":${item.unit_price}}`
+            ).join(',');
+            
+            checkoutPayload.setAttribute('data-value', data.grand_total.toFixed(2));
+            checkoutPayload.setAttribute('data-num-items', data.items.length);
+            checkoutPayload.setAttribute('data-ids', `[${ids}]`);
+            checkoutPayload.setAttribute('data-contents', `[${contents}]`);
+        }
+    }
+    
+    function updateCartSummary(data) {
+        // Обновляем сводку в боковой панели
+        const summaryValue = document.querySelector('.cart-summary-value');
+        if (summaryValue && data.grand_total !== undefined) {
+            const totalText = `${data.grand_total.toFixed(2)} грн`;
+            summaryValue.textContent = totalText;
+        }
+        
+        const summaryRow = document.querySelector('.cart-summary-row .cart-summary-value');
+        if (summaryRow && data.grand_total !== undefined) {
+            summaryRow.textContent = `${data.grand_total.toFixed(2)} грн`;
+        }
+        
+        // Обновляем количество товаров
+        const countText = document.querySelector('.cart-summary-label');
+        if (countText && data.items) {
+            const match = countText.textContent.match(/Товари \((\d+)\):/);
+            if (match) {
+                countText.textContent = countText.textContent.replace(/\(\d+\)/, `(${data.items.length})`);
+            }
+        }
+        
+        // Обновляем pay-now-amount
+        const payNowAmount = document.getElementById('pay-now-amount');
+        if (payNowAmount && data.grand_total !== undefined) {
+            payNowAmount.setAttribute('data-total', data.grand_total.toFixed(2));
+            payNowAmount.textContent = `${data.grand_total.toFixed(2)} грн`;
+        }
+    }
+    
+    // Обновляем список товаров при загрузке страницы
+    refreshCartItems();
+    
+    // Переопределяем CartRemoveKey для автоматического обновления
+    const originalCartRemoveKey = window.CartRemoveKey;
+    window.CartRemoveKey = function(key, button) {
+        if (originalCartRemoveKey) {
+            originalCartRemoveKey(key, button);
+        }
+        
+        // Обновляем список через небольшой таймаут
+        setTimeout(() => {
+            refreshCartItems();
+            // Обновляем мини-корзину и сводку
+            try { if(window.refreshMiniCart) window.refreshMiniCart(); } catch(_) {}
+            try { if(window.refreshCartSummary) window.refreshCartSummary(); } catch(_) {}
+        }, 300);
+    };
+    
+    // Слушаем события добавления товаров (через CustomEvent)
+    document.addEventListener('cartUpdated', function() {
+        refreshCartItems();
+    });
+    
+    // ==================== END АВТОМАТИЧЕСКОЕ ОБНОВЛЕНИЕ ====================
+    
     // ==================== ДИНАМИЧЕСКИЕ КНОПКИ (ПРИОРИТЕТ #1) ====================
     // ВАЖНО: Этот код ДОЛЖЕН выполниться первым, поэтому он в самом начале!
     try {

@@ -13,6 +13,7 @@ Cart views - Корзина покупок.
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
+from django.views.decorators.cache import never_cache
 from decimal import Decimal, ROUND_HALF_UP
 import logging
 
@@ -42,6 +43,7 @@ MONOBANK_FAILURE_STATUSES = {'failure', 'expired', 'rejected', 'canceled', 'canc
 
 # ==================== CART VIEWS ====================
 
+@never_cache
 def view_cart(request):
     """
     Страница просмотра корзины.
@@ -737,6 +739,106 @@ def contact_manager(request):
             'success': False,
             'error': 'Сталася помилка. Спробуйте ще раз'
         })
+
+
+@never_cache
+def cart_items_api(request):
+    """
+    AJAX endpoint для получения списка товаров в корзине (JSON).
+    Используется для автоматического обновления списка товаров на странице корзины.
+    
+    Returns:
+        JsonResponse: {
+            'ok': True,
+            'items': [...],  # Список товаров с данными
+            'subtotal': float,
+            'discount': float,
+            'total': float,
+            'grand_total': float,
+            'total_points': int,
+            'cart_count': int
+        }
+    """
+    cart = get_cart_from_session(request)
+    cart_items = []
+    subtotal = Decimal('0')
+    total_points = 0
+    
+    for item_key, item_data in cart.items():
+        try:
+            product_id = item_data.get('product_id')
+            product = Product.objects.select_related('category').get(id=product_id)
+            
+            price = product.final_price
+            qty = int(item_data.get('qty', 1))
+            line_total = price * qty
+            
+            color_variant = _get_color_variant_safe(item_data.get('color_variant_id'))
+            color_label = _color_label_from_variant(color_variant)
+            
+            # Баллы за товар
+            try:
+                if getattr(product, 'points_reward', 0):
+                    total_points += int(product.points_reward) * qty
+            except Exception:
+                pass
+            
+            # Подготовка изображения (полный URL)
+            image_url = None
+            if color_variant and color_variant.images.exists():
+                image_url = request.build_absolute_uri(color_variant.images.first().image.url)
+            elif product.main_image:
+                image_url = request.build_absolute_uri(product.main_image.url)
+            
+            cart_items.append({
+                'key': item_key,
+                'product_id': product.id,
+                'product_title': product.title,
+                'product_slug': product.slug,
+                'unit_price': float(price),
+                'line_total': float(line_total),
+                'qty': qty,
+                'size': item_data.get('size', ''),
+                'color_variant_id': item_data.get('color_variant_id'),
+                'color_label': color_label,
+                'image_url': image_url,
+                'points_reward': int(getattr(product, 'points_reward', 0) or 0),
+            })
+            
+            subtotal += line_total
+            
+        except Product.DoesNotExist:
+            continue
+    
+    # Проверяем промокод
+    promo_code = None
+    discount = Decimal('0')
+    promo_code_id = request.session.get('promo_code_id')
+    
+    if promo_code_id:
+        try:
+            promo_code = PromoCode.objects.get(id=promo_code_id)
+            if promo_code.can_be_used():
+                discount = promo_code.calculate_discount(subtotal)
+            else:
+                del request.session['promo_code_id']
+                promo_code = None
+        except PromoCode.DoesNotExist:
+            del request.session['promo_code_id']
+    
+    total = subtotal - discount
+    
+    return JsonResponse({
+        'ok': True,
+        'items': cart_items,
+        'subtotal': float(subtotal),
+        'discount': float(discount),
+        'total': float(total),
+        'grand_total': float(total),
+        'total_points': total_points,
+        'cart_count': len(cart_items),
+        'applied_promo': promo_code.code if promo_code else None,
+    })
 
 
 
