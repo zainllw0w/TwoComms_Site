@@ -1432,6 +1432,7 @@ document.addEventListener('click', (e)=>{
       }catch(_){}
       
       try{ if(window.fbq){ fbq('track','AddToCart',{content_ids:[String(productId)], content_type:'product'}); } }catch(_){ }
+      try{ if(window.ttq && typeof window.ttq.track === 'function'){ ttq.track('AddToCart',{content_id:String(productId), content_type:'product'}); } }catch(_){ }
       // Небольшой визуальный отклик
       btn.classList.add('btn-success');
       setTimeout(()=>btn.classList.remove('btn-success'),400);
