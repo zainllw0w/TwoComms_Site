@@ -8,6 +8,7 @@ Static Pages views - Статические страницы и служебны
 - Prom.ua Feed  
 - Статические файлы верификации
 - О компании, Контакты, и т.д.
+- Тестовая страница для аналитики
 """
 
 from django.http import HttpResponse, FileResponse, Http404
@@ -174,6 +175,39 @@ def terms_of_service(request):
     """
     return render(request, 'pages/terms_of_service.html', {
         'page_title': 'Умови використання'
+    })
+
+
+def test_analytics_events(request):
+    """
+    Тестовая страница для проверки аналитических событий.
+    
+    Автоматически отправляет все типы событий для тестирования
+    в TikTok Events Manager и Facebook Events Manager.
+    
+    Использование:
+    - Откройте /test-analytics/
+    - Добавьте ?ttq_test=YOUR_TEST_CODE для TikTok
+    - События отправятся автоматически при загрузке
+    """
+    import os
+    
+    # Получаем test_event_code из URL или environment
+    ttq_test_code = request.GET.get('ttq_test') or os.environ.get('TIKTOK_TEST_EVENT_CODE')
+    
+    # Генерируем тестовые данные для событий
+    test_product = {
+        'id': 'TC-999-test-001-M',
+        'name': 'Тестовый товар TwoComms',
+        'category': 'Тестовая категория',
+        'price': 599,
+        'quantity': 1
+    }
+    
+    return render(request, 'pages/test_analytics.html', {
+        'page_title': 'Тест аналитических событий',
+        'ttq_test_code': ttq_test_code,
+        'test_product': test_product,
     })
 
 
