@@ -35,6 +35,8 @@ def product_detail(request, slug):
     - Автоматический выбор первого цвета (если нет main_image)
     - SEO breadcrumbs
     - Рекомендованные товары (опционально)
+    - Поддержка URL параметра ?size=X для предвыбора размера
+    - Генерация offer_ids для синхронизации с пикселями
     
     Context:
         product: Объект товара
@@ -42,9 +44,20 @@ def product_detail(request, slug):
         color_variants: Список цветовых вариантов с изображениями
         auto_select_first_color: Флаг автовыбора первого цвета
         breadcrumbs: Хлебные крошки для SEO
+        preselected_size: Предвыбранный размер из URL параметра
+        offer_id_map: JSON mapping (color_variant_id, size) -> offer_id для JS
+        default_offer_id: Offer ID для текущего выбора (default цвет + размер)
     """
     product = get_object_or_404(Product.objects.select_related('category'), slug=slug)
     images = product.images.all()
+    
+    # Читаем параметр size из URL (?size=M)
+    preselected_size = request.GET.get('size', '').upper()
+    available_sizes = ['S', 'M', 'L', 'XL', 'XXL']
+    
+    # Валидируем размер
+    if preselected_size not in available_sizes:
+        preselected_size = None  # Будет выбран default размер в JS
     
     # Варианты цветов с изображениями (если есть приложение и данные)
     color_variants = get_detailed_color_variants(product)
@@ -69,6 +82,47 @@ def product_detail(request, slug):
         # Если нет главного изображения, автоматически выбираем первый цвет
         if not product.main_image:
             auto_select_first_color = True
+    
+    # Генерируем offer_id mapping для всех комбинаций (цвет × размер)
+    # Формат: { "variant_id:size": "offer_id" } или { "default:size": "offer_id" }
+    import json
+    offer_id_map = {}
+    default_offer_id = None
+    
+    if color_variants:
+        # Есть цветовые варианты
+        for variant in color_variants:
+            variant_id = variant.get('id')
+            for size in available_sizes:
+                offer_id = product.get_offer_id(variant_id, size)
+                key = f"{variant_id}:{size}"
+                offer_id_map[key] = offer_id
+                
+                # Определяем default offer_id (первый вариант + первый/предвыбранный размер)
+                if variant.get('is_default') and default_offer_id is None:
+                    if preselected_size and size == preselected_size:
+                        default_offer_id = offer_id
+                    elif not preselected_size and size == available_sizes[0]:
+                        default_offer_id = offer_id
+    else:
+        # Нет цветовых вариантов - используем default
+        for size in available_sizes:
+            offer_id = product.get_offer_id(None, size)
+            key = f"default:{size}"
+            offer_id_map[key] = offer_id
+            
+            # Определяем default offer_id
+            if default_offer_id is None:
+                if preselected_size and size == preselected_size:
+                    default_offer_id = offer_id
+                elif not preselected_size and size == available_sizes[0]:
+                    default_offer_id = offer_id
+    
+    # Если default_offer_id не установлен, берем самый первый
+    if not default_offer_id and offer_id_map:
+        default_offer_id = list(offer_id_map.values())[0]
+    
+    offer_id_map_json = json.dumps(offer_id_map)
     
     # Генерируем breadcrumbs для SEO
     breadcrumbs = [
@@ -107,7 +161,11 @@ def product_detail(request, slug):
             'color_variants': color_variants,
             'auto_select_first_color': auto_select_first_color,
             'breadcrumbs': breadcrumbs,
-            'recommended_products': recommended_products
+            'recommended_products': recommended_products,
+            'preselected_size': preselected_size,
+            'offer_id_map': offer_id_map_json,
+            'default_offer_id': default_offer_id,
+            'available_sizes': available_sizes,
         }
     )
 

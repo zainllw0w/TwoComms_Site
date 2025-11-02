@@ -358,6 +358,56 @@ class Product(models.Model):
             return False
         return True
 
+    def get_offer_id(self, color_variant_id=None, size='S'):
+        """
+        Генерирует offer_id для синхронизации с Google Merchant Feed и пикселями.
+        
+        Args:
+            color_variant_id: ID цветового варианта (опционально)
+            size: Размер (S, M, L, XL, XXL)
+        
+        Returns:
+            str: offer_id в формате TC-{id}-{variant}-{SIZE}
+        
+        Examples:
+            >>> product.get_offer_id()
+            'TC-1-default-S'
+            >>> product.get_offer_id(color_variant_id=2, size='M')
+            'TC-1-cv2-M'
+        """
+        from storefront.utils.analytics_helpers import get_offer_id
+        return get_offer_id(self.id, color_variant_id, size)
+    
+    def get_all_offer_ids(self, sizes=None):
+        """
+        Генерирует все возможные offer_ids для товара (все цвета × все размеры).
+        
+        Args:
+            sizes: Список размеров (по умолчанию ['S', 'M', 'L', 'XL', 'XXL'])
+        
+        Returns:
+            list: Список всех offer_ids
+        """
+        if sizes is None:
+            sizes = ['S', 'M', 'L', 'XL', 'XXL']
+        
+        offer_ids = []
+        
+        # Получаем цветовые варианты
+        color_variants = self.color_variants.all()
+        
+        if color_variants.exists():
+            # Если есть цветовые варианты - генерируем для каждого
+            for variant in color_variants:
+                for size in sizes:
+                    offer_ids.append(self.get_offer_id(variant.id, size))
+        else:
+            # Если нет цветовых вариантов - генерируем с default
+            for size in sizes:
+                offer_ids.append(self.get_offer_id(None, size))
+        
+        return offer_ids
+
     class Meta:
         indexes = [
             models.Index(fields=['-id'], name='idx_product_id_desc'),

@@ -49,7 +49,12 @@
     {# Старый статический блок миниатюр скрыт: теперь миниатюры строит JS в #product-thumbs #}
   </div>
 
-  <div class="col-12 col-lg-6">
+  <div class="col-12 col-lg-6" 
+       data-product-id="{{ product.id }}"
+       data-offer-id-map="{{ offer_id_map|safe }}"
+       data-default-offer-id="{{ default_offer_id }}"
+       data-current-offer-id="{{ default_offer_id }}"
+       id="product-detail-container">
     <h1 class="h3 fw-bold mb-2">{{ product.title }}</h1>
     <div class="text-secondary small mb-3">{{ product.category.name }}</div>
     <div class="d-flex align-items-center gap-3 mb-3">
@@ -66,19 +71,19 @@
     <div class="mb-3">
       <div class="small text-secondary mb-2">Розмір</div>
       <div class="d-flex flex-wrap gap-2">
-        <input type="radio" class="btn-check" name="size" id="size-s" value="S" autocomplete="off" checked>
+        <input type="radio" class="btn-check" name="size" id="size-s" value="S" autocomplete="off"{% if not preselected_size or preselected_size == 'S' %} checked{% endif %}>
         <label class="btn btn-outline-light rounded-3 px-3 py-2" for="size-s">S</label>
 
-        <input type="radio" class="btn-check" name="size" id="size-m" value="M" autocomplete="off">
+        <input type="radio" class="btn-check" name="size" id="size-m" value="M" autocomplete="off"{% if preselected_size == 'M' %} checked{% endif %}>
         <label class="btn btn-outline-light rounded-3 px-3 py-2" for="size-m">M</label>
 
-        <input type="radio" class="btn-check" name="size" id="size-l" value="L" autocomplete="off">
+        <input type="radio" class="btn-check" name="size" id="size-l" value="L" autocomplete="off"{% if preselected_size == 'L' %} checked{% endif %}>
         <label class="btn btn-outline-light rounded-3 px-3 py-2" for="size-l">L</label>
 
-        <input type="radio" class="btn-check" name="size" id="size-xl" value="XL" autocomplete="off">
+        <input type="radio" class="btn-check" name="size" id="size-xl" value="XL" autocomplete="off"{% if preselected_size == 'XL' %} checked{% endif %}>
         <label class="btn btn-outline-light rounded-3 px-3 py-2" for="size-xl">XL</label>
 
-        <input type="radio" class="btn-check" name="size" id="size-xxl" value="XXL" autocomplete="off">
+        <input type="radio" class="btn-check" name="size" id="size-xxl" value="XXL" autocomplete="off"{% if preselected_size == 'XXL' %} checked{% endif %}>
         <label class="btn btn-outline-light rounded-3 px-3 py-2 size-unavailable" for="size-xxl" title="Немає в наявності">XXL</label>
       </div>
     </div>
@@ -698,25 +703,101 @@ document.addEventListener('DOMContentLoaded', function() {
 {% block extra_js %}
 <script>
 (function(){
-  // ViewContent при загрузке карточки
+  // === OFFER ID TRACKING SYSTEM ===
+  // Система отслеживания текущего offer_id для синхронизации с пикселями
+  var productContainer = document.getElementById('product-detail-container');
+  if (!productContainer) return;
+  
+  var offerIdMap = {};
+  try {
+    offerIdMap = JSON.parse(productContainer.getAttribute('data-offer-id-map') || '{}');
+  } catch(e) {
+    console.error('Failed to parse offer_id_map:', e);
+  }
+  
+  var currentOfferId = productContainer.getAttribute('data-current-offer-id');
+  
+  // Функция для получения текущего выбранного цвета и размера
+  function getCurrentSelection() {
+    var selectedColor = document.querySelector('.color-swatch.active');
+    var selectedSize = document.querySelector('input[name="size"]:checked');
+    
+    var colorVariantId = selectedColor ? selectedColor.getAttribute('data-variant') : null;
+    var size = selectedSize ? selectedSize.value.toUpperCase() : 'S';
+    
+    var key = (colorVariantId || 'default') + ':' + size;
+    return {
+      colorVariantId: colorVariantId,
+      size: size,
+      key: key,
+      offerId: offerIdMap[key] || currentOfferId
+    };
+  }
+  
+  // Функция для обновления текущего offer_id
+  function updateCurrentOfferId() {
+    var selection = getCurrentSelection();
+    currentOfferId = selection.offerId;
+    productContainer.setAttribute('data-current-offer-id', currentOfferId);
+    return currentOfferId;
+  }
+  
+  // Отслеживание изменения размера
+  document.querySelectorAll('input[name="size"]').forEach(function(input){
+    input.addEventListener('change', function(){
+      updateCurrentOfferId();
+      // Не отправляем событие при каждом изменении размера
+      // События отправляются только при AddToCart/ViewContent
+    });
+  });
+  
+  // Отслеживание изменения цвета
+  document.querySelectorAll('.color-swatch').forEach(function(button){
+    button.addEventListener('click', function(){
+      updateCurrentOfferId();
+      
+      // Отправляем CustomizeProduct с правильным offer_id
+      try{
+        if(window.trackEvent){
+          var selection = getCurrentSelection();
+          window.trackEvent('CustomizeProduct', { 
+            content_ids: [selection.offerId], 
+            content_type: 'product',
+            variant_id: selection.colorVariantId
+          });
+        }
+      }catch(_){ }
+    });
+  });
+  
+  // ViewContent при загрузке карточки - используем offer_id
   try{
     var pe=document.getElementById('product-analytics-payload');
     if(pe && window.trackEvent){
-      var pid = pe.dataset.id;
       var title = pe.dataset.title;
       var category = pe.dataset.category;
       var price = parseFloat(pe.dataset.price||'0');
+      
       // Ensure price is valid and positive
       if (isNaN(price) || price < 0) {
         price = 0;
       }
+      
+      // Получаем текущий offer_id (учитывая предвыбранный размер)
+      var selection = getCurrentSelection();
+      
       window.trackEvent('ViewContent', {
-        content_ids: [String(pid)],
+        content_ids: [selection.offerId],
         content_name: title,
         content_type: 'product',
         content_category: category,
         value: price,
-        currency: 'UAH'
+        currency: 'UAH',
+        contents: [{
+          id: selection.offerId,
+          quantity: 1,
+          item_price: price
+        }]
       });
     }
   }catch(_){ }
