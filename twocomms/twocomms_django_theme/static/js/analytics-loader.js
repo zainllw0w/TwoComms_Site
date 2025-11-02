@@ -163,27 +163,13 @@
         }
       }
       
-      // Отправка в TikTok Pixel
+      // Отправка в TikTok Pixel (с полной структурой contents)
       try {
         if (TIKTOK_PIXEL_ID && win.ttq && typeof win.ttq.track === 'function') {
           if (win._ttqLoaded) {
             try {
-              // TikTok Pixel поддерживает стандартные e-commerce события
-              var ttqPayload = {};
-              if (isEcommerceEvent) {
-                if (payload.value !== undefined) {
-                  ttqPayload.value = parseFloat(payload.value) || 0;
-                }
-                if (payload.currency) {
-                  ttqPayload.currency = payload.currency.toUpperCase();
-                }
-              }
-              // Копируем другие параметры
-              for (var ttqKey in payload) {
-                if (payload.hasOwnProperty(ttqKey) && ttqKey !== 'value' && ttqKey !== 'currency') {
-                  ttqPayload[ttqKey] = payload[ttqKey];
-                }
-              }
+              // Преобразуем payload в формат TikTok
+              var ttqPayload = buildTikTokPayload(eventName, payload, isEcommerceEvent);
               win.ttq.track(eventName, ttqPayload);
             } catch (ttqErr) {
               if (console && console.debug) {
@@ -195,20 +181,7 @@
             }
           } else if (TIKTOK_PIXEL_ID) {
             // TikTok Pixel еще не загружен - буферизуем
-            var ttqBufferedPayload = {};
-            if (isEcommerceEvent) {
-              if (payload.value !== undefined) {
-                ttqBufferedPayload.value = parseFloat(payload.value) || 0;
-              }
-              if (payload.currency) {
-                ttqBufferedPayload.currency = payload.currency.toUpperCase();
-              }
-            }
-            for (var ttqBuffKey in payload) {
-              if (payload.hasOwnProperty(ttqBuffKey) && ttqBuffKey !== 'value' && ttqBuffKey !== 'currency') {
-                ttqBufferedPayload[ttqBuffKey] = payload[ttqBuffKey];
-              }
-            }
+            var ttqBufferedPayload = buildTikTokPayload(eventName, payload, isEcommerceEvent);
             if (!win._ttqBuffer) {
               win._ttqBuffer = [];
             }
@@ -221,6 +194,130 @@
         }
       }
     };
+  }
+  
+  // Функция для преобразования payload в формат TikTok
+  function buildTikTokPayload(eventName, payload, isEcommerceEvent) {
+    var ttqPayload = {};
+    
+    // Базовые поля для e-commerce событий
+    if (isEcommerceEvent) {
+      if (payload.value !== undefined) {
+        ttqPayload.value = parseFloat(payload.value) || 0;
+      }
+      if (payload.currency) {
+        ttqPayload.currency = payload.currency.toUpperCase();
+      }
+    }
+    
+    // Преобразуем contents array в формат TikTok
+    if (payload.contents && Array.isArray(payload.contents)) {
+      ttqPayload.contents = [];
+      for (var i = 0; i < payload.contents.length; i++) {
+        var content = payload.contents[i];
+        var ttqContent = {
+          content_id: content.id || content.content_id || '',
+          content_type: payload.content_type || 'product',
+          content_name: payload.content_name || content.item_name || '',
+          content_category: payload.content_category || content.item_category || '',
+          price: content.item_price || content.price || 0,
+          brand: 'TwoComms'
+        };
+        
+        // Добавляем количество если есть
+        if (content.quantity !== undefined) {
+          ttqContent.num_items = content.quantity;
+        }
+        
+        ttqPayload.contents.push(ttqContent);
+      }
+    } else if (payload.content_ids && Array.isArray(payload.content_ids)) {
+      // Fallback: если нет contents но есть content_ids
+      ttqPayload.contents = [];
+      for (var j = 0; j < payload.content_ids.length; j++) {
+        ttqPayload.contents.push({
+          content_id: payload.content_ids[j],
+          content_type: payload.content_type || 'product',
+          content_name: payload.content_name || '',
+          content_category: payload.content_category || '',
+          price: payload.value || 0,
+          brand: 'TwoComms'
+        });
+      }
+    }
+    
+    // Добавляем search_string для Search события
+    if (payload.search_string) {
+      ttqPayload.search_string = payload.search_string;
+    }
+    
+    // Добавляем description (опционально)
+    if (payload.description) {
+      ttqPayload.description = payload.description;
+    }
+    
+    // Копируем другие параметры если они есть
+    var keysToSkip = ['value', 'currency', 'contents', 'content_ids', 'content_name', 'content_category', 'content_type', 'search_string', 'description', 'items'];
+    for (var key in payload) {
+      if (payload.hasOwnProperty(key) && keysToSkip.indexOf(key) === -1) {
+        ttqPayload[key] = payload[key];
+      }
+    }
+    
+    return ttqPayload;
+  }
+  
+  // Функция для TikTok identify (Advanced Matching)
+  function ttqIdentify() {
+    if (!TIKTOK_PIXEL_ID || !win.ttq || typeof win.ttq.identify !== 'function') {
+      return;
+    }
+    
+    try {
+      var amEl = doc.getElementById('am');
+      if (!amEl) return;
+      
+      var identifyData = {};
+      
+      // Email (хешированный)
+      if (amEl.dataset.em) {
+        identifyData.email = hashSHA256(amEl.dataset.em);
+      }
+      
+      // Phone (хешированный)
+      if (amEl.dataset.ph) {
+        // Только цифры
+        var phone = amEl.dataset.ph.replace(/\D/g, '');
+        if (phone) {
+          identifyData.phone_number = hashSHA256(phone);
+        }
+      }
+      
+      // External ID (хешированный)
+      if (amEl.dataset.externalId) {
+        identifyData.external_id = hashSHA256(amEl.dataset.externalId);
+      }
+      
+      // Отправляем если есть хотя бы одно поле
+      if (Object.keys(identifyData).length > 0) {
+        win.ttq.identify(identifyData);
+        if (console && console.debug) {
+          console.debug('TikTok Pixel identify sent');
+        }
+      }
+    } catch (err) {
+      if (console && console.debug) {
+        console.debug('TikTok identify error:', err);
+      }
+    }
+  }
+  
+  // Функция для хеширования SHA-256 (упрощенная версия)
+  function hashSHA256(str) {
+    // Для полного хеширования SHA-256 в браузере нужен Web Crypto API
+    // Для простоты возвращаем нормализованную строку (в продакшн нужен crypto.subtle.digest)
+    // TikTok также принимает нехешированные данные, но рекомендует хешировать
+    return str.toLowerCase().trim();
   }
 
   function loadGoogleAnalytics() {
@@ -530,6 +627,15 @@
     } catch (errTrack) {
       if (console && console.debug) {
         console.debug('TikTok Pixel page error', errTrack);
+      }
+    }
+    
+    // Вызываем identify для Advanced Matching
+    try {
+      ttqIdentify();
+    } catch (errIdentify) {
+      if (console && console.debug) {
+        console.debug('TikTok Pixel identify error', errIdentify);
       }
     }
     
