@@ -259,9 +259,13 @@
             window.trackEvent('AddToWishlist', {
               content_ids: [testProduct.id],
               content_type: 'product',
+              value: testProduct.price,
+              currency: 'UAH',
+              num_items: testProduct.quantity,
               contents: [{
                 id: testProduct.id,
-                quantity: testProduct.quantity
+                quantity: testProduct.quantity,
+                item_price: testProduct.price
               }]
             });
           }
@@ -323,8 +327,11 @@
             window.trackEvent('Search', {
               search_string: 'тест поиск',
               content_ids: [testProduct.id],
+              value: testProduct.price,
+              currency: 'UAH',
               contents: [{
-                id: testProduct.id
+                id: testProduct.id,
+                item_price: testProduct.price
               }]
             });
           }
