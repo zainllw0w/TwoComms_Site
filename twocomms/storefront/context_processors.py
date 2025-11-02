@@ -1,4 +1,5 @@
 from cache_utils import get_cache
+from django.conf import settings
 
 def orders_processing_count(request):
     """
@@ -20,4 +21,12 @@ def orders_processing_count(request):
     
     return {
         'orders_processing_count': processing_count
+    }
+
+def analytics_settings(request):
+    """
+    Контекстный процессор для добавления настроек аналитики в шаблоны
+    """
+    return {
+        'TIKTOK_PIXEL_ID': getattr(settings, 'TIKTOK_PIXEL_ID', 'D43L7DBC77UA61AHLTVG'),
     }
