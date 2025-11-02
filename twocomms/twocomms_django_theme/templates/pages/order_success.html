@@ -1782,6 +1782,7 @@ document.addEventListener('DOMContentLoaded', function() {
      {% if order %}data-value="{{ order.total_sum|floatformat:2 }}"{% else %}data-value="0"{% endif %}
      data-currency="UAH"
      {% if order %}data-payment-status="{{ order.payment_status }}"{% else %}data-payment-status="paid"{% endif %}
+     {% if order %}data-order-status="{{ order.status }}"{% else %}data-order-status="done"{% endif %}
      {% if order %}data-full-name="{{ order.full_name }}"{% endif %}
      {% if order %}data-phone="{{ order.phone }}"{% endif %}
      {% if order %}data-city="{{ order.city }}"{% endif %}
@@ -1798,13 +1799,40 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!el) return;
     
     var paymentStatus = el.dataset.paymentStatus || 'unpaid';
-    var isPaid = paymentStatus === 'paid';
+    var orderStatus = el.dataset.orderStatus || 'new';
     var orderId = el.dataset.orderId;
-    var eventType = isPaid ? 'purchase' : 'lead';
-    var storageKey = 'gtm_' + eventType + '_' + orderId;
     
-    if (sessionStorage.getItem(storageKey)) {
-      console.log('GTM ' + eventType + ' event already sent for order:', orderId);
+    // НОВАЯ ЛОГИКА (по требованиям):
+    // 1. Lead - для prepaid И paid (все кто оплатил - для оптимизации рекламы)
+    // 2. Purchase - сразу при полной оплате (payment_status == 'paid'), не ждем получения
+    // 3. Для unpaid - никаких событий
+    // Важно: если paid - отправляются ОБА события сразу (Lead + Purchase)
+    
+    var shouldSendLead = paymentStatus === 'prepaid' || paymentStatus === 'paid';
+    var shouldSendPurchase = paymentStatus === 'paid';  // Сразу при оплате, не ждем получения
+    
+    if (!shouldSendLead && !shouldSendPurchase) {
+      console.log('No pixel events to send: payment_status=' + paymentStatus + ', order_status=' + orderStatus);
+      return;
+    }
+    
+    // Проверяем sessionStorage для каждого события отдельно
+    // (может отправляться и Lead, и Purchase одновременно)
+    var leadStorageKey = 'gtm_lead_' + orderId;
+    var purchaseStorageKey = 'gtm_purchase_' + orderId;
+    
+    // Проверяем каждое событие отдельно - если оба уже отправлены, выходим
+    // Важно: проверяем каждое событие независимо
+    var leadAlreadySent = shouldSendLead && sessionStorage.getItem(leadStorageKey);
+    var purchaseAlreadySent = shouldSendPurchase && sessionStorage.getItem(purchaseStorageKey);
+    
+    // Если оба события уже отправлены или не требуется отправка, выходим
+    if ((!shouldSendLead || leadAlreadySent) && (!shouldSendPurchase || purchaseAlreadySent)) {
+      if (leadAlreadySent || purchaseAlreadySent) {
+        console.log('GTM events already sent for order:', orderId, 
+          'Lead:', leadAlreadySent ? 'sent' : 'not needed',
+          'Purchase:', purchaseAlreadySent ? 'sent' : 'not needed');
+      }
       return;
     }
     
@@ -1838,9 +1866,14 @@ document.addEventListener('DOMContentLoaded', function() {
     if (email) userData.email = email;
     if (city) userData.address = { city: city };
     
-    window.dataLayer = window.dataLayer || [];
+    // ИСПРАВЛЕНИЕ: Используем существующий dataLayer от GTM (не создаем новый)
+    // GTM уже создает dataLayer в base.html
+    if (typeof window.dataLayer === 'undefined') {
+      window.dataLayer = [];
+    }
     
-    if (isPaid) {
+    // Purchase событие - сразу при полной оплате (не ждем получения товара)
+    if (shouldSendPurchase && !sessionStorage.getItem(purchaseStorageKey)) {
       var purchaseData = {
         event: 'purchase',
         ecommerce: {
@@ -1862,10 +1895,21 @@ document.addEventListener('DOMContentLoaded', function() {
         purchaseData.user_data = userData;
       }
       
+      // Защита от блокировки: проверяем что dataLayer доступен
+      try {
+        if (window.dataLayer && Array.isArray(window.dataLayer)) {
       window.dataLayer.push(purchaseData);
       console.log('✅ GTM Purchase event sent (PAID):', purchaseData);
+        } else {
+          console.debug('GTM dataLayer not available - possible blocker');
+        }
+      } catch (gtmErr) {
+        console.debug('GTM push error (possible blocker):', gtmErr);
+      }
     
-      if (window.fbq) {
+      // Защита от блокировки: проверяем что Pixel доступен
+      if (window.fbq && typeof window.fbq === 'function') {
+        try {
         var fbUserData = {};
         if (email) fbUserData.em = email.toLowerCase();
         if (phone) fbUserData.ph = phone.replace(/\D/g, '');
@@ -1893,8 +1937,39 @@ document.addEventListener('DOMContentLoaded', function() {
           ct: fbUserData.ct
         });
         console.log('✅ Meta Pixel Purchase event sent (PAID) with eventID:', eventId);
+        } catch (fbErr) {
+          console.debug('Meta Pixel Purchase error (possible blocker):', fbErr);
       }
     } else {
+        console.debug('Meta Pixel not available for Purchase - possible blocker');
+      }
+      
+      // TikTok Pixel Purchase событие
+      if (window.ttq && typeof window.ttq.track === 'function') {
+        try {
+          var ttqPurchaseData = {
+            value: value,
+            currency: currency,
+            content_type: 'product',
+            contents: contents.map(function(item) {
+              return { content_id: String(item.id), quantity: item.quantity };
+            })
+          };
+          window.ttq.track('CompletePayment', ttqPurchaseData);
+          console.log('✅ TikTok Pixel Purchase event sent (PAID):', ttqPurchaseData);
+        } catch (ttqErr) {
+          console.debug('TikTok Pixel Purchase error (possible blocker):', ttqErr);
+        }
+      } else {
+        console.debug('TikTok Pixel not available for Purchase - possible blocker');
+      }
+      
+      // Сохраняем что Purchase отправлен
+      sessionStorage.setItem(purchaseStorageKey, 'true');
+    }
+    
+    // Lead событие - для prepaid И paid (все кто оплатил)
+    if (shouldSendLead && !sessionStorage.getItem(leadStorageKey)) {
       var leadData = {
         event: 'lead',
         lead_data: {
@@ -1909,10 +1984,21 @@ document.addEventListener('DOMContentLoaded', function() {
         leadData.user_data = userData;
       }
       
+      // Защита от блокировки: проверяем что dataLayer доступен
+      try {
+        if (window.dataLayer && Array.isArray(window.dataLayer)) {
       window.dataLayer.push(leadData);
-      console.log('📋 GTM Lead event sent (UNPAID):', leadData);
+          console.log('📋 GTM Lead event sent (PAYMENT: ' + paymentStatus + '):', leadData);
+        } else {
+          console.debug('GTM dataLayer not available for Lead - possible blocker');
+        }
+      } catch (gtmErr) {
+        console.debug('GTM Lead push error (possible blocker):', gtmErr);
+      }
       
-      if (window.fbq) {
+      // Защита от блокировки: проверяем что Pixel доступен
+      if (window.fbq && typeof window.fbq === 'function') {
+        try {
         var fbUserData = {};
         if (email) fbUserData.em = email.toLowerCase();
         if (phone) fbUserData.ph = phone.replace(/\D/g, '');
@@ -1937,11 +2023,35 @@ document.addEventListener('DOMContentLoaded', function() {
           ln: fbUserData.ln,
           ct: fbUserData.ct
         });
-        console.log('📋 Meta Pixel Lead event sent (UNPAID) with eventID:', leadEventId);
+          console.log('📋 Meta Pixel Lead event sent (PAYMENT: ' + paymentStatus + ') with eventID:', leadEventId);
+        } catch (fbErr) {
+          console.debug('Meta Pixel Lead error (possible blocker):', fbErr);
       }
+      } else {
+        console.debug('Meta Pixel not available for Lead - possible blocker');
     }
     
-    sessionStorage.setItem(storageKey, 'true');
+      // TikTok Pixel Lead событие
+      if (window.ttq && typeof window.ttq.track === 'function') {
+        try {
+          var ttqLeadData = {
+            value: value,
+            currency: currency,
+            content_name: 'Order ' + orderNumber,
+            content_category: 'order_lead'
+          };
+          window.ttq.track('CompletePayment', ttqLeadData);
+          console.log('📋 TikTok Pixel Lead event sent (PAYMENT: ' + paymentStatus + '):', ttqLeadData);
+        } catch (ttqErr) {
+          console.debug('TikTok Pixel Lead error (possible blocker):', ttqErr);
+        }
+      } else {
+        console.debug('TikTok Pixel not available for Lead - possible blocker');
+    }
+    
+      // Сохраняем что Lead отправлен
+      sessionStorage.setItem(leadStorageKey, 'true');
+    }
   } catch(e) {
     console.error('Error in conversion tracking:', e);
   }
