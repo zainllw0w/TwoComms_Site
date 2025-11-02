@@ -1944,31 +1944,30 @@ document.addEventListener('DOMContentLoaded', function() {
         console.debug('Meta Pixel not available for Purchase - possible blocker');
       }
       
-      // TikTok Pixel Purchase событие (с полной структурой contents)
-      if (window.ttq && typeof window.ttq.track === 'function') {
+      // TikTok Pixel Purchase событие (используем trackEvent для правильной обработки)
+      if (window.trackEvent && typeof window.trackEvent === 'function') {
         try {
           var ttqPurchaseData = {
             value: value,
             currency: currency,
             content_type: 'product',
+            content_ids: contents.map(function(item) { return String(item.id); }),
             contents: contents.map(function(item) {
               return {
-                content_id: String(item.id),
-                content_type: 'product',
-                content_name: item.name || '',
-                price: item.price || 0,
+                id: String(item.id),
+                item_price: item.price || 0,
                 quantity: item.quantity || 1,
-                brand: 'TwoComms'
+                item_name: item.name || ''
               };
             })
           };
-          window.ttq.track('CompletePayment', ttqPurchaseData);
-          console.log('✅ TikTok Pixel Purchase event sent (PAID):', ttqPurchaseData);
+          window.trackEvent('Purchase', ttqPurchaseData);
+          console.log('✅ TikTok Pixel Purchase event sent (PAID) via trackEvent:', ttqPurchaseData);
         } catch (ttqErr) {
           console.debug('TikTok Pixel Purchase error (possible blocker):', ttqErr);
         }
       } else {
-        console.debug('TikTok Pixel not available for Purchase - possible blocker');
+        console.debug('TikTok Pixel trackEvent not available for Purchase - possible blocker');
       }
       
       // Сохраняем что Purchase отправлен
@@ -2038,22 +2037,23 @@ document.addEventListener('DOMContentLoaded', function() {
         console.debug('Meta Pixel not available for Lead - possible blocker');
     }
     
-      // TikTok Pixel Lead событие
-      if (window.ttq && typeof window.ttq.track === 'function') {
+      // TikTok Pixel Lead событие (используем trackEvent для правильной обработки)
+      if (window.trackEvent && typeof window.trackEvent === 'function') {
         try {
           var ttqLeadData = {
             value: value,
             currency: currency,
             content_name: 'Order ' + orderNumber,
-            content_category: 'order_lead'
+            content_category: 'order_lead',
+            content_type: 'lead'
           };
-          window.ttq.track('CompletePayment', ttqLeadData);
-          console.log('📋 TikTok Pixel Lead event sent (PAYMENT: ' + paymentStatus + '):', ttqLeadData);
+          window.trackEvent('Lead', ttqLeadData);
+          console.log('📋 TikTok Pixel Lead event sent (PAYMENT: ' + paymentStatus + ') via trackEvent:', ttqLeadData);
         } catch (ttqErr) {
           console.debug('TikTok Pixel Lead error (possible blocker):', ttqErr);
         }
       } else {
-        console.debug('TikTok Pixel not available for Lead - possible blocker');
+        console.debug('TikTok Pixel trackEvent not available for Lead - possible blocker');
     }
     
       // Сохраняем что Lead отправлен
