@@ -554,6 +554,7 @@ _CSP_DEFAULT = (
     "https://www.googleadservices.com https://pagead2.googlesyndication.com "
     "https://connect.facebook.net https://www.facebook.com https://facebook.com "
     "https://www.clarity.ms https://scripts.clarity.ms https://c.clarity.ms "
+    "https://c.bing.com "
     "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
     # Fonts
     "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; "
