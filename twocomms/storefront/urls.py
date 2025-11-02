@@ -132,6 +132,8 @@ urlpatterns=[
     path('products_feed.xml', views.uaprom_products_feed, name='uaprom_products_feed'),
     path('contacts/', views.contacts, name='contacts'),
     path('search/', views.search, name='search'),
+    # Test analytics events page
+    path('test-analytics/', views.test_analytics_events, name='test_analytics'),
     # favorites
     path('favorites/', views.favorites_list, name='favorites'),
     path('favorites/toggle/<int:product_id>/', views.toggle_favorite, name='toggle_favorite'),

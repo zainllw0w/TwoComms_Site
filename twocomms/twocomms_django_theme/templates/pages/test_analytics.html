@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Тест аналитических событий - TwoComms{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-10">
+      <div class="card bg-elevate border-0 rounded-4 shadow-lg">
+        <div class="card-body p-4 p-md-5">
+          
+          <!-- Заголовок -->
+          <div class="text-center mb-4">
+            <h1 class="display-5 fw-bold mb-3">🧪 Тест аналитических событий</h1>
+            <p class="text-muted">Автоматическая отправка всех типов событий для проверки в TikTok Events Manager и Facebook Events Manager</p>
+          </div>
+          
+          <!-- Статус Test Event Code -->
+          {% if ttq_test_code %}
+          <div class="alert alert-success d-flex align-items-center mb-4" role="alert">
+            <svg class="bi flex-shrink-0 me-2" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm.93-9.412-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.47l-.451-.081.082-.381 2.29-.287zM8 5.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
+            </svg>
+            <div>
+              <strong>Test Mode активен!</strong><br>
+              TikTok Test Event Code: <code>{{ ttq_test_code }}</code><br>
+              <small>События отправляются как тестовые и появятся в TikTok Events Manager</small>
+            </div>
+          </div>
+          {% else %}
+          <div class="alert alert-warning d-flex align-items-center mb-4" role="alert">
+            <svg class="bi flex-shrink-0 me-2" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+            </svg>
+            <div>
+              <strong>Test Mode не активен</strong><br>
+              Добавьте <code>?ttq_test=YOUR_TEST_CODE</code> к URL для тестирования<br>
+              Или установите переменную окружения <code>TIKTOK_TEST_EVENT_CODE</code>
+            </div>
+          </div>
+          {% endif %}
+          
+          <!-- Инструкции -->
+          <div class="mb-4">
+            <h3 class="h5 mb-3">📋 Инструкция</h3>
+            <ol class="mb-0">
+              <li>Откройте <strong>TikTok Events Manager</strong> → <strong>Test Events</strong></li>
+              <li>Выберите ваш <strong>Test Event Code</strong></li>
+              <li>Нажмите кнопку <strong>"Отправить все события"</strong> ниже</li>
+              <li>События появятся в TikTok Events Manager в реальном времени!</li>
+            </ol>
+          </div>
+          
+          <!-- Кнопки отправки событий -->
+          <div class="mb-4">
+            <h3 class="h5 mb-3">🎯 Отправить события</h3>
+            
+            <div class="d-grid gap-2 mb-3">
+              <button type="button" class="btn btn-primary btn-lg" onclick="sendAllEvents()">
+                🚀 Отправить все события автоматически
+              </button>
+            </div>
+            
+            <div class="row g-2">
+              <div class="col-md-6">
+                <button type="button" class="btn btn-outline-primary w-100" onclick="sendEvent('PageView')">
+                  📄 PageView
+                </button>
+              </div>
+              <div class="col-md-6">
+                <button type="button" class="btn btn-outline-primary w-100" onclick="sendEvent('ViewContent')">
+                  👁️ ViewContent
+                </button>
+              </div>
+              <div class="col-md-6">
+                <button type="button" class="btn btn-outline-success w-100" onclick="sendEvent('AddToCart')">
+                  🛒 AddToCart
+                </button>
+              </div>
+              <div class="col-md-6">
+                <button type="button" class="btn btn-outline-success w-100" onclick="sendEvent('AddToWishlist')">
+                  ❤️ AddToWishlist
+                </button>
+              </div>
+              <div class="col-md-6">
+                <button type="button" class="btn btn-outline-warning w-100" onclick="sendEvent('InitiateCheckout')">
+                  💳 InitiateCheckout
+                </button>
+              </div>
+              <div class="col-md-6">
+                <button type="button" class="btn btn-outline-warning w-100" onclick="sendEvent('StartPayment')">
+                  💰 StartPayment
+                </button>
+              </div>
+              <div class="col-md-6">
+                <button type="button" class="btn btn-outline-danger w-100" onclick="sendEvent('Purchase')">
+                  ✅ Purchase
+                </button>
+              </div>
+              <div class="col-md-6">
+                <button type="button" class="btn btn-outline-info w-100" onclick="sendEvent('Search')">
+                  🔍 Search
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Лог событий -->
+          <div class="mb-4">
+            <h3 class="h5 mb-3">📊 Лог событий</h3>
+            <div id="event-log" class="bg-dark rounded-3 p-3" style="max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 0.85rem;">
+              <div class="text-muted">Ожидание событий...</div>
+            </div>
+          </div>
+          
+          <!-- Статус пикселей -->
+          <div class="mb-4">
+            <h3 class="h5 mb-3">🔍 Статус пикселей</h3>
+            <div id="pixel-status" class="row g-2">
+              <div class="col-md-6">
+                <div class="card bg-dark border-0">
+                  <div class="card-body">
+                    <h6 class="card-title">TikTok Pixel</h6>
+                    <div id="ttq-status" class="text-muted">Проверка...</div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card bg-dark border-0">
+                  <div class="card-body">
+                    <h6 class="card-title">Meta Pixel</h6>
+                    <div id="fbq-status" class="text-muted">Проверка...</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  
+  // Тестовые данные
+  const testProduct = {
+    id: 'TC-999-test-001-M',
+    name: 'Тестовый товар TwoComms',
+    category: 'Тестовая категория',
+    price: 599,
+    quantity: 1
+  };
+  
+  // Логирование событий
+  function logEvent(eventName, status, details) {
+    const log = document.getElementById('event-log');
+    const time = new Date().toLocaleTimeString('uk-UA');
+    const statusIcon = status === 'success' ? '✅' : status === 'error' ? '❌' : '⏳';
+    const statusColor = status === 'success' ? 'text-success' : status === 'error' ? 'text-danger' : 'text-warning';
+    
+    const logEntry = document.createElement('div');
+    logEntry.className = `mb-2 ${statusColor}`;
+    logEntry.innerHTML = `<strong>${statusIcon} [${time}]</strong> ${eventName}${details ? ': ' + details : ''}`;
+    
+    if (log.firstChild && log.firstChild.classList.contains('text-muted')) {
+      log.firstChild.remove();
+    }
+    log.insertBefore(logEntry, log.firstChild);
+    
+    // Ограничиваем количество записей
+    while (log.children.length > 20) {
+      log.removeChild(log.lastChild);
+    }
+  }
+  
+  // Проверка статуса пикселей
+  function checkPixelStatus() {
+    // TikTok Pixel
+    if (window.ttq && typeof window.ttq.track === 'function') {
+      const ttqStatus = document.getElementById('ttq-status');
+      ttqStatus.innerHTML = '<span class="text-success">✓ Инициализирован</span>';
+      
+      // Проверяем test_event_code
+      if (window.ttq._o && window.ttq._o[Object.keys(window.ttq._o)[0]]) {
+        const testCode = window.ttq._o[Object.keys(window.ttq._o)[0]].test_event_code;
+        if (testCode) {
+          ttqStatus.innerHTML += '<br><small class="text-info">Test Code: ' + testCode + '</small>';
+        }
+      }
+    } else {
+      document.getElementById('ttq-status').innerHTML = '<span class="text-danger">✗ Не обнаружен</span>';
+    }
+    
+    // Meta Pixel
+    if (window.fbq && typeof window.fbq === 'function') {
+      document.getElementById('fbq-status').innerHTML = '<span class="text-success">✓ Инициализирован</span>';
+    } else {
+      document.getElementById('fbq-status').innerHTML = '<span class="text-danger">✗ Не обнаружен</span>';
+    }
+  }
+  
+  // Отправка одного события
+  function sendEvent(eventName) {
+    logEvent(eventName, 'pending', 'Отправка...');
+    
+    try {
+      let payload = {};
+      
+      switch(eventName) {
+        case 'PageView':
+          // PageView уже отправлен при загрузке, но можем отправить снова
+          if (window.trackEvent) {
+            window.trackEvent('PageView', {});
+          }
+          break;
+          
+        case 'ViewContent':
+          if (window.trackEvent) {
+            window.trackEvent('ViewContent', {
+              content_ids: [testProduct.id],
+              content_name: testProduct.name,
+              content_type: 'product',
+              content_category: testProduct.category,
+              value: testProduct.price,
+              currency: 'UAH',
+              contents: [{
+                id: testProduct.id,
+                quantity: testProduct.quantity,
+                item_price: testProduct.price
+              }]
+            });
+          }
+          break;
+          
+        case 'AddToCart':
+          if (window.trackEvent) {
+            window.trackEvent('AddToCart', {
+              content_ids: [testProduct.id],
+              content_type: 'product',
+              value: testProduct.price,
+              currency: 'UAH',
+              num_items: testProduct.quantity,
+              contents: [{
+                id: testProduct.id,
+                quantity: testProduct.quantity,
+                item_price: testProduct.price
+              }]
+            });
+          }
+          break;
+          
+        case 'AddToWishlist':
+          if (window.trackEvent) {
+            window.trackEvent('AddToWishlist', {
+              content_ids: [testProduct.id],
+              content_type: 'product',
+              contents: [{
+                id: testProduct.id,
+                quantity: testProduct.quantity
+              }]
+            });
+          }
+          break;
+          
+        case 'InitiateCheckout':
+          if (window.trackEvent) {
+            window.trackEvent('InitiateCheckout', {
+              content_ids: [testProduct.id],
+              content_type: 'product',
+              value: testProduct.price,
+              currency: 'UAH',
+              num_items: testProduct.quantity,
+              contents: [{
+                id: testProduct.id,
+                quantity: testProduct.quantity,
+                item_price: testProduct.price
+              }]
+            });
+          }
+          break;
+          
+        case 'StartPayment':
+          if (window.trackEvent) {
+            window.trackEvent('StartPayment', {
+              content_ids: [testProduct.id],
+              content_type: 'product',
+              value: testProduct.price,
+              currency: 'UAH',
+              num_items: testProduct.quantity,
+              payment_method: 'test',
+              contents: [{
+                id: testProduct.id,
+                quantity: testProduct.quantity,
+                item_price: testProduct.price
+              }]
+            });
+          }
+          break;
+          
+        case 'Purchase':
+          if (window.trackEvent) {
+            window.trackEvent('Purchase', {
+              content_ids: [testProduct.id],
+              content_type: 'product',
+              value: testProduct.price,
+              currency: 'UAH',
+              contents: [{
+                id: testProduct.id,
+                quantity: testProduct.quantity,
+                item_price: testProduct.price
+              }]
+            });
+          }
+          break;
+          
+        case 'Search':
+          if (window.trackEvent) {
+            window.trackEvent('Search', {
+              search_string: 'тест поиск',
+              content_ids: [testProduct.id],
+              contents: [{
+                id: testProduct.id
+              }]
+            });
+          }
+          break;
+      }
+      
+      logEvent(eventName, 'success', 'Событие отправлено');
+      
+    } catch (error) {
+      logEvent(eventName, 'error', error.message);
+    }
+  }
+  
+  // Отправка всех событий с задержкой
+  function sendAllEvents() {
+    const events = [
+      { name: 'PageView', delay: 0 },
+      { name: 'ViewContent', delay: 500 },
+      { name: 'AddToCart', delay: 1000 },
+      { name: 'AddToWishlist', delay: 1500 },
+      { name: 'InitiateCheckout', delay: 2000 },
+      { name: 'StartPayment', delay: 2500 },
+      { name: 'Purchase', delay: 3000 },
+      { name: 'Search', delay: 3500 }
+    ];
+    
+    logEvent('ALL_EVENTS', 'pending', 'Начинаем отправку всех событий...');
+    
+    events.forEach(function(event) {
+      setTimeout(function() {
+        sendEvent(event.name);
+      }, event.delay);
+    });
+    
+    setTimeout(function() {
+      logEvent('ALL_EVENTS', 'success', 'Все события отправлены!');
+    }, 4000);
+  }
+  
+  // Проверяем статус пикселей сразу и периодически
+  setTimeout(checkPixelStatus, 1000);
+  setTimeout(checkPixelStatus, 3000);
+  
+  // Логируем автоматическую отправку при загрузке
+  setTimeout(function() {
+    logEvent('PageView', 'success', 'Автоматически отправлен при загрузке страницы');
+  }, 2000);
+  
+})();
+</script>
+
+<style>
+#event-log {
+  background-color: #1a1a1a !important;
+  color: #00ff00;
+  border: 1px solid #333;
+}
+
+#event-log div {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  transition: transform 0.2s;
+}
+</style>
+{% endblock %}
+
