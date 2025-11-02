@@ -47,6 +47,27 @@ class ProductColorVariant(models.Model):
     def __str__(self):
         return f'{self.product.title} [{self.color}]'
 
+    def get_variant_key(self):
+        """
+        Возвращает ключ варианта для offer_id.
+        
+        Returns:
+            str: 'cv{id}' (например 'cv2')
+        """
+        return f'cv{self.id}'
+    
+    def get_offer_id(self, size='S'):
+        """
+        Генерирует offer_id для этого цветового варианта.
+        
+        Args:
+            size: Размер (S, M, L, XL, XXL)
+        
+        Returns:
+            str: offer_id в формате TC-{product_id}-cv{variant_id}-{SIZE}
+        """
+        return self.product.get_offer_id(self.id, size)
+
 class ProductColorImage(models.Model):
     """
     Изображения, привязанные к цветовому варианту товара.
