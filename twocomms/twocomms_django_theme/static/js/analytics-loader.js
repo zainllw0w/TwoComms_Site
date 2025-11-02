@@ -52,6 +52,7 @@
   win._fbqLoaded = false;
   win._ttqBuffer = win._ttqBuffer || [];
   win._ttqLoaded = false;
+  win._ttqScriptLoaded = false; // Флаг реальной загрузки скрипта TikTok
 
   function setupGlobalEventBridge() {
     if (typeof win.trackEvent === 'function') {
@@ -171,27 +172,44 @@
       
       // Отправка в TikTok Pixel (с полной структурой contents)
       try {
-        if (TIKTOK_PIXEL_ID && win.ttq && typeof win.ttq.track === 'function') {
-          if (win._ttqLoaded) {
+        if (TIKTOK_PIXEL_ID) {
+          // Проверяем что пиксель реально загружен (не только очередь)
+          var isTikTokReady = win.ttq && 
+                             typeof win.ttq.track === 'function' && 
+                             win._ttqLoaded && 
+                             win._ttqScriptLoaded; // Дополнительная проверка что скрипт загрузился
+          
+          if (isTikTokReady) {
             try {
               // Преобразуем payload в формат TikTok
               var ttqPayload = buildTikTokPayload(eventName, payload, isEcommerceEvent);
+              
+              // Отправляем событие напрямую (пиксель уже готов)
+              // Используем try-catch для безопасности
               win.ttq.track(eventName, ttqPayload);
             } catch (ttqErr) {
               if (console && console.debug) {
                 console.debug('TikTok Pixel track error (possible blocker):', ttqErr);
               }
-              if (win._ttqBuffer) {
-                win._ttqBuffer.push({ event: eventName, data: ttqPayload });
+              // Если ошибка - буферизуем для повторной отправки
+              var ttqBufferedPayload = buildTikTokPayload(eventName, payload, isEcommerceEvent);
+              if (!win._ttqBuffer) {
+                win._ttqBuffer = [];
               }
+              win._ttqBuffer.push({ event: eventName, data: ttqBufferedPayload });
             }
-          } else if (TIKTOK_PIXEL_ID) {
+          } else {
             // TikTok Pixel еще не загружен - буферизуем
             var ttqBufferedPayload = buildTikTokPayload(eventName, payload, isEcommerceEvent);
             if (!win._ttqBuffer) {
               win._ttqBuffer = [];
             }
             win._ttqBuffer.push({ event: eventName, data: ttqBufferedPayload });
+            
+            // Пытаемся загрузить пиксель если он еще не начал загружаться
+            if (!win.__ttqPixelLoaded) {
+              loadTikTokPixel();
+            }
           }
         }
       } catch (err4) {
@@ -619,6 +637,113 @@
               console.debug('TikTok Pixel script failed to load - possible ad blocker');
             }
             w.__ttqPixelLoaded = false;
+            w._ttqScriptLoaded = false;
+          };
+          
+          // КРИТИЧНО: Обработчик успешной загрузки скрипта
+          n.onload = function() {
+            // Устанавливаем флаг что скрипт реально загрузился
+            w._ttqScriptLoaded = true;
+            if (console && console.log) {
+              console.log('[TikTok Pixel] Script loaded successfully');
+            }
+            
+            // Проверяем что ttq.track доступен и реально работает (не только очередь)
+            var checkReady = setInterval(function() {
+              // Проверяем что ttq существует и track это функция
+              if (w.ttq && typeof w.ttq.track === 'function') {
+                // Пробуем проверить что это не просто очередь, а реальная функция
+                var trackStr = String(w.ttq.track);
+                var isRealFunction = trackStr.indexOf('[native code]') !== -1 || 
+                                    trackStr.indexOf('function') !== -1 ||
+                                    (w.ttq.track.length !== undefined); // Если это функция, у неё есть length
+                
+                // Дополнительная проверка: проверяем что есть instance или _i (внутренние структуры TikTok)
+                var hasInternalStructures = (w.ttq._i && typeof w.ttq._i === 'object') || 
+                                           (w.ttq.instance && typeof w.ttq.instance === 'function');
+                
+                if (isRealFunction || hasInternalStructures) {
+                  clearInterval(checkReady);
+                  w._ttqLoaded = true;
+                  if (console && console.log) {
+                    console.log('[TikTok Pixel] Pixel ready, track function available');
+                  }
+                  
+                  // Обрабатываем буферизованные события
+                  if (w._ttqBuffer && w._ttqBuffer.length > 0) {
+                    if (console && console.log) {
+                      console.log('[TikTok Pixel] Processing ' + w._ttqBuffer.length + ' buffered events');
+                    }
+                    w._ttqBuffer.forEach(function(buffered) {
+                      try {
+                        w.ttq.track(buffered.event, buffered.data);
+                      } catch (err) {
+                        if (console && console.debug) {
+                          console.debug('TikTok Pixel buffered event error', err);
+                        }
+                      }
+                    });
+                    w._ttqBuffer = []; // Clear buffer
+                  }
+                }
+              }
+              
+              // Также проверяем ready callback если доступен (более надежный способ)
+              if (w.ttq && typeof w.ttq.ready === 'function') {
+                clearInterval(checkReady);
+                w.ttq.ready(function() {
+                  w._ttqLoaded = true;
+                  if (console && console.log) {
+                    console.log('[TikTok Pixel] Pixel ready via ready callback');
+                  }
+                  
+                  // Обрабатываем буферизованные события
+                  if (w._ttqBuffer && w._ttqBuffer.length > 0) {
+                    if (console && console.log) {
+                      console.log('[TikTok Pixel] Processing ' + w._ttqBuffer.length + ' buffered events (via ready callback)');
+                    }
+                    w._ttqBuffer.forEach(function(buffered) {
+                      try {
+                        w.ttq.track(buffered.event, buffered.data);
+                      } catch (err) {
+                        if (console && console.debug) {
+                          console.debug('TikTok Pixel buffered event error', err);
+                        }
+                      }
+                    });
+                    w._ttqBuffer = []; // Clear buffer
+                  }
+                });
+              }
+            }, 100); // Проверяем каждые 100ms (немного реже для производительности)
+            
+            // Таймаут для проверки готовности (макс 5 секунд)
+            setTimeout(function() {
+              clearInterval(checkReady);
+              if (!w._ttqLoaded) {
+                // Если через 5 секунд все еще не готово - помечаем как загруженное и пытаемся отправить события
+                w._ttqLoaded = true;
+                w._ttqScriptLoaded = true;
+                if (console && console.warn) {
+                  console.warn('[TikTok Pixel] Timeout waiting for ready state, processing events anyway');
+                }
+                
+                if (w._ttqBuffer && w._ttqBuffer.length > 0) {
+                  w._ttqBuffer.forEach(function(buffered) {
+                    try {
+                      if (w.ttq && typeof w.ttq.track === 'function') {
+                        w.ttq.track(buffered.event, buffered.data);
+                      }
+                    } catch (err) {
+                      if (console && console.debug) {
+                        console.debug('TikTok Pixel timeout event error', err);
+                      }
+                    }
+                  });
+                  w._ttqBuffer = [];
+                }
+              }
+            }, 5000);
           };
           
           e=doc.getElementsByTagName("script")[0];
@@ -671,28 +796,14 @@
     try {
       ttqIdentify();
     } catch (errIdentify) {
-      if (console && console.debug) {
-        console.debug('TikTok Pixel identify error', errIdentify);
-      }
-    }
-    
-    // Mark pixel as loaded and process buffered events
-    win._ttqLoaded = true;
-    if (win._ttqBuffer && win._ttqBuffer.length > 0) {
-      if (console && console.log) {
-        console.log('TikTok Pixel: Processing ' + win._ttqBuffer.length + ' buffered events');
-      }
-      win._ttqBuffer.forEach(function(buffered) {
-        try {
-          win.ttq.track(buffered.event, buffered.data);
-        } catch (err) {
           if (console && console.debug) {
-            console.debug('TikTok Pixel buffered event error', err);
+        console.debug('TikTok Pixel identify error', errIdentify);
           }
         }
-      });
-      win._ttqBuffer = []; // Clear buffer
-    }
+    
+    // НЕ устанавливаем _ttqLoaded = true здесь!
+    // Это сделается в onload обработчике скрипта после реальной загрузки
+    // Флаг _ttqLoaded устанавливается в n.onload обработчике выше
   }
 
   setupGlobalEventBridge();
