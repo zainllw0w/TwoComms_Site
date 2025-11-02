@@ -3,13 +3,15 @@
 {% load seo_tags %}
 {% load image_optimization %}
 <!DOCTYPE html>
-<html lang='uk' data-bs-theme='dark'{% if not debug %} data-ga-id="G-109EFTWM05" data-clarity-id="t7u94cvpqc" data-meta-pixel-id="823958313630148"{% endif %}{% if TIKTOK_PIXEL_ID %} data-tiktok-pixel-id="{{ TIKTOK_PIXEL_ID }}"{% endif %}>
+<html lang='uk' data-bs-theme='dark'{% if not debug %} data-ga-id="G-109EFTWM05" data-clarity-id="t7u94cvpqc" data-meta-pixel-id="823958313630148"{% endif %} data-tiktok-pixel-id="{{ TIKTOK_PIXEL_ID|default:'D43L7DBC77UA61AHLTVG' }}">
 <head>
   {% if not debug %}
   <link rel="preconnect" href="https://www.googletagmanager.com">
   <link rel="dns-prefetch" href="https://www.googletagmanager.com">
   <link rel="preconnect" href="https://connect.facebook.net">
   <link rel="dns-prefetch" href="https://connect.facebook.net">
+  <link rel="preconnect" href="https://analytics.tiktok.com">
+  <link rel="dns-prefetch" href="https://analytics.tiktok.com">
   <link rel="preconnect" href="https://www.clarity.ms">
   <link rel="dns-prefetch" href="https://www.clarity.ms">
   {% endif %}
@@ -350,19 +352,13 @@
   </script>
   
   <!-- TikTok Pixel Code Start -->
-  {% if TIKTOK_PIXEL_ID %}
   <script>
   !function (w, d, t) {
-    w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(
-var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script")
-;n.type="text/javascript",n.async=!0,n.src=r+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};
-    ttq.load('{{ TIKTOK_PIXEL_ID }}');
+    w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script");n.type="text/javascript",n.async=!0,n.src=r+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};
+    ttq.load('{{ TIKTOK_PIXEL_ID|default:"D43L7DBC77UA61AHLTVG" }}');
     ttq.page();
   }(window, document, 'ttq');
   </script>
-  {% else %}
-  <!-- TikTok Pixel ID not configured -->
-  {% endif %}
   <!-- TikTok Pixel Code End -->
   
   <!-- Meta Pixel Code - оптимизированная загрузка -->
