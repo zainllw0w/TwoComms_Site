@@ -533,12 +533,13 @@ SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
 _CSP_DEFAULT = (
     "default-src 'self'; "
-    # Scripts: GTM, Google Ads, Analytics, Facebook Pixel, Clarity, Facebook CAPI
+    # Scripts: GTM, Google Ads, Analytics, Facebook Pixel, TikTok Pixel, Clarity, Facebook CAPI
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' "
     "https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com "
     "https://www.google-analytics.com https://ssl.google-analytics.com https://www.googleadservices.com "
     "https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.gstatic.com "
     "https://connect.facebook.net https://www.facebook.com "
+    "https://analytics.tiktok.com "
     "https://www.clarity.ms https://scripts.clarity.ms "
     "https://cdnjs.cloudflare.com https://cdn.jsdelivr.net "
     "https://*.amazonaws.com; "
@@ -556,14 +557,15 @@ _CSP_DEFAULT = (
     "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
     # Fonts
     "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; "
-    # AJAX/Fetch connections: Enhanced Conversions, Analytics, Facebook CAPI, Server-Side Tagging
+    # AJAX/Fetch connections: Enhanced Conversions, Analytics, Facebook CAPI, TikTok Pixel, Server-Side Tagging
     "connect-src 'self' "
     "https://www.google-analytics.com https://ssl.google-analytics.com https://analytics.google.com "
     "https://region1.analytics.google.com https://region1.google-analytics.com "
-    "https://www.googletagmanager.com https://googletagmanager.com "
+    "https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com "
     "https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net "
     "https://www.google.com https://*.google.com "
     "https://www.facebook.com https://connect.facebook.net https://graph.facebook.com https://*.facebook.com "
+    "https://analytics.tiktok.com "
     "https://www.clarity.ms https://scripts.clarity.ms https://*.clarity.ms "
     "https://fonts.googleapis.com https://fonts.gstatic.com "
     "https://cdnjs.cloudflare.com https://cdn.jsdelivr.net "
