@@ -15,6 +15,12 @@
   var CLARITY_ID = root.getAttribute('data-clarity-id');
   var PIXEL_ID = root.getAttribute('data-meta-pixel-id');
   var TIKTOK_PIXEL_ID = root.getAttribute('data-tiktok-pixel-id');
+  var TIKTOK_TEST_EVENT_CODE = root.getAttribute('data-tiktok-test-event-code') || 
+                                 (function() {
+                                   // Также проверяем URL параметр для быстрого тестирования
+                                   var params = new URLSearchParams(win.location.search);
+                                   return params.get('ttq_test') || null;
+                                 })();
   var YM_ID = root.getAttribute('data-ym-id');
 
   function schedule(fn, timeout) {
@@ -613,7 +619,16 @@
     }
     
     try {
-      win.ttq.load(TIKTOK_PIXEL_ID);
+      // Загружаем TikTok Pixel с test_event_code если есть
+      var loadOptions = {};
+      if (TIKTOK_TEST_EVENT_CODE) {
+        loadOptions.test_event_code = TIKTOK_TEST_EVENT_CODE;
+        if (console && console.log) {
+          console.log('[TikTok Pixel] Test mode enabled with code:', TIKTOK_TEST_EVENT_CODE);
+        }
+      }
+      
+      win.ttq.load(TIKTOK_PIXEL_ID, loadOptions);
     } catch (err) {
       if (console && console.debug) {
         console.debug('TikTok Pixel load error', err);
