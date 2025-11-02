@@ -22,6 +22,7 @@ from decimal import Decimal
 from typing import Optional, Dict, Any
 
 from django.conf import settings
+from storefront.utils.analytics_helpers import get_offer_id as build_offer_id
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,7 @@ class FacebookConversionsService:
         """Инициализация сервиса с настройками из ENV"""
         self.access_token = getattr(settings, 'FACEBOOK_CONVERSIONS_API_TOKEN', None)
         self.pixel_id = getattr(settings, 'FACEBOOK_PIXEL_ID', None)
+        self.test_event_code = getattr(settings, 'FACEBOOK_CAPI_TEST_EVENT_CODE', None)
         
         # Проверяем наличие обязательных настроек
         if not self.access_token or not self.pixel_id:
@@ -183,7 +185,11 @@ class FacebookConversionsService:
                 size = (item.size or 'S').upper()  # Размер из OrderItem или S по умолчанию
                 
                 # Используем метод из Product модели для генерации offer_id
-                offer_id = item.product.get_offer_id(color_variant_id, size)
+                getter = getattr(item.product, "get_offer_id", None)
+                if callable(getter):
+                    offer_id = getter(color_variant_id, size)
+                else:
+                    offer_id = build_offer_id(item.product.id, color_variant_id, size)
                 content_ids.append(offer_id)
             
             custom_data.content_ids = content_ids
@@ -204,7 +210,11 @@ class FacebookConversionsService:
                 # Генерируем offer_id для каждого товара
                 color_variant_id = item.color_variant.id if item.color_variant else None
                 size = (item.size or 'S').upper()
-                offer_id = item.product.get_offer_id(color_variant_id, size)
+                getter = getattr(item.product, "get_offer_id", None)
+                if callable(getter):
+                    offer_id = getter(color_variant_id, size)
+                else:
+                    offer_id = build_offer_id(item.product.id, color_variant_id, size)
                 
                 content = Content(
                     product_id=offer_id,  # Используем offer_id вместо product.id
@@ -220,7 +230,12 @@ class FacebookConversionsService:
         
         return custom_data
     
-    def send_purchase_event(self, order, source_url: Optional[str] = None) -> bool:
+    def send_purchase_event(
+        self,
+        order,
+        source_url: Optional[str] = None,
+        test_event_code: Optional[str] = None,
+    ) -> bool:
         """
         Отправляет Purchase событие в Facebook Conversions API.
         
@@ -269,6 +284,11 @@ class FacebookConversionsService:
                 events=[event]
             )
             
+            # Добавляем test_event_code если есть
+            test_code = test_event_code or self.test_event_code
+            if test_code:
+                event_request.test_event_code = test_code
+            
             # Отправляем
             response = event_request.execute()
             
@@ -299,7 +319,12 @@ class FacebookConversionsService:
             )
             return False
     
-    def send_lead_event(self, order, source_url: Optional[str] = None) -> bool:
+    def send_lead_event(
+        self,
+        order,
+        source_url: Optional[str] = None,
+        test_event_code: Optional[str] = None,
+    ) -> bool:
         """
         Отправляет Lead событие в Facebook Conversions API.
         
@@ -351,6 +376,11 @@ class FacebookConversionsService:
                 events=[event]
             )
             
+            # Добавляем test_event_code если есть
+            test_code = test_event_code or self.test_event_code
+            if test_code:
+                event_request.test_event_code = test_code
+            
             # Отправляем
             response = event_request.execute()
             
@@ -401,4 +431,3 @@ def get_facebook_conversions_service() -> FacebookConversionsService:
     if _facebook_service is None:
         _facebook_service = FacebookConversionsService()
     return _facebook_service
-

@@ -742,6 +742,26 @@ document.addEventListener('DOMContentLoaded', function() {
     return currentOfferId;
   }
   
+  // Принудительно выбираем размер из URL параметра (если есть)
+  function selectSizeFromURL() {
+    var urlParams = new URLSearchParams(window.location.search);
+    var sizeParam = urlParams.get('size');
+    if (sizeParam) {
+      sizeParam = sizeParam.toUpperCase();
+      var sizeRadio = document.querySelector('input[name="size"][value="' + sizeParam + '"]');
+      if (sizeRadio) {
+        sizeRadio.checked = true;
+        sizeRadio.dispatchEvent(new Event('change', { bubbles: true }));
+        if (console && console.log) {
+          console.log('Size selected from URL:', sizeParam);
+        }
+      }
+    }
+  }
+  
+  // Вызываем сразу и после полной загрузки DOM
+  selectSizeFromURL();
+  
   // Инициализация: устанавливаем начальный offer_id с учетом предвыбранного размера
   updateCurrentOfferId();
   
