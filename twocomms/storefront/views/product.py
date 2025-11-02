@@ -20,7 +20,8 @@ from .utils import cache_page_for_anon
 
 # ==================== PRODUCT VIEWS ====================
 
-@cache_page_for_anon(600)  # Кэшируем карточку товара на 10 минут для анонимов
+# ВАЖНО: Не кэшируем страницу товара, так как нужен предвыбор размера/цвета из URL параметров
+# @cache_page_for_anon(600)  # Отключено для поддержки ?size=M и ?color=X
 def product_detail(request, slug):
     """
     Детальная страница товара.
@@ -51,8 +52,10 @@ def product_detail(request, slug):
     product = get_object_or_404(Product.objects.select_related('category'), slug=slug)
     images = product.images.all()
     
-    # Читаем параметр size из URL (?size=M)
+    # Читаем параметры из URL (?size=M&color=123)
     preselected_size = request.GET.get('size', '').upper()
+    preselected_color_id = request.GET.get('color', '')  # ID цветового варианта
+    
     available_sizes = ['S', 'M', 'L', 'XL', 'XXL']
     
     # Валидируем размер
@@ -62,20 +65,41 @@ def product_detail(request, slug):
     # Варианты цветов с изображениями (если есть приложение и данные)
     color_variants = get_detailed_color_variants(product)
     auto_select_first_color = False
+    preselected_color = None  # Будем хранить выбранный цвет для шаблона
 
     if color_variants:
-        # Находим default вариант и перемещаем его на первое место
-        default_index = next(
-            (idx for idx, variant in enumerate(color_variants) 
-             if variant.get('is_default')),
-            0
+        # Валидируем и ищем предвыбранный цвет
+        if preselected_color_id:
+            try:
+                preselected_color_id_int = int(preselected_color_id)
+                # Ищем вариант с таким ID
+                preselected_index = next(
+                    (idx for idx, variant in enumerate(color_variants) 
+                     if variant.get('id') == preselected_color_id_int),
+                    None
+                )
+                if preselected_index is not None:
+                    preselected_color = preselected_color_id_int
+                    # Перемещаем предвыбранный вариант на первое место
+                    if preselected_index != 0:
+                        preselected_variant = color_variants.pop(preselected_index)
+                        color_variants.insert(0, preselected_variant)
+            except (ValueError, TypeError):
+                pass  # Невалидный ID цвета
+        
+        # Если цвет не был предвыбран, находим default вариант
+        if preselected_color is None:
+            default_index = next(
+                (idx for idx, variant in enumerate(color_variants) 
+                 if variant.get('is_default')),
+                0
         )
         
-        if default_index != 0:
-            default_variant = color_variants.pop(default_index)
-            color_variants.insert(0, default_variant)
+            if default_index != 0:
+                default_variant = color_variants.pop(default_index)
+                color_variants.insert(0, default_variant)
         
-        # Устанавливаем первый вариант как default
+        # Устанавливаем первый вариант как default (теперь это либо предвыбранный, либо default)
         for idx, variant in enumerate(color_variants):
             variant['is_default'] = (idx == 0)
         
@@ -163,6 +187,7 @@ def product_detail(request, slug):
             'breadcrumbs': breadcrumbs,
             'recommended_products': recommended_products,
             'preselected_size': preselected_size,
+            'preselected_color': preselected_color,  # ID предвыбранного цвета из ?color=123
             'offer_id_map': offer_id_map_json,
             'default_offer_id': default_offer_id,
             'available_sizes': available_sizes,
