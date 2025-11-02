@@ -397,6 +397,9 @@
   </script>
   {% endif %}
   <!-- End Google Tag Manager -->
+  
+  <!-- Analytics Loader - загружаем в head для ранней инициализации пикселей -->
+  <script src="{% static 'js/analytics-loader.js' %}?v=2"></script>
 </head>
 <body class='bg-body text-body' style='font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;'>
   <!-- Google Tag Manager (noscript) -->
@@ -736,7 +739,6 @@
         onload="this.classList.add('script-loaded')"
         onerror="this.classList.add('script-error')"
         crossorigin="anonymous"></script>
-<script defer src="{% static 'js/analytics-loader.js' %}?v=1"></script>
 
 <!-- UI fallback helpers -->
 <script>
