@@ -219,8 +219,8 @@
     }
   }
   
-  // Отправка одного события
-  function sendEvent(eventName) {
+  // Отправка одного события - делаем глобальной для onclick обработчиков
+  window.sendEvent = function(eventName) {
     logEvent(eventName, 'pending', 'Отправка...');
     
     try {
@@ -358,10 +358,10 @@
     } catch (error) {
       logEvent(eventName, 'error', error.message);
     }
-  }
+  };
   
-  // Отправка всех событий с задержкой
-  function sendAllEvents() {
+  // Отправка всех событий с задержкой - делаем глобальной для onclick обработчиков
+  window.sendAllEvents = function() {
     const events = [
       { name: 'PageView', delay: 0 },
       { name: 'ViewContent', delay: 500 },
@@ -384,7 +384,7 @@
     setTimeout(function() {
       logEvent('ALL_EVENTS', 'success', 'Все события отправлены!');
     }, 4000);
-  }
+  };
   
   // Проверяем статус пикселей сразу и периодически
   setTimeout(checkPixelStatus, 1000);
