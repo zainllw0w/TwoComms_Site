@@ -798,7 +798,7 @@ def _monobank_finalize_invoice(order, request=None):
         # Добавляем комментарий о prepayment если есть
         if order.pay_type == 'prepay_200':
             prepay_amount = order.get_prepayment_amount()
-            remaining = order.total_sum - prepay_amount
+            remaining = order.total_sum - order.discount_amount - prepay_amount
             items.append({
                 'name': f'Передплата 200 грн. Залишок {remaining:.2f} грн при отриманні через Нову Пошту',
                 'qty': 1,

@@ -402,16 +402,60 @@ def _record_monobank_status(order, payload, source='api'):
                 if fb_service.enabled:
                     if order.payment_status == 'prepaid':
                         # Предоплата → Lead event
-                        success = fb_service.send_lead_event(order)
-                        if success:
-                            monobank_logger.info(f'📊 Facebook Lead event sent for order {order.order_number} (prepayment)')
+                        # Проверяем, не было ли уже отправлено
+                        payment_payload = order.payment_payload or {}
+                        facebook_events = payment_payload.get('facebook_events', {})
+                        if not facebook_events.get('lead_sent', False):
+                            success = fb_service.send_lead_event(order)
+                            if success:
+                                # Сохраняем в payment_payload что Lead отправлен
+                                if 'facebook_events' not in payment_payload:
+                                    payment_payload['facebook_events'] = {}
+                                payment_payload['facebook_events']['lead_sent'] = True
+                                payment_payload['facebook_events']['lead_sent_at'] = timezone.now().isoformat()
+                                order.payment_payload = payment_payload
+                                order.save(update_fields=['payment_payload'])
+                                monobank_logger.info(f'📊 Facebook Lead event sent for order {order.order_number} (prepayment)')
+                            else:
+                                monobank_logger.warning(f'⚠️ Failed to send Facebook Lead event for order {order.order_number}')
                         else:
-                            monobank_logger.warning(f'⚠️ Failed to send Facebook Lead event for order {order.order_number}')
+                            monobank_logger.info(f'📊 Facebook Lead event already sent for order {order.order_number} (prepayment), skipping')
                     elif order.payment_status == 'paid':
-                        # Полная оплата → Purchase event
-                        success = fb_service.send_purchase_event(order)
-                        if success:
-                            monobank_logger.info(f'📊 Facebook Purchase event sent for order {order.order_number} (full payment)')
+                        # Полная оплата → Lead + Purchase события сразу (не ждем получения товара)
+                        # Это позволяет оптимизировать рекламу на всех кто оплатил
+                        # ВАЖНО: Проверяем, было ли Lead событие уже отправлено ранее (например, при prepaid)
+                        payment_payload = order.payment_payload or {}
+                        facebook_events = payment_payload.get('facebook_events', {})
+                        lead_already_sent = facebook_events.get('lead_sent', False)
+                        
+                        # Отправляем Lead только если оно еще не было отправлено
+                        if not lead_already_sent:
+                            lead_success = fb_service.send_lead_event(order)
+                            if lead_success:
+                                # Сохраняем в payment_payload что Lead отправлен
+                                if 'facebook_events' not in payment_payload:
+                                    payment_payload['facebook_events'] = {}
+                                payment_payload['facebook_events']['lead_sent'] = True
+                                payment_payload['facebook_events']['lead_sent_at'] = timezone.now().isoformat()
+                                order.payment_payload = payment_payload
+                                order.save(update_fields=['payment_payload'])
+                                monobank_logger.info(f'📊 Facebook Lead event sent for order {order.order_number} (full payment)')
+                            else:
+                                monobank_logger.warning(f'⚠️ Failed to send Facebook Lead event for order {order.order_number}')
+                        else:
+                            monobank_logger.info(f'📊 Facebook Lead event already sent for order {order.order_number}, skipping')
+                        
+                        # Purchase всегда отправляем для paid статуса
+                        purchase_success = fb_service.send_purchase_event(order)
+                        if purchase_success:
+                            # Сохраняем в payment_payload что Purchase отправлен
+                            if 'facebook_events' not in payment_payload:
+                                payment_payload['facebook_events'] = {}
+                            payment_payload['facebook_events']['purchase_sent'] = True
+                            payment_payload['facebook_events']['purchase_sent_at'] = timezone.now().isoformat()
+                            order.payment_payload = payment_payload
+                            order.save(update_fields=['payment_payload'])
+                            monobank_logger.info(f'✅ Facebook Purchase event sent for order {order.order_number} (full payment)')
                         else:
                             monobank_logger.warning(f'⚠️ Failed to send Facebook Purchase event for order {order.order_number}')
                 else:

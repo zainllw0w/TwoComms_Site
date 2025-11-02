@@ -118,14 +118,19 @@ class Command(BaseCommand):
                 else:
                     self.stdout.write(f"  {order.order_number}: ошибка получения статуса")
         else:
-            self.stdout.write("Обновление статусов...")
+            from django.utils import timezone
+            
+            self.stdout.write(f"[{timezone.now().strftime('%Y-%m-%d %H:%M:%S')}] Начало обновления статусов...")
             result = service.update_all_tracking_statuses()
             
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f"Обновление завершено:\n"
-                    f"  Всего заказов: {result['total_orders']}\n"
-                    f"  Обновлено: {result['updated']}\n"
+            summary = (
+                f"[{timezone.now().strftime('%Y-%m-%d %H:%M:%S')}] Обновление завершено:\n"
+                f"  Всего заказов с ТТН: {result['total_orders']}\n"
+                f"  Обновлено статусов: {result['updated']}\n"
                     f"  Ошибок: {result['errors']}"
-                )
             )
+            
+            if result['updated'] > 0:
+                self.stdout.write(self.style.SUCCESS(summary))
+            else:
+                self.stdout.write(self.style.WARNING(summary))
