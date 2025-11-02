@@ -3,7 +3,7 @@
 {% load seo_tags %}
 {% load image_optimization %}
 <!DOCTYPE html>
-<html lang='uk' data-bs-theme='dark'{% if not debug %} data-ga-id="G-109EFTWM05" data-clarity-id="t7u94cvpqc" data-meta-pixel-id="823958313630148"{% endif %} data-tiktok-pixel-id="{{ TIKTOK_PIXEL_ID }}">
+<html lang='uk' data-bs-theme='dark'{% if not debug %} data-ga-id="G-109EFTWM05" data-clarity-id="t7u94cvpqc" data-meta-pixel-id="823958313630148"{% endif %}{% if TIKTOK_PIXEL_ID %} data-tiktok-pixel-id="{{ TIKTOK_PIXEL_ID }}"{% endif %}>
 <head>
   {% if not debug %}
   <link rel="preconnect" href="https://www.googletagmanager.com">
@@ -362,6 +362,7 @@
   /></noscript>
   <!-- End Meta Pixel Code -->
   <!-- TikTok Pixel Code Start -->
+  {% if TIKTOK_PIXEL_ID %}
   <script>
   !function (w, d, t) {
     w.TiktokAnalyticsObject=t;
@@ -387,13 +388,29 @@
       n.type="text/javascript";
       n.async=!0;
       n.src=r+"?sdkid="+e+"&lib="+t;
+      
+      // Защита от блокировки: обработчик ошибок
+      n.onerror=function(){
+        if(console&&console.debug)console.debug('TikTok Pixel script failed to load - possible ad blocker');
+        w.__ttqPixelLoaded=false;
+      };
+      
+      // Защита: проверяем что элемент существует перед вставкой
       e=document.getElementsByTagName("script")[0];
-      e.parentNode.insertBefore(n,e)
+      if(e&&e.parentNode){
+        e.parentNode.insertBefore(n,e);
+      }else{
+        // Fallback: добавляем в head
+        (document.head||document.getElementsByTagName("head")[0]).appendChild(n);
+      }
     };
     ttq.load('{{ TIKTOK_PIXEL_ID }}');
     ttq.page();
   }(window, document, 'ttq');
   </script>
+  {% else %}
+  <!-- TikTok Pixel ID not configured -->
+  {% endif %}
   <!-- TikTok Pixel Code End -->
   {% block structured_data %}{% endblock %}
   
