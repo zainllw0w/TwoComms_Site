@@ -184,9 +184,18 @@
               // Преобразуем payload в формат TikTok
               var ttqPayload = buildTikTokPayload(eventName, payload, isEcommerceEvent);
               
+              // Логируем отправку события для отладки
+              if (console && console.log) {
+                console.log('[TikTok Pixel] Sending event:', eventName, ttqPayload);
+              }
+              
               // Отправляем событие напрямую (пиксель уже готов)
               // Используем try-catch для безопасности
               win.ttq.track(eventName, ttqPayload);
+              
+              if (console && console.log) {
+                console.log('[TikTok Pixel] Event sent successfully:', eventName);
+              }
             } catch (ttqErr) {
               if (console && console.debug) {
                 console.debug('TikTok Pixel track error (possible blocker):', ttqErr);
@@ -206,8 +215,15 @@
             }
             win._ttqBuffer.push({ event: eventName, data: ttqBufferedPayload });
             
+            if (console && console.log) {
+              console.log('[TikTok Pixel] Event buffered (pixel not ready):', eventName, 'Total buffered:', win._ttqBuffer.length);
+            }
+            
             // Пытаемся загрузить пиксель если он еще не начал загружаться
             if (!win.__ttqPixelLoaded) {
+              if (console && console.log) {
+                console.log('[TikTok Pixel] Pixel not loaded yet, initializing...');
+              }
               loadTikTokPixel();
             }
           }
@@ -648,6 +664,31 @@
               console.log('[TikTok Pixel] Script loaded successfully');
             }
             
+            // КРИТИЧНО: Вызываем ttq.page() сразу после загрузки скрипта
+            try {
+              if (w.ttq && typeof w.ttq.page === 'function') {
+                w.ttq.page();
+                if (console && console.log) {
+                  console.log('[TikTok Pixel] PageView event sent');
+                }
+              }
+            } catch (pageErr) {
+              if (console && console.debug) {
+                console.debug('TikTok Pixel page() error:', pageErr);
+              }
+            }
+            
+            // Вызываем identify для Advanced Matching
+            try {
+              if (typeof ttqIdentify === 'function') {
+                ttqIdentify();
+              }
+            } catch (identifyErr) {
+              if (console && console.debug) {
+                console.debug('TikTok Pixel identify error:', identifyErr);
+              }
+            }
+            
             // Проверяем что ttq.track доступен и реально работает (не только очередь)
             var checkReady = setInterval(function() {
               // Проверяем что ttq существует и track это функция
@@ -676,6 +717,9 @@
                     }
                     w._ttqBuffer.forEach(function(buffered) {
                       try {
+                        if (console && console.log) {
+                          console.log('[TikTok Pixel] Sending buffered event:', buffered.event, buffered.data);
+                        }
                         w.ttq.track(buffered.event, buffered.data);
                       } catch (err) {
                         if (console && console.debug) {
@@ -704,6 +748,9 @@
                     }
                     w._ttqBuffer.forEach(function(buffered) {
                       try {
+                        if (console && console.log) {
+                          console.log('[TikTok Pixel] Sending buffered event:', buffered.event, buffered.data);
+                        }
                         w.ttq.track(buffered.event, buffered.data);
                       } catch (err) {
                         if (console && console.debug) {
@@ -776,6 +823,9 @@
       }
       
       win.ttq.load(TIKTOK_PIXEL_ID, loadOptions);
+      if (console && console.log) {
+        console.log('[TikTok Pixel] Pixel load() called, waiting for script to load...');
+      }
     } catch (err) {
       if (console && console.debug) {
         console.debug('TikTok Pixel load error', err);
@@ -784,22 +834,8 @@
       return;
     }
     
-    try {
-      win.ttq.page();
-    } catch (errTrack) {
-      if (console && console.debug) {
-        console.debug('TikTok Pixel page error', errTrack);
-      }
-    }
-    
-    // Вызываем identify для Advanced Matching
-    try {
-      ttqIdentify();
-    } catch (errIdentify) {
-          if (console && console.debug) {
-        console.debug('TikTok Pixel identify error', errIdentify);
-          }
-        }
+    // НЕ вызываем ttq.page() здесь - скрипт еще не загрузился!
+    // ttq.page() будет вызван в onload обработчике после реальной загрузки скрипта
     
     // НЕ устанавливаем _ttqLoaded = true здесь!
     // Это сделается в onload обработчике скрипта после реальной загрузки
@@ -816,20 +852,20 @@
   function initializePixelsImmediately() {
     if (console && console.log) {
       console.log('[Analytics] Initializing pixels immediately...');
-    }
+      }
     loadMetaPixel();
     loadTikTokPixel();
     
     // Проверяем что пиксели загрузились (для отладки)
     setTimeout(function() {
       if (win.fbq && typeof win.fbq === 'function') {
-        if (console && console.log) {
+      if (console && console.log) {
           console.log('[Analytics] ✓ Meta Pixel initialized');
         }
       } else {
         if (console && console.warn) {
           console.warn('[Analytics] ⚠ Meta Pixel not detected');
-        }
+      }
       }
       
       if (win.ttq && typeof win.ttq.track === 'function') {
@@ -864,7 +900,7 @@
     if (!win._fbqLoaded) {
       if (console && console.warn) {
         console.warn('[Analytics] Meta Pixel not loaded on window.load, retrying...');
-      }
+          }
       loadMetaPixel();
     }
     if (!win._ttqLoaded) {
