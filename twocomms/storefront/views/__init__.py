@@ -90,6 +90,7 @@ from .static_pages import (
     returns,
     privacy_policy,
     terms_of_service,
+    test_analytics_events,
 )
 
 # Профиль
@@ -328,7 +329,7 @@ __all__ = [
     # Static Pages
     'robots_txt', 'static_sitemap', 'google_merchant_feed', 'uaprom_products_feed',
     'static_verification_file', 'about', 'contacts', 'delivery', 'returns',
-    'privacy_policy', 'terms_of_service',
+    'privacy_policy', 'terms_of_service', 'test_analytics_events',
     
     # Profile
     'profile', 'edit_profile', 'profile_setup', 'order_history', 'order_detail',
