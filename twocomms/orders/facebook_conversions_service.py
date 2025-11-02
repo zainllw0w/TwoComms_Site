@@ -158,7 +158,7 @@ class FacebookConversionsService:
         Включает:
         - value: общая сумма
         - currency: валюта (UAH)
-        - content_ids: список ID товаров
+        - content_ids: список offer_ids (TC-{id}-{variant}-{SIZE})
         - content_name: название товаров
         - content_type: тип контента (product)
         - num_items: количество товаров
@@ -172,11 +172,20 @@ class FacebookConversionsService:
         custom_data.currency = 'UAH'
         
         # Получаем товары заказа
-        order_items = order.items.select_related('product').all()
+        order_items = order.items.select_related('product', 'color_variant').all()
         
         if order_items:
-            # Content IDs (ID товаров)
-            content_ids = [str(item.product.id) for item in order_items]
+            # Content IDs (offer_ids в формате фида)
+            content_ids = []
+            for item in order_items:
+                # Генерируем offer_id для каждого товара
+                color_variant_id = item.color_variant.id if item.color_variant else None
+                size = (item.size or 'S').upper()  # Размер из OrderItem или S по умолчанию
+                
+                # Используем метод из Product модели для генерации offer_id
+                offer_id = item.product.get_offer_id(color_variant_id, size)
+                content_ids.append(offer_id)
+            
             custom_data.content_ids = content_ids
             
             # Content Names (названия товаров)
@@ -192,8 +201,13 @@ class FacebookConversionsService:
             # Contents (детальная информация о товарах)
             contents = []
             for item in order_items:
+                # Генерируем offer_id для каждого товара
+                color_variant_id = item.color_variant.id if item.color_variant else None
+                size = (item.size or 'S').upper()
+                offer_id = item.product.get_offer_id(color_variant_id, size)
+                
                 content = Content(
-                    product_id=str(item.product.id),
+                    product_id=offer_id,  # Используем offer_id вместо product.id
                     quantity=item.qty,
                     item_price=float(item.unit_price),
                     title=item.title

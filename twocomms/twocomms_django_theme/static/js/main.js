@@ -1431,19 +1431,39 @@ document.addEventListener('click', (e)=>{
         document.dispatchEvent(new CustomEvent('cartUpdated', {detail: {action: 'add', productId: productId}}));
       }catch(_){}
       
-      try{ if(window.fbq){ fbq('track','AddToCart',{content_ids:[String(productId)], content_type:'product'}); } }catch(_){ }
-      try{ if(window.ttq && typeof window.ttq.track === 'function'){ ttq.track('AddToCart',{content_id:String(productId), content_type:'product'}); } }catch(_){ }
       // Небольшой визуальный отклик
       btn.classList.add('btn-success');
       setTimeout(()=>btn.classList.remove('btn-success'),400);
-      // Унифицированный трекинг AddToCart
+      
+      // Унифицированный трекинг AddToCart с offer_id
       try{
         if(window.trackEvent){
+          // Проверяем, на странице товара мы или в каталоге
+          var productContainer = document.getElementById('product-detail-container');
+          var offerId;
+          
+          if (productContainer) {
+            // Мы на странице товара - берем текущий offer_id
+            offerId = productContainer.getAttribute('data-current-offer-id');
+          } else {
+            // Мы в каталоге - генерируем базовый offer_id
+            // Размер по умолчанию S, без цветового варианта
+            offerId = 'TC-' + productId + '-default-S';
+          }
+          
+          var itemPrice = d && d.total ? Number(d.total) : undefined;
+          
           window.trackEvent('AddToCart', {
-            content_ids: [String(productId)],
+            content_ids: [offerId],
             content_type: 'product',
-            value: d && d.total ? Number(d.total) : undefined,
-            currency: 'UAH'
+            value: itemPrice,
+            currency: 'UAH',
+            num_items: 1,
+            contents: [{
+              id: offerId,
+              quantity: 1,
+              item_price: itemPrice
+            }]
           });
         }
       }catch(_){ }
@@ -1668,10 +1688,28 @@ function toggleFavorite(productId, button) {
       // Обновляем состояние кнопки
       if (data.is_favorite) {
         button.classList.add('is-favorite');
-        try{ if(window.trackEvent){ window.trackEvent('AddToWishlist', {content_ids:[String(productId)], content_type:'product'}); } }catch(_){ }
+        try{ 
+          if(window.trackEvent){ 
+            // Для wishlist используем базовый offer_id
+            var offerId = 'TC-' + productId + '-default-S';
+            window.trackEvent('AddToWishlist', {
+              content_ids: [offerId],
+              content_type: 'product'
+            });
+          }
+        }catch(_){ }
       } else {
         button.classList.remove('is-favorite');
-        try{ if(window.trackEvent){ window.trackEvent('RemoveFromWishlist', {content_ids:[String(productId)], content_type:'product'}); } }catch(_){ }
+        try{ 
+          if(window.trackEvent){ 
+            // Для wishlist используем базовый offer_id
+            var offerId = 'TC-' + productId + '-default-S';
+            window.trackEvent('RemoveFromWishlist', {
+              content_ids: [offerId],
+              content_type: 'product'
+            });
+          }
+        }catch(_){ }
       }
       
       // Обновляем счетчик избранного
@@ -1863,8 +1901,25 @@ document.addEventListener('click', function(e){
     if(!card) return;
     const pid = card.getAttribute('data-product-id');
     const title = card.getAttribute('data-product-title');
+    const price = card.getAttribute('data-product-price');
+    
     if(pid && window.trackEvent){
-      window.trackEvent('ViewContent', {content_ids:[String(pid)], content_type:'product', content_name: title});
+      // Для карточек в каталоге используем базовый offer_id (default color, size S)
+      const offerId = 'TC-' + pid + '-default-S';
+      const priceNum = price ? parseFloat(price) : undefined;
+      
+      window.trackEvent('ViewContent', {
+        content_ids: [offerId],
+        content_type: 'product',
+        content_name: title,
+        value: priceNum,
+        currency: 'UAH',
+        contents: [{
+          id: offerId,
+          quantity: 1,
+          item_price: priceNum
+        }]
+      });
     }
   }catch(_){ }
 });
