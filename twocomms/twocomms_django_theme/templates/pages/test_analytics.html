@@ -368,10 +368,33 @@
   setTimeout(checkPixelStatus, 1000);
   setTimeout(checkPixelStatus, 3000);
   
-  // Логируем автоматическую отправку при загрузке
+  // АВТОМАТИЧЕСКАЯ ОТПРАВКА ВСЕХ СОБЫТИЙ ПРИ ЗАГРУЗКЕ
+  // Это гарантирует что вы увидите события в TikTok Events Manager сразу
   setTimeout(function() {
-    logEvent('PageView', 'success', 'Автоматически отправлен при загрузке страницы');
-  }, 2000);
+    logEvent('AUTO_SEND', 'pending', 'Начинаем автоматическую отправку всех событий...');
+    
+    // Отправляем все события с небольшими задержками
+    const autoEvents = [
+      { name: 'PageView', delay: 500 },
+      { name: 'ViewContent', delay: 1000 },
+      { name: 'AddToCart', delay: 1500 },
+      { name: 'AddToWishlist', delay: 2000 },
+      { name: 'InitiateCheckout', delay: 2500 },
+      { name: 'StartPayment', delay: 3000 },
+      { name: 'Purchase', delay: 3500 },
+      { name: 'Search', delay: 4000 }
+    ];
+    
+    autoEvents.forEach(function(event) {
+      setTimeout(function() {
+        sendEvent(event.name);
+      }, event.delay);
+    });
+    
+    setTimeout(function() {
+      logEvent('AUTO_SEND', 'success', 'Все события автоматически отправлены! Проверьте TikTok Events Manager.');
+    }, 4500);
+  }, 3000); // Ждем 3 секунды чтобы пиксели точно загрузились
   
 })();
 </script>
