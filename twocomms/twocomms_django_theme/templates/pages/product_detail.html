@@ -742,6 +742,9 @@ document.addEventListener('DOMContentLoaded', function() {
     return currentOfferId;
   }
   
+  // Инициализация: устанавливаем начальный offer_id с учетом предвыбранного размера
+  updateCurrentOfferId();
+  
   // Отслеживание изменения размера
   document.querySelectorAll('input[name="size"]').forEach(function(input){
     input.addEventListener('change', function(){
@@ -771,36 +774,48 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   
   // ViewContent при загрузке карточки - используем offer_id
+  // Используем setTimeout чтобы дождаться полной готовности DOM и radio buttons
+  setTimeout(function(){
   try{
     var pe=document.getElementById('product-analytics-payload');
     if(pe && window.trackEvent){
       var title = pe.dataset.title;
       var category = pe.dataset.category;
       var price = parseFloat(pe.dataset.price||'0');
-      
+        
       // Ensure price is valid and positive
       if (isNaN(price) || price < 0) {
         price = 0;
       }
-      
-      // Получаем текущий offer_id (учитывая предвыбранный размер)
-      var selection = getCurrentSelection();
-      
+        
+        // Получаем текущий offer_id (учитывая предвыбранный размер)
+        var selection = getCurrentSelection();
+        
+        // Debug: логируем выбранный размер и offer_id
+        if (console && console.log) {
+          console.log('ViewContent - Selected size:', selection.size, 'OfferId:', selection.offerId);
+        }
+        
       window.trackEvent('ViewContent', {
-        content_ids: [selection.offerId],
+          content_ids: [selection.offerId],
         content_name: title,
         content_type: 'product',
         content_category: category,
         value: price,
-        currency: 'UAH',
-        contents: [{
-          id: selection.offerId,
-          quantity: 1,
-          item_price: price
-        }]
+          currency: 'UAH',
+          contents: [{
+            id: selection.offerId,
+            quantity: 1,
+            item_price: price
+          }]
       });
     }
-  }catch(_){ }
+    }catch(err){ 
+      if (console && console.error) {
+        console.error('ViewContent error:', err);
+      }
+    }
+  }, 200); // Небольшая задержка для гарантии готовности DOM
 
   const main = document.getElementById('mainImage');
   if(!main) return;

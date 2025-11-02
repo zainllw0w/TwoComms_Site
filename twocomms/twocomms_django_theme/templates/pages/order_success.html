@@ -1787,7 +1787,7 @@ document.addEventListener('DOMContentLoaded', function() {
      {% if order %}data-phone="{{ order.phone }}"{% endif %}
      {% if order %}data-city="{{ order.city }}"{% endif %}
      {% if user.is_authenticated and user.userprofile.email %}data-email="{{ user.userprofile.email }}"{% endif %}
-     {% if order %}data-contents='[{% for item in order.items.all %}{"id":"{{ item.product.id }}","quantity":{{ item.qty }},"price":{{ item.unit_price|floatformat:2 }},"name":"{{ item.title|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]'{% else %}data-contents='[]'{% endif %}>
+     {% if order %}data-contents='[{% for item in order.items.all %}{"id":"{{ item.get_offer_id }}","quantity":{{ item.qty }},"price":{{ item.unit_price|floatformat:2 }},"name":"{{ item.title|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]'{% else %}data-contents='[]'{% endif %}>
 </div>
 
 <script>
@@ -1944,7 +1944,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.debug('Meta Pixel not available for Purchase - possible blocker');
       }
       
-      // TikTok Pixel Purchase событие
+      // TikTok Pixel Purchase событие (с полной структурой contents)
       if (window.ttq && typeof window.ttq.track === 'function') {
         try {
           var ttqPurchaseData = {
@@ -1952,7 +1952,14 @@ document.addEventListener('DOMContentLoaded', function() {
             currency: currency,
             content_type: 'product',
             contents: contents.map(function(item) {
-              return { content_id: String(item.id), quantity: item.quantity };
+              return {
+                content_id: String(item.id),
+                content_type: 'product',
+                content_name: item.name || '',
+                price: item.price || 0,
+                quantity: item.quantity || 1,
+                brand: 'TwoComms'
+              };
             })
           };
           window.ttq.track('CompletePayment', ttqPurchaseData);

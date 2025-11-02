@@ -609,7 +609,8 @@ function startMonoCheckout(button, statusEl, options){
               currency: analytics.currency,
               num_items: analytics.num_items,
               payment_method: 'monobank',
-              content_ids: analytics.content_ids
+              content_ids: analytics.content_ids,
+              contents: analytics.contents
             });
           }
         }catch(_){ }
@@ -752,7 +753,8 @@ function startMonobankPay(button, statusEl){
               currency: analytics.currency,
               num_items: analytics.num_items,
               payment_method: 'monobank_pay',
-              content_ids: analytics.content_ids
+              content_ids: analytics.content_ids,
+              contents: analytics.contents
             });
           }
         }catch(_){ }
@@ -1694,7 +1696,11 @@ function toggleFavorite(productId, button) {
             var offerId = 'TC-' + productId + '-default-S';
             window.trackEvent('AddToWishlist', {
               content_ids: [offerId],
-              content_type: 'product'
+              content_type: 'product',
+              contents: [{
+                id: offerId,
+                quantity: 1
+              }]
             });
           }
         }catch(_){ }
@@ -1706,7 +1712,11 @@ function toggleFavorite(productId, button) {
             var offerId = 'TC-' + productId + '-default-S';
             window.trackEvent('RemoveFromWishlist', {
               content_ids: [offerId],
-              content_type: 'product'
+              content_type: 'product',
+              contents: [{
+                id: offerId,
+                quantity: 1
+              }]
             });
           }
         }catch(_){ }
