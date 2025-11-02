@@ -154,6 +154,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'storefront.context_processors.orders_processing_count',
+                'storefront.context_processors.analytics_settings',
                 'social_django.context_processors.backends',
                 'social_django.context_processors.login_redirect',
             ],
@@ -192,6 +193,9 @@ OPENAI_MODEL = os.environ.get('OPENAI_MODEL', 'gpt-4o')
 USE_AI_KEYWORDS = os.environ.get('USE_AI_KEYWORDS', 'False').lower() in ('1','true','yes')
 # Whether to use AI-generated product descriptions in SEO meta (experimental)
 USE_AI_DESCRIPTIONS = os.environ.get('USE_AI_DESCRIPTIONS', 'False').lower() in ('1','true','yes')
+
+# TikTok Pixel configuration
+TIKTOK_PIXEL_ID = os.environ.get('TIKTOK_PIXEL_ID', 'D43L7DBC77UA61AHLTVG')  # Default fallback if not set
 
 # Monobank acquiring
 MONOBANK_TOKEN = os.environ.get('MONOBANK_TOKEN', '')
