@@ -159,6 +159,14 @@
   // Логирование событий
   function logEvent(eventName, status, details) {
     const log = document.getElementById('event-log');
+    
+    // Защита от ошибок: проверяем что элемент существует
+    if (!log) {
+      console.warn('[Test Analytics] event-log element not found, logging to console instead');
+      console.log(`[${status}] ${eventName}${details ? ': ' + details : ''}`);
+      return;
+    }
+    
     const time = new Date().toLocaleTimeString('uk-UA');
     const statusIcon = status === 'success' ? '✅' : status === 'error' ? '❌' : '⏳';
     const statusColor = status === 'success' ? 'text-success' : status === 'error' ? 'text-danger' : 'text-warning';
@@ -167,10 +175,17 @@
     logEntry.className = `mb-2 ${statusColor}`;
     logEntry.innerHTML = `<strong>${statusIcon} [${time}]</strong> ${eventName}${details ? ': ' + details : ''}`;
     
-    if (log.firstChild && log.firstChild.classList.contains('text-muted')) {
+    // Безопасная проверка firstChild и classList
+    if (log.firstChild && log.firstChild.classList && log.firstChild.classList.contains('text-muted')) {
       log.firstChild.remove();
     }
-    log.insertBefore(logEntry, log.firstChild);
+    
+    // Безопасная вставка
+    if (log.firstChild) {
+      log.insertBefore(logEntry, log.firstChild);
+    } else {
+      log.appendChild(logEntry);
+    }
     
     // Ограничиваем количество записей
     while (log.children.length > 20) {
