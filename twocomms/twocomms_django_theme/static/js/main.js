@@ -1694,12 +1694,22 @@ function toggleFavorite(productId, button) {
           if(window.trackEvent){ 
             // Для wishlist используем базовый offer_id
             var offerId = 'TC-' + productId + '-default-S';
+            // Получаем цену из кнопки или используем минимальное значение
+            var productPrice = parseFloat(button.getAttribute('data-product-price') || '0');
+            if (!productPrice || productPrice === 0) {
+              productPrice = 0.01; // Минимальное значение для TikTok
+            }
+            
             window.trackEvent('AddToWishlist', {
               content_ids: [offerId],
               content_type: 'product',
+              value: productPrice,
+              currency: 'UAH',
+              num_items: 1,
               contents: [{
                 id: offerId,
-                quantity: 1
+                quantity: 1,
+                item_price: productPrice
               }]
             });
           }
@@ -1710,12 +1720,22 @@ function toggleFavorite(productId, button) {
           if(window.trackEvent){ 
             // Для wishlist используем базовый offer_id
             var offerId = 'TC-' + productId + '-default-S';
+            // Получаем цену из кнопки или используем минимальное значение
+            var productPrice = parseFloat(button.getAttribute('data-product-price') || '0');
+            if (!productPrice || productPrice === 0) {
+              productPrice = 0.01; // Минимальное значение для TikTok
+            }
+            
             window.trackEvent('RemoveFromWishlist', {
               content_ids: [offerId],
               content_type: 'product',
+              value: productPrice,
+              currency: 'UAH',
+              num_items: 1,
               contents: [{
                 id: offerId,
-                quantity: 1
+                quantity: 1,
+                item_price: productPrice
               }]
             });
           }

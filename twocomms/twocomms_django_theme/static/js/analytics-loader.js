@@ -67,8 +67,8 @@
       // Meta Pixel standard e-commerce events that support value/currency
       var ecommerceEvents = [
         'ViewContent', 'AddToCart', 'InitiateCheckout', 'Purchase',
-        'AddPaymentInfo', 'AddToWishlist', 'Lead', 'CompleteRegistration',
-        'Subscribe', 'StartTrial'
+        'AddPaymentInfo', 'AddToWishlist', 'RemoveFromWishlist', 'Lead', 
+        'CompleteRegistration', 'Subscribe', 'StartTrial', 'Search', 'CustomizeProduct'
       ];
       var isEcommerceEvent = ecommerceEvents.indexOf(eventName) !== -1;
       
@@ -208,12 +208,34 @@
     
     // Базовые поля для e-commerce событий
     if (isEcommerceEvent) {
-      if (payload.value !== undefined) {
-        ttqPayload.value = parseFloat(payload.value) || 0;
+      // КРИТИЧНО: TikTok требует чтобы value был непустым
+      var calculatedValue = 0;
+      
+      // Если value явно указан - используем его
+      if (payload.value !== undefined && payload.value !== null && payload.value !== '') {
+        calculatedValue = parseFloat(payload.value);
       }
-      if (payload.currency) {
-        ttqPayload.currency = payload.currency.toUpperCase();
+      
+      // Если value не указан или 0, но есть contents - вычисляем из contents
+      if ((calculatedValue === 0 || isNaN(calculatedValue)) && payload.contents && Array.isArray(payload.contents)) {
+        for (var calcIdx = 0; calcIdx < payload.contents.length; calcIdx++) {
+          var item = payload.contents[calcIdx];
+          var itemPrice = parseFloat(item.item_price || item.price || 0);
+          var itemQty = parseInt(item.quantity || item.num_items || 1, 10);
+          calculatedValue += itemPrice * itemQty;
+        }
       }
+      
+      // Если все еще 0 - используем минимальное значение (TikTok требует непустое)
+      if (calculatedValue === 0 || isNaN(calculatedValue)) {
+        calculatedValue = 0.01; // Минимальное значение чтобы TikTok не ругался
+      }
+      
+      // Всегда передаем value как строку для TikTok (TikTok требует строку)
+      ttqPayload.value = String(calculatedValue);
+      
+      // Currency обязателен для e-commerce событий
+      ttqPayload.currency = (payload.currency || 'UAH').toUpperCase();
     }
     
     // Преобразуем contents array в формат TikTok
