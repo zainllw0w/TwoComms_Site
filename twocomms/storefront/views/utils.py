@@ -462,6 +462,69 @@ def _record_monobank_status(order, payload, source='api'):
                     monobank_logger.warning(f'⚠️ Facebook Conversions API not enabled, skipping event')
             except Exception as e:
                 monobank_logger.exception(f'Failed to send Facebook event for order {order.order_number}: {e}')
+
+            # 3. TikTok Events API
+            try:
+                from orders.tiktok_events_service import get_tiktok_events_service
+                tiktok_service = get_tiktok_events_service()
+
+                if tiktok_service.enabled:
+                    if order.payment_status == 'prepaid':
+                        payment_payload = order.payment_payload or {}
+                        tiktok_events = payment_payload.get('tiktok_events', {})
+
+                        if not tiktok_events.get('lead_sent', False):
+                            success = tiktok_service.send_lead_event(order)
+                            if success:
+                                if 'tiktok_events' not in payment_payload:
+                                    payment_payload['tiktok_events'] = {}
+                                payment_payload['tiktok_events']['lead_sent'] = True
+                                payment_payload['tiktok_events']['lead_sent_at'] = timezone.now().isoformat()
+                                order.payment_payload = payment_payload
+                                order.save(update_fields=['payment_payload'])
+                                monobank_logger.info(f'📈 TikTok Lead event sent for order {order.order_number} (prepayment)')
+                            else:
+                                monobank_logger.warning(f'⚠️ Failed to send TikTok Lead event for order {order.order_number}')
+                        else:
+                            monobank_logger.info(f'📈 TikTok Lead event already sent for order {order.order_number} (prepayment), skipping')
+
+                    elif order.payment_status == 'paid':
+                        payment_payload = order.payment_payload or {}
+                        tiktok_events = payment_payload.get('tiktok_events', {})
+                        lead_already_sent = tiktok_events.get('lead_sent', False)
+
+                        if not lead_already_sent:
+                            lead_success = tiktok_service.send_lead_event(order)
+                            if lead_success:
+                                if 'tiktok_events' not in payment_payload:
+                                    payment_payload['tiktok_events'] = {}
+                                payment_payload['tiktok_events']['lead_sent'] = True
+                                payment_payload['tiktok_events']['lead_sent_at'] = timezone.now().isoformat()
+                                order.payment_payload = payment_payload
+                                order.save(update_fields=['payment_payload'])
+                                monobank_logger.info(f'📈 TikTok Lead event sent for order {order.order_number} (full payment)')
+                            else:
+                                monobank_logger.warning(f'⚠️ Failed to send TikTok Lead event for order {order.order_number}')
+                        else:
+                            monobank_logger.info(f'📈 TikTok Lead event already sent for order {order.order_number}, skipping')
+
+                        purchase_success = tiktok_service.send_purchase_event(order)
+                        if purchase_success:
+                            if 'tiktok_events' not in payment_payload:
+                                payment_payload['tiktok_events'] = {}
+                            payment_payload['tiktok_events']['purchase_sent'] = True
+                            payment_payload['tiktok_events']['purchase_sent_at'] = timezone.now().isoformat()
+                            order.payment_payload = payment_payload
+                            order.save(update_fields=['payment_payload'])
+                            monobank_logger.info(f'✅ TikTok Purchase event sent for order {order.order_number} (full payment)')
+                        else:
+                            monobank_logger.warning(f'⚠️ Failed to send TikTok Purchase event for order {order.order_number}')
+                else:
+                    monobank_logger.warning('⚠️ TikTok Events API not enabled, skipping events')
+            except ImportError:
+                monobank_logger.debug('TikTok Events service module not found, skipping')
+            except Exception as e:
+                monobank_logger.exception(f'Failed to send TikTok event for order {order.order_number}: {e}')
         
         return
 
@@ -571,7 +634,6 @@ def _update_order_from_checkout_result(order, result, source='api'):
         'result': result
     }
     _record_monobank_status(order, payload, source=source)
-
 
 
 

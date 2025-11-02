@@ -659,8 +659,75 @@
   }
 
   setupGlobalEventBridge();
+  
+  // КРИТИЧНО: Пиксели загружаем СРАЗУ для корректной работы инструментов проверки
+  // Meta Pixel и TikTok Pixel должны быть доступны сразу при загрузке страницы
+  // Не используем schedule() для пикселей - это важно для тестирования!
+  
+  // Проверяем состояние DOM и загружаем пиксели сразу
+  function initializePixelsImmediately() {
+    if (console && console.log) {
+      console.log('[Analytics] Initializing pixels immediately...');
+    }
+    loadMetaPixel();
+    loadTikTokPixel();
+    
+    // Проверяем что пиксели загрузились (для отладки)
+    setTimeout(function() {
+      if (win.fbq && typeof win.fbq === 'function') {
+        if (console && console.log) {
+          console.log('[Analytics] ✓ Meta Pixel initialized');
+        }
+      } else {
+        if (console && console.warn) {
+          console.warn('[Analytics] ⚠ Meta Pixel not detected');
+        }
+      }
+      
+      if (win.ttq && typeof win.ttq.track === 'function') {
+        if (console && console.log) {
+          console.log('[Analytics] ✓ TikTok Pixel initialized');
+        }
+      } else {
+        if (console && console.warn) {
+          console.warn('[Analytics] ⚠ TikTok Pixel not detected');
+        }
+      }
+    }, 1000);
+  }
+  
+  if (doc.readyState === 'loading') {
+    // DOM еще загружается - ждем DOMContentLoaded
+    if (console && console.log) {
+      console.log('[Analytics] Waiting for DOMContentLoaded...');
+    }
+    doc.addEventListener('DOMContentLoaded', initializePixelsImmediately);
+  } else {
+    // DOM уже готов (complete или interactive) - загружаем сразу
+    if (console && console.log) {
+      console.log('[Analytics] DOM ready, initializing pixels now...');
+    }
+    initializePixelsImmediately();
+  }
+  
+  // Также пытаемся загрузить при window.load (на случай если DOMContentLoaded уже прошел)
+  win.addEventListener('load', function() {
+    // Если пиксели еще не загружены - загружаем
+    if (!win._fbqLoaded) {
+      if (console && console.warn) {
+        console.warn('[Analytics] Meta Pixel not loaded on window.load, retrying...');
+      }
+      loadMetaPixel();
+    }
+    if (!win._ttqLoaded) {
+      if (console && console.warn) {
+        console.warn('[Analytics] TikTok Pixel not loaded on window.load, retrying...');
+      }
+      loadTikTokPixel();
+    }
+  }, { once: true });
+  
+  // Остальные скрипты загружаем с задержкой для оптимизации
   schedule(loadGoogleAnalytics, 2000);
   schedule(loadClarity, 3000);
-  schedule(loadMetaPixel, 500);  // Reduced from 2500ms to 500ms for faster event capture
-  schedule(loadTikTokPixel, 600);  // Загружаем TikTok Pixel через 600ms после Meta Pixel
 })(window, document);
