@@ -453,29 +453,102 @@
     }
   }
 
-  function checkTikTokPixelLoaded() {
-    // Проверяем что TikTok Pixel загружен
-    if (TIKTOK_PIXEL_ID && win.ttq && typeof win.ttq.track === 'function') {
-      win._ttqLoaded = true;
-      // Обрабатываем буферизованные события
-      if (win._ttqBuffer && win._ttqBuffer.length > 0) {
-        if (console && console.log) {
-          console.log('TikTok Pixel: Processing ' + win._ttqBuffer.length + ' buffered events');
+  function loadTikTokPixel() {
+    if (!TIKTOK_PIXEL_ID || (win.ttq && win.__ttqPixelLoaded)) {
+      return;
+    }
+    
+    // Защита от блокировки: инициализируем TikTok Pixel с проверками
+    try {
+      !function (w, d, t) {
+        if (w[t]) {
+          return;
         }
-        win._ttqBuffer.forEach(function(buffered) {
-          try {
-            win.ttq.track(buffered.event, buffered.data);
-          } catch (err) {
+        w.TiktokAnalyticsObject = t;
+        var ttq = w[t] = w[t] || [];
+        ttq.methods = ["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"];
+        ttq.setAndDefer = function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};
+        for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);
+        ttq.instance = function(t){
+          var e=ttq._i[t]||[],n=0;
+          for(n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);
+          return e
+        };
+        ttq.load = function(e,n){
+          var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;
+          ttq._i=ttq._i||{};
+          ttq._i[e]=[];
+          ttq._i[e]._u=r;
+          ttq._t=ttq._t||{};
+          ttq._t[e]=+new Date;
+          ttq._o=ttq._o||{};
+          ttq._o[e]=n||{};
+          n=doc.createElement("script");
+          n.type="text/javascript";
+          n.async=!0;
+          n.src=r+"?sdkid="+e+"&lib="+t;
+          
+          // Защита от блокировки: обработчик ошибок
+          n.onerror = function() {
             if (console && console.debug) {
-              console.debug('TikTok Pixel buffered event error', err);
+              console.debug('TikTok Pixel script failed to load - possible ad blocker');
             }
+            w.__ttqPixelLoaded = false;
+          };
+          
+          e=doc.getElementsByTagName("script")[0];
+          if (e && e.parentNode) {
+            e.parentNode.insertBefore(n,e);
+          } else {
+            // Fallback: добавляем в head
+            (doc.head || doc.getElementsByTagName("head")[0]).appendChild(n);
           }
-        });
-        win._ttqBuffer = []; // Clear buffer
+        };
+      }(win, doc, 'ttq');
+      
+      win.__ttqPixelLoaded = true;
+    } catch (err) {
+      if (console && console.debug) {
+        console.debug('TikTok Pixel initialization error:', err);
       }
-    } else if (TIKTOK_PIXEL_ID) {
-      // Pixel еще не загружен, проверяем через небольшую задержку
-      setTimeout(checkTikTokPixelLoaded, 500);
+      win.__ttqPixelLoaded = false;
+      return;
+    }
+    
+    try {
+      win.ttq.load(TIKTOK_PIXEL_ID);
+    } catch (err) {
+      if (console && console.debug) {
+        console.debug('TikTok Pixel load error', err);
+      }
+      win.__ttqPixelLoaded = false;
+      return;
+    }
+    
+    try {
+      win.ttq.page();
+    } catch (errTrack) {
+      if (console && console.debug) {
+        console.debug('TikTok Pixel page error', errTrack);
+      }
+    }
+    
+    // Mark pixel as loaded and process buffered events
+    win._ttqLoaded = true;
+    if (win._ttqBuffer && win._ttqBuffer.length > 0) {
+      if (console && console.log) {
+        console.log('TikTok Pixel: Processing ' + win._ttqBuffer.length + ' buffered events');
+      }
+      win._ttqBuffer.forEach(function(buffered) {
+        try {
+          win.ttq.track(buffered.event, buffered.data);
+        } catch (err) {
+          if (console && console.debug) {
+            console.debug('TikTok Pixel buffered event error', err);
+          }
+        }
+      });
+      win._ttqBuffer = []; // Clear buffer
     }
   }
 
@@ -483,5 +556,5 @@
   schedule(loadGoogleAnalytics, 2000);
   schedule(loadClarity, 3000);
   schedule(loadMetaPixel, 500);  // Reduced from 2500ms to 500ms for faster event capture
-  schedule(checkTikTokPixelLoaded, 1000);  // Проверяем загрузку TikTok Pixel через 1 секунду
+  schedule(loadTikTokPixel, 600);  // Загружаем TikTok Pixel через 600ms после Meta Pixel
 })(window, document);
