@@ -196,6 +196,19 @@ class OrderItem(models.Model):
     def __str__(self):
         return f'{self.title} × {self.qty}'
     
+    def get_offer_id(self):
+        """Генерирует offer_id для синхронизации с Google Merchant Feed и пикселями"""
+        from storefront.utils.analytics_helpers import get_offer_id
+        
+        color_variant_id = self.color_variant.id if self.color_variant else None
+        size = self.size if self.size else 'S'
+        
+        return get_offer_id(
+            product_id=self.product.id,
+            color_variant_id=color_variant_id,
+            size=size
+        )
+    
     @property
     def color_name(self):
         """Возвращает название цвета или None"""
