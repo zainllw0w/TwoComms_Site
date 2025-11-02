@@ -27,6 +27,11 @@ def analytics_settings(request):
     """
     Контекстный процессор для добавления настроек аналитики в шаблоны
     """
+    # Получаем TikTok Pixel ID из settings, если не задан - используем дефолтный
+    tiktok_pixel_id = getattr(settings, 'TIKTOK_PIXEL_ID', None)
+    if not tiktok_pixel_id:
+        tiktok_pixel_id = 'D43L7DBC77UA61AHLTVG'
+    
     return {
-        'TIKTOK_PIXEL_ID': getattr(settings, 'TIKTOK_PIXEL_ID', 'D43L7DBC77UA61AHLTVG'),
+        'TIKTOK_PIXEL_ID': tiktok_pixel_id,
     }
