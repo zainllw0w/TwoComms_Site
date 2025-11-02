@@ -539,20 +539,21 @@ _CSP_DEFAULT = (
     "https://www.google-analytics.com https://ssl.google-analytics.com https://www.googleadservices.com "
     "https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.gstatic.com "
     "https://connect.facebook.net https://www.facebook.com "
-    "https://analytics.tiktok.com "
+    "https://analytics.tiktok.com https://ads.tiktok.com "
     "https://www.clarity.ms https://scripts.clarity.ms "
     "https://cdnjs.cloudflare.com https://cdn.jsdelivr.net "
     "https://*.amazonaws.com; "
     # Styles
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com "
     "https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
-    # Images: GTM, Google Ads, Analytics, Facebook, Clarity
+    # Images: GTM, Google Ads, Analytics, Facebook, TikTok Pixel, Clarity
     "img-src 'self' data: blob: "
     "https://www.googletagmanager.com https://ssl.gstatic.com https://www.gstatic.com "
     "https://www.google-analytics.com https://ssl.google-analytics.com https://www.google.com "
     "https://googleads.g.doubleclick.net https://*.doubleclick.net https://stats.g.doubleclick.net "
     "https://www.googleadservices.com https://pagead2.googlesyndication.com "
     "https://connect.facebook.net https://www.facebook.com https://facebook.com "
+    "https://analytics.tiktok.com https://ads.tiktok.com "
     "https://www.clarity.ms https://scripts.clarity.ms https://c.clarity.ms "
     "https://c.bing.com "
     "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
@@ -566,15 +567,16 @@ _CSP_DEFAULT = (
     "https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net "
     "https://www.google.com https://*.google.com "
     "https://www.facebook.com https://connect.facebook.net https://graph.facebook.com https://*.facebook.com "
-    "https://analytics.tiktok.com "
+    "https://analytics.tiktok.com https://ads.tiktok.com "
     "https://www.clarity.ms https://scripts.clarity.ms https://*.clarity.ms "
     "https://fonts.googleapis.com https://fonts.gstatic.com "
     "https://cdnjs.cloudflare.com https://cdn.jsdelivr.net "
     "https://*.run.app https://*.datah04.com; "
-    # Frames/iframes: GTM preview, Facebook, Server-Side Tagging
+    # Frames/iframes: GTM preview, Facebook, TikTok Pixel, Server-Side Tagging
     "frame-src 'self' https://www.googletagmanager.com https://googletagmanager.com "
     "https://td.doubleclick.net https://bid.g.doubleclick.net "
     "https://www.facebook.com https://connect.facebook.net https://web.facebook.com "
+    "https://analytics.tiktok.com https://ads.tiktok.com "
     "https://*.run.app; "
     # Other security directives
     "object-src 'none'; "
