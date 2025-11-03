@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 # Import auth views from the modular auth.py module
 from .views import auth as auth_views
+from .views.admin import admin_panel as admin_panel_view
 
 urlpatterns=[
     path('', views.home, name='home'),
@@ -27,7 +28,7 @@ urlpatterns=[
     path('register/', auth_views.register_view, name='register'),
     path('profile/setup/', views.profile_setup_db, name='profile_setup'),
     # admin panel
-    path('admin-panel/', views.admin_panel, name='admin_panel'),
+    path('admin-panel/', admin_panel_view, name='admin_panel'),
     path('admin-panel/update-user/', views.admin_update_user, name='admin_update_user'),
     path('admin-panel/order/update/', views.admin_order_update, name='admin_order_update'),
     path('admin-panel/order/update-status/', views.admin_order_update, name='admin_update_order_status'),
