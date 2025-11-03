@@ -1128,6 +1128,87 @@
 /* eslint-disable */
 // ==================== ПРОМОКОДИ: AJAX & MODALS ====================
 
+// ==================== УТИЛИТЫ ДЛЯ РАБОТЫ С МОДАЛКАМИ ====================
+
+// Debounce для cleanupBackdrops чтобы избежать множественных вызовов
+let cleanupTimeout = null;
+let isCleaning = false;
+
+/**
+ * Удаляет все backdrop'ы из DOM, кроме того, который связан с текущей открытой модалкой
+ * Используется для предотвращения накопления backdrop'ов при работе с модалками
+ */
+function cleanupBackdrops(currentModalId = null, immediate = false) {
+  // Если уже идет очистка и это не срочный вызов, отменяем предыдущий таймер и устанавливаем новый
+  if (!immediate && cleanupTimeout) {
+    clearTimeout(cleanupTimeout);
+  }
+  
+  const doCleanup = () => {
+    if (isCleaning) return;
+    isCleaning = true;
+    
+    const backdrops = document.querySelectorAll('.modal-backdrop');
+    
+    // Если модалка открыта, оставляем только один backdrop (самый последний)
+    if (currentModalId && backdrops.length > 1) {
+      // Удаляем все backdrop'ы кроме последнего
+      for (let i = 0; i < backdrops.length - 1; i++) {
+        backdrops[i].remove();
+      }
+    } else if (!currentModalId) {
+      // Если модалка закрыта, удаляем все backdrop'ы
+      backdrops.forEach(backdrop => {
+        backdrop.remove();
+      });
+      
+      // Также удаляем класс modal-open с body, если он остался
+      document.body.classList.remove('modal-open');
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '';
+    }
+    
+    // Если backdrop'ов все еще больше одного, удаляем лишние
+    setTimeout(() => {
+      const remainingBackdrops = document.querySelectorAll('.modal-backdrop');
+      if (remainingBackdrops.length > 1) {
+        for (let i = 0; i < remainingBackdrops.length - 1; i++) {
+          remainingBackdrops[i].remove();
+        }
+      }
+      isCleaning = false;
+    }, 50);
+  };
+  
+  if (immediate) {
+    doCleanup();
+  } else {
+    cleanupTimeout = setTimeout(doCleanup, 10);
+  }
+}
+
+/**
+ * Безопасное получение или создание экземпляра модалки
+ * Предотвращает создание множественных экземпляров
+ */
+function getOrCreateModal(modalElement) {
+  if (!modalElement) return null;
+  
+  // Сначала пробуем получить существующий экземпляр
+  let modalInstance = bootstrap.Modal.getInstance(modalElement);
+  
+  // Если экземпляра нет, создаем новый
+  if (!modalInstance) {
+    modalInstance = new bootstrap.Modal(modalElement, {
+      backdrop: true,
+      keyboard: true,
+      focus: true
+    });
+  }
+  
+  return modalInstance;
+}
+
 // Допоміжна функція: показати toast повідомлення
 function showToast(message, type = 'success') {
   const toastEl = document.getElementById('promoToast');
@@ -1259,8 +1340,11 @@ if (createPromoForm) {
       showToast('✅ Промокод успішно створено!', 'success');
       
       // Закрити модалку
-      const modal = bootstrap.Modal.getInstance(document.getElementById('createPromoModal'));
+      const modalElement = document.getElementById('createPromoModal');
+      const modal = bootstrap.Modal.getInstance(modalElement);
+      if (modal) {
       modal.hide();
+      }
       
       // Очистити форму
       this.reset();
@@ -1268,6 +1352,7 @@ if (createPromoForm) {
       
       // Перезавантажити сторінку для оновлення списку
       setTimeout(() => {
+        cleanupBackdrops(); // Убедимся что backdrop удален перед перезагрузкой
         window.location.reload();
       }, 1000);
     } else {
@@ -1317,7 +1402,13 @@ if (createPromoForm) {
 // ==================== РЕДАГУВАННЯ ПРОМОКОДА ====================
 
 async function openEditPromoModal(promoId) {
-  const modal = new bootstrap.Modal(document.getElementById('editPromoModal'));
+  // Очистить все backdrop'ы перед открытием новой модалки
+  cleanupBackdrops();
+  
+  const modalElement = document.getElementById('editPromoModal');
+  const modal = getOrCreateModal(modalElement);
+  if (!modal) return;
+  
   const modalBody = document.getElementById('editPromoModalBody');
   const submitBtn = document.getElementById('editPromoSubmitBtn');
   
@@ -1501,9 +1592,15 @@ async function openEditPromoModal(promoId) {
           
           if (result.success) {
             showToast('✅ Промокод успішно оновлено!', 'success');
-            const modal = bootstrap.Modal.getInstance(document.getElementById('editPromoModal'));
+            const modalElement = document.getElementById('editPromoModal');
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) {
             modal.hide();
-            setTimeout(() => window.location.reload(), 1000);
+            }
+            setTimeout(() => {
+              cleanupBackdrops(); // Убедимся что backdrop удален перед перезагрузкой
+              window.location.reload();
+            }, 1000);
           } else {
             showToast('❌ Помилка: ' + (result.error || 'Невідома помилка'), 'error');
             if (result.errors) {
@@ -1553,6 +1650,14 @@ async function openEditPromoModal(promoId) {
       </div>
     `;
     showToast('❌ Не вдалося завантажити дані', 'error');
+    
+    // Закрыть модалку и очистить backdrop при ошибке
+    const modalElement = document.getElementById('editPromoModal');
+    const modal = bootstrap.Modal.getInstance(modalElement);
+    if (modal) {
+      modal.hide();
+    }
+    cleanupBackdrops();
   }
 }
 
@@ -1590,11 +1695,17 @@ if (createGroupForm) {
     
     if (data.success) {
       showToast('✅ Групу успішно створено!', 'success');
-      const modal = bootstrap.Modal.getInstance(document.getElementById('createGroupModal'));
+      const modalElement = document.getElementById('createGroupModal');
+      const modal = bootstrap.Modal.getInstance(modalElement);
+      if (modal) {
       modal.hide();
+      }
       this.reset();
       this.classList.remove('was-validated');
-      setTimeout(() => window.location.reload(), 1000);
+      setTimeout(() => {
+        cleanupBackdrops(); // Убедимся что backdrop удален перед перезагрузкой
+        window.location.reload();
+      }, 1000);
     } else {
       showToast('❌ Помилка: ' + (data.error || 'Невідома помилка'), 'error');
     }
@@ -1611,7 +1722,13 @@ if (createGroupForm) {
 // ==================== РЕДАГУВАННЯ ГРУПИ ====================
 
 async function openEditGroupModal(groupId) {
-  const modal = new bootstrap.Modal(document.getElementById('editGroupModal'));
+  // Очистить все backdrop'ы перед открытием новой модалки
+  cleanupBackdrops();
+  
+  const modalElement = document.getElementById('editGroupModal');
+  const modal = getOrCreateModal(modalElement);
+  if (!modal) return;
+  
   const modalBody = document.getElementById('editGroupModalBody');
   const submitBtn = document.getElementById('editGroupSubmitBtn');
   
@@ -1730,9 +1847,15 @@ async function openEditGroupModal(groupId) {
           
           if (result.success) {
             showToast('✅ Групу успішно оновлено!', 'success');
-            const modal = bootstrap.Modal.getInstance(document.getElementById('editGroupModal'));
+            const modalElement = document.getElementById('editGroupModal');
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) {
             modal.hide();
-            setTimeout(() => window.location.reload(), 1000);
+            }
+            setTimeout(() => {
+              cleanupBackdrops(); // Убедимся что backdrop удален перед перезагрузкой
+              window.location.reload();
+            }, 1000);
           } else {
             showToast('❌ Помилка: ' + (result.error || 'Невідома помилка'), 'error');
           }
@@ -1756,14 +1879,89 @@ async function openEditGroupModal(groupId) {
       </div>
     `;
     showToast('❌ Не вдалося завантажити дані', 'error');
+    
+    // Закрыть модалку и очистить backdrop при ошибке
+    const modalElement = document.getElementById('editGroupModal');
+    const modal = bootstrap.Modal.getInstance(modalElement);
+    if (modal) {
+      modal.hide();
+    }
+    cleanupBackdrops();
   }
 }
 
-// ==================== ОЧИЩЕННЯ ФОРМ ПРИ ЗАКРИТТІ МОДАЛОК ====================
+// ==================== ОЧИЩЕННЯ ФОРМ И BACKDROP ПРИ ЗАКРИТТІ МОДАЛОК ====================
 
+// Перехватываем клики на кнопках открытия модалок через data-атрибуты
+document.addEventListener('click', function(event) {
+  const target = event.target.closest('[data-bs-toggle="modal"]');
+  if (target && target.dataset.bsTarget) {
+    // Очистить все backdrop'ы перед открытием модалки
+    cleanupBackdrops();
+    
+    // Дополнительная очистка через небольшую задержку перед открытием
+    setTimeout(() => {
+      cleanupBackdrops();
+    }, 10);
+  }
+}, true); // Используем capture phase для раннего перехвата
+
+// Глобальный обработчик: очистить backdrop'ы перед открытием любой модалки
+document.addEventListener('show.bs.modal', function(event) {
+  // Очистить все старые backdrop'ы перед открытием новой модалки
+  cleanupBackdrops();
+  
+  // Дополнительная очистка через небольшую задержку
+  setTimeout(() => {
+    cleanupBackdrops();
+  }, 10);
+}, true); // Используем capture phase для раннего перехвата
+
+// Глобальный обработчик: проверить и очистить лишние backdrop'ы ПОСЛЕ показа модалки
+document.addEventListener('shown.bs.modal', function(event) {
+  const modalId = event.target.id;
+  // Очистить лишние backdrop'ы, оставив только один для текущей модалки
+  cleanupBackdrops(modalId);
+  
+  // Дополнительная проверка через небольшую задержку
+  setTimeout(() => {
+    const backdrops = document.querySelectorAll('.modal-backdrop');
+    if (backdrops.length > 1) {
+      console.warn(`Обнаружено ${backdrops.length} backdrop'ов, очищаем лишние`);
+      // Оставляем только последний backdrop
+      for (let i = 0; i < backdrops.length - 1; i++) {
+        backdrops[i].remove();
+      }
+    }
+  }, 100);
+}, true);
+
+// Обработчик для модалки создания промокода
 const createPromoModalEl = document.getElementById('createPromoModal');
 if (createPromoModalEl) {
+  // Очистка backdrop'ов после показа модалки
+  createPromoModalEl.addEventListener('shown.bs.modal', function () {
+    setTimeout(() => {
+      const backdrops = document.querySelectorAll('.modal-backdrop');
+      if (backdrops.length > 1) {
+        for (let i = 0; i < backdrops.length - 1; i++) {
+          backdrops[i].remove();
+        }
+      }
+    }, 50);
+  });
+  
+  // Очистка при закрытии
   createPromoModalEl.addEventListener('hidden.bs.modal', function () {
+    // Очистить backdrop'ы немедленно
+    cleanupBackdrops(null, true);
+    
+    // Дополнительная проверка через небольшую задержку
+    setTimeout(() => {
+      cleanupBackdrops(null, true);
+    }, 100);
+    
+    // Очистить форму
   const form = document.getElementById('createPromoForm');
     if (form) {
   form.reset();
@@ -1772,15 +1970,187 @@ if (createPromoModalEl) {
 });
 }
 
+// Обработчик для модалки редактирования промокода
+const editPromoModalEl = document.getElementById('editPromoModal');
+if (editPromoModalEl) {
+  // Очистка backdrop'ов после показа модалки
+  editPromoModalEl.addEventListener('shown.bs.modal', function () {
+    setTimeout(() => {
+      const backdrops = document.querySelectorAll('.modal-backdrop');
+      if (backdrops.length > 1) {
+        for (let i = 0; i < backdrops.length - 1; i++) {
+          backdrops[i].remove();
+        }
+      }
+    }, 50);
+  });
+  
+  // Очистка при закрытии
+  editPromoModalEl.addEventListener('hidden.bs.modal', function () {
+    // Очистить backdrop'ы немедленно
+    cleanupBackdrops(null, true);
+    
+    // Дополнительная проверка через небольшую задержку
+    setTimeout(() => {
+      cleanupBackdrops(null, true);
+    }, 100);
+    
+    // Очистить форму
+    const form = document.getElementById('editPromoForm');
+    if (form) {
+      form.reset();
+      form.classList.remove('was-validated');
+    }
+  });
+}
+
+// Обработчик для модалки создания группы
 const createGroupModalEl = document.getElementById('createGroupModal');
 if (createGroupModalEl) {
+  // Очистка backdrop'ов после показа модалки
+  createGroupModalEl.addEventListener('shown.bs.modal', function () {
+    setTimeout(() => {
+      const backdrops = document.querySelectorAll('.modal-backdrop');
+      if (backdrops.length > 1) {
+        for (let i = 0; i < backdrops.length - 1; i++) {
+          backdrops[i].remove();
+        }
+      }
+    }, 50);
+  });
+  
+  // Очистка при закрытии
   createGroupModalEl.addEventListener('hidden.bs.modal', function () {
+    // Очистить backdrop'ы немедленно
+    cleanupBackdrops(null, true);
+    
+    // Дополнительная проверка через небольшую задержку
+    setTimeout(() => {
+      cleanupBackdrops(null, true);
+    }, 100);
+    
+    // Очистить форму
   const form = document.getElementById('createGroupForm');
     if (form) {
   form.reset();
   form.classList.remove('was-validated');
     }
 });
+}
+
+// Обработчик для модалки редактирования группы
+const editGroupModalEl = document.getElementById('editGroupModal');
+if (editGroupModalEl) {
+  // Очистка backdrop'ов после показа модалки
+  editGroupModalEl.addEventListener('shown.bs.modal', function () {
+    setTimeout(() => {
+      const backdrops = document.querySelectorAll('.modal-backdrop');
+      if (backdrops.length > 1) {
+        for (let i = 0; i < backdrops.length - 1; i++) {
+          backdrops[i].remove();
+        }
+      }
+    }, 50);
+  });
+  
+  // Очистка при закрытии
+  editGroupModalEl.addEventListener('hidden.bs.modal', function () {
+    // Очистить backdrop'ы немедленно
+    cleanupBackdrops(null, true);
+    
+    // Дополнительная проверка через небольшую задержку
+    setTimeout(() => {
+      cleanupBackdrops(null, true);
+    }, 100);
+    
+    // Очистить форму
+    const form = document.getElementById('editGroupForm');
+    if (form) {
+      form.reset();
+      form.classList.remove('was-validated');
+    }
+  });
+}
+
+// Обработчик для модалки подтверждения удаления
+const confirmDeleteModalEl = document.getElementById('confirmDeleteModal');
+if (confirmDeleteModalEl) {
+  // Очистка backdrop'ов после показа модалки
+  confirmDeleteModalEl.addEventListener('shown.bs.modal', function () {
+    setTimeout(() => {
+      const backdrops = document.querySelectorAll('.modal-backdrop');
+      if (backdrops.length > 1) {
+        for (let i = 0; i < backdrops.length - 1; i++) {
+          backdrops[i].remove();
+        }
+      }
+    }, 50);
+  });
+  
+  // Очистка при закрытии
+  confirmDeleteModalEl.addEventListener('hidden.bs.modal', function () {
+    // Очистить backdrop'ы немедленно
+    cleanupBackdrops(null, true);
+    
+    // Дополнительная проверка через небольшую задержку
+    setTimeout(() => {
+      cleanupBackdrops(null, true);
+    }, 100);
+  });
+}
+
+// ==================== MUTATION OBSERVER ДЛЯ ОТСЛЕЖИВАНИЯ BACKDROP'ОВ ====================
+
+// Наблюдатель за появлением backdrop'ов в DOM
+let observerActive = true;
+const backdropObserver = new MutationObserver(function(mutations) {
+  if (!observerActive) return;
+  
+  // Проверяем только если были добавлены элементы
+  const hasBackdropAdded = mutations.some(mutation => 
+    Array.from(mutation.addedNodes).some(node => 
+      node.classList && node.classList.contains('modal-backdrop')
+    )
+  );
+  
+  if (hasBackdropAdded) {
+    setTimeout(() => {
+      if (!observerActive) return;
+      const backdrops = document.querySelectorAll('.modal-backdrop');
+      if (backdrops.length > 1) {
+        console.warn(`MutationObserver: обнаружено ${backdrops.length} backdrop'ов, удаляем лишние`);
+        observerActive = false; // Временно отключаем observer чтобы избежать цикла
+        // Оставляем только последний backdrop
+        for (let i = 0; i < backdrops.length - 1; i++) {
+          backdrops[i].remove();
+        }
+        setTimeout(() => {
+          observerActive = true; // Включаем обратно
+        }, 100);
+      }
+    }, 50);
+  }
+});
+
+// Начать наблюдение за изменениями в body
+if (document.body) {
+  backdropObserver.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+  
+  // Очистить backdrop'ы при загрузке страницы, если они остались
+  document.addEventListener('DOMContentLoaded', function() {
+    cleanupBackdrops();
+  });
+  
+  // Также очистить при полной загрузке страницы
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', cleanupBackdrops);
+  } else {
+    // Если страница уже загружена, очистить сразу
+    cleanupBackdrops();
+  }
 }
 
 // ==================== DRAG & DROP ПРОМОКОДІВ ====================
@@ -2768,7 +3138,13 @@ let deleteTarget = null;
 function confirmDelete(type, id, name) {
   deleteTarget = { type, id, name };
   
-  const modal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
+  // Очистить все backdrop'ы перед открытием новой модалки
+  cleanupBackdrops();
+  
+  const modalElement = document.getElementById('confirmDeleteModal');
+  const modal = getOrCreateModal(modalElement);
+  if (!modal) return;
+  
   const title = document.getElementById('confirmDeleteTitle');
   const message = document.getElementById('confirmDeleteMessage');
   
