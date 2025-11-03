@@ -2,6 +2,19 @@ from django.urls import path
 from . import views
 # Import auth views from the modular auth.py module
 from .views import auth as auth_views
+
+
+def _legacy_view(name):
+    """Lazy loader for legacy views living in the monolithic views.py."""
+
+    def _wrapped(request, *args, **kwargs):
+        from . import views as storefront_views
+
+        handler = getattr(storefront_views, name)
+        return handler(request, *args, **kwargs)
+
+    _wrapped.__name__ = name
+    return _wrapped
 def admin_panel_view(request, *args, **kwargs):
     from .views.admin import admin_panel as _admin_panel
 
@@ -32,12 +45,12 @@ urlpatterns=[
     path('profile/setup/', views.profile_setup_db, name='profile_setup'),
     # admin panel
     path('admin-panel/', admin_panel_view, name='admin_panel'),
-    path('admin-panel/update-user/', views.admin_update_user, name='admin_update_user'),
-    path('admin-panel/order/update/', views.admin_order_update, name='admin_order_update'),
-    path('admin-panel/order/update-status/', views.admin_order_update, name='admin_update_order_status'),
-    path('admin-panel/order/update-payment-status/', views.admin_update_payment_status, name='admin_update_payment_status'),
-    path('admin-panel/order/approve-payment/', views.admin_approve_payment, name='admin_approve_payment'),
-    path('admin-panel/order/<int:pk>/delete/', views.admin_order_delete, name='admin_order_delete'),
+    path('admin-panel/update-user/', _legacy_view('admin_update_user'), name='admin_update_user'),
+    path('admin-panel/order/update/', _legacy_view('admin_order_update'), name='admin_order_update'),
+    path('admin-panel/order/update-status/', _legacy_view('admin_order_update'), name='admin_update_order_status'),
+    path('admin-panel/order/update-payment-status/', _legacy_view('admin_update_payment_status'), name='admin_update_payment_status'),
+    path('admin-panel/order/approve-payment/', _legacy_view('admin_approve_payment'), name='admin_approve_payment'),
+    path('admin-panel/order/<int:pk>/delete/', _legacy_view('admin_order_delete'), name='admin_order_delete'),
     # orders
     path('orders/create/', views.order_create, name='order_create'),
     path('orders/success/<int:order_id>/', views.order_success, name='order_success'),
@@ -51,19 +64,19 @@ urlpatterns=[
     path('buy-with-points/', views.buy_with_points, name='buy_with_points'),
     path('purchase-with-points/', views.purchase_with_points, name='purchase_with_points'),
     # catalogs CRUD
-    path('admin-panel/category/new/', views.admin_category_new, name='admin_category_new'),
-    path('admin-panel/category/<int:pk>/edit/', views.admin_category_edit, name='admin_category_edit'),
-    path('admin-panel/category/<int:pk>/delete/', views.admin_category_delete, name='admin_category_delete'),
-    path('admin-panel/product/new/', views.admin_product_new, name='admin_product_new'),
-    path('admin-panel/product/builder/', views.admin_product_builder, name='admin_product_builder'),
-    path('admin-panel/product/<int:product_id>/builder/', views.admin_product_builder, name='admin_product_builder_edit'),
-    path('admin-panel/product/<int:pk>/edit/', views.admin_product_edit, name='admin_product_edit'),
-    path('admin-panel/product/<int:pk>/edit-simple/', views.admin_product_edit_simple, name='admin_product_edit_simple'),
-    path('admin-panel/product/<int:pk>/edit-unified/', views.admin_product_edit_unified, name='admin_product_edit_unified'),
-    path('admin-panel/product/<int:pk>/delete/', views.admin_product_delete, name='admin_product_delete'),
-    path('admin-panel/product/<int:pk>/colors/', views.admin_product_colors, name='admin_product_colors'),
-    path('admin-panel/product/<int:product_pk>/color/<int:color_pk>/delete/', views.admin_product_color_delete, name='admin_product_color_delete'),
-    path('admin-panel/product/<int:product_pk>/image/<int:image_pk>/delete/', views.admin_product_image_delete, name='admin_product_image_delete'),
+    path('admin-panel/category/new/', _legacy_view('admin_category_new'), name='admin_category_new'),
+    path('admin-panel/category/<int:pk>/edit/', _legacy_view('admin_category_edit'), name='admin_category_edit'),
+    path('admin-panel/category/<int:pk>/delete/', _legacy_view('admin_category_delete'), name='admin_category_delete'),
+    path('admin-panel/product/new/', _legacy_view('admin_product_new'), name='admin_product_new'),
+    path('admin-panel/product/builder/', _legacy_view('admin_product_builder'), name='admin_product_builder'),
+    path('admin-panel/product/<int:product_id>/builder/', _legacy_view('admin_product_builder'), name='admin_product_builder_edit'),
+    path('admin-panel/product/<int:pk>/edit/', _legacy_view('admin_product_edit'), name='admin_product_edit'),
+    path('admin-panel/product/<int:pk>/edit-simple/', _legacy_view('admin_product_edit_simple'), name='admin_product_edit_simple'),
+    path('admin-panel/product/<int:pk>/edit-unified/', _legacy_view('admin_product_edit_unified'), name='admin_product_edit_unified'),
+    path('admin-panel/product/<int:pk>/delete/', _legacy_view('admin_product_delete'), name='admin_product_delete'),
+    path('admin-panel/product/<int:pk>/colors/', _legacy_view('admin_product_colors'), name='admin_product_colors'),
+    path('admin-panel/product/<int:product_pk>/color/<int:color_pk>/delete/', _legacy_view('admin_product_color_delete'), name='admin_product_color_delete'),
+    path('admin-panel/product/<int:product_pk>/image/<int:image_pk>/delete/', _legacy_view('admin_product_image_delete'), name='admin_product_image_delete'),
     # promocodes
     path('admin-panel/promocodes/', views.admin_promocodes, name='admin_promocodes'),
     path('admin-panel/promocode/create/', views.admin_promocode_create, name='admin_promocode_create'),
