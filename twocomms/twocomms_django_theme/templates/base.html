@@ -873,25 +873,32 @@
             
             // Обновляем итоговую сумму (total)
             if(payNowAmount && d.total !== undefined) {
-              var totalValue = parseFloat(d.total).toFixed(2);
+              // КРИТИЧНО: Используем Number чтобы избежать проблем с форматированием
+              var totalValue = Number(parseFloat(d.total));
+              if(isNaN(totalValue)) totalValue = 0;
+              
               // ВАЖНО: Обновляем только data-total атрибут, НЕ текст напрямую
-              payNowAmount.setAttribute('data-total', totalValue);
+              // Используем toFixed(2) для сохранения в data-атрибуте, но как число для расчетов
+              payNowAmount.setAttribute('data-total', totalValue.toFixed(2));
               
               // Обновляем paymentSummary для корректного пересчета предоплаты
               if(window.paymentSummary) {
-                window.paymentSummary.total = parseFloat(d.total);
+                window.paymentSummary.total = totalValue;
               }
               
               // КРИТИЧНО: ВСЕГДА вызываем updatePaymentSummary для правильного отображения суммы
               // Она сама решит что показывать: 200 грн при prepay_200 или полную сумму
-              var payTypeSelect = document.getElementById('pay_type_auth') || document.getElementById('pay_type_guest');
-              if(payTypeSelect && typeof window.updatePaymentSummary === 'function') {
-                // Используем глобальную функцию и текущее значение селекта
-                window.updatePaymentSummary(payTypeSelect.value);
-              } else if(typeof window.updatePaymentSummary === 'function') {
-                // Если селект еще не загружен, используем значение по умолчанию
-                window.updatePaymentSummary('online_full');
-              }
+              // Используем setTimeout чтобы гарантировать что updatePaymentSummary выполнится ПОСЛЕ всех обновлений
+              setTimeout(function() {
+                var payTypeSelect = document.getElementById('pay_type_auth') || document.getElementById('pay_type_guest');
+                if(payTypeSelect && typeof window.updatePaymentSummary === 'function') {
+                  // Используем глобальную функцию и текущее значение селекта
+                  window.updatePaymentSummary(payTypeSelect.value || 'online_full');
+                } else if(typeof window.updatePaymentSummary === 'function') {
+                  // Если селект еще не загружен, используем значение по умолчанию
+                  window.updatePaymentSummary('online_full');
+                }
+              }, 50);
             }
             
             // Если корзина пуста - показываем сообщение
