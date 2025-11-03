@@ -360,11 +360,19 @@ function getCheckoutAnalyticsPayload(){
   if(!el) return null;
   let contents = [];
   let ids = [];
-  try { contents = JSON.parse(el.dataset.contents || '[]'); } catch(_){ contents = []; }
-  try { ids = JSON.parse(el.dataset.ids || '[]'); } catch(_){ ids = []; }
+  const rawContents = el.dataset.contents ? decodeURIComponent(el.dataset.contents) : '[]';
+  const rawIds = el.dataset.ids ? decodeURIComponent(el.dataset.ids) : '[]';
+  try { contents = JSON.parse(rawContents || '[]'); } catch(_){ contents = []; }
+  try { ids = JSON.parse(rawIds || '[]'); } catch(_){ ids = []; }
   const value = parseFloat(el.dataset.value || '0');
   const currency = el.dataset.currency || 'UAH';
-  const numItems = parseInt(el.dataset.numItems || String(contents.length) || '0', 10) || contents.length;
+  let numItems = parseInt(el.dataset.numItems || '0', 10);
+  if(Number.isNaN(numItems) || numItems <= 0){
+    numItems = contents.reduce((acc, item)=>acc + (item.quantity || 0), 0);
+    if(!numItems && ids.length){
+      numItems = ids.length;
+    }
+  }
   return { contents, content_ids: ids, value, currency, num_items: numItems };
 }
 
@@ -1440,33 +1448,74 @@ document.addEventListener('click', (e)=>{
       // Унифицированный трекинг AddToCart с offer_id
       try{
         if(window.trackEvent){
-          // Проверяем, на странице товара мы или в каталоге
+          var analyticsItem = (d && d.item) ? d.item : null;
           var productContainer = document.getElementById('product-detail-container');
-          var offerId;
-          
-          if (productContainer) {
-            // Мы на странице товара - берем текущий offer_id
-            offerId = productContainer.getAttribute('data-current-offer-id');
-          } else {
-            // Мы в каталоге - генерируем базовый offer_id
-            // Размер по умолчанию S, без цветового варианта
+          var productAnalyticsEl = document.getElementById('product-analytics-payload');
+          var offerId = analyticsItem && analyticsItem.offer_id;
+          if(!offerId){
+            offerId = productContainer && productContainer.getAttribute('data-current-offer-id');
+          }
+          if(!offerId){
             offerId = 'TC-' + productId + '-default-S';
           }
-          
-          var itemPrice = d && d.total ? Number(d.total) : undefined;
-          
-          window.trackEvent('AddToCart', {
+
+          var quantity = analyticsItem && Number(analyticsItem.quantity) ? Number(analyticsItem.quantity) : qty;
+          if(!quantity || quantity < 1){ quantity = 1; }
+
+          var fallbackPrice = parseFloat(btn.getAttribute('data-product-price') || '0');
+          if(productAnalyticsEl && !fallbackPrice){
+            fallbackPrice = parseFloat(productAnalyticsEl.dataset.price || '0');
+          }
+          var rawItemPrice = analyticsItem && analyticsItem.item_price !== undefined ? Number(analyticsItem.item_price) : NaN;
+          var itemPrice = !Number.isNaN(rawItemPrice) ? rawItemPrice : fallbackPrice;
+          if(!Number.isFinite(itemPrice) || itemPrice < 0){
+            itemPrice = 0;
+          }
+
+          var rawValue = analyticsItem && analyticsItem.value !== undefined ? Number(analyticsItem.value) : NaN;
+          var value = !Number.isNaN(rawValue) ? rawValue : (itemPrice * quantity);
+          if(!Number.isFinite(value) || value < 0){
+            value = itemPrice * quantity;
+          }
+
+          var currency = (analyticsItem && analyticsItem.currency) || 'UAH';
+
+          var fallbackName = btn.getAttribute('data-product-name') || '';
+          if(productAnalyticsEl && !fallbackName){
+            fallbackName = productAnalyticsEl.dataset.title || '';
+          }
+          var contentName = (analyticsItem && analyticsItem.product_title) || fallbackName;
+
+          var fallbackCategory = btn.getAttribute('data-product-category') || '';
+          if(productAnalyticsEl && !fallbackCategory){
+            fallbackCategory = productAnalyticsEl.dataset.category || '';
+          }
+          var contentCategory = (analyticsItem && analyticsItem.product_category) || fallbackCategory;
+
+          var payload = {
             content_ids: [offerId],
             content_type: 'product',
-            value: itemPrice,
-            currency: 'UAH',
-            num_items: 1,
+            value: value,
+            currency: currency,
+            num_items: quantity,
             contents: [{
               id: offerId,
-              quantity: 1,
+              quantity: quantity,
               item_price: itemPrice
             }]
-          });
+          };
+
+          if(contentName){
+            payload.content_name = contentName;
+            payload.contents[0].item_name = contentName;
+          }
+          if(contentCategory){
+            payload.content_category = contentCategory;
+            payload.contents[0].item_category = contentCategory;
+          }
+          payload.contents[0].brand = 'TwoComms';
+
+          window.trackEvent('AddToCart', payload);
         }
       }catch(_){ }
     } else {

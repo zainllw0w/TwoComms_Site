@@ -51,6 +51,8 @@
 
   <div class="col-12 col-lg-6" 
        data-product-id="{{ product.id }}"
+       data-product-title="{{ product.title|escapejs }}"
+       data-product-category="{{ product.category.name|default_if_none:''|escapejs }}"
        data-offer-id-map="{{ offer_id_map|safe }}"
        data-default-offer-id="{{ default_offer_id }}"
        data-current-offer-id="{{ default_offer_id }}"
@@ -364,7 +366,13 @@
         <input type="number" id="qty" min="1" value="1" inputmode="numeric">
         <button type="button" onclick="QtyInc('#qty'); return false;" aria-label="Збільшити">+</button>
       </div>
-      <button type="button" class="btn btn-cta flex-grow-1 flex-md-grow-0" data-add-to-cart="{{ product.id }}" onclick="return AddToCart(this);">Додати в кошик</button>
+      <button type="button"
+              class="btn btn-cta flex-grow-1 flex-md-grow-0"
+              data-add-to-cart="{{ product.id }}"
+              data-product-name="{{ product.title|escapejs }}"
+              data-product-category="{{ product.category.name|default_if_none:''|escapejs }}"
+              data-product-price="{{ product.final_price }}"
+              onclick="return AddToCart(this);">Додати в кошик</button>
     </div>
     <div class="small text-secondary mt-2">Накопичуйте бали за покупки та використовуйте їх для знижок</div>
   </div>

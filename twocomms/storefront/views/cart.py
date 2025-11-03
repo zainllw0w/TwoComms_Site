@@ -14,12 +14,14 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.views.decorators.cache import never_cache
+from django.contrib import messages
 from decimal import Decimal, ROUND_HALF_UP
 import logging
 import json
 
 from ..models import Product, PromoCode
 from productcolors.models import ProductColorVariant
+from accounts.models import UserProfile
 from .utils import (
     get_cart_from_session,
     save_cart_to_session,
@@ -44,6 +46,27 @@ MONOBANK_FAILURE_STATUSES = {'failure', 'expired', 'rejected', 'canceled', 'canc
 
 # ==================== CART VIEWS ====================
 
+
+def _calculate_original_subtotal(cart):
+    """
+    Подсчитывает сумму корзины по базовым ценам (без скидок сайта).
+    """
+    if not cart:
+        return Decimal('0')
+    ids = [item.get('product_id') for item in cart.values() if item.get('product_id')]
+    products = Product.objects.in_bulk(ids)
+    total = Decimal('0')
+    for item in cart.values():
+        product = products.get(item.get('product_id'))
+        if not product:
+            continue
+        try:
+            qty = int(item.get('qty', 1))
+        except (TypeError, ValueError):
+            qty = 1
+        total += Decimal(product.price) * qty
+    return total
+
 @never_cache
 def view_cart(request):
     """
@@ -59,9 +82,40 @@ def view_cart(request):
         promo_code: Примененный промокод (если есть)
         applied_promo: Алиас для promo_code
     """
+    if request.method == 'POST':
+        form_type = request.POST.get('form_type')
+        if form_type == 'update_profile':
+            if request.user.is_authenticated:
+                try:
+                    profile = request.user.userprofile
+                except UserProfile.DoesNotExist:
+                    profile = UserProfile.objects.create(user=request.user)
+
+                profile.full_name = (request.POST.get('full_name') or '').strip()
+                profile.phone = (request.POST.get('phone') or '').strip()
+                profile.city = (request.POST.get('city') or '').strip()
+                profile.np_office = (request.POST.get('np_office') or '').strip()
+
+                pay_type_raw = request.POST.get('pay_type')
+                if pay_type_raw:
+                    from storefront.views import _normalize_pay_type
+                    profile.pay_type = _normalize_pay_type(pay_type_raw)
+
+                profile.save()
+                messages.success(request, 'Дані доставки успішно оновлено!')
+            else:
+                messages.error(request, 'Будь ласка, увійдіть, щоб зберегти дані доставки.')
+        elif form_type == 'guest_order':
+            from storefront import views as legacy_views
+            return legacy_views.process_guest_order(request)
+        elif form_type == 'order_create':
+            from storefront import views as legacy_views
+            return legacy_views.order_create(request)
+
     cart = get_cart_from_session(request)
     cart_items = []
     subtotal = Decimal('0')
+    original_subtotal = Decimal('0')
     total_points = 0
     content_ids = []
     contents = []
@@ -74,8 +128,16 @@ def view_cart(request):
             
             # Цена всегда берется из Product (актуальная цена)
             price = product.final_price
+            original_price = Decimal(product.price)
             qty = int(item_data.get('qty', 1))
             line_total = price * qty
+            original_line_total = original_price * qty
+            site_line_discount = original_line_total - line_total
+            if site_line_discount < 0:
+                site_line_discount = Decimal('0.00')
+            site_line_discount = original_line_total - line_total
+            if site_line_discount < 0:
+                site_line_discount = Decimal('0.00')
             
             # Информация о цвете из color_variant_id
             color_variant = _get_color_variant_safe(item_data.get('color_variant_id'))
@@ -112,8 +174,11 @@ def view_cart(request):
                 'product': product,
                 'price': price,  # Для совместимости
                 'unit_price': price,  # Шаблон ожидает unit_price!
+                'original_unit_price': original_price,
                 'qty': qty,
                 'line_total': line_total,
+                'original_line_total': original_line_total,
+                'site_discount_amount': site_line_discount,
                 'size': size_value,
                 'color_variant': color_variant,
                 'color_label': color_label,  # ДОБАВЛЕНО: для отображения цвета
@@ -121,6 +186,7 @@ def view_cart(request):
             })
 
             subtotal += line_total
+            original_subtotal += original_line_total
             
         except Product.DoesNotExist:
             # Товар удален из БД - пропускаем
@@ -144,6 +210,12 @@ def view_cart(request):
             del request.session['promo_code_id']
     
     total = subtotal - discount
+    site_discount_total = (original_subtotal - subtotal).quantize(Decimal('0.01')) if original_subtotal >= subtotal else Decimal('0.00')
+    subtotal = subtotal.quantize(Decimal('0.01'))
+    original_subtotal = original_subtotal.quantize(Decimal('0.01'))
+    discount = discount.quantize(Decimal('0.01'))
+    total = total.quantize(Decimal('0.01'))
+    total_savings = (site_discount_total + discount).quantize(Decimal('0.01'))
     
     # Определяем начальное значение для отображения "До сплати"
     # Если выбран prepay_200, показываем 200 грн, иначе полную сумму
@@ -189,11 +261,15 @@ def view_cart(request):
             'discount': discount,
             'total': total,
             'grand_total': total,  # ДОБАВЛЕНО: алиас для шаблона
+            'original_subtotal': original_subtotal,
+            'site_discount_total': site_discount_total,
+            'total_savings': total_savings,
             'pay_now_amount': pay_now_amount,  # НОВОЕ: начальное значение для "До сплати" (200 грн если prepay_200)
             'total_points': total_points,  # ДОБАВЛЕНО: баллы за заказ
             'promo_code': promo_code,
             'applied_promo': promo_code,  # ДОБАВЛЕНО: алиас для шаблона
             'cart_count': len(cart_items),
+            'items_total_qty': total_quantity,
             'checkout_payload': checkout_payload,
             'checkout_payload_ids': checkout_payload_ids,
             'checkout_payload_contents': checkout_payload_contents,
@@ -531,6 +607,7 @@ def apply_promo_code(request):
         # Рассчитываем скидку
         cart = get_cart_from_session(request)
         subtotal = calculate_cart_total(cart)
+        original_subtotal = _calculate_original_subtotal(cart)
         discount = promo_code.calculate_discount(subtotal)
         
         if discount <= 0:
@@ -556,6 +633,12 @@ def apply_promo_code(request):
         request.session.modified = True
         
         total = subtotal - discount
+        site_discount_total = (original_subtotal - subtotal).quantize(Decimal('0.01')) if original_subtotal >= subtotal else Decimal('0.00')
+        subtotal = subtotal.quantize(Decimal('0.01'))
+        original_subtotal = original_subtotal.quantize(Decimal('0.01'))
+        discount = discount.quantize(Decimal('0.01'))
+        total = total.quantize(Decimal('0.01'))
+        total_savings = (site_discount_total + discount).quantize(Decimal('0.01'))
         
         # Формируем сообщение с учетом типа промокода
         promo_type_label = dict(PromoCode.PROMO_TYPES).get(promo_code.promo_type, '')
@@ -572,7 +655,11 @@ def apply_promo_code(request):
             'discount': float(discount),
             'total': float(total),
             'message': message,
-            'promo_code': promo_code.code
+            'promo_code': promo_code.code,
+            'subtotal': float(subtotal),
+            'original_subtotal': float(original_subtotal),
+            'site_discount_total': float(site_discount_total),
+            'total_savings': float(total_savings),
         })
         
     except Exception as e:
@@ -890,7 +977,9 @@ def cart_items_api(request):
     cart = get_cart_from_session(request)
     cart_items = []
     subtotal = Decimal('0')
+    original_subtotal = Decimal('0')
     total_points = 0
+    total_quantity = 0
     
     for item_key, item_data in cart.items():
         try:
@@ -898,8 +987,14 @@ def cart_items_api(request):
             product = Product.objects.select_related('category').get(id=product_id)
             
             price = product.final_price
+            original_price = Decimal(product.price)
             qty = int(item_data.get('qty', 1))
             line_total = price * qty
+            original_line_total = original_price * qty
+            site_line_discount = original_line_total - line_total
+            if site_line_discount < 0:
+                site_line_discount = Decimal('0.00')
+            total_quantity += qty
             
             color_variant = _get_color_variant_safe(item_data.get('color_variant_id'))
             color_label = _color_label_from_variant(color_variant)
@@ -927,7 +1022,10 @@ def cart_items_api(request):
                 'product_title': product.title,
                 'product_slug': product.slug,
                 'unit_price': float(price),
+                'original_unit_price': float(original_price),
                 'line_total': float(line_total),
+                'original_line_total': float(original_line_total),
+                'site_discount_amount': float(site_line_discount),
                 'qty': qty,
                 'size': size_value,
                 'color_variant_id': item_data.get('color_variant_id'),
@@ -936,15 +1034,16 @@ def cart_items_api(request):
                 'points_reward': int(getattr(product, 'points_reward', 0) or 0),
                 'offer_id': offer_id,
                 'item_value': float(line_total),
-                'product_category': product.category.name if getattr(product, 'category', None) else ''
+                'product_category': product.category.name if getattr(product, 'category', None) else '',
+                'discount_percent': product.discount_percent or 0,
             })
             
             subtotal += line_total
+            original_subtotal += original_line_total
             
         except Product.DoesNotExist:
             continue
     
-    # Проверяем промокод
     promo_code = None
     discount = Decimal('0')
     promo_code_id = request.session.get('promo_code_id')
@@ -961,19 +1060,26 @@ def cart_items_api(request):
             del request.session['promo_code_id']
     
     total = subtotal - discount
+    site_discount_total = (original_subtotal - subtotal).quantize(Decimal('0.01')) if original_subtotal >= subtotal else Decimal('0.00')
+    subtotal = subtotal.quantize(Decimal('0.01'))
+    original_subtotal = original_subtotal.quantize(Decimal('0.01'))
+    discount = discount.quantize(Decimal('0.01'))
+    total = total.quantize(Decimal('0.01'))
+    total_savings = (site_discount_total + discount).quantize(Decimal('0.01'))
     
     return JsonResponse({
         'ok': True,
         'items': cart_items,
         'subtotal': float(subtotal),
+        'original_subtotal': float(original_subtotal),
+        'site_discount_total': float(site_discount_total),
         'discount': float(discount),
         'total': float(total),
         'grand_total': float(total),
         'total_points': total_points,
-        'cart_count': len(cart_items),
+        'cart_count': total_quantity,
+        'items_count': total_quantity,
+        'positions_count': len(cart_items),
         'applied_promo': promo_code.code if promo_code else None,
+        'total_savings': float(total_savings),
     })
-
-
-
-

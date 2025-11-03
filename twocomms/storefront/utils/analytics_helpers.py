@@ -1,38 +1,86 @@
 """
 Утилиты для аналитики и пикселей.
-Генерация offer_id для синхронизации событий с фидом товаров.
+Генерация offer_id и полезные структурные функции.
 """
+from __future__ import annotations
+
 from typing import Optional
+
+from django.utils.text import slugify
+
+FEED_DEFAULT_COLOR = "Черный"
+
+
+def _normalize_feed_color(raw_color: Optional[str]) -> str:
+    """
+    Нормализует цвет к формату, который используется в товарном фиде.
+    """
+    if not raw_color:
+        return FEED_DEFAULT_COLOR
+    trimmed = raw_color.strip()
+    if not trimmed:
+        return FEED_DEFAULT_COLOR
+    return trimmed[0].upper() + trimmed[1:]
+
+
+def _build_color_slug(raw_color: Optional[str]) -> str:
+    """
+    Преобразует название цвета в slug, идентичный slug в товарном фиде.
+    """
+    normalized = _normalize_feed_color(raw_color)
+    slug = slugify(normalized, allow_unicode=True).replace("-", "")
+    slug_upper = slug.upper()
+    return slug_upper or "COLOR"
 
 
 def get_offer_id(product_id: int, color_variant_id: Optional[int] = None, size: str = 'S') -> str:
     """
-    Генерирует offer_id в формате Google Merchant Feed для синхронизации с пикселями.
-    
-    Формат:
-    - С цветовым вариантом: TC-{product_id}-cv{variant_id}-{SIZE}
-    - Без цвета (default): TC-{product_id}-default-{SIZE}
+    Генерирует offer_id в том же формате, что и товарный фид.
     
     Args:
         product_id: ID товара
-        color_variant_id: ID цветового варианта (опционально)
+        color_variant_id: ID цветового варианта (может быть None)
         size: Размер (S, M, L, XL, XXL)
     
     Returns:
-        str: offer_id в формате фида
-    
-    Examples:
-        >>> get_offer_id(1, None, 'S')
-        'TC-1-default-S'
-        >>> get_offer_id(4, 2, 'M')
-        'TC-4-cv2-M'
+        str: offer_id в формате TC-{product_id:04d}-{COLOR}-{SIZE}
     """
-    size = size.upper()  # Нормализуем размер к верхнему регистру
-    
+    try:
+        product_id_int = int(product_id)
+    except (TypeError, ValueError):
+        raise ValueError(f"Invalid product_id for offer_id: {product_id}")
+
+    normalized_size = (size or "S").upper()
+
+    color_name = None
     if color_variant_id:
-        return f"TC-{product_id}-cv{color_variant_id}-{size}"
-    else:
-        return f"TC-{product_id}-default-{size}"
+        try:
+            from productcolors.models import ProductColorVariant  # локальный импорт, чтобы избежать циклов
+
+            variant = (
+                ProductColorVariant.objects
+                .select_related("color")
+                .only("id", "color__name")
+                .get(id=color_variant_id)
+            )
+            color_name = variant.color.name if getattr(variant, "color", None) else None
+        except (ValueError, TypeError):
+            color_name = None
+        except ProductColorVariant.DoesNotExist:
+            color_name = None
+
+    color_slug = _build_color_slug(color_name)
+    return f"TC-{product_id_int:04d}-{color_slug}-{normalized_size}"
+
+
+def normalize_feed_color(raw_color: Optional[str]) -> str:
+    """Публичный доступ к нормализации цвета (для фидов и сервисов)."""
+    return _normalize_feed_color(raw_color)
+
+
+def build_feed_color_slug(raw_color: Optional[str]) -> str:
+    """Публичный доступ к slug цвета, совпадающему с фидом."""
+    return _build_color_slug(raw_color)
 
 
 def get_item_group_id(product_id: int) -> str:
@@ -163,4 +211,3 @@ def build_ecommerce_payload(
     payload['num_items'] = len(offer_ids) * quantity
     
     return payload
-

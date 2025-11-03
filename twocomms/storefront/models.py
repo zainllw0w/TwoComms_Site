@@ -367,13 +367,13 @@ class Product(models.Model):
             size: Размер (S, M, L, XL, XXL)
         
         Returns:
-            str: offer_id в формате TC-{id}-{variant}-{SIZE}
+            str: offer_id в формате TC-{id:04d}-{COLOR}-{SIZE}
         
         Examples:
             >>> product.get_offer_id()
-            'TC-1-default-S'
+            'TC-0001-CHERNYI-S'
             >>> product.get_offer_id(color_variant_id=2, size='M')
-            'TC-1-cv2-M'
+            'TC-0001-RED-M'
         """
         from storefront.utils.analytics_helpers import get_offer_id
         return get_offer_id(self.id, color_variant_id, size)

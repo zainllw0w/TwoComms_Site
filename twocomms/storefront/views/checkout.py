@@ -229,6 +229,38 @@ def create_order(request):
         total_sum=0,
         status='new'
     )
+
+    tracking_context = {}
+    try:
+        fbp_cookie = request.COOKIES.get('_fbp')
+    except Exception:
+        fbp_cookie = None
+    if fbp_cookie:
+        tracking_context['fbp'] = fbp_cookie
+    try:
+        fbc_cookie = request.COOKIES.get('_fbc')
+    except Exception:
+        fbc_cookie = None
+    if fbc_cookie:
+        tracking_context['fbc'] = fbc_cookie
+    external_source = None
+    if request.user.is_authenticated:
+        external_source = f"user:{request.user.id}"
+    elif order.session_key:
+        external_source = f"session:{order.session_key}"
+    else:
+        try:
+            session_key = request.session.session_key
+        except Exception:
+            session_key = None
+        if session_key:
+            external_source = f"session:{session_key}"
+    if not external_source and order.order_number:
+        external_source = f"order:{order.order_number}"
+    if external_source:
+        tracking_context['external_id'] = external_source
+    if tracking_context:
+        order.payment_payload = {'tracking': tracking_context}
     
     # Создаем все товары заказа
     order_items = []
@@ -518,8 +550,6 @@ def calculate_shipping(request):
         'shipping_cost': 0,  # Бесплатная доставка
         'message': 'Безкоштовна доставка'
     })
-
-
 
 
 

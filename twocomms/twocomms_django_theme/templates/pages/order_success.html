@@ -1786,6 +1786,8 @@ document.addEventListener('DOMContentLoaded', function() {
      {% if order %}data-full-name="{{ order.full_name }}"{% endif %}
      {% if order %}data-phone="{{ order.phone }}"{% endif %}
      {% if order %}data-city="{{ order.city }}"{% endif %}
+     {% if order.session_key %}data-session-key="{{ order.session_key }}"{% endif %}
+     {% if order.user_id %}data-user-id="{{ order.user_id }}"{% endif %}
      {% if user.is_authenticated and user.userprofile.email %}data-email="{{ user.userprofile.email }}"{% endif %}
      {% if order %}data-contents='[{% for item in order.items.all %}{"id":"{{ item.get_offer_id }}","quantity":{{ item.qty }},"price":{{ item.unit_price|floatformat:2 }},"name":"{{ item.title|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]'{% else %}data-contents='[]'{% endif %}>
 </div>
@@ -1844,12 +1846,81 @@ document.addEventListener('DOMContentLoaded', function() {
     var city = el.dataset.city || '';
     var email = el.dataset.email || '';
     var contents = [];
+    var sessionKey = el.dataset.sessionKey || '';
+    var userIdAttr = el.dataset.userId || '';
     
     try {
       contents = JSON.parse(el.dataset.contents || '[]');
     } catch(e) {
       console.error('Error parsing contents:', e);
       contents = [];
+    }
+    
+    var externalSource = '';
+    if (userIdAttr) {
+      externalSource = 'user:' + userIdAttr;
+    } else if (sessionKey) {
+      externalSource = 'session:' + sessionKey;
+    } else if (orderNumber) {
+      externalSource = 'order:' + orderNumber;
+    } else if (orderId) {
+      externalSource = 'order:' + orderId;
+    }
+    var externalHash = null;
+    if (externalSource && typeof window.__hashSHA256 === 'function') {
+      externalHash = window.__hashSHA256(externalSource);
+    }
+    
+    function buildMetaUserData(emailValue, phoneValue, nameValue, cityValue) {
+      var hashFn = window.__hashSHA256;
+      if (!hashFn || typeof hashFn !== 'function') {
+        return {};
+      }
+      var metaData = {};
+      if (emailValue) {
+        var normalizedEmail = String(emailValue).trim().toLowerCase();
+        if (normalizedEmail && normalizedEmail.indexOf('@') > -1) {
+          var hashedEmail = hashFn(normalizedEmail);
+          if (hashedEmail) {
+            metaData.em = hashedEmail;
+          }
+        }
+      }
+      if (phoneValue) {
+        var phoneDigits = String(phoneValue).replace(/\D/g, '');
+        if (phoneDigits.length >= 7) {
+          var hashedPhone = hashFn(phoneDigits);
+          if (hashedPhone) {
+            metaData.ph = hashedPhone;
+          }
+        }
+      }
+      if (nameValue) {
+        var nameParts = String(nameValue).trim().split(/\s+/);
+        if (nameParts.length >= 1) {
+          var hashedFirst = hashFn(nameParts[0]);
+          if (hashedFirst) {
+            metaData.fn = hashedFirst;
+          }
+        }
+        if (nameParts.length >= 2) {
+          var lastName = nameParts[nameParts.length - 1];
+          var hashedLast = hashFn(lastName);
+          if (hashedLast) {
+            metaData.ln = hashedLast;
+          }
+        }
+      }
+      if (cityValue) {
+        var normalizedCity = String(cityValue).trim().toLowerCase();
+        if (normalizedCity) {
+          var hashedCity = hashFn(normalizedCity);
+          if (hashedCity) {
+            metaData.ct = hashedCity;
+          }
+        }
+      }
+      return metaData;
     }
     
     var userData = {};
@@ -1865,6 +1936,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (phone) userData.phone_number = phone;
     if (email) userData.email = email;
     if (city) userData.address = { city: city };
+
+    var fbUserData = buildMetaUserData(email, phone, fullName, city);
     
     // ИСПРАВЛЕНИЕ: Используем существующий dataLayer от GTM (не создаем новый)
     // GTM уже создает dataLayer в base.html
@@ -1907,67 +1980,41 @@ document.addEventListener('DOMContentLoaded', function() {
         console.debug('GTM push error (possible blocker):', gtmErr);
       }
     
-      // Защита от блокировки: проверяем что Pixel доступен
-      if (window.fbq && typeof window.fbq === 'function') {
-        try {
-        var fbUserData = {};
-        if (email) fbUserData.em = email.toLowerCase();
-        if (phone) fbUserData.ph = phone.replace(/\D/g, '');
-        if (fullName) {
-          var nameParts = fullName.trim().split(/\s+/);
-          if (nameParts.length >= 1) fbUserData.fn = nameParts[0].toLowerCase();
-          if (nameParts.length >= 2) fbUserData.ln = nameParts[nameParts.length - 1].toLowerCase();
-        }
-        if (city) fbUserData.ct = city.toLowerCase();
-        
-        var eventId = '{{ order.get_facebook_event_id }}';
-        fbq('track', 'Purchase', {
-          value: value,
-          currency: currency,
-          contents: contents.map(function(item) {
-            return { id: item.id, quantity: item.quantity };
-          }),
-          content_type: 'product'
-        }, {
-          eventID: eventId,
-          em: fbUserData.em,
-          ph: fbUserData.ph,
-          fn: fbUserData.fn,
-          ln: fbUserData.ln,
-          ct: fbUserData.ct
-        });
-        console.log('✅ Meta Pixel Purchase event sent (PAID) with eventID:', eventId);
-        } catch (fbErr) {
-          console.debug('Meta Pixel Purchase error (possible blocker):', fbErr);
-      }
-    } else {
-        console.debug('Meta Pixel not available for Purchase - possible blocker');
-      }
-      
-      // TikTok Pixel Purchase событие (используем trackEvent для правильной обработки)
       if (window.trackEvent && typeof window.trackEvent === 'function') {
         try {
-          var ttqPurchaseData = {
+          var eventId = '{{ order.get_facebook_event_id }}';
+          var purchaseContents = contents.map(function(item) {
+            return {
+              id: String(item.id),
+              item_price: item.price || 0,
+              quantity: item.quantity || 1,
+              item_name: item.name || ''
+            };
+          });
+          var purchaseMeta = {
+            event_id: eventId,
+            user_data: fbUserData
+          };
+          if (externalHash) {
+            purchaseMeta.external_id = externalHash;
+          }
+          var purchasePayloadPixels = {
+            event_id: eventId,
             value: value,
             currency: currency,
             content_type: 'product',
-            content_ids: contents.map(function(item) { return String(item.id); }),
-            contents: contents.map(function(item) {
-              return {
-                id: String(item.id),
-                item_price: item.price || 0,
-                quantity: item.quantity || 1,
-                item_name: item.name || ''
-              };
-            })
+            content_ids: purchaseContents.map(function(item) { return item.id; }),
+            contents: purchaseContents,
+            content_name: 'Order ' + orderNumber,
+            __meta: purchaseMeta
           };
-          window.trackEvent('Purchase', ttqPurchaseData);
-          console.log('✅ TikTok Pixel Purchase event sent (PAID) via trackEvent:', ttqPurchaseData);
-        } catch (ttqErr) {
-          console.debug('TikTok Pixel Purchase error (possible blocker):', ttqErr);
+          window.trackEvent('Purchase', purchasePayloadPixels);
+          console.log('✅ Pixel events dispatched for Purchase with eventID:', eventId, purchasePayloadPixels);
+        } catch (purchaseErr) {
+          console.debug('Purchase tracking error (possible blocker):', purchaseErr);
         }
       } else {
-        console.debug('TikTok Pixel trackEvent not available for Purchase - possible blocker');
+        console.debug('trackEvent bridge not available for Purchase - possible blocker');
       }
       
       // Сохраняем что Purchase отправлен
@@ -2002,59 +2049,33 @@ document.addEventListener('DOMContentLoaded', function() {
         console.debug('GTM Lead push error (possible blocker):', gtmErr);
       }
       
-      // Защита от блокировки: проверяем что Pixel доступен
-      if (window.fbq && typeof window.fbq === 'function') {
-        try {
-        var fbUserData = {};
-        if (email) fbUserData.em = email.toLowerCase();
-        if (phone) fbUserData.ph = phone.replace(/\D/g, '');
-        if (fullName) {
-          var nameParts = fullName.trim().split(/\s+/);
-          if (nameParts.length >= 1) fbUserData.fn = nameParts[0].toLowerCase();
-          if (nameParts.length >= 2) fbUserData.ln = nameParts[nameParts.length - 1].toLowerCase();
-        }
-        if (city) fbUserData.ct = city.toLowerCase();
-        
-        var leadEventId = '{{ order.get_facebook_event_id }}_lead';
-        fbq('track', 'Lead', {
-          value: value,
-          currency: currency,
-          content_name: 'Order ' + orderNumber,
-          content_category: 'order_lead'
-        }, {
-          eventID: leadEventId,
-          em: fbUserData.em,
-          ph: fbUserData.ph,
-          fn: fbUserData.fn,
-          ln: fbUserData.ln,
-          ct: fbUserData.ct
-        });
-          console.log('📋 Meta Pixel Lead event sent (PAYMENT: ' + paymentStatus + ') with eventID:', leadEventId);
-        } catch (fbErr) {
-          console.debug('Meta Pixel Lead error (possible blocker):', fbErr);
-      }
-      } else {
-        console.debug('Meta Pixel not available for Lead - possible blocker');
-    }
-    
-      // TikTok Pixel Lead событие (используем trackEvent для правильной обработки)
       if (window.trackEvent && typeof window.trackEvent === 'function') {
         try {
-          var ttqLeadData = {
+          var leadEventId = '{{ order.get_facebook_event_id }}_lead';
+          var leadMeta = {
+            event_id: leadEventId,
+            user_data: fbUserData
+          };
+          if (externalHash) {
+            leadMeta.external_id = externalHash;
+          }
+          var leadTrackPayload = {
+            event_id: leadEventId,
             value: value,
             currency: currency,
             content_name: 'Order ' + orderNumber,
             content_category: 'order_lead',
-            content_type: 'lead'
+            content_type: 'lead',
+            __meta: leadMeta
           };
-          window.trackEvent('Lead', ttqLeadData);
-          console.log('📋 TikTok Pixel Lead event sent (PAYMENT: ' + paymentStatus + ') via trackEvent:', ttqLeadData);
-        } catch (ttqErr) {
-          console.debug('TikTok Pixel Lead error (possible blocker):', ttqErr);
+          window.trackEvent('Lead', leadTrackPayload);
+          console.log('📋 Pixel events dispatched for Lead (PAYMENT: ' + paymentStatus + ') with eventID:', leadEventId, leadTrackPayload);
+        } catch (leadErr) {
+          console.debug('Lead tracking error (possible blocker):', leadErr);
         }
       } else {
-        console.debug('TikTok Pixel trackEvent not available for Lead - possible blocker');
-    }
+        console.debug('trackEvent bridge not available for Lead - possible blocker');
+      }
     
       // Сохраняем что Lead отправлен
       sessionStorage.setItem(leadStorageKey, 'true');
@@ -2065,4 +2086,3 @@ document.addEventListener('DOMContentLoaded', function() {
 })();
 </script>
 {% endblock %}
-
