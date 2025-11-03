@@ -37,7 +37,7 @@ from ..forms import (
     build_color_variant_formset,
 )
 from .utils import unique_slugify
-from .promo import render_admin_promocodes_page
+from .promo import get_promo_admin_context
 from storefront.services.catalog import (
     append_product_gallery,
     formset_to_variant_payloads,
@@ -109,11 +109,6 @@ def admin_panel(request):
 
     section = request.GET.get('section', 'stats')
 
-    # Промокоди виносимо в окремий повноцінний шаблон
-    if section == 'promocodes':
-        return render_admin_promocodes_page(request)
-
-    # Базові плейсхолдери для інших секцій
     context = {
         'section': section,
         'stats': {
@@ -144,6 +139,11 @@ def admin_panel(request):
         'offline_stores': [],
         'print_proposals': [],
     }
+
+    if section == 'promocodes':
+        promo_context = get_promo_admin_context(request)
+        context.update(promo_context)
+        context['section'] = 'promocodes'
 
     return render(request, 'pages/admin_panel.html', context)
 
