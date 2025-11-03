@@ -98,11 +98,24 @@ def view_cart(request):
 
                 pay_type_raw = request.POST.get('pay_type')
                 if pay_type_raw:
-                    from storefront.views import _normalize_pay_type
-                    profile.pay_type = _normalize_pay_type(pay_type_raw)
+                    # Импортируем функцию нормализации типа оплаты из старого views
+                    try:
+                        import storefront.views as old_views
+                        if hasattr(old_views, '_normalize_pay_type'):
+                            profile.pay_type = old_views._normalize_pay_type(pay_type_raw)
+                        else:
+                            # Fallback: если функция не найдена, используем значение напрямую или по умолчанию
+                            profile.pay_type = pay_type_raw if pay_type_raw in ['online_full', 'prepay_200'] else 'online_full'
+                    except Exception as e:
+                        cart_logger.error('Error normalizing pay_type: %s', e)
+                        # В случае ошибки не обновляем pay_type
 
+                try:
                 profile.save()
                 messages.success(request, 'Дані доставки успішно оновлено!')
+                except Exception as e:
+                    cart_logger.error('Error saving profile: %s', e, exc_info=True)
+                    messages.error(request, 'Помилка при збереженні даних. Спробуйте ще раз.')
             else:
                 messages.error(request, 'Будь ласка, увійдіть, щоб зберегти дані доставки.')
         elif form_type == 'guest_order':
@@ -223,11 +236,14 @@ def view_cart(request):
     if request.user.is_authenticated:
         try:
             from accounts.models import UserProfile
-            from storefront.views import _normalize_pay_type
+            import storefront.views as old_views
             prof = request.user.userprofile
             # Нормализуем pay_type для корректного сравнения
             # В UserProfile pay_type может быть 'partial' или 'full', нужно нормализовать
-            normalized_pay_type = _normalize_pay_type(prof.pay_type) if prof.pay_type else None
+            if hasattr(old_views, '_normalize_pay_type') and prof.pay_type:
+                normalized_pay_type = old_views._normalize_pay_type(prof.pay_type)
+            else:
+                normalized_pay_type = prof.pay_type if prof.pay_type else None
             if normalized_pay_type == 'prepay_200':
                 pay_now_amount = Decimal('200.00')
         except Exception as e:
