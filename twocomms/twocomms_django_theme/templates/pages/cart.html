@@ -894,22 +894,26 @@ function initCartPage() {
             }
         }
         
-        // Обновляем pay-now-amount с правильным total
+        // Обновляем pay-now-amount с правильным total (НО НЕ ТЕКСТ напрямую!)
         const payNowAmount = document.getElementById('pay-now-amount');
         if (payNowAmount) {
             const totalValue = data.total !== undefined ? parseFloat(data.total) : (data.grand_total !== undefined ? parseFloat(data.grand_total) : 0);
+            // ВАЖНО: Обновляем только data-total атрибут, НЕ текст напрямую
             payNowAmount.setAttribute('data-total', totalValue.toFixed(2));
-            payNowAmount.textContent = `${totalValue.toFixed(2)} грн`;
             
             // Обновляем paymentSummary для корректного пересчета предоплаты
-            if (typeof paymentSummary !== 'undefined') {
-                paymentSummary.total = totalValue;
+            if (typeof window.paymentSummary !== 'undefined') {
+                window.paymentSummary.total = totalValue;
             }
             
-            // Если выбран тип оплаты prepay_200, обновляем отображение
+            // КРИТИЧНО: ВСЕГДА вызываем updatePaymentSummary для правильного отображения суммы
+            // Она сама решит что показывать: 200 грн при prepay_200 или полную сумму
             const payTypeSelect = document.getElementById('pay_type_auth') || document.getElementById('pay_type_guest');
             if (payTypeSelect && typeof updatePaymentSummary === 'function') {
                 updatePaymentSummary(payTypeSelect.value);
+            } else if (typeof updatePaymentSummary === 'function') {
+                // Если селект еще не загружен, используем значение по умолчанию
+                updatePaymentSummary('online_full');
             }
         }
     }
@@ -970,17 +974,21 @@ function initCartPage() {
         return Number.isFinite(parsed) ? parsed : NaN;
       };
       
-      const paymentSummary = {
+      // ВАЖНО: paymentSummary должен быть глобальным для доступа из других функций
+      window.paymentSummary = {
         total: payNowAmountEl ? parseNumeric(payNowAmountEl.dataset.total || '0') : 0,
         prepay: payNowAmountEl ? parseNumeric(payNowAmountEl.dataset.prepay || '200') : 200
       };
       
-      if (!Number.isFinite(paymentSummary.total)) {
-        paymentSummary.total = 0;
+      if (!Number.isFinite(window.paymentSummary.total)) {
+        window.paymentSummary.total = 0;
       }
-      if (!Number.isFinite(paymentSummary.prepay) || paymentSummary.prepay <= 0) {
-        paymentSummary.prepay = 200;
+      if (!Number.isFinite(window.paymentSummary.prepay) || window.paymentSummary.prepay <= 0) {
+        window.paymentSummary.prepay = 200;
       }
+      
+      // Создаем локальную ссылку для удобства
+      const paymentSummary = window.paymentSummary;
       
       function formatUAH(amount) {
         const normalized = Number.isFinite(amount) ? amount : 0;
