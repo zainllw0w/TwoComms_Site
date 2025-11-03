@@ -537,6 +537,8 @@ def clear_cart(request):
     request.session['cart'] = {}
     if 'promo_code_id' in request.session:
         del request.session['promo_code_id']
+    if 'promo_code_data' in request.session:
+        del request.session['promo_code_data']
     request.session.modified = True
     
     return redirect('cart')

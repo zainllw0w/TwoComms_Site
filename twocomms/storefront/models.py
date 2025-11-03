@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from django.db import models
 from django.contrib.auth.models import User
@@ -592,22 +592,28 @@ class PromoCode(models.Model):
     def calculate_discount(self, total_amount):
         """Рассчитывает скидку для указанной суммы"""
         if not self.can_be_used():
-            return 0
+            return Decimal('0.00')
         
         # Проверяем минимальную сумму заказа
-        from decimal import Decimal
         total = Decimal(str(total_amount))
         
         if self.min_order_amount and total < self.min_order_amount:
-            return 0
+            return Decimal('0.00')
         
-        discount_value = Decimal(str(self.discount_value))
+        discount_value = Decimal(str(self.discount_value or 0))
+        if discount_value <= 0:
+            return Decimal('0.00')
         
         if self.discount_type == 'percentage':
-            return (total * discount_value) / 100
+            discount = (total * discount_value) / Decimal('100')
         else:
             # Для ваучеров и фиксированной скидки
-            return min(discount_value, total)
+            discount = min(discount_value, total)
+        
+        if discount > total:
+            discount = total
+        
+        return discount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
     
     def get_purchases_count(self):
         """Возвращает количество покупок с этим промокодом (исключая отмененные и в обработке)"""
