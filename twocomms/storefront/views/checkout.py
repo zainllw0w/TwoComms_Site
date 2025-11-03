@@ -246,6 +246,12 @@ def create_order(request):
         fbc_cookie = None
     if fbc_cookie:
         tracking_context['fbc'] = fbc_cookie
+    try:
+        ttclid_cookie = request.COOKIES.get('ttclid')
+    except Exception:
+        ttclid_cookie = None
+    if ttclid_cookie:
+        tracking_context['ttclid'] = ttclid_cookie
     external_source = None
     if request.user.is_authenticated:
         external_source = f"user:{request.user.id}"
