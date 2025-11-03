@@ -1046,12 +1046,18 @@ function initCartPage() {
         }
         
         // КРИТИЧНО: Принудительно устанавливаем правильное значение
-        payNowAmountEl.textContent = formatUAH(payNow);
+        // Для prepay_200 ВСЕГДА используем prepay значение (200 грн)
+        const finalAmount = isPrepay ? summary.prepay : payNow;
+        payNowAmountEl.textContent = formatUAH(finalAmount);
         
-        // Дополнительная проверка: если prepay_200 но сумма не 200 - исправляем
-        if (isPrepay && payNow !== summary.prepay) {
-          console.warn('updatePaymentSummary: prepay_200 selected but amount is not 200, fixing...', payNow);
-          payNowAmountEl.textContent = formatUAH(summary.prepay);
+        // ДОПОЛНИТЕЛЬНАЯ ЗАЩИТА: если prepay_200, принудительно проверяем что значение = 200
+        if (isPrepay) {
+          const currentText = payNowAmountEl.textContent.trim();
+          const expectedText = formatUAH(summary.prepay).trim();
+          if (currentText !== expectedText) {
+            console.warn('updatePaymentSummary: prepay_200 but wrong amount detected, fixing...', currentText, '->', expectedText);
+            payNowAmountEl.textContent = expectedText;
+          }
         }
         
         if (prepayRemainingRow) {
