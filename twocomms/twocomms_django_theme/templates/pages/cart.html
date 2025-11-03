@@ -1003,10 +1003,13 @@ function initCartPage() {
           return;
         }
         
+        // Используем глобальный paymentSummary если локальный недоступен
+        const summary = window.paymentSummary || paymentSummary;
+        
         const isPrepay = payType === 'prepay_200';
         // ИСПРАВЛЕНО: При предоплате ВСЕГДА 200 грн, независимо от общей суммы
-        const payNow = isPrepay ? paymentSummary.prepay : paymentSummary.total;
-        const remaining = isPrepay ? Math.max((paymentSummary.total || 0) - paymentSummary.prepay, 0) : 0;
+        const payNow = isPrepay ? summary.prepay : summary.total;
+        const remaining = isPrepay ? Math.max((summary.total || 0) - summary.prepay, 0) : 0;
         
         if (payNowLabelEl) {
           payNowLabelEl.textContent = isPrepay ? 'До сплати зараз:' : 'До сплати:';
