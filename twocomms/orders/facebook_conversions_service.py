@@ -379,8 +379,16 @@ class FacebookConversionsService:
             user_data = self._prepare_user_data(order)
             
             # Custom Data (для Lead - базовая информация)
+            # Для prepaid используем сумму предоплаты, не полную сумму заказа
             custom_data = self.CustomData()
-            custom_data.value = float(order.total_sum)
+            if order.payment_status == 'prepaid':
+                prepayment_amount = order.get_prepayment_amount()
+                prepayment_value = float(prepayment_amount or 0)
+                if prepayment_value <= 0:
+                    prepayment_value = 200.0  # стандартная сумма предоплаты
+                custom_data.value = prepayment_value
+            else:
+                custom_data.value = float(order.total_sum)
             custom_data.currency = 'UAH'
             custom_data.content_name = f"Lead: Order {order.order_number}"
             
@@ -440,8 +448,15 @@ class FacebookConversionsService:
         """
         if order.payment_status == 'paid':
             return self.send_purchase_event(order)
-        elif order.payment_status in ('prepaid', 'unpaid', 'checking'):
+        elif order.payment_status == 'prepaid':
             return self.send_lead_event(order)
+        elif order.payment_status in ('unpaid', 'checking'):
+            logger.info(
+                "Skipping Facebook event for order %s with payment_status=%s",
+                order.order_number,
+                order.payment_status,
+            )
+            return False
         else:
             logger.warning(f"Unknown payment_status for order {order.order_number}: {order.payment_status}")
             return False
