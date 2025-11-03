@@ -1009,21 +1009,37 @@ function initCartPage() {
       
       function updatePaymentSummary(payType) {
         if (!payNowAmountEl) {
+          console.warn('updatePaymentSummary: payNowAmountEl not found');
           return;
         }
         
-        // Используем глобальный paymentSummary если локальный недоступен
+        // Обновляем paymentSummary.total из актуального data-total элемента
+        const currentTotal = parseNumeric(payNowAmountEl.dataset.total || '0');
+        if (window.paymentSummary) {
+          window.paymentSummary.total = Number.isFinite(currentTotal) ? currentTotal : window.paymentSummary.total;
+        }
+        
+        // Используем глобальный paymentSummary
         const summary = window.paymentSummary || paymentSummary;
         
         const isPrepay = payType === 'prepay_200';
-        // ИСПРАВЛЕНО: При предоплате ВСЕГДА 200 грн, независимо от общей суммы
+        // КРИТИЧНО: При предоплате ВСЕГДА 200 грн, независимо от общей суммы
+        // Никаких проверок, просто 200 грн если prepay_200
         const payNow = isPrepay ? summary.prepay : summary.total;
         const remaining = isPrepay ? Math.max((summary.total || 0) - summary.prepay, 0) : 0;
         
         if (payNowLabelEl) {
           payNowLabelEl.textContent = isPrepay ? 'До сплати зараз:' : 'До сплати:';
         }
+        
+        // КРИТИЧНО: Принудительно устанавливаем правильное значение
         payNowAmountEl.textContent = formatUAH(payNow);
+        
+        // Дополнительная проверка: если prepay_200 но сумма не 200 - исправляем
+        if (isPrepay && payNow !== summary.prepay) {
+          console.warn('updatePaymentSummary: prepay_200 selected but amount is not 200, fixing...', payNow);
+          payNowAmountEl.textContent = formatUAH(summary.prepay);
+        }
         
         if (prepayRemainingRow) {
           if (isPrepay) {
@@ -1074,16 +1090,9 @@ function initCartPage() {
           updateOrderButtonText(this.value);
         });
         
-        // КРИТИЧНО: Устанавливаем начальное значение СРАЗУ при загрузке
-        // до того как refreshCartItems обновит значения
-        if (activePayTypeSelect.value) {
-          updateOrderButtonText(activePayTypeSelect.value);
-        } else {
-          updatePaymentSummary('online_full');
-        }
-      } else {
-        updatePaymentSummary('online_full');
-            }
+        // Примечание: Начальное значение устанавливается ниже, после создания updatePaymentSummary
+        // через updateOrderButtonText или updatePaymentSummary напрямую
+      }
       
       // ВАЖНО: Делаем updatePaymentSummary глобальной для доступа из других функций
       window.updatePaymentSummary = updatePaymentSummary;
