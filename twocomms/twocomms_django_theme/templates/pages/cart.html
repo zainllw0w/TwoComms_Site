@@ -975,8 +975,8 @@ function initCartPage() {
     
     // ==================== ДИНАМИЧЕСКИЕ КНОПКИ (ПРИОРИТЕТ #1) ====================
     // ВАЖНО: Этот код ДОЛЖЕН выполниться первым, поэтому он в самом начале!
-    try {
-      // Находим кнопку (либо для авторизованных, либо для гостей)
+    
+    // КРИТИЧНО: Определяем элементы ВНЕ try/catch чтобы они были доступны всегда
     const placeOrderBtn = document.getElementById('placeOrderBtn');
       const guestOrderBtn = document.getElementById('guestOrderBtn');
       const activeOrderBtn = placeOrderBtn || guestOrderBtn;
@@ -991,6 +991,8 @@ function initCartPage() {
       const prepayRemainingRow = document.getElementById('prepay-remaining-row');
       const prepayRemainingAmountEl = document.getElementById('prepay-remaining-amount');
       const prepayNoteEl = document.getElementById('prepay-note');
+    
+    try {
       const parseNumeric = (raw) => {
         if (raw == null) {
           return NaN;
@@ -1125,7 +1127,16 @@ function initCartPage() {
         // через updateOrderButtonText или updatePaymentSummary напрямую
       }
       
-      // ВАЖНО: Делаем updatePaymentSummary глобальной для доступа из других функций
+      // КРИТИЧНО: Делаем updatePaymentSummary глобальной ВНЕ try/catch
+      // чтобы она была доступна даже если произойдет ошибка
+    } catch (error) {
+      // Тихая обработка ошибок
+      console.error('Error in payment summary initialization:', error);
+    }
+    
+    // КРИТИЧНО: Делаем updatePaymentSummary глобальной ВНЕ блока try/catch
+    // чтобы она была доступна всегда, даже если произошла ошибка в try блоке
+    if (typeof updatePaymentSummary === 'function') {
       window.updatePaymentSummary = updatePaymentSummary;
       
       // КРИТИЧНО: Сразу после создания функции устанавливаем правильную сумму на основе pay_type
@@ -1135,13 +1146,12 @@ function initCartPage() {
           // Устанавливаем правильную сумму СРАЗУ при инициализации
           console.log('Initial payment summary setup with pay_type:', activePayTypeSelect.value);
           updatePaymentSummary(activePayTypeSelect.value);
-      } else {
-        updatePaymentSummary('online_full');
-            }
+        } else {
+          updatePaymentSummary('online_full');
+        }
       });
-    } catch (error) {
-      // Тихая обработка ошибок
-      console.error('Error in payment summary initialization:', error);
+      } else {
+      console.error('updatePaymentSummary не была создана! Проверьте код.');
     }
     // ==================== END ДИНАМИЧЕСКИЕ КНОПКИ ====================
     
