@@ -992,8 +992,39 @@ function initCartPage() {
       const prepayRemainingAmountEl = document.getElementById('prepay-remaining-amount');
       const prepayNoteEl = document.getElementById('prepay-note');
     
-    try {
+    // КРИТИЧНО: Создаем parseNumeric и paymentSummary ВНЕ try/catch
       const parseNumeric = (raw) => {
+        if (raw == null) {
+          return NaN;
+        }
+      // КРИТИЧНО: Обрабатываем как строку, удаляем все пробелы и неразрывные пробелы
+      // Заменяем запятую на точку для правильного парсинга
+        const cleaned = String(raw)
+        .replace(/\u00A0/g, '')  // Неразрывный пробел
+        .replace(/\s/g, '')      // Все пробелы
+        .replace(/,/g, '.')      // Запятые на точки
+        .replace(/[^\d.-]/g, ''); // Удаляем все кроме цифр, точки и минуса
+        const parsed = Number.parseFloat(cleaned);
+        return Number.isFinite(parsed) ? parsed : NaN;
+      };
+      
+    // КРИТИЧНО: Создаем paymentSummary ВНЕ try/catch
+    window.paymentSummary = {
+        total: payNowAmountEl ? parseNumeric(payNowAmountEl.dataset.total || '0') : 0,
+        prepay: payNowAmountEl ? parseNumeric(payNowAmountEl.dataset.prepay || '200') : 200
+      };
+      
+    if (!Number.isFinite(window.paymentSummary.total)) {
+      window.paymentSummary.total = 0;
+      }
+    if (!Number.isFinite(window.paymentSummary.prepay) || window.paymentSummary.prepay <= 0) {
+      window.paymentSummary.prepay = 200;
+      }
+    
+    // Локальная ссылка для удобства
+    const paymentSummary = window.paymentSummary;
+    
+    try {
         if (raw == null) {
           return NaN;
         }
