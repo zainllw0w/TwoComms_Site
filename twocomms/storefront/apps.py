@@ -27,3 +27,12 @@ class StorefrontConfig(AppConfig):
             from . import signals  # noqa: F401
         except Exception:
             pass
+
+        # Перезагружаем монолітні в'юхи для сумісності після ініціалізації Django
+        try:
+            from . import views as new_views
+
+            if hasattr(new_views, '_load_legacy_views'):
+                new_views._load_legacy_views(force=True)
+        except Exception:
+            pass
