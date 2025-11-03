@@ -105,6 +105,14 @@ class TikTokEventsService:
             if hashed_city:
                 user_context['city'] = [hashed_city]
 
+        tracking_data: Dict[str, Any] = {}
+        if order.payment_payload and isinstance(order.payment_payload, dict):
+            tracking_data = order.payment_payload.get('tracking') or {}
+
+        ttclid = tracking_data.get('ttclid') if isinstance(tracking_data, dict) else None
+        if ttclid:
+            user_context['ttclid'] = ttclid
+
         # Данные из payment_payload (IP, User-Agent)
         if order.payment_payload and isinstance(order.payment_payload, dict):
             ip_address = order.payment_payload.get('client_ip_address')
@@ -147,19 +155,30 @@ class TikTokEventsService:
 
         return contents
 
-    def _build_properties(self, order) -> Dict[str, Any]:
+    def _build_properties(self, order, event_name: str = 'Purchase') -> Dict[str, Any]:
         """Формирует properties с деталями заказа."""
-        contents = self._build_contents(order)
-        total_value = float(order.total_sum)
-        total_quantity = sum(content.get('quantity', 0) for content in contents)
+        include_items = event_name != 'Lead'
+        contents: List[Dict[str, Any]] = self._build_contents(order) if include_items else []
+
+        if event_name == 'Lead' and order.payment_status == 'prepaid':
+            prepayment_amount = order.get_prepayment_amount()
+            total_value = float(prepayment_amount or 0)
+            if total_value <= 0:
+                total_value = 200.0  # стандартная сумма предоплаты
+        else:
+            total_value = float(order.total_sum)
 
         properties: Dict[str, Any] = {
-            'contents': contents,
             'value': total_value,
             'currency': 'UAH',
-            'num_items': total_quantity,
             'description': 'web_checkout',
         }
+
+        if include_items and contents:
+            properties['contents'] = contents
+            properties['num_items'] = sum(content.get('quantity', 0) for content in contents)
+        else:
+            properties['num_items'] = sum(content.get('quantity', 0) for content in contents) if contents else 0
 
         if order.order_number:
             properties['order_id'] = order.order_number
@@ -197,7 +216,7 @@ class TikTokEventsService:
             'event_id': event_id,
             'timestamp': (order.created or timezone.now()).isoformat(),
             'context': context,
-            'properties': self._build_properties(order),
+            'properties': self._build_properties(order, event_name=event_name),
         }
 
         # Добавляем test_event_code для тестирования Events API

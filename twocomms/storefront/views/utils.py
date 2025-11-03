@@ -421,31 +421,12 @@ def _record_monobank_status(order, payload, source='api'):
                         else:
                             monobank_logger.info(f'📊 Facebook Lead event already sent for order {order.order_number} (prepayment), skipping')
                     elif order.payment_status == 'paid':
-                        # Полная оплата → Lead + Purchase события сразу (не ждем получения товара)
-                        # Это позволяет оптимизировать рекламу на всех кто оплатил
-                        # ВАЖНО: Проверяем, было ли Lead событие уже отправлено ранее (например, при prepaid)
+                        # Полная оплата → ТОЛЬКО Purchase событие
+                        # Lead отправляется ТОЛЬКО для prepaid (предоплата)
                         payment_payload = order.payment_payload or {}
                         facebook_events = payment_payload.get('facebook_events', {})
-                        lead_already_sent = facebook_events.get('lead_sent', False)
                         
-                        # Отправляем Lead только если оно еще не было отправлено
-                        if not lead_already_sent:
-                            lead_success = fb_service.send_lead_event(order)
-                            if lead_success:
-                                # Сохраняем в payment_payload что Lead отправлен
-                                if 'facebook_events' not in payment_payload:
-                                    payment_payload['facebook_events'] = {}
-                                payment_payload['facebook_events']['lead_sent'] = True
-                                payment_payload['facebook_events']['lead_sent_at'] = timezone.now().isoformat()
-                                order.payment_payload = payment_payload
-                                order.save(update_fields=['payment_payload'])
-                                monobank_logger.info(f'📊 Facebook Lead event sent for order {order.order_number} (full payment)')
-                            else:
-                                monobank_logger.warning(f'⚠️ Failed to send Facebook Lead event for order {order.order_number}')
-                        else:
-                            monobank_logger.info(f'📊 Facebook Lead event already sent for order {order.order_number}, skipping')
-                        
-                        # Purchase всегда отправляем для paid статуса
+                        # Purchase для paid статуса
                         purchase_success = fb_service.send_purchase_event(order)
                         if purchase_success:
                             # Сохраняем в payment_payload что Purchase отправлен
@@ -489,24 +470,10 @@ def _record_monobank_status(order, payload, source='api'):
                             monobank_logger.info(f'📈 TikTok Lead event already sent for order {order.order_number} (prepayment), skipping')
 
                     elif order.payment_status == 'paid':
+                        # Полная оплата → ТОЛЬКО Purchase событие
+                        # Lead отправляется ТОЛЬКО для prepaid (предоплата)
                         payment_payload = order.payment_payload or {}
                         tiktok_events = payment_payload.get('tiktok_events', {})
-                        lead_already_sent = tiktok_events.get('lead_sent', False)
-
-                        if not lead_already_sent:
-                            lead_success = tiktok_service.send_lead_event(order)
-                            if lead_success:
-                                if 'tiktok_events' not in payment_payload:
-                                    payment_payload['tiktok_events'] = {}
-                                payment_payload['tiktok_events']['lead_sent'] = True
-                                payment_payload['tiktok_events']['lead_sent_at'] = timezone.now().isoformat()
-                                order.payment_payload = payment_payload
-                                order.save(update_fields=['payment_payload'])
-                                monobank_logger.info(f'📈 TikTok Lead event sent for order {order.order_number} (full payment)')
-                            else:
-                                monobank_logger.warning(f'⚠️ Failed to send TikTok Lead event for order {order.order_number}')
-                        else:
-                            monobank_logger.info(f'📈 TikTok Lead event already sent for order {order.order_number}, skipping')
 
                         purchase_success = tiktok_service.send_purchase_event(order)
                         if purchase_success:
