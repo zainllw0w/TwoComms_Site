@@ -44,6 +44,10 @@ from .services.catalog_helpers import (
     get_categories_cached,
     get_detailed_color_variants,
 )
+from storefront.utils.analytics_helpers import (
+    FEED_DEFAULT_COLOR,
+    normalize_feed_color,
+)
 
 from urllib.parse import urljoin
 import requests
@@ -261,7 +265,6 @@ def logout_view(request):
 
 
 FEED_SIZE_OPTIONS = ["S", "M", "L", "XL"]
-DEFAULT_FEED_COLOR = "Черный"
 DEFAULT_FEED_SEASON = "Демисезон"
 
 
@@ -295,12 +298,7 @@ def _material_for_product(product) -> str:
 
 
 def _normalize_color_name(raw_color: str | None) -> str:
-    if not raw_color:
-        return DEFAULT_FEED_COLOR
-    trimmed = raw_color.strip()
-    if not trimmed:
-        return DEFAULT_FEED_COLOR
-    return trimmed[0].upper() + trimmed[1:]
+    return normalize_feed_color(raw_color)
 
 
 def _absolute_media_url(base_url: str, path: str | None) -> str | None:
@@ -311,6 +309,46 @@ def _absolute_media_url(base_url: str, path: str | None) -> str | None:
     if not path.startswith("/"):
         path = f"/{path}"
     return urljoin(base_url, path)
+
+
+def _collect_tracking_context(request, order=None):
+    """Собирает идентификаторы для дедупликации/атрибуции (fbp/fbc/external_id)."""
+    tracking = {}
+
+    try:
+        fbp = getattr(request, 'COOKIES', {}).get('_fbp')
+    except Exception:
+        fbp = None
+    if fbp:
+        tracking['fbp'] = fbp
+
+    try:
+        fbc = getattr(request, 'COOKIES', {}).get('_fbc')
+    except Exception:
+        fbc = None
+    if fbc:
+        tracking['fbc'] = fbc
+
+    external_source = None
+    if request.user.is_authenticated:
+        external_source = f"user:{request.user.id}"
+    elif order and getattr(order, 'session_key', None):
+        external_source = f"session:{order.session_key}"
+    else:
+        try:
+            session_key = request.session.session_key
+        except Exception:
+            session_key = None
+        if session_key:
+            external_source = f"session:{session_key}"
+
+    if not external_source and order and getattr(order, 'order_number', None):
+        external_source = f"order:{order.order_number}"
+
+    if external_source:
+        tracking['external_id'] = external_source
+
+    return tracking
 
 
 def uaprom_products_feed(request):
@@ -366,11 +404,11 @@ def uaprom_products_feed(request):
             for variant in color_variants:
                 color_label = _normalize_color_name(variant.color.name if variant.color else None)
                 variant_images = [img.image.url for img in variant.images.all() if getattr(img, "image", None)]
-                variant_payloads.append((color_label, variant_images))
+                variant_payloads.append((color_label, variant_images, variant.id))
         else:
-            variant_payloads = [(DEFAULT_FEED_COLOR, base_image_paths)]
+            variant_payloads = [(FEED_DEFAULT_COLOR, base_image_paths, None)]
 
-        for color_name, variant_images in variant_payloads:
+        for color_name, variant_images, variant_id in variant_payloads:
             images_to_use = variant_images or base_image_paths
             image_urls = [
                 url for url in (
@@ -384,12 +422,10 @@ def uaprom_products_feed(request):
                 if fallback:
                     image_urls = [fallback]
 
-            color_slug = slugify(color_name, allow_unicode=True).replace("-", "")
-            color_slug = color_slug.upper() or "COLOR"
             group_id = f"TC-GROUP-{product.id}"
 
             for size in FEED_SIZE_OPTIONS:
-                offer_id = f"TC-{product.id:04d}-{color_slug}-{size}"
+                offer_id = product.get_offer_id(variant_id, size)
                 offer_el = ET.SubElement(
                     offers_el,
                     "offer",
@@ -1311,6 +1347,10 @@ def process_guest_order(request):
         total_sum=0,
         status='new'
     )
+
+    tracking_context = _collect_tracking_context(request, order)
+    if tracking_context:
+        order.payment_payload = {'tracking': tracking_context}
     
     # Добавляем товары в заказ
     for key, it in cart.items():
@@ -2615,6 +2655,10 @@ def order_create(request):
             phone=phone, city=city, np_office=np_office,
             pay_type=pay_type, total_sum=0, status='new'
         )
+
+        tracking_context = _collect_tracking_context(request, order)
+        if tracking_context:
+            order.payment_payload = {'tracking': tracking_context}
         
         # Создаем все товары заказа
         order_items = []
@@ -5403,6 +5447,9 @@ def _create_or_update_monobank_order(request, customer_data):
                 total_sum=Decimal('0'),
                 discount_amount=Decimal('0')
             )
+            tracking_context = _collect_tracking_context(request, order)
+            if tracking_context:
+                order.payment_payload = {'tracking': tracking_context}
         else:
             OrderItem.objects.filter(order=order).delete()
             order.full_name = customer_data['full_name']
@@ -6018,11 +6065,21 @@ def monobank_create_checkout(request):
         _reset_monobank_session(request, drop_pending=True)
         return JsonResponse({'success': False, 'error': 'Не вдалося створити замовлення. Спробуйте пізніше.'})
 
-    payment_payload = {
-        'request': payload,
-        'create': creation_data,
-        'history': []
-    }
+    existing_payload = order.payment_payload if isinstance(order.payment_payload, dict) else {}
+    payment_payload = dict(existing_payload)
+    payment_payload['request'] = payload
+    payment_payload['create'] = creation_data
+    history = payment_payload.get('history')
+    if not isinstance(history, list):
+        history = []
+    payment_payload['history'] = history
+
+    tracking_context = _collect_tracking_context(request, order)
+    if tracking_context:
+        tracking_block = payment_payload.get('tracking', {})
+        tracking_block.update(tracking_context)
+        payment_payload['tracking'] = tracking_block
+
     order.payment_invoice_id = order_id
     order.payment_payload = payment_payload
     order.payment_status = 'checking'

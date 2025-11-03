@@ -833,6 +833,12 @@
           // Обновляем UI страницы корзины БЕЗ перезагрузки
           var cartList = document.getElementById('cart-list');
           if(cartList){
+            var cartContainerEl = document.querySelector('.cart-page-container');
+            var cartController = cartContainerEl && cartContainerEl.__cartController;
+            if (cartController && typeof cartController.requestSync === 'function') {
+              cartController.requestSync(0);
+              return;
+            }
             // Обновляем итоговую сумму товаров (subtotal)
             var summaryValue = document.querySelector('.cart-summary-row:first-child .cart-summary-value');
             var summaryLabel = document.querySelector('.cart-summary-row:first-child .cart-summary-label');
