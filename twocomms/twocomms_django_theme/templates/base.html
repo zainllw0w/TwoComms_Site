@@ -833,20 +833,60 @@
           // Обновляем UI страницы корзины БЕЗ перезагрузки
           var cartList = document.getElementById('cart-list');
           if(cartList){
-            // Обновляем итоговую сумму
+            // Обновляем итоговую сумму товаров (subtotal)
             var summaryValue = document.querySelector('.cart-summary-row:first-child .cart-summary-value');
             var summaryLabel = document.querySelector('.cart-summary-row:first-child .cart-summary-label');
             var payNowAmount = document.getElementById('pay-now-amount');
             
-            if(summaryValue && d.total !== undefined) {
-              summaryValue.textContent = d.total + ' грн';
+            // Обновляем subtotal (сумма товаров без скидки)
+            if(summaryValue && d.subtotal !== undefined) {
+              summaryValue.textContent = parseFloat(d.subtotal).toFixed(2) + ' грн';
             }
             if(summaryLabel && d.count !== undefined) {
               summaryLabel.textContent = 'Товари (' + d.count + '):';
             }
+            
+            // Обновляем блок скидки промокода если есть
+            var discountRow = document.querySelector('.cart-summary-discount');
+            if(d.discount !== undefined && d.discount > 0) {
+              // Показываем блок скидки если его нет
+              if(!discountRow) {
+                // Находим место для вставки (после суммы товаров, перед итогом)
+                var summaryRows = document.querySelectorAll('.cart-checkout-summary .cart-summary-row');
+                if(summaryRows.length > 0) {
+                  var discountHtml = '<div class="cart-summary-row cart-summary-discount"><span class="cart-summary-label"><div class="cart-discount-label"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>Знижка промокоду</div></span><span class="cart-summary-value">-' + parseFloat(d.discount).toFixed(2) + ' грн</span></div>';
+                  summaryRows[0].insertAdjacentHTML('afterend', discountHtml);
+                }
+              } else {
+                // Обновляем существующий блок
+                var discountValue = discountRow.querySelector('.cart-summary-value');
+                if(discountValue) {
+                  discountValue.textContent = '-' + parseFloat(d.discount).toFixed(2) + ' грн';
+                }
+              }
+            } else {
+              // Скрываем блок скидки если скидки нет
+              if(discountRow) {
+                discountRow.remove();
+              }
+            }
+            
+            // Обновляем итоговую сумму (total)
             if(payNowAmount && d.total !== undefined) {
-              payNowAmount.textContent = d.total + ' грн';
-              payNowAmount.setAttribute('data-total', d.total);
+              var totalValue = parseFloat(d.total).toFixed(2);
+              payNowAmount.textContent = totalValue + ' грн';
+              payNowAmount.setAttribute('data-total', totalValue);
+              
+              // Обновляем paymentSummary для корректного пересчета предоплаты
+              if(window.paymentSummary) {
+                paymentSummary.total = parseFloat(d.total);
+              }
+              
+              // Если выбран тип оплаты prepay_200, обновляем отображение
+              var payTypeSelect = document.getElementById('pay_type_auth') || document.getElementById('pay_type_guest');
+              if(payTypeSelect && typeof updatePaymentSummary === 'function') {
+                updatePaymentSummary(payTypeSelect.value);
+              }
             }
             
             // Если корзина пуста - показываем сообщение
@@ -854,13 +894,36 @@
               setTimeout(function(){
                 var mainSection = document.querySelector('.cart-main-section');
                 if(mainSection) {
-                  mainSection.innerHTML = '<div class="cart-empty"><div class="cart-empty-icon"><svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg></div><h2 class="cart-empty-title">Кошик порожній</h2><p class="cart-empty-text">Додайте товари до кошика, щоб зробити замовлення</p><a href="/" class="cart-empty-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>Перейти до покупок</a></div>';
+                  mainSection.innerHTML = '<div class="cart-empty"><div class="cart-empty-icon"><svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg></div><h2 class="cart-empty-title">Кошик порожній</h2><p class="cart-empty-text">Додайте товари до кошика, щоб зробити замовлення</p><a href="/" class="cart-empty-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77л-6.18 3.25Л7 14.14 2 9.27л6.91-1.01L12 2z"/></svg>Перейти до покупок</a></div>';
                 }
               }, 350);
             }
           }
           
-          try{ if(window.trackEvent){ window.trackEvent('RemoveFromCart', {content_ids:[String(key.split(':')[0])], content_type:'product'}); } }catch(_){ }
+          try{
+            if(window.trackEvent){
+              var rowEl = el && el.closest ? el.closest('[data-cart-row]') : null;
+              if(!rowEl){
+                rowEl = document.querySelector('[data-cart-row][data-key="'+key+'"]');
+              }
+              var offerId = rowEl ? rowEl.getAttribute('data-offer-id') : null;
+              if(offerId){
+                var payload = {
+                  content_ids: [offerId],
+                  content_type: 'product',
+                  contents: [{
+                    id: offerId,
+                    quantity: 1
+                  }]
+                };
+                window.trackEvent('RemoveFromCart', payload);
+              } else {
+                if(console && console.debug){
+                  console.debug('RemoveFromCart: offer_id not found for key', key);
+                }
+              }
+            }
+          }catch(_){ }
         }
       }).catch(function(error){
         // Тихая обработка ошибок - перезагружаем только если на странице корзины
