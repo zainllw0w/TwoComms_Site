@@ -907,7 +907,11 @@ function initCartPage() {
         // Обновляем pay-now-amount с правильным total (НО НЕ ТЕКСТ напрямую!)
         const payNowAmount = document.getElementById('pay-now-amount');
         if (payNowAmount) {
-            const totalValue = data.total !== undefined ? parseFloat(data.total) : (data.grand_total !== undefined ? parseFloat(data.grand_total) : 0);
+            // КРИТИЧНО: Используем Number чтобы избежать проблем с форматированием
+            let totalValue = data.total !== undefined ? Number(parseFloat(data.total)) : 
+                           (data.grand_total !== undefined ? Number(parseFloat(data.grand_total)) : 0);
+            if (isNaN(totalValue)) totalValue = 0;
+            
             // ВАЖНО: Обновляем только data-total атрибут, НЕ текст напрямую
             payNowAmount.setAttribute('data-total', totalValue.toFixed(2));
             
@@ -918,14 +922,17 @@ function initCartPage() {
             
             // КРИТИЧНО: ВСЕГДА вызываем updatePaymentSummary для правильного отображения суммы
             // Она сама решит что показывать: 200 грн при prepay_200 или полную сумму
-            const payTypeSelect = document.getElementById('pay_type_auth') || document.getElementById('pay_type_guest');
-            if (payTypeSelect && typeof window.updatePaymentSummary === 'function') {
-                // Используем глобальную функцию и текущее значение селекта
-                window.updatePaymentSummary(payTypeSelect.value);
-            } else if (typeof window.updatePaymentSummary === 'function') {
-                // Если селект еще не загружен, используем значение по умолчанию
-                window.updatePaymentSummary('online_full');
-            }
+            // Используем setTimeout чтобы гарантировать что updatePaymentSummary выполнится ПОСЛЕ всех обновлений
+            setTimeout(() => {
+                const payTypeSelect = document.getElementById('pay_type_auth') || document.getElementById('pay_type_guest');
+                if (payTypeSelect && typeof window.updatePaymentSummary === 'function') {
+                    // Используем глобальную функцию и текущее значение селекта
+                    window.updatePaymentSummary(payTypeSelect.value || 'online_full');
+                } else if (typeof window.updatePaymentSummary === 'function') {
+                    // Если селект еще не загружен, используем значение по умолчанию
+                    window.updatePaymentSummary('online_full');
+                }
+            }, 50);
         }
     }
     
@@ -988,10 +995,13 @@ function initCartPage() {
         if (raw == null) {
           return NaN;
         }
+        // КРИТИЧНО: Обрабатываем как строку, удаляем все пробелы и неразрывные пробелы
+        // Заменяем запятую на точку для правильного парсинга
         const cleaned = String(raw)
-          .replace(/\u00A0/g, '')
-          .replace(/\s/g, '')
-          .replace(',', '.');
+          .replace(/\u00A0/g, '')  // Неразрывный пробел
+          .replace(/\s/g, '')      // Все пробелы
+          .replace(/,/g, '.')      // Запятые на точки
+          .replace(/[^\d.-]/g, ''); // Удаляем все кроме цифр, точки и минуса
         const parsed = Number.parseFloat(cleaned);
         return Number.isFinite(parsed) ? parsed : NaN;
       };
@@ -1027,9 +1037,11 @@ function initCartPage() {
         }
         
         // Обновляем paymentSummary.total из актуального data-total элемента
-        const currentTotal = parseNumeric(payNowAmountEl.dataset.total || '0');
+        // КРИТИЧНО: Правильно парсим число из data-атрибута
+        const currentTotalRaw = payNowAmountEl.dataset.total || '0';
+        const currentTotal = parseNumeric(currentTotalRaw);
         if (window.paymentSummary) {
-          window.paymentSummary.total = Number.isFinite(currentTotal) ? currentTotal : window.paymentSummary.total;
+          window.paymentSummary.total = Number.isFinite(currentTotal) ? Number(currentTotal) : (window.paymentSummary.total || 0);
         }
         
         // Используем глобальный paymentSummary
