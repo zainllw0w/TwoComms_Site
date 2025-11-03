@@ -436,18 +436,18 @@ def _build_print_proposals_context():
 def _build_collaboration_context():
     """Контекст для блоков співпраці (дропшипінг, опт)."""
     try:
-        invoices = WholesaleInvoice.objects.order_by('-created_at')[:50]
-        dropship_orders = (
+        invoices = list(WholesaleInvoice.objects.order_by('-created_at')[:50])
+        dropship_orders = list(
             DropshipperOrder.objects.select_related('dropshipper', 'dropshipper__userprofile')
             .prefetch_related('items')
             .order_by('-created_at')[:50]
         )
-        dropshipper_stats = (
+        dropshipper_stats = list(
             DropshipperStats.objects.select_related('dropshipper', 'dropshipper__userprofile')
             .filter(total_orders__gt=0)
             .order_by('-total_profit')[:20]
         )
-        payouts = (
+        payouts = list(
             DropshipperPayout.objects.select_related('dropshipper', 'dropshipper__userprofile')
             .order_by('-requested_at')[:50]
         )
