@@ -2,7 +2,10 @@ from django.urls import path
 from . import views
 # Import auth views from the modular auth.py module
 from .views import auth as auth_views
-from .views.admin import admin_panel as admin_panel_view
+def admin_panel_view(request, *args, **kwargs):
+    from .views.admin import admin_panel as _admin_panel
+
+    return _admin_panel(request, *args, **kwargs)
 
 urlpatterns=[
     path('', views.home, name='home'),
