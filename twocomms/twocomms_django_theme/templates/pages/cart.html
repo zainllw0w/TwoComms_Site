@@ -256,8 +256,8 @@
               <div class="cart-form-input-wrapper">
                 <select name="pay_type" class="cart-form-select" id="pay_type_auth" required aria-label="Тип оплати">
                   <option value="">Оберіть тип оплати</option>
-                  <option value="online_full" {% if prof.pay_type == 'online_full' or prof.pay_type == 'full' %}selected{% endif %}>Онлайн оплата (повна сума)</option>
-                  <option value="prepay_200" {% if prof.pay_type == 'prepay_200' or prof.pay_type == 'partial' %}selected{% endif %}>Передплата 200 грн (решта при отриманні)</option>
+                  <option value="online_full">Онлайн оплата (повна сума)</option>
+                  <option value="prepay_200">Передплата 200 грн (решта при отриманні)</option>
                 </select>
                 <div class="cart-form-input-glow"></div>
               </div>
@@ -444,7 +444,7 @@
         <div class="cart-checkout-summary" id="cart-summary">
           <div class="cart-summary-row">
             <span class="cart-summary-label" id="cart-items-label">Товари ({{ items_total_qty|default:cart_count }}):</span>
-            <span class="cart-summary-value" id="cart-subtotal-value">{{ subtotal|floatformat:2 }} грн</span>
+            <span class="cart-summary-value" id="cart-subtotal-value">{{ original_subtotal|floatformat:2 }} грн</span>
           </div>
           
           <div class="cart-summary-row cart-summary-site-discount {% if site_discount_total <= 0 %}d-none{% endif %}" id="cart-site-discount-row">

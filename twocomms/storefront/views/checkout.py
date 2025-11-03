@@ -189,12 +189,15 @@ def create_order(request):
             messages.error(request, 'Оберіть тип оплати!')
             return redirect('cart')
         
-        # Обновляем профиль пользователя данными из формы
+        # Нормализуем pay_type для использования в заказе
+        from storefront.views import _normalize_pay_type
+        pay_type = _normalize_pay_type(pay_type)
+        
+        # Обновляем профиль пользователя данными из формы (БЕЗ pay_type - пользователь должен выбирать каждый раз)
         prof.full_name = full_name
         prof.phone = phone
         prof.city = city
         prof.np_office = np_office
-        prof.pay_type = pay_type
         prof.save()
 
     # Корзина должна быть не пустой
@@ -218,14 +221,14 @@ def create_order(request):
     prods = Product.objects.in_bulk(ids)
     total_sum = Decimal('0')
     
-    # Создаем заказ
+    # Создаем заказ (используем pay_type из формы, не из профиля)
     order = Order.objects.create(
         user=request.user,
         full_name=prof.full_name or request.user.username,
         phone=prof.phone,
         city=prof.city,
         np_office=prof.np_office,
-        pay_type=prof.pay_type,
+        pay_type=pay_type,  # Используем значение из формы, а не из профиля
         total_sum=0,
         status='new'
     )
