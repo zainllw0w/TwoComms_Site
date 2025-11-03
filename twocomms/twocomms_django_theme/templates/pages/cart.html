@@ -909,13 +909,22 @@ function initCartPage() {
             // КРИТИЧНО: ВСЕГДА вызываем updatePaymentSummary для правильного отображения суммы
             // Она сама решит что показывать: 200 грн при prepay_200 или полную сумму
             const payTypeSelect = document.getElementById('pay_type_auth') || document.getElementById('pay_type_guest');
-            if (payTypeSelect && typeof updatePaymentSummary === 'function') {
-                updatePaymentSummary(payTypeSelect.value);
-            } else if (typeof updatePaymentSummary === 'function') {
+            if (payTypeSelect && typeof window.updatePaymentSummary === 'function') {
+                // Используем глобальную функцию и текущее значение селекта
+                window.updatePaymentSummary(payTypeSelect.value);
+            } else if (typeof window.updatePaymentSummary === 'function') {
                 // Если селект еще не загружен, используем значение по умолчанию
-                updatePaymentSummary('online_full');
+                window.updatePaymentSummary('online_full');
             }
         }
+    }
+    
+    // КРИТИЧНО: Сначала устанавливаем правильную сумму на основе pay_type
+    // Потом обновляем список товаров, который может перезаписать значения
+    const payTypeSelect = document.getElementById('pay_type_auth') || document.getElementById('pay_type_guest');
+    if (payTypeSelect && payTypeSelect.value && typeof updatePaymentSummary === 'function') {
+        // Если pay_type уже выбран, устанавливаем правильную сумму ДО обновления корзины
+        updatePaymentSummary(payTypeSelect.value);
     }
     
     // Обновляем список товаров при загрузке страницы
@@ -1065,7 +1074,8 @@ function initCartPage() {
           updateOrderButtonText(this.value);
         });
         
-        // Устанавливаем начальное значение при загрузке
+        // КРИТИЧНО: Устанавливаем начальное значение СРАЗУ при загрузке
+        // до того как refreshCartItems обновит значения
         if (activePayTypeSelect.value) {
           updateOrderButtonText(activePayTypeSelect.value);
         } else {
@@ -1074,6 +1084,9 @@ function initCartPage() {
       } else {
         updatePaymentSummary('online_full');
             }
+      
+      // ВАЖНО: Делаем updatePaymentSummary глобальной для доступа из других функций
+      window.updatePaymentSummary = updatePaymentSummary;
     } catch (error) {
       // Тихая обработка ошибок
     }
