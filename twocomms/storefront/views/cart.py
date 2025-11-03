@@ -151,10 +151,15 @@ def view_cart(request):
     if request.user.is_authenticated:
         try:
             from accounts.models import UserProfile
+            from storefront.views import _normalize_pay_type
             prof = request.user.userprofile
-            if prof.pay_type == 'prepay_200':
+            # Нормализуем pay_type для корректного сравнения
+            # В UserProfile pay_type может быть 'partial' или 'full', нужно нормализовать
+            normalized_pay_type = _normalize_pay_type(prof.pay_type) if prof.pay_type else None
+            if normalized_pay_type == 'prepay_200':
                 pay_now_amount = Decimal('200.00')
-        except:
+        except Exception as e:
+            cart_logger.warning('Could not determine pay_now_amount from user profile: %s', e)
             pass
     
     checkout_payload = None
