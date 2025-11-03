@@ -182,7 +182,8 @@ def _build_stats(period_param):
         )
 
         stats['total_users'] = User.objects.count()
-        stats['new_users_today'] = users_qs.count() if start_date else 0
+        stats['registered_today'] = User.objects.filter(date_joined__date=today).count()
+        stats['new_users_today'] = users_qs.count()
         stats['active_users_today'] = User.objects.filter(last_login__date=today).count()
         if start_date and end_date:
             stats['active_users_period'] = User.objects.filter(
@@ -195,7 +196,7 @@ def _build_stats(period_param):
         stats['total_categories'] = Category.objects.count()
         stats['print_proposals_pending'] = PrintProposal.objects.filter(status='pending').count()
 
-        stats['promocodes_used_today'] = promo_usage_qs.count()
+        stats['promocodes_used_today'] = PromoCodeUsage.objects.filter(used_at__date=today).count()
 
         stats['total_points_earned'] = (
             UserPoints.objects.aggregate(total=Sum('points'))['total'] or 0
@@ -302,8 +303,8 @@ def _build_orders_context(request):
 def _build_users_context():
     """Собирает данные для вкладки пользователей."""
     users_qs = (
-        User.objects.select_related('userprofile')
-        .prefetch_related('points', 'orders', 'orders__items')
+        User.objects.select_related('userprofile', 'points')
+        .prefetch_related('orders', 'orders__items')
         .order_by('username')
     )
     users = list(users_qs)
@@ -330,7 +331,10 @@ def _build_users_context():
     user_data = []
     for user in users:
         profile = getattr(user, 'userprofile', None)
-        points = getattr(user, 'points', None)
+        try:
+            points = user.points
+        except UserPoints.DoesNotExist:
+            points = None
         user_orders = list(user.orders.all())
         total_orders = len(user_orders)
 
