@@ -258,6 +258,14 @@ def get_promo_admin_context(request):
 
 # ==================== ADMIN VIEWS ====================
 
+
+def render_admin_promocodes_page(request):
+    """Рендер повної сторінки управління промокодами."""
+    context = get_promo_admin_context(request)
+    context['section'] = 'promocodes'
+    return render(request, 'pages/admin_promocodes.html', context)
+
+
 @login_required
 def admin_promocodes(request):
     """
@@ -265,7 +273,9 @@ def admin_promocodes(request):
     Промокоди тепер в головній адмін-панелі через ?section=promocodes
     Редирект для backward compatibility
     """
-    return redirect('/admin-panel/?section=promocodes')
+    if not request.user.is_staff:
+        return redirect('home')
+    return render_admin_promocodes_page(request)
 
 
 @login_required

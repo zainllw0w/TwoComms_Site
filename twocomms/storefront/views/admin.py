@@ -37,6 +37,7 @@ from ..forms import (
     build_color_variant_formset,
 )
 from .utils import unique_slugify
+from .promo import render_admin_promocodes_page
 from storefront.services.catalog import (
     append_product_gallery,
     formset_to_variant_payloads,
@@ -90,6 +91,61 @@ def admin_dashboard(request):
             'recent_orders': recent_orders
         }
     )
+
+
+@login_required
+def admin_panel(request):
+    """
+    Упрощённая реализация головної адмін-панелі.
+
+    Підтримує ключові секції:
+    - stats (поки що лише базові значення)
+    - promocodes (повністю через новий інтерфейс)
+
+    Інші секції рендеряться з порожнім контекстом, щоб зберегти працездатність шаблону.
+    """
+    if not request.user.is_staff:
+        return redirect('home')
+
+    section = request.GET.get('section', 'stats')
+
+    # Промокоди виносимо в окремий повноцінний шаблон
+    if section == 'promocodes':
+        return render_admin_promocodes_page(request)
+
+    # Базові плейсхолдери для інших секцій
+    context = {
+        'section': section,
+        'stats': {
+            'period': request.GET.get('period', 'all_time'),
+            'period_name': 'За весь час',
+            'online_users': 0,
+            'sessions_period': 0,
+            'page_views_period': 0,
+            'bounce_rate': 0,
+            'orders_count': 0,
+            'orders_today': 0,
+            'revenue': 0,
+            'avg_order_value': 0,
+            'total_users': 0,
+            'new_users_period': 0,
+            'active_users_today': 0,
+            'active_users_period': 0,
+            'total_products': 0,
+            'total_categories': 0,
+            'print_proposals_pending': 0,
+            'promocodes_used': 0,
+            'total_points_earned': 0,
+            'users_with_points': 0,
+        },
+        'orders': [],
+        'users': [],
+        'catalogs': [],
+        'offline_stores': [],
+        'print_proposals': [],
+    }
+
+    return render(request, 'pages/admin_panel.html', context)
 
 
 @staff_member_required

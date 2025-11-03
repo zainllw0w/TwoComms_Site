@@ -178,6 +178,7 @@ from .monobank import (
 
 # Админка
 from .admin import (
+    admin_panel,
     admin_dashboard,
     manage_products,
     add_product,
@@ -252,7 +253,7 @@ try:
         'checkout', 'create_order', 'payment_method', 'monobank_webhook', 'payment_callback',
         'order_success', 'order_failed', 'calculate_shipping',
         # admin.py
-        'admin_dashboard', 'manage_products', 'add_product', 'add_category', 'add_print',
+        'admin_panel', 'admin_dashboard', 'manage_products', 'add_product', 'add_category', 'add_print',
         'manage_print_proposals', 'manage_promo_codes', 'generate_seo_content',
         'generate_alt_texts', 'manage_orders', 'sales_statistics', 'inventory_management',
         # Aliases (чтобы не конфликтовали)
@@ -353,7 +354,7 @@ __all__ = [
     'order_success', 'order_failed', 'calculate_shipping',
     
     # Admin
-    'admin_dashboard', 'manage_products', 'add_product', 'add_category', 'add_print',
+    'admin_panel', 'admin_dashboard', 'manage_products', 'add_product', 'add_category', 'add_print',
     'manage_print_proposals', 'manage_promo_codes', 'generate_seo_content',
     'generate_alt_texts', 'manage_orders', 'sales_statistics', 'inventory_management',
     
