@@ -111,8 +111,8 @@ def view_cart(request):
                         # В случае ошибки не обновляем pay_type
 
                 try:
-                profile.save()
-                messages.success(request, 'Дані доставки успішно оновлено!')
+                    profile.save()
+                    messages.success(request, 'Дані доставки успішно оновлено!')
                 except Exception as e:
                     cart_logger.error('Error saving profile: %s', e, exc_info=True)
                     messages.error(request, 'Помилка при збереженні даних. Спробуйте ще раз.')
