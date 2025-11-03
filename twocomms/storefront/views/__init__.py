@@ -19,6 +19,8 @@ Storefront views package.
 - static_pages.py - Статические страницы (в разработке)
 """
 
+from functools import wraps
+
 # ==================== НОВЫЕ МОДУЛИ ====================
 
 # Утилиты
@@ -282,6 +284,36 @@ def _load_legacy_views(force: bool = False):
 
 
 _load_legacy_views()
+
+
+def __getattr__(name):
+    """Ленивая прокси для функций из legacy views.py."""
+
+    if name in globals():
+        return globals()[name]
+
+    try:
+        from django.apps import apps
+    except Exception:
+        apps = None
+
+    if apps is not None and not apps.ready:
+
+        def _deferred(*args, **kwargs):
+            _load_legacy_views(force=True)
+            handler = globals().get(name)
+            if handler is None:
+                raise AttributeError(name)
+            return handler(*args, **kwargs)
+
+        _deferred.__name__ = name
+        return _deferred
+
+    _load_legacy_views(force=True)
+    if name in globals():
+        return globals()[name]
+
+    raise AttributeError(name)
 
 
 # ==================== АЛИАСЫ ДЛЯ ОБРАТНОЙ СОВМЕСТИМОСТИ ====================
