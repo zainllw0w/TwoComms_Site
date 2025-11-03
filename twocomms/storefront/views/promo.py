@@ -10,7 +10,9 @@ Promo codes views - Управление промокодами.
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Q
+from decimal import Decimal
+
+from django.db.models import Count, Q, Avg, Sum
 from django.http import JsonResponse
 from django import forms
 
@@ -112,154 +114,146 @@ class PromoCodeForm(forms.ModelForm):
 
 def get_promo_admin_context(request):
     """Функція для отримання контексту промокодів для адмін-панелі"""
-    from django.db.models import Q, Count
-    
-    # Получаем текущий таб
-    promo_tab = request.GET.get('tab', 'promocodes')
-    
-    # Получаем параметры фильтрации для промокодов
-    view_type = request.GET.get('view', 'all')
-    group_id = request.GET.get('group')
-    
-    # ===== ТАБ 1: ПРОМОКОДЫ =====
-    promocodes = PromoCode.objects.select_related('group').prefetch_related('usages').all()
-    
-    # Фильтрация по типу
-    if view_type == 'vouchers':
-        promocodes = promocodes.filter(promo_type='voucher')
-    elif view_type == 'grouped':
-        promocodes = promocodes.filter(promo_type='grouped', group__isnull=False)
-    elif view_type == 'regular':
-        promocodes = promocodes.filter(promo_type='regular')
-    
-    # Фильтрация по группе
-    if group_id:
-        promocodes = promocodes.filter(group_id=group_id)
-    
-    # ===== ТАБ 2: ГРУППЫ =====
-    groups = PromoCodeGroup.objects.prefetch_related('promo_codes').annotate(
-        codes_count=Count('promo_codes'),
-        active_codes_count=Count('promo_codes', filter=Q(promo_codes__is_active=True)),
-        total_usages=Count('usages')
-    )
-    
-    # ===== ТАБ 3: СТАТИСТИКА =====
-    # Последние использования
-    recent_usages = PromoCodeUsage.objects.select_related(
-        'user', 'promo_code', 'group', 'order'
-    ).order_by('-used_at')[:50]
-    
-    # Топ промокодов
-    top_promos = PromoCode.objects.annotate(
-        usage_count=Count('usages')
-    ).filter(usage_count__gt=0).order_by('-usage_count')[:10]
-    
-    # Топ групп
-    top_groups = PromoCodeGroup.objects.annotate(
-        usage_count=Count('usages')
-    ).filter(usage_count__gt=0).order_by('-usage_count')[:10]
-    
-    # ===== ОБЩАЯ СТАТИСТИКА =====
-    total_promocodes = PromoCode.objects.count()
-    active_promocodes = PromoCode.objects.filter(is_active=True).count()
-    total_vouchers = PromoCode.objects.filter(promo_type='voucher').count()
-    total_groups = groups.count()
-    total_usages = PromoCodeUsage.objects.count()
-    unique_users = PromoCodeUsage.objects.values('user').distinct().count()
-    
-    # ===== РОЗШИРЕНА СТАТИСТИКА =====
-    from django.db.models import Avg, Sum, F, DecimalField
-    from decimal import Decimal
-    
-    # Середня знижка (для відсоткових промокодів)
-    avg_discount_percent = PromoCode.objects.filter(
-        discount_type='percent'
-    ).aggregate(
-        avg=Avg('discount_value')
-    )['avg'] or Decimal('0')
-    
-    # Середня знижка (для фіксованих промокодів)
-    avg_discount_fixed = PromoCode.objects.filter(
-        discount_type='fixed'
-    ).aggregate(
-        avg=Avg('discount_value')
-    )['avg'] or Decimal('0')
-    
-    # Конверсія промокодів (скільки промокодів було використано хоча б раз)
-    used_promocodes_count = PromoCode.objects.annotate(
-        usages_count=Count('usages')
-    ).filter(usages_count__gt=0).count()
-    
-    conversion_rate = (used_promocodes_count / total_promocodes * 100) if total_promocodes > 0 else 0
-    
-    # Середня кількість використань на промокод
-    avg_usages_per_promo = (total_usages / total_promocodes) if total_promocodes > 0 else 0
-    
-    # Загальна сума економії клієнтів (наближено, на основі використань)
-    # Примітка: для точного розрахунку потрібна інформація про суми замовлень
-    total_savings = Decimal('0')
-    
-    # Для фіксованих знижок - просто сума всіх використань
-    fixed_savings = PromoCodeUsage.objects.filter(
-        promo_code__discount_type='fixed'
-    ).aggregate(
-        total=Sum('promo_code__discount_value')
-    )['total'] or Decimal('0')
-    
-    total_savings += fixed_savings
-    
-    # Для відсоткових - приблизна оцінка (якщо є інформація про замовлення)
-    # Поки що тільки кількість використань
-    percent_usages_count = PromoCodeUsage.objects.filter(
-        promo_code__discount_type='percent'
-    ).count()
-    
-    # Найпопулярніший промокод
-    most_popular_promo = PromoCode.objects.annotate(
-        usage_count=Count('usages')
-    ).filter(usage_count__gt=0).order_by('-usage_count').first()
-    
-    # Найуспішніша група
-    most_successful_group = PromoCodeGroup.objects.annotate(
-        usage_count=Count('usages')
-    ).filter(usage_count__gt=0).order_by('-usage_count').first()
-    
-    return {
-        # Навигация
-        'promo_tab': promo_tab,
-        'view_type': view_type,
-        'current_group_id': int(group_id) if group_id else None,
-        
-        # Таб 1: Промокоды
-        'promocodes': promocodes,
-        
-        # Таб 2: Группы
-        'groups': groups,
-        
-        # Таб 3: Статистика
-        'recent_usages': recent_usages,
-        'top_promos': top_promos,
-        'top_groups': top_groups,
-        
-        # Общая статистика
-        'total_promocodes': total_promocodes,
-        'active_promocodes': active_promocodes,
-        'total_vouchers': total_vouchers,
-        'total_groups': total_groups,
-        'total_usages': total_usages,
-        'unique_users': unique_users,
-        
-        # Розширена статистика
-        'avg_discount_percent': round(float(avg_discount_percent), 2),
-        'avg_discount_fixed': round(float(avg_discount_fixed), 2),
-        'conversion_rate': round(conversion_rate, 2),
-        'avg_usages_per_promo': round(avg_usages_per_promo, 2),
-        'total_savings': float(total_savings),
-        'percent_usages_count': percent_usages_count,
-        'used_promocodes_count': used_promocodes_count,
-        'most_popular_promo': most_popular_promo,
-        'most_successful_group': most_successful_group,
-    }
+    try:
+        # Получаем текущий таб и параметры фильтрации
+        promo_tab = request.GET.get('tab', 'promocodes')
+        view_type = request.GET.get('view', 'all')
+        group_id = request.GET.get('group')
+
+        # ===== ТАБ 1: ПРОМОКОДЫ =====
+        promocodes = PromoCode.objects.select_related('group').prefetch_related('usages')
+
+        if view_type == 'vouchers':
+            promocodes = promocodes.filter(promo_type='voucher')
+        elif view_type == 'grouped':
+            promocodes = promocodes.filter(promo_type='grouped', group__isnull=False)
+        elif view_type == 'regular':
+            promocodes = promocodes.filter(promo_type='regular')
+
+        if group_id:
+            promocodes = promocodes.filter(group_id=group_id)
+
+        # ===== ТАБ 2: ГРУППЫ =====
+        groups = PromoCodeGroup.objects.prefetch_related('promo_codes').annotate(
+            codes_count=Count('promo_codes'),
+            active_codes_count=Count('promo_codes', filter=Q(promo_codes__is_active=True)),
+            total_usages=Count('usages'),
+        )
+
+        # ===== ТАБ 3: СТАТИСТИКА =====
+        recent_usages = PromoCodeUsage.objects.select_related(
+            'user', 'promo_code', 'group', 'order'
+        ).order_by('-used_at')[:50]
+
+        top_promos = PromoCode.objects.annotate(
+            usage_count=Count('usages')
+        ).filter(usage_count__gt=0).order_by('-usage_count')[:10]
+
+        top_groups = PromoCodeGroup.objects.annotate(
+            usage_count=Count('usages')
+        ).filter(usage_count__gt=0).order_by('-usage_count')[:10]
+
+        # ===== ОБЩАЯ СТАТИСТИКА =====
+        total_promocodes = PromoCode.objects.count()
+        active_promocodes = PromoCode.objects.filter(is_active=True).count()
+        total_vouchers = PromoCode.objects.filter(promo_type='voucher').count()
+        total_groups = groups.count()
+        total_usages = PromoCodeUsage.objects.count()
+        unique_users = PromoCodeUsage.objects.values('user').distinct().count()
+
+        # ===== РОЗШИРЕНА СТАТИСТИКА =====
+        avg_discount_percent = PromoCode.objects.filter(
+            discount_type='percentage'
+        ).aggregate(avg=Avg('discount_value'))['avg'] or Decimal('0')
+
+        avg_discount_fixed = PromoCode.objects.filter(
+            discount_type='fixed'
+        ).aggregate(avg=Avg('discount_value'))['avg'] or Decimal('0')
+
+        used_promocodes_count = PromoCode.objects.annotate(
+            usages_count=Count('usages')
+        ).filter(usages_count__gt=0).count()
+
+        conversion_rate = (
+            used_promocodes_count / total_promocodes * 100 if total_promocodes > 0 else 0
+        )
+
+        avg_usages_per_promo = total_usages / total_promocodes if total_promocodes > 0 else 0
+
+        total_savings = Decimal('0')
+
+        fixed_savings = PromoCodeUsage.objects.filter(
+            promo_code__discount_type='fixed'
+        ).aggregate(total=Sum('promo_code__discount_value'))['total'] or Decimal('0')
+        total_savings += fixed_savings
+
+        percent_usages_count = PromoCodeUsage.objects.filter(
+            promo_code__discount_type='percentage'
+        ).count()
+
+        most_popular_promo = PromoCode.objects.annotate(
+            usage_count=Count('usages')
+        ).filter(usage_count__gt=0).order_by('-usage_count').first()
+
+        most_successful_group = PromoCodeGroup.objects.annotate(
+            usage_count=Count('usages')
+        ).filter(usage_count__gt=0).order_by('-usage_count').first()
+
+        return {
+            'promo_tab': promo_tab,
+            'view_type': view_type,
+            'current_group_id': int(group_id) if group_id else None,
+            'promocodes': promocodes,
+            'groups': groups,
+            'recent_usages': recent_usages,
+            'top_promos': list(top_promos),
+            'top_groups': list(top_groups),
+            'total_promocodes': total_promocodes,
+            'active_promocodes': active_promocodes,
+            'total_vouchers': total_vouchers,
+            'total_groups': total_groups,
+            'total_usages': total_usages,
+            'unique_users': unique_users,
+            'avg_discount_percent': round(float(avg_discount_percent), 2),
+            'avg_discount_fixed': round(float(avg_discount_fixed), 2),
+            'conversion_rate': round(conversion_rate, 2),
+            'avg_usages_per_promo': round(avg_usages_per_promo, 2),
+            'total_savings': float(total_savings),
+            'percent_usages_count': percent_usages_count,
+            'used_promocodes_count': used_promocodes_count,
+            'most_popular_promo': most_popular_promo,
+            'most_successful_group': most_successful_group,
+        }
+    except Exception as e:
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.error('Ошибка в get_promo_admin_context: %s', e, exc_info=True)
+        return {
+            'promo_tab': request.GET.get('tab', 'promocodes'),
+            'view_type': request.GET.get('view', 'all'),
+            'current_group_id': None,
+            'promocodes': [],
+            'groups': [],
+            'recent_usages': [],
+            'top_promos': [],
+            'top_groups': [],
+            'total_promocodes': 0,
+            'active_promocodes': 0,
+            'total_vouchers': 0,
+            'total_groups': 0,
+            'total_usages': 0,
+            'unique_users': 0,
+            'avg_discount_percent': 0,
+            'avg_discount_fixed': 0,
+            'conversion_rate': 0,
+            'avg_usages_per_promo': 0,
+            'total_savings': 0,
+            'percent_usages_count': 0,
+            'used_promocodes_count': 0,
+            'most_popular_promo': None,
+            'most_successful_group': None,
+        }
 
 
 # ==================== ADMIN VIEWS ====================
@@ -588,8 +582,8 @@ def admin_promo_group_get_form(request, pk):
             'id': p.id,
             'code': p.code,
             'is_active': p.is_active,
-            'times_used': p.times_used,
-            'usage_limit': p.usage_limit,
+            'times_used': getattr(p, 'current_uses', 0),
+            'usage_limit': getattr(p, 'max_uses', 0),
             'promo_type': p.promo_type,
         } for p in promocodes]
     })
@@ -853,4 +847,3 @@ def admin_promocode_change_group(request, pk):
         return JsonResponse({'success': False, 'error': 'Невірний JSON'}, status=400)
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
-
