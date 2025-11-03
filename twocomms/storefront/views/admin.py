@@ -436,7 +436,7 @@ def _build_print_proposals_context():
 def _build_collaboration_context():
     """Контекст для блоков співпраці (дропшипінг, опт)."""
     try:
-        invoices = WholesaleInvoice.objects.select_related('user').order_by('-created_at')[:50]
+        invoices = WholesaleInvoice.objects.order_by('-created_at')[:50]
         dropship_orders = (
             DropshipperOrder.objects.select_related('dropshipper', 'dropshipper__userprofile')
             .prefetch_related('items')
