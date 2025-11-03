@@ -15,7 +15,7 @@ from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from orders.models import Order, OrderItem
 from ..models import Product, PromoCode
@@ -272,8 +272,10 @@ def create_order(request):
         # Получаем информацию о цвете
         color_variant = _get_color_variant_safe(it.get('color_variant_id'))
         
-        unit = p.final_price
-        line = unit * it['qty']
+        # Преобразуем цену к Decimal с квантованием
+        unit = Decimal(str(p.final_price)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        qty_decimal = Decimal(str(it['qty']))
+        line = (unit * qty_decimal).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         total_sum += line
         
         # Создаем OrderItem
@@ -289,30 +291,57 @@ def create_order(request):
         )
         order_items.append(order_item)
     
+    # Квантуем итоговую сумму
+    total_sum = total_sum.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    
     # Создаем все товары одним запросом
     OrderItem.objects.bulk_create(order_items)
     
     # Применяем промокод если есть
+    promo_to_record = None
+    discount = Decimal('0.00')
     promo_code_id = request.session.get('promo_code_id')
+    
     if promo_code_id:
         try:
             promo = PromoCode.objects.get(id=promo_code_id, is_active=True)
-            if promo.can_be_used():
+            can_use, _ = promo.can_be_used_by_user(request.user)
+            if can_use:
                 discount = promo.calculate_discount(total_sum)
-                order.discount_amount = discount
-                order.promo_code = promo
-                promo.use()  # Увеличиваем счетчик использований
+                # Убеждаемся что discount тоже Decimal
+                if not isinstance(discount, Decimal):
+                    discount = Decimal(str(discount))
+                discount = discount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                
+                # Скидка не может быть больше суммы заказа
+                if discount > total_sum:
+                    discount = total_sum
+                
+                if discount > 0:
+                    order.discount_amount = discount
+                    order.promo_code = promo
+                    promo_to_record = promo  # Запоминаем промокод для записи после сохранения
         except PromoCode.DoesNotExist:
             pass
     
-    # Обновляем общую сумму заказа
-    order.total_sum = total_sum
+    # Вычисляем финальную сумму
+    final_total = (total_sum - discount).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    if final_total < 0:
+        final_total = Decimal('0.00')
+    
+    # Обновляем заказ
+    order.total_sum = final_total
     order.save()
+    
+    # Записываем использование промокода ПОСЛЕ сохранения заказа
+    if promo_to_record:
+        promo_to_record.record_usage(request.user, order)
 
     # Очищаем корзину и промокод
     _reset_monobank_session(request, drop_pending=True)
     request.session['cart'] = {}
     request.session.pop('promo_code_id', None)
+    request.session.pop('promo_code_data', None)
     request.session.modified = True
 
     # Отправляем Telegram уведомление после создания заказа и товаров

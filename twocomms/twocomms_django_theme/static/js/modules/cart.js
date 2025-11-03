@@ -653,8 +653,18 @@ function applyPromoCode(promoInput, msgBox) {
       if (data && data.success) {
         showPromoMessage(msgBox, data.message || 'Застосовано', 'success');
         window.setTimeout(() => window.location.reload(), 800);
+      } else if (data && data.auth_required) {
+        // Особлива обробка для незареєстрованих користувачів
+        const authMessage = data.message || 'Промокоди доступні тільки для зареєстрованих користувачів';
+        showPromoMessage(msgBox, authMessage, 'error');
+        // Показуємо модальне вікно з пропозицією авторизуватися
+        setTimeout(() => {
+          if (confirm(authMessage + '.\n\nПерейти до авторизації?')) {
+            window.location.href = '/login/';
+          }
+        }, 800);
       } else {
-        showPromoMessage(msgBox, (data && data.message) || 'Помилка', 'error');
+        showPromoMessage(msgBox, (data && (data.error || data.message)) || 'Помилка', 'error');
       }
     })
     .catch(() => showPromoMessage(msgBox, 'Помилка при застосуванні', 'error'));
