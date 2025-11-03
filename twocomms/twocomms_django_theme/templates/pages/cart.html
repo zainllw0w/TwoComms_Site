@@ -922,9 +922,9 @@ function initCartPage() {
     // КРИТИЧНО: Сначала устанавливаем правильную сумму на основе pay_type
     // Потом обновляем список товаров, который может перезаписать значения
     const payTypeSelect = document.getElementById('pay_type_auth') || document.getElementById('pay_type_guest');
-    if (payTypeSelect && payTypeSelect.value && typeof updatePaymentSummary === 'function') {
+    if (payTypeSelect && payTypeSelect.value && typeof window.updatePaymentSummary === 'function') {
         // Если pay_type уже выбран, устанавливаем правильную сумму ДО обновления корзины
-        updatePaymentSummary(payTypeSelect.value);
+        window.updatePaymentSummary(payTypeSelect.value);
     }
     
     // Обновляем список товаров при загрузке страницы

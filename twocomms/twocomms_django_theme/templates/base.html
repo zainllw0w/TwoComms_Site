@@ -879,7 +879,7 @@
               
               // Обновляем paymentSummary для корректного пересчета предоплаты
               if(window.paymentSummary) {
-                paymentSummary.total = parseFloat(d.total);
+                window.paymentSummary.total = parseFloat(d.total);
               }
               
               // КРИТИЧНО: ВСЕГДА вызываем updatePaymentSummary для правильного отображения суммы
