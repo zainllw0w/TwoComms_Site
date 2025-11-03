@@ -18,7 +18,10 @@
   <div class="cart-page-spark cart-page-spark-6"></div>
 </div>
 
-<div class="cart-page-container">
+<div class="cart-page-container"
+     data-cart-items-url="{% url 'cart_items_api' %}"
+     data-cart-summary-url="{% url 'cart_summary' %}"
+     data-contact-url="{% url 'contact_manager' %}">
   <!-- Заголовок страницы -->
   <div class="cart-page-header">
     <div class="cart-page-header-icon">
@@ -76,7 +79,7 @@
         <div class="cart-items-background">
           <div class="cart-items-pattern"></div>
         </div>
-        <div class="cart-items-container" id="cart-list">
+        <div class="cart-items-container" id="cart-list" data-placeholder="{% static 'img/placeholder.jpg' %}">
           {% for it in items %}
             <div class="cart-item" data-cart-row data-key="{{ it.key }}" data-offer-id="{{ it.offer_id }}">
               <!-- Анимация искр для товара -->
@@ -135,7 +138,12 @@
                 </div>
                 <div class="cart-item-price">
                   <span class="cart-item-price-label">Ціна:</span>
-                  <span class="cart-item-price-value">{{ it.unit_price }} грн</span>
+                  <span class="cart-item-price-value">
+                    {% if it.original_unit_price and it.original_unit_price > it.unit_price %}
+                      <span class="cart-item-price-old">{{ it.original_unit_price|floatformat:2 }} грн</span>
+                    {% endif %}
+                    <span class="cart-item-price-current">{{ it.unit_price|floatformat:2 }} грн</span>
+                  </span>
                 </div>
                 <!-- Информация о баллах -->
                 <div class="cart-item-points">
@@ -154,12 +162,12 @@
                 </div>
               </div>
               
-              <div class="cart-item-actions">
-                <div class="cart-item-total">
-                  <span class="cart-item-total-label">Разом:</span>
-                  <span class="cart-item-total-value">{{ it.line_total }} грн</span>
-                </div>
-                <button type="button" class="cart-item-remove-btn" onclick="CartRemoveKey('{{ it.key }}', this); return false;" data-key="{{ it.key }}">
+                <div class="cart-item-actions">
+                  <div class="cart-item-total">
+                    <span class="cart-item-total-label">Разом:</span>
+                    <span class="cart-item-total-value">{{ it.line_total|floatformat:2 }} грн</span>
+                  </div>
+                <button type="button" class="cart-item-remove-btn" data-key="{{ it.key }}">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                   </svg>
@@ -395,9 +403,9 @@
           <div class="cart-promo-applied">
             <div class="cart-promo-applied-content">
               <div class="cart-promo-applied-code">{{ applied_promo.code }}</div>
-              <div class="cart-promo-applied-discount">Знижка: {{ applied_promo.discount }} грн</div>
+              <div class="cart-promo-applied-discount">Знижка: {{ discount }} грн</div>
             </div>
-            <button type="button" class="cart-promo-remove-btn" onclick="removePromoCode()">
+            <button type="button" class="cart-promo-remove-btn">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
               </svg>
@@ -409,7 +417,7 @@
               <input type="text" id="promo-code-input" class="cart-promo-input" placeholder="Введіть код промокоду" maxlength="20">
               <div class="cart-promo-input-glow"></div>
             </div>
-            <button type="button" class="cart-promo-apply-btn" onclick="applyPromoCode()">
+            <button type="button" class="cart-promo-apply-btn">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
               </svg>
@@ -433,79 +441,94 @@
           </div>
         </div>
         
-        <div class="cart-checkout-summary">
+        <div class="cart-checkout-summary" id="cart-summary">
           <div class="cart-summary-row">
-            <span class="cart-summary-label">Товари ({{ items|length }}):</span>
-            <span class="cart-summary-value">{{ grand_total }} грн</span>
+            <span class="cart-summary-label" id="cart-items-label">Товари ({{ items_total_qty|default:cart_count }}):</span>
+            <span class="cart-summary-value" id="cart-subtotal-value">{{ subtotal|floatformat:2 }} грн</span>
           </div>
           
-          {% if applied_promo %}
-          <div class="cart-summary-row cart-summary-discount">
+          <div class="cart-summary-row cart-summary-site-discount {% if site_discount_total <= 0 %}d-none{% endif %}" id="cart-site-discount-row">
+            <span class="cart-summary-label">Знижка магазину</span>
+            <span class="cart-summary-value" id="cart-site-discount-value">-{{ site_discount_total|floatformat:2 }} грн</span>
+          </div>
+          
+          <div class="cart-summary-row cart-summary-discount {% if discount <= 0 %}d-none{% endif %}" id="cart-discount-row">
             <span class="cart-summary-label">
               <div class="cart-discount-label">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77л-6.18 3.25Л7 14.14 2 9.27л6.91-1.01Л12 2z"/>
                 </svg>
                 Знижка промокоду
               </div>
             </span>
-            <span class="cart-summary-value">-{{ applied_promo.discount }} грн</span>
+            <span class="cart-summary-value" id="cart-discount-value">-{{ discount|floatformat:2 }} грн</span>
           </div>
-          {% endif %}
           
           <div class="cart-summary-row cart-summary-total" id="pay-now-row">
             <span class="cart-summary-label" id="pay-now-label">До сплати:</span>
             <span class="cart-summary-value"
                   id="pay-now-amount"
-                  data-total="{{ grand_total|floatformat:'2' }}"
-                  data-prepay="200">{% if pay_now_amount %}{{ pay_now_amount }} грн{% else %}{{ grand_total }} грн{% endif %}</span>
+                  data-total="{{ total|floatformat:'2' }}"
+                  data-prepay="200">{% if pay_now_amount %}{{ pay_now_amount|floatformat:2 }} грн{% else %}{{ total|floatformat:2 }} грн{% endif %}</span>
           </div>
           <div class="cart-summary-row cart-summary-prepay d-none" id="prepay-remaining-row">
             <span class="cart-summary-label">Залишок при отриманні:</span>
-            <span class="cart-summary-value" id="prepay-remaining-amount">{{ grand_total }} грн</span>
+            <span class="cart-summary-value" id="prepay-remaining-amount">{{ total|floatformat:2 }} грн</span>
           </div>
           <p class="cart-summary-note d-none" id="prepay-note">
             Це додаткова передоплата для вас — решту сплатите при отриманні.
           </p>
         </div>
         
-        <!-- Информация о баллах -->
-        <div class="cart-points-summary">
+        <div class="cart-savings-info {% if site_discount_total <= 0 and discount <= 0 %}d-none{% endif %}" id="cart-savings-info">
+          <div class="cart-savings-line {% if site_discount_total <= 0 %}d-none{% endif %}" id="cart-savings-site">
+            <span class="cart-savings-label">Знижка від TwoComms</span>
+            <span class="cart-savings-amount" id="cart-savings-site-amount">{{ site_discount_total|floatformat:2 }} грн</span>
+          </div>
+          <div class="cart-savings-line {% if discount <= 0 %}d-none{% endif %}" id="cart-savings-promo">
+            <span class="cart-savings-label">
+              Промокод <span class="cart-savings-highlight" id="cart-savings-promo-code">{% if promo_code %}{{ promo_code.code }}{% endif %}</span>
+            </span>
+            <span class="cart-savings-amount" id="cart-savings-promo-amount">{{ discount|floatformat:2 }} грн</span>
+          </div>
+          <div class="cart-savings-total {% if site_discount_total <= 0 and discount <= 0 %}d-none{% endif %}" id="cart-savings-total">
+            <span class="cart-savings-label">Разом ви економите</span>
+            <span class="cart-savings-amount" id="cart-savings-total-amount">{{ total_savings|floatformat:2 }} грн</span>
+          </div>
+        </div>
+        
+        <!-- Інформація про бали -->
+        <div class="cart-points-summary" id="cart-points-summary" data-authenticated="{{ request.user.is_authenticated|yesno:'1,0' }}">
           <div class="cart-points-header">
             <div class="cart-points-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                <path d="M12 2l3.09 6.26L22 9.27л-5 4.87 1.18 6.88Л12 17.77л-6.18 3.25Л7 14.14 2 9.27л6.91-1.01Л12 2z"/>
               </svg>
             </div>
             <span class="cart-points-title">Бали за замовлення</span>
           </div>
-          
-          {% if request.user.is_authenticated %}
-            {% if total_points > 0 %}
-              <div class="cart-points-earned">
-                <span class="cart-points-amount">+{{ total_points }} балів</span>
-                <span class="cart-points-description">буде нараховано після отримання товару</span>
-              </div>
-            {% else %}
-              <div class="cart-points-none">
-                <span class="cart-points-text">Бали не нараховуються</span>
-              </div>
-            {% endif %}
-          {% else %}
-            <div class="cart-points-guest">
-              <div class="cart-points-guest-info">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
-                </svg>
-                <span>Для отримання балів потрібно авторизуватися</span>
-              </div>
-              <a href="{% url 'login' %}" class="cart-points-login-btn">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z"/>
-                </svg>
-                Авторизуватися
-              </a>
+          <div class="cart-points-earned {% if total_points <= 0 %}d-none{% endif %}" id="cart-points-earned">
+            <span class="cart-points-amount" id="cart-points-amount">+{{ total_points }} балів</span>
+            <span class="cart-points-description">буде нараховано після отримання товару</span>
+          </div>
+          <div class="cart-points-none {% if total_points > 0 %}d-none{% endif %}" id="cart-points-none">
+            <span class="cart-points-text">Бали не нараховуються</span>
+          </div>
+          {% if not request.user.is_authenticated %}
+          <div class="cart-points-guest" id="cart-points-guest">
+            <div class="cart-points-guest-info">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2в6zm0-8h-2V7h2в2з"/>
+              </svg>
+              <span>Для отримання балів потрібно авторизуватися</span>
             </div>
+            <a href="{% url 'login' %}" class="cart-points-login-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M11 7L9.6 8.4л2.6 2.6H2v2h10.2л-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8в14з"/>
+              </svg>
+              Авторизуватися
+            </a>
+          </div>
           {% endif %}
         </div>
         
@@ -658,1118 +681,79 @@
 </div>
 {% endblock %}
 
-{% block extra_js %}
-<script>
-// Валидация форм, промокоды и удаление строк перенесены в main.js
-function initCartPage() {
-    const guestForm = document.getElementById('guest-form');
-    const deliveryForm = document.getElementById('deliveryForm');
-    
-    // ==================== АВТОМАТИЧЕСКОЕ ОБНОВЛЕНИЕ СПИСКА ТОВАРОВ ====================
-    let cartUpdateInProgress = false;
-    
-    function refreshCartItems() {
-        if (cartUpdateInProgress) return;
-        cartUpdateInProgress = true;
-        
-        fetch('/cart/items/', {
-            method: 'GET',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Cache-Control': 'no-cache'
-            },
-            cache: 'no-store'
-        })
-        .then(response => response.json())
-        .then(data => {
-            cartUpdateInProgress = false;
-            if (data && data.ok && data.items) {
-                updateCartItemsList(data);
-                updateCartSummary(data);
-                
-                // КРИТИЧНО: После обновления корзины ПРИНУДИТЕЛЬНО обновляем сумму оплаты
-                // чтобы гарантировать правильное отображение при prepay_200
-                setTimeout(() => {
-                    const payTypeSelect = document.getElementById('pay_type_auth') || document.getElementById('pay_type_guest');
-                    if (payTypeSelect && typeof window.updatePaymentSummary === 'function') {
-                        // Принудительно вызываем с текущим значением pay_type
-                        window.updatePaymentSummary(payTypeSelect.value || 'online_full');
-                    }
-                }, 150);
-            }
-        })
-        .catch(error => {
-            cartUpdateInProgress = false;
-            console.error('Ошибка обновления корзины:', error);
-        });
-    }
-    
-    function updateCartItemsList(data) {
-        const cartListContainer = document.getElementById('cart-list');
-        if (!cartListContainer) return;
-        
-        // Если корзина пуста
-        if (!data.items || data.items.length === 0) {
-            const emptyCart = document.querySelector('.cart-empty');
-            if (!emptyCart) {
-                // Создаем сообщение о пустой корзине если его нет
-                const mainSection = document.querySelector('.cart-main-section');
-                if (mainSection) {
-                    mainSection.innerHTML = `
-                        <div class="cart-empty">
-                            <div class="cart-empty-icon">
-                                <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
-                                </svg>
-                            </div>
-                            <h2 class="cart-empty-title">Кошик порожній</h2>
-                            <p class="cart-empty-text">Додайте товари до кошика, щоб зробити замовлення</p>
-                            <a href="{% url 'home' %}" class="cart-empty-btn">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                                </svg>
-                                Перейти до покупок
-                            </a>
-                        </div>
-                    `;
-                }
-            }
-            return;
-        }
-        
-        // Обновляем список товаров
-        let itemsHTML = '';
-        const placeholderUrl = '{% static "img/placeholder.jpg" %}';
-        data.items.forEach(item => {
-            const imageUrl = item.image_url || placeholderUrl;
-            const colorSwatch = item.color_variant_id ? `
-                <div class="cart-item-detail">
-                    <span class="cart-item-label">Колір:</span>
-                    <div class="cart-item-color d-flex align-items-center gap-2">
-                        <span class="cart-item-swatch swatch" data-primary="#000" data-secondary=""></span>
-                        <span class="cart-item-color-name">${item.color_label || '—'}</span>
-                    </div>
-                </div>
-            ` : '';
-            
-            itemsHTML += `
-                <div class="cart-item" data-cart-row data-key="${item.key}" data-offer-id="${item.offer_id || ''}">
-                    <div class="cart-item-sparks">
-                        <div class="cart-item-spark cart-item-spark-1"></div>
-                        <div class="cart-item-spark cart-item-spark-2"></div>
-                        <div class="cart-item-spark cart-item-spark-3"></div>
-                    </div>
-                    <div class="cart-item-image">
-                        <img src="${imageUrl}" 
-                             alt="${item.product_title}" 
-                             class="cart-item-img"
-                             width="80" height="80">
-                        <div class="cart-item-image-glow"></div>
-                    </div>
-                    <div class="cart-item-info">
-                        <h3 class="cart-item-title">${item.product_title}</h3>
-                        <div class="cart-item-details">
-                            <div class="cart-item-detail">
-                                <span class="cart-item-label">Розмір:</span>
-                                <span class="cart-item-value">${item.size || '—'}</span>
-                            </div>
-                            <div class="cart-item-detail">
-                                <span class="cart-item-label">Кількість:</span>
-                                <span class="cart-item-value">${item.qty}</span>
-                            </div>
-                            ${colorSwatch}
-                        </div>
-                        <div class="cart-item-price">
-                            <span class="cart-item-price-label">Ціна:</span>
-                            <span class="cart-item-price-value">${item.unit_price.toFixed(2)} грн</span>
-                        </div>
-                        ${item.points_reward > 0 ? `
-                        <div class="cart-item-points">
-                            <div class="cart-item-points-icon">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                                </svg>
-                            </div>
-                            <span class="cart-item-points-text">Заробите ${item.points_reward * item.qty} балів</span>
-                        </div>
-                        ` : ''}
-                    </div>
-                    <div class="cart-item-actions">
-                        <div class="cart-item-total">
-                            <span class="cart-item-total-label">Разом:</span>
-                            <span class="cart-item-total-value">${item.line_total.toFixed(2)} грн</span>
-                        </div>
-                        <button type="button" class="cart-item-remove-btn" onclick="CartRemoveKey('${item.key}', this); return false;" data-key="${item.key}">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                            </svg>
-                            Видалити
-                        </button>
-                    </div>
-                </div>
-            `;
-        });
-        
-        const cartItemsBackground = document.querySelector('.cart-items-background');
-        if (cartItemsBackground) {
-            cartListContainer.innerHTML = itemsHTML;
-        } else {
-            // Создаем структуру если её нет
-            const mainSection = document.querySelector('.cart-main-section');
-            if (mainSection) {
-                mainSection.innerHTML = `
-                    <div class="cart-items-background">
-                        <div class="cart-items-pattern"></div>
-                    </div>
-                    <div class="cart-items-container" id="cart-list">
-                        ${itemsHTML}
-                    </div>
-                `;
-            }
-        }
-        
-        // Обновляем checkout-payload если есть
-        const checkoutPayload = document.getElementById('checkout-payload');
-        if (checkoutPayload) {
-            const idsJson = JSON.stringify(data.items.map(item => item.offer_id));
-            const contentsJson = JSON.stringify(data.items.map(item => ({
-                id: item.offer_id,
-                quantity: item.qty,
-                item_price: item.unit_price,
-                item_name: item.product_title,
-                item_category: item.product_category || '',
-                brand: 'TwoComms'
-            })));
-            const totalValue = typeof data.grand_total === 'number' ? data.grand_total : (typeof data.total === 'number' ? data.total : 0);
-            const numItems = data.items.reduce((acc, item) => acc + (item.qty || 0), 0);
-            
-            checkoutPayload.setAttribute('data-value', totalValue.toFixed(2));
-            checkoutPayload.setAttribute('data-num-items', numItems);
-            checkoutPayload.setAttribute('data-ids', encodeURIComponent(idsJson));
-            checkoutPayload.setAttribute('data-contents', encodeURIComponent(contentsJson));
-        }
-    }
-    
-    function updateCartSummary(data) {
-        // Обновляем сводку в боковой панели
-        const firstSummaryRow = document.querySelector('.cart-summary-row:first-child');
-        if (firstSummaryRow) {
-            const summaryValue = firstSummaryRow.querySelector('.cart-summary-value');
-            if (summaryValue && data.subtotal !== undefined) {
-                summaryValue.textContent = `${parseFloat(data.subtotal).toFixed(2)} грн`;
-            }
-            
-            const summaryLabel = firstSummaryRow.querySelector('.cart-summary-label');
-            if (summaryLabel && data.items) {
-                const match = summaryLabel.textContent.match(/Товари \((\d+)\):/);
-                if (match) {
-                    summaryLabel.textContent = summaryLabel.textContent.replace(/\(\d+\)/, `(${data.items.length})`);
-                }
-            }
-        }
-        
-        // Обновляем блок скидки промокода
-        const discountRow = document.querySelector('.cart-summary-discount');
-        if (data.discount !== undefined && data.discount > 0) {
-            // Показываем блок скидки если его нет
-            if (!discountRow) {
-                const summaryRows = document.querySelectorAll('.cart-checkout-summary .cart-summary-row');
-                if (summaryRows.length > 0) {
-                    const discountHtml = `
-                        <div class="cart-summary-row cart-summary-discount">
-                            <span class="cart-summary-label">
-                                <div class="cart-discount-label">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                                    </svg>
-                                    Знижка промокоду
-                                </div>
-                            </span>
-                            <span class="cart-summary-value">-${parseFloat(data.discount).toFixed(2)} грн</span>
-                        </div>
-                    `;
-                    summaryRows[0].insertAdjacentHTML('afterend', discountHtml);
-                }
-            } else {
-                // Обновляем существующий блок
-                const discountValue = discountRow.querySelector('.cart-summary-value');
-                if (discountValue) {
-                    discountValue.textContent = `-${parseFloat(data.discount).toFixed(2)} грн`;
-                }
-            }
-        } else {
-            // Скрываем блок скидки если скидки нет
-            if (discountRow) {
-                discountRow.remove();
-            }
-        }
-        
-        // Обновляем pay-now-amount с правильным total (НО НЕ ТЕКСТ напрямую!)
-        const payNowAmount = document.getElementById('pay-now-amount');
-        if (payNowAmount) {
-            // КРИТИЧНО: Используем Number чтобы избежать проблем с форматированием
-            let totalValue = data.total !== undefined ? Number(parseFloat(data.total)) : 
-                           (data.grand_total !== undefined ? Number(parseFloat(data.grand_total)) : 0);
-            if (isNaN(totalValue)) totalValue = 0;
-            
-            // ВАЖНО: Обновляем только data-total атрибут, НЕ текст напрямую
-            payNowAmount.setAttribute('data-total', totalValue.toFixed(2));
-            
-            // Обновляем paymentSummary для корректного пересчета предоплаты
-            if (typeof window.paymentSummary !== 'undefined') {
-                window.paymentSummary.total = totalValue;
-            }
-            
-            // КРИТИЧНО: ВСЕГДА вызываем updatePaymentSummary для правильного отображения суммы
-            // Она сама решит что показывать: 200 грн при prepay_200 или полную сумму
-            // Используем setTimeout чтобы гарантировать что updatePaymentSummary выполнится ПОСЛЕ всех обновлений
-            setTimeout(() => {
-                const payTypeSelect = document.getElementById('pay_type_auth') || document.getElementById('pay_type_guest');
-                if (payTypeSelect && typeof window.updatePaymentSummary === 'function') {
-                    // Используем глобальную функцию и текущее значение селекта
-                    window.updatePaymentSummary(payTypeSelect.value || 'online_full');
-                } else if (typeof window.updatePaymentSummary === 'function') {
-                    // Если селект еще не загружен, используем значение по умолчанию
-                    window.updatePaymentSummary('online_full');
-                }
-            }, 50);
-        }
-    }
-    
-    // КРИТИЧНО: Сначала устанавливаем правильную сумму на основе pay_type
-    // Потом обновляем список товаров, который может перезаписать значения
-    const payTypeSelect = document.getElementById('pay_type_auth') || document.getElementById('pay_type_guest');
-    if (payTypeSelect && payTypeSelect.value && typeof window.updatePaymentSummary === 'function') {
-        // Если pay_type уже выбран, устанавливаем правильную сумму ДО обновления корзины
-        window.updatePaymentSummary(payTypeSelect.value);
-        }
-    
-    // КРИТИЧНО: Даем время для инициализации updatePaymentSummary перед обновлением корзины
-    // Обновляем список товаров при загрузке страницы с задержкой
-    setTimeout(() => {
-    refreshCartItems();
-    }, 200);
-    
-    // Переопределяем CartRemoveKey для автоматического обновления
-    const originalCartRemoveKey = window.CartRemoveKey;
-    window.CartRemoveKey = function(key, button) {
-        if (originalCartRemoveKey) {
-            originalCartRemoveKey(key, button);
-        }
-        
-        // Обновляем список через небольшой таймаут
-        setTimeout(() => {
-            refreshCartItems();
-            // Обновляем мини-корзину и сводку
-            try { if(window.refreshMiniCart) window.refreshMiniCart(); } catch(_) {}
-            try { if(window.refreshCartSummary) window.refreshCartSummary(); } catch(_) {}
-        }, 300);
-    };
-    
-    // Слушаем события добавления товаров (через CustomEvent)
-    document.addEventListener('cartUpdated', function() {
-        refreshCartItems();
-    });
-    
-    // ==================== END АВТОМАТИЧЕСКОЕ ОБНОВЛЕНИЕ ====================
-    
-    // ==================== ДИНАМИЧЕСКИЕ КНОПКИ (ПРИОРИТЕТ #1) ====================
-    // ВАЖНО: Этот код ДОЛЖЕН выполниться первым, поэтому он в самом начале!
-    
-    // КРИТИЧНО: Определяем элементы ВНЕ try/catch чтобы они были доступны всегда
-    const placeOrderBtn = document.getElementById('placeOrderBtn');
-      const guestOrderBtn = document.getElementById('guestOrderBtn');
-      const activeOrderBtn = placeOrderBtn || guestOrderBtn;
-      
-      // Находим селект pay_type (либо auth, либо guest)
-      const payTypeAuthSelect = document.getElementById('pay_type_auth');
-      const payTypeGuestSelect = document.getElementById('pay_type_guest');
-      const activePayTypeSelect = payTypeAuthSelect || payTypeGuestSelect;
-      
-      const payNowAmountEl = document.getElementById('pay-now-amount');
-      const payNowLabelEl = document.getElementById('pay-now-label');
-      const prepayRemainingRow = document.getElementById('prepay-remaining-row');
-      const prepayRemainingAmountEl = document.getElementById('prepay-remaining-amount');
-      const prepayNoteEl = document.getElementById('prepay-note');
-    
-    // КРИТИЧНО: Создаем parseNumeric и paymentSummary ВНЕ try/catch
-      const parseNumeric = (raw) => {
-        if (raw == null) {
-          return NaN;
-        }
-      // КРИТИЧНО: Обрабатываем как строку, удаляем все пробелы и неразрывные пробелы
-      // Заменяем запятую на точку для правильного парсинга
-        const cleaned = String(raw)
-        .replace(/\u00A0/g, '')  // Неразрывный пробел
-        .replace(/\s/g, '')      // Все пробелы
-        .replace(/,/g, '.')      // Запятые на точки
-        .replace(/[^\d.-]/g, ''); // Удаляем все кроме цифр, точки и минуса
-        const parsed = Number.parseFloat(cleaned);
-        return Number.isFinite(parsed) ? parsed : NaN;
-      };
-      
-    // КРИТИЧНО: Создаем paymentSummary ВНЕ try/catch
-    window.paymentSummary = {
-        total: payNowAmountEl ? parseNumeric(payNowAmountEl.dataset.total || '0') : 0,
-        prepay: payNowAmountEl ? parseNumeric(payNowAmountEl.dataset.prepay || '200') : 200
-      };
-      
-    if (!Number.isFinite(window.paymentSummary.total)) {
-      window.paymentSummary.total = 0;
-      }
-    if (!Number.isFinite(window.paymentSummary.prepay) || window.paymentSummary.prepay <= 0) {
-      window.paymentSummary.prepay = 200;
-      }
-    
-    // Локальная ссылка для удобства
-    const paymentSummary = window.paymentSummary;
-    
-    try {
-        if (raw == null) {
-          return NaN;
-        }
-        // КРИТИЧНО: Обрабатываем как строку, удаляем все пробелы и неразрывные пробелы
-        // Заменяем запятую на точку для правильного парсинга
-        const cleaned = String(raw)
-          .replace(/\u00A0/g, '')  // Неразрывный пробел
-          .replace(/\s/g, '')      // Все пробелы
-          .replace(/,/g, '.')      // Запятые на точки
-          .replace(/[^\d.-]/g, ''); // Удаляем все кроме цифр, точки и минуса
-        const parsed = Number.parseFloat(cleaned);
-        return Number.isFinite(parsed) ? parsed : NaN;
-      };
-      
-      // ВАЖНО: paymentSummary должен быть глобальным для доступа из других функций
-      window.paymentSummary = {
-        total: payNowAmountEl ? parseNumeric(payNowAmountEl.dataset.total || '0') : 0,
-        prepay: payNowAmountEl ? parseNumeric(payNowAmountEl.dataset.prepay || '200') : 200
-      };
-      
-      if (!Number.isFinite(window.paymentSummary.total)) {
-        window.paymentSummary.total = 0;
-      }
-      if (!Number.isFinite(window.paymentSummary.prepay) || window.paymentSummary.prepay <= 0) {
-        window.paymentSummary.prepay = 200;
-      }
-      
-      // Создаем локальную ссылку для удобства
-      const paymentSummary = window.paymentSummary;
-      
-      function formatUAH(amount) {
-        const normalized = Number.isFinite(amount) ? amount : 0;
-        const opts = (Math.abs(normalized % 1) < 1e-9)
-          ? {minimumFractionDigits: 0, maximumFractionDigits: 0}
-          : {minimumFractionDigits: 2, maximumFractionDigits: 2};
-        return normalized.toLocaleString('uk-UA', opts) + ' грн';
-      }
-      
-      function updatePaymentSummary(payType) {
-        if (!payNowAmountEl) {
-          console.warn('updatePaymentSummary: payNowAmountEl not found');
-          return;
-        }
-        
-        // Обновляем paymentSummary.total из актуального data-total элемента
-        // КРИТИЧНО: Правильно парсим число из data-атрибута
-        const currentTotalRaw = payNowAmountEl.dataset.total || '0';
-        const currentTotal = parseNumeric(currentTotalRaw);
-        if (window.paymentSummary) {
-          window.paymentSummary.total = Number.isFinite(currentTotal) ? Number(currentTotal) : (window.paymentSummary.total || 0);
-        }
-        
-        // Используем глобальный paymentSummary
-        const summary = window.paymentSummary || paymentSummary;
-        
-        const isPrepay = payType === 'prepay_200';
-        // КРИТИЧНО: При предоплате ВСЕГДА 200 грн, независимо от общей суммы
-        // Никаких проверок, просто 200 грн если prepay_200
-        const payNow = isPrepay ? summary.prepay : summary.total;
-        const remaining = isPrepay ? Math.max((summary.total || 0) - summary.prepay, 0) : 0;
-        
-        if (payNowLabelEl) {
-          payNowLabelEl.textContent = isPrepay ? 'До сплати зараз:' : 'До сплати:';
-        }
-        
-        // КРИТИЧНО: Принудительно устанавливаем правильное значение
-        // Для prepay_200 ВСЕГДА используем prepay значение (200 грн)
-        const finalAmount = isPrepay ? summary.prepay : payNow;
-        payNowAmountEl.textContent = formatUAH(finalAmount);
-        
-        // ДОПОЛНИТЕЛЬНАЯ ЗАЩИТА: если prepay_200, принудительно проверяем что значение = 200
-        if (isPrepay) {
-          const currentText = payNowAmountEl.textContent.trim();
-          const expectedText = formatUAH(summary.prepay).trim();
-          if (currentText !== expectedText) {
-            console.warn('updatePaymentSummary: prepay_200 but wrong amount detected, fixing...', currentText, '->', expectedText);
-            payNowAmountEl.textContent = expectedText;
-          }
-        }
-        
-        if (prepayRemainingRow) {
-          if (isPrepay) {
-            prepayRemainingRow.classList.remove('d-none');
-            if (prepayRemainingAmountEl) {
-              prepayRemainingAmountEl.textContent = formatUAH(remaining);
-            }
-          } else {
-            prepayRemainingRow.classList.add('d-none');
-          }
-        }
-        
-        if (prepayNoteEl) {
-          prepayNoteEl.classList.toggle('d-none', !isPrepay);
-        }
-      }
-
-      function updateOrderButtonText(payType) {
-        const btn = activeOrderBtn;
-        if (!btn) {
-          return;
-        }
-        
-        const btnTextSpan = btn.querySelector('span');
-        if (!btnTextSpan) {
-          return;
-        }
-        
-        let newText = '';
-        switch(payType) {
-          case 'online_full':
-            newText = 'Перейти до оплати';
-            break;
-          case 'prepay_200':
-            newText = 'Внести передплату 200 грн';
-            break;
-          default:
-            newText = placeOrderBtn ? 'Оформити замовлення' : 'Замовити як гість';
-        }
-        
-        btnTextSpan.textContent = newText;
-        updatePaymentSummary(payType);
-      }
-
-      // Обработчик изменения pay_type
-      if (activePayTypeSelect) {
-        activePayTypeSelect.addEventListener('change', function() {
-          updateOrderButtonText(this.value);
-        });
-        
-        // Примечание: Начальное значение устанавливается ниже, после создания updatePaymentSummary
-        // через updateOrderButtonText или updatePaymentSummary напрямую
-      }
-      
-      // КРИТИЧНО: Делаем updatePaymentSummary глобальной ВНЕ try/catch
-      // чтобы она была доступна даже если произойдет ошибка
-    } catch (error) {
-      // Тихая обработка ошибок
-      console.error('Error in payment summary initialization:', error);
-    }
-    
-    // КРИТИЧНО: Делаем updatePaymentSummary глобальной ВНЕ блока try/catch
-    // чтобы она была доступна всегда, даже если произошла ошибка в try блоке
-    if (typeof updatePaymentSummary === 'function') {
-      window.updatePaymentSummary = updatePaymentSummary;
-      
-      // КРИТИЧНО: Сразу после создания функции устанавливаем правильную сумму на основе pay_type
-      // Используем requestAnimationFrame чтобы гарантировать что DOM полностью готов
-      requestAnimationFrame(() => {
-        if (activePayTypeSelect && activePayTypeSelect.value) {
-          // Устанавливаем правильную сумму СРАЗУ при инициализации
-          console.log('Initial payment summary setup with pay_type:', activePayTypeSelect.value);
-          updatePaymentSummary(activePayTypeSelect.value);
-        } else {
-          updatePaymentSummary('online_full');
-        }
-      });
-      } else {
-      console.error('updatePaymentSummary не была создана! Проверьте код.');
-    }
-    // ==================== END ДИНАМИЧЕСКИЕ КНОПКИ ====================
-    
-    // Функция для валидации формы
-    function setupFormValidation(form) {
-        if (!form) return;
-        
-        // Подсветка полей с ошибками
-        const errorFields = form.querySelectorAll('.cart-form-error');
-        errorFields.forEach(function(errorDiv) {
-            const field = errorDiv.previousElementSibling?.querySelector('input, select');
-            if (field) {
-                field.classList.add('cart-form-input-error');
-            }
-        });
-        
-        // Валидация в реальном времени
-        const inputs = form.querySelectorAll('input, select');
-        inputs.forEach(function(input) {
-            input.addEventListener('blur', function() {
-                validateField(this);
-            });
-            
-            input.addEventListener('input', function() {
-                // Убираем красную подсветку при вводе
-                if (this.classList.contains('cart-form-input-error')) {
-                    this.classList.remove('cart-form-input-error');
-                    const errorDiv = this.parentNode.parentNode.querySelector('.cart-form-error');
-                    if (errorDiv) {
-                        errorDiv.style.display = 'none';
-                    }
-                }
-            });
-        });
-        
-        // Валидация при отправке формы
-        form.addEventListener('submit', function(e) {
-            let isValid = true;
-            let firstErrorField = null;
-            
-            inputs.forEach(function(input) {
-                if (!validateField(input)) {
-                    isValid = false;
-                    if (!firstErrorField) {
-                        firstErrorField = input;
-                    }
-                }
-            });
-            
-            if (!isValid) {
-                e.preventDefault();
-                // Показываем сообщение об ошибке
-                showError('Будь ласка, виправте помилки в формі');
-                
-                // Прокручиваем к первому полю с ошибкой
-                if (firstErrorField) {
-                    firstErrorField.scrollIntoView({ 
-                        behavior: 'smooth', 
-                        block: 'center' 
-                    });
-                    firstErrorField.focus();
-                }
-            }
-        });
-    }
-    
-    // Настраиваем подсветку серверных ошибок, остальная логика в main.js
-    (function highlightServerErrors(){
-      [guestForm, deliveryForm].forEach(function(form){
-        if(!form) return; form.querySelectorAll('.cart-form-error').forEach(function(err){
-          var field = err.previousElementSibling && err.previousElementSibling.querySelector('input, select');
-          if(field){ field.classList.add('cart-form-input-error'); }
-        });
-      });
-    })();
-    
-    function validateField(field) {
-        const value = field.value.trim();
-        let isValid = true;
-        let errorMessage = '';
-        
-        // Убираем старые ошибки
-        field.classList.remove('cart-form-input-error');
-        const existingError = field.parentNode.parentNode.querySelector('.cart-form-error');
-        if (existingError) {
-            existingError.style.display = 'none';
-        }
-        
-        // Проверяем обязательные поля
-        if (field.hasAttribute('required') && !value) {
-            isValid = false;
-            errorMessage = 'Це поле обов\'язкове';
-        } else if (value) {
-            // Специфичные проверки
-            if (field.name === 'full_name') {
-                if (value.length < 3) {
-                    isValid = false;
-                    errorMessage = 'ПІБ повинно містити мінімум 3 символи';
-                } else if (!/[а-яёіїєґa-z]/i.test(value)) {
-                    isValid = false;
-                    errorMessage = 'ПІБ повинно містити літери';
-                }
-            } else if (field.name === 'phone') {
-                const phoneClean = value.replace(/[^\d+]/g, '');
-                if (!phoneClean.startsWith('+380')) {
-                    isValid = false;
-                    errorMessage = 'Телефон повинен починатися з +380';
-                } else if (phoneClean.length !== 13) {
-                    isValid = false;
-                    errorMessage = 'Телефон повинен містити 13 символів';
-                }
-            } else if (field.name === 'city') {
-                if (value.length < 2) {
-                    isValid = false;
-                    errorMessage = 'Назва міста повинна містити мінімум 2 символи';
-                }
-            } else if (field.name === 'np_office') {
-                if (value.length < 1) {
-                    isValid = false;
-                    errorMessage = 'Введіть адресу відділення';
-                }
-            }
-        }
-        
-        // Показываем ошибку если есть
-        if (!isValid) {
-            field.classList.add('cart-form-input-error');
-            showFieldError(field, errorMessage);
-        }
-        
-        return isValid;
-    }
-    
-    function showFieldError(field, message) {
-        // Убираем старую ошибку
-        const existingError = field.parentNode.parentNode.querySelector('.cart-form-error');
-        if (existingError) {
-            existingError.textContent = message;
-            existingError.style.display = 'block';
-        } else {
-            // Создаем новую ошибку
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'cart-form-error';
-            errorDiv.textContent = message;
-            field.parentNode.parentNode.appendChild(errorDiv);
-        }
-    }
-    
-    function showError(message) {
-        // Показываем общее сообщение об ошибке
-        const errorAlert = document.createElement('div');
-        errorAlert.className = 'cart-message cart-message-error';
-        errorAlert.innerHTML = `
-          <div class="cart-message-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-          </div>
-          <div class="cart-message-text">${message}</div>
-          <button type="button" class="cart-message-close" onclick="this.parentElement.remove()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-            </svg>
-          </button>
-        `;
-        
-        const container = document.querySelector('.cart-page-container');
-        container.insertBefore(errorAlert, container.firstChild);
-        
-        // Убираем через 5 секунд
-        setTimeout(function() {
-            errorAlert.remove();
-        }, 5000);
-    }
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initCartPage);
-} else {
-  initCartPage();
-}
-</script>
-{% if checkout_payload %}
-<div id="checkout-payload"
-     data-value="{{ checkout_payload_value|floatformat:2 }}"
-     data-currency="UAH"
-     data-num-items="{{ checkout_payload_num_items }}"
-     data-ids="{{ checkout_payload_ids|urlencode }}"
-     data-contents="{{ checkout_payload_contents|urlencode }}"
-     style="display:none"></div>
-
-<!-- Монобанк функціональність -->
-<script>
-document.addEventListener('DOMContentLoaded', function(){
-  try{
-    var el = document.getElementById('checkout-payload');
-    if(!el) return;
-    var payload = (function(){
-      var rawContents = el.dataset.contents ? decodeURIComponent(el.dataset.contents) : '[]';
-      var rawIds = el.dataset.ids ? decodeURIComponent(el.dataset.ids) : '[]';
-      var contents=[]; try{ contents = JSON.parse(rawContents||'[]'); }catch(_){ contents=[]; }
-      var ids=[]; try{ ids = JSON.parse(rawIds||'[]'); }catch(_){ ids=[]; }
-      var value = parseFloat(el.dataset.value||'0');
-      var currency = el.dataset.currency||'UAH';
-      var numItems = parseInt(el.dataset.numItems||String(contents.reduce(function(acc,item){return acc + (item.quantity||0);},0)||'0'),10);
-      if(!numItems || Number.isNaN(numItems)){
-        numItems = contents.reduce(function(acc,item){return acc + (item.quantity||0);},0) || ids.length;
-      }
-      return { contents: contents, content_ids: ids, content_type: 'product', value: value, currency: currency, num_items: numItems };
-    })();
-    document.querySelectorAll('.cart-checkout-btn').forEach(function(btn){
-      if(btn._icBound) return; btn._icBound = true;
-      btn.addEventListener('click', function(){
-        try{ if(window.trackEvent){ window.trackEvent('InitiateCheckout', payload); } }catch(_){ }
-      }, {passive:true});
-    });
-  }catch(_){ }
-});
-</script>
-
-{% endif %}
-
-<!-- Модальное окно авторизации для использования промокодов -->
-<div class="modal fade" id="promoAuthModal" tabindex="-1" aria-labelledby="promoAuthModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content" style="border-radius: 16px; border: none; overflow: hidden;">
-      <div class="modal-header" style="background: linear-gradient(135deg, var(--accent-color), #7c3aed); color: #fff; border: none; padding: 1.5rem;">
-        <div class="d-flex align-items-center gap-3">
-          <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; background: rgba(255, 255, 255, 0.2);">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
-            </svg>
-          </div>
-          <div>
-            <h5 class="modal-title fw-bold mb-0" id="promoAuthModalLabel">Використання промокоду</h5>
-            <div class="small opacity-90">Авторизуйтесь для застосування знижки</div>
-          </div>
-        </div>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Закрити"></button>
-      </div>
-      <div class="modal-body" style="padding: 2rem;">
-        <div class="mb-4 p-3 rounded-3" style="background: #f8f9fa;">
-          <div class="d-flex gap-2 align-items-start">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--accent-color)" style="flex-shrink: 0; margin-top: 2px;">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
-            </svg>
-            <div class="small text-secondary">
-              <strong>Промокоди доступні тільки для зареєстрованих користувачів.</strong><br>
-              Це дозволяє відстежувати використання та запобігати зловживанням.
-            </div>
-          </div>
-        </div>
-        
-        <div class="d-grid gap-3">
-          <a href="{% url 'social:begin' 'google-oauth2' %}?next={{ request.path }}" class="btn btn-lg d-flex align-items-center justify-content-center gap-2" style="background: #fff; border: 2px solid #e9ecef; color: #212529; border-radius: 12px; padding: 0.875rem;">
-            <img src="{% static 'img/google.svg' %}" alt="Google" width="20" height="20">
-            <span class="fw-semibold">Увійти через Google</span>
-          </a>
-          
-          <div class="text-center text-secondary small">або</div>
-          
-          <a href="{% url 'login' %}?next={{ request.path }}" class="btn btn-lg d-flex align-items-center justify-content-center gap-2" style="background: linear-gradient(135deg, var(--accent-color), #7c3aed); color: #fff; border: none; border-radius: 12px; padding: 0.875rem;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z"/>
-            </svg>
-            <span class="fw-semibold">Увійти в акаунт</span>
-          </a>
-          
-          <div class="text-center">
-            <span class="text-secondary small">Ще немає акаунту?</span>
-            <a href="{% url 'register' %}?next={{ request.path }}" class="text-decoration-none fw-semibold small">Зареєструватись</a>
-          </div>
-        </div>
-        
-        <div class="mt-4 p-3 rounded-3" style="background: linear-gradient(135deg, rgba(255,107,107,0.1), rgba(124,58,237,0.1)); border: 1px solid rgba(124,58,237,0.2);">
-          <div class="d-flex gap-2">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--accent-color)" style="flex-shrink: 0; margin-top: 2px;">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-            </svg>
-            <div class="small">
-              <strong class="d-block mb-1">Переваги реєстрації:</strong>
-              <ul class="mb-0 ps-3">
-                <li>Накопичуйте бали за покупки</li>
-                <li>Отримуйте ексклюзивні промокоди</li>
-                <li>Швидке оформлення наступних замовлень</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- JavaScript для обработки промокодів з перевіркою авторизації -->
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  // Оригинальная функция applyPromoCode (если существует в main.js, переопределяем)
-  window.applyPromoCodeOriginal = window.applyPromoCode;
-  
-  window.applyPromoCode = function() {
-    const promoInput = document.getElementById('promo-code-input');
-    const promoMessage = document.getElementById('promo-message');
-    
-    if (!promoInput || !promoMessage) {
-      return;
-    }
-    
-    const code = promoInput.value.trim();
-    
-    if (!code) {
-      promoMessage.textContent = 'Введіть код промокоду';
-      promoMessage.className = 'cart-promo-message cart-promo-message-error';
-      promoMessage.style.display = 'block';
-      return;
-    }
-    
-    // Отправляем запрос на применение промокода
-    fetch('{% url "apply_promo_code" %}', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-      },
-      body: 'promo_code=' + encodeURIComponent(code)
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success || data.ok) {
-        // Успешно применен промокод
-        promoMessage.textContent = data.message || 'Промокод застосовано!';
-        promoMessage.className = 'cart-promo-message cart-promo-message-success';
-        promoMessage.style.display = 'block';
-        
-        // Обновляем UI без перезагрузки страницы
-        if (typeof updateCartSummary === 'function') {
-          updateCartSummary({
-            subtotal: data.total + (data.discount || 0), // Восстанавливаем subtotal из total + discount
-            discount: data.discount || 0,
-            total: data.total || 0,
-            items: [] // Будет обновлено через refreshCartItems
-          });
-        }
-        
-        // Обновляем блок промокода - показываем примененный промокод
-        const promoInputGroup = document.querySelector('.cart-promo-input-group');
-        const promoAppliedDiv = document.querySelector('.cart-promo-applied');
-        const promoInput = document.getElementById('promo-code-input');
-        
-        if (promoInputGroup) {
-          promoInputGroup.style.display = 'none';
-        }
-        if (promoAppliedDiv) {
-          promoAppliedDiv.style.display = 'flex';
-          const promoCodeEl = promoAppliedDiv.querySelector('.cart-promo-applied-code');
-          const promoDiscountEl = promoAppliedDiv.querySelector('.cart-promo-applied-discount');
-          if (promoCodeEl) {
-            promoCodeEl.textContent = data.promo_code || code;
-          }
-          if (promoDiscountEl && data.discount) {
-            promoDiscountEl.textContent = `Знижка: ${parseFloat(data.discount).toFixed(2)} грн`;
-          }
-        }
-        if (promoInput) {
-          promoInput.value = '';
-        }
-        
-        // Обновляем список товаров для синхронизации всех данных
-        if (typeof refreshCartItems === 'function') {
-          refreshCartItems();
-        }
-      } else if (data.auth_required) {
-        // Требуется авторизация - показываем модальное окно
-        promoMessage.textContent = data.message || data.error;
-        promoMessage.className = 'cart-promo-message cart-promo-message-info';
-        promoMessage.style.display = 'block';
-        
-        // Показываем модальное окно авторизации
-        const modal = new bootstrap.Modal(document.getElementById('promoAuthModal'));
-        modal.show();
-      } else {
-        // Ошибка применения промокода
-        promoMessage.textContent = data.error || data.message || 'Помилка застосування промокоду';
-        promoMessage.className = 'cart-promo-message cart-promo-message-error';
-        promoMessage.style.display = 'block';
-      }
-    })
-    .catch(error => {
-      promoMessage.textContent = 'Помилка з\'єднання. Спробуйте ще раз.';
-      promoMessage.className = 'cart-promo-message cart-promo-message-error';
-      promoMessage.style.display = 'block';
-    });
-  };
-  
-  // Функция удаления промокода (если нужна)
-  window.removePromoCodeOriginal = window.removePromoCode;
-  
-  window.removePromoCode = function() {
-    const promoMessage = document.getElementById('promo-message');
-    
-    fetch('{% url "remove_promo_code" %}', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-      }
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success || data.ok) {
-        // Обновляем UI без перезагрузки страницы
-        if (typeof updateCartSummary === 'function') {
-          updateCartSummary({
-            subtotal: data.subtotal || data.total || 0,
-            discount: data.discount || 0,
-            total: data.total || 0,
-            items: [] // Будет обновлено через refreshCartItems
-          });
-        }
-        
-        // Обновляем блок промокода - показываем поле ввода
-        const promoAppliedDiv = document.querySelector('.cart-promo-applied');
-        const promoInputGroup = document.querySelector('.cart-promo-input-group');
-        const promoMessageEl = document.getElementById('promo-message');
-        
-        if (promoAppliedDiv) {
-          promoAppliedDiv.style.display = 'none';
-        }
-        if (promoInputGroup) {
-          promoInputGroup.style.display = 'flex';
-        }
-        if (promoMessageEl) {
-          promoMessageEl.textContent = data.message || 'Промокод видалено';
-          promoMessageEl.className = 'cart-promo-message cart-promo-message-success';
-          promoMessageEl.style.display = 'block';
-          setTimeout(() => {
-            promoMessageEl.style.display = 'none';
-          }, 3000);
-        }
-        
-        // Обновляем список товаров для синхронизации всех данных
-        if (typeof refreshCartItems === 'function') {
-          refreshCartItems();
-        }
-      } else {
-        if (promoMessage) {
-          promoMessage.textContent = data.error || 'Помилка видалення промокоду';
-          promoMessage.className = 'cart-promo-message cart-promo-message-error';
-          promoMessage.style.display = 'block';
-        }
-      }
-    })
-    .catch(error => {
-      if (promoMessage) {
-        promoMessage.textContent = 'Помилка з\'єднання';
-        promoMessage.className = 'cart-promo-message cart-promo-message-error';
-        promoMessage.style.display = 'block';
-      }
-    });
-  };
-  
-  // ==================== МОДАЛЬНОЕ ОКНО КОНСУЛЬТАЦИИ (КАК В DROPSHIPPER) ====================
-  const contactBtns = document.querySelectorAll('#contactManagerBtn, #contactManagerBtnGuest');
-  const modal = document.getElementById('contactManagerModal');
-  const modalClose = document.querySelector('.contact-modal-close');
-  const modalForm = document.getElementById('contactManagerForm');
-  
-  // Функция открытия модального окна с анимацией
-  function openContactModal() {
-    // Автозаполнение из формы доставки
-    const isAuth = document.getElementById('pay_type_auth') !== null;
-    
-    if (isAuth) {
-      const fullNameInput = document.querySelector('[name="full_name"]');
-      const phoneInput = document.querySelector('[name="phone"]');
-      
-      if (fullNameInput && fullNameInput.value) {
-        document.getElementById('contactModalFullName').value = fullNameInput.value;
-      }
-      if (phoneInput && phoneInput.value) {
-        document.getElementById('contactModalPhone').value = phoneInput.value;
-      }
-    } else {
-      // Для гостей из guest-form
-      const guestForm = document.getElementById('guest-form');
-      if (guestForm) {
-        const fullNameInput = guestForm.querySelector('[name="full_name"]');
-        const phoneInput = guestForm.querySelector('[name="phone"]');
-        
-        if (fullNameInput && fullNameInput.value) {
-          document.getElementById('contactModalFullName').value = fullNameInput.value;
-        }
-        if (phoneInput && phoneInput.value) {
-          document.getElementById('contactModalPhone').value = phoneInput.value;
-        }
-      }
-    }
-    
-    // КРИТИЧНО: Добавляем класс на body который убирает position: relative у контейнеров
-    // Это позволяет модальному окну с position: fixed позиционироваться относительно viewport
-    document.body.classList.add('contact-modal-open');
-    
-    // Показываем модальное окно
-    modal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-    
-    // Добавляем класс для анимации (после небольшой задержки для срабатывания CSS transition)
-    setTimeout(() => {
-      modal.classList.add('modal-active');
-    }, 10);
-  }
-  
-  // Функция закрытия модального окна с анимацией
-  function closeContactModal() {
-    // Убираем класс для анимации закрытия
-    modal.classList.remove('modal-active');
-    
-    // КРИТИЧНО: Убираем класс с body чтобы вернуть position: relative контейнерам
-    document.body.classList.remove('contact-modal-open');
-    
-    // Ждем завершения анимации (300ms) перед скрытием
-    setTimeout(() => {
-      modal.style.display = 'none';
-      document.body.style.overflow = 'auto';
-    }, 300);
-  }
-  
-  // Открытие модалки
-  contactBtns.forEach(btn => {
-    btn.addEventListener('click', openContactModal);
-  });
-  
-  // Закрытие модалки
-  if (modalClose) {
-    modalClose.addEventListener('click', closeContactModal);
-  }
-  
-  // Закрытие по клику вне модалки
-  window.addEventListener('click', function(event) {
-    if (event.target === modal) {
-      closeContactModal();
-    }
-  });
-  
-  // Отправка формы связи с менеджером
-  if (modalForm) {
-    modalForm.addEventListener('submit', function(e) {
-      e.preventDefault();
-      
-      const formData = new FormData(modalForm);
-      const submitBtn = modalForm.querySelector('button[type="submit"]');
-      const originalText = submitBtn.textContent;
-      
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Відправляємо...';
-      
-      fetch('{% url "contact_manager" %}', {
-        method: 'POST',
-        headers: {
-          'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-        },
-        body: formData
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          alert('✅ Дякуємо! Менеджер зв\'яжеться з вами найближчим часом.');
-          closeContactModal();
-          modalForm.reset();
-        } else {
-          alert('❌ Помилка: ' + (data.error || 'Спробуйте ще раз'));
-        }
-      })
-      .catch(error => {
-        alert('❌ Помилка з\'єднання. Спробуйте ще раз.');
-      })
-      .finally(() => {
-        submitBtn.disabled = false;
-        submitBtn.textContent = originalText;
-      });
-    });
-  }
-});
-</script>
-
-<!-- Стили для кнопки связи с менеджером и модального окна -->
+{% block extra_css %}
 <style>
+.cart-savings-info {
+  margin-top: 18px;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  border-radius: 14px;
+  border: 1px solid rgba(79, 70, 229, 0.15);
+  color: #1f2937;
+  font-size: 14px;
+  display: grid;
+  row-gap: 10px;
+  line-height: 1.4;
+}
+
+.cart-savings-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  font-weight: 500;
+}
+
+.cart-savings-total {
+  margin-top: 6px;
+  font-weight: 600;
+  font-size: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(79, 70, 229, 0.12);
+}
+
+.cart-savings-amount {
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.cart-savings-label {
+  color: #4b5563;
+  font-weight: 600;
+}
+
+.cart-savings-highlight {
+  font-weight: 600;
+  color: #111827;
+}
+
+.cart-item-price-old {
+  text-decoration: line-through;
+  color: #9ca3af;
+  margin-right: 8px;
+  font-weight: 500;
+}
+
+.cart-item-price-current {
+  font-weight: 600;
+}
+
+.cart-points-icon {
+  color: #f59e0b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cart-points-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
 .btn-contact-manager {
   width: 100%;
   padding: 14px 20px;
@@ -1796,11 +780,6 @@ document.addEventListener('DOMContentLoaded', function() {
   transform: translateY(0);
 }
 
-/* Модальное окно */
-/* ========== МОДАЛЬНОЕ ОКНО КОНСУЛЬТАЦИИ (ТЕМНЫЙ ДИЗАЙН КАК DROPSHIPPER) ========== */
-
-/* КРИТИЧНО: Убираем position: relative у ВСЕХ контейнеров когда модальное окно открыто */
-/* Это позволяет модальному окну с position: fixed позиционироваться относительно viewport, а не контейнера */
 body.contact-modal-open,
 body.contact-modal-open .cart-page-container,
 body.contact-modal-open .cart-container,
@@ -1812,7 +791,6 @@ body.contact-modal-open [class*="container"] {
   position: static !important;
 }
 
-/* Убираем псевдоэлементы которые могут использовать position: fixed */
 body.contact-modal-open .cart-page-container::before,
 body.contact-modal-open .cart-page-container::after,
 body.contact-modal-open .cart-container::before,
@@ -1865,7 +843,6 @@ body.contact-modal-open .cart-container::after {
   opacity: 1;
 }
 
-/* Кастомный скроллбар */
 .contact-modal-container::-webkit-scrollbar {
   width: 8px;
 }
@@ -1945,7 +922,6 @@ body.contact-modal-open .cart-container::after {
   margin-bottom: 8px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
-  font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   font-size: 12px;
@@ -2039,7 +1015,6 @@ body.contact-modal-open .cart-container::after {
   transform: none;
 }
 
-/* Адаптивность */
 @media (max-width: 768px) {
   .contact-modal-container {
     border-radius: 20px 20px 0 0;
@@ -2068,5 +1043,7 @@ body.contact-modal-open .cart-container::after {
   }
 }
 </style>
+{% endblock %}
 
+{% block extra_js %}
 {% endblock %}

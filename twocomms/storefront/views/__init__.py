@@ -277,12 +277,8 @@ except Exception as e:
 # ==================== АЛИАСЫ ДЛЯ ОБРАТНОЙ СОВМЕСТИМОСТИ ====================
 # Эти алиасы обеспечивают совместимость с старым views.py и storefront/urls.py
 
-# КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Используем старую cart() из views.py, т.к. она обрабатывает POST
-# view_cart() из cart.py НЕ обрабатывает form_type и создание заказов!
-try:
-    cart = _old_views.cart  # Старая функция с POST обработкой
-except (NameError, AttributeError):
-    cart = view_cart  # Fallback на новую если старая недоступна
+# Используем новую view_cart, она теперь обрабатывает POST (update_profile / guest / order_create)
+cart = view_cart
 
 # Cart aliases
 cart_remove = remove_from_cart  # для urls.py: views.cart_remove

@@ -139,6 +139,31 @@ class FacebookConversionsService:
         
         # Country (для Украины)
         user_data.country_code = self._hash_data('ua')
+
+        tracking_data = {}
+        if order.payment_payload and isinstance(order.payment_payload, dict):
+            tracking_data = order.payment_payload.get('tracking') or {}
+
+        fbp_value = tracking_data.get('fbp')
+        if fbp_value:
+            user_data.fbp = fbp_value
+
+        fbc_value = tracking_data.get('fbc')
+        if fbc_value:
+            user_data.fbc = fbc_value
+
+        external_source = tracking_data.get('external_id')
+        if not external_source:
+            if order.user_id:
+                external_source = f"user:{order.user_id}"
+            elif order.session_key:
+                external_source = f"session:{order.session_key}"
+            elif order.order_number:
+                external_source = f"order:{order.order_number}"
+        if external_source:
+            hashed_external = self._hash_data(external_source)
+            if hashed_external:
+                user_data.external_id = hashed_external
         
         # Client IP address (если есть в payload)
         if order.payment_payload and isinstance(order.payment_payload, dict):

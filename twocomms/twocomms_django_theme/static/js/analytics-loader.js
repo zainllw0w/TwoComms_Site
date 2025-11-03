@@ -54,6 +54,21 @@
   win._ttqLoaded = false;
   win._ttqScriptLoaded = false; // Флаг реальной загрузки скрипта TikTok
 
+  function getCookieValue(name) {
+    if (!name || !doc || !doc.cookie) {
+      return '';
+    }
+    var cookies = doc.cookie.split(';');
+    for (var i = 0; i < cookies.length; i++) {
+      var cookie = cookies[i].trim();
+      if (!cookie) continue;
+      if (cookie.indexOf(name + '=') === 0) {
+        return decodeURIComponent(cookie.substring(name.length + 1));
+      }
+    }
+    return '';
+  }
+
   function setupGlobalEventBridge() {
     if (typeof win.trackEvent === 'function') {
       return;
@@ -64,6 +79,29 @@
         return;
       }
       payload = payload || {};
+
+      var metaConfig = (payload.__meta && typeof payload.__meta === 'object') ? payload.__meta : {};
+      var eventId = metaConfig.event_id || payload.event_id || null;
+      var externalId = metaConfig.external_id || payload.external_id || null;
+      var fbUserData = metaConfig.user_data || payload.fb_user_data || null;
+      var fbpValue = metaConfig.fbp || payload.fbp || getCookieValue('_fbp');
+      var fbcValue = metaConfig.fbc || payload.fbc || getCookieValue('_fbc');
+
+      var cleanPayload = {};
+      for (var originalKey in payload) {
+        if (!payload.hasOwnProperty(originalKey)) {
+          continue;
+        }
+        if (originalKey === '__meta' || originalKey === 'fb_user_data' || originalKey === 'fb_user_data_hashed') {
+          continue;
+        }
+        if (originalKey === 'external_id' || originalKey === 'fbp' || originalKey === 'fbc') {
+          // Уже извлекли выше
+          continue;
+        }
+        cleanPayload[originalKey] = payload[originalKey];
+      }
+      payload = cleanPayload;
       
       // Meta Pixel standard e-commerce events that support value/currency
       var ecommerceEvents = [
@@ -75,9 +113,21 @@
       
       // Validate and sanitize payload for Meta Pixel
       var fbPayload = {};
+      var fbSkipKeys = {
+        '__meta': true,
+        'event_id': true,
+        'external_id': true,
+        'fbp': true,
+        'fbc': true,
+        'fb_user_data': true,
+        'fb_user_data_hashed': true
+      };
       for (var key in payload) {
         if (payload.hasOwnProperty(key)) {
           var value = payload[key];
+          if (fbSkipKeys[key]) {
+            continue;
+          }
           // Skip undefined/null values
           if (value === undefined || value === null) {
             continue;
@@ -115,7 +165,28 @@
           // Проверяем что Pixel инициализирован
           if (win._fbqLoaded) {
             try {
-          win.fbq('track', eventName, fbPayload);
+              var metaOptions = {};
+              if (eventId) {
+                metaOptions.eventID = String(eventId);
+              }
+              if (externalId) {
+                metaOptions.external_id = String(externalId);
+              }
+              if (fbpValue) {
+                metaOptions.fbp = String(fbpValue);
+              }
+              if (fbcValue) {
+                metaOptions.fbc = String(fbcValue);
+              }
+              if (fbUserData && typeof fbUserData === 'object') {
+                metaOptions.user_data = Object.assign({}, fbUserData);
+              }
+              var hasOptions = Object.keys(metaOptions).length > 0;
+              if (hasOptions) {
+                win.fbq('track', eventName, fbPayload, metaOptions);
+              } else {
+                win.fbq('track', eventName, fbPayload);
+              }
             } catch (fbErr) {
               if (console && console.debug) {
                 console.debug('Meta Pixel track error (possible blocker):', fbErr);
@@ -183,6 +254,9 @@
             try {
               // Преобразуем payload в формат TikTok
               var ttqPayload = buildTikTokPayload(eventName, payload, isEcommerceEvent);
+              if (eventId) {
+                ttqPayload.event_id = String(eventId);
+              }
               
               // Логируем отправку события для отладки
               if (console && console.log) {
@@ -202,6 +276,9 @@
               }
               // Если ошибка - буферизуем для повторной отправки
               var ttqBufferedPayload = buildTikTokPayload(eventName, payload, isEcommerceEvent);
+              if (eventId) {
+                ttqBufferedPayload.event_id = String(eventId);
+              }
               if (!win._ttqBuffer) {
                 win._ttqBuffer = [];
               }
@@ -210,6 +287,9 @@
           } else {
             // TikTok Pixel еще не загружен - буферизуем
             var ttqBufferedPayload = buildTikTokPayload(eventName, payload, isEcommerceEvent);
+            if (eventId) {
+              ttqBufferedPayload.event_id = String(eventId);
+            }
             if (!win._ttqBuffer) {
               win._ttqBuffer = [];
             }
@@ -403,9 +483,67 @@
     }
   }
   
-  // Функция для хеширования SHA-256 (полная версия с Web Crypto API)
+  // Простая реализация SHA-256 (https://en.wikipedia.org/wiki/SHA-2)
+  function sha256(ascii) {
+    var mathPow = Math.pow;
+    var maxWord = mathPow(2, 32);
+    var result = '';
+    var words = [];
+    var asciiBitLength = ascii.length * 8;
+    var hash = sha256.h = sha256.h || [];
+    var k = sha256.k = sha256.k || [];
+    var primeCounter = k.length;
+    var isComposite = {};
+    for (var candidate = 2; primeCounter < 64; candidate++) {
+      if (!isComposite[candidate]) {
+        for (var i = 0; i < 313; i += candidate) {
+          isComposite[i] = candidate;
+        }
+        hash[primeCounter] = (mathPow(candidate, 0.5) * maxWord) | 0;
+        k[primeCounter++] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
+      }
+    }
+    ascii += '\u0080';
+    while (ascii.length % 64 - 56) {
+      ascii += '\u0000';
+    }
+    for (var i = 0; i < ascii.length; i++) {
+      var j = ascii.charCodeAt(i);
+      words[i >> 2] |= j << ((3 - i) % 4) * 8;
+    }
+    words[words.length] = ((asciiBitLength / maxWord) | 0);
+    words[words.length] = (asciiBitLength);
+    for (var j = 0; j < words.length;) {
+      var w = words.slice(j, j += 16);
+      var oldHash = hash.slice(0);
+      for (var i = 0; i < 64; i++) {
+        var w15 = w[i - 15];
+        var w2 = w[i - 2];
+        var s0 = w15 ? ((w15 >>> 7) | (w15 << 25)) ^ ((w15 >>> 18) | (w15 << 14)) ^ (w15 >>> 3) : 0;
+        var s1 = w2 ? ((w2 >>> 17) | (w2 << 15)) ^ ((w2 >>> 19) | (w2 << 13)) ^ (w2 >>> 10) : 0;
+        w[i] = (i < 16 ? w[i] : (w[i - 16] + s0 + w[i - 7] + s1) | 0);
+        var a = hash[0];
+        var e = hash[4];
+        var temp1 = (hash[7] + (((e >>> 6) | (e << 26)) ^ ((e >>> 11) | (e << 21)) ^ ((e >>> 25) | (e << 7))) + ((e & hash[5]) ^ ((~e) & hash[6])) + k[i] + w[i]) | 0;
+        var temp2 = ((((a >>> 2) | (a << 30)) ^ ((a >>> 13) | (a << 19)) ^ ((a >>> 22) | (a << 10))) + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]))) | 0;
+        hash = [(temp1 + temp2) | 0].concat(hash);
+        hash[4] = (hash[4] + temp1) | 0;
+      }
+      for (var i = 0; i < 8; i++) {
+        hash[i] = (hash[i] + oldHash[i]) | 0;
+      }
+    }
+    for (var i = 0; i < 8; i++) {
+      for (var j = 3; j + 1; j--) {
+        var b = (hash[i] >> (j * 8)) & 255;
+        result += ((b < 16 ? 0 : '') + b.toString(16));
+      }
+    }
+    return result;
+  }
+
+  // Функция для хеширования SHA-256
   function hashSHA256(str) {
-    // Для полного хеширования SHA-256 используем Web Crypto API если доступен
     if (!str || typeof str !== 'string') {
       return null;
     }
@@ -414,11 +552,16 @@
       return null;
     }
     
-    // В продакшн используем crypto.subtle.digest для реального хеширования
-    // Пока возвращаем нормализованную строку
-    // TODO: Реализовать реальное SHA-256 хеширование через crypto.subtle.digest
-    return cleaned;
+    try {
+      return sha256(cleaned);
+    } catch (err) {
+      if (console && console.debug) {
+        console.debug('SHA-256 hashing failed, fallback to raw value', err);
+      }
+      return cleaned;
+    }
   }
+  win.__hashSHA256 = hashSHA256;
   
   // Валидация email
   function isValidEmail(email) {
@@ -1006,4 +1149,3 @@
   schedule(loadGoogleAnalytics, 2000);
   schedule(loadClarity, 3000);
 })(window, document);
-

@@ -203,7 +203,13 @@
                 <input type="number" id="productQty" min="1" value="1" inputmode="numeric" class="qty-input-compact">
                 <button type="button" class="qty-btn-compact qty-plus" onclick="QtyInc('#productQty'); return false;" aria-label="Збільшити">+</button>
               </div>
-              <button type="button" class="product-add-to-cart-btn-compact" data-add-to-cart="{{ product.id }}" id="addToCartBtn">
+              <button type="button"
+                      class="product-add-to-cart-btn-compact"
+                      data-add-to-cart="{{ product.id }}"
+                      data-product-name="{{ product.title|escapejs }}"
+                      data-product-category="{{ product.category.name|default_if_none:''|escapejs }}"
+                      data-product-price="{{ product.final_price }}"
+                      id="addToCartBtn">
                 <span class="btn-text">Додати в кошик</span>
                 <span class="btn-icon">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -417,7 +423,13 @@
   <!-- Sticky кнопка для мобильных -->
   <div class="product-sticky-mobile" id="productStickyMobile">
     <div class="sticky-price">{{ product.final_price }} грн</div>
-    <button type="button" class="sticky-add-btn" data-add-to-cart="{{ product.id }}" id="stickyAddToCartBtn">
+    <button type="button"
+            class="sticky-add-btn"
+            data-add-to-cart="{{ product.id }}"
+            data-product-name="{{ product.title|escapejs }}"
+            data-product-category="{{ product.category.name|default_if_none:''|escapejs }}"
+            data-product-price="{{ product.final_price }}"
+            id="stickyAddToCartBtn">
       <span>Додати в кошик</span>
     </button>
   </div>
@@ -478,4 +490,3 @@
 })();
 </script>
 {% endblock %}
-
