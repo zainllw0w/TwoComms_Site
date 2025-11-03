@@ -2012,7 +2012,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .catch(() => {});
     }
     if(document.querySelector('.cart-page-container') || document.getElementById('promo-code-input')){
-      import('./modules/cart.js')
+      import('./modules/cart.js?v=20250130')
         .then(({ initCartInteractions }) => initCartInteractions())
         .catch(() => {});
     }
