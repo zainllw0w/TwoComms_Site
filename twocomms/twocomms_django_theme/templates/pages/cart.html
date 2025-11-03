@@ -458,7 +458,7 @@
             <span class="cart-summary-value"
                   id="pay-now-amount"
                   data-total="{{ grand_total|floatformat:'2' }}"
-                  data-prepay="200">{{ grand_total }} грн</span>
+                  data-prepay="200">{% if pay_now_amount %}{{ pay_now_amount }} грн{% else %}{{ grand_total }} грн{% endif %}</span>
           </div>
           <div class="cart-summary-row cart-summary-prepay d-none" id="prepay-remaining-row">
             <span class="cart-summary-label">Залишок при отриманні:</span>
