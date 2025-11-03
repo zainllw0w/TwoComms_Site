@@ -2564,22 +2564,22 @@ def order_create(request):
             from django.contrib import messages
             messages.error(request, 'Введіть коректний номер телефону!')
             return redirect('cart')
-        
+
         if not city or len(city.strip()) < 2:
             from django.contrib import messages
             messages.error(request, 'Введіть назву міста!')
             return redirect('cart')
-        
+
         if not np_office or len(np_office.strip()) < 1:
             from django.contrib import messages
             messages.error(request, 'Введіть адресу відділення!')
             return redirect('cart')
-        
+
         if not (pay_type_raw and pay_type_raw.strip()):
             from django.contrib import messages
             messages.error(request, 'Оберіть тип оплати!')
             return redirect('cart')
-        
+
         # Обновляем профиль пользователя данными из формы (БЕЗ pay_type - пользователь должен выбирать каждый раз)
         prof.full_name = full_name
         prof.phone = phone
@@ -2588,10 +2588,9 @@ def order_create(request):
         prof.save()
     else:
         # Для GET запросов требуем заполнения формы (включая pay_type)
-            from django.contrib import messages
+        from django.contrib import messages
         messages.error(request, 'Будь ласка, заповніть форму замовлення!')
-            return redirect('cart')
-
+        return redirect('cart')
     # Корзина должна быть не пустой
     cart = request.session.get('cart') or {}
     if not cart:
@@ -5731,7 +5730,7 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
             total_count += qty
 
             product_entry = {
-            'name': product_name,
+                'name': product_name,
                 'cnt': qty,
                 'price': _as_number(unit_price_major),
             }
