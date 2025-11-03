@@ -503,7 +503,9 @@ class CartPageController {
   }
 
   setupContactModal() {
-    const modal = this.root.querySelector('#contactManagerModal');
+    // Модальное окно находится в {% block modals %}, который рендерится ВНЕ .cart-page-container
+    const modal = document.querySelector('#contactManagerModal');
+    // Кнопки находятся внутри .cart-page-container
     const triggers = this.root.querySelectorAll('.btn-contact-manager');
     if (!modal || !triggers.length) {
       return;
