@@ -349,7 +349,8 @@ class CartPageController {
   }
 
   updateSummary(data) {
-    const subtotal = parseNumber(data.subtotal);
+    // Используем original_subtotal (сумма без скидок) для отображения суммы товаров
+    const subtotal = parseNumber(data.original_subtotal || data.subtotal);
     if (this.subtotalValueEl) {
       this.subtotalValueEl.textContent = formatUAH(subtotal);
     }

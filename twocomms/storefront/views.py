@@ -2580,44 +2580,16 @@ def order_create(request):
             messages.error(request, 'Оберіть тип оплати!')
             return redirect('cart')
         
-        # Обновляем профиль пользователя данными из формы
+        # Обновляем профиль пользователя данными из формы (БЕЗ pay_type - пользователь должен выбирать каждый раз)
         prof.full_name = full_name
         prof.phone = phone
         prof.city = city
         prof.np_office = np_office
-        prof.pay_type = pay_type
         prof.save()
-        
     else:
-        # Используем данные из профиля (для GET запросов)
-        full_name = getattr(prof, 'full_name', '') or request.user.username
-        phone = prof.phone
-        city = prof.city
-        np_office = prof.np_office
-        pay_type = _normalize_pay_type(prof.pay_type)
-        if prof.pay_type != pay_type:
-            prof.pay_type = pay_type
-            prof.save(update_fields=['pay_type'])
-        
-        # Проверяем обязательные поля с более строгой валидацией
-        if not phone or len(phone.strip()) < 10:
+        # Для GET запросов требуем заполнения формы (включая pay_type)
             from django.contrib import messages
-            messages.error(request, 'Введіть коректний номер телефону!')
-            return redirect('cart')
-        
-        if not city or len(city.strip()) < 2:
-            from django.contrib import messages
-            messages.error(request, 'Введіть назву міста!')
-            return redirect('cart')
-        
-        if not np_office or len(np_office.strip()) < 1:
-            from django.contrib import messages
-            messages.error(request, 'Введіть адресу відділення!')
-            return redirect('cart')
-        
-        if not pay_type:
-            from django.contrib import messages
-            messages.error(request, 'Оберіть тип оплати!')
+        messages.error(request, 'Будь ласка, заповніть форму замовлення!')
             return redirect('cart')
 
     # Корзина должна быть не пустой
