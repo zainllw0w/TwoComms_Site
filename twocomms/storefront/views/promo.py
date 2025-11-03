@@ -112,15 +112,50 @@ class PromoCodeForm(forms.ModelForm):
 
 # ==================== HELPER FUNCTIONS ====================
 
+
+def normalize_promocode_payload(query_dict):
+    """
+    Приводит payload з форм до внутрішньої моделі PromoCode.
+
+    Підтримує застарілі поля (discount, fixed_amount, usage_limit) та
+    коректно обирає discount_type / discount_value.
+    """
+    data = query_dict.copy()
+
+    promo_type = data.get('promo_type') or 'regular'
+    # Старий тип 'auction' зводимо до поточного 'grouped'
+    if promo_type == 'auction':
+        promo_type = 'grouped'
+        data['promo_type'] = 'grouped'
+
+    percent_discount = (data.get('discount') or '').strip()
+    fixed_discount = (data.get('fixed_amount') or '').strip()
+    existing_value = (data.get('discount_value') or '').strip()
+
+    if promo_type == 'voucher' or fixed_discount:
+        data['discount_type'] = 'fixed'
+        data['discount_value'] = fixed_discount or percent_discount or existing_value or '0'
+    else:
+        data['discount_type'] = 'percentage'
+        data['discount_value'] = percent_discount or fixed_discount or existing_value or '0'
+
+    usage_limit = (data.get('usage_limit') or '').strip()
+    if usage_limit:
+        data['max_uses'] = usage_limit
+    else:
+        # Порожнє значення означає безліміт
+        data['max_uses'] = data.get('max_uses') or '0'
+
+    return data
+
+
 def get_promo_admin_context(request):
     """Функція для отримання контексту промокодів для адмін-панелі"""
     try:
-        # Получаем текущий таб и параметры фильтрации
         promo_tab = request.GET.get('tab', 'promocodes')
         view_type = request.GET.get('view', 'all')
         group_id = request.GET.get('group')
 
-        # ===== ТАБ 1: ПРОМОКОДЫ =====
         promocodes = PromoCode.objects.select_related('group').prefetch_related('usages')
 
         if view_type == 'vouchers':
@@ -131,29 +166,33 @@ def get_promo_admin_context(request):
             promocodes = promocodes.filter(promo_type='regular')
 
         if group_id:
-            promocodes = promocodes.filter(group_id=group_id)
+            if group_id == 'no-group':
+                promocodes = promocodes.filter(group__isnull=True)
+            else:
+                promocodes = promocodes.filter(group_id=group_id)
 
-        # ===== ТАБ 2: ГРУППЫ =====
         groups = PromoCodeGroup.objects.prefetch_related('promo_codes').annotate(
             codes_count=Count('promo_codes'),
             active_codes_count=Count('promo_codes', filter=Q(promo_codes__is_active=True)),
             total_usages=Count('usages'),
         )
 
-        # ===== ТАБ 3: СТАТИСТИКА =====
         recent_usages = PromoCodeUsage.objects.select_related(
             'user', 'promo_code', 'group', 'order'
         ).order_by('-used_at')[:50]
 
-        top_promos = PromoCode.objects.annotate(
-            usage_count=Count('usages')
-        ).filter(usage_count__gt=0).order_by('-usage_count')[:10]
+        top_promos = (
+            PromoCode.objects.annotate(usage_count=Count('usages'))
+            .filter(usage_count__gt=0)
+            .order_by('-usage_count')[:10]
+        )
 
-        top_groups = PromoCodeGroup.objects.annotate(
-            usage_count=Count('usages')
-        ).filter(usage_count__gt=0).order_by('-usage_count')[:10]
+        top_groups = (
+            PromoCodeGroup.objects.annotate(usage_count=Count('usages'))
+            .filter(usage_count__gt=0)
+            .order_by('-usage_count')[:10]
+        )
 
-        # ===== ОБЩАЯ СТАТИСТИКА =====
         total_promocodes = PromoCode.objects.count()
         active_promocodes = PromoCode.objects.filter(is_active=True).count()
         total_vouchers = PromoCode.objects.filter(promo_type='voucher').count()
@@ -161,48 +200,64 @@ def get_promo_admin_context(request):
         total_usages = PromoCodeUsage.objects.count()
         unique_users = PromoCodeUsage.objects.values('user').distinct().count()
 
-        # ===== РОЗШИРЕНА СТАТИСТИКА =====
-        avg_discount_percent = PromoCode.objects.filter(
-            discount_type='percentage'
-        ).aggregate(avg=Avg('discount_value'))['avg'] or Decimal('0')
+        avg_discount_percent = (
+            PromoCode.objects.filter(discount_type='percentage').aggregate(
+                avg=Avg('discount_value')
+            )['avg']
+            or Decimal('0')
+        )
+        avg_discount_fixed = (
+            PromoCode.objects.filter(discount_type='fixed').aggregate(avg=Avg('discount_value'))[
+                'avg'
+            ]
+            or Decimal('0')
+        )
 
-        avg_discount_fixed = PromoCode.objects.filter(
-            discount_type='fixed'
-        ).aggregate(avg=Avg('discount_value'))['avg'] or Decimal('0')
-
-        used_promocodes_count = PromoCode.objects.annotate(
-            usages_count=Count('usages')
-        ).filter(usages_count__gt=0).count()
+        used_promocodes_count = (
+            PromoCode.objects.annotate(usages_count=Count('usages'))
+            .filter(usages_count__gt=0)
+            .count()
+        )
 
         conversion_rate = (
             used_promocodes_count / total_promocodes * 100 if total_promocodes > 0 else 0
         )
-
-        avg_usages_per_promo = total_usages / total_promocodes if total_promocodes > 0 else 0
+        avg_usages_per_promo = (
+            total_usages / total_promocodes if total_promocodes > 0 else Decimal('0')
+        )
 
         total_savings = Decimal('0')
-
-        fixed_savings = PromoCodeUsage.objects.filter(
-            promo_code__discount_type='fixed'
-        ).aggregate(total=Sum('promo_code__discount_value'))['total'] or Decimal('0')
+        fixed_savings = (
+            PromoCodeUsage.objects.filter(promo_code__discount_type='fixed').aggregate(
+                total=Sum('promo_code__discount_value')
+            )['total']
+            or Decimal('0')
+        )
         total_savings += fixed_savings
 
         percent_usages_count = PromoCodeUsage.objects.filter(
             promo_code__discount_type='percentage'
         ).count()
 
-        most_popular_promo = PromoCode.objects.annotate(
-            usage_count=Count('usages')
-        ).filter(usage_count__gt=0).order_by('-usage_count').first()
-
-        most_successful_group = PromoCodeGroup.objects.annotate(
-            usage_count=Count('usages')
-        ).filter(usage_count__gt=0).order_by('-usage_count').first()
+        most_popular_promo = (
+            PromoCode.objects.annotate(usage_count=Count('usages'))
+            .filter(usage_count__gt=0)
+            .order_by('-usage_count')
+            .first()
+        )
+        most_successful_group = (
+            PromoCodeGroup.objects.annotate(usage_count=Count('usages'))
+            .filter(usage_count__gt=0)
+            .order_by('-usage_count')
+            .first()
+        )
 
         return {
             'promo_tab': promo_tab,
             'view_type': view_type,
-            'current_group_id': int(group_id) if group_id else None,
+            'current_group_id': int(group_id)
+            if group_id and group_id.isdigit()
+            else (None if group_id != 'no-group' else 'no-group'),
             'promocodes': promocodes,
             'groups': groups,
             'recent_usages': recent_usages,
@@ -216,8 +271,8 @@ def get_promo_admin_context(request):
             'unique_users': unique_users,
             'avg_discount_percent': round(float(avg_discount_percent), 2),
             'avg_discount_fixed': round(float(avg_discount_fixed), 2),
-            'conversion_rate': round(conversion_rate, 2),
-            'avg_usages_per_promo': round(avg_usages_per_promo, 2),
+            'conversion_rate': round(float(conversion_rate), 2),
+            'avg_usages_per_promo': round(float(avg_usages_per_promo), 2),
             'total_savings': float(total_savings),
             'percent_usages_count': percent_usages_count,
             'used_promocodes_count': used_promocodes_count,
@@ -229,10 +284,17 @@ def get_promo_admin_context(request):
 
         logger = logging.getLogger(__name__)
         logger.error('Ошибка в get_promo_admin_context: %s', e, exc_info=True)
+        group_param = request.GET.get('group')
+        if group_param == 'no-group':
+            current_group = 'no-group'
+        elif group_param and group_param.isdigit():
+            current_group = int(group_param)
+        else:
+            current_group = None
         return {
             'promo_tab': request.GET.get('tab', 'promocodes'),
             'view_type': request.GET.get('view', 'all'),
-            'current_group_id': None,
+            'current_group_id': current_group,
             'promocodes': [],
             'groups': [],
             'recent_usages': [],
@@ -258,14 +320,6 @@ def get_promo_admin_context(request):
 
 # ==================== ADMIN VIEWS ====================
 
-
-def render_admin_promocodes_page(request):
-    """Рендер повної сторінки управління промокодами."""
-    context = get_promo_admin_context(request)
-    context['section'] = 'promocodes'
-    return render(request, 'pages/admin_promocodes.html', context)
-
-
 @login_required
 def admin_promocodes(request):
     """
@@ -273,9 +327,7 @@ def admin_promocodes(request):
     Промокоди тепер в головній адмін-панелі через ?section=promocodes
     Редирект для backward compatibility
     """
-    if not request.user.is_staff:
-        return redirect('home')
-    return render_admin_promocodes_page(request)
+    return redirect('/admin-panel/?section=promocodes')
 
 
 @login_required
@@ -287,7 +339,7 @@ def admin_promocode_create(request):
         return redirect('home')
     
     if request.method == 'POST':
-        form = PromoCodeForm(request.POST)
+        form = PromoCodeForm(normalize_promocode_payload(request.POST))
         if form.is_valid():
             promocode = form.save(commit=False)
             
@@ -334,7 +386,7 @@ def admin_promocode_edit(request, pk):
     promocode = get_object_or_404(PromoCode, pk=pk)
     
     if request.method == 'POST':
-        form = PromoCodeForm(request.POST, instance=promocode)
+        form = PromoCodeForm(normalize_promocode_payload(request.POST), instance=promocode)
         if form.is_valid():
             edited_promocode = form.save(commit=False)
             
@@ -508,12 +560,15 @@ def admin_promocode_get_form(request, pk):
             'id': promocode.id,
             'code': promocode.code,
             'promo_type': promocode.promo_type,
-            'discount': float(promocode.discount) if promocode.discount else None,
-            'fixed_amount': float(promocode.fixed_amount) if promocode.fixed_amount else None,
+            'discount_type': promocode.discount_type,
+            'discount_value': float(promocode.discount_value),
+            'discount': float(promocode.discount_value) if promocode.discount_type == 'percentage' else None,
+            'fixed_amount': float(promocode.discount_value) if promocode.discount_type == 'fixed' else None,
             'description': promocode.description or '',
             'group_id': promocode.group.id if promocode.group else None,
             'min_order_amount': float(promocode.min_order_amount) if promocode.min_order_amount else None,
-            'usage_limit': promocode.usage_limit,
+            'usage_limit': promocode.max_uses or 0,
+            'current_uses': promocode.current_uses,
             'one_time_per_user': promocode.one_time_per_user,
             'valid_from': valid_from,
             'valid_until': valid_until,
@@ -539,7 +594,7 @@ def admin_promocode_edit_ajax(request, pk):
         return JsonResponse({'success': False, 'error': 'Тільки POST запити'}, status=405)
     
     promocode = get_object_or_404(PromoCode, pk=pk)
-    form = PromoCodeForm(request.POST, instance=promocode)
+    form = PromoCodeForm(normalize_promocode_payload(request.POST), instance=promocode)
     
     if form.is_valid():
         updated_promo = form.save(commit=False)

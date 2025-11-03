@@ -1,11 +1,11 @@
 {% load static %}
 
-<!-- CSS для стилів промокодів у стилі дропшипінгу (темна тема) -->
-<link rel="stylesheet" href="{% static 'css/dropshipper.css' %}?v=20250130promo" media="all">
+<!-- CSS для стилів промокодів - темна тема по умолчанию -->
+<link rel="stylesheet" href="{% static 'css/promocodes.css' %}?v=20250202" media="all">
 
-<div class="ds-shell" style="padding-top: 0;">
+<div class="promocodes-admin-wrapper" style="width: 100%; display: flex; gap: 2rem; min-height: 600px;">
   <!-- Sidebar навигация -->
-  <aside class="ds-sidebar" style="top: 0; min-height: auto;">
+  <aside class="ds-sidebar" style="position: relative; top: 0; min-height: auto; width: 280px; flex-shrink: 0;">
     <div class="ds-sidebar__inner">
       <div class="ds-sidebar__brand">
         <div class="ds-sidebar__logo">
@@ -71,7 +71,7 @@
   </aside>
     
   <!-- Main контент -->
-  <main class="ds-main">
+  <main class="ds-main" style="flex: 1; min-width: 0;">
     
     <!-- ==================== ТАБ: ПРОМОКОДИ ==================== -->
     {% if promo_tab == 'promocodes' or not promo_tab %}
@@ -127,10 +127,12 @@
               <i class="fas fa-layer-group"></i> Фільтр по групах:
             </label>
             <select id="groupFilter" class="ds-group-filter__select">
-              <option value="">Всі групи</option>
-              <option value="no-group">Без групи</option>
+              <option value="" {% if not current_group_id %}selected{% endif %}>Всі групи</option>
+              <option value="no-group" {% if current_group_id == 'no-group' %}selected{% endif %}>Без групи</option>
               {% for group in groups %}
-                <option value="{{ group.id }}" data-color="{{ group.id }}">{{ group.name }} ({{ group.codes_count }})</option>
+                <option value="{{ group.id }}" data-color="{{ group.id }}" {% if current_group_id == group.id %}selected{% endif %}>
+                  {{ group.name }} ({{ group.codes_count }})
+                </option>
               {% endfor %}
             </select>
             <button type="button" id="clearGroupFilter" class="ds-group-filter__clear" title="Очистити фільтр" style="display: none;">
@@ -173,6 +175,11 @@
                      draggable="true" 
                      data-promo-id="{{ promo.id }}"
                      data-group-id="{{ promo.group.id|default:'' }}"
+                     data-code="{{ promo.code }}"
+                     data-discount-value="{{ promo.discount_value }}"
+                     data-discount-type="{{ promo.discount_type }}"
+                     data-current-uses="{{ promo.current_uses }}"
+                     data-max-uses="{{ promo.max_uses }}"
                      ondragstart="handlePromoDragStart(event)"
                      ondragend="handlePromoDragEnd(event)">
               <div class="ds-promo-card__header">
@@ -216,13 +223,13 @@
               {% endif %}
 
               <div class="ds-promo-card__actions">
-                <button type="button" class="ds-action-btn ds-action-btn--edit" title="Редагувати" onclick="openEditPromoModal({{ promo.id }})">
+                <button type="button" class="ds-action-btn ds-action-btn--edit" title="Редагувати" data-action="edit-promo" data-promo-id="{{ promo.id }}">
                   <i class="fas fa-edit"></i>
                 </button>
                 <a href="{% url 'admin_promocode_toggle' promo.id %}" class="ds-action-btn ds-action-btn--toggle" title="{% if promo.is_active %}Деактивувати{% else %}Активувати{% endif %}">
                   <i class="fas fa-{% if promo.is_active %}pause{% else %}play{% endif %}"></i>
                 </a>
-                <button type="button" class="ds-action-btn ds-action-btn--delete" title="Видалити" onclick="confirmDelete('promo', {{ promo.id }}, '{{ promo.code }}')">
+                <button type="button" class="ds-action-btn ds-action-btn--delete" title="Видалити" data-action="delete-promo" data-promo-id="{{ promo.id }}" data-promo-code="{{ promo.code }}">
                   <i class="fas fa-trash"></i>
                 </button>
               </div>
@@ -320,7 +327,7 @@
                 <a href="?section=promocodes&tab=promocodes&group={{ group.id }}" class="ds-action-btn ds-action-btn--view" title="Переглянути промокоди">
                   <i class="fas fa-eye"></i>
                 </a>
-                <button type="button" class="ds-action-btn ds-action-btn--edit" title="Редагувати" onclick="openEditGroupModal({{ group.id }})">
+                <button type="button" class="ds-action-btn ds-action-btn--edit" title="Редагувати" data-action="edit-group" data-group-id="{{ group.id }}">
                   <i class="fas fa-edit"></i>
                 </button>
                 <a href="{% url 'admin_promo_group_delete' group.id %}" class="ds-action-btn ds-action-btn--delete" title="Видалити" onclick="return confirm('Видалити групу?')">
@@ -567,7 +574,7 @@
                 <div class="ds-leader-name"><code>{{ promo.code }}</code></div>
                 <div class="ds-leader-meta">{{ promo.get_discount_display }}</div>
               </div>
-              <div class="ds-leader-value">{{ promo.usage_count }}</div>
+              <div class="ds-leader-value">{{ promo.usage_count|default:0 }}</div>
             </div>
             {% empty %}
             <p class="ds-no-data">Немає даних</p>
@@ -589,7 +596,7 @@
               <div class="ds-leader-info">
                 <div class="ds-leader-name">{{ group.name }}</div>
               </div>
-              <div class="ds-leader-value">{{ group.usage_count }}</div>
+              <div class="ds-leader-value">{{ group.usage_count|default:0 }}</div>
       </div>
       {% endfor %}
           </div>
@@ -666,7 +673,7 @@
               </label>
               <select class="form-select" id="promo_type" name="promo_type" required style="border: 1px solid var(--ds-border);">
                 <option value="regular">Звичайний промокод</option>
-                <option value="auction">Аукціон/Реклама</option>
+                <option value="grouped">Груповий промокод</option>
                 <option value="voucher">Ваучер (фіксована сума)</option>
               </select>
               <div class="invalid-feedback">Оберіть тип промокода</div>
@@ -1011,1795 +1018,36 @@
   </div>
 </div>
 
-<style>
-/* Background styling для всієї панелі */
-.ds-shell {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-  min-height: 100vh;
-  position: relative;
-}
-
-.ds-shell::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: 
-    radial-gradient(circle at 20% 50%, rgba(139, 92, 246, 0.2) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(102, 126, 234, 0.2) 0%, transparent 50%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.ds-shell > * {
-  position: relative;
-  z-index: 1;
-}
-
-.ds-container {
-  background: transparent !important;
-}
-
-/* Sidebar glassmorphism */
-.ds-sidebar {
-  background: rgba(255, 255, 255, 0.1) !important;
-  backdrop-filter: blur(20px);
-  border-right: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-/* Overview cards на градієнті */
-.ds-overview-card {
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  backdrop-filter: blur(20px);
-  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
-}
-
-/* Stat cards */
-.ds-stat-card, .ds-chart-card {
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  backdrop-filter: blur(20px);
-  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
-}
-
-/* Dark mode override */
-body.dark-mode .ds-shell {
-  background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%) !important;
-}
-
-body.dark-mode .ds-shell::before {
-  background: 
-    radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
-}
-
-body.dark-mode .ds-sidebar {
-  background: rgba(26, 32, 44, 0.8) !important;
-  border-right-color: rgba(255, 255, 255, 0.1);
-}
-
-body.dark-mode .ds-promo-card,
-body.dark-mode .ds-group-card,
-body.dark-mode .ds-stat-card,
-body.dark-mode .ds-chart-card,
-body.dark-mode .ds-overview-card {
-  background: rgba(45, 55, 72, 0.95);
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-/* Дополнительные стили для промокодов */
-.ds-filters {
-  margin: 2rem 0;
-}
-
-.ds-filter-pills {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.ds-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.6rem 1.2rem;
-  background: var(--ds-bg-elevated);
-  border: 1px solid var(--ds-border);
-  border-radius: var(--ds-radius-sm);
-  color: var(--ds-text-muted);
-  text-decoration: none;
-  font-weight: 500;
-  transition: all var(--ds-transition);
-}
-
-.ds-pill:hover {
-  border-color: var(--ds-border-strong);
-  color: var(--ds-text);
-  transform: translateY(-2px);
-}
-
-.ds-pill.is-active {
-  background: var(--ds-primary);
-  border-color: var(--ds-primary);
-  color: white;
-}
-
-.ds-pill__count {
-  padding: 0.2rem 0.5rem;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
-  font-size: 0.85rem;
-}
-
-.ds-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 1.5rem;
-  margin: 2rem 0;
-}
-
-/* Промо карточка */
-.ds-promo-card, .ds-group-card {
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: var(--ds-radius-lg);
-  padding: 1.5rem;
-  backdrop-filter: blur(20px);
-  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
-  transition: all var(--ds-transition);
-}
-
-.ds-promo-card:hover, .ds-group-card:hover {
-  border-color: rgba(102, 126, 234, 0.5);
-  transform: translateY(-4px);
-  box-shadow: 0 12px 48px rgba(102, 126, 234, 0.3);
-  background: rgba(255, 255, 255, 1);
-}
-
-.ds-promo-card.is-inactive, .ds-group-card.is-inactive {
-  opacity: 0.6;
-}
-
-.ds-promo-card__header, .ds-group-card__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1rem;
-}
-
-.ds-promo-card__code {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.ds-promo-card__code code {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: var(--ds-primary);
-  font-family: 'Courier New', monospace;
-  padding: 0.25rem 0.5rem;
-  background: rgba(139, 92, 246, 0.1);
-  border-radius: 6px;
-}
-
-.ds-badge {
-  padding: 0.3rem 0.75rem;
-  border-radius: 8px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.ds-badge--voucher {
-  background: rgba(249, 115, 22, 0.15);
-  color: var(--ds-accent);
-}
-
-.ds-badge--grouped {
-  background: rgba(59, 130, 246, 0.15);
-  color: #3b82f6;
-}
-
-.ds-badge--info {
-  background: rgba(16, 185, 129, 0.15);
-  color: var(--ds-success);
-}
-
-.ds-status-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.ds-status-dot.is-active {
-  background: var(--ds-success);
-  box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
-}
-
-.ds-status-dot.is-inactive {
-  background: var(--ds-danger);
-  box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
-}
-
-.ds-promo-card__description, .ds-group-card__description {
-  color: var(--ds-text-muted);
-  font-size: 0.9rem;
-  margin-bottom: 1rem;
-  line-height: 1.6;
-}
-
-.ds-promo-card__stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  padding: 1rem;
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: var(--ds-radius-sm);
-  margin-bottom: 1rem;
-}
-
-.ds-stat-item {
-  text-align: center;
-}
-
-.ds-stat-item__label {
-  font-size: 0.75rem;
-  color: var(--ds-text-soft);
-  margin-bottom: 0.25rem;
-}
-
-.ds-stat-item__value {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--ds-text);
-}
-
-.ds-promo-card__group {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.5rem 0.9rem;
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-  border-radius: var(--ds-radius-sm);
-  font-size: 0.85rem;
-  margin-bottom: 1rem;
-}
-
-.ds-promo-card__actions, .ds-group-card__actions {
-  display: flex;
-  gap: 0.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--ds-border);
-}
-
-.ds-action-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.7rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--ds-border);
-  border-radius: var(--ds-radius-sm);
-  color: var(--ds-text-muted);
-  text-decoration: none;
-  transition: all var(--ds-transition);
-}
-
-.ds-action-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--ds-border-strong);
-  color: var(--ds-text);
-  transform: translateY(-2px);
-}
-
-.ds-action-btn--edit:hover {
-  background: rgba(16, 185, 129, 0.15);
-  border-color: var(--ds-success);
-  color: var(--ds-success);
-}
-
-.ds-action-btn--delete:hover {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: var(--ds-danger);
-  color: var(--ds-danger);
-}
-
-.ds-action-btn--view:hover {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: #3b82f6;
-  color: #3b82f6;
-}
-
-.ds-action-btn--toggle:hover {
-  background: rgba(249, 115, 22, 0.15);
-  border-color: var(--ds-accent);
-  color: var(--ds-accent);
-}
-
-/* Группы */
-.ds-group-card__title {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--ds-text);
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.ds-group-card__metrics {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.ds-metric {
-  text-align: center;
-  padding: 0.75rem;
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: var(--ds-radius-sm);
-}
-
-.ds-metric__value {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--ds-text);
-  line-height: 1;
-}
-
-.ds-metric__label {
-  font-size: 0.75rem;
-  color: var(--ds-text-soft);
-  margin-top: 0.25rem;
-}
-
-/* Статистика */
-.ds-stats-overview {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
-  margin: 2rem 0;
-}
-
-.ds-overview-card {
-  background: var(--ds-panel);
-  border: 1px solid var(--ds-border);
-  border-radius: var(--ds-radius-lg);
-  padding: 2rem;
-  text-align: center;
-  backdrop-filter: blur(20px);
-}
-
-.ds-overview-card__icon {
-  font-size: 2rem;
-  color: var(--ds-primary);
-  margin-bottom: 1rem;
-}
-
-.ds-overview-card__value {
-  font-size: 3rem;
-  font-weight: 700;
-  color: var(--ds-text);
-  line-height: 1;
-}
-
-.ds-overview-card__label {
-  color: var(--ds-text-muted);
-  margin-top: 0.5rem;
-  font-size: 0.9rem;
-}
-
-.ds-overview-card__meta {
-  color: var(--ds-text-muted);
-  margin-top: 0.5rem;
-  font-size: 0.8rem;
-  opacity: 0.7;
-}
-
-/* Overview card variants */
-.ds-overview-card--success {
-  border-color: rgba(76, 175, 80, 0.3);
-  background: linear-gradient(135deg, rgba(76, 175, 80, 0.05) 0%, rgba(76, 175, 80, 0.1) 100%);
-}
-
-.ds-overview-card--success .ds-overview-card__icon {
-  color: #4caf50;
-}
-
-.ds-overview-card--warning {
-  border-color: rgba(255, 193, 7, 0.3);
-  background: linear-gradient(135deg, rgba(255, 193, 7, 0.05) 0%, rgba(255, 193, 7, 0.1) 100%);
-}
-
-.ds-overview-card--warning .ds-overview-card__icon {
-  color: #ffc107;
-}
-
-/* Extended stats */
-.ds-stats-extended {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.ds-stat-card {
-  background: var(--ds-panel);
-  border: 1px solid var(--ds-border);
-  border-radius: var(--ds-radius-lg);
-  padding: 1.5rem;
-  backdrop-filter: blur(20px);
-  transition: all 0.3s ease;
-}
-
-.ds-stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-  border-color: var(--ds-primary);
-}
-
-.ds-stat-card--highlight {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
-  border-color: var(--ds-primary);
-}
-
-.ds-stat-card__header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--ds-border);
-}
-
-.ds-stat-card__header i {
-  color: var(--ds-primary);
-  font-size: 1.2rem;
-}
-
-.ds-stat-card__header h3 {
-  margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--ds-text);
-}
-
-.ds-stat-card__body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.ds-stat-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.ds-stat-row:last-child {
-  border-bottom: none;
-}
-
-.ds-stat-row--large {
-  padding: 0.75rem 0;
-}
-
-.ds-stat-row--muted {
-  opacity: 0.7;
-  font-size: 0.9rem;
-}
-
-.ds-stat-label {
-  color: var(--ds-text-muted);
-  font-size: 0.9rem;
-}
-
-.ds-stat-value {
-  font-weight: 600;
-  color: var(--ds-text);
-  font-size: 1rem;
-}
-
-.ds-stat-row--large .ds-stat-value {
-  font-size: 1.1rem;
-  color: var(--ds-primary);
-}
-
-/* Charts */
-.ds-charts-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.ds-chart-card {
-  background: var(--ds-panel);
-  border: 1px solid var(--ds-border);
-  border-radius: var(--ds-radius-lg);
-  padding: 1.5rem;
-  backdrop-filter: blur(20px);
-  transition: all 0.3s ease;
-}
-
-.ds-chart-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-  border-color: var(--ds-primary);
-}
-
-.ds-chart-card__header {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--ds-border);
-}
-
-.ds-chart-card__header h3 {
-  margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--ds-text);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.ds-chart-card__header i {
-  color: var(--ds-primary);
-}
-
-.ds-chart-card__subtitle {
-  font-size: 0.85rem;
-  color: var(--ds-text-muted);
-  opacity: 0.7;
-}
-
-.ds-chart-card__body {
-  position: relative;
-  min-height: 250px;
-}
-
-.ds-chart-card__body canvas {
-  width: 100% !important;
-  height: 100% !important;
-  max-height: 300px;
-}
-
-/* Адаптивність для графіків */
-@media (max-width: 767.98px) {
-  .ds-charts-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .ds-chart-card__body {
-    min-height: 200px;
-  }
-}
-
-/* Dark Mode Toggle */
-.ds-dark-mode-toggle {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
-  color: white;
-  font-size: 1.2rem;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
-  transition: all 0.3s ease;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.ds-dark-mode-toggle:hover {
-  transform: scale(1.1) rotate(15deg);
-  box-shadow: 0 6px 24px rgba(102, 126, 234, 0.6);
-}
-
-.ds-dark-mode-toggle:active {
-  transform: scale(0.95);
-}
-
-/* Dark Mode Variables */
-:root {
-  --ds-bg: #f8f9fa;
-  --ds-bg-soft: #f1f3f4;
-  --ds-text: #1a202c;
-  --ds-text-muted: #718096;
-  --ds-card-bg: #ffffff;
-  --ds-border: #e2e8f0;
-  --ds-panel: rgba(255, 255, 255, 0.9);
-  --ds-primary: #667eea;
-  --ds-radius-lg: 16px;
-}
-
-body.dark-mode {
-  --ds-bg: #1a202c;
-  --ds-bg-soft: #2d3748;
-  --ds-text: #f7fafc;
-  --ds-text-muted: #a0aec0;
-  --ds-card-bg: #2d3748;
-  --ds-border: #4a5568;
-  --ds-panel: rgba(45, 55, 72, 0.9);
-}
-
-body.dark-mode .ds-container {
-  background: transparent !important;
-}
-
-body.dark-mode .ds-hero {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-body.dark-mode .modal-content {
-  background: rgba(45, 55, 72, 0.98) !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
-  backdrop-filter: blur(20px);
-}
-
-body.dark-mode .form-control,
-body.dark-mode .form-select,
-body.dark-mode .ds-date-input {
-  background: rgba(26, 32, 44, 0.8) !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
-  color: var(--ds-text) !important;
-}
-
-body.dark-mode .ds-dark-mode-toggle {
-  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-}
-
-/* Search Box */
-.ds-search-box {
-  position: relative;
-  margin-top: 1rem;
-}
-
-.ds-search-icon {
-  position: absolute;
-  left: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--ds-text-muted);
-  font-size: 1rem;
-}
-
-.ds-search-input {
-  width: 100%;
-  padding: 0.75rem 3rem 0.75rem 3rem;
-  border: 2px solid var(--ds-border);
-  border-radius: 12px;
-  background: var(--ds-card-bg);
-  color: var(--ds-text);
-  font-size: 0.95rem;
-  transition: all 0.2s ease;
-}
-
-.ds-search-input:focus {
-  outline: none;
-  border-color: var(--ds-primary);
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.ds-search-clear {
-  position: absolute;
-  right: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  color: var(--ds-text-muted);
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 50%;
-  transition: all 0.2s ease;
-}
-
-.ds-search-clear:hover {
-  background: var(--ds-bg-soft);
-  color: var(--ds-text);
-}
-
-/* Highlight search results */
-.promo-highlight {
-  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-  color: white;
-  padding: 0.2rem 0.4rem;
-  border-radius: 4px;
-  font-weight: 600;
-}
-
-/* Sort Box */
-.ds-sort-box {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-top: 1rem;
-}
-
-.ds-sort-label {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--ds-text);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0;
-}
-
-.ds-sort-select {
-  flex: 1;
-  padding: 0.75rem 1rem;
-  border: 2px solid var(--ds-border);
-  border-radius: 8px;
-  background: var(--ds-card-bg);
-  color: var(--ds-text);
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.ds-sort-select:focus {
-  outline: none;
-  border-color: var(--ds-primary);
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-@media (max-width: 767.98px) {
-  .ds-sort-box {
-    flex-direction: column;
-    align-items: stretch;
-  }
-}
-
-/* Fade-in animations */
-.ds-fade-in-item {
-  animation: fadeInUp 0.6s ease forwards;
-  opacity: 0;
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.ds-fade-in-grid .ds-fade-in-item:nth-child(1) { animation-delay: 0.05s; }
-.ds-fade-in-grid .ds-fade-in-item:nth-child(2) { animation-delay: 0.1s; }
-.ds-fade-in-grid .ds-fade-in-item:nth-child(3) { animation-delay: 0.15s; }
-.ds-fade-in-grid .ds-fade-in-item:nth-child(4) { animation-delay: 0.2s; }
-.ds-fade-in-grid .ds-fade-in-item:nth-child(5) { animation-delay: 0.25s; }
-.ds-fade-in-grid .ds-fade-in-item:nth-child(6) { animation-delay: 0.3s; }
-.ds-fade-in-grid .ds-fade-in-item:nth-child(n+7) { animation-delay: 0.35s; }
-
-/* Smooth transitions */
-.ds-promo-card,
-.ds-group-card,
-.ds-stat-card,
-.ds-chart-card {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Export Actions */
-.ds-export-actions {
-  display: flex;
-  gap: 0.75rem;
-  margin-top: 1rem;
-  flex-wrap: wrap;
-}
-
-.ds-export-btn {
-  padding: 0.75rem 1.5rem;
-  border: 2px solid var(--ds-border);
-  border-radius: 8px;
-  background: var(--ds-card-bg);
-  color: var(--ds-text);
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.ds-export-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.ds-export-btn--csv {
-  border-color: #10b981;
-  color: #10b981;
-}
-
-.ds-export-btn--csv:hover {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
-  border-color: #10b981;
-}
-
-.ds-export-btn--excel {
-  border-color: #3b82f6;
-  color: #3b82f6;
-}
-
-.ds-export-btn--excel:hover {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  color: white;
-  border-color: #3b82f6;
-}
-
-.ds-export-btn--pdf {
-  border-color: #ef4444;
-  color: #ef4444;
-}
-
-.ds-export-btn--pdf:hover {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  color: white;
-  border-color: #ef4444;
-}
-
-@media (max-width: 767.98px) {
-  .ds-export-actions {
-    flex-direction: column;
-  }
-  
-  .ds-export-btn {
-    width: 100%;
-    justify-content: center;
-  }
-}
-
-/* Date Filters */
-.ds-date-filters {
-  margin-top: 1.5rem;
-}
-
-.ds-date-filter-pills {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.ds-date-pill {
-  padding: 0.75rem 1.5rem;
-  border: 2px solid var(--ds-border);
-  border-radius: 12px;
-  background: var(--ds-card-bg);
-  color: var(--ds-text);
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  white-space: nowrap;
-}
-
-.ds-date-pill:hover {
-  border-color: var(--ds-primary);
-  background: var(--ds-bg-soft);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
-}
-
-.ds-date-pill.is-active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-color: var(--ds-primary);
-  color: white;
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
-}
-
-.ds-date-pill i {
-  font-size: 1rem;
-}
-
-/* Custom Date Range */
-.ds-custom-date-range {
-  margin-top: 1rem;
-  animation: slideDown 0.3s ease;
-}
-
-.ds-date-inputs {
-  display: flex;
-  gap: 1rem;
-  align-items: flex-end;
-  flex-wrap: wrap;
-}
-
-.ds-date-input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.ds-date-input-group label {
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--ds-text-muted);
-}
-
-.ds-date-input {
-  padding: 0.75rem 1rem;
-  border: 2px solid var(--ds-border);
-  border-radius: 8px;
-  background: var(--ds-card-bg);
-  color: var(--ds-text);
-  font-size: 0.9rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  min-width: 160px;
-}
-
-.ds-date-input:focus {
-  outline: none;
-  border-color: var(--ds-primary);
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.ds-btn--apply {
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
-  border-radius: 8px;
-  color: white;
-  font-weight: 600;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.ds-btn--apply:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
-}
-
-.ds-btn--apply:active {
-  transform: translateY(0);
-}
-
-/* Responsive для date filters */
-@media (max-width: 767.98px) {
-  .ds-date-filter-pills {
-    flex-direction: column;
-  }
-  
-  .ds-date-pill {
-    width: 100%;
-    justify-content: center;
-  }
-  
-  .ds-date-inputs {
-    flex-direction: column;
-    width: 100%;
-  }
-  
-  .ds-date-input-group {
-    width: 100%;
-  }
-  
-  .ds-date-input {
-    width: 100%;
-  }
-  
-  .ds-btn--apply {
-    width: 100%;
-    justify-content: center;
-  }
-}
-
-.ds-section {
-  background: var(--ds-panel);
-  border: 1px solid var(--ds-border);
-  border-radius: var(--ds-radius-lg);
-  padding: 2rem;
-  margin-bottom: 2rem;
-  backdrop-filter: blur(20px);
-}
-
-.ds-section__title {
-  font-size: 1.3rem;
-  font-weight: 700;
-  color: var(--ds-text);
-  margin-bottom: 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.ds-section__title i {
-  color: var(--ds-primary);
-}
-
-.ds-leaderboard {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.ds-leader-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--ds-border);
-  border-radius: var(--ds-radius-sm);
-  transition: all var(--ds-transition);
-}
-
-.ds-leader-item:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: var(--ds-border-strong);
-  transform: translateX(4px);
-}
-
-.ds-leader-rank {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: var(--ds-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  color: white;
-  flex-shrink: 0;
-}
-
-.ds-leader-item:nth-child(1) .ds-leader-rank {
-  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
-  color: #000;
-}
-
-.ds-leader-item:nth-child(2) .ds-leader-rank {
-  background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 100%);
-  color: #000;
-}
-
-.ds-leader-item:nth-child(3) .ds-leader-rank {
-  background: linear-gradient(135deg, #cd7f32 0%, #d4a574 100%);
-}
-
-.ds-leader-info {
-  flex: 1;
-}
-
-.ds-leader-name {
-  font-weight: 600;
-  color: var(--ds-text);
-}
-
-.ds-leader-name code {
-  background: rgba(139, 92, 246, 0.1);
-  color: var(--ds-primary);
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-}
-
-.ds-leader-meta {
-  font-size: 0.85rem;
-  color: var(--ds-text-soft);
-  margin-top: 0.25rem;
-}
-
-.ds-leader-value {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--ds-text);
-}
-
-.ds-usage-log {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.ds-usage-row {
-  display: grid;
-  grid-template-columns: 150px 200px 150px 1fr;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: var(--ds-radius-sm);
-  color: var(--ds-text-muted);
-  font-size: 0.9rem;
-  transition: all var(--ds-transition);
-}
-
-.ds-usage-row:hover {
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.ds-usage-code code {
-  background: rgba(139, 92, 246, 0.1);
-  color: var(--ds-primary);
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-}
-
-.ds-no-data {
-  text-align: center;
-  color: var(--ds-text-soft);
-  padding: 2rem;
-  font-style: italic;
-}
-
-/* Empty state */
-.ds-empty-state {
-  grid-column: 1 / -1;
-  text-align: center;
-  padding: 4rem 2rem;
-  background: var(--ds-panel);
-  border: 2px dashed var(--ds-border);
-  border-radius: var(--ds-radius-lg);
-}
-
-.ds-empty-state__icon {
-  opacity: 0.3;
-  margin-bottom: 1.5rem;
-  color: var(--ds-primary);
-}
-
-.ds-empty-state__title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--ds-text);
-  margin-bottom: 0.5rem;
-}
-
-.ds-empty-state__text {
-  color: var(--ds-text-muted);
-  margin-bottom: 2rem;
-}
-
-/* Sidebar стили */
-.ds-sidebar__stats {
-  padding-top: 1.5rem;
-  margin-top: auto;
-  border-top: 1px solid var(--ds-border);
-}
-
-.ds-sidebar__stat {
-  text-align: center;
-  padding: 0.75rem;
-}
-
-.ds-sidebar__stat:not(:last-child) {
-  margin-bottom: 0.5rem;
-}
-
-.ds-sidebar__stat-value {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: var(--ds-text);
-  line-height: 1;
-}
-
-.ds-sidebar__stat-label {
-  font-size: 0.75rem;
-  color: var(--ds-text-soft);
-  margin-top: 0.25rem;
-}
-
-.ds-sidebar__badge {
-  padding: 0.2rem 0.5rem;
-  background: var(--ds-primary-soft);
-  color: var(--ds-primary);
-  border-radius: 8px;
-  font-size: 0.75rem;
-  margin-left: 0.5rem;
-  font-weight: 600;
-}
-
-.ds-sidebar__link.is-active .ds-sidebar__badge {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-}
-
-/* ==================== RESPONSIVE STYLES ==================== */
-
-/* Mobile optimizations (< 768px) */
-@media (max-width: 767.98px) {
-  /* Модальні вікна - fullscreen на мобільних */
-  .modal-fullscreen-md-down .modal-body {
-    padding: 1rem !important;
-  }
-  
-  .modal-fullscreen-md-down .modal-header,
-  .modal-fullscreen-md-down .modal-footer {
-    padding: 0.75rem 1rem !important;
-  }
-  
-  .modal-fullscreen-md-down .modal-title {
-    font-size: 1.1rem !important;
-  }
-  
-  /* Форми в модалках */
-  .modal-fullscreen-md-down .form-label {
-    font-size: 0.9rem !important;
-    margin-bottom: 0.3rem !important;
-  }
-  
-  .modal-fullscreen-md-down .form-control,
-  .modal-fullscreen-md-down .form-select {
-    font-size: 0.95rem !important;
-    padding: 0.5rem !important;
-  }
-  
-  .modal-fullscreen-md-down .btn {
-    padding: 0.6rem 1rem !important;
-    font-size: 0.95rem !important;
-  }
-  
-  /* Toast на мобільних - зверху по центру */
-  .toast-container {
-    top: 1rem !important;
-    left: 50% !important;
-    right: auto !important;
-    transform: translateX(-50%) !important;
-    width: 90% !important;
-    max-width: 400px !important;
-  }
-  
-  /* Sidebar та main content */
-  .ds-sidebar {
-    position: relative !important;
-    width: 100% !important;
-    min-height: auto !important;
-  }
-  
-  .ds-main {
-    padding: 1rem !important;
-  }
-  
-  /* Promo cards на мобільних */
-  .ds-promo-card {
-    padding: 1rem !important;
-  }
-  
-  .ds-promo-card__header {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 0.5rem !important;
-  }
-  
-  .ds-promo-card__code {
-    font-size: 1.1rem !important;
-  }
-  
-  .ds-promo-card__actions {
-    width: 100% !important;
-    justify-content: space-around !important;
-    margin-top: 0.5rem !important;
-  }
-  
-  /* Hero section на мобільних */
-  .ds-hero__title {
-    font-size: 1.8rem !important;
-  }
-  
-  .ds-hero__lead {
-    font-size: 0.95rem !important;
-  }
-  
-  /* Фільтри */
-  .ds-filter-pills {
-    flex-direction: column !important;
-    gap: 0.5rem !important;
-  }
-  
-  .ds-pill {
-    width: 100% !important;
-    justify-content: center !important;
-  }
-}
-
-/* Tablet optimizations (768px - 991px) */
-@media (min-width: 768px) and (max-width: 991.98px) {
-  .modal-lg {
-    max-width: 90% !important;
-  }
-  
-  .ds-promo-card {
-    padding: 1.25rem !important;
-  }
-  
-  .ds-hero__title {
-    font-size: 2rem !important;
-  }
-}
-
-/* Large desktop optimizations (> 1200px) */
-@media (min-width: 1200px) {
-  .modal-lg {
-    max-width: 900px !important;
-  }
-  
-  .ds-container {
-    max-width: 1400px !important;
-  }
-}
-
-/* Small mobile (< 576px) - extra optimizations */
-@media (max-width: 575.98px) {
-  .modal-fullscreen-md-down .row.g-3 {
-    gap: 0.75rem !important;
-  }
-  
-  .modal-fullscreen-md-down .col-md-6 {
-    padding: 0 !important;
-  }
-  
-  .ds-action-btn {
-    padding: 0.4rem !important;
-    font-size: 0.9rem !important;
-  }
-  
-  .ds-btn {
-    width: 100% !important;
-    margin-bottom: 0.5rem !important;
-  }
-  
-  .ds-sidebar__nav {
-    flex-direction: column !important;
-  }
-  
-  .ds-sidebar__link {
-    justify-content: flex-start !important;
-    padding: 0.75rem !important;
-  }
-}
-
-/* Print styles */
-@media print {
-  .modal,
-  .toast-container,
-  .ds-sidebar,
-  .ds-actions {
-    display: none !important;
-  }
-  
-  .ds-main {
-    padding: 0 !important;
-  }
-}
-
-/* ==================== DRAG & DROP STYLES ==================== */
-
-/* Промокод при перетягуванні */
-.ds-promo-card[draggable="true"] {
-  cursor: move;
-  transition: all 0.2s ease;
-}
-
-.ds-promo-card[draggable="true"]:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-}
-
-.ds-promo-card.is-dragging {
-  opacity: 0.4 !important;
-  transform: scale(0.95);
-  cursor: grabbing;
-}
-
-/* Drop zone highlight */
-.promo-drop-zone {
-  transition: all 0.3s ease;
-  position: relative;
-}
-
-.promo-drop-zone.is-drag-over {
-  transform: scale(1.05);
-  box-shadow: 0 0 0 3px var(--ds-primary), 0 8px 24px rgba(102, 126, 234, 0.4);
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
-}
-
-.promo-drop-zone.is-drag-over::after {
-  content: 'Відпустіть промокод тут';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: var(--ds-primary);
-  color: white;
-  padding: 0.75rem 1.5rem;
-  border-radius: 12px;
-  font-weight: 600;
-  font-size: 0.9rem;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
-  pointer-events: none;
-  z-index: 10;
-  white-space: nowrap;
-}
-
-/* Анімація успішного drop */
-.drop-success {
-  animation: dropSuccess 1s ease;
-}
-
-@keyframes dropSuccess {
-  0% {
-    transform: scale(1);
-  }
-  25% {
-    transform: scale(1.1);
-    box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.3);
-  }
-  50% {
-    transform: scale(0.95);
-  }
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
-  }
-}
-
-/* Drag hint icon */
-.ds-promo-card[draggable="true"]::before {
-  content: '⋮⋮';
-  position: absolute;
-  left: 0.5rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--ds-text-muted);
-  font-size: 1.2rem;
-  opacity: 0;
-  transition: opacity 0.2s;
-  pointer-events: none;
-}
-
-.ds-promo-card[draggable="true"]:hover::before {
-  opacity: 0.5;
-}
-
-/* Mobile drag optimizations */
-@media (max-width: 767.98px) {
-  .ds-promo-card[draggable="true"]::before {
-    opacity: 0.3;
-  }
-  
-  .promo-drop-zone.is-drag-over::after {
-    font-size: 0.8rem;
-    padding: 0.5rem 1rem;
-  }
-}
-
-/* ==================== GROUP COLOR INDICATORS ==================== */
-
-/* Маркер кольору групи на картці промокода */
-.promo-group-marker {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 4px;
-  height: 100%;
-  border-radius: 12px 0 0 12px;
-  transition: all 0.3s ease;
-  z-index: 1;
-}
-
-.ds-promo-card:hover .promo-group-marker {
-  width: 6px;
-  box-shadow: 0 0 12px rgba(0, 0, 0, 0.3);
-}
-
-/* Маркер кольору на картці групи */
-.group-color-marker {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 0.75rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  transition: all 0.3s ease;
-  flex-shrink: 0;
-}
-
-.ds-group-card:hover .group-color-marker {
-  transform: scale(1.3);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-}
-
-/* Анімація pulse для активних груп */
-@keyframes colorPulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.7;
-    transform: scale(1.1);
-  }
-}
-
-.ds-group-card.is-drag-over .group-color-marker {
-  animation: colorPulse 1s infinite;
-}
-
-/* Підсвічування промокодів при hover на групі */
-.ds-promo-card[data-group-id]:hover .promo-group-marker {
-  animation: colorPulse 2s infinite;
-}
-
-/* Легенда кольорів (для майбутнього використання) */
-.group-color-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin: 1rem 0;
-  padding: 1rem;
-  background: var(--ds-bg-soft);
-  border-radius: 12px;
-}
-
-.group-color-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  background: var(--ds-card-bg);
-  border-radius: 8px;
-  font-size: 0.85rem;
-  color: var(--ds-text);
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.group-color-legend-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.group-color-legend-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-/* Адаптивність для маркерів */
-@media (max-width: 767.98px) {
-  .promo-group-marker {
-    width: 3px;
-  }
-  
-  .ds-promo-card:hover .promo-group-marker {
-    width: 4px;
-  }
-  
-  .group-color-marker {
-    width: 6px;
-    height: 6px;
-  }
-}
-
-/* ==================== COUNTER ANIMATIONS ==================== */
-
-/* Анімація оновлення лічильника */
-@keyframes counterUpdate {
-  0% {
-    transform: scale(1);
-    color: var(--ds-text);
-  }
-  50% {
-    transform: scale(1.2);
-    color: var(--ds-primary);
-  }
-  100% {
-    transform: scale(1);
-    color: var(--ds-text);
-  }
-}
-
-/* Анімація pulse для badge */
-@keyframes badgePulse {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.15);
-    box-shadow: 0 0 12px var(--ds-primary);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-/* Підсвічування метрик при hover */
-.ds-metric__value {
-  transition: all 0.3s ease;
-}
-
-.ds-metric:hover .ds-metric__value {
-  color: var(--ds-primary);
-  transform: scale(1.1);
-}
-
-.ds-sidebar__badge {
-  transition: all 0.3s ease;
-}
-
-/* ==================== GROUP FILTER ==================== */
-
-.ds-group-filter {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-left: auto;
-  padding: 0.5rem 1rem;
-  background: var(--ds-card-bg);
-  border-radius: 12px;
-  border: 1px solid var(--ds-border);
-}
-
-.ds-group-filter__label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--ds-text);
-  margin: 0;
-  white-space: nowrap;
-}
-
-.ds-group-filter__label i {
-  color: var(--ds-primary);
-}
-
-.ds-group-filter__select {
-  padding: 0.5rem 2.5rem 0.5rem 1rem;
-  border: 1px solid var(--ds-border);
-  border-radius: 8px;
-  background: var(--ds-bg-soft);
-  color: var(--ds-text);
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23667eea' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.75rem center;
-  min-width: 200px;
-}
-
-.ds-group-filter__select:hover {
-  border-color: var(--ds-primary);
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.ds-group-filter__select:focus {
-  outline: none;
-  border-color: var(--ds-primary);
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
-}
-
-.ds-group-filter__clear {
-  padding: 0.5rem;
-  border: none;
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-}
-
-.ds-group-filter__clear:hover {
-  background: #ef4444;
-  color: white;
-  transform: scale(1.1);
-}
-
-/* Промокоди фільтрації - приховані */
-.ds-promo-card.is-filtered-out {
-  display: none !important;
-}
-
-/* Індикатор кількості знайдених */
-.ds-filter-results {
-  margin-top: 1rem;
-  padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
-  border-radius: 12px;
-  border-left: 4px solid var(--ds-primary);
-  font-size: 0.9rem;
-  color: var(--ds-text);
-  font-weight: 500;
-  display: none;
-}
-
-.ds-filter-results.is-active {
-  display: block;
-  animation: slideDown 0.3s ease;
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Responsive для фільтра */
-@media (max-width: 767.98px) {
-  .ds-filters {
-    flex-direction: column;
-    gap: 1rem;
-  }
-  
-  .ds-group-filter {
-    width: 100%;
-    margin-left: 0;
-  }
-  
-  .ds-group-filter__select {
-    flex: 1;
-    min-width: auto;
-  }
-}
-
-@media (max-width: 575.98px) {
-  .ds-group-filter {
-    flex-wrap: wrap;
-  }
-  
-  .ds-group-filter__label {
-    width: 100%;
-  }
-  
-  .ds-group-filter__select {
-    flex: 1;
-  }
-}
-</style>
+<!-- Стили перенесены в promocodes.css -->
+<!-- Все стили теперь в отдельном файле promocodes.css для лучшей организации и поддержки -->
+
+<!-- Данные для графиков в JSON формате -->
+{% if promo_tab == 'stats' %}
+<script type="application/json" id="topPromosData">
+{
+  "labels": [
+    {% if top_promos %}{% for promo in top_promos %}"{{ promo.code|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}
+  ],
+  "values": [
+    {% if top_promos %}{% for promo in top_promos %}{{ promo.usage_count|default:0 }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}
+  ]
+}
+</script>
+
+<script type="application/json" id="topGroupsData">
+{
+  "labels": [
+    {% if top_groups %}{% for group in top_groups %}"{{ group.name|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}
+  ],
+  "values": [
+    {% if top_groups %}{% for group in top_groups %}{{ group.usage_count|default:0 }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}
+  ]
+}
+</script>
+{% endif %}
 
 <script>
+/* eslint-disable */
 // ==================== ПРОМОКОДИ: AJAX & MODALS ====================
 
 // Допоміжна функція: показати toast повідомлення
@@ -2821,8 +1069,9 @@ function showToast(message, type = 'success') {
   const toast = new bootstrap.Toast(toastEl, {
     animation: true,
     autohide: true,
-    delay: 4000
+    delay: 5000
   });
+  
   toast.show();
 }
 
@@ -2831,10 +1080,73 @@ function getCSRFToken() {
   return document.querySelector('[name=csrfmiddlewaretoken]').value;
 }
 
+// ==================== ОБРОБНИКИ КНОПОК ====================
+
+// Обробники для кнопок з data-атрибутами
+document.addEventListener('click', function(e) {
+  const target = e.target.closest('[data-action]');
+  if (!target) return;
+  
+  const action = target.dataset.action;
+  
+  if (action === 'edit-promo') {
+    const promoId = target.dataset.promoId;
+    if (promoId) {
+      openEditPromoModal(parseInt(promoId));
+    }
+  } else if (action === 'delete-promo') {
+    const promoId = target.dataset.promoId;
+    const promoCode = target.dataset.promoCode;
+    if (promoId && promoCode) {
+      confirmDelete('promo', parseInt(promoId), promoCode);
+    }
+  } else if (action === 'edit-group') {
+    const groupId = target.dataset.groupId;
+    if (groupId) {
+      openEditGroupModal(parseInt(groupId));
+    }
+  }
+});
+
 // ==================== СТВОРЕННЯ ПРОМОКОДА ====================
 
-document.getElementById('createPromoForm').addEventListener('submit', async function(e) {
+function setupPromoTypeBehavior(form) {
+  if (!form) return;
+  const typeSelect = form.querySelector('[name="promo_type"]');
+  const percentInput = form.querySelector('[name="discount"]');
+  const fixedInput = form.querySelector('[name="fixed_amount"]');
+
+  if (!typeSelect || !percentInput || !fixedInput) return;
+
+  const toggle = () => {
+    const isVoucher = typeSelect.value === 'voucher';
+
+    percentInput.disabled = isVoucher;
+    percentInput.required = !isVoucher;
+    if (isVoucher) {
+      percentInput.value = '';
+      percentInput.classList.remove('is-invalid');
+    }
+
+    fixedInput.disabled = !isVoucher;
+    fixedInput.required = isVoucher;
+    if (!isVoucher) {
+      fixedInput.value = '';
+      fixedInput.classList.remove('is-invalid');
+    }
+  };
+
+  typeSelect.addEventListener('change', toggle);
+  toggle();
+}
+
+const createPromoForm = document.getElementById('createPromoForm');
+if (createPromoForm) {
+  setupPromoTypeBehavior(createPromoForm);
+
+  createPromoForm.addEventListener('submit', async function(e) {
   e.preventDefault();
+  this.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
   
   // Валідація Bootstrap
   if (!this.checkValidity()) {
@@ -2844,12 +1156,14 @@ document.getElementById('createPromoForm').addEventListener('submit', async func
   }
   
   const formData = new FormData(this);
-  const submitBtn = this.querySelector('button[type="submit"]');
-  const originalBtnText = submitBtn.innerHTML;
+  const submitBtn = document.querySelector('button[form="createPromoForm"]');
+  const originalBtnText = submitBtn ? submitBtn.innerHTML : '';
   
   // Показати індикатор завантаження
-  submitBtn.disabled = true;
-  submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Створення...';
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Створення...';
+  }
   
   try {
     const response = await fetch('{% url "admin_promocode_create" %}', {
@@ -2883,13 +1197,28 @@ document.getElementById('createPromoForm').addEventListener('submit', async func
       
       // Показати помилки полів
       if (data.errors) {
-        Object.keys(data.errors).forEach(field => {
-          const input = this.querySelector(`[name="${field}"]`);
+        Object.entries(data.errors).forEach(([field, messages]) => {
+          let targetField = field;
+          if (field === 'discount_value') {
+            const typeSelect = this.querySelector('[name="promo_type"]');
+            const currentType = typeSelect ? typeSelect.value : 'regular';
+            targetField = currentType === 'voucher' ? 'fixed_amount' : 'discount';
+          } else if (field === 'max_uses') {
+            targetField = 'usage_limit';
+          }
+
+          const input = this.querySelector(`[name="${targetField}"]`);
           if (input) {
             input.classList.add('is-invalid');
-            const feedback = input.nextElementSibling;
-            if (feedback && feedback.classList.contains('invalid-feedback')) {
-              feedback.textContent = data.errors[field][0];
+            let feedback = null;
+            if (input.parentElement) {
+              feedback = input.parentElement.querySelector('.invalid-feedback');
+            }
+            if (!feedback) {
+              feedback = input.nextElementSibling;
+            }
+            if (feedback && messages.length) {
+              feedback.textContent = messages[0];
             }
           }
         });
@@ -2899,10 +1228,13 @@ document.getElementById('createPromoForm').addEventListener('submit', async func
     console.error('Помилка створення промокода:', error);
     showToast('❌ Помилка з\'єднання з сервером', 'error');
   } finally {
-    submitBtn.disabled = false;
-    submitBtn.innerHTML = originalBtnText;
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalBtnText;
+    }
   }
 });
+}
 
 // ==================== РЕДАГУВАННЯ ПРОМОКОДА ====================
 
@@ -2959,7 +1291,7 @@ async function openEditPromoModal(promoId) {
               </label>
               <select class="form-select" id="edit_promo_type" name="promo_type" required style="border: 1px solid var(--ds-border);">
                 <option value="regular" ${data.promo.promo_type === 'regular' ? 'selected' : ''}>Звичайний промокод</option>
-                <option value="auction" ${data.promo.promo_type === 'auction' ? 'selected' : ''}>Аукціон/Реклама</option>
+                <option value="grouped" ${data.promo.promo_type === 'grouped' ? 'selected' : ''}>Груповий промокод</option>
                 <option value="voucher" ${data.promo.promo_type === 'voucher' ? 'selected' : ''}>Ваучер</option>
               </select>
             </div>
@@ -3057,11 +1389,14 @@ async function openEditPromoModal(promoId) {
         </form>
       `;
       
+      setupPromoTypeBehavior(document.getElementById('editPromoForm'));
+
       submitBtn.disabled = false;
       
       // Додати обробник submit для editPromoForm
       document.getElementById('editPromoForm').addEventListener('submit', async function(e) {
         e.preventDefault();
+        this.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
         
         if (!this.checkValidity()) {
           e.stopPropagation();
@@ -3093,6 +1428,32 @@ async function openEditPromoModal(promoId) {
             setTimeout(() => window.location.reload(), 1000);
           } else {
             showToast('❌ Помилка: ' + (result.error || 'Невідома помилка'), 'error');
+            if (result.errors) {
+              Object.entries(result.errors).forEach(([field, messages]) => {
+                let targetField = field;
+                if (field === 'discount_value') {
+                  const typeSelect = this.querySelector('[name="promo_type"]');
+                  const currentType = typeSelect ? typeSelect.value : 'regular';
+                  targetField = currentType === 'voucher' ? 'fixed_amount' : 'discount';
+                } else if (field === 'max_uses') {
+                  targetField = 'usage_limit';
+                }
+                const input = this.querySelector(`[name="${targetField}"]`);
+                if (input) {
+                  input.classList.add('is-invalid');
+                  let feedback = null;
+                  if (input.parentElement) {
+                    feedback = input.parentElement.querySelector('.invalid-feedback');
+                  }
+                  if (!feedback) {
+                    feedback = input.nextElementSibling;
+                  }
+                  if (feedback && messages.length) {
+                    feedback.textContent = messages[0];
+                  }
+                }
+              });
+            }
           }
         } catch (error) {
           console.error('Помилка оновлення промокода:', error);
@@ -3119,7 +1480,9 @@ async function openEditPromoModal(promoId) {
 
 // ==================== СТВОРЕННЯ ГРУПИ ====================
 
-document.getElementById('createGroupForm').addEventListener('submit', async function(e) {
+const createGroupForm = document.getElementById('createGroupForm');
+if (createGroupForm) {
+  createGroupForm.addEventListener('submit', async function(e) {
   e.preventDefault();
   
   if (!this.checkValidity()) {
@@ -3165,6 +1528,7 @@ document.getElementById('createGroupForm').addEventListener('submit', async func
     submitBtn.innerHTML = originalBtnText;
   }
 });
+}
 
 // ==================== РЕДАГУВАННЯ ГРУПИ ====================
 
@@ -3319,17 +1683,27 @@ async function openEditGroupModal(groupId) {
 
 // ==================== ОЧИЩЕННЯ ФОРМ ПРИ ЗАКРИТТІ МОДАЛОК ====================
 
-document.getElementById('createPromoModal').addEventListener('hidden.bs.modal', function () {
+const createPromoModalEl = document.getElementById('createPromoModal');
+if (createPromoModalEl) {
+  createPromoModalEl.addEventListener('hidden.bs.modal', function () {
   const form = document.getElementById('createPromoForm');
+    if (form) {
   form.reset();
   form.classList.remove('was-validated');
+    }
 });
+}
 
-document.getElementById('createGroupModal').addEventListener('hidden.bs.modal', function () {
+const createGroupModalEl = document.getElementById('createGroupModal');
+if (createGroupModalEl) {
+  createGroupModalEl.addEventListener('hidden.bs.modal', function () {
   const form = document.getElementById('createGroupForm');
+    if (form) {
   form.reset();
   form.classList.remove('was-validated');
+    }
 });
+}
 
 // ==================== DRAG & DROP ПРОМОКОДІВ ====================
 
@@ -3428,7 +1802,6 @@ async function handleGroupDrop(event) {
       draggedPromoEl.prepend(newMarker);
       
       // Оновити відображення групи в картці промокода
-      const groupEl = draggedPromoEl.querySelector('.ds-promo-card__group');
       if (groupEl) {
         groupEl.innerHTML = `
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
@@ -3438,7 +1811,6 @@ async function handleGroupDrop(event) {
         `;
       } else if (data.group_name) {
         // Додати елемент групи якщо його не було
-        const actionsEl = draggedPromoEl.querySelector('.ds-promo-card__actions');
         if (actionsEl) {
           const groupHtml = `
             <div class="ds-promo-card__group">
@@ -3509,7 +1881,10 @@ function applyGroupColors() {
       const marker = document.createElement('div');
       marker.className = 'group-color-marker';
       marker.style.background = color;
-      card.querySelector('.ds-group-card__header').prepend(marker);
+      const header = card.querySelector('.ds-group-card__header');
+      if (header) {
+        header.prepend(marker);
+      }
     }
   });
   
@@ -3524,7 +1899,6 @@ function applyGroupColors() {
         const marker = document.createElement('div');
         marker.className = 'promo-group-marker';
         marker.style.background = color;
-        marker.title = 'Група: ' + (card.querySelector('.ds-promo-card__group')?.textContent.trim() || '');
         card.prepend(marker);
       }
     }
@@ -3662,6 +2036,10 @@ if (groupFilterSelect) {
       groupFilterSelect.dispatchEvent(new Event('change'));
     });
   }
+
+  if (groupFilterSelect.value) {
+    groupFilterSelect.dispatchEvent(new Event('change'));
+  }
 }
 
 // Показати результати фільтрації
@@ -3671,12 +2049,19 @@ function showFilterResults(visible, total, groupValue) {
   if (!resultsDiv) {
     resultsDiv = document.createElement('div');
     resultsDiv.className = 'ds-filter-results';
-    document.querySelector('.ds-filters').after(resultsDiv);
+    const filtersEl = document.querySelector('.ds-filters');
+    if (filtersEl) {
+      filtersEl.after(resultsDiv);
+    }
   }
   
-  const groupName = groupValue === 'no-group' 
-    ? 'Без групи' 
-    : document.querySelector(`#groupFilter option[value="${groupValue}"]`)?.textContent || '';
+  let groupName = '';
+  if (groupValue === 'no-group') {
+    groupName = 'Без групи';
+  } else {
+    const optionEl = document.querySelector(`#groupFilter option[value="${groupValue}"]`);
+    groupName = optionEl ? optionEl.textContent.trim() : '';
+  }
   
   resultsDiv.innerHTML = `
     <i class="fas fa-filter"></i> 
@@ -3699,7 +2084,6 @@ function hideFilterResults() {
 // Додати fade-in анімацію
 const style = document.createElement('style');
 style.textContent = `
-  @keyframes fadeIn {
     from {
       opacity: 0;
       transform: translateY(10px);
@@ -3744,7 +2128,6 @@ function createGradient(ctx, color1, color2) {
 }
 
 // Перевірка чи є секція Statistics активною
-const isStatsTab = document.querySelector('.ds-charts-grid');
 
 if (isStatsTab) {
   // ===== 1. LINE CHART: Використання по датах =====
@@ -3823,17 +2206,19 @@ if (isStatsTab) {
   const topPromosBarCtx = document.getElementById('topPromosBarChart');
   if (topPromosBarCtx) {
     // Дані з backend (top_promos)
-    const topPromoLabels = [
-      {% for promo in top_promos %}
-        '{{ promo.code }}'{% if not forloop.last %},{% endif %}
-      {% endfor %}
-    ];
+    const topPromosDataScript = document.getElementById('topPromosData');
+    let topPromoLabels = [];
+    let topPromoValues = [];
     
-    const topPromoValues = [
-      {% for promo in top_promos %}
-        {{ promo.usage_count }}{% if not forloop.last %},{% endif %}
-      {% endfor %}
-    ];
+    if (topPromosDataScript) {
+      try {
+        const data = JSON.parse(topPromosDataScript.textContent);
+        topPromoLabels = data.labels || [];
+        topPromoValues = data.values || [];
+      } catch (e) {
+        console.error('Error parsing top promos data:', e);
+      }
+    }
     
     // Генеруємо кольори для кожного промокода
     const barColors = topPromoLabels.map((_, index) => {
@@ -3897,17 +2282,19 @@ if (isStatsTab) {
   const groupsPieCtx = document.getElementById('groupsPieChart');
   if (groupsPieCtx) {
     // Дані з backend (top_groups)
-    const groupLabels = [
-      {% for group in top_groups %}
-        '{{ group.name }}'{% if not forloop.last %},{% endif %}
-      {% endfor %}
-    ];
+    const topGroupsDataScript = document.getElementById('topGroupsData');
+    let groupLabels = [];
+    let groupValues = [];
     
-    const groupValues = [
-      {% for group in top_groups %}
-        {{ group.usage_count }}{% if not forloop.last %},{% endif %}
-      {% endfor %}
-    ];
+    if (topGroupsDataScript) {
+      try {
+        const data = JSON.parse(topGroupsDataScript.textContent);
+        groupLabels = data.labels || [];
+        groupValues = data.values || [];
+      } catch (e) {
+        console.error('Error parsing top groups data:', e);
+      }
+    }
     
     // Генеруємо 12 кольорів (як в групах)
     const pieColors = groupLabels.map((_, index) => {
@@ -3965,7 +2352,6 @@ if (isStatsTab) {
 
 // ==================== ФІЛЬТРИ ПО ДАТАХ ====================
 
-const datePills = document.querySelectorAll('.ds-date-pill');
 const customDateRange = document.getElementById('customDateRange');
 const dateFromInput = document.getElementById('dateFrom');
 const dateToInput = document.getElementById('dateTo');
@@ -4104,7 +2490,6 @@ function showActiveFilterIndicator(period, customDates = null) {
   }
   
   // Оновити заголовок секції
-  const heroLead = document.querySelector('.ds-hero__lead');
   if (heroLead && period !== 'all') {
     heroLead.innerHTML = `
       Детальний аналіз ефективності промокодів та груп
@@ -4233,7 +2618,6 @@ if (darkModeToggle) {
 // Анімація обертання
 const spinStyle = document.createElement('style');
 spinStyle.textContent = `
-  @keyframes spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
   }
@@ -4264,7 +2648,9 @@ function confirmDelete(type, id, name) {
   modal.show();
 }
 
-document.getElementById('confirmDeleteBtn')?.addEventListener('click', function() {
+const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+if (confirmDeleteBtn) {
+  confirmDeleteBtn.addEventListener('click', function() {
   if (!deleteTarget) return;
   
   const { type, id } = deleteTarget;
@@ -4282,7 +2668,8 @@ document.getElementById('confirmDeleteBtn')?.addEventListener('click', function(
   
   // Редірект на URL видалення
   window.location.href = url;
-});
+  });
+}
 
 console.log('✅ Confirm delete initialized!');
 
@@ -4321,14 +2708,10 @@ if (clearSearchBtn) {
 }
 
 function filterPromos(searchTerm) {
-  const promoCards = document.querySelectorAll('.ds-promo-card');
   let visibleCount = 0;
   
   promoCards.forEach(card => {
     // Отримати текст для пошуку
-    const code = card.querySelector('.ds-promo-card__code')?.textContent.toLowerCase() || '';
-    const desc = card.querySelector('.ds-promo-card__desc')?.textContent.toLowerCase() || '';
-    const discount = card.querySelector('.ds-promo-card__value')?.textContent.toLowerCase() || '';
     
     const searchableText = `${code} ${desc} ${discount}`;
     
@@ -4358,7 +2741,6 @@ function filterPromos(searchTerm) {
 }
 
 function highlightText(element, searchTerm) {
-  const codeEl = element.querySelector('.ds-promo-card__code');
   if (codeEl && !codeEl.querySelector('.promo-highlight')) {
     const originalText = codeEl.textContent;
     const regex = new RegExp(`(${searchTerm})`, 'gi');
@@ -4367,7 +2749,6 @@ function highlightText(element, searchTerm) {
 }
 
 function removeHighlight(element) {
-  const codeEl = element.querySelector('.ds-promo-card__code');
   if (codeEl) {
     const highlightEl = codeEl.querySelector('.promo-highlight');
     if (highlightEl) {
@@ -4392,7 +2773,10 @@ if (sortSelect) {
 
 function sortPromos(sortType) {
   const grid = document.querySelector('.ds-grid');
+  if (!grid) return;
+  
   const promoCards = Array.from(document.querySelectorAll('.ds-promo-card'));
+  if (promoCards.length === 0) return;
   
   promoCards.sort((a, b) => {
     switch (sortType) {
@@ -4407,24 +2791,24 @@ function sortPromos(sortType) {
       case 'discount-high':
       case 'discount-low': {
         // За знижкою
-        const aDiscount = parseFloat(a.querySelector('.ds-promo-card__value')?.textContent) || 0;
-        const bDiscount = parseFloat(b.querySelector('.ds-promo-card__value')?.textContent) || 0;
+        const aDiscount = parseFloat(a.dataset.discountValue || '0');
+        const bDiscount = parseFloat(b.dataset.discountValue || '0');
         return sortType === 'discount-high' ? bDiscount - aDiscount : aDiscount - bDiscount;
       }
       
       case 'usage-high':
       case 'usage-low': {
         // За використанням
-        const aUsage = parseInt(a.querySelector('.ds-stat__value')?.textContent) || 0;
-        const bUsage = parseInt(b.querySelector('.ds-stat__value')?.textContent) || 0;
+        const aUsage = parseInt(a.dataset.currentUses || '0', 10);
+        const bUsage = parseInt(b.dataset.currentUses || '0', 10);
         return sortType === 'usage-high' ? bUsage - aUsage : aUsage - bUsage;
       }
       
       case 'code-az':
       case 'code-za': {
         // За кодом
-        const aCode = a.querySelector('.ds-promo-card__code')?.textContent || '';
-        const bCode = b.querySelector('.ds-promo-card__code')?.textContent || '';
+        const aCode = (a.dataset.code || '').toUpperCase();
+        const bCode = (b.dataset.code || '').toUpperCase();
         return sortType === 'code-az' 
           ? aCode.localeCompare(bCode) 
           : bCode.localeCompare(aCode);
@@ -4434,6 +2818,9 @@ function sortPromos(sortType) {
         return 0;
     }
   });
+  
+  // Очистити grid
+  grid.innerHTML = '';
   
   // Пере-додати картки в новому порядку
   promoCards.forEach(card => grid.appendChild(card));
@@ -4448,4 +2835,5 @@ function sortPromos(sortType) {
 }
 
 console.log('✅ Sorting initialized!');
+/* eslint-enable */
 </script>
