@@ -885,11 +885,12 @@
               // КРИТИЧНО: ВСЕГДА вызываем updatePaymentSummary для правильного отображения суммы
               // Она сама решит что показывать: 200 грн при prepay_200 или полную сумму
               var payTypeSelect = document.getElementById('pay_type_auth') || document.getElementById('pay_type_guest');
-              if(payTypeSelect && typeof updatePaymentSummary === 'function') {
-                updatePaymentSummary(payTypeSelect.value);
-              } else if(typeof updatePaymentSummary === 'function') {
+              if(payTypeSelect && typeof window.updatePaymentSummary === 'function') {
+                // Используем глобальную функцию и текущее значение селекта
+                window.updatePaymentSummary(payTypeSelect.value);
+              } else if(typeof window.updatePaymentSummary === 'function') {
                 // Если селект еще не загружен, используем значение по умолчанию
-                updatePaymentSummary('online_full');
+                window.updatePaymentSummary('online_full');
               }
             }
             
