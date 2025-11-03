@@ -16,6 +16,7 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.cache import never_cache
 from decimal import Decimal, ROUND_HALF_UP
 import logging
+import json
 
 from ..models import Product, PromoCode
 from productcolors.models import ProductColorVariant
@@ -62,6 +63,9 @@ def view_cart(request):
     cart_items = []
     subtotal = Decimal('0')
     total_points = 0
+    content_ids = []
+    contents = []
+    total_quantity = 0
     
     for item_key, item_data in cart.items():
         try:
@@ -76,6 +80,19 @@ def view_cart(request):
             # Информация о цвете из color_variant_id
             color_variant = _get_color_variant_safe(item_data.get('color_variant_id'))
             color_label = _color_label_from_variant(color_variant)
+            size_value = (item_data.get('size', '') or 'S').upper()
+            color_variant_id = color_variant.id if color_variant else None
+            offer_id = product.get_offer_id(color_variant_id, size_value)
+            content_ids.append(offer_id)
+            contents.append({
+                'id': offer_id,
+                'quantity': qty,
+                'item_price': float(price),
+                'item_name': product.title,
+                'item_category': product.category.name if getattr(product, 'category', None) else '',
+                'brand': 'TwoComms'
+            })
+            total_quantity += qty
             
             # Считаем баллы за товар
             try:
@@ -84,6 +101,12 @@ def view_cart(request):
             except Exception:
                 pass
             
+            size_value = (item_data.get('size', '') or '').upper()
+            if not size_value:
+                size_value = 'S'
+            color_variant_id = color_variant.id if color_variant else None
+            offer_id = product.get_offer_id(color_variant_id, size_value)
+            
             cart_items.append({
                 'key': item_key,
                 'product': product,
@@ -91,11 +114,12 @@ def view_cart(request):
                 'unit_price': price,  # Шаблон ожидает unit_price!
                 'qty': qty,
                 'line_total': line_total,
-                'size': item_data.get('size', ''),
+                'size': size_value,
                 'color_variant': color_variant,
                 'color_label': color_label,  # ДОБАВЛЕНО: для отображения цвета
+                'offer_id': offer_id,
             })
-            
+
             subtotal += line_total
             
         except Product.DoesNotExist:
@@ -120,6 +144,22 @@ def view_cart(request):
             del request.session['promo_code_id']
     
     total = subtotal - discount
+    checkout_payload = None
+    checkout_payload_ids = '[]'
+    checkout_payload_contents = '[]'
+    checkout_payload_value = float(total)
+    checkout_payload_num_items = total_quantity
+    if cart_items:
+        checkout_payload = {
+            'content_ids': content_ids,
+            'contents': contents,
+            'content_type': 'product',
+            'currency': 'UAH',
+            'value': float(total),
+            'num_items': total_quantity
+        }
+        checkout_payload_ids = json.dumps(content_ids, ensure_ascii=False)
+        checkout_payload_contents = json.dumps(contents, ensure_ascii=False)
     
     return render(
         request,
@@ -134,7 +174,12 @@ def view_cart(request):
             'total_points': total_points,  # ДОБАВЛЕНО: баллы за заказ
             'promo_code': promo_code,
             'applied_promo': promo_code,  # ДОБАВЛЕНО: алиас для шаблона
-            'cart_count': len(cart_items)
+            'cart_count': len(cart_items),
+            'checkout_payload': checkout_payload,
+            'checkout_payload_ids': checkout_payload_ids,
+            'checkout_payload_contents': checkout_payload_contents,
+            'checkout_payload_value': checkout_payload_value,
+            'checkout_payload_num_items': checkout_payload_num_items
         }
     )
 
@@ -155,12 +200,15 @@ def add_to_cart(request):
     qty = max(qty, 1)
 
     product = get_object_or_404(Product, pk=pid)
+    price = product.final_price
+    if not isinstance(price, Decimal):
+        price = Decimal(str(price))
 
     cart = request.session.get('cart', {})
     key = f"{product.id}:{size}:{color_variant_id or 'default'}"
     item = cart.get(key, {
-        'product_id': product.id, 
-                'size': size,
+        'product_id': product.id,
+        'size': size,
         'color_variant_id': color_variant_id,
         'qty': 0
     })
@@ -173,16 +221,43 @@ def add_to_cart(request):
 
     _reset_monobank_session(request, drop_pending=True)
 
+    try:
+        color_variant_int = int(color_variant_id) if color_variant_id else None
+    except (TypeError, ValueError):
+        color_variant_int = None
+    offer_id = product.get_offer_id(color_variant_int, size)
+    item_value = (price * qty).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
     ids = [i['product_id'] for i in cart.values()]
     prods = Product.objects.in_bulk(ids)
     total_qty = sum(i['qty'] for i in cart.values())
-    total_sum = 0
+    total_sum = Decimal('0')
     for i in cart.values():
         p = prods.get(i['product_id'])
         if p:
-            total_sum += i['qty'] * p.final_price
+            price_decimal = p.final_price if isinstance(p.final_price, Decimal) else Decimal(str(p.final_price))
+            total_sum += Decimal(i['qty']) * price_decimal
 
-    return JsonResponse({'ok': True, 'count': total_qty, 'total': total_sum})
+    cart_total = total_sum.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    return JsonResponse({
+        'ok': True,
+        'count': total_qty,
+        'total': float(cart_total),
+        'cart_total': float(cart_total),
+        'item': {
+            'product_id': product.id,
+            'offer_id': offer_id,
+            'quantity': qty,
+            'item_price': float(price.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)),
+            'value': float(item_value),
+            'currency': 'UAH',
+            'size': size,
+            'color_variant_id': color_variant_id,
+            'product_title': product.title,
+            'product_category': product.category.name if getattr(product, 'category', None) else ''
+        }
+    })
 
 
 @require_POST
@@ -322,17 +397,40 @@ def remove_from_cart(request):
     request.session['cart'] = cart
     request.session.modified = True
 
-    # Пересчёт сводки
+    # Пересчёт сводки с использованием Decimal и учетом промокодов
     ids = [i['product_id'] for i in cart.values()]
     prods = Product.objects.in_bulk(ids)
     total_qty = sum(i['qty'] for i in cart.values())
-    total_sum = 0
+    total_sum = Decimal('0')
     for i in cart.values():
         p = prods.get(i['product_id'])
         if p:
-            total_sum += i['qty'] * p.final_price
+            price_decimal = p.final_price if isinstance(p.final_price, Decimal) else Decimal(str(p.final_price))
+            total_sum += Decimal(i['qty']) * price_decimal
+    
+    # Учитываем промокод при расчете итоговой суммы
+    subtotal = total_sum.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    discount = Decimal('0')
+    promo_code_id = request.session.get('promo_code_id')
+    if promo_code_id:
+        try:
+            promo_code = PromoCode.objects.get(id=promo_code_id)
+            if promo_code.can_be_used():
+                discount = promo_code.calculate_discount(subtotal)
+        except PromoCode.DoesNotExist:
+            pass
+    
+    total = (subtotal - discount).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
-    return JsonResponse({'ok': True, 'count': total_qty, 'total': total_sum, 'removed': removed, 'keys': list(cart.keys())})
+    return JsonResponse({
+        'ok': True, 
+        'count': total_qty, 
+        'subtotal': float(subtotal),
+        'discount': float(discount),
+        'total': float(total),
+        'removed': removed, 
+        'keys': list(cart.keys())
+    })
 
 
 def clear_cart(request):
@@ -492,11 +590,15 @@ def remove_promo_code(request):
             request.session.modified = True
         
         cart = get_cart_from_session(request)
-        total = calculate_cart_total(cart)
+        subtotal = calculate_cart_total(cart)
+        # После удаления промокода скидка = 0
+        total = subtotal
         
         return JsonResponse({
             'ok': True,
             'success': True,
+            'subtotal': float(subtotal),
+            'discount': 0.0,
             'total': float(total),
             'message': 'Промокод видалено'
         })
@@ -611,15 +713,22 @@ def cart_mini(request):
         except Exception:
             pass
         
+        size_value = (it.get('size', '') or '').upper()
+        if not size_value:
+            size_value = 'S'
+        color_variant_id = color_variant.id if color_variant else None
+        offer_id = p.get_offer_id(color_variant_id, size_value)
+
         items.append({
             'key': key,
             'product': p,
-            'size': it.get('size', ''),
+            'size': size_value,
             'color_variant': color_variant,
             'color_label': _color_label_from_variant(color_variant),
             'qty': it['qty'],
             'unit_price': unit,
-            'line_total': line
+            'line_total': line,
+            'offer_id': offer_id,
         })
     
     return render(request, 'partials/mini_cart.html', {
@@ -775,6 +884,9 @@ def cart_items_api(request):
             
             color_variant = _get_color_variant_safe(item_data.get('color_variant_id'))
             color_label = _color_label_from_variant(color_variant)
+            size_value = (item_data.get('size', '') or 'S').upper()
+            color_variant_id = color_variant.id if color_variant else None
+            offer_id = product.get_offer_id(color_variant_id, size_value)
             
             # Баллы за товар
             try:
@@ -798,11 +910,14 @@ def cart_items_api(request):
                 'unit_price': float(price),
                 'line_total': float(line_total),
                 'qty': qty,
-                'size': item_data.get('size', ''),
+                'size': size_value,
                 'color_variant_id': item_data.get('color_variant_id'),
                 'color_label': color_label,
                 'image_url': image_url,
                 'points_reward': int(getattr(product, 'points_reward', 0) or 0),
+                'offer_id': offer_id,
+                'item_value': float(line_total),
+                'product_category': product.category.name if getattr(product, 'category', None) else ''
             })
             
             subtotal += line_total
@@ -839,14 +954,6 @@ def cart_items_api(request):
         'cart_count': len(cart_items),
         'applied_promo': promo_code.code if promo_code else None,
     })
-
-
-
-
-
-
-
-
 
 
 
