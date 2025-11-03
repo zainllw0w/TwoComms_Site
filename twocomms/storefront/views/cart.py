@@ -144,6 +144,19 @@ def view_cart(request):
             del request.session['promo_code_id']
     
     total = subtotal - discount
+    
+    # Определяем начальное значение для отображения "До сплати"
+    # Если выбран prepay_200, показываем 200 грн, иначе полную сумму
+    pay_now_amount = None
+    if request.user.is_authenticated:
+        try:
+            from accounts.models import UserProfile
+            prof = request.user.userprofile
+            if prof.pay_type == 'prepay_200':
+                pay_now_amount = Decimal('200.00')
+        except:
+            pass
+    
     checkout_payload = None
     checkout_payload_ids = '[]'
     checkout_payload_contents = '[]'
@@ -171,6 +184,7 @@ def view_cart(request):
             'discount': discount,
             'total': total,
             'grand_total': total,  # ДОБАВЛЕНО: алиас для шаблона
+            'pay_now_amount': pay_now_amount,  # НОВОЕ: начальное значение для "До сплати" (200 грн если prepay_200)
             'total_points': total_points,  # ДОБАВЛЕНО: баллы за заказ
             'promo_code': promo_code,
             'applied_promo': promo_code,  # ДОБАВЛЕНО: алиас для шаблона
