@@ -935,10 +935,13 @@ function initCartPage() {
     if (payTypeSelect && payTypeSelect.value && typeof window.updatePaymentSummary === 'function') {
         // Если pay_type уже выбран, устанавливаем правильную сумму ДО обновления корзины
         window.updatePaymentSummary(payTypeSelect.value);
-    }
+        }
     
-    // Обновляем список товаров при загрузке страницы
+    // КРИТИЧНО: Даем время для инициализации updatePaymentSummary перед обновлением корзины
+    // Обновляем список товаров при загрузке страницы с задержкой
+    setTimeout(() => {
     refreshCartItems();
+    }, 200);
     
     // Переопределяем CartRemoveKey для автоматического обновления
     const originalCartRemoveKey = window.CartRemoveKey;
@@ -1106,8 +1109,21 @@ function initCartPage() {
       
       // ВАЖНО: Делаем updatePaymentSummary глобальной для доступа из других функций
       window.updatePaymentSummary = updatePaymentSummary;
+      
+      // КРИТИЧНО: Сразу после создания функции устанавливаем правильную сумму на основе pay_type
+      // Используем requestAnimationFrame чтобы гарантировать что DOM полностью готов
+      requestAnimationFrame(() => {
+        if (activePayTypeSelect && activePayTypeSelect.value) {
+          // Устанавливаем правильную сумму СРАЗУ при инициализации
+          console.log('Initial payment summary setup with pay_type:', activePayTypeSelect.value);
+          updatePaymentSummary(activePayTypeSelect.value);
+      } else {
+        updatePaymentSummary('online_full');
+            }
+      });
     } catch (error) {
       // Тихая обработка ошибок
+      console.error('Error in payment summary initialization:', error);
     }
     // ==================== END ДИНАМИЧЕСКИЕ КНОПКИ ====================
     
