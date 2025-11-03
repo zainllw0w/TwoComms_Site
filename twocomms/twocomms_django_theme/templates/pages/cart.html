@@ -686,6 +686,16 @@ function initCartPage() {
             if (data && data.ok && data.items) {
                 updateCartItemsList(data);
                 updateCartSummary(data);
+                
+                // КРИТИЧНО: После обновления корзины ПРИНУДИТЕЛЬНО обновляем сумму оплаты
+                // чтобы гарантировать правильное отображение при prepay_200
+                setTimeout(() => {
+                    const payTypeSelect = document.getElementById('pay_type_auth') || document.getElementById('pay_type_guest');
+                    if (payTypeSelect && typeof window.updatePaymentSummary === 'function') {
+                        // Принудительно вызываем с текущим значением pay_type
+                        window.updatePaymentSummary(payTypeSelect.value || 'online_full');
+                    }
+                }, 150);
             }
         })
         .catch(error => {
