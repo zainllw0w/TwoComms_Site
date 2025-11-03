@@ -1234,7 +1234,7 @@
                         {% for promocode in user.promocodes %}
                           <div class="promocode-item">
                             <div class="promocode-code">{{ promocode.code }}</div>
-                            <div class="promocode-discount">{{ promocode.discount }}% знижка</div>
+                            <div class="promocode-discount">{{ promocode.discount_display }} знижка</div>
                             <div class="promocode-status {% if promocode.is_used %}used{% else %}active{% endif %}">
                               {% if promocode.is_used %}Використано{% else %}Активний{% endif %}
                             </div>
@@ -1257,7 +1257,7 @@
                         {% for promocode in user.used_promocodes %}
                           <div class="promocode-item used">
                             <div class="promocode-code">{{ promocode.code }}</div>
-                            <div class="promocode-discount">{{ promocode.discount }}% знижка</div>
+                            <div class="promocode-discount">{{ promocode.discount_display }} знижка</div>
                             <div class="promocode-status used">
                               Використано в замовленні {{ promocode.used_in_order }}
                             </div>

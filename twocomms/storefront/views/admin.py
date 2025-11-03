@@ -10,22 +10,40 @@ Admin views - Административная панель.
 - Дропшипинг панель
 """
 
-from django.shortcuts import render, redirect, get_object_or_404
+from datetime import timedelta
+
+from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from django.http import JsonResponse
+from django.contrib.auth.models import User
 from django.db import transaction
+from django.db.models import (
+    Avg,
+    Count,
+    DurationField,
+    ExpressionWrapper,
+    F,
+    Sum,
+)
+from django.http import JsonResponse, HttpResponse
+from django.template.loader import render_to_string
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.utils.text import slugify
 
 from ..models import (
+    OfflineStore,
+    PageView,
     Product,
     ProductStatus,
     Category,
     PromoCode,
+    PromoCodeGroup,
+    PromoCodeUsage,
     PrintProposal,
     Catalog,
     SizeGrid,
+    SiteSession,
 )
 from ..forms import (
     ProductForm,
@@ -37,15 +55,431 @@ from ..forms import (
     build_color_variant_formset,
 )
 from .utils import unique_slugify
+from accounts.models import FavoriteProduct, UserPoints
+from orders.models import (
+    DropshipperOrder,
+    DropshipperPayout,
+    DropshipperStats,
+    Order,
+    OrderItem,
+    WholesaleInvoice,
+)
 from .promo import get_promo_admin_context
 from storefront.services.catalog import (
     append_product_gallery,
     formset_to_variant_payloads,
     sync_variant_images,
-)
+    )
 
 
 # ==================== ADMIN VIEWS ====================
+
+
+def _resolve_period(period_param):
+    """Возвращает параметры периода (дата начала/конца и метка)."""
+    valid_periods = {'today', 'week', 'month', 'all_time'}
+    period = period_param if period_param in valid_periods else 'today'
+    today = timezone.localdate()
+
+    if period == 'today':
+        start_date = today
+        end_date = today
+        period_name = 'Сьогодні'
+    elif period == 'week':
+        start_date = today - timedelta(days=7)
+        end_date = today
+        period_name = 'За тиждень'
+    elif period == 'month':
+        start_date = today - timedelta(days=30)
+        end_date = today
+        period_name = 'За місяць'
+    else:
+        start_date = None
+        end_date = None
+        period_name = 'За весь час'
+
+    return {
+        'period': period,
+        'period_name': period_name,
+        'start_date': start_date,
+        'end_date': end_date,
+        'today': today,
+    }
+
+
+def _format_discount_display(promo):
+    """Генерирует строку отображения скидки для промокода."""
+    if promo.discount_type == 'percentage':
+        return f'{promo.discount_value}%'
+    return f'{promo.discount_value} ₴'
+
+
+def _build_stats(period_param):
+    """Собирает метрики для дашборда админки."""
+    period_info = _resolve_period(period_param)
+    period = period_info['period']
+    start_date = period_info['start_date']
+    end_date = period_info['end_date']
+    today = period_info['today']
+
+    stats = {
+        'orders_today': 0,
+        'orders_count': 0,
+        'revenue_today': 0,
+        'avg_order_value': 0,
+        'total_users': 0,
+        'new_users_today': 0,
+        'active_users_today': 0,
+        'active_users_period': 0,
+        'total_products': 0,
+        'total_categories': 0,
+        'print_proposals_pending': 0,
+        'promocodes_used_today': 0,
+        'total_points_earned': 0,
+        'users_with_points': 0,
+        'favorites_count': 0,
+        'online_users': 0,
+        'unique_visitors_today': 0,
+        'page_views_today': 0,
+        'page_views_period': 0,
+        'sessions_period': 0,
+        'bounce_rate': 0,
+        'avg_session_duration': 0,
+        'conversion_rate': 0,
+        'products_sold_today': 0,
+        'abandoned_carts': 0,
+        'reviews_count': 0,
+        'avg_rating': 0,
+        'period': period,
+        'period_name': period_info['period_name'],
+        'start_date': start_date,
+        'end_date': end_date,
+    }
+
+    try:
+        if start_date and end_date:
+            orders_qs = Order.objects.filter(created__date__range=[start_date, end_date])
+            users_qs = User.objects.filter(date_joined__date__range=[start_date, end_date])
+            promo_usage_qs = PromoCodeUsage.objects.filter(used_at__date__range=[start_date, end_date])
+            order_items_qs = OrderItem.objects.filter(order__created__date__range=[start_date, end_date])
+            page_views_qs = PageView.objects.filter(when__date__range=[start_date, end_date], is_bot=False)
+            sessions_qs = SiteSession.objects.filter(first_seen__date__range=[start_date, end_date], is_bot=False)
+        else:
+            orders_qs = Order.objects.all()
+            users_qs = User.objects.all()
+            promo_usage_qs = PromoCodeUsage.objects.all()
+            order_items_qs = OrderItem.objects.all()
+            page_views_qs = PageView.objects.filter(is_bot=False)
+            sessions_qs = SiteSession.objects.filter(is_bot=False)
+
+        stats['orders_count'] = orders_qs.count()
+        stats['orders_today'] = Order.objects.filter(created__date=today).count()
+
+        paid_orders_qs = orders_qs.filter(payment_status='paid')
+        stats['revenue_today'] = paid_orders_qs.aggregate(total=Sum('total_sum'))['total'] or 0
+        stats['avg_order_value'] = round(
+            (paid_orders_qs.aggregate(avg=Avg('total_sum'))['avg'] or 0), 2
+        )
+
+        stats['total_users'] = User.objects.count()
+        stats['new_users_today'] = users_qs.count() if start_date else 0
+        stats['active_users_today'] = User.objects.filter(last_login__date=today).count()
+        if start_date and end_date:
+            stats['active_users_period'] = User.objects.filter(
+                last_login__date__range=[start_date, end_date]
+            ).count()
+        else:
+            stats['active_users_period'] = User.objects.filter(last_login__isnull=False).count()
+
+        stats['total_products'] = Product.objects.count()
+        stats['total_categories'] = Category.objects.count()
+        stats['print_proposals_pending'] = PrintProposal.objects.filter(status='pending').count()
+
+        stats['promocodes_used_today'] = promo_usage_qs.count()
+
+        stats['total_points_earned'] = (
+            UserPoints.objects.aggregate(total=Sum('points'))['total'] or 0
+        )
+        stats['users_with_points'] = UserPoints.objects.filter(points__gt=0).count()
+
+        stats['favorites_count'] = FavoriteProduct.objects.count()
+
+        online_threshold = timezone.now() - timedelta(minutes=5)
+        stats['online_users'] = SiteSession.objects.filter(
+            last_seen__gte=online_threshold, is_bot=False
+        ).count()
+        stats['unique_visitors_today'] = SiteSession.objects.filter(
+            first_seen__date=today, is_bot=False
+        ).count()
+        stats['page_views_today'] = PageView.objects.filter(
+            when__date=today, is_bot=False
+        ).count()
+
+        stats['page_views_period'] = page_views_qs.count()
+        stats['sessions_period'] = sessions_qs.count()
+
+        today_sessions = SiteSession.objects.filter(first_seen__date=today, is_bot=False)
+        if today_sessions.exists():
+            single_page_sessions = today_sessions.filter(pageviews__lte=1).count()
+            stats['bounce_rate'] = round(
+                single_page_sessions / today_sessions.count() * 100, 2
+            )
+            durations = today_sessions.annotate(
+                dur=ExpressionWrapper(F('last_seen') - F('first_seen'), output_field=DurationField())
+            ).values_list('dur', flat=True)
+            total_seconds = sum((d.total_seconds() for d in durations if d), 0)
+            stats['avg_session_duration'] = int(total_seconds / max(len(durations), 1))
+
+        if stats['sessions_period']:
+            stats['conversion_rate'] = round(
+                stats['orders_count'] / stats['sessions_period'] * 100, 2
+            )
+
+        stats['products_sold_today'] = (
+            order_items_qs.aggregate(total=Sum('qty'))['total'] or 0
+        )
+
+    except Exception:
+        # В случае ошибки оставляем значения по умолчанию
+        pass
+
+    return stats
+
+
+def _build_orders_context(request):
+    """Формирует данные для секции заказов."""
+    status_filter = request.GET.get('status', 'all')
+    payment_filter = request.GET.get('payment', 'all')
+    user_id_filter = request.GET.get('user_id')
+
+    orders_qs = (
+        Order.objects.select_related('user')
+        .prefetch_related('items', 'items__product')
+        .order_by('-created')
+    )
+
+    if status_filter != 'all':
+        orders_qs = orders_qs.filter(status=status_filter)
+    if payment_filter != 'all':
+        orders_qs = orders_qs.filter(payment_status=payment_filter)
+
+    user_filter_info = None
+    if user_id_filter:
+        orders_qs = orders_qs.filter(user_id=user_id_filter)
+        try:
+            target_user = User.objects.get(pk=user_id_filter)
+            full_name = getattr(getattr(target_user, 'userprofile', None), 'full_name', None)
+            user_filter_info = {
+                'username': target_user.username,
+                'full_name': full_name,
+            }
+        except User.DoesNotExist:
+            user_filter_info = None
+
+    status_counts = {
+        code: Order.objects.filter(status=code).count()
+        for code, _ in Order.STATUS_CHOICES
+    }
+
+    payment_status_counts = {
+        'unpaid': Order.objects.filter(payment_status='unpaid').count(),
+        'checking': Order.objects.filter(payment_status='checking').count(),
+        'partial': Order.objects.filter(payment_status='partial').count(),
+        'paid': Order.objects.filter(payment_status='paid').count(),
+    }
+
+    return {
+        'orders': orders_qs,
+        'status_counts': status_counts,
+        'payment_status_counts': payment_status_counts,
+        'total_orders': Order.objects.count(),
+        'status_filter': status_filter,
+        'payment_filter': payment_filter,
+        'user_filter_info': user_filter_info,
+    }
+
+
+def _build_users_context():
+    """Собирает данные для вкладки пользователей."""
+    users_qs = (
+        User.objects.select_related('userprofile')
+        .prefetch_related('points', 'orders', 'orders__items')
+        .order_by('username')
+    )
+    users = list(users_qs)
+    user_ids = [u.id for u in users]
+
+    promo_usage_map = {}
+    usage_qs = (
+        PromoCodeUsage.objects.filter(user_id__in=user_ids)
+        .select_related('promo_code', 'order', 'group')
+        .order_by('-used_at')
+    )
+    for usage in usage_qs:
+        promo_usage_map.setdefault(usage.user_id, []).append(usage)
+
+    payment_status_template = {
+        'unpaid': 0,
+        'checking': 0,
+        'partial': 0,
+        'paid': 0,
+    }
+
+    order_status_template = {code: 0 for code, _ in Order.STATUS_CHOICES}
+
+    user_data = []
+    for user in users:
+        profile = getattr(user, 'userprofile', None)
+        points = getattr(user, 'points', None)
+        user_orders = list(user.orders.all())
+        total_orders = len(user_orders)
+
+        order_status_counts = order_status_template.copy()
+        payment_status_counts = payment_status_template.copy()
+
+        for order in user_orders:
+            order_status_counts[order.status] = order_status_counts.get(order.status, 0) + 1
+            payment_status_counts[order.payment_status] = (
+                payment_status_counts.get(order.payment_status, 0) + 1
+            )
+
+        total_spent = sum(
+            (order.total_sum for order in user_orders if order.payment_status != 'unpaid'),
+            0,
+        )
+        points_spent = getattr(points, 'total_spent', 0)
+
+        promo_entries = []
+        used_promos = []
+        for usage in promo_usage_map.get(user.id, []):
+            promo = usage.promo_code
+            entry = {
+                'id': promo.id,
+                'code': promo.code,
+                'discount': float(promo.discount_value),
+                'discount_display': _format_discount_display(promo),
+                'is_used': usage.order is not None,
+                'used_in_order': getattr(usage.order, 'order_number', None),
+                'used_date': usage.used_at,
+                'group_name': getattr(usage.group, 'name', None),
+            }
+            if usage.order:
+                used_promos.append(entry)
+            else:
+                promo_entries.append(entry)
+
+        user_data.append({
+            'user': user,
+            'profile': profile,
+            'points': points,
+            'total_orders': total_orders,
+            'order_status_counts': order_status_counts,
+            'payment_status_counts': payment_status_counts,
+            'total_spent': total_spent,
+            'points_spent': points_spent,
+            'promocodes': promo_entries,
+            'used_promocodes': used_promos,
+        })
+
+    return {'user_data': user_data}
+
+
+def _build_catalogs_context():
+    """Контекст для управления каталогами."""
+    categories = (
+        Category.objects.filter(is_active=True)
+        .prefetch_related('products')
+        .order_by('order', 'name')
+    )
+
+    products = (
+        Product.objects.select_related('category', 'catalog')
+        .order_by('-id')
+    )
+
+    catalogs = Catalog.objects.filter(is_active=True).order_by('order', 'name')
+
+    return {
+        'categories': categories,
+        'products': products,
+        'catalogs': catalogs,
+    }
+
+
+def _build_offline_stores_context():
+    """Контекст для оффлайн-магазинов."""
+    stores = OfflineStore.objects.all().order_by('order', 'name')
+    return {
+        'stores': stores,
+        'total_stores': stores.count(),
+        'active_stores': stores.filter(is_active=True).count(),
+    }
+
+
+def _build_print_proposals_context():
+    """Контекст для заявок на принты."""
+    proposals = (
+        PrintProposal.objects.select_related('user', 'awarded_promocode')
+        .order_by('-created_at')
+    )
+    return {
+        'print_proposals': proposals,
+        'total_proposals': proposals.count(),
+        'pending_proposals': proposals.filter(status='pending').count(),
+    }
+
+
+def _build_collaboration_context():
+    """Контекст для блоков співпраці (дропшипінг, опт)."""
+    try:
+        invoices = WholesaleInvoice.objects.select_related('user').order_by('-created_at')[:50]
+        dropship_orders = (
+            DropshipperOrder.objects.select_related('dropshipper', 'dropshipper__userprofile')
+            .prefetch_related('items')
+            .order_by('-created_at')[:50]
+        )
+        dropshipper_stats = (
+            DropshipperStats.objects.select_related('dropshipper', 'dropshipper__userprofile')
+            .filter(total_orders__gt=0)
+            .order_by('-total_profit')[:20]
+        )
+        payouts = (
+            DropshipperPayout.objects.select_related('dropshipper', 'dropshipper__userprofile')
+            .order_by('-requested_at')[:50]
+        )
+        pending_payouts = DropshipperPayout.objects.filter(status='pending').count()
+
+        total_dropship_orders = DropshipperOrder.objects.count()
+        totals = DropshipperOrder.objects.aggregate(
+            revenue=Sum('total_selling_price'), profit=Sum('profit')
+        )
+        total_dropship_revenue = totals.get('revenue') or 0
+        total_dropship_profit = totals.get('profit') or 0
+        pending_orders = DropshipperOrder.objects.filter(status__in=['draft', 'pending']).count()
+
+    except Exception:
+        invoices = []
+        dropship_orders = []
+        dropshipper_stats = []
+        payouts = []
+        pending_payouts = 0
+        total_dropship_orders = 0
+        total_dropship_revenue = 0
+        total_dropship_profit = 0
+        pending_orders = 0
+
+    return {
+        'invoices': invoices,
+        'dropship_orders': dropship_orders,
+        'dropshipper_stats': dropshipper_stats,
+        'payouts': payouts,
+        'pending_payouts': pending_payouts,
+        'total_dropship_orders': total_dropship_orders,
+        'total_dropship_revenue': total_dropship_revenue,
+        'total_dropship_profit': total_dropship_profit,
+        'pending_orders': pending_orders,
+    }
+
 
 @staff_member_required
 def admin_dashboard(request):
@@ -58,11 +492,6 @@ def admin_dashboard(request):
     - Популярные товары
     - Сводка по складу
     """
-    from orders.models import Order
-    from django.db.models import Count, Sum
-    from datetime.datetime import timedelta
-    from django.utils import timezone
-    
     # Статистика за последние 30 дней
     last_30_days = timezone.now() - timedelta(days=30)
     
@@ -108,44 +537,36 @@ def admin_panel(request):
         return redirect('home')
 
     section = request.GET.get('section', 'stats')
+    period_param = request.GET.get('period', 'today')
 
     context = {
         'section': section,
-        'stats': {
-            'period': request.GET.get('period', 'all_time'),
-            'period_name': 'За весь час',
-            'online_users': 0,
-            'sessions_period': 0,
-            'page_views_period': 0,
-            'bounce_rate': 0,
-            'orders_count': 0,
-            'orders_today': 0,
-            'revenue': 0,
-            'avg_order_value': 0,
-            'total_users': 0,
-            'new_users_period': 0,
-            'active_users_today': 0,
-            'active_users_period': 0,
-            'total_products': 0,
-            'total_categories': 0,
-            'print_proposals_pending': 0,
-            'promocodes_used': 0,
-            'total_points_earned': 0,
-            'users_with_points': 0,
-        },
-        'orders': [],
-        'users': [],
-        'catalogs': [],
-        'offline_stores': [],
-        'print_proposals': [],
+        'stats': _build_stats(period_param),
     }
 
-    if section == 'promocodes':
-        promo_context = get_promo_admin_context(request)
-        context.update(promo_context)
+    if section == 'users':
+        context.update(_build_users_context())
+    elif section == 'catalogs':
+        context.update(_build_catalogs_context())
+    elif section == 'promocodes':
+        context.update(get_promo_admin_context(request))
         context['section'] = 'promocodes'
+    elif section == 'offline_stores':
+        context.update(_build_offline_stores_context())
+    elif section == 'print_proposals':
+        context.update(_build_print_proposals_context())
+    elif section == 'orders':
+        context.update(_build_orders_context(request))
+    elif section == 'collaboration':
+        context.update(_build_collaboration_context())
 
-    return render(request, 'pages/admin_panel.html', context)
+    html_content = render_to_string('pages/admin_panel.html', context, request=request)
+    response = HttpResponse(html_content)
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+
+    return response
 
 
 @staff_member_required
