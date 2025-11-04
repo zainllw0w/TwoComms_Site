@@ -34,9 +34,11 @@ class TikTokEventsService:
         self.api_endpoint = getattr(settings, 'TIKTOK_EVENTS_API_ENDPOINT', self.DEFAULT_ENDPOINT)
 
         if not self.access_token or not self.pixel_code:
-            logger.warning(
-                "TikTok Events API не настроен! "
-                "Необходимо установить TIKTOK_EVENTS_ACCESS_TOKEN и TIKTOK_EVENTS_PIXEL_CODE в ENV."
+            logger.error(
+                "❌ TikTok Events API не настроен! "
+                "Необходимо установить TIKTOK_EVENTS_ACCESS_TOKEN и TIKTOK_EVENTS_PIXEL_CODE в ENV. "
+                f"Access Token: {'установлен' if self.access_token else 'НЕ установлен'}, "
+                f"Pixel Code: {'установлен' if self.pixel_code else 'НЕ установлен'}"
             )
             self.enabled = False
             self.session: Optional[requests.Session] = None
@@ -48,7 +50,10 @@ class TikTokEventsService:
             'Access-Token': self.access_token,
             'Content-Type': 'application/json',
         })
-        logger.info("✅ TikTok Events API client initialized successfully")
+        logger.info(
+            f"✅ TikTok Events API client initialized successfully: "
+            f"Pixel Code={self.pixel_code[:10]}..."
+        )
 
     @staticmethod
     def _hash_value(value: Optional[str]) -> Optional[str]:
