@@ -16,6 +16,7 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
 from decimal import Decimal, ROUND_HALF_UP
+import time
 
 from orders.models import Order, OrderItem
 from ..models import Product, PromoCode
@@ -234,43 +235,93 @@ def create_order(request):
     )
 
     tracking_context = {}
+    
+    # FBP Cookie (Facebook Browser Pixel)
     try:
         fbp_cookie = request.COOKIES.get('_fbp')
     except Exception:
         fbp_cookie = None
     if fbp_cookie:
         tracking_context['fbp'] = fbp_cookie
+    
+    # FBC Cookie (Facebook Click ID)
     try:
         fbc_cookie = request.COOKIES.get('_fbc')
     except Exception:
         fbc_cookie = None
     if fbc_cookie:
         tracking_context['fbc'] = fbc_cookie
+    
+    # TikTok Click ID
     try:
         ttclid_cookie = request.COOKIES.get('ttclid')
     except Exception:
         ttclid_cookie = None
     if ttclid_cookie:
         tracking_context['ttclid'] = ttclid_cookie
+    
+    # КРИТИЧНО: External ID должен ВСЕГДА быть определен
     external_source = None
     if request.user.is_authenticated:
         external_source = f"user:{request.user.id}"
-    elif order.session_key:
-        external_source = f"session:{order.session_key}"
     else:
+        # Пытаемся получить session_key
         try:
             session_key = request.session.session_key
+            if not session_key:
+                # Создаем сессию если еще не создана
+                request.session.create()
+                session_key = request.session.session_key
+            if session_key:
+                external_source = f"session:{session_key}"
         except Exception:
-            session_key = None
-        if session_key:
-            external_source = f"session:{session_key}"
-    if not external_source and order.order_number:
-        external_source = f"order:{order.order_number}"
-    if external_source:
-        tracking_context['external_id'] = external_source
-    if tracking_context:
-        order.payment_payload = {'tracking': tracking_context}
+            pass
+        
+        # Если нет session_key, используем order_number
+        if not external_source and order.order_number:
+            external_source = f"order:{order.order_number}"
+        
+        # Если нет order_number, используем order.id
+        if not external_source and order.id:
+            external_source = f"order:{order.id}"
     
+    # ГАРАНТИРУЕМ что external_id ВСЕГДА определен
+    if not external_source:
+        import time
+        external_source = f"order:unknown_{int(time.time())}"
+    
+    tracking_context['external_id'] = external_source
+    
+    # Добавляем Client IP Address для улучшения атрибуции
+    try:
+        # Получаем реальный IP (учитываем проксирование)
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            client_ip = x_forwarded_for.split(',')[0].strip()
+        else:
+            client_ip = request.META.get('REMOTE_ADDR')
+        
+        if client_ip:
+            tracking_context['client_ip_address'] = client_ip
+    except Exception:
+        pass
+    
+    # Добавляем User Agent для улучшения атрибуции
+    try:
+        user_agent = request.META.get('HTTP_USER_AGENT', '')
+        if user_agent:
+            tracking_context['client_user_agent'] = user_agent
+    except Exception:
+        pass
+    
+    if tracking_context:
+        analytics_payload = {'tracking': tracking_context}
+        if 'client_ip_address' in tracking_context:
+            analytics_payload['client_ip_address'] = tracking_context['client_ip_address']
+        if 'client_user_agent' in tracking_context:
+            analytics_payload['client_user_agent'] = tracking_context['client_user_agent']
+        order.payment_payload = analytics_payload
+
     # Создаем все товары заказа
     order_items = []
     for key, it in cart.items():

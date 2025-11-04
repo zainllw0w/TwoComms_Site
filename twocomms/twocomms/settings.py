@@ -719,6 +719,17 @@ FACEBOOK_CONVERSIONS_API_TOKEN = os.environ.get('FACEBOOK_CONVERSIONS_API_TOKEN'
 # Facebook App ID (опционально, для дополнительной аналитики)
 FACEBOOK_APP_ID = os.environ.get('FACEBOOK_APP_ID', '')
 
+# ==================== TIKTOK EVENTS API ====================
+
+# Токен доступа для Events API (получается в TikTok Ads Manager)
+TIKTOK_EVENTS_ACCESS_TOKEN = os.environ.get('TIKTOK_EVENTS_ACCESS_TOKEN', '')
+
+# Pixel Code (тот же что и для браузерного пикселя)
+TIKTOK_EVENTS_PIXEL_CODE = os.environ.get('TIKTOK_EVENTS_PIXEL_CODE', '')
+
+# Опциональный тестовый код события (для тестов через браузер)
+TIKTOK_EVENTS_TEST_EVENT_CODE = os.environ.get('TIKTOK_EVENTS_TEST_EVENT_CODE')
+
 # ==================== GOOGLE TAG MANAGER ====================
 
 # Google Tag Manager Container ID (GTM-XXXXXXX)
