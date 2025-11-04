@@ -598,6 +598,17 @@
   </div>
 </div>
 
+<!-- Hidden element for checkout analytics payload -->
+{% if checkout_payload %}
+<div id="checkout-payload"
+     data-contents="{{ checkout_payload_contents|urlencode }}"
+     data-ids="{{ checkout_payload_ids|urlencode }}"
+     data-value="{{ checkout_payload_value }}"
+     data-currency="{{ checkout_payload.currency|default:'UAH' }}"
+     data-num-items="{{ checkout_payload_num_items }}"
+     style="display:none;"></div>
+{% endif %}
+
 {% endblock %}
 
 {% block modals %}
