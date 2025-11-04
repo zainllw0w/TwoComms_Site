@@ -62,5 +62,8 @@ drf-spectacular==0.27.2
 # Rate limiting для защиты от злоупотреблений
 django-ratelimit==4.1.0
 
+# Facebook Conversions API
+facebook-business==22.0.3
+
 # Testing
 coverage==7.3.2
