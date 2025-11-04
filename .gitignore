@@ -185,5 +185,8 @@ DEEP_*.md
 FINAL_*.md
 PHASE_*.md
 REDIS_*.md
+
+# Исключения для важной документации
+!NOVA_POSHTA_DEEP_ANALYSIS_FOR_AI.md
 node_modules/
 *.backup
