@@ -1,9 +1,13 @@
 """
 Django management команда для обновления статусов посылок
 """
+import logging
 from django.core.management.base import BaseCommand
 from django.conf import settings
+from django.utils import timezone
 from orders.nova_poshta_service import NovaPoshtaService
+
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
@@ -20,8 +24,19 @@ class Command(BaseCommand):
             action='store_true',
             help='Показать что будет обновлено без фактического обновления',
         )
+        parser.add_argument(
+            '--verbose',
+            action='store_true',
+            help='Подробный вывод информации',
+        )
 
     def handle(self, *args, **options):
+        # Настраиваем логирование
+        if options['verbose']:
+            logging.basicConfig(level=logging.DEBUG)
+        else:
+            logging.basicConfig(level=logging.INFO)
+        
         # Проверяем наличие API ключа
         if not getattr(settings, 'NOVA_POSHTA_API_KEY', ''):
             self.stdout.write(
@@ -30,6 +45,7 @@ class Command(BaseCommand):
                     "Добавьте ключ API Новой Почты в переменные окружения."
                 )
             )
+            logger.error("NOVA_POSHTA_API_KEY not configured")
             return
 
         service = NovaPoshtaService()
@@ -52,85 +68,125 @@ class Command(BaseCommand):
                 self.stdout.write(
                     self.style.WARNING(f"Заказ {order_number} не имеет ТТН")
                 )
+                logger.warning(f"Order {order_number} has no tracking number")
                 return
             
             self.stdout.write(f"Обновление статуса для заказа {order_number}...")
+            logger.info(f"Updating tracking status for order {order_number}")
             
             if dry_run:
                 tracking_info = service.get_tracking_info(order.tracking_number)
                 if tracking_info:
                     status = tracking_info.get('Status', '')
+                    status_code = tracking_info.get('StatusCode')
                     status_desc = tracking_info.get('StatusDescription', '')
+                    
                     self.stdout.write(
-                        f"Текущий статус: {status} - {status_desc}"
+                        f"  Текущий статус: {status} (код: {status_code})"
+                    )
+                    if status_desc:
+                        self.stdout.write(f"  Описание: {status_desc}")
+                    
+                    logger.info(
+                        f"Order {order_number}: Status={status}, "
+                        f"StatusCode={status_code}, Description={status_desc}"
                     )
                 else:
                     self.stdout.write("Не удалось получить информацию о статусе")
+                    logger.warning(f"Failed to get tracking info for order {order_number}")
             else:
                 if service.update_order_tracking_status(order):
                     self.stdout.write(
-                        self.style.SUCCESS(f"Статус заказа {order_number} обновлен")
+                        self.style.SUCCESS(f"✅ Статус заказа {order_number} обновлен")
                     )
+                    logger.info(f"Order {order_number} status updated successfully")
                 else:
                     self.stdout.write(
-                        self.style.WARNING(f"Статус заказа {order_number} не изменился")
+                        self.style.WARNING(f"⚠ Статус заказа {order_number} не изменился")
                     )
+                    logger.info(f"Order {order_number} status unchanged")
                     
         except Order.DoesNotExist:
             self.stdout.write(
-                self.style.ERROR(f"Заказ {order_number} не найден")
+                self.style.ERROR(f"❌ Заказ {order_number} не найден")
             )
+            logger.error(f"Order {order_number} not found")
 
     def _update_all_orders(self, service, dry_run):
         """Обновляет статусы всех заказов"""
         from orders.models import Order
         
+        # Получаем заказы с ТТН
         orders_with_ttn = Order.objects.filter(
             tracking_number__isnull=False
-        ).exclude(tracking_number='')
+        ).exclude(
+            tracking_number=''
+        )
         
         total_orders = orders_with_ttn.count()
         
         if total_orders == 0:
             self.stdout.write("Нет заказов с ТТН для обновления")
+            logger.info("No orders with tracking numbers to update")
             return
         
         self.stdout.write(f"Найдено {total_orders} заказов с ТТН")
+        logger.info(f"Found {total_orders} orders with tracking numbers")
         
         if dry_run:
             self.stdout.write("DRY RUN - показываем что будет обновлено:")
+            logger.info("Running in DRY RUN mode")
+            
             for order in orders_with_ttn:
                 tracking_info = service.get_tracking_info(order.tracking_number)
                 if tracking_info:
                     status = tracking_info.get('Status', '')
+                    status_code = tracking_info.get('StatusCode')
                     status_desc = tracking_info.get('StatusDescription', '')
                     current_status = order.shipment_status or 'Неизвестно'
                     new_status = f"{status} - {status_desc}" if status_desc else status
                     
-                    if current_status != new_status:
+                    if current_status.strip() != new_status.strip():
                         self.stdout.write(
-                            f"  {order.order_number}: {current_status} → {new_status}"
+                            f"  {order.order_number}: {current_status} → {new_status} (код: {status_code})"
+                        )
+                        logger.debug(
+                            f"Order {order.order_number} would be updated: "
+                            f"{current_status} → {new_status}"
                         )
                     else:
                         self.stdout.write(
-                            f"  {order.order_number}: статус не изменился ({current_status})"
+                            f"  {order.order_number}: статус не изменился ({current_status}, код: {status_code})"
                         )
                 else:
                     self.stdout.write(f"  {order.order_number}: ошибка получения статуса")
+                    logger.warning(f"Failed to get tracking info for order {order.order_number}")
         else:
-            from django.utils import timezone
+            timestamp_start = timezone.now().strftime('%Y-%m-%d %H:%M:%S')
+            self.stdout.write(f"[{timestamp_start}] Начало обновления статусов...")
+            logger.info("Starting tracking status update")
             
-            self.stdout.write(f"[{timezone.now().strftime('%Y-%m-%d %H:%M:%S')}] Начало обновления статусов...")
             result = service.update_all_tracking_statuses()
             
+            timestamp_end = timezone.now().strftime('%Y-%m-%d %H:%M:%S')
+            
             summary = (
-                f"[{timezone.now().strftime('%Y-%m-%d %H:%M:%S')}] Обновление завершено:\n"
+                f"[{timestamp_end}] Обновление завершено:\n"
                 f"  Всего заказов с ТТН: {result['total_orders']}\n"
+                f"  Обработано: {result['processed']}\n"
                 f"  Обновлено статусов: {result['updated']}\n"
-                    f"  Ошибок: {result['errors']}"
+                f"  Ошибок: {result['errors']}"
             )
             
             if result['updated'] > 0:
                 self.stdout.write(self.style.SUCCESS(summary))
+                logger.info(
+                    f"Update completed: {result['updated']}/{result['total_orders']} updated, "
+                    f"{result['errors']} errors"
+                )
             else:
                 self.stdout.write(self.style.WARNING(summary))
+                logger.warning(
+                    f"Update completed with no updates: {result['total_orders']} total, "
+                    f"{result['errors']} errors"
+                )
