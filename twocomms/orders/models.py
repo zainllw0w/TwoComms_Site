@@ -508,7 +508,7 @@ class DropshipperOrder(models.Model):
         try:
             from .nova_poshta_service import NovaPoshtaService
             np_service = NovaPoshtaService()
-            status_info = np_service.track_parcel(self.tracking_number)
+            status_info = np_service.get_tracking_info(self.tracking_number)
             
             if not status_info:
                 return False, "Не вдалося отримати статус"

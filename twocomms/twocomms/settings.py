@@ -139,6 +139,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django.contrib.redirects.middleware.RedirectFallbackMiddleware",  # SEO редиректы
     "storefront.tracking.SimpleAnalyticsMiddleware",  # простая аналитика посещений
+    "orders.nova_poshta_middleware.NovaPoshtaFallbackMiddleware",  # Резервное обновление статусов НП
 ]
 
 ROOT_URLCONF = 'twocomms.urls'
@@ -294,6 +295,16 @@ LOGGING = {
             'propagate': True,
         },
         'social_core': {
+            'handlers': ['console', 'app_file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'orders.nova_poshta_service': {
+            'handlers': ['console', 'app_file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'orders.nova_poshta_middleware': {
             'handlers': ['console', 'app_file'],
             'level': 'INFO',
             'propagate': True,
@@ -742,3 +753,6 @@ NOVA_POSHTA_API_URL = os.environ.get('NOVA_POSHTA_API_URL', 'https://api.novapos
 
 # Nova Poshta Auto-Update Interval (minutes)
 NOVA_POSHTA_UPDATE_INTERVAL = _env_int('NOVA_POSHTA_UPDATE_INTERVAL', 5)
+
+# Nova Poshta Fallback Middleware (включить/выключить резервное обновление)
+NOVA_POSHTA_FALLBACK_ENABLED = _env_bool('NOVA_POSHTA_FALLBACK_ENABLED', True)
