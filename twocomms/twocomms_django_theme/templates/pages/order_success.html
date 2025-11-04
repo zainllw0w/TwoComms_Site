@@ -1870,19 +1870,38 @@ document.addEventListener('DOMContentLoaded', function() {
       contents = [];
     }
     
+    // КРИТИЧНО: Синхронизируем external_id с сервером
+    // Используем ту же логику что и в checkout.py
     var externalSource = '';
     if (userIdAttr) {
       externalSource = 'user:' + userIdAttr;
     } else if (sessionKey) {
       externalSource = 'session:' + sessionKey;
     } else if (orderNumber) {
+      // Используем orderNumber (строка TWC...), а не orderId (число)
       externalSource = 'order:' + orderNumber;
     } else if (orderId) {
+      // Fallback: используем orderId только если нет orderNumber
       externalSource = 'order:' + orderId;
     }
+    
+    // КРИТИЧНО: external_id должен быть ВСЕГДА определен
+    if (!externalSource) {
+      externalSource = 'order:' + (orderNumber || orderId || 'unknown');
+    }
+    
     var externalHash = null;
     if (externalSource && typeof window.__hashSHA256 === 'function') {
       externalHash = window.__hashSHA256(externalSource);
+    }
+    
+    function readCookieValue(name) {
+      var value = '; ' + document.cookie;
+      var parts = value.split('; ' + name + '=');
+      if (parts.length === 2) {
+        return parts.pop().split(';').shift();
+      }
+      return null;
     }
     
     function buildMetaUserData(emailValue, phoneValue, nameValue, cityValue) {
@@ -2005,6 +2024,7 @@ document.addEventListener('DOMContentLoaded', function() {
               item_name: item.name || ''
             };
           });
+          
           var purchaseMeta = {
             event_id: eventId,
             user_data: fbUserData
@@ -2012,6 +2032,17 @@ document.addEventListener('DOMContentLoaded', function() {
           if (externalHash) {
             purchaseMeta.external_id = externalHash;
           }
+          
+          // КРИТИЧНО: Добавляем fbp и fbc для дедупликации
+          var fbpValue = readCookieValue('_fbp');
+          var fbcValue = readCookieValue('_fbc');
+          if (fbpValue) {
+            purchaseMeta.fbp = fbpValue;
+          }
+          if (fbcValue) {
+            purchaseMeta.fbc = fbcValue;
+          }
+          
           var purchasePayloadPixels = {
             event_id: eventId,
             value: purchaseValue,
@@ -2072,6 +2103,14 @@ document.addEventListener('DOMContentLoaded', function() {
           };
           if (externalHash) {
             leadMeta.external_id = externalHash;
+          }
+          var fbpValueLead = readCookieValue('_fbp');
+          var fbcValueLead = readCookieValue('_fbc');
+          if (fbpValueLead) {
+            leadMeta.fbp = fbpValueLead;
+          }
+          if (fbcValueLead) {
+            leadMeta.fbc = fbcValueLead;
           }
           var leadTrackPayload = {
             event_id: leadEventId,
