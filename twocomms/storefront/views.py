@@ -1385,19 +1385,36 @@ def process_guest_order(request):
     
     # Применяем промокод если есть
     promo_code = request.session.get('applied_promo_code')
+    discount = Decimal('0.00')
     if promo_code:
         from .models import PromoCode
         try:
             promo = PromoCode.objects.get(code=promo_code, is_active=True)
             if promo.can_be_used():
                 discount = promo.calculate_discount(total_sum)
-                order.discount_amount = discount
-                order.promo_code = promo
-                promo.use()  # Увеличиваем счетчик использований
+                # Убеждаемся что discount тоже Decimal
+                if not isinstance(discount, Decimal):
+                    discount = Decimal(str(discount))
+                discount = discount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                
+                # Скидка не может быть больше суммы заказа
+                if discount > total_sum:
+                    discount = total_sum
+                
+                if discount > 0:
+                    order.discount_amount = discount
+                    order.promo_code = promo
+                    promo.use()  # Увеличиваем счетчик использований
         except PromoCode.DoesNotExist:
             pass
     
-    order.total_sum = total_sum
+    # Вычисляем финальную сумму с учетом скидки
+    from decimal import Decimal, ROUND_HALF_UP
+    final_total = (total_sum - discount).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    if final_total < 0:
+        final_total = Decimal('0.00')
+    
+    order.total_sum = final_total
     order.save()
     
     # Очищаем корзину и промокод
@@ -2657,20 +2674,36 @@ def order_create(request):
         
         # Применяем промокод если есть
         promo_code = request.session.get('applied_promo_code')
+        discount = Decimal('0.00')
         if promo_code:
             from .models import PromoCode
             try:
                 promo = PromoCode.objects.get(code=promo_code, is_active=True)
                 if promo.can_be_used():
                     discount = promo.calculate_discount(total_sum)
-                    order.discount_amount = discount
-                    order.promo_code = promo
-                    promo.use()  # Увеличиваем счетчик использований
+                    # Убеждаемся что discount тоже Decimal
+                    if not isinstance(discount, Decimal):
+                        discount = Decimal(str(discount))
+                    discount = discount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                    
+                    # Скидка не может быть больше суммы заказа
+                    if discount > total_sum:
+                        discount = total_sum
+                    
+                    if discount > 0:
+                        order.discount_amount = discount
+                        order.promo_code = promo
+                        promo.use()  # Увеличиваем счетчик использований
             except PromoCode.DoesNotExist:
                 pass
         
+        # Вычисляем финальную сумму с учетом скидки
+        final_total = (total_sum - discount).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        if final_total < 0:
+            final_total = Decimal('0.00')
+        
         # Обновляем общую сумму заказа
-        order.total_sum = total_sum
+        order.total_sum = final_total
         order.save()
 
     # Очищаем корзину и промокод
