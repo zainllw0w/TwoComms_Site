@@ -46,13 +46,18 @@ class FacebookConversionsService:
         
         # Проверяем наличие обязательных настроек
         if not self.access_token or not self.pixel_id:
-            logger.warning(
-                "Facebook Conversions API не настроен! "
-                "Необходимо установить FACEBOOK_CONVERSIONS_API_TOKEN и FACEBOOK_PIXEL_ID в ENV"
+            logger.error(
+                "❌ Facebook Conversions API не настроен! "
+                "Необходимо установить FACEBOOK_CONVERSIONS_API_TOKEN и FACEBOOK_PIXEL_ID в ENV. "
+                f"Access Token: {'установлен' if self.access_token else 'НЕ установлен'}, "
+                f"Pixel ID: {'установлен' if self.pixel_id else 'НЕ установлен'}"
             )
             self.enabled = False
         else:
             self.enabled = True
+            logger.info(
+                f"✅ Facebook Conversions API configured: Pixel ID={self.pixel_id}"
+            )
             
         # Импортируем Facebook SDK только если настройки есть
         if self.enabled:
@@ -154,16 +159,34 @@ class FacebookConversionsService:
 
         external_source = tracking_data.get('external_id')
         if not external_source:
+            # Fallback: генерируем external_id если не передан из checkout
             if order.user_id:
                 external_source = f"user:{order.user_id}"
             elif order.session_key:
                 external_source = f"session:{order.session_key}"
             elif order.order_number:
                 external_source = f"order:{order.order_number}"
+            
+            if external_source:
+                logger.info(
+                    f"📊 External ID generated as fallback for order {order.order_number}: {external_source}"
+                )
+        else:
+            logger.debug(
+                f"📊 External ID from tracking_data for order {order.order_number}: {external_source}"
+            )
+        
         if external_source:
             hashed_external = self._hash_data(external_source)
             if hashed_external:
                 user_data.external_id = hashed_external
+                logger.debug(
+                    f"📊 External ID hashed for order {order.order_number}: {hashed_external[:16]}..."
+                )
+        else:
+            logger.warning(
+                f"⚠️ External ID not available for order {order.order_number} - this may reduce match quality!"
+            )
         
         # Client IP address (если есть в payload)
         if order.payment_payload and isinstance(order.payment_payload, dict):
