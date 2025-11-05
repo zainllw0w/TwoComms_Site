@@ -367,16 +367,72 @@ def _record_monobank_status(order, payload, source='api'):
     if status in MONOBANK_SUCCESS_STATUSES:
         previous_status = order.payment_status
         
+        # КРИТИЧЕСКАЯ ЗАЩИТА: Если статус уже успешный, проверяем что он соответствует pay_type
+        # Не позволяем менять prepaid на paid при повторных webhook
+        if previous_status in ('prepaid', 'paid'):
+            # Проверяем что текущий статус соответствует pay_type
+            pay_type = getattr(order, 'pay_type', None) or 'online_full'
+            
+            if pay_type == 'prepay_200':
+                # Для предоплаты статус должен быть 'prepaid'
+                if previous_status == 'prepaid':
+                    monobank_logger.info(
+                        f'⚠️ Order {order.order_number}: webhook повторно получен, '
+                        f'статус уже prepaid (pay_type={pay_type}). Пропускаем обновление.'
+                    )
+                    # Сохраняем только payment_payload (историю webhook)
+                    try:
+                        order.save(update_fields=['payment_payload'])
+                    except Exception:
+                        order.save()
+                    return  # Не меняем статус и не отправляем уведомления
+                else:
+                    # Статус 'paid' но pay_type='prepay_200' - это ошибка, исправляем
+                    monobank_logger.warning(
+                        f'⚠️ Order {order.order_number}: обнаружена несоответствие! '
+                        f'pay_type=prepay_200 но payment_status={previous_status}. Исправляем на prepaid.'
+                    )
+                    order.payment_status = 'prepaid'
+            else:
+                # Для полной оплаты статус должен быть 'paid'
+                if previous_status == 'paid':
+                    monobank_logger.info(
+                        f'⚠️ Order {order.order_number}: webhook повторно получен, '
+                        f'статус уже paid (pay_type={pay_type}). Пропускаем обновление.'
+                    )
+                    # Сохраняем только payment_payload (историю webhook)
+                    try:
+                        order.save(update_fields=['payment_payload'])
+                    except Exception:
+                        order.save()
+                    return  # Не меняем статус и не отправляем уведомления
+                else:
+                    # Статус 'prepaid' но pay_type не 'prepay_200' - это ошибка, исправляем
+                    monobank_logger.warning(
+                        f'⚠️ Order {order.order_number}: обнаружена несоответствие! '
+                        f'pay_type={pay_type} но payment_status={previous_status}. Исправляем на paid.'
+                    )
+                    order.payment_status = 'paid'
+        
         # НОВАЯ ЛОГИКА (30.10.2024):
         # - prepay_200 → payment_status = 'prepaid' + Lead event
         # - online_full → payment_status = 'paid' + Purchase event
-        if order.pay_type == 'prepay_200':
-            order.payment_status = 'prepaid'
-            monobank_logger.info(f'✅ Order {order.order_number}: prepayment successful → payment_status=prepaid')
-        else:
-            order.payment_status = 'paid'
-            monobank_logger.info(f'✅ Order {order.order_number}: full payment successful → payment_status=paid')
+        pay_type = getattr(order, 'pay_type', None) or 'online_full'
         
+        if pay_type == 'prepay_200':
+            new_status = 'prepaid'
+            monobank_logger.info(
+                f'✅ Order {order.order_number}: prepayment successful → payment_status=prepaid '
+                f'(pay_type={pay_type}, previous_status={previous_status})'
+            )
+        else:
+            new_status = 'paid'
+            monobank_logger.info(
+                f'✅ Order {order.order_number}: full payment successful → payment_status=paid '
+                f'(pay_type={pay_type}, previous_status={previous_status})'
+            )
+        
+        order.payment_status = new_status
         update_fields.append('payment_status')
         try:
             order.save(update_fields=update_fields)
@@ -385,14 +441,38 @@ def _record_monobank_status(order, payload, source='api'):
         
         # Отправляем уведомления только если статус изменился
         if previous_status != order.payment_status:
-            # 1. Telegram уведомление
-            try:
-                from orders.telegram_notifications import TelegramNotifier
-                notifier = TelegramNotifier()
-                notifier.send_new_order_notification(order)
-                monobank_logger.info(f'📱 Telegram notification sent for order {order.order_number}')
-            except Exception as e:
-                monobank_logger.exception(f'Failed to send Telegram notification for order {order.order_number}: {e}')
+            # Проверяем что Telegram уведомление еще не отправлено (защита от дублирования)
+            payment_payload = order.payment_payload or {}
+            telegram_notifications = payment_payload.get('telegram_notifications', {})
+            telegram_sent = telegram_notifications.get('order_notification_sent', False)
+            
+            # 1. Telegram уведомление (только если еще не отправлено)
+            if not telegram_sent:
+                try:
+                    from orders.telegram_notifications import TelegramNotifier
+                    notifier = TelegramNotifier()
+                    notifier.send_new_order_notification(order)
+                    
+                    # Сохраняем в payment_payload что уведомление отправлено
+                    if 'telegram_notifications' not in payment_payload:
+                        payment_payload['telegram_notifications'] = {}
+                    payment_payload['telegram_notifications']['order_notification_sent'] = True
+                    payment_payload['telegram_notifications']['order_notification_sent_at'] = timezone.now().isoformat()
+                    payment_payload['telegram_notifications']['order_notification_status'] = order.payment_status
+                    order.payment_payload = payment_payload
+                    order.save(update_fields=['payment_payload'])
+                    
+                    monobank_logger.info(
+                        f'📱 Telegram notification sent for order {order.order_number} '
+                        f'(status: {previous_status} → {order.payment_status})'
+                    )
+                except Exception as e:
+                    monobank_logger.exception(f'Failed to send Telegram notification for order {order.order_number}: {e}')
+            else:
+                monobank_logger.info(
+                    f'⚠️ Order {order.order_number}: Telegram notification already sent '
+                    f'(status changed: {previous_status} → {order.payment_status}), skipping duplicate'
+                )
             
             # 2. Facebook событие
             try:
