@@ -324,6 +324,11 @@ def monobank_create_invoice(request):
     monobank_logger.info(f'Request body: {body}')
     monobank_logger.info(f'pay_type from body: {body.get("pay_type")}')
     
+    # Извлекаем tracking данные из body (отправляет клиент для дедупликации)
+    client_tracking = body.get('tracking', {})
+    if client_tracking:
+        monobank_logger.info(f'📊 Client tracking data received: {client_tracking}')
+    
     # Получаем cart
     cart = get_cart_from_session(request)
     if not cart:
@@ -718,10 +723,20 @@ def monobank_create_invoice(request):
             if ttclid_cookie:
                 tracking_context['ttclid'] = ttclid_cookie
             
+            # Дополняем tracking_context данными от клиента (если есть)
+            if isinstance(client_tracking, dict) and client_tracking:
+                for key, value in client_tracking.items():
+                    if value is None:
+                        continue
+                    # Не перезаписываем server-side значения если они уже есть, кроме event_id
+                    if key in tracking_context and key != 'event_id':
+                        continue
+                    tracking_context[key] = value
+            
             # КРИТИЧНО: External ID должен ВСЕГДА быть определен
-            external_source = None
+            external_source = tracking_context.get('external_id')
             if request.user.is_authenticated:
-                external_source = f"user:{request.user.id}"
+                external_source = external_source or f"user:{request.user.id}"
             else:
                 # Пытаемся получить session_key
                 try:
@@ -731,7 +746,7 @@ def monobank_create_invoice(request):
                         request.session.create()
                         session_key = request.session.session_key
                     if session_key:
-                        external_source = f"session:{session_key}"
+                        external_source = external_source or f"session:{session_key}"
                 except Exception:
                     pass
                 
