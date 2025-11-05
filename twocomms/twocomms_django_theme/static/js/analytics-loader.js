@@ -68,12 +68,97 @@
     }
     return '';
   }
+  
+  function setCookieValue(name, value, days) {
+    if (!name || !doc) {
+      return;
+    }
+    var expires = '';
+    if (days) {
+      var date = new Date();
+      date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+      expires = '; expires=' + date.toUTCString();
+    }
+    var cookieString = name + '=' + encodeURIComponent(value) + expires + '; path=/';
+    doc.cookie = cookieString;
+  }
+  
+  function generateEventId() {
+    // Генерирует уникальный event_id для дедупликации Pixel ↔ CAPI
+    // Format: timestamp_random
+    var timestamp = Date.now();
+    var random = Math.random().toString(36).substring(2, 11);
+    return timestamp + '_' + random;
+  }
+  
+  function ensureFbpCookie() {
+    // Создает _fbp cookie если его нет (Meta Pixel Browser ID)
+    var fbp = getCookieValue('_fbp');
+    if (!fbp) {
+      // Format: fb.1.timestamp.random
+      var timestamp = Date.now();
+      var random = Math.random().toString(36).substring(2, 15);
+      fbp = 'fb.1.' + timestamp + '.' + random;
+      setCookieValue('_fbp', fbp, 90); // 90 дней
+    }
+    return fbp;
+  }
+  
+  function ensureFbcCookie() {
+    // Создает _fbc cookie из fbclid параметра URL (Meta Pixel Click ID)
+    var fbc = getCookieValue('_fbc');
+    if (fbc) {
+      return fbc; // Уже есть
+    }
+    
+    // Парсим fbclid из URL
+    try {
+      var params = new URLSearchParams(win.location.search);
+      var fbclid = params.get('fbclid');
+      if (fbclid) {
+        // Format: fb.1.timestamp.fbclid
+        var timestamp = Date.now();
+        fbc = 'fb.1.' + timestamp + '.' + fbclid;
+        setCookieValue('_fbc', fbc, 90); // 90 дней
+        return fbc;
+      }
+    } catch (e) {
+      // Fallback для старых браузеров
+      var search = win.location.search;
+      if (search) {
+        var match = search.match(/[?&]fbclid=([^&]+)/);
+        if (match && match[1]) {
+          var timestamp = Date.now();
+          fbc = 'fb.1.' + timestamp + '.' + match[1];
+          setCookieValue('_fbc', fbc, 90);
+          return fbc;
+        }
+      }
+    }
+    
+    return null;
+  }
 
+  // Экспортируем функции для использования в других скриптах
+  win.generateEventId = generateEventId;
+  win.getTrackingContext = function() {
+    return {
+      fbp: ensureFbpCookie(),
+      fbc: ensureFbcCookie() || getCookieValue('_fbc') || null,
+      event_id: generateEventId()
+    };
+  };
+  
   function setupGlobalEventBridge() {
     if (typeof win.trackEvent === 'function') {
       return;
     }
     win.YM_ID = YM_ID ? parseInt(YM_ID, 10) || 0 : 0;
+    
+    // Инициализация fbp/fbc cookies при загрузке
+    ensureFbpCookie();
+    ensureFbcCookie();
+    
     win.trackEvent = function (eventName, payload) {
       if (!eventName) {
         return;
@@ -81,11 +166,39 @@
       payload = payload || {};
 
       var metaConfig = (payload.__meta && typeof payload.__meta === 'object') ? payload.__meta : {};
+      
+      // Генерируем event_id если не передан (КРИТИЧНО для дедупликации)
       var eventId = metaConfig.event_id || payload.event_id || null;
+      if (!eventId) {
+        eventId = generateEventId();
+      }
+      
       var externalId = metaConfig.external_id || payload.external_id || null;
       var fbUserData = metaConfig.user_data || payload.fb_user_data || null;
-      var fbpValue = metaConfig.fbp || payload.fbp || getCookieValue('_fbp');
-      var fbcValue = metaConfig.fbc || payload.fbc || getCookieValue('_fbc');
+      
+      // Обновляем fbp/fbc при каждом событии (могли измениться)
+      var fbpValue = metaConfig.fbp || payload.fbp || ensureFbpCookie();
+      var fbcValue = metaConfig.fbc || payload.fbc || ensureFbcCookie() || getCookieValue('_fbc');
+
+      // Обновляем meta для дальнейшего использования (например, сервер)
+      metaConfig.event_id = eventId;
+      if (fbpValue) {
+        metaConfig.fbp = fbpValue;
+      }
+      if (fbcValue) {
+        metaConfig.fbc = fbcValue;
+      }
+      if (externalId && !metaConfig.external_id) {
+        metaConfig.external_id = externalId;
+      }
+      payload.__meta = metaConfig;
+      payload.event_id = eventId;
+      if (fbpValue && !payload.fbp) {
+        payload.fbp = fbpValue;
+      }
+      if (fbcValue && !payload.fbc) {
+        payload.fbc = fbcValue;
+      }
 
       var cleanPayload = {};
       for (var originalKey in payload) {
@@ -193,7 +306,7 @@
               }
               // Fallback: буферизуем событие на случай если это временная ошибка
               if (win._fbqBuffer) {
-                win._fbqBuffer.push({ event: eventName, data: fbPayload });
+                win._fbqBuffer.push({ event: eventName, data: fbPayload, options: metaOptions });
               }
             }
         } else if (PIXEL_ID) {
@@ -201,7 +314,13 @@
             if (!win._fbqBuffer) {
               win._fbqBuffer = [];
             }
-          win._fbqBuffer.push({ event: eventName, data: fbPayload });
+          win._fbqBuffer.push({ event: eventName, data: fbPayload, options: {
+            eventID: eventId ? String(eventId) : undefined,
+            external_id: externalId ? String(externalId) : undefined,
+            fbp: fbpValue ? String(fbpValue) : undefined,
+            fbc: fbcValue ? String(fbcValue) : undefined,
+            user_data: fbUserData && typeof fbUserData === 'object' ? Object.assign({}, fbUserData) : undefined
+          }});
           }
         }
       } catch (err1) {
@@ -835,7 +954,11 @@
       }
       win._fbqBuffer.forEach(function(buffered) {
         try {
-          win.fbq('track', buffered.event, buffered.data);
+          if (buffered && buffered.options) {
+            win.fbq('track', buffered.event, buffered.data, buffered.options);
+          } else {
+            win.fbq('track', buffered.event, buffered.data);
+          }
         } catch (err) {
           if (console && console.debug) {
             console.debug('Meta Pixel buffered event error', err);
