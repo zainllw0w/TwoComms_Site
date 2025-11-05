@@ -303,8 +303,22 @@ class FacebookConversionsService:
             return False
         
         try:
-            # Event ID для дедупликации
-            event_id = order.get_facebook_event_id()
+            # Event ID для дедупликации (приоритет - из tracking_data)
+            event_id = None
+            if order.payment_payload and isinstance(order.payment_payload, dict):
+                tracking_data = order.payment_payload.get('tracking') or {}
+                event_id = tracking_data.get('event_id')
+                if event_id:
+                    logger.info(
+                        f"📊 Using event_id from tracking_data for order {order.order_number}: {event_id}"
+                    )
+            
+            # Fallback: генерируем event_id если не передан
+            if not event_id:
+                event_id = order.get_facebook_event_id()
+                logger.info(
+                    f"📊 Generated fallback event_id for order {order.order_number}: {event_id}"
+                )
             
             # Event Time (timestamp заказа)
             event_time = int(order.created.timestamp())
@@ -392,8 +406,22 @@ class FacebookConversionsService:
             return False
         
         try:
-            # Event ID для дедупликации
-            event_id = f"{order.get_facebook_event_id()}_lead"
+            # Event ID для дедупликации (приоритет - из tracking_data)
+            event_id = None
+            if order.payment_payload and isinstance(order.payment_payload, dict):
+                tracking_data = order.payment_payload.get('tracking') or {}
+                event_id = tracking_data.get('lead_event_id') or tracking_data.get('event_id')
+                if event_id:
+                    logger.info(
+                        f"📊 Using lead event_id from tracking_data for order {order.order_number}: {event_id}"
+                    )
+            
+            # Fallback: детерминированный event_id для Lead
+            if not event_id:
+                event_id = order.get_facebook_event_id(event_type='lead')
+                logger.info(
+                    f"📊 Generated fallback lead event_id for order {order.order_number}: {event_id}"
+                )
             
             # Event Time
             event_time = int(order.created.timestamp())

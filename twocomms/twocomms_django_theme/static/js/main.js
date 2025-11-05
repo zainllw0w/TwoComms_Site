@@ -725,6 +725,17 @@ function requestMonobankPay(){
     payload = {};
   }
   payload.pay_type = effectivePayType;
+  
+  // КРИТИЧНО: Добавляем tracking данные для дедупликации Pixel ↔ CAPI
+  try {
+    if (window.getTrackingContext && typeof window.getTrackingContext === 'function') {
+      const tracking = window.getTrackingContext();
+      payload.tracking = tracking;
+      console.log('✅ Tracking context added to payload:', tracking);
+    }
+  } catch (trackingErr) {
+    console.warn('⚠️ Failed to get tracking context:', trackingErr);
+  }
 
   console.log('🚚 Preparing MonoPay payload:', JSON.stringify(payload, null, 2));
   console.log('🔍 pay_type in payload:', payload.pay_type);

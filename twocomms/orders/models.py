@@ -112,19 +112,22 @@ class Order(models.Model):
         ])
         return payment_status_choices.get(self.payment_status, self.payment_status)
     
-    def get_facebook_event_id(self):
+    def get_facebook_event_id(self, event_type='purchase'):
         """
         Генерирует уникальный event_id для Facebook Pixel/Conversions API.
         Используется для дедупликации событий между браузером и сервером.
         
-        Format: {order_number}_{timestamp}
-        Example: TWC30102025N01_1730304000
+        Args:
+            event_type: Тип события ('purchase', 'lead') - для генерации разных event_id
+        
+        Format: {order_number}_{timestamp}_{event_type}
+        Example: TWC30102025N01_1730304000_purchase
         """
         import hashlib
         import time
-        # Используем order_number + timestamp создания как уникальный идентификатор
+        # Используем order_number + timestamp создания + event_type как уникальный идентификатор
         timestamp = int(self.created.timestamp()) if self.created else int(time.time())
-        return f"{self.order_number}_{timestamp}"
+        return f"{self.order_number}_{timestamp}_{event_type}"
     
     def get_prepayment_amount(self):
         """Возвращает сумму предоплаты для pay_type=prepay_200"""
