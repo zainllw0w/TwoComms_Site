@@ -309,24 +309,30 @@ class NovaPoshtaService:
             )
             status_code = None
         
-        # Формируем полное описание статуса
+        # Формируем полное описание статуса для сохранения
         full_status = f"{status} - {status_description}" if status_description else status
         
-        # Нормализуем статусы для сравнения (убираем лишние пробелы)
-        current_status = (order.shipment_status or '').strip()
-        new_status = full_status.strip()
+        # КРИТИЧЕСКИ ВАЖНО: Сравниваем только основной Status (без description)
+        # для определения изменения статуса. Description может меняться каждый раз
+        # (например, добавляется время), но это не означает изменение статуса.
+        current_status_base = (order.shipment_status or '').split(' - ')[0].strip()
+        new_status_base = status.strip()
         
-        # Проверяем, изменился ли статус
-        status_changed = current_status != new_status
+        # Проверяем, изменился ли основной статус
+        status_changed = current_status_base != new_status_base
         
         if status_changed:
             old_status = order.shipment_status
-            order.shipment_status = new_status
+            old_status_base = current_status_base
+            
+            # Сохраняем полное описание статуса (с description) для отображения
+            order.shipment_status = full_status.strip()
             order.shipment_status_updated = timezone.now()
             
             logger.info(
                 f"Order {order.order_number}: shipment_status changed "
-                f"from '{old_status}' to '{new_status}'"
+                f"from '{old_status_base}' to '{new_status_base}' "
+                f"(full: '{old_status}' -> '{full_status}')"
             )
             
             # Автоматически меняем статус заказа при получении посылки
@@ -334,13 +340,31 @@ class NovaPoshtaService:
                 order, status, status_description, status_code
             )
             
-            order.save()
+            # Явно указываем поля для обновления для гарантии сохранения
+            try:
+                order.save(update_fields=['shipment_status', 'shipment_status_updated', 'status', 'payment_status'])
+                logger.debug(f"Order {order.order_number}: changes saved successfully")
+            except Exception as e:
+                logger.error(
+                    f"Order {order.order_number}: failed to save changes: {e}",
+                    exc_info=True
+                )
+                # Пытаемся сохранить еще раз без update_fields
+                try:
+                    order.save()
+                    logger.info(f"Order {order.order_number}: saved without update_fields")
+                except Exception as e2:
+                    logger.error(
+                        f"Order {order.order_number}: failed to save even without update_fields: {e2}",
+                        exc_info=True
+                    )
+                    return False
             
-            # Отправляем уведомления
+            # Отправляем уведомления только если статус действительно изменился
             if order_status_changed:
-                self._send_delivery_notification(order, new_status)
+                self._send_delivery_notification(order, full_status)
             else:
-                self._send_status_notification(order, old_status, new_status)
+                self._send_status_notification(order, old_status, full_status)
             
             return True
         else:
@@ -351,8 +375,27 @@ class NovaPoshtaService:
                     order, status, status_description, status_code
                 )
                 if order_status_changed:
-                    order.save()
-                    self._send_delivery_notification(order, new_status)
+                    # Явно указываем поля для обновления для гарантии сохранения
+                    try:
+                        order.save(update_fields=['status', 'payment_status'])
+                        logger.debug(f"Order {order.order_number}: order status changes saved successfully")
+                    except Exception as e:
+                        logger.error(
+                            f"Order {order.order_number}: failed to save order status changes: {e}",
+                            exc_info=True
+                        )
+                        # Пытаемся сохранить еще раз без update_fields
+                        try:
+                            order.save()
+                            logger.info(f"Order {order.order_number}: saved without update_fields")
+                        except Exception as e2:
+                            logger.error(
+                                f"Order {order.order_number}: failed to save even without update_fields: {e2}",
+                                exc_info=True
+                            )
+                            return False
+                    
+                    self._send_delivery_notification(order, full_status)
                     logger.info(
                         f"Order {order.order_number}: status changed to 'done' "
                         f"without shipment_status change"
