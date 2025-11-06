@@ -469,49 +469,26 @@ class NovaPoshtaService:
                 f"'{old_order_status}' to 'done' (parcel received, StatusCode={status_code})"
             )
             
-            # 2. Автоматически меняем payment_status на 'paid' если не оплачено
-            # КРИТИЧЕСКИ ВАЖНО: НЕ меняем на 'paid' если была предоплата (prepaid)
-            # Предоплата остается предоплатой даже после получения посылки
+            # 2. Автоматически меняем payment_status на 'paid' если посылка получена
+            # ВАЖНО: Когда посылка получена (отримано), статус оплаты меняется на 'paid'
+            # независимо от того, была ли предоплата или нет.
+            # Предоплата (prepaid) меняется на 'paid' только когда посылка полностью получена.
             payment_status_changed = False
-            pay_type = getattr(order, 'pay_type', None) or 'online_full'
-            
-            # Проверяем можно ли менять на 'paid':
-            # - НЕ меняем если payment_status == 'prepaid' (предоплата остается предоплатой)
-            # - НЕ меняем если pay_type == 'prepay_200' (тип оплаты с предоплатой)
-            # - Меняем только если payment_status == 'unpaid' или 'checking', и pay_type != 'prepay_200'
-            can_change_to_paid = (
-                order.payment_status != 'paid' and
-                order.payment_status != 'prepaid' and
-                pay_type != 'prepay_200'
-            )
-            
-            if can_change_to_paid:
+            if order.payment_status != 'paid':
                 order.payment_status = 'paid'
                 payment_status_changed = True
                 logger.info(
                     f"💰 Order {order.order_number}: payment_status changed "
-                    f"from '{old_payment_status}' to 'paid' (parcel received)"
+                    f"from '{old_payment_status}' to 'paid' (parcel received - full payment)"
                 )
                 
                 # 3. Отправляем Purchase событие в Facebook Conversions API
                 self._send_facebook_purchase_event(order)
             else:
-                # Логируем почему не меняем статус
-                if order.payment_status == 'prepaid':
-                    logger.info(
-                        f"💰 Order {order.order_number}: payment_status remains 'prepaid' "
-                        f"(prepayment, not changing to 'paid' on delivery)"
-                    )
-                elif pay_type == 'prepay_200':
-                    logger.info(
-                        f"💰 Order {order.order_number}: payment_status remains '{old_payment_status}' "
-                        f"(pay_type=prepay_200, not changing to 'paid' on delivery)"
-                    )
-                else:
-                    logger.debug(
-                        f"💰 Order {order.order_number}: payment_status already '{old_payment_status}', "
-                        f"no change needed"
-                    )
+                logger.debug(
+                    f"💰 Order {order.order_number}: payment_status already 'paid', "
+                    f"no change needed"
+                )
             
             # 4. Отправляем уведомление админу об автоматическом изменении статуса
             self._send_admin_delivery_notification(order, old_order_status, payment_status_changed)
