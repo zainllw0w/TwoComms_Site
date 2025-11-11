@@ -89,17 +89,35 @@ def uaprom_products_feed(request):
     Prom.ua (UA Prom) Product Feed.
     
     Генерирует XML feed для украинского маркетплейса Prom.ua.
+    Импортирует функцию напрямую из основного views.py модуля через legacy loader.
     """
-    # TODO: Реализовать генерацию Prom.ua Feed
-    # Временно импортируем из старого views.py
-    from storefront import views as old_views
-    if hasattr(old_views, 'uaprom_products_feed'):
-        return old_views.uaprom_products_feed(request)
+    # Используем тот же механизм, что и в views/__init__.py для загрузки legacy views
+    import os
+    import importlib.util
     
+    try:
+        # Получаем путь к views.py
+        views_py_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'views.py')
+        
+        if os.path.exists(views_py_path):
+            # Динамически импортируем функцию из views.py
+            spec = importlib.util.spec_from_file_location("storefront.views_legacy_feed", views_py_path)
+            views_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(views_module)
+            
+            if hasattr(views_module, 'uaprom_products_feed'):
+                return views_module.uaprom_products_feed(request)
+    except Exception as e:
+        # Логируем ошибку, но не падаем
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error loading uaprom_products_feed from views.py: {e}", exc_info=True)
+    
+    # Если ничего не сработало, возвращаем ошибку
     return HttpResponse(
-        '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<shop></shop>',
-        content_type='application/xml'
+        '<?xml version="1.0" encoding="UTF-8"?>\n<error>Feed generation failed: could not load feed function</error>',
+        content_type='application/xml',
+        status=500
     )
 
 
