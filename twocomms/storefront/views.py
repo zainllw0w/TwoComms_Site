@@ -352,18 +352,33 @@ def _collect_tracking_context(request, order=None):
 
 
 def uaprom_products_feed(request):
+    """
+    Генерирует XML feed для Prom.ua / UAPROM.
+    Формат: YML (Yandex Market Language)
+    """
+    import logging
     from django.utils import timezone
     import xml.etree.ElementTree as ET
 
-    base_url = getattr(settings, "FEED_BASE_URL", "").strip() or request.build_absolute_uri("/").rstrip("/")
+    logger = logging.getLogger(__name__)
 
-    products_qs = (
-        Product.objects
-        .select_related("category")
-        .prefetch_related("images", "color_variants__images", "color_variants__color")
-        .order_by("id")
-    )
-    products = list(products_qs)
+    try:
+        base_url = getattr(settings, "FEED_BASE_URL", "").strip() or request.build_absolute_uri("/").rstrip("/")
+
+        products_qs = (
+            Product.objects
+            .select_related("category")
+            .prefetch_related("images", "color_variants__images", "color_variants__color")
+            .order_by("id")
+        )
+        products = list(products_qs)
+    except Exception as e:
+        logger.error(f"Error in uaprom_products_feed: {e}", exc_info=True)
+        return HttpResponse(
+            f'<?xml version="1.0" encoding="UTF-8"?>\n<error>Failed to generate feed: {str(e)}</error>',
+            content_type="application/xml; charset=utf-8",
+            status=500
+        )
 
     categories_ids = {p.category_id for p in products if p.category_id}
     categories_map = {
@@ -390,113 +405,160 @@ def uaprom_products_feed(request):
     offers_el = ET.SubElement(shop, "offers")
 
     for product in products:
-        material_value = _material_for_product(product)
+        try:
+            material_value = _material_for_product(product)
 
-        base_image_paths = []
-        if product.main_image:
-            base_image_paths.append(product.main_image.url)
-        base_image_paths.extend(img.image.url for img in product.images.all() if getattr(img, "image", None))
-        base_image_paths = list(dict.fromkeys(base_image_paths))
-
-        color_variants = list(product.color_variants.all())
-        if color_variants:
-            variant_payloads = []
-            for variant in color_variants:
-                color_label = _normalize_color_name(variant.color.name if variant.color else None)
-                variant_images = [img.image.url for img in variant.images.all() if getattr(img, "image", None)]
-                variant_payloads.append((color_label, variant_images, variant.id))
-        else:
-            variant_payloads = [(FEED_DEFAULT_COLOR, base_image_paths, None)]
-
-        for color_name, variant_images, variant_id in variant_payloads:
-            images_to_use = variant_images or base_image_paths
-            image_urls = [
-                url for url in (
-                    _absolute_media_url(base_url, path) for path in images_to_use
-                ) if url
-            ]
-            image_urls = list(dict.fromkeys(image_urls))
-            if not image_urls and base_image_paths:
-                # Fallback to ensure feed has at least one image per offer
-                fallback = _absolute_media_url(base_url, base_image_paths[0])
-                if fallback:
-                    image_urls = [fallback]
-
-            group_id = f"TC-GROUP-{product.id}"
-
-            for size in FEED_SIZE_OPTIONS:
-                offer_id = product.get_offer_id(variant_id, size)
-                offer_el = ET.SubElement(
-                    offers_el,
-                    "offer",
-                    {"id": offer_id, "available": "true", "group_id": group_id},
+            base_image_paths = []
+            if product.main_image:
+                try:
+                    base_image_paths.append(product.main_image.url)
+                except Exception:
+                    pass
+            
+            try:
+                base_image_paths.extend(
+                    img.image.url for img in product.images.all() 
+                    if getattr(img, "image", None) and hasattr(img.image, "url")
                 )
+            except Exception:
+                pass
+            
+            base_image_paths = list(dict.fromkeys(base_image_paths))
 
-                product_path = f"/product/{product.slug}/"
-                query = f"?size={size}&color={slugify(color_name, allow_unicode=True)}"
-                ET.SubElement(offer_el, "url").text = f"{urljoin(base_url, product_path)}{query}"
+            try:
+                color_variants = list(product.color_variants.all())
+                if color_variants:
+                    variant_payloads = []
+                    for variant in color_variants:
+                        try:
+                            color_label = _normalize_color_name(variant.color.name if variant.color else None)
+                            variant_images = [
+                                img.image.url for img in variant.images.all() 
+                                if getattr(img, "image", None) and hasattr(img.image, "url")
+                            ]
+                            variant_payloads.append((color_label, variant_images, variant.id))
+                        except Exception as e:
+                            logger.warning(f"Error processing variant {variant.id} for product {product.id}: {e}")
+                            continue
+                else:
+                    variant_payloads = [(FEED_DEFAULT_COLOR, base_image_paths, None)]
+            except Exception as e:
+                logger.warning(f"Error processing color variants for product {product.id}: {e}")
+                variant_payloads = [(FEED_DEFAULT_COLOR, base_image_paths, None)]
 
-                ET.SubElement(offer_el, "oldprice").text = str(product.price)
-                ET.SubElement(offer_el, "price").text = str(product.final_price)
-                ET.SubElement(offer_el, "currencyId").text = "UAH"
+            for color_name, variant_images, variant_id in variant_payloads:
+                try:
+                    images_to_use = variant_images or base_image_paths
+                    image_urls = [
+                        url for url in (
+                            _absolute_media_url(base_url, path) for path in images_to_use
+                        ) if url
+                    ]
+                    image_urls = list(dict.fromkeys(image_urls))
+                    if not image_urls and base_image_paths:
+                        # Fallback to ensure feed has at least one image per offer
+                        fallback = _absolute_media_url(base_url, base_image_paths[0])
+                        if fallback:
+                            image_urls = [fallback]
 
-                if product.category_id:
-                    ET.SubElement(offer_el, "categoryId").text = str(product.category_id)
+                    group_id = f"TC-GROUP-{product.id}"
 
-                for image_url in image_urls:
-                    ET.SubElement(offer_el, "picture").text = image_url
+                    # Подготовка описания для товара (одинаково для всех размеров и цветов)
+                    raw_description = product.description or ""
+                    sanitized_description = _sanitize_feed_description(raw_description)
+                    if not sanitized_description:
+                        sanitized_description = f"TwoComms {product.title} — демисезонная вещь собственного производства."
 
-                ET.SubElement(offer_el, "pickup").text = "true"
-                ET.SubElement(offer_el, "delivery").text = "true"
+                    ua_source = getattr(product, "ai_description", None) or raw_description
+                    sanitized_description_ua = _sanitize_feed_description(ua_source)
+                    if not sanitized_description_ua:
+                        sanitized_description_ua = sanitized_description
 
-                display_name = f"TwoComms {product.title} {color_name} {size}"
-                display_name_clean = display_name.strip()
-                ET.SubElement(offer_el, "name").text = display_name_clean
-                ET.SubElement(offer_el, "name_ua").text = display_name_clean
-                ET.SubElement(offer_el, "vendor").text = "TWOCOMMS"
-                ET.SubElement(offer_el, "vendorCode").text = offer_id
-                ET.SubElement(offer_el, "country_of_origin").text = "Украина"
+                    for size in FEED_SIZE_OPTIONS:
+                        try:
+                            offer_id = product.get_offer_id(variant_id, size)
+                            offer_el = ET.SubElement(
+                                offers_el,
+                                "offer",
+                                {"id": offer_id, "available": "true", "group_id": group_id},
+                            )
 
-        raw_description = product.description or ""
-        sanitized_description = _sanitize_feed_description(raw_description)
-        if not sanitized_description:
-            sanitized_description = f"TwoComms {product.title} — демисезонная вещь собственного производства."
+                            product_slug = getattr(product, "slug", f"product-{product.id}") or f"product-{product.id}"
+                            product_path = f"/product/{product_slug}/"
+                            query = f"?size={size}&color={slugify(color_name, allow_unicode=True)}"
+                            ET.SubElement(offer_el, "url").text = f"{urljoin(base_url, product_path)}{query}"
 
-        ua_source = getattr(product, "ai_description", None) or raw_description
-        sanitized_description_ua = _sanitize_feed_description(ua_source)
-        if not sanitized_description_ua:
-            sanitized_description_ua = sanitized_description
+                            ET.SubElement(offer_el, "oldprice").text = str(product.price or 0)
+                            ET.SubElement(offer_el, "price").text = str(product.final_price or product.price or 0)
+                            ET.SubElement(offer_el, "currencyId").text = "UAH"
 
-        description_el = ET.SubElement(offer_el, "description")
-        if hasattr(ET, 'CDATA'):
-            description_el.text = ET.CDATA(sanitized_description)
-        else:
-            description_el.text = sanitized_description
+                            if product.category_id:
+                                ET.SubElement(offer_el, "categoryId").text = str(product.category_id)
 
-        description_ua_el = ET.SubElement(offer_el, "description_ua")
-        if hasattr(ET, 'CDATA'):
-            description_ua_el.text = ET.CDATA(sanitized_description_ua)
-        else:
-            description_ua_el.text = sanitized_description_ua
+                            for image_url in image_urls:
+                                ET.SubElement(offer_el, "picture").text = image_url
 
-        param_size = ET.SubElement(offer_el, "param", {"name": "Размер", "unit": ""})
-        param_size.text = size
+                            ET.SubElement(offer_el, "pickup").text = "true"
+                            ET.SubElement(offer_el, "delivery").text = "true"
 
-        param_color = ET.SubElement(offer_el, "param", {"name": "Цвет", "unit": ""})
-        param_color.text = color_name
+                            product_title = getattr(product, "title", "Товар") or "Товар"
+                            display_name = f"TwoComms {product_title} {color_name} {size}"
+                            display_name_clean = display_name.strip()
+                            ET.SubElement(offer_el, "name").text = display_name_clean
+                            ET.SubElement(offer_el, "name_ua").text = display_name_clean
+                            ET.SubElement(offer_el, "vendor").text = "TWOCOMMS"
+                            ET.SubElement(offer_el, "vendorCode").text = offer_id
+                            ET.SubElement(offer_el, "country_of_origin").text = "Украина"
 
-        param_material = ET.SubElement(offer_el, "param", {"name": "Материал", "unit": ""})
-        param_material.text = material_value
+                            # Описание (одинаковое для всех размеров одного цвета)
+                            description_el = ET.SubElement(offer_el, "description")
+                            if hasattr(ET, 'CDATA'):
+                                description_el.text = ET.CDATA(sanitized_description)
+                            else:
+                                description_el.text = sanitized_description
 
-        param_season = ET.SubElement(offer_el, "param", {"name": "Сезон", "unit": ""})
-        param_season.text = DEFAULT_FEED_SEASON
+                            description_ua_el = ET.SubElement(offer_el, "description_ua")
+                            if hasattr(ET, 'CDATA'):
+                                description_ua_el.text = ET.CDATA(sanitized_description_ua)
+                            else:
+                                description_ua_el.text = sanitized_description_ua
 
-    ET.indent(catalog, space="  ", level=0)
-    xml_payload = ET.tostring(catalog, encoding="utf-8", xml_declaration=True)
+                            # Параметры (разные для каждого размера)
+                            param_size = ET.SubElement(offer_el, "param", {"name": "Размер", "unit": ""})
+                            param_size.text = size
 
-    response = HttpResponse(xml_payload, content_type="application/xml; charset=utf-8")
-    response["Content-Disposition"] = 'inline; filename="products_feed.xml"'
-    return response
+                            param_color = ET.SubElement(offer_el, "param", {"name": "Цвет", "unit": ""})
+                            param_color.text = color_name
+
+                            param_material = ET.SubElement(offer_el, "param", {"name": "Материал", "unit": ""})
+                            param_material.text = material_value
+
+                            param_season = ET.SubElement(offer_el, "param", {"name": "Сезон", "unit": ""})
+                            param_season.text = DEFAULT_FEED_SEASON
+                        except Exception as e:
+                            logger.warning(f"Error creating offer for product {product.id}, variant {variant_id}, size {size}: {e}")
+                            continue
+                except Exception as e:
+                    logger.warning(f"Error processing color variant for product {product.id}: {e}")
+                    continue
+        except Exception as e:
+            logger.error(f"Error processing product {product.id}: {e}", exc_info=True)
+            continue
+
+    try:
+        ET.indent(catalog, space="  ", level=0)
+        xml_payload = ET.tostring(catalog, encoding="utf-8", xml_declaration=True)
+
+        response = HttpResponse(xml_payload, content_type="application/xml; charset=utf-8")
+        response["Content-Disposition"] = 'inline; filename="products_feed.xml"'
+        return response
+    except Exception as e:
+        logger.error(f"Error generating XML feed: {e}", exc_info=True)
+        return HttpResponse(
+            f'<?xml version="1.0" encoding="UTF-8"?>\n<error>Failed to generate feed: {str(e)}</error>',
+            content_type="application/xml; charset=utf-8",
+            status=500
+        )
 
 
 def google_merchant_feed(request):
@@ -5642,55 +5704,13 @@ def _prepare_checkout_customer_data(request):
     }
 
 
-def _record_monobank_status(order, payload, source='api'):
-    if not payload:
-        return
-
-    status = payload.get('status')
-    payment_payload = order.payment_payload or {}
-    history = payment_payload.get('history', [])
-    history.append({
-        'status': status,
-        'data': payload,
-        'source': source,
-        'received_at': timezone.now().isoformat()
-    })
-    payment_payload['history'] = history[-20:]
-    payment_payload['last_status'] = status
-    payment_payload['last_update_source'] = source
-    payment_payload['last_update_at'] = timezone.now().isoformat()
-    order.payment_payload = payment_payload
-
-    update_fields = ['payment_payload']
-
-    if status in MONOBANK_SUCCESS_STATUSES:
-        previous_status = order.payment_status
-        order.payment_status = 'paid'
-        update_fields.append('payment_status')
-        try:
-            order.save(update_fields=update_fields)
-        except Exception:
-            order.save()
-        if previous_status != 'paid':
-            try:
-                from orders.telegram_notifications import TelegramNotifier
-                notifier = TelegramNotifier()
-                notifier.send_new_order_notification(order)
-            except Exception:
-                monobank_logger.exception('Failed to send Telegram notification for paid order %s', order.id)
-        return
-
-    if status in MONOBANK_PENDING_STATUSES:
-        order.payment_status = 'checking'
-        update_fields.append('payment_status')
-    elif status in MONOBANK_FAILURE_STATUSES:
-        order.payment_status = 'unpaid'
-        update_fields.append('payment_status')
-
-    try:
-        order.save(update_fields=update_fields)
-    except Exception:
-        order.save()
+# Импортируем правильные версии функций из utils.py
+# которые корректно обрабатывают предоплату (prepay_200 -> payment_status='prepaid')
+from storefront.views.utils import (
+    _record_monobank_status,
+    _verify_monobank_signature,
+    _update_order_from_checkout_result,
+)
 
 
 
@@ -7062,9 +7082,7 @@ def _fetch_and_apply_checkout_status(order, source='api'):
     """Заглушка для функции получения статуса checkout"""
     return {'payment_status': 'unknown'}
 
-def _update_order_from_checkout_result(order, result, source='api'):
-    """Заглушка для функции обновления заказа из результата checkout"""
-    pass
+# _update_order_from_checkout_result импортируется из utils.py
 
 def download_invoice_file(request, invoice_id):
     """Скачивание сохраненного файла накладной"""
