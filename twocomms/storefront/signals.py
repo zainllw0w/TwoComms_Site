@@ -55,3 +55,17 @@ def update_google_merchant_feed_on_product_delete(sender, instance, **kwargs):
     except Exception as e:
         logger.error(f"Ошибка при обновлении Google Merchant feed: {e}", exc_info=True)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

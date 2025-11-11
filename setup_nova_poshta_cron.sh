@@ -158,3 +158,17 @@ echo "  4. Отправлять Purchase событие в Facebook Conversions 
 echo "  5. Отправлять уведомления в Telegram админу и пользователю"
 echo ""
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -602,3 +602,16 @@ _update_order_status_if_delivered()
 
 **Конец документации**
 
+
+
+
+
+
+
+
+
+
+
+
+
+

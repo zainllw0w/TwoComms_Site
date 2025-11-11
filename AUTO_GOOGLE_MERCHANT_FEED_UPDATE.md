@@ -153,3 +153,17 @@ tail -f django.log | grep "Google Merchant feed"
 **Версия**: 1.0  
 **Статус**: ✅ Работает
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

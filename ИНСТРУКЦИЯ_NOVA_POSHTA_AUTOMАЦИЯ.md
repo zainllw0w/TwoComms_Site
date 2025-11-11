@@ -163,3 +163,17 @@ sshpass -p '[REDACTED_SSH_PASSWORD]' ssh -o StrictHostKeyChecking=no qlknpodo@19
 **Дата:** 30.10.2025  
 **Статус:** ✅ Готово к использованию
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

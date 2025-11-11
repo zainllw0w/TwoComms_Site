@@ -273,3 +273,17 @@ MONOBANK_SUCCESS_STATUSES = {'success', 'hold'}
 **Автор:** AI Assistant  
 **Дата:** 2025-01-27
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
