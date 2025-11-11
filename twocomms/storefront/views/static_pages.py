@@ -89,9 +89,38 @@ def google_merchant_feed(request):
     )
 
 
-# uaprom_products_feed будет загружаться через __getattr__ из views/__init__.py
-# которая автоматически загружает функцию из legacy views.py
-# Это позволяет избежать циклических зависимостей
+def uaprom_products_feed(request):
+    """
+    Prom.ua (UA Prom) Product Feed.
+    
+    Генерирует XML feed для украинского маркетплейса Prom.ua.
+    Загружает функцию из legacy views.py через механизм __getattr__.
+    """
+    # Используем механизм __getattr__ из views/__init__.py для загрузки функции из legacy views
+    # Это позволяет избежать циклических зависимостей
+    import storefront.views as views_module
+    
+    # __getattr__ автоматически загрузит функцию из legacy views.py
+    if hasattr(views_module, 'uaprom_products_feed'):
+        return views_module.uaprom_products_feed(request)
+    
+    # Если функция не загружена, пытаемся загрузить legacy views вручную
+    try:
+        views_module._load_legacy_views(force=True)
+        if hasattr(views_module, '_old_views') and views_module._old_views:
+            if hasattr(views_module._old_views, 'uaprom_products_feed'):
+                return views_module._old_views.uaprom_products_feed(request)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error loading uaprom_products_feed: {e}", exc_info=True)
+    
+    # Если ничего не сработало, возвращаем ошибку
+    return HttpResponse(
+        '<?xml version="1.0" encoding="UTF-8"?>\n<error>Feed generation failed: function not available</error>',
+        content_type='application/xml',
+        status=500
+    )
 
 
 def static_verification_file(request):
