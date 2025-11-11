@@ -14,6 +14,7 @@ from django.http import JsonResponse
 from django.core.paginator import Paginator, EmptyPage
 from django.urls import reverse
 from django.template.loader import render_to_string
+from django.db.models import Q
 
 from ..models import Product, Category
 from ..services.catalog_helpers import (
@@ -206,11 +207,15 @@ def search(request):
     selected_category = None
     
     if query:
-        # Базовый поиск (можно улучшить с использованием PostgreSQL full-text search)
+        # Базовый поиск с использованием Q объектов для OR условий
+        # Ищем по названию и описанию (только опубликованные товары)
         product_qs = Product.objects.select_related('category').filter(
-            title__icontains=query
-        ) | Product.objects.select_related('category').filter(
-            description__icontains=query
+            status='published'
+        ).filter(
+            Q(title__icontains=query) | 
+            Q(description__icontains=query) |
+            Q(full_description__icontains=query) |
+            Q(short_description__icontains=query)
         )
         
         # Фильтрация по категории
