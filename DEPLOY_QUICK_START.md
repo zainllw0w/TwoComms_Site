@@ -76,3 +76,17 @@ TC-{product_id:04d}-{COLOR_SLUG}-{SIZE}
 
 **Полная инструкция:** см. `DEPLOYMENT_AND_META_PIXEL_CHECKLIST.md`
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

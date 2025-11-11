@@ -169,6 +169,56 @@ import logging
 monobank_logger = logging.getLogger('storefront.monobank')
 
 
+_PAY_TYPE_CANONICAL_MAP = {
+    # Canonical values
+    'online_full': 'online_full',
+    'prepay_200': 'prepay_200',
+    # Legacy/full-payment aliases
+    'full': 'online_full',
+    'online': 'online_full',
+    'online-full': 'online_full',
+    'online_full_payment': 'online_full',
+    'онлайн оплата (повна сума)': 'online_full',
+    'оплата повністю': 'online_full',
+    'оплатити повністю': 'online_full',
+    # Legacy/prepayment aliases
+    'prepay': 'prepay_200',
+    'prepay200': 'prepay_200',
+    'prepaid': 'prepay_200',
+    'partial': 'prepay_200',
+    'partial_payment': 'prepay_200',
+    'cod': 'prepay_200',
+    'внести передплату 200 грн': 'prepay_200',
+    'передплата 200 грн': 'prepay_200',
+    'передплата 200 грн (решта при отриманні)': 'prepay_200',
+}
+
+
+def _normalize_order_pay_type(value):
+    """
+    Возвращает каноническое значение pay_type для заказа.
+
+    Всегда приводит строку к нижнему регистру и убирает пробелы, чтобы
+    поддерживать устаревшие/локализованные значения.
+    """
+    if not value:
+        return 'online_full'
+
+    normalized = str(value).strip()
+    if not normalized:
+        return 'online_full'
+
+    canonical = _PAY_TYPE_CANONICAL_MAP.get(normalized.lower())
+    if canonical:
+        return canonical
+
+    # Если значение уже одно из допустимых - возвращаем его, иначе online_full
+    if normalized in ('online_full', 'prepay_200'):
+        return normalized
+
+    return 'online_full'
+
+
 def _reset_monobank_session(request, drop_pending=False):
     """
     Сбрасывает связанные с Mono checkout данные в сессии.
@@ -366,74 +416,49 @@ def _record_monobank_status(order, payload, source='api'):
 
     if status in MONOBANK_SUCCESS_STATUSES:
         previous_status = order.payment_status
-        
-        # КРИТИЧЕСКАЯ ЗАЩИТА: Если статус уже успешный, проверяем что он соответствует pay_type
-        # Не позволяем менять prepaid на paid при повторных webhook
-        if previous_status in ('prepaid', 'paid'):
-            # Проверяем что текущий статус соответствует pay_type
-            pay_type = getattr(order, 'pay_type', None) or 'online_full'
-            
-            if pay_type == 'prepay_200':
-                # Для предоплаты статус должен быть 'prepaid'
-                if previous_status == 'prepaid':
-                    monobank_logger.info(
-                        f'⚠️ Order {order.order_number}: webhook повторно получен, '
-                        f'статус уже prepaid (pay_type={pay_type}). Пропускаем обновление.'
-                    )
-                    # Сохраняем только payment_payload (историю webhook)
-                    try:
-                        order.save(update_fields=['payment_payload'])
-                    except Exception:
-                        order.save()
-                    return  # Не меняем статус и не отправляем уведомления
-                else:
-                    # Статус 'paid' но pay_type='prepay_200' - это ошибка, исправляем
-                    monobank_logger.warning(
-                        f'⚠️ Order {order.order_number}: обнаружена несоответствие! '
-                        f'pay_type=prepay_200 но payment_status={previous_status}. Исправляем на prepaid.'
-                    )
-                    order.payment_status = 'prepaid'
-            else:
-                # Для полной оплаты статус должен быть 'paid'
-                if previous_status == 'paid':
-                    monobank_logger.info(
-                        f'⚠️ Order {order.order_number}: webhook повторно получен, '
-                        f'статус уже paid (pay_type={pay_type}). Пропускаем обновление.'
-                    )
-                    # Сохраняем только payment_payload (историю webhook)
-                    try:
-                        order.save(update_fields=['payment_payload'])
-                    except Exception:
-                        order.save()
-                    return  # Не меняем статус и не отправляем уведомления
-                else:
-                    # Статус 'prepaid' но pay_type не 'prepay_200' - это ошибка, исправляем
-                    monobank_logger.warning(
-                        f'⚠️ Order {order.order_number}: обнаружена несоответствие! '
-                        f'pay_type={pay_type} но payment_status={previous_status}. Исправляем на paid.'
-                    )
-                    order.payment_status = 'paid'
-        
-        # НОВАЯ ЛОГИКА (30.10.2024):
-        # - prepay_200 → payment_status = 'prepaid' + Lead event
-        # - online_full → payment_status = 'paid' + Purchase event
-        pay_type = getattr(order, 'pay_type', None) or 'online_full'
-        
-        if pay_type == 'prepay_200':
-            new_status = 'prepaid'
+        normalized_previous = 'prepaid' if previous_status == 'partial' else previous_status
+
+        raw_pay_type = getattr(order, 'pay_type', None)
+        pay_type = _normalize_order_pay_type(raw_pay_type)
+        target_status = 'prepaid' if pay_type == 'prepay_200' else 'paid'
+
+        if normalized_previous == target_status:
+            monobank_logger.info(
+                f'⚠️ Order {order.order_number}: webhook повторно получен, '
+                f'статус уже {target_status} (pay_type_raw={raw_pay_type}, normalized={pay_type}). '
+                f'Пропускаем обновление.'
+            )
+            try:
+                order.save(update_fields=['payment_payload'])
+            except Exception:
+                order.save()
+            return
+
+        if normalized_previous == 'paid' and target_status == 'prepaid':
+            monobank_logger.warning(
+                f'⚠️ Order {order.order_number}: pay_type={pay_type} требует статус prepaid, '
+                f'но в заказе было {previous_status}. Исправляем.'
+            )
+        elif normalized_previous == 'prepaid' and target_status == 'paid':
+            monobank_logger.warning(
+                f'⚠️ Order {order.order_number}: pay_type={pay_type} требует статус paid, '
+                f'но в заказе было {previous_status}. Исправляем.'
+            )
+
+        order.payment_status = target_status
+        update_fields.append('payment_status')
+
+        if target_status == 'prepaid':
             monobank_logger.info(
                 f'✅ Order {order.order_number}: prepayment successful → payment_status=prepaid '
-                f'(pay_type={pay_type}, previous_status={previous_status})'
+                f'(pay_type_raw={raw_pay_type}, normalized={pay_type}, previous_status={previous_status})'
             )
         else:
-            new_status = 'paid'
             monobank_logger.info(
                 f'✅ Order {order.order_number}: full payment successful → payment_status=paid '
-                f'(pay_type={pay_type}, previous_status={previous_status})'
+                f'(pay_type_raw={raw_pay_type}, normalized={pay_type}, previous_status={previous_status})'
             )
-        
-        order.payment_status = new_status
-        update_fields.append('payment_status')
+
         try:
             order.save(update_fields=update_fields)
         except Exception:
@@ -681,8 +706,6 @@ def _update_order_from_checkout_result(order, result, source='api'):
         'result': result
     }
     _record_monobank_status(order, payload, source=source)
-
-
 
 
 

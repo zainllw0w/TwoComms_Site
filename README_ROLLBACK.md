@@ -209,3 +209,17 @@ open https://linear.app/twocomms/issue/TWO-6
 **Статус:** ✅ ГОТОВО К НАЧАЛУ  
 **Автор:** AI Assistant
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

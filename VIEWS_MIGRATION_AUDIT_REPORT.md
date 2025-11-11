@@ -348,3 +348,17 @@ from storefront.views import checkout     # ✅ Из checkout.py
 **Время аудита:** 45 минут  
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

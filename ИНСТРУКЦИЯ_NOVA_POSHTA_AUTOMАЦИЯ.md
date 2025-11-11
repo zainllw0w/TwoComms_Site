@@ -163,3 +163,17 @@ sshpass -p 'trs5m4t1' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "b
 **Дата:** 30.10.2025  
 **Статус:** ✅ Готово к использованию
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

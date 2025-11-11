@@ -154,3 +154,17 @@ tail -20 /tmp/nova_poshta_update.log
 
 **Подробная инструкция:** `ИНСТРУКЦИЯ_CPANEL_CRON.md`
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

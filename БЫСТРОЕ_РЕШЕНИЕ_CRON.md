@@ -69,3 +69,17 @@ sshpass -p 'trs5m4t1' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "t
 - `ИНСТРУКЦИЯ_CPANEL_CRON.md` - детальная инструкция для cPanel
 - `РЕШЕНИЕ_ВНУТРЕННЯЯ_ОШИБКА.md` - решение ошибок
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

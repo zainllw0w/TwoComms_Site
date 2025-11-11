@@ -310,3 +310,17 @@ ssh qlknpodo@195.191.24.169 "cp /home/qlknpodo/TWC/TwoComms_Site/twocomms/media/
 - [Google Merchant Feed Specification](https://support.google.com/merchants/answer/7052112)
 - [Crontab Guru](https://crontab.guru/) - помощник по CRON синтаксису
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

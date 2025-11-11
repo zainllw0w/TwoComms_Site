@@ -214,3 +214,17 @@ https://twocomms.shop/media/google-merchant-v3.xml
 **Статус:** ✅ Полностью функционален  
 **Автор:** AI Assistant с использованием Sequential Thinking & Context7
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

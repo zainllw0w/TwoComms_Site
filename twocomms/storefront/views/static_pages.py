@@ -84,8 +84,50 @@ def google_merchant_feed(request):
     )
 
 
-# uaprom_products_feed теперь загружается напрямую из views.py через legacy loader
-# Не нужно определять здесь, так как она будет доступна через __getattr__ в views/__init__.py
+def uaprom_products_feed(request):
+    """
+    Prom.ua (UA Prom) Product Feed.
+    
+    Генерирует XML feed для украинского маркетплейса Prom.ua.
+    Загружает функцию напрямую из views.py файла.
+    """
+    import os
+    import importlib.util
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Получаем путь к views.py (на уровень выше от views/ директории)
+        current_dir = os.path.dirname(__file__)  # storefront/views/
+        parent_dir = os.path.dirname(current_dir)  # storefront/
+        views_py_path = os.path.join(parent_dir, 'views.py')
+        
+        if not os.path.exists(views_py_path):
+            logger.error(f"views.py not found at {views_py_path}")
+            raise FileNotFoundError(f"views.py not found at {views_py_path}")
+        
+        # Динамически загружаем модуль views.py
+        spec = importlib.util.spec_from_file_location("storefront.views_legacy_feed", views_py_path)
+        if spec is None or spec.loader is None:
+            raise ValueError("Could not create spec for views.py")
+        
+        legacy_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(legacy_module)
+        
+        if hasattr(legacy_module, 'uaprom_products_feed'):
+            return legacy_module.uaprom_products_feed(request)
+        else:
+            logger.error("uaprom_products_feed function not found in views.py")
+            raise AttributeError("uaprom_products_feed function not found in views.py")
+            
+    except Exception as e:
+        logger.error(f"Error loading uaprom_products_feed from views.py: {e}", exc_info=True)
+        return HttpResponse(
+            f'<?xml version="1.0" encoding="UTF-8"?>\n<error>Feed generation failed: {str(e)}</error>',
+            content_type='application/xml',
+            status=500
+        )
 
 
 def static_verification_file(request):

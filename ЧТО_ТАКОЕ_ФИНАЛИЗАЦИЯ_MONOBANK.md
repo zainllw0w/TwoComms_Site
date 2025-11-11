@@ -432,3 +432,17 @@ def _monobank_finalize_invoice(order):
 **Автор:** AI Assistant  
 **Дата:** 2025-01-27
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

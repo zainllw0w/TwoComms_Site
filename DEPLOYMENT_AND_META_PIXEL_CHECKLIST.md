@@ -448,3 +448,17 @@ console.log('FB Pixel loaded:', typeof window.fbq !== 'undefined');
 **Версия:** 1.0  
 **Статус:** ✅ Готово к использованию
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
