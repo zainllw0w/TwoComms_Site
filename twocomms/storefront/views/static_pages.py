@@ -140,19 +140,33 @@ def uaprom_products_feed(request):
     """
     Генерирует XML feed для Prom.ua / UAPROM.
     Формат: YML (Yandex Market Language)
+    
+    Обновленная версия:
+    - Включает только опубликованные товары
+    - Правильно обрабатывает все изображения (main_image + images + color variants)
+    - Корректно отображает цены (oldprice = price, price = final_price)
+    - Использует full_description если доступно
     """
     logger = logging.getLogger(__name__)
 
     try:
         base_url = getattr(settings, "FEED_BASE_URL", "").strip() or request.build_absolute_uri("/").rstrip("/")
 
+        # Фильтруем только опубликованные товары
         products_qs = (
             Product.objects
+            .filter(status='published')  # Только опубликованные товары
             .select_related("category")
-            .prefetch_related("images", "color_variants__images", "color_variants__color")
-            .order_by("id")
+            .prefetch_related(
+                "images",
+                "color_variants__images",
+                "color_variants__color"
+            )
+            .order_by("-priority", "-id")  # Сначала по приоритету, потом по ID (новые первыми)
         )
         products = list(products_qs)
+        
+        logger.info(f"Generating feed for {len(products)} published products")
     except Exception as e:
         logger.error(f"Error in uaprom_products_feed: {e}", exc_info=True)
         return HttpResponse(
@@ -189,21 +203,33 @@ def uaprom_products_feed(request):
         try:
             material_value = _material_for_product(product)
 
+            # Собираем все изображения товара
             base_image_paths = []
+            
+            # Главное изображение
             if product.main_image:
                 try:
-                    base_image_paths.append(product.main_image.url)
-                except Exception:
-                    pass
+                    main_img_url = product.main_image.url
+                    if main_img_url:
+                        base_image_paths.append(main_img_url)
+                except Exception as e:
+                    logger.debug(f"Error getting main_image for product {product.id}: {e}")
             
+            # Дополнительные изображения товара
             try:
-                base_image_paths.extend(
-                    img.image.url for img in product.images.all() 
-                    if getattr(img, "image", None) and hasattr(img.image, "url")
-                )
-            except Exception:
-                pass
+                for img in product.images.all():
+                    try:
+                        if hasattr(img, "image") and img.image:
+                            img_url = img.image.url
+                            if img_url and img_url not in base_image_paths:
+                                base_image_paths.append(img_url)
+                    except Exception as e:
+                        logger.debug(f"Error getting image {img.id} for product {product.id}: {e}")
+                        continue
+            except Exception as e:
+                logger.warning(f"Error processing product images for product {product.id}: {e}")
             
+            # Убираем дубликаты, сохраняя порядок
             base_image_paths = list(dict.fromkeys(base_image_paths))
 
             try:
@@ -213,10 +239,19 @@ def uaprom_products_feed(request):
                     for variant in color_variants:
                         try:
                             color_label = _normalize_color_name(variant.color.name if variant.color else None)
-                            variant_images = [
-                                img.image.url for img in variant.images.all() 
-                                if getattr(img, "image", None) and hasattr(img.image, "url")
-                            ]
+                            variant_images = []
+                            
+                            # Собираем все изображения варианта
+                            for img in variant.images.all():
+                                try:
+                                    if hasattr(img, "image") and img.image:
+                                        img_url = img.image.url
+                                        if img_url and img_url not in variant_images:
+                                            variant_images.append(img_url)
+                                except Exception as e:
+                                    logger.debug(f"Error getting variant image {img.id}: {e}")
+                                    continue
+                            
                             variant_payloads.append((color_label, variant_images, variant.id))
                         except Exception as e:
                             logger.warning(f"Error processing variant {variant.id} for product {product.id}: {e}")
@@ -229,13 +264,33 @@ def uaprom_products_feed(request):
 
             for color_name, variant_images, variant_id in variant_payloads:
                 try:
-                    images_to_use = variant_images or base_image_paths
-                    image_urls = [
-                        url for url in (
-                            _absolute_media_url(base_url, path) for path in images_to_use
-                        ) if url
-                    ]
+                    # Объединяем изображения варианта с базовыми (вариант имеет приоритет)
+                    # Если у варианта есть изображения, используем их + базовые как дополнение
+                    if variant_images:
+                        # Начинаем с изображений варианта, затем добавляем базовые, которых нет в варианте
+                        images_to_use = list(variant_images)
+                        for base_img in base_image_paths:
+                            if base_img not in images_to_use:
+                                images_to_use.append(base_img)
+                    else:
+                        # Если у варианта нет изображений, используем базовые
+                        images_to_use = base_image_paths
+                    
+                    # Преобразуем в абсолютные URL
+                    image_urls = []
+                    for path in images_to_use:
+                        try:
+                            abs_url = _absolute_media_url(base_url, path)
+                            if abs_url and abs_url not in image_urls:
+                                image_urls.append(abs_url)
+                        except Exception as e:
+                            logger.debug(f"Error converting image URL {path}: {e}")
+                            continue
+                    
+                    # Убираем дубликаты, сохраняя порядок
                     image_urls = list(dict.fromkeys(image_urls))
+                    
+                    # Fallback: если нет изображений, пытаемся использовать первое базовое
                     if not image_urls and base_image_paths:
                         fallback = _absolute_media_url(base_url, base_image_paths[0])
                         if fallback:
@@ -243,11 +298,18 @@ def uaprom_products_feed(request):
 
                     group_id = f"TC-GROUP-{product.id}"
 
-                    raw_description = product.description or ""
+                    # Используем full_description если доступно, иначе description
+                    raw_description = getattr(product, "full_description", None) or product.description or ""
                     sanitized_description = _sanitize_feed_description(raw_description)
                     if not sanitized_description:
-                        sanitized_description = f"TwoComms {product.title} — демисезонная вещь собственного производства."
+                        # Используем short_description как fallback
+                        short_desc = getattr(product, "short_description", None) or ""
+                        if short_desc:
+                            sanitized_description = short_desc
+                        else:
+                            sanitized_description = f"TwoComms {product.title} — демисезонная вещь собственного производства."
 
+                    # Украинское описание
                     ua_source = getattr(product, "ai_description", None) or raw_description
                     sanitized_description_ua = _sanitize_feed_description(ua_source)
                     if not sanitized_description_ua:
@@ -267,15 +329,27 @@ def uaprom_products_feed(request):
                             query = f"?size={size}&color={slugify(color_name, allow_unicode=True)}"
                             ET.SubElement(offer_el, "url").text = f"{urljoin(base_url, product_path)}{query}"
 
-                            ET.SubElement(offer_el, "oldprice").text = str(product.price or 0)
-                            ET.SubElement(offer_el, "price").text = str(product.final_price or product.price or 0)
+                            # Правильная обработка цен
+                            final_price = product.final_price if hasattr(product, 'final_price') else product.price
+                            base_price = product.price
+                            
+                            # Если есть скидка, oldprice = старая цена, price = цена со скидкой
+                            if product.has_discount and final_price < base_price:
+                                ET.SubElement(offer_el, "oldprice").text = str(base_price)
+                                ET.SubElement(offer_el, "price").text = str(final_price)
+                            else:
+                                # Если нет скидки, только price
+                                ET.SubElement(offer_el, "price").text = str(base_price)
+                            
                             ET.SubElement(offer_el, "currencyId").text = "UAH"
 
                             if product.category_id:
                                 ET.SubElement(offer_el, "categoryId").text = str(product.category_id)
 
-                            for image_url in image_urls:
-                                ET.SubElement(offer_el, "picture").text = image_url
+                            # Добавляем все изображения (до 10 изображений на оффер)
+                            for image_url in image_urls[:10]:  # Ограничение Prom.ua - максимум 10 изображений
+                                if image_url:  # Проверяем, что URL не пустой
+                                    ET.SubElement(offer_el, "picture").text = image_url
 
                             ET.SubElement(offer_el, "pickup").text = "true"
                             ET.SubElement(offer_el, "delivery").text = "true"
