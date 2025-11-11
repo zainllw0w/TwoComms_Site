@@ -302,3 +302,17 @@ System check identified 1 issue (0 silenced).
 **Метод анализа:** Sequential Thinking + Context7 checking  
 **Дата завершения:** 26.10.2025
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

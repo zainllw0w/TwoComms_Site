@@ -469,3 +469,17 @@ python manage.py shell
 **Статус:** 🔴 ACTIVE
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -49,3 +49,17 @@ echo ""
 echo -e "${GREEN}URL: https://twocomms.shop/media/google-merchant-v3.xml${NC}"
 echo ""
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

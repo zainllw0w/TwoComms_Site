@@ -84,7 +84,7 @@ from .static_pages import (
     robots_txt,
     static_sitemap,
     google_merchant_feed,
-    # uaprom_products_feed - импортируем напрямую из views.py через legacy loader
+    uaprom_products_feed,
     static_verification_file,
     about,
     contacts,
@@ -233,7 +233,7 @@ def _load_legacy_views(force: bool = False):
             'product_detail', 'get_product_images', 'get_product_variants', 'quick_view',
             'view_cart', 'add_to_cart', 'update_cart', 'remove_from_cart', 'clear_cart',
             'get_cart_count', 'apply_promo_code', 'remove_promo_code', 'cart_summary', 'cart_mini', 'cart_items_api',
-            'robots_txt', 'static_sitemap', 'google_merchant_feed',
+            'robots_txt', 'static_sitemap', 'google_merchant_feed', 'uaprom_products_feed',
             'static_verification_file', 'about', 'contacts', 'delivery', 'returns',
             'privacy_policy', 'terms_of_service',
             'profile', 'edit_profile', 'profile_setup', 'order_history', 'order_detail',

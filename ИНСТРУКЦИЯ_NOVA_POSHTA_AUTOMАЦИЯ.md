@@ -163,3 +163,17 @@ sshpass -p '***REMOVED_SSH_PASSWORD***' ssh -o StrictHostKeyChecking=no qlknpodo
 **Дата:** 30.10.2025  
 **Статус:** ✅ Готово к использованию
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

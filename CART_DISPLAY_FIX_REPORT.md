@@ -273,3 +273,17 @@ OrderItem.objects.bulk_create(order_items)
 **Время исправления:** 15 минут
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

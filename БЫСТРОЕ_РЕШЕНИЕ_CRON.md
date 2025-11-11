@@ -69,3 +69,17 @@ sshpass -p '***REMOVED_SSH_PASSWORD***' ssh -o StrictHostKeyChecking=no qlknpodo
 - `ИНСТРУКЦИЯ_CPANEL_CRON.md` - детальная инструкция для cPanel
 - `РЕШЕНИЕ_ВНУТРЕННЯЯ_ОШИБКА.md` - решение ошибок
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

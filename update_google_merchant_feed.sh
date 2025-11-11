@@ -154,3 +154,17 @@ echo "  tail -f $CRON_LOG"
 echo ""
 echo -e "${GREEN}Готово! 🎉${NC}"
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
