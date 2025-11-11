@@ -94,33 +94,58 @@ def uaprom_products_feed(request):
     Prom.ua (UA Prom) Product Feed.
     
     Генерирует XML feed для украинского маркетплейса Prom.ua.
-    Загружает функцию из legacy views.py через механизм __getattr__.
+    Загружает функцию напрямую из views.py файла, избегая циклических зависимостей.
     """
-    # Используем механизм __getattr__ из views/__init__.py для загрузки функции из legacy views
-    # Это позволяет избежать циклических зависимостей
-    import storefront.views as views_module
+    import os
+    import importlib.util
+    import sys
+    import logging
     
-    # __getattr__ автоматически загрузит функцию из legacy views.py
-    if hasattr(views_module, 'uaprom_products_feed'):
-        return views_module.uaprom_products_feed(request)
+    logger = logging.getLogger(__name__)
     
-    # Если функция не загружена, пытаемся загрузить legacy views вручную
     try:
-        views_module._load_legacy_views(force=True)
-        if hasattr(views_module, '_old_views') and views_module._old_views:
-            if hasattr(views_module._old_views, 'uaprom_products_feed'):
-                return views_module._old_views.uaprom_products_feed(request)
+        # Получаем путь к views.py (на уровень выше от views/ директории)
+        current_dir = os.path.dirname(__file__)  # storefront/views/
+        parent_dir = os.path.dirname(current_dir)  # storefront/
+        views_py_path = os.path.join(parent_dir, 'views.py')
+        
+        if not os.path.exists(views_py_path):
+            logger.error(f"views.py not found at {views_py_path}")
+            raise FileNotFoundError(f"views.py not found at {views_py_path}")
+        
+        # Используем уникальное имя модуля для каждого вызова, чтобы избежать проблем с кешированием
+        module_name = f"storefront.views_legacy_feed_{id(request)}"
+        
+        # Динамически загружаем модуль views.py
+        spec = importlib.util.spec_from_file_location(module_name, views_py_path)
+        if spec is None or spec.loader is None:
+            raise ValueError("Could not create spec for views.py")
+        
+        # Загружаем модуль в отдельном пространстве имен
+        legacy_module = importlib.util.module_from_spec(spec)
+        
+        # Важно: устанавливаем __package__ и другие атрибуты для правильной работы Django models
+        legacy_module.__package__ = 'storefront'
+        legacy_module.__name__ = module_name
+        
+        # Загружаем модуль
+        spec.loader.exec_module(legacy_module)
+        
+        if hasattr(legacy_module, 'uaprom_products_feed'):
+            return legacy_module.uaprom_products_feed(request)
+        else:
+            logger.error("uaprom_products_feed function not found in views.py")
+            raise AttributeError("uaprom_products_feed function not found in views.py")
+            
     except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(f"Error loading uaprom_products_feed: {e}", exc_info=True)
-    
-    # Если ничего не сработало, возвращаем ошибку
-    return HttpResponse(
-        '<?xml version="1.0" encoding="UTF-8"?>\n<error>Feed generation failed: function not available</error>',
-        content_type='application/xml',
-        status=500
-    )
+        logger.error(f"Error loading uaprom_products_feed from views.py: {e}", exc_info=True)
+        import traceback
+        logger.error(traceback.format_exc())
+        return HttpResponse(
+            f'<?xml version="1.0" encoding="UTF-8"?>\n<error>Feed generation failed: {str(e)}</error>',
+            content_type='application/xml',
+            status=500
+        )
 
 
 def static_verification_file(request):
