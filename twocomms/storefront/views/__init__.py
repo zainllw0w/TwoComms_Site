@@ -84,7 +84,7 @@ from .static_pages import (
     robots_txt,
     static_sitemap,
     google_merchant_feed,
-    # uaprom_products_feed - загружается через __getattr__ из legacy views.py
+    uaprom_products_feed,
     static_verification_file,
     about,
     contacts,
