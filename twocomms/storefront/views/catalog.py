@@ -197,6 +197,10 @@ def search(request):
     - Фильтрация по категории
     - Выделение результатов
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info("Search function called from catalog.py")
+    
     try:
         query = (request.GET.get('q') or '').strip()
         category_slug = request.GET.get('category', '').strip()
