@@ -197,50 +197,80 @@ def search(request):
     - Фильтрация по категории
     - Выделение результатов
     """
-    query = request.GET.get('q', '').strip()
-    category_slug = request.GET.get('category', '').strip()
-    
-    fragment_cache = get_fragment_cache()
-    categories = get_categories_cached(fragment_cache)
-    
-    products = []
-    selected_category = None
-    
-    if query:
-        # Базовый поиск с использованием Q объектов для OR условий
-        # Ищем по названию и описанию (только опубликованные товары)
-        product_qs = Product.objects.select_related('category').filter(
-            status='published'
-        ).filter(
-            Q(title__icontains=query) | 
-            Q(description__icontains=query) |
-            Q(full_description__icontains=query) |
-            Q(short_description__icontains=query)
+    try:
+        query = request.GET.get('q', '').strip()
+        category_slug = request.GET.get('category', '').strip()
+        
+        fragment_cache = get_fragment_cache()
+        categories = get_categories_cached(fragment_cache)
+        
+        products = []
+        selected_category = None
+        
+        if query:
+            # Базовый поиск с использованием Q объектов для OR условий
+            # Ищем по названию и описанию (только опубликованные товары)
+            # В Django icontains на NULL полях просто не совпадает, ошибки не вызывает
+            product_qs = Product.objects.select_related('category').filter(
+                status='published'
+            ).filter(
+                Q(title__icontains=query) | 
+                Q(description__icontains=query) |
+                Q(full_description__icontains=query) |
+                Q(short_description__icontains=query)
+            )
+            
+            # Фильтрация по категории
+            if category_slug:
+                try:
+                    selected_category = Category.objects.get(slug=category_slug, is_active=True)
+                    product_qs = product_qs.filter(category=selected_category)
+                except Category.DoesNotExist:
+                    selected_category = None
+            
+            products = list(product_qs.distinct().order_by('-id'))
+            
+            # Добавляем цветовые варианты
+            if products:
+                color_previews = build_color_preview_map(products)
+                for product in products:
+                    product.colors_preview = color_previews.get(product.id, [])
+        
+        return render(
+            request,
+            'pages/catalog.html',
+            {
+                'query': query,
+                'products': products,
+                'categories': categories,
+                'selected_category': selected_category,
+                'show_category_cards': False,
+                'results_count': len(products)
+            }
         )
+    except Exception as e:
+        # Логируем ошибку для отладки
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in search view: {e}", exc_info=True)
         
-        # Фильтрация по категории
-        if category_slug:
-            selected_category = get_object_or_404(Category, slug=category_slug)
-            product_qs = product_qs.filter(category=selected_category)
+        # Возвращаем пустую страницу с ошибкой
+        fragment_cache = get_fragment_cache()
+        categories = get_categories_cached(fragment_cache) if fragment_cache else []
         
-        products = list(product_qs.distinct().order_by('-id'))
-        
-        # Добавляем цветовые варианты
-        color_previews = build_color_preview_map(products)
-        for product in products:
-            product.colors_preview = color_previews.get(product.id, [])
-    
-    return render(
-        request,
-        'pages/search.html',
-        {
-            'query': query,
-            'products': products,
-            'categories': categories,
-            'selected_category': selected_category,
-            'results_count': len(products)
-        }
-    )
+        return render(
+            request,
+            'pages/catalog.html',
+            {
+                'query': request.GET.get('q', ''),
+                'products': [],
+                'categories': categories,
+                'selected_category': None,
+                'show_category_cards': False,
+                'results_count': 0,
+                'error': 'Произошла ошибка при поиске. Попробуйте еще раз.'
+            }
+        )
 
 
 
