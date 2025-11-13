@@ -205,15 +205,9 @@ def search(request):
         product_qs = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images')
         
         if query:
-            # Поиск по названию (базовый поиск, как в рабочей версии)
-            product_qs = product_qs.filter(
-                status='published'
-            ).filter(
-                Q(title__icontains=query) | 
-                Q(description__icontains=query) |
-                Q(full_description__icontains=query) |
-                Q(short_description__icontains=query)
-            )
+            # Поиск по названию (базовый поиск, как в рабочей версии из views.py)
+            # Сначала пробуем простой поиск по title, как в рабочей версии
+            product_qs = product_qs.filter(title__icontains=query)
         
         # Фильтрация по категории
         selected_category = None
