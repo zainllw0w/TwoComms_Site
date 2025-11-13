@@ -198,20 +198,15 @@ def search(request):
     - Выделение результатов
     """
     try:
-        query = request.GET.get('q', '').strip()
+        query = (request.GET.get('q') or '').strip()
         category_slug = request.GET.get('category', '').strip()
         
-        fragment_cache = get_fragment_cache()
-        categories = get_categories_cached(fragment_cache)
-        
-        products = []
-        selected_category = None
+        # Используем тот же подход, что и в рабочей версии из views.py
+        product_qs = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images')
         
         if query:
-            # Базовый поиск с использованием Q объектов для OR условий
-            # Ищем по названию и описанию (только опубликованные товары)
-            # В Django icontains на NULL полях просто не совпадает, ошибки не вызывает
-            product_qs = Product.objects.select_related('category').filter(
+            # Поиск по названию (базовый поиск, как в рабочей версии)
+            product_qs = product_qs.filter(
                 status='published'
             ).filter(
                 Q(title__icontains=query) | 
@@ -219,33 +214,35 @@ def search(request):
                 Q(full_description__icontains=query) |
                 Q(short_description__icontains=query)
             )
-            
-            # Фильтрация по категории
-            if category_slug:
-                try:
-                    selected_category = Category.objects.get(slug=category_slug, is_active=True)
-                    product_qs = product_qs.filter(category=selected_category)
-                except Category.DoesNotExist:
-                    selected_category = None
-            
-            products = list(product_qs.distinct().order_by('-id'))
-            
-            # Добавляем цветовые варианты
-            if products:
-                color_previews = build_color_preview_map(products)
-                for product in products:
-                    product.colors_preview = color_previews.get(product.id, [])
+        
+        # Фильтрация по категории
+        selected_category = None
+        if category_slug:
+            try:
+                selected_category = Category.objects.get(slug=category_slug, is_active=True)
+                product_qs = product_qs.filter(category=selected_category)
+            except Category.DoesNotExist:
+                selected_category = None
+        
+        fragment_cache = get_fragment_cache()
+        categories = get_categories_cached(fragment_cache)
+        
+        product_list = list(product_qs.order_by('-id'))
+        color_previews = build_color_preview_map(product_list)
+        
+        for product in product_list:
+            product.colors_preview = color_previews.get(product.id, [])
         
         return render(
             request,
             'pages/catalog.html',
             {
-                'query': query,
-                'products': products,
                 'categories': categories,
-                'selected_category': selected_category,
+                'products': product_list,
                 'show_category_cards': False,
-                'results_count': len(products)
+                'selected_category': selected_category,
+                'query': query,
+                'results_count': len(product_list)
             }
         )
     except Exception as e:
@@ -255,8 +252,11 @@ def search(request):
         logger.error(f"Error in search view: {e}", exc_info=True)
         
         # Возвращаем пустую страницу с ошибкой
-        fragment_cache = get_fragment_cache()
-        categories = get_categories_cached(fragment_cache) if fragment_cache else []
+        try:
+            fragment_cache = get_fragment_cache()
+            categories = get_categories_cached(fragment_cache) if fragment_cache else []
+        except Exception:
+            categories = []
         
         return render(
             request,
