@@ -185,9 +185,9 @@ class TelegramBot:
             print(f"🟣 Total unique matching profiles: {len(all_matching_profiles)}")
             
             if len(all_matching_profiles) == 0:
-                print(f"❌ No matching profiles found for username: '{normalized_search}'")
+                print(f"❌ No matching profiles found for username: '{clean_username}'")
                 print(f"   Searched in telegram and instagram fields")
-                print(f"   Search variants: {search_variants}")
+                print(f"   Search variants: ['{clean_username}', '@{clean_username}']")
                 return False
             
             # Сначала проверяем, есть ли профиль уже привязанный к этому telegram_id
