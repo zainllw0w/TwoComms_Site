@@ -7,11 +7,13 @@ import requests
 import json
 from django.conf import settings
 
-# Настройка Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'twocomms.production_settings')
-django.setup()
+# Настройка Django только если еще не настроен
+if not django.apps.apps.ready:
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'twocomms.production_settings')
+    django.setup()
 
 from accounts.models import UserProfile
+from django.db.models import Q
 
 
 class TelegramBot:
@@ -67,9 +69,29 @@ class TelegramBot:
         except Exception as e:
             return None
     
-    def process_start_command(self, user_id, username=None):
-        """Обрабатывает команду /start"""
+    def _normalize_username(self, username):
+        """Нормализует username: убирает @, пробелы, приводит к нижнему регистру"""
+        if not username:
+            return ''
+        # Убираем @ в начале
+        cleaned = username.lstrip('@')
+        # Убираем пробелы
+        cleaned = cleaned.strip()
+        # Приводим к нижнему регистру для сравнения
+        cleaned = cleaned.lower()
+        return cleaned
+    
+    def process_start_command(self, user_id, username=None, start_param=None):
+        """Обрабатывает команду /start
+        
+        Args:
+            user_id: Telegram ID пользователя
+            username: Telegram username пользователя
+            start_param: Параметр из команды /start (может быть Instagram или Telegram username)
+        """
         try:
+            print(f"🔵 process_start_command: user_id={user_id}, username={username}, start_param={start_param}")
+            
             # Ищем пользователя по telegram_id
             profile = UserProfile.objects.filter(telegram_id=user_id).first()
             
@@ -91,53 +113,135 @@ class TelegramBot:
                 self.send_message(user_id, message)
                 return True
             else:
-                # Автоматически подтверждаем пользователя
-                return self.auto_confirm_user(user_id, username)
+                # Если есть параметр в /start, используем его для поиска
+                # Иначе используем Telegram username
+                search_username = start_param or username
+                return self.auto_confirm_user(user_id, username, search_username)
                 
         except Exception as e:
+            print(f"❌ Error in process_start_command: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
-    def auto_confirm_user(self, user_id, username=None):
-        """Автоматически подтверждает пользователя по введенному username"""
+    def auto_confirm_user(self, user_id, username=None, search_username=None):
+        """Автоматически подтверждает пользователя по введенному username
+        
+        Args:
+            user_id: Telegram ID пользователя
+            username: Telegram username пользователя (для логирования)
+            search_username: Username для поиска в профилях (может быть Telegram или Instagram)
+        """
         try:
-            print(f"🔵 auto_confirm_user called: user_id={user_id}, username={username}")
+            print(f"🔵 auto_confirm_user called: user_id={user_id}, username={username}, search_username={search_username}")
             
-            if not username:
+            # Используем search_username если передан, иначе username
+            search_value = search_username or username
+            
+            if not search_value:
                 print(f"❌ No username provided")
                 return False
             
-            # Убираем @ если есть
-            clean_username = username.lstrip('@')
-            print(f"🟡 Clean username: {clean_username}")
+            # Нормализуем username для поиска
+            normalized_search = self._normalize_username(search_value)
+            print(f"🟡 Normalized search username: '{normalized_search}' (original: '{search_value}')")
             
-            # Ищем все профили с таким telegram username (без @) - только неподтвержденные
-            profiles_without_at = UserProfile.objects.filter(telegram=clean_username, telegram_id__isnull=True)
-            print(f"🟢 Profiles without @: {profiles_without_at.count()}")
+            # Варианты для поиска (с @ и без)
+            search_variants = [
+                normalized_search,  # без @
+                f"@{normalized_search}",  # с @
+            ]
             
-            # Ищем все профили с таким telegram username (с @) - только неподтвержденные
-            profiles_with_at = UserProfile.objects.filter(telegram=f"@{clean_username}", telegram_id__isnull=True)
-            print(f"🟢 Profiles with @: {profiles_with_at.count()}")
+            print(f"🟡 Search variants: {search_variants}")
             
-            # Объединяем результаты
-            all_matching_profiles = list(profiles_without_at) + list(profiles_with_at)
-            print(f"🟣 Total matching profiles: {len(all_matching_profiles)}")
+            # Используем case-insensitive поиск через Q объекты
+            # Ищем ВСЕ профили по полю telegram (не только неподтвержденные)
+            # Это позволяет перепривязать если telegram_id не совпадает
+            telegram_q = Q()
+            for variant in search_variants:
+                telegram_q |= Q(telegram__iexact=variant)
+            
+            all_telegram_profiles = UserProfile.objects.filter(telegram_q)
+            print(f"🟢 All profiles by telegram field: {all_telegram_profiles.count()}")
+            for p in all_telegram_profiles:
+                print(f"   - Profile: {p.user.username}, telegram='{p.telegram}', telegram_id={p.telegram_id}")
+            
+            # Ищем ВСЕ профили по полю instagram
+            instagram_q = Q()
+            for variant in search_variants:
+                instagram_q |= Q(instagram__iexact=variant)
+            
+            all_instagram_profiles = UserProfile.objects.filter(instagram_q)
+            print(f"🟢 All profiles by instagram field: {all_instagram_profiles.count()}")
+            for p in all_instagram_profiles:
+                print(f"   - Profile: {p.user.username}, instagram='{p.instagram}', telegram_id={p.telegram_id}")
+            
+            # Объединяем все результаты
+            all_matching_profiles = list(all_telegram_profiles) + list(all_instagram_profiles)
+            
+            # Убираем дубликаты (если профиль найден и по telegram и по instagram)
+            seen_profiles = set()
+            unique_profiles = []
+            for profile in all_matching_profiles:
+                if profile.id not in seen_profiles:
+                    seen_profiles.add(profile.id)
+                    unique_profiles.append(profile)
+            
+            all_matching_profiles = unique_profiles
+            print(f"🟣 Total unique matching profiles: {len(all_matching_profiles)}")
             
             if len(all_matching_profiles) == 0:
-                print(f"❌ No matching profiles found")
+                print(f"❌ No matching profiles found for username: '{normalized_search}'")
+                print(f"   Searched in telegram and instagram fields")
+                print(f"   Search variants: {search_variants}")
                 return False
             
-            # Привязываем только к ПЕРВОМУ найденному неподтвержденному профилю
-            profile = all_matching_profiles[0]
-            print(f"✅ Linking to profile: {profile.user.username} (company: {profile.company_name})")
+            # Выбираем профиль для привязки
+            # Приоритет: профили без telegram_id или с другим telegram_id
+            profile_to_link = None
+            
+            for profile in all_matching_profiles:
+                print(f"🔍 Checking profile: {profile.user.username}, telegram_id={profile.telegram_id}")
+                if profile.telegram_id is None:
+                    # Неподтвержденный профиль - идеальный вариант
+                    profile_to_link = profile
+                    print(f"✅ Found unconfirmed profile: {profile.user.username}")
+                    break
+                elif profile.telegram_id != user_id:
+                    # Профиль привязан к другому Telegram - можно перепривязать
+                    profile_to_link = profile
+                    print(f"⚠️ Found profile linked to different telegram_id ({profile.telegram_id}), will reassign to {user_id}")
+                    break
+                else:
+                    # Профиль уже привязан к этому Telegram
+                    print(f"ℹ️ Profile {profile.user.username} already linked to this telegram_id")
+            
+            # Если не нашли подходящий, берем первый
+            if not profile_to_link:
+                profile_to_link = all_matching_profiles[0]
+                print(f"⚠️ Using first matching profile: {profile_to_link.user.username}")
             
             # Привязываем telegram_id к профилю
-            profile.telegram_id = user_id
-            profile.save()
-            print(f"✅ Profile saved with telegram_id={user_id}")
+            old_telegram_id = profile_to_link.telegram_id
+            profile_to_link.telegram_id = user_id
+            profile_to_link.save()
+            print(f"✅ Profile saved: {profile_to_link.user.username}, telegram_id={old_telegram_id} -> {user_id}")
+            
+            # Определяем какой username был использован для поиска
+            # Используем нормализацию для сравнения
+            telegram_normalized = self._normalize_username(profile_to_link.telegram) if profile_to_link.telegram else ''
+            instagram_normalized = self._normalize_username(profile_to_link.instagram) if profile_to_link.instagram else ''
+            
+            if telegram_normalized == normalized_search or f"@{telegram_normalized}" in search_variants:
+                matched_field = 'telegram'
+                matched_username = profile_to_link.telegram
+            else:
+                matched_field = 'instagram'
+                matched_username = profile_to_link.instagram
             
             message = f"""🎉 <b>Відмінно! Ваш Telegram успішно підтверджено!</b>
 
-Підтверджено аккаунт @{clean_username} ({profile.user.username})
+Підтверджено аккаунт {matched_username} ({profile_to_link.user.username})
 
 Тепер ви будете отримувати сповіщення про статус ваших замовлень.
 
@@ -154,18 +258,50 @@ class TelegramBot:
             return True
                 
         except Exception as e:
+            print(f"❌ Error in auto_confirm_user: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def link_user_account(self, telegram_id, telegram_username):
-        """Связывает Telegram аккаунт с пользователем или дропшипером"""
+        """Связывает Telegram аккаунт с пользователем или дропшипером
+        
+        Ищет профиль по полям telegram и instagram
+        """
         try:
-            # Ищем пользователя по telegram username
-            profile = UserProfile.objects.filter(telegram=telegram_username).first()
+            print(f"🔵 link_user_account called: telegram_id={telegram_id}, telegram_username={telegram_username}")
             
-            if profile and not profile.telegram_id:
-                # Связываем аккаунт
+            # Нормализуем username
+            normalized_username = self._normalize_username(telegram_username)
+            search_variants = [normalized_username, f"@{normalized_username}"]
+            
+            print(f"🟡 Search variants: {search_variants}")
+            
+            # Используем case-insensitive поиск
+            telegram_q = Q()
+            for variant in search_variants:
+                telegram_q |= Q(telegram__iexact=variant)
+            
+            # Ищем пользователя по telegram username
+            profile = UserProfile.objects.filter(telegram_q).first()
+            
+            # Если не найдено, ищем по instagram username
+            if not profile:
+                instagram_q = Q()
+                for variant in search_variants:
+                    instagram_q |= Q(instagram__iexact=variant)
+                profile = UserProfile.objects.filter(instagram_q).first()
+                print(f"🟡 Searching by instagram: found={profile is not None}")
+            
+            if profile:
+                # Проверяем, не привязан ли уже к другому Telegram
+                if profile.telegram_id and profile.telegram_id != telegram_id:
+                    print(f"⚠️ Profile {profile.user.username} already linked to telegram_id={profile.telegram_id}, reassigning to {telegram_id}")
+                
+                # Связываем аккаунт (перепривязываем если нужно)
                 profile.telegram_id = telegram_id
                 profile.save()
+                print(f"✅ Profile linked: {profile.user.username}, telegram_id={telegram_id}")
                 
                 # Проверяем, это дропшипер или обычный пользователь
                 # Если у пользователя есть company_name, считаем его дропшипером
@@ -210,7 +346,7 @@ class TelegramBot:
                 message = """<b>Не вдалося пов'язати акаунт</b>
 
 Переконайтеся, що:
-1. Ви ввели правильний Telegram username у профілі або налаштуваннях компанії
+1. Ви ввели правильний Telegram або Instagram username у профілі або налаштуваннях компанії
 2. Username починається з @ (або без, бот додасть автоматично)
 3. Ви ще не пов'язували цей Telegram
 
@@ -222,6 +358,9 @@ class TelegramBot:
                 return False
                 
         except Exception as e:
+            print(f"❌ Error in link_user_account: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def process_webhook_update(self, update_data):
@@ -237,9 +376,18 @@ class TelegramBot:
                 
                 print(f"🟡 Message from user_id={user_id}, username={username}, text={text}")
                 
-                if text == '/start':
+                # Обрабатываем команду /start
+                if text and text.startswith('/start'):
                     print(f"🟢 Processing /start command")
-                    result = self.process_start_command(user_id, username)
+                    # Извлекаем параметр из команды /start (если есть)
+                    # Формат: /start username или /start@botname username
+                    start_param = None
+                    parts = text.split(' ', 1)
+                    if len(parts) > 1:
+                        start_param = parts[1].strip()
+                        print(f"🟡 Start parameter: {start_param}")
+                    
+                    result = self.process_start_command(user_id, username, start_param)
                     print(f"🟣 /start result: {result}")
                     return result
                 else:
@@ -251,6 +399,8 @@ class TelegramBot:
                     
         except Exception as e:
             print(f"❌ Webhook error: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def process_any_message(self, user_id, username=None, text=''):
@@ -258,7 +408,16 @@ class TelegramBot:
         try:
             # Всегда пытаемся подтвердить пользователя по username
             # Это позволяет привязывать один Telegram к нескольким аккаунтам
-            result = self.auto_confirm_user(user_id, username)
+            # Также проверяем, может быть в тексте сообщения указан Instagram username
+            search_username = username
+            
+            # Если в тексте есть что-то похожее на username (начинается с @ или просто текст)
+            if text and text.strip() and not text.startswith('/'):
+                # Пробуем использовать текст сообщения как username для поиска
+                search_username = text.strip()
+                print(f"🟡 Using message text as search username: {search_username}")
+            
+            result = self.auto_confirm_user(user_id, username, search_username)
             
             if result:
                 return True
@@ -270,9 +429,11 @@ class TelegramBot:
 
 📝 <b>Що потрібно зробити:</b>
 1. Перейдіть на сайт <a href="https://twocomms.shop/profile/">twocomms.shop/profile/</a>
-2. У полі "Telegram" введіть ваш username: @{username or 'ваш_username'}
+2. У полі "Telegram" або "Instagram" введіть ваш username: @{username or 'ваш_username'}
 3. Натисніть кнопку "Підтвердити Telegram"
 4. Поверніться до цього бота та напишіть будь-яке повідомлення
+
+💡 <b>Підказка:</b> Ви можете вказати Telegram або Instagram username - бот знайде ваш профіль.
 
 🔔 <b>Після підтвердження ви будете отримувати:</b>
 • Сповіщення про нові замовлення
@@ -285,6 +446,9 @@ class TelegramBot:
                 return False
                 
         except Exception as e:
+            print(f"❌ Error in process_any_message: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
 
