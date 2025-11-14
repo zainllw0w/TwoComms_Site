@@ -142,37 +142,31 @@ class TelegramBot:
                 print(f"❌ No username provided")
                 return False
             
-            # Нормализуем username для поиска
-            normalized_search = self._normalize_username(search_value)
-            print(f"🟡 Normalized search username: '{normalized_search}' (original: '{search_value}')")
+            # Убираем @ если есть (как в старой версии)
+            clean_username = search_value.lstrip('@')
+            print(f"🟡 Clean username: '{clean_username}' (original: '{search_value}')")
             
-            # Варианты для поиска (с @ и без)
-            search_variants = [
-                normalized_search,  # без @
-                f"@{normalized_search}",  # с @
-            ]
+            # Ищем профили по полю telegram (как в старой версии, но ищем ВСЕ, не только неподтвержденные)
+            # Варианты: с @ и без @
+            profiles_telegram_without_at = UserProfile.objects.filter(telegram=clean_username)
+            profiles_telegram_with_at = UserProfile.objects.filter(telegram=f"@{clean_username}")
             
-            print(f"🟡 Search variants: {search_variants}")
+            print(f"🟢 Profiles by telegram (without @): {profiles_telegram_without_at.count()}")
+            print(f"🟢 Profiles by telegram (with @): {profiles_telegram_with_at.count()}")
             
-            # Используем case-insensitive поиск через Q объекты
-            # Ищем ВСЕ профили по полю telegram (не только неподтвержденные)
-            # Это позволяет перепривязать если telegram_id не совпадает
-            telegram_q = Q()
-            for variant in search_variants:
-                telegram_q |= Q(telegram__iexact=variant)
+            # Ищем профили по полю instagram
+            profiles_instagram_without_at = UserProfile.objects.filter(instagram=clean_username)
+            profiles_instagram_with_at = UserProfile.objects.filter(instagram=f"@{clean_username}")
             
-            all_telegram_profiles = UserProfile.objects.filter(telegram_q)
-            print(f"🟢 All profiles by telegram field: {all_telegram_profiles.count()}")
+            print(f"🟢 Profiles by instagram (without @): {profiles_instagram_without_at.count()}")
+            print(f"🟢 Profiles by instagram (with @): {profiles_instagram_with_at.count()}")
+            
+            # Объединяем все результаты
+            all_telegram_profiles = list(profiles_telegram_without_at) + list(profiles_telegram_with_at)
+            all_instagram_profiles = list(profiles_instagram_without_at) + list(profiles_instagram_with_at)
+            
             for p in all_telegram_profiles:
                 print(f"   - Profile: {p.user.username}, telegram='{p.telegram}', telegram_id={p.telegram_id}")
-            
-            # Ищем ВСЕ профили по полю instagram
-            instagram_q = Q()
-            for variant in search_variants:
-                instagram_q |= Q(instagram__iexact=variant)
-            
-            all_instagram_profiles = UserProfile.objects.filter(instagram_q)
-            print(f"🟢 All profiles by instagram field: {all_instagram_profiles.count()}")
             for p in all_instagram_profiles:
                 print(f"   - Profile: {p.user.username}, instagram='{p.instagram}', telegram_id={p.telegram_id}")
             
@@ -196,6 +190,39 @@ class TelegramBot:
                 print(f"   Search variants: {search_variants}")
                 return False
             
+            # Сначала проверяем, есть ли профиль уже привязанный к этому telegram_id
+            already_linked_profile = None
+            for profile in all_matching_profiles:
+                if profile.telegram_id == user_id:
+                    already_linked_profile = profile
+                    print(f"✅ Profile {profile.user.username} already linked to this telegram_id")
+                    break
+            
+            if already_linked_profile:
+                # Профиль уже привязан - показываем сообщение и возвращаем True
+                if already_linked_profile.telegram in [clean_username, f"@{clean_username}"]:
+                    matched_field = 'telegram'
+                    matched_username = already_linked_profile.telegram
+                else:
+                    matched_field = 'instagram'
+                    matched_username = already_linked_profile.instagram
+                
+                message = f"""<b>Ласкаво просимо, {already_linked_profile.user.username}!</b>
+
+Ви вже підтвердили свій Telegram ({matched_username}) для отримання сповіщень про статус замовлень.
+
+🔔 <b>Ви будете отримувати сповіщення про:</b>
+• Нові замовлення
+• Зміну статусу посилок
+• Отримання замовлень
+
+📋 <b>Корисні посилання:</b>
+• <a href="https://twocomms.shop/my-orders/">Мої замовлення</a>
+• <a href="https://twocomms.shop/profile/">Профіль</a>"""
+                
+                self.send_message(user_id, message)
+                return True
+            
             # Выбираем профиль для привязки
             # Приоритет: профили без telegram_id или с другим telegram_id
             profile_to_link = None
@@ -212,14 +239,11 @@ class TelegramBot:
                     profile_to_link = profile
                     print(f"⚠️ Found profile linked to different telegram_id ({profile.telegram_id}), will reassign to {user_id}")
                     break
-                else:
-                    # Профиль уже привязан к этому Telegram
-                    print(f"ℹ️ Profile {profile.user.username} already linked to this telegram_id")
             
-            # Если не нашли подходящий, берем первый
+            # Если не нашли подходящий профиль для привязки
             if not profile_to_link:
-                profile_to_link = all_matching_profiles[0]
-                print(f"⚠️ Using first matching profile: {profile_to_link.user.username}")
+                print(f"❌ No suitable profile found for linking (all profiles already linked to this telegram_id)")
+                return False
             
             # Привязываем telegram_id к профилю
             old_telegram_id = profile_to_link.telegram_id
@@ -228,11 +252,7 @@ class TelegramBot:
             print(f"✅ Profile saved: {profile_to_link.user.username}, telegram_id={old_telegram_id} -> {user_id}")
             
             # Определяем какой username был использован для поиска
-            # Используем нормализацию для сравнения
-            telegram_normalized = self._normalize_username(profile_to_link.telegram) if profile_to_link.telegram else ''
-            instagram_normalized = self._normalize_username(profile_to_link.instagram) if profile_to_link.instagram else ''
-            
-            if telegram_normalized == normalized_search or f"@{telegram_normalized}" in search_variants:
+            if profile_to_link.telegram in [clean_username, f"@{clean_username}"]:
                 matched_field = 'telegram'
                 matched_username = profile_to_link.telegram
             else:
