@@ -19,9 +19,10 @@ def telegram_webhook(request):
         # Логируем входящее сообщение для отладки
         if 'message' in update_data:
             message = update_data['message']
-            user_id = message['from']['id']
-            username = message['from'].get('username', 'unknown')
+            user_id = message.get('from', {}).get('id', 'unknown')
+            username = message.get('from', {}).get('username', 'unknown')
             text = message.get('text', '')
+            print(f"📥 Webhook received: user_id={user_id}, username={username}, text={text}")
         
         # Обрабатываем обновление
         result = telegram_bot.process_webhook_update(update_data)
@@ -29,10 +30,20 @@ def telegram_webhook(request):
         if result:
             return JsonResponse({'ok': True, 'result': result})
         else:
-            return JsonResponse({'ok': False, 'error': 'Failed to process webhook'})
+            # Не возвращаем ошибку, чтобы Telegram не повторял запрос
+            # Просто логируем и возвращаем ok=True
+            print(f"⚠️ Webhook processing returned False, but returning ok=True to prevent retries")
+            return JsonResponse({'ok': True, 'result': False})
         
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON decode error in webhook: {e}")
+        return JsonResponse({'ok': False, 'error': 'Invalid JSON'}, status=400)
     except Exception as e:
-        return JsonResponse({'ok': False, 'error': str(e)})
+        print(f"❌ Error in telegram_webhook: {e}")
+        import traceback
+        traceback.print_exc()
+        # Возвращаем ok=True чтобы Telegram не повторял запрос при ошибках
+        return JsonResponse({'ok': True, 'error': str(e)})
 
 
 @csrf_exempt
