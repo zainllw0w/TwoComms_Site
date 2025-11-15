@@ -1790,6 +1790,7 @@ document.addEventListener('DOMContentLoaded', function() {
      {% if order.session_key %}data-session-key="{{ order.session_key }}"{% endif %}
      {% if order.user_id %}data-user-id="{{ order.user_id }}"{% endif %}
      {% if user.is_authenticated and user.userprofile.email %}data-email="{{ user.userprofile.email }}"{% endif %}
+     {% if order %}data-external-id="{{ order.payment_payload.tracking.external_id|default:'' }}"{% endif %}
      {% if order %}data-contents='[{% for item in order.items.all %}{"id":"{{ item.get_offer_id }}","quantity":{{ item.qty }},"price":{{ item.unit_price|floatformat:2 }},"name":"{{ item.title|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]'{% else %}data-contents='[]'{% endif %}>
 </div>
 
@@ -1859,6 +1860,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var contents = [];
     var sessionKey = el.dataset.sessionKey || '';
     var userIdAttr = el.dataset.userId || '';
+    var savedExternalId = el.dataset.externalId || '';
     
     // Для Lead события (предоплата) используем сумму предоплаты, не полную сумму заказа
     var leadValue = paymentStatus === 'prepaid' ? prepaidValue : purchaseValue;
@@ -1871,23 +1873,26 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // КРИТИЧНО: Синхронизируем external_id с сервером
-    // Используем ту же логику что и в checkout.py
-    var externalSource = '';
-    if (userIdAttr) {
-      externalSource = 'user:' + userIdAttr;
-    } else if (sessionKey) {
-      externalSource = 'session:' + sessionKey;
-    } else if (orderNumber) {
-      // Используем orderNumber (строка TWC...), а не orderId (число)
-      externalSource = 'order:' + orderNumber;
-    } else if (orderId) {
-      // Fallback: используем orderId только если нет orderNumber
-      externalSource = 'order:' + orderId;
-    }
-    
-    // КРИТИЧНО: external_id должен быть ВСЕГДА определен
+    // Используем сохраненный external_id из payment_payload, если есть
+    var externalSource = savedExternalId;
     if (!externalSource) {
-      externalSource = 'order:' + (orderNumber || orderId || 'unknown');
+      // Fallback: Генерируем external_id с той же логикой что в monobank.py
+      if (userIdAttr) {
+        externalSource = 'user:' + userIdAttr;
+      } else if (sessionKey) {
+        externalSource = 'session:' + sessionKey;
+      } else if (orderNumber) {
+        // Используем orderNumber (строка TWC...), а не orderId (число)
+        externalSource = 'order:' + orderNumber;
+      } else if (orderId) {
+        // Fallback: используем orderId только если нет orderNumber
+        externalSource = 'order:' + orderId;
+      }
+      
+      // КРИТИЧНО: external_id должен быть ВСЕГДА определен
+      if (!externalSource) {
+        externalSource = 'order:' + (orderNumber || orderId || 'unknown');
+      }
     }
     
     var externalHash = null;
@@ -2015,7 +2020,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
       if (window.trackEvent && typeof window.trackEvent === 'function') {
         try {
-          var eventId = '{{ order.get_facebook_event_id }}';
+          var eventId = '{{ order.get_purchase_event_id }}';
           var purchaseContents = contents.map(function(item) {
             return {
               id: String(item.id),
@@ -2096,7 +2101,7 @@ document.addEventListener('DOMContentLoaded', function() {
       
       if (window.trackEvent && typeof window.trackEvent === 'function') {
         try {
-          var leadEventId = '{{ order.get_facebook_event_id }}_lead';
+          var leadEventId = '{{ order.get_lead_event_id }}';
           var leadMeta = {
             event_id: leadEventId,
             user_data: fbUserData
