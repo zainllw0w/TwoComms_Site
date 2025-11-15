@@ -89,8 +89,8 @@
                 </button>
               </div>
               <div class="col-md-6">
-                <button type="button" class="btn btn-outline-warning w-100" onclick="sendEvent('StartPayment')">
-                  💰 StartPayment
+                <button type="button" class="btn btn-outline-warning w-100" onclick="sendEvent('AddPaymentInfo')">
+                  💰 AddPaymentInfo
                 </button>
               </div>
               <div class="col-md-6">
@@ -303,9 +303,9 @@
           }
           break;
           
-        case 'StartPayment':
+        case 'AddPaymentInfo':
           if (window.trackEvent) {
-            window.trackEvent('StartPayment', {
+            window.trackEvent('AddPaymentInfo', {
               content_ids: [testProduct.id],
               content_type: 'product',
               value: testProduct.price,
@@ -368,7 +368,7 @@
       { name: 'AddToCart', delay: 1000 },
       { name: 'AddToWishlist', delay: 1500 },
       { name: 'InitiateCheckout', delay: 2000 },
-      { name: 'StartPayment', delay: 2500 },
+      { name: 'AddPaymentInfo', delay: 2500 },
       { name: 'Purchase', delay: 3000 },
       { name: 'Search', delay: 3500 }
     ];
@@ -402,7 +402,7 @@
       { name: 'AddToCart', delay: 1500 },
       { name: 'AddToWishlist', delay: 2000 },
       { name: 'InitiateCheckout', delay: 2500 },
-      { name: 'StartPayment', delay: 3000 },
+      { name: 'AddPaymentInfo', delay: 3000 },
       { name: 'Purchase', delay: 3500 },
       { name: 'Search', delay: 4000 }
     ];
@@ -439,4 +439,3 @@
 }
 </style>
 {% endblock %}
-
