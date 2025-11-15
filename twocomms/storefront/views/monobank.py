@@ -728,8 +728,11 @@ def monobank_create_invoice(request):
                 for key, value in client_tracking.items():
                     if value is None:
                         continue
-                    # Не перезаписываем server-side значения если они уже есть, кроме event_id
-                    if key in tracking_context and key != 'event_id':
+                    # Игнорируем event_id и lead_event_id - они генерируются при отправке событий
+                    if key in ('event_id', 'lead_event_id'):
+                        continue
+                    # Не перезаписываем server-side значения если они уже есть
+                    if key in tracking_context:
                         continue
                     tracking_context[key] = value
             
