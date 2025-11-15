@@ -730,6 +730,15 @@ function requestMonobankPay(){
   try {
     if (window.getTrackingContext && typeof window.getTrackingContext === 'function') {
       const tracking = window.getTrackingContext();
+      if (tracking && typeof tracking === 'object') {
+        // Не сохраняем event_id на этапе создания заказа - он генерируется при отправке событий
+        if ('event_id' in tracking) {
+          delete tracking.event_id;
+        }
+        if ('lead_event_id' in tracking) {
+          delete tracking.lead_event_id;
+        }
+      }
       payload.tracking = tracking;
       console.log('✅ Tracking context added to payload:', tracking);
     }
