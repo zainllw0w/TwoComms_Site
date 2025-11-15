@@ -123,11 +123,30 @@ class Order(models.Model):
         Format: {order_number}_{timestamp}_{event_type}
         Example: TWC30102025N01_1730304000_purchase
         """
-        import hashlib
         import time
         # Используем order_number + timestamp создания + event_type как уникальный идентификатор
         timestamp = int(self.created.timestamp()) if self.created else int(time.time())
         return f"{self.order_number}_{timestamp}_{event_type}"
+    
+    def get_lead_event_id(self):
+        """
+        Генерирует event_id для Lead событий (предоплата).
+        Используется в шаблоне order_success.html и для дедупликации с CAPI.
+        
+        Format: {order_number}_{timestamp}_lead
+        Example: TWC30102025N01_1730304000_lead
+        """
+        return self.get_facebook_event_id(event_type='lead')
+    
+    def get_purchase_event_id(self):
+        """
+        Генерирует event_id для Purchase событий (полная оплата).
+        Используется в шаблоне order_success.html и для дедупликации с CAPI.
+        
+        Format: {order_number}_{timestamp}_purchase
+        Example: TWC30102025N01_1730304000_purchase
+        """
+        return self.get_facebook_event_id(event_type='purchase')
     
     def get_prepayment_amount(self):
         """Возвращает сумму предоплаты для pay_type=prepay_200"""

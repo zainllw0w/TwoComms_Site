@@ -144,10 +144,11 @@
   win.getTrackingContext = function() {
     return {
       fbp: ensureFbpCookie(),
-      fbc: ensureFbcCookie() || getCookieValue('_fbc') || null,
-      event_id: generateEventId()
+      fbc: ensureFbcCookie() || getCookieValue('_fbc') || null
     };
   };
+  // event_id НЕ передается в tracking context — он генерируется при отправке событий
+  // (Purchase/Lead) для корректной дедупликации между браузером и сервером
   
   function setupGlobalEventBridge() {
     if (typeof win.trackEvent === 'function') {
