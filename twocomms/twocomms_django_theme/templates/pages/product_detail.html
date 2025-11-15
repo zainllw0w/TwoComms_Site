@@ -834,18 +834,63 @@ document.addEventListener('DOMContentLoaded', function() {
           console.log('ViewContent - Selected size:', selection.size, 'OfferId:', selection.offerId);
         }
         
+      var brandName = 'TwoComms';
+      var viewEventId = (window.__twcAnalytics && typeof window.__twcAnalytics.safeGenerateEventId === 'function')
+        ? window.__twcAnalytics.safeGenerateEventId()
+        : (typeof window.generateEventId === 'function' ? window.generateEventId() : (Date.now() + '_' + Math.random().toString(36).substring(2, 11)));
+      var trackingCtx = (typeof window.getTrackingContext === 'function' && window.getTrackingContext()) || {};
+      var ecommerceItem = {
+        item_id: selection.offerId,
+        item_name: title,
+        item_brand: brandName,
+        item_category: category || '',
+        item_variant: selection.size || '',
+        price: price,
+        quantity: 1,
+        currency: 'UAH'
+      };
+      var eventModelItems = [{
+        id: selection.offerId,
+        name: title,
+        price: price,
+        quantity: 1
+      }];
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({
+        event: 'view_item',
+        event_id: viewEventId,
+        fbp: trackingCtx.fbp || null,
+        fbc: trackingCtx.fbc || null,
+        ecommerce: {
+          currency: 'UAH',
+          value: price,
+          items: [ecommerceItem]
+        },
+        eventModel: {
+          event_id: viewEventId,
+          value: price,
+          currency: 'UAH',
+          content_name: title,
+          items: eventModelItems,
+          ecomm_prodid: [selection.offerId],
+          ecomm_pagetype: 'product',
+          ecomm_totalvalue: price
+        }
+      });
       window.trackEvent('ViewContent', {
-          content_ids: [selection.offerId],
+        content_ids: [selection.offerId],
         content_name: title,
         content_type: 'product',
         content_category: category,
         value: price,
-          currency: 'UAH',
-          contents: [{
-            id: selection.offerId,
-            quantity: 1,
-            item_price: price
-          }]
+        currency: 'UAH',
+        contents: [{
+          id: selection.offerId,
+          quantity: 1,
+          item_price: price
+        }],
+        event_id: viewEventId,
+        __meta: { event_id: viewEventId }
       });
     }
     }catch(err){ 
