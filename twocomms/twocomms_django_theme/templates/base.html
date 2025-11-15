@@ -1037,6 +1037,15 @@
               }catch(_){ window.location.reload(); }
             }
           }catch(_){}
+          try{
+            if(window.__twcTrackAddToCart){
+              window.__twcTrackAddToCart(d, btn, qty);
+            }
+          }catch(trackErr){
+            if(window.console && console.debug){
+              console.debug('AddToCart tracking error:', trackErr);
+            }
+          }
           // AddToCart tracking handled by main.js to avoid duplication
         } else {
           console.error('Add to cart failed:', d);
