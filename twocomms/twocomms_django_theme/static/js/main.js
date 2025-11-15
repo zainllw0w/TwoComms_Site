@@ -612,7 +612,7 @@ function startMonoCheckout(button, statusEl, options){
         const analytics = getCheckoutAnalyticsPayload();
         try{
           if(window.trackEvent && analytics){
-            window.trackEvent('StartPayment', {
+            window.trackEvent('AddPaymentInfo', {
               value: analytics.value,
               currency: analytics.currency,
               num_items: analytics.num_items,
@@ -776,7 +776,7 @@ function startMonobankPay(button, statusEl){
         const analytics = getCheckoutAnalyticsPayload();
         try{
           if(window.trackEvent && analytics){
-            window.trackEvent('StartPayment', {
+            window.trackEvent('AddPaymentInfo', {
               value: analytics.value,
               currency: analytics.currency,
               num_items: analytics.num_items,
@@ -1412,6 +1412,126 @@ document.addEventListener('DOMContentLoaded', function(){
 
 
 // Делегирование клика "добавить в корзину"
+function getQtyFromTrigger(btn){
+  if(!btn || typeof btn.closest !== 'function'){
+    return null;
+  }
+  let scope = btn.closest('[data-qty]');
+  let qtyInput = scope ? scope.querySelector('input[type="number"]') : null;
+  if(!qtyInput){
+    qtyInput = document.getElementById('qty');
+  }
+  if(!qtyInput){
+    return null;
+  }
+  const parsed = parseInt(qtyInput.value || '1', 10);
+  if(!Number.isNaN(parsed) && parsed > 0){
+    return parsed;
+  }
+  return null;
+}
+
+function trackAddToCartAnalytics(serverData, triggerButton, fallbackQty){
+  try{
+    if(!window.trackEvent || !serverData || !serverData.ok){
+      return;
+    }
+    const analyticsItem = serverData.item || null;
+    const productId = (analyticsItem && analyticsItem.product_id) || (triggerButton && triggerButton.getAttribute && triggerButton.getAttribute('data-add-to-cart'));
+    if(!productId){
+      return;
+    }
+    const productContainer = document.getElementById('product-detail-container');
+    const productAnalyticsEl = document.getElementById('product-analytics-payload');
+    let offerId = analyticsItem && analyticsItem.offer_id;
+    if(!offerId && productContainer){
+      offerId = productContainer.getAttribute('data-current-offer-id');
+    }
+    if(!offerId){
+      offerId = 'TC-' + String(productId) + '-default-S';
+    }
+
+    let quantity = Number(analyticsItem && analyticsItem.quantity);
+    if(!Number.isFinite(quantity) || quantity <= 0){
+      if(typeof fallbackQty === 'number' && fallbackQty > 0){
+        quantity = fallbackQty;
+      } else {
+        const qtyFromDom = getQtyFromTrigger(triggerButton);
+        if(qtyFromDom){
+          quantity = qtyFromDom;
+        }
+      }
+    }
+    if(!Number.isFinite(quantity) || quantity <= 0){
+      quantity = 1;
+    }
+
+    let fallbackPrice = triggerButton ? parseFloat(triggerButton.getAttribute('data-product-price') || '0') : NaN;
+    if((!Number.isFinite(fallbackPrice) || fallbackPrice <= 0) && productAnalyticsEl){
+      const datasetPrice = parseFloat(productAnalyticsEl.dataset.price || '0');
+      if(Number.isFinite(datasetPrice) && datasetPrice >= 0){
+        fallbackPrice = datasetPrice;
+      }
+    }
+    let itemPrice = Number(analyticsItem && analyticsItem.item_price);
+    if(!Number.isFinite(itemPrice) || itemPrice < 0){
+      itemPrice = Number.isFinite(fallbackPrice) && fallbackPrice >= 0 ? fallbackPrice : 0;
+    }
+
+    let value = Number(analyticsItem && analyticsItem.value);
+    if(!Number.isFinite(value) || value < 0){
+      value = itemPrice * quantity;
+    }
+    const currency = (analyticsItem && analyticsItem.currency) || 'UAH';
+
+    let contentName = analyticsItem && analyticsItem.product_title;
+    if(!contentName && productAnalyticsEl){
+      contentName = productAnalyticsEl.dataset.title || '';
+    }
+    if(!contentName && triggerButton){
+      contentName = triggerButton.getAttribute('data-product-name') || '';
+    }
+
+    let contentCategory = analyticsItem && analyticsItem.product_category;
+    if(!contentCategory && productAnalyticsEl){
+      contentCategory = productAnalyticsEl.dataset.category || '';
+    }
+    if(!contentCategory && triggerButton){
+      contentCategory = triggerButton.getAttribute('data-product-category') || '';
+    }
+
+    const payload = {
+      content_ids: [offerId],
+      content_type: 'product',
+      value: value,
+      currency: currency,
+      num_items: quantity,
+      contents: [{
+        id: offerId,
+        quantity: quantity,
+        item_price: itemPrice
+      }]
+    };
+
+    if(contentName){
+      payload.content_name = contentName;
+      payload.contents[0].item_name = contentName;
+    }
+    if(contentCategory){
+      payload.content_category = contentCategory;
+      payload.contents[0].item_category = contentCategory;
+    }
+    payload.contents[0].brand = 'TwoComms';
+
+    window.trackEvent('AddToCart', payload);
+  }catch(err){
+    if(console && console.debug){
+      console.debug('AddToCart analytics error:', err);
+    }
+  }
+}
+window.__twcTrackAddToCart = trackAddToCartAnalytics;
+
 document.addEventListener('click', (e)=>{
   const btn = e.target.closest('[data-add-to-cart]');
   if(!btn) return;
@@ -1421,6 +1541,8 @@ document.addEventListener('click', (e)=>{
   const productId = btn.getAttribute('data-add-to-cart');
   const sizeInput = document.querySelector('input[name="size"]:checked');
   const size = sizeInput ? sizeInput.value : '';
+  const qtyFromDom = getQtyFromTrigger(btn);
+  const qty = qtyFromDom && qtyFromDom > 0 ? qtyFromDom : 1;
   
   // Получаем выбранный цвет
   let colorVariantId = null;
@@ -1429,7 +1551,8 @@ document.addEventListener('click', (e)=>{
     colorVariantId = activeColorSwatch.getAttribute('data-variant');
   }
   
-  const body = new URLSearchParams({product_id: productId, size: size});
+  const normalizedSize = size ? String(size).toUpperCase() : '';
+  const body = new URLSearchParams({product_id: productId, size: normalizedSize, qty: String(qty)});
   if(colorVariantId) {
     body.append('color_variant_id', colorVariantId);
   }
@@ -1465,79 +1588,7 @@ document.addEventListener('click', (e)=>{
       btn.classList.add('btn-success');
       setTimeout(()=>btn.classList.remove('btn-success'),400);
       
-      // Унифицированный трекинг AddToCart с offer_id
-      try{
-        if(window.trackEvent){
-          var analyticsItem = (d && d.item) ? d.item : null;
-          var productContainer = document.getElementById('product-detail-container');
-          var productAnalyticsEl = document.getElementById('product-analytics-payload');
-          var offerId = analyticsItem && analyticsItem.offer_id;
-          if(!offerId){
-            offerId = productContainer && productContainer.getAttribute('data-current-offer-id');
-          }
-          if(!offerId){
-            offerId = 'TC-' + productId + '-default-S';
-          }
-
-          var quantity = analyticsItem && Number(analyticsItem.quantity) ? Number(analyticsItem.quantity) : qty;
-          if(!quantity || quantity < 1){ quantity = 1; }
-
-          var fallbackPrice = parseFloat(btn.getAttribute('data-product-price') || '0');
-          if(productAnalyticsEl && !fallbackPrice){
-            fallbackPrice = parseFloat(productAnalyticsEl.dataset.price || '0');
-          }
-          var rawItemPrice = analyticsItem && analyticsItem.item_price !== undefined ? Number(analyticsItem.item_price) : NaN;
-          var itemPrice = !Number.isNaN(rawItemPrice) ? rawItemPrice : fallbackPrice;
-          if(!Number.isFinite(itemPrice) || itemPrice < 0){
-            itemPrice = 0;
-          }
-
-          var rawValue = analyticsItem && analyticsItem.value !== undefined ? Number(analyticsItem.value) : NaN;
-          var value = !Number.isNaN(rawValue) ? rawValue : (itemPrice * quantity);
-          if(!Number.isFinite(value) || value < 0){
-            value = itemPrice * quantity;
-          }
-
-          var currency = (analyticsItem && analyticsItem.currency) || 'UAH';
-
-          var fallbackName = btn.getAttribute('data-product-name') || '';
-          if(productAnalyticsEl && !fallbackName){
-            fallbackName = productAnalyticsEl.dataset.title || '';
-          }
-          var contentName = (analyticsItem && analyticsItem.product_title) || fallbackName;
-
-          var fallbackCategory = btn.getAttribute('data-product-category') || '';
-          if(productAnalyticsEl && !fallbackCategory){
-            fallbackCategory = productAnalyticsEl.dataset.category || '';
-          }
-          var contentCategory = (analyticsItem && analyticsItem.product_category) || fallbackCategory;
-
-          var payload = {
-            content_ids: [offerId],
-            content_type: 'product',
-            value: value,
-            currency: currency,
-            num_items: quantity,
-            contents: [{
-              id: offerId,
-              quantity: quantity,
-              item_price: itemPrice
-            }]
-          };
-
-          if(contentName){
-            payload.content_name = contentName;
-            payload.contents[0].item_name = contentName;
-          }
-          if(contentCategory){
-            payload.content_category = contentCategory;
-            payload.contents[0].item_category = contentCategory;
-          }
-          payload.contents[0].brand = 'TwoComms';
-
-          window.trackEvent('AddToCart', payload);
-        }
-      }catch(_){ }
+      trackAddToCartAnalytics(d, btn, qty);
     } else {
       btn.classList.add('btn-danger');
       setTimeout(()=>btn.classList.remove('btn-danger'),600);

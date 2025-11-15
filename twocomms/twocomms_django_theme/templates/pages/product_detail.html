@@ -724,6 +724,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   
   var currentOfferId = productContainer.getAttribute('data-current-offer-id');
+  var analyticsPayloadEl = document.getElementById('product-analytics-payload');
   
   // Функция для получения текущего выбранного цвета и размера
   function getCurrentSelection() {
@@ -791,10 +792,19 @@ document.addEventListener('DOMContentLoaded', function() {
       try{
         if(window.trackEvent){
           var selection = getCurrentSelection();
+          var priceValue = 0;
+          if (analyticsPayloadEl) {
+            var parsedPrice = parseFloat(analyticsPayloadEl.dataset.price || '0');
+            if (!isNaN(parsedPrice) && parsedPrice > 0) {
+              priceValue = parsedPrice;
+            }
+          }
           window.trackEvent('CustomizeProduct', { 
             content_ids: [selection.offerId], 
             content_type: 'product',
-            variant_id: selection.colorVariantId
+            variant_id: selection.colorVariantId,
+            value: priceValue,
+            currency: 'UAH'
           });
         }
       }catch(_){ }
@@ -882,20 +892,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Проверяем при загрузке
     checkSizeAvailability();
   }catch(_){ }
-
-  // Трекинг выбора цвета (изображения обновляет верхний блок логики)
-  document.querySelectorAll('.color-swatch').forEach(function(button){
-    button.addEventListener('click', function(){
-      try{
-        if(window.trackEvent){
-          var pe=document.getElementById('product-analytics-payload');
-          var pid=pe && pe.dataset.id;
-          var variantId=this.getAttribute('data-variant');
-          window.trackEvent('CustomizeProduct', { content_ids:[String(pid)], content_type:'product', variant_id: variantId });
-        }
-      }catch(_){ }
-    });
-  });
 
   // Переключение вкладок описания и размерной сетки
   document.querySelectorAll('.product-tab-button').forEach(button => {
