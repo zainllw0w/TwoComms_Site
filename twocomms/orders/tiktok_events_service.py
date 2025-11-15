@@ -280,7 +280,7 @@ class TikTokEventsService:
         test_event_code: Optional[str] = None,
     ) -> bool:
         """Отправляет Purchase событие (полная оплата)."""
-        event_id = order.get_facebook_event_id()
+        event_id = order.get_purchase_event_id()
         return self.send_event(order, 'Purchase', event_id, source_url, test_event_code)
 
     def send_lead_event(
@@ -290,7 +290,7 @@ class TikTokEventsService:
         test_event_code: Optional[str] = None,
     ) -> bool:
         """Отправляет Lead событие (предоплата/заявка)."""
-        event_id = f"{order.get_facebook_event_id()}_lead"
+        event_id = order.get_lead_event_id()
         return self.send_event(order, 'Lead', event_id, source_url, test_event_code)
 
 

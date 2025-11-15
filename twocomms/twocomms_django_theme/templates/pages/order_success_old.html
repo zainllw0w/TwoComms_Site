@@ -289,7 +289,7 @@
       }
       
         // Генерируем event_id для дедупликации
-      var eventId = '{{ order.get_facebook_event_id }}';
+      var eventId = '{{ order.get_purchase_event_id }}';
       
         // Отправляем Purchase event с eventID для дедупликации
       fbq('track', 'Purchase', {
@@ -364,8 +364,8 @@
           fbUserData.ct = city.toLowerCase();
         }
         
-        // Генерируем event_id для дедупликации (добавляем _lead для уникальности)
-        var leadEventId = '{{ order.get_facebook_event_id }}_lead';
+        // Генерируем event_id для дедупликации
+        var leadEventId = '{{ order.get_lead_event_id }}';
         
         // Отправляем Lead event с eventID
         fbq('track', 'Lead', {
