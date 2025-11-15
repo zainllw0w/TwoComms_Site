@@ -1784,14 +1784,18 @@ document.addEventListener('DOMContentLoaded', function() {
      data-currency="UAH"
      {% if order %}data-payment-status="{{ order.payment_status }}"{% else %}data-payment-status="paid"{% endif %}
      {% if order %}data-order-status="{{ order.status }}"{% else %}data-order-status="done"{% endif %}
+     data-affiliation="TwoComms"
+     data-tax="0"
+     data-shipping="0"
+     data-coupon="{% if order and order.promo_code %}{{ order.promo_code.code }}{% endif %}"
      {% if order %}data-full-name="{{ order.full_name }}"{% endif %}
      {% if order %}data-phone="{{ order.phone }}"{% endif %}
      {% if order %}data-city="{{ order.city }}"{% endif %}
      {% if order.session_key %}data-session-key="{{ order.session_key }}"{% endif %}
      {% if order.user_id %}data-user-id="{{ order.user_id }}"{% endif %}
-     {% if user.is_authenticated and user.userprofile.email %}data-email="{{ user.userprofile.email }}"{% endif %}
+     {% if user.is_authenticated and user.userprofile.email %}data-email="{{ user.userprofile.email|lower|escapejs }}"{% endif %}
      {% if order %}data-external-id="{{ order.payment_payload.tracking.external_id|default:'' }}"{% endif %}
-     {% if order %}data-contents='[{% for item in order.items.all %}{"id":"{{ item.get_offer_id }}","quantity":{{ item.qty }},"price":{{ item.unit_price|floatformat:2 }},"name":"{{ item.title|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]'{% else %}data-contents='[]'{% endif %}>
+     {% if order %}data-contents='[{% for item in order.items.all %}{"id":"{{ item.get_offer_id }}","quantity":{{ item.qty }},"price":{{ item.unit_price|floatformat:2 }},"name":"{{ item.title|escapejs }}","category":"{{ item.product.category.name|default_if_none:''|escapejs }}","variant":"{{ item.size|default:"S"|upper }}","brand":"TwoComms","currency":"UAH"}{% if not forloop.last %},{% endif %}{% endfor %}]'{% else %}data-contents='[]'{% endif %}>
 </div>
 
 <script>
@@ -1861,6 +1865,12 @@ document.addEventListener('DOMContentLoaded', function() {
     var sessionKey = el.dataset.sessionKey || '';
     var userIdAttr = el.dataset.userId || '';
     var savedExternalId = el.dataset.externalId || '';
+    var affiliation = el.dataset.affiliation || 'TwoComms';
+    var taxValue = parseFloat(el.dataset.tax || '0');
+    if (isNaN(taxValue)) taxValue = 0;
+    var shippingValue = parseFloat(el.dataset.shipping || '0');
+    if (isNaN(shippingValue)) shippingValue = 0;
+    var couponCode = el.dataset.coupon || '';
     
     // Для Lead события (предоплата) используем сумму предоплаты, не полную сумму заказа
     var leadValue = paymentStatus === 'prepaid' ? prepaidValue : purchaseValue;
@@ -1871,6 +1881,32 @@ document.addEventListener('DOMContentLoaded', function() {
       console.error('Error parsing contents:', e);
       contents = [];
     }
+    
+    var ecommerceItems = buildEcommerceItems(contents, currency);
+    if (!ecommerceItems.length) {
+      ecommerceItems = [{
+        item_id: orderNumber || 'order-item',
+        item_name: 'Order ' + (orderNumber || orderId || ''),
+        item_brand: 'TwoComms',
+        item_category: '',
+        item_variant: '',
+        price: purchaseValue,
+        quantity: 1,
+        currency: currency
+      }];
+    }
+    var ecommerceIds = ecommerceItems.map(function(item) { return item.item_id; });
+    var eventModelItems = mapToEventItems(ecommerceItems);
+    var pixelContents = ecommerceItems.map(function(item) {
+      return {
+        id: String(item.item_id),
+        item_price: item.price || 0,
+        quantity: item.quantity || 1,
+        item_name: item.item_name || '',
+        item_category: item.item_category || '',
+        brand: item.item_brand || 'TwoComms'
+      };
+    });
     
     // КРИТИЧНО: Синхронизируем external_id с сервером
     // Используем сохраненный external_id из payment_payload, если есть
@@ -1907,6 +1943,39 @@ document.addEventListener('DOMContentLoaded', function() {
         return parts.pop().split(';').shift();
       }
       return null;
+    }
+    
+    function buildEcommerceItems(rawItems, defaultCurrency) {
+      if (!Array.isArray(rawItems)) {
+        return [];
+      }
+      return rawItems.map(function(item) {
+        var quantity = Number(item.quantity || item.qty || 1) || 1;
+        var priceValue = parseFloat(item.price || item.item_price || 0) || 0;
+        return {
+          item_id: item.id || '',
+          item_name: item.name || ('Product ' + (item.id || '')),
+          item_brand: item.brand || 'TwoComms',
+          item_category: item.category || '',
+          item_variant: item.variant || '',
+          price: priceValue,
+          quantity: quantity,
+          currency: item.currency || defaultCurrency || 'UAH'
+        };
+      }).filter(function(item) {
+        return !!item.item_id;
+      });
+    }
+    
+    function mapToEventItems(items) {
+      return (items || []).map(function(item) {
+        return {
+          id: item.item_id,
+          name: item.item_name,
+          price: item.price,
+          quantity: item.quantity
+        };
+      });
     }
     
     function buildMetaUserData(emailValue, phoneValue, nameValue, cityValue) {
@@ -1976,6 +2045,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (city) userData.address = { city: city };
 
     var fbUserData = buildMetaUserData(email, phone, fullName, city);
+    var trackingContext = (typeof window.getTrackingContext === 'function' && window.getTrackingContext()) || {};
+    var fbpValue = trackingContext.fbp || readCookieValue('_fbp');
+    var fbcValue = trackingContext.fbc || readCookieValue('_fbc');
     
     // ИСПРАВЛЕНИЕ: Используем существующий dataLayer от GTM (не создаем новый)
     // GTM уже создает dataLayer в base.html
@@ -1987,18 +2059,33 @@ document.addEventListener('DOMContentLoaded', function() {
     if (shouldSendPurchase && !sessionStorage.getItem(purchaseStorageKey)) {
       var purchaseData = {
         event: 'purchase',
+        event_id: eventId,
+        fbp: fbpValue || null,
+        fbc: fbcValue || null,
         ecommerce: {
           transaction_id: orderNumber,
+          affiliation: affiliation,
           value: purchaseValue,
           currency: currency,
-          items: contents.map(function(item) {
-            return {
-              item_id: item.id,
-              item_name: item.name || 'Product ' + item.id,
-              quantity: item.quantity,
-              price: item.price || 0
-            };
-          })
+          tax: taxValue,
+          shipping: shippingValue,
+          coupon: couponCode,
+          items: ecommerceItems
+        },
+        eventModel: {
+          event_id: eventId,
+          transaction_id: orderNumber,
+          affiliation: affiliation,
+          value: purchaseValue,
+          currency: currency,
+          tax: taxValue,
+          shipping: shippingValue,
+          coupon: couponCode,
+          content_name: 'Order ' + orderNumber,
+          items: eventModelItems,
+          ecomm_prodid: ecommerceIds,
+          ecomm_pagetype: 'purchase',
+          ecomm_totalvalue: purchaseValue
         }
       };
       
@@ -2021,15 +2108,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (window.trackEvent && typeof window.trackEvent === 'function') {
         try {
           var eventId = '{{ order.get_purchase_event_id }}';
-          var purchaseContents = contents.map(function(item) {
-            return {
-              id: String(item.id),
-              item_price: item.price || 0,
-              quantity: item.quantity || 1,
-              item_name: item.name || ''
-            };
-          });
-          
+          var contentIdList = ecommerceIds.slice();
           var purchaseMeta = {
             event_id: eventId,
             user_data: fbUserData
@@ -2039,8 +2118,6 @@ document.addEventListener('DOMContentLoaded', function() {
           }
           
           // КРИТИЧНО: Добавляем fbp и fbc для дедупликации
-          var fbpValue = readCookieValue('_fbp');
-          var fbcValue = readCookieValue('_fbc');
           if (fbpValue) {
             purchaseMeta.fbp = fbpValue;
           }
@@ -2053,8 +2130,8 @@ document.addEventListener('DOMContentLoaded', function() {
             value: purchaseValue,
             currency: currency,
             content_type: 'product',
-            content_ids: purchaseContents.map(function(item) { return item.id; }),
-            contents: purchaseContents,
+            content_ids: contentIdList,
+            contents: pixelContents,
             content_name: 'Order ' + orderNumber,
             __meta: purchaseMeta
           };
@@ -2073,8 +2150,27 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Lead событие - только для prepaid (предоплата)
     if (shouldSendLead && !sessionStorage.getItem(leadStorageKey)) {
+      var leadEventId = '{{ order.get_lead_event_id }}';
       var leadData = {
         event: 'lead',
+        event_id: leadEventId,
+        fbp: fbpValue || null,
+        fbc: fbcValue || null,
+        ecommerce: {
+          currency: currency,
+          value: leadValue,
+          items: ecommerceItems
+        },
+        eventModel: {
+          event_id: leadEventId,
+          value: leadValue,
+          currency: currency,
+          content_name: 'Lead ' + orderNumber,
+          items: eventModelItems,
+          ecomm_prodid: ecommerceIds,
+          ecomm_pagetype: 'lead',
+          ecomm_totalvalue: leadValue
+        },
         lead_data: {
           order_id: orderNumber,
           value: leadValue,
@@ -2101,7 +2197,6 @@ document.addEventListener('DOMContentLoaded', function() {
       
       if (window.trackEvent && typeof window.trackEvent === 'function') {
         try {
-          var leadEventId = '{{ order.get_lead_event_id }}';
           var leadMeta = {
             event_id: leadEventId,
             user_data: fbUserData
@@ -2109,21 +2204,20 @@ document.addEventListener('DOMContentLoaded', function() {
           if (externalHash) {
             leadMeta.external_id = externalHash;
           }
-          var fbpValueLead = readCookieValue('_fbp');
-          var fbcValueLead = readCookieValue('_fbc');
-          if (fbpValueLead) {
-            leadMeta.fbp = fbpValueLead;
+          if (fbpValue) {
+            leadMeta.fbp = fbpValue;
           }
-          if (fbcValueLead) {
-            leadMeta.fbc = fbcValueLead;
+          if (fbcValue) {
+            leadMeta.fbc = fbcValue;
           }
           var leadTrackPayload = {
             event_id: leadEventId,
             value: leadValue,
             currency: currency,
             content_name: 'Order ' + orderNumber,
-            content_category: 'order_lead',
-            content_type: 'lead',
+            content_type: 'product',
+            content_ids: ecommerceIds,
+            contents: pixelContents,
             __meta: leadMeta
           };
           window.trackEvent('Lead', leadTrackPayload);
