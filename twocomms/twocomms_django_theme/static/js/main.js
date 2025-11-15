@@ -13,6 +13,222 @@ import { PerformanceOptimizer, ImageOptimizer } from './modules/optimizers.js';
 // Помечаем, что основной JS инициализирован и можно запускать анимации
 document.documentElement.classList.add('js-ready');
 
+const ANALYTICS_BRAND_NAME = 'TwoComms';
+
+function getAnalyticsTrackingContext() {
+  if (typeof window.getTrackingContext === 'function') {
+    try {
+      return window.getTrackingContext() || {};
+    } catch (err) {
+      if (console && console.debug) {
+        console.debug('getTrackingContext error:', err);
+      }
+    }
+  }
+  return { fbp: null, fbc: null };
+}
+
+function safeGenerateAnalyticsEventId() {
+  if (typeof window.generateEventId === 'function') {
+    try {
+      return window.generateEventId();
+    } catch (err) {
+      if (console && console.debug) {
+        console.debug('generateEventId error:', err);
+      }
+    }
+  }
+  return Date.now() + '_' + Math.random().toString(36).substring(2, 11);
+}
+
+function pushDataLayerEvent(config) {
+  if (!config || !config.eventName || !config.eventId || !config.ecommerce || !config.eventModel) {
+    return null;
+  }
+  window.dataLayer = window.dataLayer || [];
+  const ctx = getAnalyticsTrackingContext();
+  if (!config.eventModel.event_id) {
+    config.eventModel.event_id = config.eventId;
+  }
+  const payload = {
+    event: config.eventName,
+    event_id: config.eventId,
+    fbp: ctx.fbp || null,
+    fbc: ctx.fbc || null,
+    ecommerce: config.ecommerce,
+    eventModel: config.eventModel
+  };
+  if (config.userData && typeof config.userData === 'object' && Object.keys(config.userData).length) {
+    payload.user_data = config.userData;
+  }
+  if (config.extraFields && typeof config.extraFields === 'object') {
+    Object.keys(config.extraFields).forEach(key => {
+      const value = config.extraFields[key];
+      if (value !== undefined && value !== null) {
+        payload[key] = value;
+      }
+    });
+  }
+  window.dataLayer.push(payload);
+  return payload;
+}
+
+function mapContentsToGaItems(items, currency) {
+  return (items || []).map(item => {
+    const id = item.id || item.offer_id || item.item_id || '';
+    if (!id) {
+      return null;
+    }
+    const qty = Number(item.quantity || item.qty || 1) || 1;
+    const price = Number(item.price || item.item_price || item.unit_price || 0) || 0;
+    return {
+      item_id: String(id),
+      item_name: item.item_name || item.name || item.product_title || '',
+      item_brand: ANALYTICS_BRAND_NAME,
+      item_category: item.item_category || item.product_category || '',
+      item_variant: (item.variant || item.size || item.item_variant || '').toString().toUpperCase(),
+      price: price,
+      quantity: qty,
+      currency: currency || item.currency || 'UAH'
+    };
+  }).filter(Boolean);
+}
+
+function mapGaItemsToEventItems(items) {
+  return (items || []).map(item => ({
+    id: item.item_id,
+    name: item.item_name,
+    price: item.price,
+    quantity: item.quantity
+  }));
+}
+
+function fetchCartAnalyticsSnapshot() {
+  return fetch('/cart/items/', {
+    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    cache: 'no-store'
+  }).then(response => {
+    if (!response.ok) {
+      throw new Error('cart snapshot failed');
+    }
+    return response.json();
+  });
+}
+
+function pushAddToCartEvent(params) {
+  const eventId = params.eventId || safeGenerateAnalyticsEventId();
+  const currency = params.currency || 'UAH';
+  const value = Number(params.value || params.itemPrice * params.quantity || 0) || 0;
+  const baseItem = {
+    item_id: params.offerId,
+    item_name: params.contentName || '',
+    item_brand: ANALYTICS_BRAND_NAME,
+    item_category: params.contentCategory || '',
+    item_variant: (params.variant || '').toString().toUpperCase(),
+    price: Number(params.itemPrice || 0) || 0,
+    quantity: Number(params.quantity || 1) || 1,
+    currency: currency
+  };
+
+  const pushSnapshot = snapshot => {
+    const snapshotItems = snapshot && Array.isArray(snapshot.items) ? snapshot.items : [];
+    const ecommProdid = snapshotItems
+      .map(item => item.offer_id || item.id)
+      .filter(Boolean);
+    const totalValue = Number(snapshot && snapshot.total) || value;
+
+    pushDataLayerEvent({
+      eventName: 'add_to_cart',
+      eventId: eventId,
+      ecommerce: {
+        currency: currency,
+        value: value,
+        items: [baseItem]
+      },
+      eventModel: {
+        event_id: eventId,
+        value: value,
+        currency: currency,
+        content_name: baseItem.item_name,
+        items: [{
+          id: baseItem.item_id,
+          name: baseItem.item_name,
+          price: baseItem.price,
+          quantity: baseItem.quantity
+        }],
+        ecomm_prodid: ecommProdid.length ? ecommProdid : [baseItem.item_id],
+        ecomm_pagetype: 'cart',
+        ecomm_totalvalue: totalValue
+      }
+    });
+  };
+
+  fetchCartAnalyticsSnapshot()
+    .then(pushSnapshot)
+    .catch(() => pushSnapshot(null));
+
+  return eventId;
+}
+
+function pushBeginCheckoutEvent(analytics, options) {
+  if (!analytics) {
+    return null;
+  }
+  const eventId = (options && options.eventId) || safeGenerateAnalyticsEventId();
+  const currency = analytics.currency || 'UAH';
+  let gaItems = mapContentsToGaItems(analytics.contents || [], currency);
+  if (!gaItems.length && Array.isArray(analytics.content_ids)) {
+    gaItems = analytics.content_ids.map(id => ({
+      item_id: String(id),
+      item_name: '',
+      item_brand: ANALYTICS_BRAND_NAME,
+      item_category: '',
+      item_variant: '',
+      price: 0,
+      quantity: 1,
+      currency: currency
+    }));
+  }
+  const ecommProdid = Array.isArray(analytics.content_ids) && analytics.content_ids.length
+    ? analytics.content_ids
+    : gaItems.map(item => item.item_id);
+
+  pushDataLayerEvent({
+    eventName: 'begin_checkout',
+    eventId: eventId,
+    ecommerce: {
+      currency: currency,
+      value: analytics.value || 0,
+      items: gaItems
+    },
+    eventModel: {
+      event_id: eventId,
+      value: analytics.value || 0,
+      currency: currency,
+      event_category: 'Оформлення замовлення',
+      event_label: (options && options.eventLabel) || 'TwoComms',
+      items: mapGaItemsToEventItems(gaItems),
+      ecomm_prodid: ecommProdid,
+      ecomm_pagetype: 'cart',
+      ecomm_totalvalue: analytics.value || 0
+    }
+  });
+  return eventId;
+}
+
+window.__twcAnalytics = window.__twcAnalytics || {};
+Object.assign(window.__twcAnalytics, {
+  brand: ANALYTICS_BRAND_NAME,
+  safeGenerateEventId: safeGenerateAnalyticsEventId,
+  getTrackingContext: getAnalyticsTrackingContext,
+  pushDataLayerEvent: pushDataLayerEvent,
+  mapContentsToGaItems: mapContentsToGaItems,
+  mapGaItemsToEventItems: mapGaItemsToEventItems,
+  fetchCartAnalyticsSnapshot: fetchCartAnalyticsSnapshot,
+  pushAddToCartEvent: pushAddToCartEvent,
+  pushBeginCheckoutEvent: pushBeginCheckoutEvent
+});
+
 // ===== ОПТИМИЗАЦИЯ ПРОИЗВОДИТЕЛЬНОСТИ =====
 // Анимации появления
 // Оптимизированные настройки IntersectionObserver
@@ -659,6 +875,19 @@ function bindMonoCheckout(scope){
       const analytics = getCheckoutAnalyticsPayload();
       if(analytics){
         try{
+          const eventId = safeGenerateAnalyticsEventId();
+          try{
+            if(window.__twcAnalytics && typeof window.__twcAnalytics.pushBeginCheckoutEvent === 'function'){
+              window.__twcAnalytics.pushBeginCheckoutEvent(analytics, {
+                eventId,
+                eventLabel: triggerType === 'product' ? 'Mono checkout product' : 'Mono checkout cart'
+              });
+            }
+          }catch(helperErr){
+            if(console && console.debug){
+              console.debug('begin_checkout dataLayer error:', helperErr);
+            }
+          }
           if(window.trackEvent){
             window.trackEvent('InitiateCheckout', {
               value: analytics.value,
@@ -666,7 +895,9 @@ function bindMonoCheckout(scope){
               num_items: analytics.num_items,
               payment_method: 'monobank',
               content_ids: analytics.content_ids,
-              contents: analytics.contents
+              contents: analytics.contents,
+              event_id: eventId,
+              __meta: { event_id: eventId }
             });
           }
         }catch(_){ }
@@ -819,6 +1050,19 @@ function bindMonobankPay(scope){
       const analytics = getCheckoutAnalyticsPayload();
       if(analytics){
         try{
+          const eventId = safeGenerateAnalyticsEventId();
+          try{
+            if(window.__twcAnalytics && typeof window.__twcAnalytics.pushBeginCheckoutEvent === 'function'){
+              window.__twcAnalytics.pushBeginCheckoutEvent(analytics, {
+                eventId,
+                eventLabel: 'Monobank Pay'
+              });
+            }
+          }catch(helperErr){
+            if(console && console.debug){
+              console.debug('begin_checkout dataLayer error:', helperErr);
+            }
+          }
           if(window.trackEvent){
             window.trackEvent('InitiateCheckout', {
               value: analytics.value,
@@ -826,7 +1070,9 @@ function bindMonobankPay(scope){
               num_items: analytics.num_items,
               payment_method: 'monobank_pay',
               content_ids: analytics.content_ids,
-              contents: analytics.contents
+              contents: analytics.contents,
+              event_id: eventId,
+              __meta: { event_id: eventId }
             });
           }
         }catch(_){ }
@@ -1500,6 +1746,13 @@ function trackAddToCartAnalytics(serverData, triggerButton, fallbackQty){
       contentCategory = triggerButton.getAttribute('data-product-category') || '';
     }
 
+    let variantLabel = (analyticsItem && analyticsItem.size) ? analyticsItem.size : '';
+    if(!variantLabel){
+      const selectedSize = document.querySelector('input[name="size"]:checked');
+      if(selectedSize && selectedSize.value){
+        variantLabel = selectedSize.value;
+      }
+    }
     const payload = {
       content_ids: [offerId],
       content_type: 'product',
@@ -1522,8 +1775,30 @@ function trackAddToCartAnalytics(serverData, triggerButton, fallbackQty){
       payload.contents[0].item_category = contentCategory;
     }
     payload.contents[0].brand = 'TwoComms';
+    const eventId = safeGenerateAnalyticsEventId();
+    payload.event_id = eventId;
+    payload.__meta = Object.assign({}, payload.__meta, { event_id: eventId });
 
     window.trackEvent('AddToCart', payload);
+    try{
+      if(window.__twcAnalytics && typeof window.__twcAnalytics.pushAddToCartEvent === 'function'){
+        window.__twcAnalytics.pushAddToCartEvent({
+          eventId,
+          offerId,
+          contentName,
+          contentCategory,
+          currency,
+          itemPrice,
+          quantity,
+          value,
+          variant: variantLabel
+        });
+      }
+    }catch(err){
+      if(console && console.debug){
+        console.debug('AddToCart dataLayer error:', err);
+      }
+    }
   }catch(err){
     if(console && console.debug){
       console.debug('AddToCart analytics error:', err);

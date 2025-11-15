@@ -11,6 +11,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 from storefront.models import Product, Category
 from typing import Optional
+from storefront.utils.analytics_helpers import get_offer_id
 
 # Базовые размеры по умолчанию для одежды
 DEFAULT_SIZES = ["S", "M", "L", "XL", "XXL"]
@@ -148,7 +149,8 @@ class Command(BaseCommand):
                     variants.append({
                         'key': f"cv{cv.id}",
                         'color': color_name,
-                        'image': (cv.images.first().image if cv.images.exists() else None)
+                        'image': (cv.images.first().image if cv.images.exists() else None),
+                        'variant_id': cv.id
                     })
             except Exception:
                 pass
@@ -158,7 +160,8 @@ class Command(BaseCommand):
                 variants = [{
                     'key': 'default',
                     'color': 'чорний',
-                    'image': product.display_image
+                    'image': product.display_image,
+                    'variant_id': None
                 }]
 
             # Общий item_group_id для группировки (цвет/размер)
@@ -174,7 +177,16 @@ class Command(BaseCommand):
 
                     # Обязательные поля
                     g_id = ET.SubElement(item, 'g:id')
-                    g_id.text = f"TC-{product.id}-{var['key']}-{size}"
+                    try:
+                        offer_id = get_offer_id(
+                            product_id=product.id,
+                            color_variant_id=var.get('variant_id'),
+                            size=size
+                        )
+                    except Exception:
+                        # Fallback на прежний формат, чтобы не прерывать генерацию
+                        offer_id = f"TC-{product.id}-{var['key']}-{size}"
+                    g_id.text = offer_id
 
                     g_item_group_id = ET.SubElement(item, 'g:item_group_id')
                     g_item_group_id.text = group_id
