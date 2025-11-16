@@ -733,6 +733,20 @@ class SiteSession(models.Model):
 
     def __str__(self) -> str:
         return f"{self.session_key} ({'bot' if self.is_bot else 'user'})"
+    
+    def get_utm_session(self):
+        """Возвращает связанную UTM сессию"""
+        return getattr(self, 'utm_data', None)
+    
+    def get_utm_source(self):
+        """Возвращает utm_source из связанной UTM сессии"""
+        utm = self.get_utm_session()
+        return utm.utm_source if utm else None
+    
+    def get_utm_campaign(self):
+        """Возвращает utm_campaign из связанной UTM сессии"""
+        utm = self.get_utm_session()
+        return utm.utm_campaign if utm else None
 
 
 class PageView(models.Model):
@@ -918,3 +932,215 @@ class StoreInvoice(models.Model):
     
     def __str__(self):
         return f"Накладна #{self.id} - {self.store.name}"
+
+
+# ===== UTM Tracking & Analytics =====
+
+class UTMSession(models.Model):
+    """
+    Хранит UTM-параметры для сессии пользователя.
+    Связывается с SiteSession для отслеживания всего пути пользователя.
+    Включает все необходимые данные для детальной аналитики рекламных кампаний.
+    """
+    session = models.OneToOneField(
+        SiteSession,
+        on_delete=models.CASCADE,
+        related_name='utm_data',
+        null=True,
+        blank=True
+    )
+    session_key = models.CharField(max_length=40, db_index=True, unique=True)
+    
+    # UTM параметры (стандартные)
+    utm_source = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='Джерело (utm_source)')
+    utm_medium = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='Канал (utm_medium)')
+    utm_campaign = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='Кампанія (utm_campaign)')
+    utm_content = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='Контент/Креатив (utm_content)')
+    utm_term = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='Ключове слово (utm_term)')
+    
+    # Платформенные идентификаторы
+    fbclid = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='Facebook Click ID')
+    gclid = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='Google Click ID')
+    ttclid = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='TikTok Click ID')
+    fbc = models.CharField(max_length=255, blank=True, null=True, verbose_name='Facebook Click Cookie')
+    fbp = models.CharField(max_length=255, blank=True, null=True, verbose_name='Facebook Browser Cookie')
+    
+    # Геолокация (определяется по IP)
+    ip_address = models.GenericIPAddressField(null=True, blank=True, db_index=True, verbose_name='IP-адреса')
+    country = models.CharField(max_length=2, blank=True, null=True, db_index=True, verbose_name='Код країни (ISO 3166-1)')
+    country_name = models.CharField(max_length=100, blank=True, null=True, verbose_name='Назва країни')
+    city = models.CharField(max_length=100, blank=True, null=True, db_index=True, verbose_name='Місто')
+    region = models.CharField(max_length=100, blank=True, null=True, verbose_name='Регіон/Область')
+    timezone = models.CharField(max_length=50, blank=True, null=True, verbose_name='Часовий пояс')
+    
+    # Устройство и браузер
+    device_type = models.CharField(max_length=20, blank=True, null=True, db_index=True, choices=[
+        ('desktop', 'Desktop'),
+        ('mobile', 'Mobile'),
+        ('tablet', 'Tablet'),
+        ('unknown', 'Unknown'),
+    ], verbose_name='Тип пристрою')
+    device_brand = models.CharField(max_length=50, blank=True, null=True, verbose_name='Бренд пристрою')
+    device_model = models.CharField(max_length=100, blank=True, null=True, verbose_name='Модель пристрою')
+    os_name = models.CharField(max_length=50, blank=True, null=True, db_index=True, verbose_name='Операційна система')
+    os_version = models.CharField(max_length=50, blank=True, null=True, verbose_name='Версія ОС')
+    browser_name = models.CharField(max_length=50, blank=True, null=True, db_index=True, verbose_name='Браузер')
+    browser_version = models.CharField(max_length=50, blank=True, null=True, verbose_name='Версія браузера')
+    user_agent = models.TextField(blank=True, null=True, verbose_name='User Agent')
+    
+    # Дополнительные данные
+    referrer = models.URLField(max_length=512, blank=True, null=True, verbose_name='Реферер')
+    landing_page = models.CharField(max_length=512, blank=True, null=True, verbose_name='Посадкова сторінка')
+    
+    # Отслеживание повторных визитов
+    visit_count = models.PositiveIntegerField(default=1, db_index=True, verbose_name='Кількість візитів')
+    is_first_visit = models.BooleanField(default=True, db_index=True, verbose_name='Перший візит')
+    is_returning_visitor = models.BooleanField(default=False, db_index=True, verbose_name='Постійний відвідувач')
+    
+    # Регистрация пользователя
+    user_registered = models.BooleanField(default=False, db_index=True, verbose_name='Користувач зареєструвався')
+    user_registered_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата реєстрації')
+    
+    # Метаданные
+    first_seen = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name='Перший візит')
+    last_seen = models.DateTimeField(auto_now=True, db_index=True, verbose_name='Останній візит')
+    
+    # Флаги конверсии
+    is_converted = models.BooleanField(default=False, db_index=True, verbose_name='Конверсія відбулася')
+    converted_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата конверсії')
+    conversion_type = models.CharField(max_length=20, blank=True, null=True, choices=[
+        ('lead', 'Лід (передплата)'),
+        ('purchase', 'Покупка'),
+    ], db_index=True, verbose_name='Тип конверсії')
+    
+    class Meta:
+        ordering = ['-first_seen']
+        indexes = [
+            models.Index(fields=['utm_source', 'utm_medium', 'utm_campaign'], name='idx_utm_source_medium_campaign'),
+            models.Index(fields=['-first_seen'], name='idx_utm_first_seen'),
+            models.Index(fields=['is_converted', '-converted_at'], name='idx_utm_converted'),
+            models.Index(fields=['country', 'city'], name='idx_utm_geo'),
+            models.Index(fields=['device_type', 'os_name'], name='idx_utm_device'),
+            models.Index(fields=['is_returning_visitor', '-first_seen'], name='idx_utm_returning'),
+            models.Index(fields=['user_registered', '-first_seen'], name='idx_utm_registered'),
+        ]
+        verbose_name = 'UTM Сесія'
+        verbose_name_plural = 'UTM Сесії'
+    
+    def __str__(self):
+        return f"UTM: {self.utm_source or 'direct'}/{self.utm_medium or 'none'} - {self.utm_campaign or 'N/A'}"
+    
+    @property
+    def utm_string(self):
+        """Возвращает строковое представление UTM-параметров"""
+        parts = []
+        if self.utm_source:
+            parts.append(f"source={self.utm_source}")
+        if self.utm_medium:
+            parts.append(f"medium={self.utm_medium}")
+        if self.utm_campaign:
+            parts.append(f"campaign={self.utm_campaign}")
+        if self.utm_content:
+            parts.append(f"content={self.utm_content}")
+        if self.utm_term:
+            parts.append(f"term={self.utm_term}")
+        return "&".join(parts) if parts else "direct"
+    
+    def mark_as_converted(self, conversion_type='purchase'):
+        """Отмечает сессию как конверсионную"""
+        if not self.is_converted:
+            self.is_converted = True
+            self.converted_at = timezone.now()
+            self.conversion_type = conversion_type
+            self.save(update_fields=['is_converted', 'converted_at', 'conversion_type'])
+    
+    def increment_visit(self):
+        """Увеличивает счетчик визитов"""
+        self.visit_count += 1
+        self.is_first_visit = False
+        self.is_returning_visitor = True
+        self.last_seen = timezone.now()
+        self.save(update_fields=['visit_count', 'is_first_visit', 'is_returning_visitor', 'last_seen'])
+    
+    def mark_user_registered(self):
+        """Отмечает, что пользователь зарегистрировался"""
+        if not self.user_registered:
+            self.user_registered = True
+            self.user_registered_at = timezone.now()
+            self.save(update_fields=['user_registered', 'user_registered_at'])
+
+
+class UserAction(models.Model):
+    """
+    Отслеживает действия пользователей на сайте.
+    Связывается с UTMSession для анализа эффективности рекламы.
+    Позволяет построить полную воронку конверсий.
+    """
+    ACTION_TYPES = [
+        ('page_view', 'Перегляд сторінки'),
+        ('product_view', 'Перегляд товару'),
+        ('add_to_cart', 'Додано в кошик'),
+        ('remove_from_cart', 'Видалено з кошика'),
+        ('initiate_checkout', 'Початок оформлення'),
+        ('lead', 'Лід (передплата)'),
+        ('purchase', 'Покупка'),
+        ('search', 'Пошук'),
+        ('click', 'Клік'),
+        ('scroll', 'Прокрутка'),
+        ('time_on_page', 'Час на сторінці'),
+    ]
+    
+    utm_session = models.ForeignKey(
+        UTMSession,
+        on_delete=models.CASCADE,
+        related_name='actions',
+        null=True,
+        blank=True,
+        verbose_name='UTM Сесія'
+    )
+    site_session = models.ForeignKey(
+        SiteSession,
+        on_delete=models.CASCADE,
+        related_name='user_actions',
+        null=True,
+        blank=True,
+        verbose_name='Сесія сайту'
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name='Користувач'
+    )
+    
+    action_type = models.CharField(max_length=50, choices=ACTION_TYPES, db_index=True, verbose_name='Тип дії')
+    
+    # Данные действия
+    page_path = models.CharField(max_length=512, blank=True, null=True, verbose_name='Шлях сторінки')
+    product_id = models.IntegerField(null=True, blank=True, db_index=True, verbose_name='ID товару')
+    product_name = models.CharField(max_length=255, blank=True, null=True, verbose_name='Назва товару')
+    cart_value = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name='Сума кошика')
+    order_id = models.IntegerField(null=True, blank=True, db_index=True, verbose_name='ID замовлення')
+    order_number = models.CharField(max_length=20, blank=True, null=True, verbose_name='Номер замовлення')
+    
+    # Метаданные
+    metadata = models.JSONField(default=dict, blank=True, verbose_name='Метадані')
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name='Час')
+    
+    # Баллы за действие
+    points_earned = models.IntegerField(default=0, verbose_name='Нараховані бали')
+    
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['action_type', '-timestamp'], name='idx_action_type_time'),
+            models.Index(fields=['utm_session', 'action_type'], name='idx_action_utm_type'),
+            models.Index(fields=['product_id', '-timestamp'], name='idx_action_product'),
+            models.Index(fields=['order_id'], name='idx_action_order'),
+        ]
+        verbose_name = 'Дія користувача'
+        verbose_name_plural = 'Дії користувачів'
+    
+    def __str__(self):
+        return f"{self.get_action_type_display()} - {self.timestamp}"
