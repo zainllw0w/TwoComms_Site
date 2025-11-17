@@ -28,6 +28,7 @@ from .utils import (
     _get_color_variant_safe,
     _color_label_from_variant
 )
+from ..utm_tracking import link_order_to_utm, record_initiate_checkout
 
 
 # ==================== CHECKOUT VIEWS ====================
@@ -102,6 +103,12 @@ def checkout(request):
             pass
     
     total = subtotal - discount
+    
+    # UTM Tracking: записываем начало оформления заказа
+    try:
+        record_initiate_checkout(request, cart_value=float(total))
+    except Exception as e:
+        pass  # Не прерываем процесс если tracking не сработал
     
     # Данные пользователя
     user_profile = None
@@ -403,6 +410,13 @@ def create_order(request):
     request.session.pop('promo_code_id', None)
     request.session.pop('promo_code_data', None)
     request.session.modified = True
+
+    # UTM Tracking: связываем заказ с UTM сессией
+    try:
+        link_order_to_utm(request, order)
+    except Exception as e:
+        # Не прерываем процесс если tracking не сработал
+        pass
 
     # Отправляем Telegram уведомление после создания заказа и товаров
     try:
