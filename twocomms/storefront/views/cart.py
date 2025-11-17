@@ -33,6 +33,7 @@ from .utils import (
     _translate_color_to_ukrainian,
     _color_label_from_variant,
 )
+from ..utm_tracking import record_add_to_cart, record_remove_from_cart
 
 # Logger для корзины
 cart_logger = logging.getLogger('storefront.cart')
@@ -351,6 +352,17 @@ def add_to_cart(request):
 
     cart_total = total_sum.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
+    # UTM Tracking: записываем добавление в корзину
+    try:
+        record_add_to_cart(
+            request,
+            product_id=product.id,
+            product_name=product.title,
+            cart_value=float(cart_total)
+        )
+    except Exception as e:
+        cart_logger.warning(f"Failed to record add_to_cart action: {e}")
+
     return JsonResponse({
         'ok': True,
         'count': total_qty,
@@ -532,6 +544,28 @@ def remove_from_cart(request):
             pass
     
     total = (subtotal - discount).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    # UTM Tracking: записываем удаление из корзины
+    if removed:
+        try:
+            # Получаем информацию о удаленном товаре для логирования
+            for removed_key in removed:
+                # Парсим ключ чтобы получить product_id
+                if ':' in removed_key:
+                    product_id_str = removed_key.split(':')[0]
+                    try:
+                        product_id = int(product_id_str)
+                        product = Product.objects.get(id=product_id)
+                        record_remove_from_cart(
+                            request,
+                            product_id=product.id,
+                            product_name=product.title,
+                            cart_value=float(total)
+                        )
+                    except (ValueError, Product.DoesNotExist):
+                        pass
+        except Exception as e:
+            cart_logger.warning(f"Failed to record remove_from_cart action: {e}")
 
     return JsonResponse({
         'ok': True, 

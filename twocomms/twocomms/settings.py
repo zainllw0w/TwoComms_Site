@@ -138,6 +138,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django.contrib.redirects.middleware.RedirectFallbackMiddleware",  # SEO редиректы
+    "storefront.utm_middleware.UTMTrackingMiddleware",  # UTM tracking (ПЕРЕД SimpleAnalyticsMiddleware!)
     "storefront.tracking.SimpleAnalyticsMiddleware",  # простая аналитика посещений
     "orders.nova_poshta_middleware.NovaPoshtaFallbackMiddleware",  # Резервное обновление статусов НП
 ]

@@ -9,6 +9,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.core.exceptions import ValidationError
 from django.contrib.auth.password_validation import validate_password
 import json
+from storefront.utm_tracking import mark_user_registered
 
 
 @require_http_methods(["POST"])
@@ -109,6 +110,12 @@ def ajax_register(request):
         
         # Автоматический вход после регистрации
         login(request, user)
+        
+        # UTM Tracking: отмечаем регистрацию пользователя
+        try:
+            mark_user_registered(request)
+        except Exception as e:
+            pass  # Не прерываем процесс если tracking не сработал
         
         return JsonResponse({
             'success': True,
