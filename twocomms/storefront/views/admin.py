@@ -1189,6 +1189,11 @@ def _build_dispatcher_context(request):
         get_returning_visitors_stats,
         get_recent_sessions,
     )
+    from ..utm_cohort_analysis import (
+        get_source_ltv_comparison,
+        get_repeat_purchase_rate,
+        get_cohort_analysis,
+    )
     
     # Получаем параметры фильтрации
     period = request.GET.get('period', 'today')
@@ -1234,6 +1239,12 @@ def _build_dispatcher_context(request):
             
             # Последние сессии
             'recent_sessions': get_recent_sessions(period, limit=50),
+            
+            # LTV сравнение (топ-5)
+            'ltv_comparison': get_source_ltv_comparison(period)[:5],
+            
+            # Повторные покупки
+            'repeat_rate': get_repeat_purchase_rate(period),
             
             # Периоды для фильтра
             'periods': [
