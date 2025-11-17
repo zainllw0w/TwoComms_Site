@@ -10,7 +10,7 @@ API Views для UTM Диспетчера.
 
 import csv
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from io import StringIO
 
@@ -38,6 +38,12 @@ from .utm_analytics import (
     get_returning_visitors_stats,
     get_recent_sessions,
     calculate_roi,
+)
+from .utm_cohort_analysis import (
+    get_cohort_analysis,
+    get_source_ltv_comparison,
+    get_repeat_purchase_rate,
+    get_campaign_ab_test_results,
 )
 
 logger = logging.getLogger(__name__)
@@ -390,6 +396,109 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
             return Response(roi_data)
         except Exception as e:
             logger.error(f"Error calculating ROI: {e}", exc_info=True)
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['get'])
+    def cohort_analysis(self, request):
+        """Когортный анализ (retention, ltv, orders, revenue)"""
+        cohort_type = request.query_params.get('cohort_type', 'week')
+        metric = request.query_params.get('metric', 'retention')
+        utm_source = request.query_params.get('utm_source')
+        start_date_str = request.query_params.get('start_date')
+        end_date_str = request.query_params.get('end_date')
+        
+        try:
+            if start_date_str:
+                start_date = datetime.fromisoformat(start_date_str)
+                if timezone.is_naive(start_date):
+                    start_date = timezone.make_aware(start_date)
+            else:
+                start_date = timezone.now() - timedelta(days=90)
+            
+            if end_date_str:
+                end_date = datetime.fromisoformat(end_date_str)
+                if timezone.is_naive(end_date):
+                    end_date = timezone.make_aware(end_date)
+            else:
+                end_date = timezone.now()
+            
+            data = get_cohort_analysis(
+                start_date=start_date,
+                end_date=end_date,
+                cohort_type=cohort_type,
+                metric=metric,
+                utm_source=utm_source
+            )
+            
+            # Преобразуем Decimal в float
+            for total in data.get('totals', []):
+                for key, value in total.items():
+                    if isinstance(value, Decimal):
+                        total[key] = float(value)
+            
+            return Response(data)
+        except Exception as e:
+            logger.error(f"Error getting cohort analysis: {e}", exc_info=True)
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['get'])
+    def ltv_comparison(self, request):
+        """Сравнение LTV по источникам"""
+        period = request.query_params.get('period', 'month')
+        try:
+            data = get_source_ltv_comparison(period)
+            for item in data:
+                for key, value in item.items():
+                    if isinstance(value, Decimal):
+                        item[key] = float(value)
+            return Response(data)
+        except Exception as e:
+            logger.error(f"Error getting LTV comparison: {e}", exc_info=True)
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['get'])
+    def repeat_rate(self, request):
+        """Расчет повторных покупок"""
+        period = request.query_params.get('period', 'month')
+        utm_source = request.query_params.get('utm_source')
+        try:
+            data = get_repeat_purchase_rate(period, utm_source)
+            return Response(data)
+        except Exception as e:
+            logger.error(f"Error getting repeat rate: {e}", exc_info=True)
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['get'])
+    def ab_test(self, request):
+        """Результаты A/B тестирования по кампании"""
+        campaign = request.query_params.get('campaign')
+        period = request.query_params.get('period', 'month')
+        if not campaign:
+            return Response(
+                {'error': 'campaign параметр обязателен'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            data = get_campaign_ab_test_results(campaign, period)
+            for variant in data.get('variants', []):
+                for key, value in variant.items():
+                    if isinstance(value, Decimal):
+                        variant[key] = float(value)
+            return Response(data)
+        except Exception as e:
+            logger.error(f"Error getting A/B test results: {e}", exc_info=True)
             return Response(
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
