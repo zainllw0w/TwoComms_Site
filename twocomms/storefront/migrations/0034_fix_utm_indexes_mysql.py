@@ -16,11 +16,11 @@ class Migration(migrations.Migration):
         # Remove the problematic index if it exists
         migrations.RunSQL(
             sql="DROP INDEX IF EXISTS idx_utm_source_medium_campaign ON storefront_utmsession;",
-            reverse_sql="CREATE INDEX idx_utm_source_medium_campaign ON storefront_utmsession (utm_source(100), utm_medium(100), utm_campaign(100));"
+            reverse_sql="CREATE INDEX idx_utm_source_medium_campaign ON storefront_utmsession (utm_source(80), utm_medium(80), utm_campaign(80));"
         ),
-        # Create index with prefixes (100 chars per field = 400 bytes per field = 1200 bytes total, within limit)
+        # Create index with prefixes (80 chars per field = 320 bytes per field = 960 bytes total, within 1000 byte limit)
         migrations.RunSQL(
-            sql="CREATE INDEX idx_utm_source_medium_campaign ON storefront_utmsession (utm_source(100), utm_medium(100), utm_campaign(100));",
+            sql="CREATE INDEX idx_utm_source_medium_campaign ON storefront_utmsession (utm_source(80), utm_medium(80), utm_campaign(80));",
             reverse_sql="DROP INDEX IF EXISTS idx_utm_source_medium_campaign ON storefront_utmsession;"
         ),
     ]
