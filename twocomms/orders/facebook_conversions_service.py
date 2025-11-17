@@ -18,10 +18,13 @@ ENV переменные (настраиваются в cPanel):
 import logging
 import hashlib
 import time
+import re
 from decimal import Decimal
 from typing import Optional, Dict, Any
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from storefront.utils.analytics_helpers import get_offer_id as build_offer_id
 
 logger = logging.getLogger(__name__)
@@ -37,12 +40,22 @@ class FacebookConversionsService:
     - Advanced Matching (email, phone, user_data)
     - Дедупликация с клиентскими событиями через event_id
     """
+
+    MAX_EVENT_AGE_SECONDS = 7 * 24 * 60 * 60
+    MIN_EVENT_VALUE = 0.01
+    DEFAULT_PREPAYMENT_VALUE = 200.0
+    PHONE_MIN_LENGTH = 10
+    PHONE_MAX_LENGTH = 15
+    CITY_SANITIZE_RE = re.compile(r'[^a-z0-9]')
     
     def __init__(self):
         """Инициализация сервиса с настройками из ENV"""
         self.access_token = getattr(settings, 'FACEBOOK_CONVERSIONS_API_TOKEN', None)
         self.pixel_id = getattr(settings, 'FACEBOOK_PIXEL_ID', None)
         self.test_event_code = getattr(settings, 'FACEBOOK_CAPI_TEST_EVENT_CODE', None)
+        self.retry_max_attempts = getattr(settings, 'FACEBOOK_CAPI_MAX_RETRIES', 3)
+        self.retry_initial_delay = getattr(settings, 'FACEBOOK_CAPI_RETRY_DELAY', 1)
+        self.retry_backoff = getattr(settings, 'FACEBOOK_CAPI_RETRY_BACKOFF', 2)
         
         # Проверяем наличие обязательных настроек
         if not self.access_token or not self.pixel_id:
@@ -106,6 +119,196 @@ class FacebookConversionsService:
         
         # Хешируем SHA-256
         return hashlib.sha256(cleaned.encode('utf-8')).hexdigest()
+
+    def _is_valid_email(self, email: Optional[str]) -> bool:
+        """Проверяет формат email согласно Django validator."""
+        if not email:
+            return False
+        try:
+            validate_email(email.strip())
+            return True
+        except ValidationError:
+            return False
+
+    def _clean_phone_digits(self, phone: Optional[str]) -> Optional[str]:
+        """Возвращает только цифры телефона если длина валидна."""
+        if not phone:
+            return None
+        digits = ''.join(filter(str.isdigit, str(phone)))
+        if self.PHONE_MIN_LENGTH <= len(digits) <= self.PHONE_MAX_LENGTH:
+            return digits
+        return None
+
+    def _normalize_city_value(self, city: Optional[str]) -> Optional[str]:
+        """Удаляет пробелы и спецсимволы перед хешированием."""
+        if not city:
+            return None
+        normalized = self.CITY_SANITIZE_RE.sub('', city.lower().strip())
+        return normalized or None
+
+    def _ensure_positive_value(
+        self,
+        raw_value: Optional[Any],
+        order,
+        context: str,
+        fallback: Optional[float] = None,
+    ) -> float:
+        """Гарантирует положительное значение для custom_data.value."""
+        try:
+            value = float(raw_value or 0)
+        except (TypeError, ValueError):
+            value = 0.0
+
+        if value <= 0 and fallback is not None and fallback > 0:
+            logger.warning(
+                "⚠️ Invalid %s value for order %s: %s. Using fallback %.2f",
+                context,
+                order.order_number,
+                raw_value,
+                fallback,
+            )
+            value = float(fallback)
+
+        if value <= 0:
+            logger.error(
+                "❌ Invalid %s value for order %s: %s. Using %.2f",
+                context,
+                order.order_number,
+                raw_value,
+                self.MIN_EVENT_VALUE,
+            )
+            value = self.MIN_EVENT_VALUE
+
+        return value
+
+    def _calculate_event_time(self, order) -> int:
+        """Возвращает event_time, ограничивая возраст события 7 днями."""
+        current_time = int(time.time())
+        order_created = getattr(order, 'created', None)
+        if not order_created:
+            logger.warning(
+                "⚠️ Order %s has no creation timestamp, using current time for event_time",
+                order.order_number,
+            )
+            return current_time
+
+        try:
+            event_time = int(order_created.timestamp())
+        except Exception:
+            logger.warning(
+                "⚠️ Failed to read created timestamp for order %s, using current time",
+                order.order_number,
+            )
+            return current_time
+
+        if current_time - event_time > self.MAX_EVENT_AGE_SECONDS:
+            logger.warning(
+                "⚠️ Order %s created more than 7 days ago. Using current time for event_time",
+                order.order_number,
+            )
+            return current_time
+        return event_time
+
+    def _get_response_attr(self, response, attr: str):
+        """Безопасно получает атрибут из ответа SDK или словаря."""
+        if response is None:
+            return None
+        if hasattr(response, attr):
+            return getattr(response, attr)
+        if isinstance(response, dict):
+            return response.get(attr)
+        try:
+            return response[attr]
+        except Exception:
+            return None
+
+    def _validate_response(self, response, order, event_name: str, event_id: str) -> bool:
+        """Проверяет, что API принял событие без ошибок."""
+        if response is None:
+            logger.error(
+                "❌ Facebook Conversions API returned empty response for %s event (%s)",
+                event_name,
+                order.order_number,
+            )
+            return False
+
+        errors = self._get_response_attr(response, 'errors')
+        if errors:
+            logger.error(
+                "❌ Facebook API errors for %s event (order %s, event_id %s): %s",
+                event_name,
+                order.order_number,
+                event_id,
+                errors,
+            )
+            return False
+
+        warnings = self._get_response_attr(response, 'warnings')
+        if warnings:
+            logger.warning(
+                "⚠️ Facebook API warnings for %s event (order %s): %s",
+                event_name,
+                order.order_number,
+                warnings,
+            )
+
+        events_received = self._get_response_attr(response, 'events_received')
+        try:
+            events_received_value = int(events_received)
+        except (TypeError, ValueError):
+            events_received_value = 0 if events_received is None else events_received
+
+        if not events_received_value:
+            logger.error(
+                "❌ Facebook API accepted 0 %s events for order %s (event_id %s)",
+                event_name,
+                order.order_number,
+                event_id,
+            )
+            return False
+
+        events_dropped = self._get_response_attr(response, 'events_dropped')
+        if events_dropped:
+            logger.warning(
+                "⚠️ Facebook API dropped %s %s events for order %s",
+                events_dropped,
+                event_name,
+                order.order_number,
+            )
+
+        return True
+
+    def _send_request_with_retry(self, event_request, order, event_name: str):
+        """Отправляет запрос в Facebook с повторными попытками при ошибках."""
+        attempt = 1
+        delay = self.retry_initial_delay
+        while attempt <= max(1, self.retry_max_attempts):
+            try:
+                return event_request.execute()
+            except Exception as exc:
+                if attempt >= max(1, self.retry_max_attempts):
+                    logger.error(
+                        "❌ Failed to send %s event for order %s after %s attempts: %s",
+                        event_name,
+                        order.order_number,
+                        attempt,
+                        exc,
+                        exc_info=True,
+                    )
+                    raise
+
+                logger.warning(
+                    "⚠️ Attempt %s/%s failed for %s event (order %s): %s. Retrying in %s s",
+                    attempt,
+                    self.retry_max_attempts,
+                    event_name,
+                    order.order_number,
+                    exc,
+                    delay,
+                )
+                time.sleep(max(0.5, delay))
+                delay *= max(1, self.retry_backoff)
+                attempt += 1
     
     def _prepare_user_data(self, order) -> 'UserData':
         """
@@ -118,16 +321,33 @@ class FacebookConversionsService:
         
         user_data = UserData()
         
-        # Email (хешированный)
+        # Email (хешированный, только валидный)
+        email = None
         if order.user and order.user.email:
-            user_data.email = self._hash_data(order.user.email)
+            email = order.user.email
+        elif getattr(order, 'email', None):
+            email = order.email
+        if email:
+            if self._is_valid_email(email):
+                user_data.email = self._hash_data(email)
+            else:
+                logger.warning(
+                    "⚠️ Invalid email for order %s skipped from Advanced Matching: %s",
+                    order.order_number,
+                    email,
+                )
         
         # Phone (хешированный, только цифры)
         if order.phone:
-            # Очищаем номер телефона (только цифры)
-            phone_digits = ''.join(filter(str.isdigit, order.phone))
+            phone_digits = self._clean_phone_digits(order.phone)
             if phone_digits:
                 user_data.phone = self._hash_data(phone_digits)
+            else:
+                logger.warning(
+                    "⚠️ Invalid phone for order %s skipped from Advanced Matching: %s",
+                    order.order_number,
+                    order.phone,
+                )
         
         # Full Name (хешированный)
         if order.full_name:
@@ -138,9 +358,10 @@ class FacebookConversionsService:
             if len(name_parts) >= 2:
                 user_data.last_name = self._hash_data(name_parts[-1])
         
-        # City (хешированный)
-        if order.city:
-            user_data.city = self._hash_data(order.city)
+        # City (хешированный с нормализацией)
+        normalized_city = self._normalize_city_value(order.city)
+        if normalized_city:
+            user_data.city = self._hash_data(normalized_city)
         
         # Country (для Украины)
         user_data.country_code = self._hash_data('ua')
@@ -218,7 +439,11 @@ class FacebookConversionsService:
         custom_data = CustomData()
         
         # Основные данные
-        custom_data.value = float(order.total_sum)
+        custom_data.value = self._ensure_positive_value(
+            order.total_sum,
+            order,
+            'Purchase value',
+        )
         custom_data.currency = 'UAH'
         
         # Получаем товары заказа
@@ -310,8 +535,8 @@ class FacebookConversionsService:
                 f"📊 Generated Purchase event_id for order {order.order_number}: {event_id}"
             )
             
-            # Event Time (timestamp заказа)
-            event_time = int(order.created.timestamp())
+            # Event Time (timestamp заказа с ограничением по возрасту)
+            event_time = self._calculate_event_time(order)
             
             # User Data (Advanced Matching)
             user_data = self._prepare_user_data(order)
@@ -341,8 +566,10 @@ class FacebookConversionsService:
             if test_code:
                 event_request.test_event_code = test_code
             
-            # Отправляем
-            response = event_request.execute()
+            # Отправляем с повторными попытками
+            response = self._send_request_with_retry(event_request, order, 'Purchase')
+            if not self._validate_response(response, order, 'Purchase', event_id):
+                return False
             
             logger.info(
                 f"✅ Purchase event sent to Facebook Conversions API: "
@@ -353,11 +580,17 @@ class FacebookConversionsService:
             # Сохраняем информацию об отправке в payload
             if not order.payment_payload:
                 order.payment_payload = {}
+            purchase_value = custom_data.value or self._ensure_positive_value(
+                order.total_sum,
+                order,
+                'Purchase value',
+            )
+
             order.payment_payload['fb_conversions_api'] = {
                 'event_name': 'Purchase',
                 'event_id': event_id,
                 'sent_at': int(time.time()),
-                'value': float(order.total_sum),
+                'value': purchase_value,
                 'currency': 'UAH'
             }
             order.save(update_fields=['payment_payload'])
@@ -403,7 +636,7 @@ class FacebookConversionsService:
             )
             
             # Event Time
-            event_time = int(order.created.timestamp())
+            event_time = self._calculate_event_time(order)
             
             # User Data
             user_data = self._prepare_user_data(order)
@@ -413,12 +646,19 @@ class FacebookConversionsService:
             custom_data = self.CustomData()
             if order.payment_status == 'prepaid':
                 prepayment_amount = order.get_prepayment_amount()
-                prepayment_value = float(prepayment_amount or 0)
-                if prepayment_value <= 0:
-                    prepayment_value = 200.0  # стандартная сумма предоплаты
+                prepayment_value = self._ensure_positive_value(
+                    prepayment_amount,
+                    order,
+                    'Lead prepayment value',
+                    fallback=self.DEFAULT_PREPAYMENT_VALUE,
+                )
                 custom_data.value = prepayment_value
             else:
-                custom_data.value = float(order.total_sum)
+                custom_data.value = self._ensure_positive_value(
+                    order.total_sum,
+                    order,
+                    'Lead value',
+                )
             custom_data.currency = 'UAH'
             custom_data.content_name = f"Lead: Order {order.order_number}"
             
@@ -445,7 +685,9 @@ class FacebookConversionsService:
                 event_request.test_event_code = test_code
             
             # Отправляем
-            response = event_request.execute()
+            response = self._send_request_with_retry(event_request, order, 'Lead')
+            if not self._validate_response(response, order, 'Lead', event_id):
+                return False
             
             logger.info(
                 f"✅ Lead event sent to Facebook Conversions API: "

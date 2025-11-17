@@ -824,7 +824,7 @@
       var parts = fullName.split(/\s+/);
       if (parts.length > 1) {
         match.fn = parts[0].toLowerCase();
-        match.ln = parts.slice(1).join(' ').toLowerCase();
+        match.ln = parts[parts.length - 1].toLowerCase();
       } else {
         match.fn = fullName.toLowerCase();
       }
@@ -1268,6 +1268,25 @@
       loadTikTokPixel();
     }
   }, { once: true });
+
+  function handleBFCacherestore(event) {
+    if (!event || !event.persisted) {
+      return;
+    }
+    if (console && console.debug) {
+      console.debug('[Analytics] BFCache restore detected, re-initializing pixels');
+    }
+    initializePixelsImmediately();
+  }
+
+  if (doc && doc.addEventListener) {
+    doc.addEventListener('twc:pageshow', function(evt) {
+      if (evt && evt.detail && evt.detail.persisted) {
+        handleBFCacherestore({ persisted: true });
+      }
+    });
+  }
+  win.addEventListener('pageshow', handleBFCacherestore);
   
   // Остальные скрипты загружаем с задержкой для оптимизации
   schedule(loadGoogleAnalytics, 2000);
