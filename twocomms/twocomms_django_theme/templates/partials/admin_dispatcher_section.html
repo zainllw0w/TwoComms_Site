@@ -984,16 +984,39 @@ function loadCohortAnalysis() {
         html += '<tr style="border-bottom: 1px solid rgba(255,255,255,.05);"><td style="padding: 10px; font-weight: 600; color: #a78bfa; position: sticky; left: 0; background: rgba(24,26,31,.95);">' + cohort + '</td>';
         
         const cohortRow = data.matrix[cohortIdx] || [];
-        cohortRow.forEach(value => {
-          let opacity = 0.1;
-          if (metric === 'retention' && value > 0) {
-            opacity = Math.min(value / 100, 1);
-          } else if (value > 0) {
-            opacity = 0.3;
+        cohortRow.forEach(rawValue => {
+          const hasValue = rawValue !== null && rawValue !== undefined;
+          const numericValue = hasValue ? Number(rawValue) : null;
+          let displayValue = '—';
+          let opacity = 0;
+          
+          if (hasValue && !Number.isNaN(numericValue)) {
+            if (metric === 'retention') {
+              displayValue = `${numericValue.toFixed(1)}%`;
+              if (numericValue > 0) {
+                opacity = Math.min(numericValue / 100, 1);
+              }
+            } else if (metric === 'orders') {
+              displayValue = Math.round(numericValue).toString();
+              if (numericValue > 0) {
+                opacity = 0.3;
+              }
+            } else if (metric === 'ltv' || metric === 'revenue') {
+              const rounded = Math.round(numericValue);
+              displayValue = `${rounded.toLocaleString('uk-UA')} ₴`;
+              if (numericValue > 0) {
+                opacity = 0.3;
+              }
+            } else {
+              displayValue = numericValue.toFixed(1);
+              if (numericValue > 0) {
+                opacity = 0.3;
+              }
+            }
           }
           
-          const bgColor = value ? `rgba(139, 92, 246, ${opacity})` : 'transparent';
-          html += `<td style="padding: 10px; text-align: center; background: ${bgColor}; color: #e5e7eb;">${value ? value.toFixed(1) : '—'}</td>`;
+          const bgColor = opacity > 0 ? `rgba(139, 92, 246, ${opacity})` : 'transparent';
+          html += `<td style="padding: 10px; text-align: center; background: ${bgColor}; color: #e5e7eb;">${displayValue}</td>`;
         });
         
         html += '</tr>';
