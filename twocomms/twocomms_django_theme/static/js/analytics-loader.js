@@ -682,6 +682,146 @@
     }
   }
   win.__hashSHA256 = hashSHA256;
+  var GUEST_STORAGE_PREFIX = '_twc_guest_';
+  var GUEST_DATA_FIELDS = ['full_name', 'phone', 'city', 'email'];
+
+  function readSessionStorageValue(key) {
+    if (!key) {
+      return '';
+    }
+    try {
+      if (win.sessionStorage) {
+        return win.sessionStorage.getItem(key) || '';
+      }
+    } catch (_) {}
+    return '';
+  }
+
+  function getGuestDataFromStorage() {
+    var data = {};
+    GUEST_DATA_FIELDS.forEach(function(field) {
+      var value = readSessionStorageValue(GUEST_STORAGE_PREFIX + field);
+      if (value) {
+        data[field] = value;
+      }
+    });
+    return data;
+  }
+
+  function normalizeCityValue(raw) {
+    if (!raw) {
+      return '';
+    }
+    return String(raw).trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  }
+
+  function getFallbackSessionId() {
+    try {
+      if (win.localStorage) {
+        var key = '_twc_temp_session_id';
+        var existing = win.localStorage.getItem(key);
+        if (existing) {
+          return existing;
+        }
+        var generated = 'temp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
+        win.localStorage.setItem(key, generated);
+        return generated;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  function buildUserDataForEvent() {
+    var result = {
+      user_data: {},
+      fbp: ensureFbpCookie() || null,
+      fbc: ensureFbcCookie() || getCookieValue('_fbc') || null,
+      external_id: null
+    };
+    var hashFn = win.__hashSHA256;
+    if (!hashFn || typeof hashFn !== 'function') {
+      return result;
+    }
+    var amEl = doc.getElementById('am');
+    var attrs = (amEl && amEl.dataset) ? amEl.dataset : {};
+    var guestData = getGuestDataFromStorage();
+
+    var emailValue = (attrs.em || guestData.email || '').trim().toLowerCase();
+    if (emailValue && emailValue.indexOf('@') > -1) {
+      var hashedEmail = hashFn(emailValue);
+      if (hashedEmail) {
+        result.user_data.em = hashedEmail;
+      }
+    }
+
+    var phoneValue = attrs.ph || guestData.phone || '';
+    if (phoneValue) {
+      var phoneDigits = String(phoneValue).replace(/\D/g, '');
+      if (phoneDigits && phoneDigits.length >= 7) {
+        var hashedPhone = hashFn(phoneDigits);
+        if (hashedPhone) {
+          result.user_data.ph = hashedPhone;
+        }
+      }
+    }
+
+    var fullNameValue = attrs.fn || guestData.full_name || '';
+    if (fullNameValue) {
+      var nameParts = String(fullNameValue).trim().split(/\s+/);
+      if (nameParts.length >= 1 && nameParts[0]) {
+        var first = hashFn(nameParts[0].toLowerCase());
+        if (first) {
+          result.user_data.fn = first;
+        }
+      }
+      if (nameParts.length >= 2) {
+        var lastPart = nameParts[nameParts.length - 1];
+        if (lastPart) {
+          var last = hashFn(lastPart.toLowerCase());
+          if (last) {
+            result.user_data.ln = last;
+          }
+        }
+      }
+    }
+
+    var cityValue = normalizeCityValue(attrs.ct || guestData.city || '');
+    if (cityValue) {
+      var hashedCity = hashFn(cityValue);
+      if (hashedCity) {
+        result.user_data.ct = hashedCity;
+      }
+    }
+
+    var externalSource = null;
+    if (attrs.externalId) {
+      var ext = String(attrs.externalId).trim();
+      if (ext) {
+        externalSource = ext.indexOf(':') === -1 ? 'user:' + ext : ext;
+      }
+    }
+    if (!externalSource) {
+      var sessionId = getCookieValue('sessionid');
+      if (sessionId) {
+        externalSource = 'session:' + sessionId;
+      }
+    }
+    if (!externalSource) {
+      var fallback = getFallbackSessionId();
+      if (fallback) {
+        externalSource = 'session:' + fallback;
+      }
+    }
+    if (externalSource) {
+      var hashedExternal = hashFn(externalSource.toLowerCase());
+      if (hashedExternal) {
+        result.external_id = hashedExternal;
+      }
+    }
+
+    return result;
+  }
+  win.buildUserDataForEvent = buildUserDataForEvent;
   
   // Валидация email
   function isValidEmail(email) {

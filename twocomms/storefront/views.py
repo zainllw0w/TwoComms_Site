@@ -8,6 +8,8 @@ from django.views.decorators.cache import cache_page
 from django.urls import reverse
 from functools import wraps
 from django.core.paginator import Paginator, EmptyPage
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 
 def cache_page_for_anon(timeout):
     """Кэширует только для анонимных пользователей (избегаем проблем с персональными данными)."""
@@ -1338,6 +1340,7 @@ def process_guest_order(request):
     np_office = request.POST.get('np_office', '').strip()
     raw_pay_type = request.POST.get('pay_type')
     pay_type = _normalize_pay_type(raw_pay_type)
+    email = (request.POST.get('email') or '').strip().lower()
     
     # Проверяем обязательные поля
     if not full_name or len(full_name) < 3:
@@ -1364,6 +1367,14 @@ def process_guest_order(request):
         from django.contrib import messages
         messages.error(request, 'Оберіть тип оплати!')
         return redirect('cart')
+
+    if email:
+        try:
+            validate_email(email)
+        except ValidationError:
+            from django.contrib import messages
+            messages.error(request, 'Введіть коректну email адресу!')
+            return redirect('cart')
     
     # Проверяем формат телефона
     phone_clean = ''.join(filter(str.isdigit, phone))
@@ -1403,6 +1414,7 @@ def process_guest_order(request):
         user=None,  # Гостевой заказ
         full_name=full_name,
         phone=phone,
+        email=email or None,
         city=city,
         np_office=np_office,
         pay_type=pay_type,
@@ -2699,11 +2711,17 @@ def order_create(request):
         total_sum = 0
         
         # Создаем заказ
+        customer_email = (getattr(request.user, 'email', '') or getattr(prof, 'email', '') or '').strip().lower()
         order = Order.objects.create(
             user=request.user,
             full_name=full_name,
-            phone=phone, city=city, np_office=np_office,
-            pay_type=pay_type, total_sum=0, status='new'
+            phone=phone,
+            email=customer_email or None,
+            city=city,
+            np_office=np_office,
+            pay_type=pay_type,
+            total_sum=0,
+            status='new'
         )
 
         tracking_context = _collect_tracking_context(request, order)
@@ -5446,6 +5464,7 @@ def _validate_checkout_payload(raw_payload):
     phone = (raw_payload.get('phone') or '').strip()
     city = (raw_payload.get('city') or '').strip()
     np_office = (raw_payload.get('np_office') or '').strip()
+    email = (raw_payload.get('email') or '').strip().lower()
     pay_type_raw = raw_payload.get('pay_type')
     pay_type = _normalize_pay_type(pay_type_raw)
 
@@ -5466,12 +5485,20 @@ def _validate_checkout_payload(raw_payload):
     if pay_type_raw and pay_type_raw.strip() and pay_type not in PAY_TYPE_ALLOWED_VALUES:
         errors.append('Невідомий тип оплати.')
 
+    if email:
+        try:
+            validate_email(email)
+        except ValidationError:
+            errors.append('Введіть коректну email адресу.')
+            email = ''
+
     cleaned = {
         'full_name': full_name,
         'phone': phone,
         'city': city,
         'np_office': np_office,
-        'pay_type': pay_type
+        'pay_type': pay_type,
+        'email': email
     }
     return errors, cleaned
 
@@ -5497,6 +5524,9 @@ def _create_or_update_monobank_order(request, customer_data):
         _drop_pending_monobank_order(request)
 
     customer_pay_type = _normalize_pay_type(customer_data.get('pay_type'))
+    customer_email = (customer_data.get('email') or '').strip()
+    if not customer_email and customer_data.get('user'):
+        customer_email = getattr(customer_data['user'], 'email', '') or ''
 
     with transaction.atomic():
         if order is None:
@@ -5505,6 +5535,7 @@ def _create_or_update_monobank_order(request, customer_data):
                 session_key=session_key,
                 full_name=customer_data['full_name'],
                 phone=customer_data['phone'],
+                email=customer_email or None,
                 city=customer_data['city'],
                 np_office=customer_data['np_office'],
                 pay_type=customer_pay_type,
@@ -5527,7 +5558,8 @@ def _create_or_update_monobank_order(request, customer_data):
             order.payment_status = 'checking'
             order.discount_amount = Decimal('0')
             order.total_sum = Decimal('0')
-            order.save(update_fields=['full_name', 'phone', 'city', 'np_office', 'pay_type', 'session_key', 'payment_status', 'discount_amount', 'total_sum'])
+            order.email = customer_email or None
+            order.save(update_fields=['full_name', 'phone', 'email', 'city', 'np_office', 'pay_type', 'session_key', 'payment_status', 'discount_amount', 'total_sum'])
 
         order_items = []
         total_sum = Decimal('0')
@@ -5688,6 +5720,7 @@ def _prepare_checkout_customer_data(request):
                 'city': profile.city or '',
                 'np_office': profile.np_office or '',
                 'pay_type': pay_type,
+                'email': (profile.email or request.user.email or '').strip().lower(),
                 'user': request.user
             }
         except:
@@ -5700,6 +5733,7 @@ def _prepare_checkout_customer_data(request):
         'city': '',
         'np_office': '',
         'pay_type': 'online_full',
+        'email': '',
         'user': None
     }
 
@@ -5923,8 +5957,11 @@ def _create_single_product_order(product, size, qty, color_variant_id, customer)
         'phone': customer.get('phone', '') or '',
         'city': customer.get('city', '') or '',
         'np_office': customer.get('np_office', '') or '',
-        'pay_type': pay_type_value
+        'pay_type': pay_type_value,
+        'email': (customer.get('email') or '').strip().lower()
     }
+    if not customer_data['email'] and customer_data['user']:
+        customer_data['email'] = getattr(customer_data['user'], 'email', '') or ''
 
     try:
         qty_int = max(int(qty or 1), 1)
@@ -5944,6 +5981,7 @@ def _create_single_product_order(product, size, qty, color_variant_id, customer)
         user=customer_data['user'],
         full_name=customer_data['full_name'],
         phone=customer_data['phone'],
+        email=customer_data['email'] or None,
         city=customer_data['city'],
         np_office=customer_data['np_office'],
         pay_type=customer_data['pay_type'],
@@ -6023,6 +6061,7 @@ def monobank_create_checkout(request):
                     'city': cleaned['city'],
                     'np_office': cleaned['np_office'],
                     'pay_type': cleaned['pay_type'],
+                    'email': cleaned.get('email', ''),
                     'user': None
                 }
             else:
@@ -6042,6 +6081,7 @@ def monobank_create_checkout(request):
                     'city': cleaned['city'],
                     'np_office': cleaned['np_office'],
                     'pay_type': cleaned['pay_type'],
+                    'email': cleaned.get('email', ''),
                     'user': None
                 }
             else:
