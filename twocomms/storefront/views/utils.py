@@ -5,6 +5,7 @@
 """
 
 from functools import wraps
+from django.db import transaction
 from django.views.decorators.cache import cache_page
 
 
@@ -384,14 +385,44 @@ MONOBANK_FAILURE_STATUSES = {
 
 def _record_monobank_status(order, payload, source='api'):
     """
-    Записывает статус платежа Monobank в заказ.
-    ВОССТАНОВЛЕНА РАБОЧАЯ ЛОГИКА из старого views.py
+    Записывает статус платежа Monobank в заказ с блокировкой записи.
     
     Args:
         order: Объект заказа
         payload: Данные от Monobank API
         source: Источник данных ('api' или 'webhook')
     """
+    if not payload or not order or not getattr(order, 'pk', None):
+        return
+
+    from orders.models import Order
+
+    try:
+        with transaction.atomic():
+            locked_order = (
+                Order.objects.select_for_update()
+                .select_related('user')
+                .get(pk=order.pk)
+            )
+            result = _record_monobank_status_locked(locked_order, payload, source)
+    except Order.DoesNotExist:
+        monobank_logger.error(
+            'Failed to record Monobank status: order %s not found',
+            getattr(order, 'pk', None),
+        )
+        return
+
+    try:
+        order.refresh_from_db()
+    except Exception:
+        # В большинстве случаев order передается только для идентификатора
+        pass
+
+    return result
+
+
+def _record_monobank_status_locked(order, payload, source='api'):
+    """Реализация логики записи статуса под транзакционной блокировкой."""
     from django.utils import timezone
     
     if not payload:
@@ -706,8 +737,6 @@ def _update_order_from_checkout_result(order, result, source='api'):
         'result': result
     }
     _record_monobank_status(order, payload, source=source)
-
-
 
 
 

@@ -1784,6 +1784,8 @@ document.addEventListener('DOMContentLoaded', function() {
      data-currency="UAH"
      {% if order %}data-payment-status="{{ order.payment_status }}"{% else %}data-payment-status="paid"{% endif %}
      {% if order %}data-order-status="{{ order.status }}"{% else %}data-order-status="done"{% endif %}
+     data-facebook-lead-sent="{% if order and order.payment_payload.facebook_events.lead_sent %}true{% else %}false{% endif %}"
+     data-facebook-purchase-sent="{% if order and order.payment_payload.facebook_events.purchase_sent %}true{% else %}false{% endif %}"
      data-affiliation="TwoComms"
      data-tax="0"
      data-shipping="0"
@@ -1824,15 +1826,21 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
     
-    // Проверяем sessionStorage для каждого события отдельно
-    // (может отправляться и Lead, и Purchase одновременно)
+    // Проверяем sessionStorage и флаги с сервера для каждого события отдельно
     var leadStorageKey = 'gtm_lead_' + orderId;
     var purchaseStorageKey = 'gtm_purchase_' + orderId;
+    var serverLeadSent = el.dataset.facebookLeadSent === 'true';
+    var serverPurchaseSent = el.dataset.facebookPurchaseSent === 'true';
     
-    // Проверяем каждое событие отдельно - если оба уже отправлены, выходим
-    // Важно: проверяем каждое событие независимо
-    var leadAlreadySent = shouldSendLead && sessionStorage.getItem(leadStorageKey);
-    var purchaseAlreadySent = shouldSendPurchase && sessionStorage.getItem(purchaseStorageKey);
+    if (serverLeadSent) {
+      sessionStorage.setItem(leadStorageKey, 'true');
+    }
+    if (serverPurchaseSent) {
+      sessionStorage.setItem(purchaseStorageKey, 'true');
+    }
+    
+    var leadAlreadySent = shouldSendLead && (serverLeadSent || sessionStorage.getItem(leadStorageKey));
+    var purchaseAlreadySent = shouldSendPurchase && (serverPurchaseSent || sessionStorage.getItem(purchaseStorageKey));
     
     // Если оба события уже отправлены или не требуется отправка, выходим
     if ((!shouldSendLead || leadAlreadySent) && (!shouldSendPurchase || purchaseAlreadySent)) {
