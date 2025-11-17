@@ -1340,6 +1340,22 @@ def _build_dispatcher_context(request):
                 'avg_time_between_orders': 0,
                 'total_orders': 0
             },
+            'cohort_analysis': {
+                'cohorts': [],
+                'periods': [],
+                'matrix': [],
+                'totals': [],
+                'metric': cohort_metric,
+                'cohort_type': cohort_type,
+            },
+            'cohort_metric': cohort_metric,
+            'cohort_type': cohort_type,
+            'cohort_metrics': cohort_metric_options,
+            'cohort_types': cohort_type_options,
+            'cohort_range': {
+                'start': cohort_start.date(),
+                'end': cohort_end.date(),
+            },
             'periods': [
                 {'value': 'today', 'label': 'Сьогодні'},
                 {'value': 'week', 'label': 'Тиждень'},
