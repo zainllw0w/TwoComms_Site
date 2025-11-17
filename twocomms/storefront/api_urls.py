@@ -15,6 +15,7 @@ from .viewsets import (
     CommunicationViewSet,
     AdminProductBuilderViewSet,
 )
+from .utm_api_views import UTMAnalyticsViewSet, export_utm_csv
 
 
 # Создаем Router
@@ -27,10 +28,13 @@ router.register(r'cart', CartViewSet, basename='api-cart')
 router.register(r'analytics', AnalyticsViewSet, basename='api-analytics')
 router.register(r'communication', CommunicationViewSet, basename='api-communication')
 router.register(r'admin/product-builder', AdminProductBuilderViewSet, basename='api-admin-product-builder')
+router.register(r'utm', UTMAnalyticsViewSet, basename='api-utm')
 
 # URL patterns
 urlpatterns = [
     path('', include(router.urls)),
+    # Экспорт UTM данных в CSV
+    path('utm/export-csv/', export_utm_csv, name='api-utm-export-csv'),
 ]
 
 # Автоматически созданные URLs:
