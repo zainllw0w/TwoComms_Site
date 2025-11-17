@@ -535,3 +535,174 @@ def get_recent_sessions(period: str = 'today', limit: int = 50) -> List:
     sessions_qs = sessions_qs.order_by('-first_seen')[:limit]
     
     return list(sessions_qs)
+
+
+def compare_periods(period: str = 'today') -> Dict:
+    """
+    Сравнивает текущий период с предыдущим.
+    
+    Args:
+        period: 'today', 'week', 'month', 'all_time'
+    
+    Returns:
+        dict: {
+            'current': {...},  # Статистика текущего периода
+            'previous': {...}, # Статистика предыдущего периода
+            'change': {...},   # Изменения в процентах и абсолютных значениях
+        }
+    """
+    # Получаем границы периодов
+    today = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    if period == 'today':
+        current_start = today
+        current_end = timezone.now()
+        previous_start = today - timedelta(days=1)
+        previous_end = today
+    elif period == 'week':
+        current_start = today - timedelta(days=7)
+        current_end = timezone.now()
+        previous_start = today - timedelta(days=14)
+        previous_end = current_start
+    elif period == 'month':
+        current_start = today - timedelta(days=30)
+        current_end = timezone.now()
+        previous_start = today - timedelta(days=60)
+        previous_end = current_start
+    else:
+        # Для all_time сравниваем с первой половиной данных
+        first_session = UTMSession.objects.order_by('first_seen').first()
+        if not first_session:
+            return {
+                'current': get_general_stats(period),
+                'previous': {},
+                'change': {},
+            }
+        
+        total_days = (timezone.now() - first_session.first_seen).days
+        mid_point = first_session.first_seen + timedelta(days=total_days // 2)
+        
+        current_start = mid_point
+        current_end = timezone.now()
+        previous_start = first_session.first_seen
+        previous_end = mid_point
+    
+    # Получаем статистику для текущего периода
+    current_sessions = UTMSession.objects.filter(
+        first_seen__gte=current_start,
+        first_seen__lte=current_end
+    )
+    
+    current_total = current_sessions.count()
+    current_conversions = current_sessions.filter(is_converted=True).count()
+    current_conversion_rate = (current_conversions / current_total * 100) if current_total > 0 else 0
+    
+    current_orders = Order.objects.filter(
+        utm_session__in=current_sessions,
+        payment_status='paid'
+    )
+    current_revenue_data = current_orders.aggregate(
+        total=Sum('total_sum'),
+        avg=Avg('total_sum')
+    )
+    current_revenue = current_revenue_data['total'] or Decimal('0')
+    current_avg_order = current_revenue_data['avg'] or Decimal('0')
+    
+    # Получаем статистику для предыдущего периода
+    previous_sessions = UTMSession.objects.filter(
+        first_seen__gte=previous_start,
+        first_seen__lte=previous_end
+    )
+    
+    previous_total = previous_sessions.count()
+    previous_conversions = previous_sessions.filter(is_converted=True).count()
+    previous_conversion_rate = (previous_conversions / previous_total * 100) if previous_total > 0 else 0
+    
+    previous_orders = Order.objects.filter(
+        utm_session__in=previous_sessions,
+        payment_status='paid'
+    )
+    previous_revenue_data = previous_orders.aggregate(
+        total=Sum('total_sum'),
+        avg=Avg('total_sum')
+    )
+    previous_revenue = previous_revenue_data['total'] or Decimal('0')
+    previous_avg_order = previous_revenue_data['avg'] or Decimal('0')
+    
+    # Рассчитываем изменения
+    def calc_change(current, previous):
+        """Рассчитывает изменение в процентах"""
+        if previous == 0:
+            return 100.0 if current > 0 else 0.0
+        return round(((current - previous) / previous * 100), 2)
+    
+    change = {
+        'sessions': calc_change(current_total, previous_total),
+        'conversions': calc_change(current_conversions, previous_conversions),
+        'conversion_rate': round(current_conversion_rate - previous_conversion_rate, 2),
+        'revenue': calc_change(float(current_revenue), float(previous_revenue)),
+        'avg_order_value': calc_change(float(current_avg_order), float(previous_avg_order)),
+    }
+    
+    return {
+        'current': {
+            'total_sessions': current_total,
+            'total_conversions': current_conversions,
+            'conversion_rate': round(current_conversion_rate, 2),
+            'total_revenue': current_revenue,
+            'avg_order_value': round(current_avg_order, 2),
+        },
+        'previous': {
+            'total_sessions': previous_total,
+            'total_conversions': previous_conversions,
+            'conversion_rate': round(previous_conversion_rate, 2),
+            'total_revenue': previous_revenue,
+            'avg_order_value': round(previous_avg_order, 2),
+        },
+        'change': change,
+    }
+
+
+def calculate_roi(period: str = 'today', ad_spend: Decimal = Decimal('0')) -> Dict:
+    """
+    Рассчитывает ROI (Return on Investment) для рекламных кампаний.
+    
+    Args:
+        period: 'today', 'week', 'month', 'all_time'
+        ad_spend: Сумма расходов на рекламу (грн)
+    
+    Returns:
+        dict: {
+            'revenue': Decimal,        # Доход
+            'ad_spend': Decimal,       # Расходы
+            'profit': Decimal,         # Прибыль (revenue - ad_spend)
+            'roi': float,              # ROI в процентах
+            'roas': float,             # ROAS (Revenue / Ad Spend)
+            'conversions': int,        # Количество конверсий
+            'cost_per_conversion': Decimal,  # Стоимость конверсии
+            'avg_order_value': Decimal,      # Средний чек
+        }
+    """
+    # Получаем общую статистику
+    stats = get_general_stats(period)
+    
+    revenue = stats.get('total_revenue', Decimal('0'))
+    conversions = stats.get('total_conversions', 0)
+    avg_order = stats.get('avg_order_value', Decimal('0'))
+    
+    # Рассчитываем метрики
+    profit = revenue - ad_spend
+    roi = float((profit / ad_spend * 100)) if ad_spend > 0 else 0.0
+    roas = float((revenue / ad_spend)) if ad_spend > 0 else 0.0
+    cost_per_conversion = (ad_spend / conversions) if conversions > 0 else Decimal('0')
+    
+    return {
+        'revenue': revenue,
+        'ad_spend': ad_spend,
+        'profit': profit,
+        'roi': round(roi, 2),
+        'roas': round(roas, 2),
+        'conversions': conversions,
+        'cost_per_conversion': round(cost_per_conversion, 2),
+        'avg_order_value': avg_order,
+    }
