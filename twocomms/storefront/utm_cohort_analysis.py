@@ -11,7 +11,7 @@ from decimal import Decimal
 from typing import Dict, List, Optional
 from collections import defaultdict
 
-from django.db.models import Count, Sum, Avg, Q, F
+from django.db.models import Count, Sum, Avg, Q, F, Min, Max
 from django.utils import timezone
 from .models import UTMSession, UserAction
 from orders.models import Order
@@ -308,39 +308,46 @@ def get_repeat_purchase_rate(period: str = 'month', utm_source: Optional[str] = 
     
     start_date, end_date = get_period_dates(period)
     
-    sessions_qs = UTMSession.objects.filter(is_converted=True)
+    # Получаем заказы за период
+    orders_qs = Order.objects.filter(payment_status='paid')
     
     if start_date and end_date:
-        sessions_qs = sessions_qs.filter(first_seen__gte=start_date, first_seen__lte=end_date)
+        orders_qs = orders_qs.filter(created__gte=start_date, created__lte=end_date)
     
+    # Фильтруем по UTM источнику, если указан
     if utm_source:
-        sessions_qs = sessions_qs.filter(utm_source=utm_source)
+        orders_qs = orders_qs.filter(utm_session__utm_source=utm_source)
     
-    total_customers = sessions_qs.count()
+    # Считаем уникальных клиентов по email или phone
+    # Используем комбинацию email и phone для идентификации клиента
+    customers_data = orders_qs.values('email', 'phone').annotate(
+        order_count=Count('id'),
+        first_order=Min('created'),
+        last_order=Max('created')
+    )
     
-    # Подсчитываем клиентов с более чем 1 заказом
-    orders_per_session = sessions_qs.annotate(
-        order_count=Count('orders')
-    ).values('order_count')
-    
-    repeat_customers = sum(1 for item in orders_per_session if item['order_count'] > 1)
-    total_orders = sum(item['order_count'] for item in orders_per_session)
+    total_customers = customers_data.count()
+    repeat_customers = sum(1 for item in customers_data if item['order_count'] > 1)
+    total_orders = sum(item['order_count'] for item in customers_data)
     
     repeat_rate = (repeat_customers / total_customers * 100) if total_customers > 0 else 0
     avg_orders = (total_orders / total_customers) if total_customers > 0 else 0
     
-    # Средний интервал между заказами
-    sessions_with_multiple = sessions_qs.filter(orders__isnull=False).annotate(
-        order_count=Count('orders')
-    ).filter(order_count__gt=1)
-    
+    # Средний интервал между заказами для клиентов с повторными покупками
     time_between_orders = []
-    for session in sessions_with_multiple:
-        orders = list(session.orders.all().order_by('created'))
-        if len(orders) >= 2:
-            for i in range(1, len(orders)):
-                delta = (orders[i].created - orders[i-1].created).days
-                time_between_orders.append(delta)
+    for customer in customers_data:
+        if customer['order_count'] > 1:
+            # Получаем все заказы этого клиента
+            customer_orders = orders_qs.filter(
+                Q(email=customer['email']) | Q(phone=customer['phone'])
+            ).order_by('created')
+            
+            orders_list = list(customer_orders)
+            if len(orders_list) >= 2:
+                for i in range(1, len(orders_list)):
+                    delta = (orders_list[i].created - orders_list[i-1].created).days
+                    if delta > 0:  # Игнорируем заказы в один день
+                        time_between_orders.append(delta)
     
     avg_time_between = sum(time_between_orders) / len(time_between_orders) if time_between_orders else 0
     
