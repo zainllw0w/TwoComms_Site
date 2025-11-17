@@ -877,6 +877,30 @@ document.addEventListener('DOMContentLoaded', function() {
           ecomm_totalvalue: price
         }
       });
+      var metaOptions = { event_id: viewEventId };
+      if (typeof window.buildUserDataForEvent === 'function') {
+        try {
+          var ctx = window.buildUserDataForEvent();
+          if (ctx && typeof ctx === 'object') {
+            if (ctx.user_data && Object.keys(ctx.user_data).length) {
+              metaOptions.user_data = ctx.user_data;
+            }
+            if (ctx.external_id) {
+              metaOptions.external_id = ctx.external_id;
+            }
+            if (ctx.fbp) {
+              metaOptions.fbp = ctx.fbp;
+            }
+            if (ctx.fbc) {
+              metaOptions.fbc = ctx.fbc;
+            }
+          }
+        } catch (metaErr) {
+          if (console && console.debug) {
+            console.debug('buildUserDataForEvent error:', metaErr);
+          }
+        }
+      }
       window.trackEvent('ViewContent', {
         content_ids: [selection.offerId],
         content_name: title,
@@ -890,7 +914,7 @@ document.addEventListener('DOMContentLoaded', function() {
           item_price: price
         }],
         event_id: viewEventId,
-        __meta: { event_id: viewEventId }
+        __meta: metaOptions
       });
     }
     }catch(err){ 

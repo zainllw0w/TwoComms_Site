@@ -333,6 +333,17 @@
                 <div class="cart-form-error">{{ guest_form.phone.errors.0 }}</div>
               {% endif %}
             </div>
+
+            <div class="cart-form-group">
+              <label class="cart-form-label">Email (опціонально)</label>
+              <div class="cart-form-input-wrapper">
+                <input type="email" name="email" class="cart-form-input" placeholder="your@email.com">
+                <div class="cart-form-input-glow"></div>
+              </div>
+              {% if guest_form.email.errors %}
+                <div class="cart-form-error">{{ guest_form.email.errors.0 }}</div>
+              {% endif %}
+            </div>
             
             <div class="cart-form-group">
               <label class="cart-form-label">Місто *</label>

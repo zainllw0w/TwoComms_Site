@@ -41,6 +41,101 @@ function safeGenerateAnalyticsEventId() {
   return Date.now() + '_' + Math.random().toString(36).substring(2, 11);
 }
 
+const GUEST_STORAGE_PREFIX = '_twc_guest_';
+const GUEST_STORAGE_FIELDS = ['full_name', 'phone', 'city', 'np_office', 'email'];
+
+function readGuestStorageValue(name) {
+  if (!name) {
+    return '';
+  }
+  try {
+    if (typeof window.sessionStorage !== 'undefined') {
+      return window.sessionStorage.getItem(GUEST_STORAGE_PREFIX + name) || '';
+    }
+  } catch (_) {}
+  return '';
+}
+
+function writeGuestStorageValue(name, value) {
+  if (!name) {
+    return;
+  }
+  try {
+    if (typeof window.sessionStorage === 'undefined') {
+      return;
+    }
+    const key = GUEST_STORAGE_PREFIX + name;
+    if (value) {
+      window.sessionStorage.setItem(key, value);
+    } else {
+      window.sessionStorage.removeItem(key);
+    }
+  } catch (_) {}
+}
+
+function attachGuestFormPersistence() {
+  const form = document.getElementById('guest-form');
+  if (!form) {
+    return;
+  }
+  GUEST_STORAGE_FIELDS.forEach((fieldName) => {
+    const input = form.querySelector(`[name="${fieldName}"]`);
+    if (!input) {
+      return;
+    }
+    const storedValue = readGuestStorageValue(fieldName);
+    if (storedValue && !input.value) {
+      input.value = storedValue;
+    }
+    const handler = () => {
+      writeGuestStorageValue(fieldName, (input.value || '').trim());
+    };
+    input.addEventListener('input', handler);
+    input.addEventListener('change', handler);
+  });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    try { attachGuestFormPersistence(); } catch (_) {}
+  });
+} else {
+  try { attachGuestFormPersistence(); } catch (_) {}
+}
+
+function buildMetaWithUserData(eventId, baseMeta) {
+  const meta = Object.assign({}, baseMeta || {});
+  if (eventId) {
+    meta.event_id = eventId;
+  }
+  if (typeof window.buildUserDataForEvent !== 'function') {
+    return meta;
+  }
+  try {
+    const context = window.buildUserDataForEvent();
+    if (!context || typeof context !== 'object') {
+      return meta;
+    }
+    if (context.user_data && Object.keys(context.user_data).length) {
+      meta.user_data = context.user_data;
+    }
+    if (context.external_id) {
+      meta.external_id = context.external_id;
+    }
+    if (context.fbp) {
+      meta.fbp = context.fbp;
+    }
+    if (context.fbc) {
+      meta.fbc = context.fbc;
+    }
+  } catch (err) {
+    if (console && console.debug) {
+      console.debug('buildUserDataForEvent error:', err);
+    }
+  }
+  return meta;
+}
+
 function pushDataLayerEvent(config) {
   if (!config || !config.eventName || !config.eventId || !config.ecommerce || !config.eventModel) {
     return null;
@@ -736,7 +831,10 @@ function requestMonoCheckout(){
     const fromForm = guestForm && guestForm.querySelector(`[name="${name}"]`);
     if(fromForm && 'value' in fromForm) return (fromForm.value||'').trim();
     const anywhere = document.querySelector(`[name="${name}"]`);
-    return anywhere && 'value' in anywhere ? (anywhere.value||'').trim() : '';
+    if(anywhere && 'value' in anywhere){
+      return (anywhere.value||'').trim();
+    }
+    return readGuestStorageValue(name);
   };
   if(guestForm || document.querySelector('[name="full_name"]') || document.querySelector('[name="phone"]')){
     payload = {
@@ -744,7 +842,8 @@ function requestMonoCheckout(){
       phone: getAnyVal('phone'),
       city: getAnyVal('city'),
       np_office: getAnyVal('np_office'),
-      pay_type: getAnyVal('pay_type') || 'online_full'
+      pay_type: getAnyVal('pay_type') || 'online_full',
+      email: getAnyVal('email')
     };
   }
   return fetch('/cart/monobank/quick/', {
@@ -780,7 +879,10 @@ function requestMonoCheckoutSingleProduct(button){
     const fromForm = guestForm && guestForm.querySelector(`[name="${name}"]`);
     if(fromForm && 'value' in fromForm) return (fromForm.value||'').trim();
     const anywhere = document.querySelector(`[name="${name}"]`);
-    return anywhere && 'value' in anywhere ? (anywhere.value||'').trim() : '';
+    if(anywhere && 'value' in anywhere){
+      return (anywhere.value||'').trim();
+    }
+    return readGuestStorageValue(name);
   };
   if(guestForm || document.querySelector('[name="full_name"]') || document.querySelector('[name="phone"]')){
     payload.full_name = getAnyVal('full_name');
@@ -788,6 +890,7 @@ function requestMonoCheckoutSingleProduct(button){
     payload.city = getAnyVal('city');
     payload.np_office = getAnyVal('np_office');
     payload.pay_type = getAnyVal('pay_type') || 'online_full';
+    payload.email = getAnyVal('email');
   }
 
   return fetch('/cart/monobank/quick/', {
@@ -828,13 +931,17 @@ function startMonoCheckout(button, statusEl, options){
         const analytics = getCheckoutAnalyticsPayload();
         try{
           if(window.trackEvent && analytics){
+            const eventId = safeGenerateAnalyticsEventId();
+            const meta = buildMetaWithUserData(eventId);
             window.trackEvent('AddPaymentInfo', {
               value: analytics.value,
               currency: analytics.currency,
               num_items: analytics.num_items,
               payment_method: 'monobank',
               content_ids: analytics.content_ids,
-              contents: analytics.contents
+              contents: analytics.contents,
+              event_id: eventId,
+              __meta: meta
             });
           }
         }catch(_){ }
@@ -889,6 +996,7 @@ function bindMonoCheckout(scope){
             }
           }
           if(window.trackEvent){
+            const meta = buildMetaWithUserData(eventId);
             window.trackEvent('InitiateCheckout', {
               value: analytics.value,
               currency: analytics.currency,
@@ -897,7 +1005,7 @@ function bindMonoCheckout(scope){
               content_ids: analytics.content_ids,
               contents: analytics.contents,
               event_id: eventId,
-              __meta: { event_id: eventId }
+              __meta: meta
             });
           }
         }catch(_){ }
@@ -1007,13 +1115,17 @@ function startMonobankPay(button, statusEl){
         const analytics = getCheckoutAnalyticsPayload();
         try{
           if(window.trackEvent && analytics){
+            const eventId = safeGenerateAnalyticsEventId();
+            const meta = buildMetaWithUserData(eventId);
             window.trackEvent('AddPaymentInfo', {
               value: analytics.value,
               currency: analytics.currency,
               num_items: analytics.num_items,
               payment_method: 'monobank_pay',
               content_ids: analytics.content_ids,
-              contents: analytics.contents
+              contents: analytics.contents,
+              event_id: eventId,
+              __meta: meta
             });
           }
         }catch(_){ }
@@ -1064,6 +1176,7 @@ function bindMonobankPay(scope){
             }
           }
           if(window.trackEvent){
+            const meta = buildMetaWithUserData(eventId);
             window.trackEvent('InitiateCheckout', {
               value: analytics.value,
               currency: analytics.currency,
@@ -1072,7 +1185,7 @@ function bindMonobankPay(scope){
               content_ids: analytics.content_ids,
               contents: analytics.contents,
               event_id: eventId,
-              __meta: { event_id: eventId }
+              __meta: meta
             });
           }
         }catch(_){ }
@@ -1777,7 +1890,7 @@ function trackAddToCartAnalytics(serverData, triggerButton, fallbackQty){
     payload.contents[0].brand = 'TwoComms';
     const eventId = safeGenerateAnalyticsEventId();
     payload.event_id = eventId;
-    payload.__meta = Object.assign({}, payload.__meta, { event_id: eventId });
+    payload.__meta = buildMetaWithUserData(eventId, payload.__meta);
 
     window.trackEvent('AddToCart', payload);
     try{
@@ -2333,6 +2446,8 @@ document.addEventListener('click', function(e){
       const offerId = 'TC-' + pid + '-default-S';
       const priceNum = price ? parseFloat(price) : undefined;
       
+      const eventId = safeGenerateAnalyticsEventId();
+      const meta = buildMetaWithUserData(eventId);
       window.trackEvent('ViewContent', {
         content_ids: [offerId],
         content_type: 'product',
@@ -2343,7 +2458,9 @@ document.addEventListener('click', function(e){
           id: offerId,
           quantity: 1,
           item_price: priceNum
-        }]
+        }],
+        event_id: eventId,
+        __meta: meta
       });
     }
   }catch(_){ }
