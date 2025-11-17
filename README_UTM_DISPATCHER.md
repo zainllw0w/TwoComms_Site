@@ -103,13 +103,17 @@ twocomms_django_theme/templates/
 ├── pages/admin_panel.html
 │   └── Навигация "Диспетчер" (строки 101-106)
 │
-└── partials/admin_dispatcher_section.html (428 строк)
+└── partials/admin_dispatcher_section.html (600+ строк)
     ├── Header с фильтрами
     ├── Карточки метрик (4 шт)
     ├── Воронка конверсий (6 этапов)
     ├── Таблица источников (Top 20)
     ├── Таблица кампаний (Top 20)
     ├── Устройства и география
+    ├── **Повторные покупки** (5 карточек с показателями)
+    ├── **LTV сравнение по источникам** (Top 5)
+    ├── **Когортный анализ** (heatmap + фильтры)
+    ├── **A/B тестирование** (кампании и результаты)
     └── Последние сессии (30 шт)
 ```
 
@@ -626,6 +630,18 @@ curl "https://twocomms.shop/api/utm/roi/?period=week&ad_spend=5000"
 
 # Детали сессии
 curl "https://twocomms.shop/api/utm/123/session_detail/"
+
+# Когортный анализ (retention/LTV/orders/revenue)
+curl "https://twocomms.shop/api/utm/cohort-analysis/?metric=retention&cohort_type=week"
+
+# LTV сравнение по источникам
+curl "https://twocomms.shop/api/utm/ltv-comparison/?period=month"
+
+# Повторные покупки
+curl "https://twocomms.shop/api/utm/repeat-rate/?period=month"
+
+# A/B тестирование креативов
+curl "https://twocomms.shop/api/utm/ab-test/?campaign=winter_sale_2025&period=month"
 ```
 
 ### Экспорт CSV:
@@ -633,11 +649,16 @@ curl "https://twocomms.shop/api/utm/123/session_detail/"
 https://twocomms.shop/api/utm/export-csv/?period=week&type=sessions
 https://twocomms.shop/api/utm/export-csv/?period=month&type=sources
 https://twocomms.shop/api/utm/export-csv/?period=today&type=campaigns
+https://twocomms.shop/api/utm/export-csv/?period=month&type=content
 ```
 
 ### UI Features:
 - **ROI Калькулятор:** Прокрутите до секции "ROI калькулятор"
 - **Графики:** Воронка конверсий и источники трафика
+- **Повторные покупки:** Карточки Repeat Rate, клиенты, LTV и интервал
+- **LTV сравнение:** Таблица Top-5 источников
+- **Когортный анализ:** Интерактивная матрица с фильтрами
+- **A/B тестирование:** Выбор кампаний и результаты с confidence level
 - **Детали сессии:** Кнопка "Деталі" в таблице "Останні сесії"
 - **Экспорт:** 3 кнопки экспорта над таблицей сессий
 
