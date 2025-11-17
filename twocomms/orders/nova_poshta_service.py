@@ -514,8 +514,25 @@ class NovaPoshtaService:
             fb_service = get_facebook_conversions_service()
             
             if fb_service.enabled:
+                payment_payload = order.payment_payload or {}
+                facebook_events = payment_payload.get('facebook_events', {})
+
+                if facebook_events.get('purchase_sent'):
+                    logger.info(
+                        f"📊 Facebook Purchase event already sent for order {order.order_number}, skipping duplicate"
+                    )
+                    return
+
                 success = fb_service.send_purchase_event(order)
                 if success:
+                    facebook_events['purchase_sent'] = True
+                    facebook_events['purchase_sent_at'] = timezone.now().isoformat()
+                    payment_payload['facebook_events'] = facebook_events
+                    order.payment_payload = payment_payload
+                    try:
+                        order.save(update_fields=['payment_payload'])
+                    except Exception:
+                        order.save()
                     logger.info(f"📊 Facebook Purchase event sent for order {order.order_number}")
                 else:
                     logger.warning(f"⚠️ Failed to send Facebook Purchase event for order {order.order_number}")
