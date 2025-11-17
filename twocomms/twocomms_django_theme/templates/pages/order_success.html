@@ -1793,9 +1793,15 @@ document.addEventListener('DOMContentLoaded', function() {
      {% if order %}data-full-name="{{ order.full_name }}"{% endif %}
      {% if order %}data-phone="{{ order.phone }}"{% endif %}
      {% if order %}data-city="{{ order.city }}"{% endif %}
-     {% if order.session_key %}data-session-key="{{ order.session_key }}"{% endif %}
-     {% if order.user_id %}data-user-id="{{ order.user_id }}"{% endif %}
-     {% if user.is_authenticated and user.userprofile.email %}data-email="{{ user.userprofile.email|lower|escapejs }}"{% endif %}
+     data-session-key="{% if order and order.session_key %}{{ order.session_key }}{% else %}{{ request.session.session_key|default:'' }}{% endif %}"
+     {% if order and order.user_id %}data-user-id="{{ order.user_id }}"{% endif %}
+     {% if order and order.email %}
+       data-email="{{ order.email|lower|escapejs }}"
+     {% elif user.is_authenticated and user.email %}
+       data-email="{{ user.email|lower|escapejs }}"
+     {% elif user.is_authenticated and user.userprofile and user.userprofile.email %}
+       data-email="{{ user.userprofile.email|lower|escapejs }}"
+     {% endif %}
      {% if order %}data-external-id="{{ order.payment_payload.tracking.external_id|default:'' }}"{% endif %}
      {% if order %}data-contents='[{% for item in order.items.all %}{"id":"{{ item.get_offer_id }}","quantity":{{ item.qty }},"price":{{ item.unit_price|floatformat:2 }},"name":"{{ item.title|escapejs }}","category":"{{ item.product.category.name|default_if_none:''|escapejs }}","variant":"{{ item.size|default:"S"|upper }}","brand":"TwoComms","currency":"UAH"}{% if not forloop.last %},{% endif %}{% endfor %}]'{% else %}data-contents='[]'{% endif %}>
 </div>
@@ -2027,7 +2033,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       }
       if (cityValue) {
-        var normalizedCity = String(cityValue).trim().toLowerCase();
+        var normalizedCity = String(cityValue).trim().toLowerCase().replace(/[^a-z0-9]/g, '');
         if (normalizedCity) {
           var hashedCity = hashFn(normalizedCity);
           if (hashedCity) {
@@ -2239,6 +2245,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
       // Сохраняем что Lead отправлен
       sessionStorage.setItem(leadStorageKey, 'true');
+    }
+
+    if (shouldSendLead || shouldSendPurchase) {
+      try {
+        ['full_name', 'phone', 'city', 'np_office', 'email'].forEach(function(field) {
+          sessionStorage.removeItem('_twc_guest_' + field);
+        });
+      } catch (_) {}
     }
   } catch(e) {
     console.error('Error in conversion tracking:', e);

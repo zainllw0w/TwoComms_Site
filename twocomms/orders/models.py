@@ -36,6 +36,7 @@ class Order(models.Model):
     session_key = models.CharField(max_length=40, blank=True, null=True)
     full_name = models.CharField(max_length=200)
     phone = models.CharField(max_length=32)
+    email = models.EmailField(max_length=254, blank=True, null=True, verbose_name='Email')
     city = models.CharField(max_length=100)
     np_office = models.CharField(max_length=200)
     pay_type = models.CharField(max_length=20, choices=PAY_TYPE_CHOICES, default='online_full')
