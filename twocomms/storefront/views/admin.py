@@ -563,6 +563,8 @@ def admin_panel(request):
         context.update(_build_orders_context(request))
     elif section == 'collaboration':
         context.update(_build_collaboration_context())
+    elif section == 'dispatcher':
+        context.update(_build_dispatcher_context(request))
 
     html_content = render_to_string('pages/admin_panel.html', context, request=request)
     response = HttpResponse(html_content)
@@ -1157,3 +1159,137 @@ def inventory_management(request):
     """
     # TODO: Реализовать управление складом
     return render(request, 'admin/inventory.html')
+
+
+def _build_dispatcher_context(request):
+    """
+    Собирает данные для секции 'Диспетчер' (UTM Analytics).
+    
+    Показывает детальную аналитику по UTM-меткам:
+    - Общая статистика (сессии, конверсии, доход)
+    - Статистика по источникам трафика
+    - Статистика по кампаниям
+    - Статистика по креативам/контенту
+    - Воронка конверсий
+    - Геолокация (страны, города)
+    - Устройства и браузеры
+    - Повторные визиты
+    - Последние сессии
+    """
+    from ..utm_analytics import (
+        get_general_stats,
+        get_sources_stats,
+        get_campaigns_stats,
+        get_content_stats,
+        get_funnel_stats,
+        get_geo_stats,
+        get_device_stats,
+        get_browser_stats,
+        get_os_stats,
+        get_returning_visitors_stats,
+        get_recent_sessions,
+    )
+    
+    # Получаем параметры фильтрации
+    period = request.GET.get('period', 'today')
+    source_filter = request.GET.get('source', None)
+    campaign_filter = request.GET.get('campaign', None)
+    
+    # Собираем данные
+    try:
+        context = {
+            'period': period,
+            'source_filter': source_filter,
+            'campaign_filter': campaign_filter,
+            
+            # Общая статистика
+            'general_stats': get_general_stats(period),
+            
+            # Источники трафика
+            'sources_stats': get_sources_stats(period, limit=20),
+            
+            # Кампании
+            'campaigns_stats': get_campaigns_stats(period, source_filter=source_filter, limit=20),
+            
+            # Креативы/контент
+            'content_stats': get_content_stats(period, campaign_filter=campaign_filter, limit=20),
+            
+            # Воронка конверсий
+            'funnel_stats': get_funnel_stats(period),
+            
+            # Геолокация
+            'geo_stats': get_geo_stats(period, limit=15),
+            
+            # Устройства
+            'device_stats': get_device_stats(period),
+            
+            # Браузеры
+            'browser_stats': get_browser_stats(period, limit=10),
+            
+            # ОС
+            'os_stats': get_os_stats(period, limit=10),
+            
+            # Повторные визиты
+            'returning_stats': get_returning_visitors_stats(period),
+            
+            # Последние сессии
+            'recent_sessions': get_recent_sessions(period, limit=50),
+            
+            # Периоды для фильтра
+            'periods': [
+                {'value': 'today', 'label': 'Сьогодні'},
+                {'value': 'week', 'label': 'Тиждень'},
+                {'value': 'month', 'label': 'Місяць'},
+                {'value': 'all_time', 'label': 'Весь час'},
+            ],
+        }
+        
+    except Exception as e:
+        # В случае ошибки возвращаем пустой контекст с сообщением об ошибке
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error building dispatcher context: {e}", exc_info=True)
+        
+        context = {
+            'period': period,
+            'error': str(e),
+            'general_stats': {
+                'total_sessions': 0,
+                'unique_visitors': 0,
+                'total_conversions': 0,
+                'conversion_rate': 0,
+                'total_revenue': 0,
+                'avg_order_value': 0,
+                'total_score': 0,
+                'avg_score_per_session': 0,
+            },
+            'sources_stats': [],
+            'campaigns_stats': [],
+            'content_stats': [],
+            'funnel_stats': {
+                'total': 0,
+                'product_views': 0,
+                'add_to_cart': 0,
+                'initiate_checkout': 0,
+                'leads': 0,
+                'purchases': 0,
+            },
+            'geo_stats': {'countries': [], 'cities': []},
+            'device_stats': [],
+            'browser_stats': [],
+            'os_stats': [],
+            'returning_stats': {
+                'total_sessions': 0,
+                'first_visits': 0,
+                'returning_visits': 0,
+            },
+            'recent_sessions': [],
+            'periods': [
+                {'value': 'today', 'label': 'Сьогодні'},
+                {'value': 'week', 'label': 'Тиждень'},
+                {'value': 'month', 'label': 'Місяць'},
+                {'value': 'all_time', 'label': 'Весь час'},
+            ],
+        }
+    
+    return context

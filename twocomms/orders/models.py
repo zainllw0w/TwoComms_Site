@@ -52,6 +52,22 @@ class Order(models.Model):
     payment_invoice_id = models.CharField(max_length=128, blank=True, default='')
     payment_payload = models.JSONField(blank=True, null=True)
     points_awarded = models.BooleanField(default=False, verbose_name='Бали нараховані')
+    
+    # UTM tracking fields
+    utm_session = models.ForeignKey(
+        'storefront.UTMSession',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='orders',
+        verbose_name='UTM Сесія'
+    )
+    utm_source = models.CharField(max_length=255, blank=True, null=True, db_index=True, verbose_name='UTM Source')
+    utm_medium = models.CharField(max_length=255, blank=True, null=True, db_index=True, verbose_name='UTM Medium')
+    utm_campaign = models.CharField(max_length=255, blank=True, null=True, db_index=True, verbose_name='UTM Campaign')
+    utm_content = models.CharField(max_length=255, blank=True, null=True, db_index=True, verbose_name='UTM Content')
+    utm_term = models.CharField(max_length=255, blank=True, null=True, db_index=True, verbose_name='UTM Term')
+    
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
 
