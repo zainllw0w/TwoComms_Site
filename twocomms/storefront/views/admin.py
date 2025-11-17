@@ -1199,9 +1199,33 @@ def _build_dispatcher_context(request):
     period = request.GET.get('period', 'today')
     source_filter = request.GET.get('source', None)
     campaign_filter = request.GET.get('campaign', None)
+
+    cohort_metric = request.GET.get('cohort_metric', 'retention')
+    cohort_type = request.GET.get('cohort_type', 'week')
+    cohort_metric_options = [
+        {'value': 'retention', 'label': 'Retention (%)'},
+        {'value': 'ltv', 'label': 'LTV (₴)'},
+        {'value': 'orders', 'label': 'Замовлення'},
+        {'value': 'revenue', 'label': 'Дохід (₴)'},
+    ]
+    cohort_type_options = [
+        {'value': 'day', 'label': 'День'},
+        {'value': 'week', 'label': 'Тиждень'},
+        {'value': 'month', 'label': 'Місяць'},
+    ]
+    cohort_end = timezone.now()
+    cohort_start = cohort_end - timedelta(days=90)
     
     # Собираем данные
     try:
+        cohort_analysis = get_cohort_analysis(
+            start_date=cohort_start,
+            end_date=cohort_end,
+            cohort_type=cohort_type,
+            metric=cohort_metric,
+            utm_source=source_filter or None,
+        )
+
         context = {
             'period': period,
             'source_filter': source_filter,
@@ -1245,6 +1269,17 @@ def _build_dispatcher_context(request):
             
             # Повторные покупки
             'repeat_rate': get_repeat_purchase_rate(period),
+
+            # Когортный анализ
+            'cohort_analysis': cohort_analysis,
+            'cohort_metric': cohort_metric,
+            'cohort_type': cohort_type,
+            'cohort_metrics': cohort_metric_options,
+            'cohort_types': cohort_type_options,
+            'cohort_range': {
+                'start': cohort_start.date(),
+                'end': cohort_end.date(),
+            },
             
             # Периоды для фильтра
             'periods': [
@@ -1295,6 +1330,32 @@ def _build_dispatcher_context(request):
                 'returning_visits': 0,
             },
             'recent_sessions': [],
+            'ltv_comparison': [],
+            'repeat_rate': {
+                'total_customers': 0,
+                'repeat_customers': 0,
+                'one_time_customers': 0,
+                'repeat_rate': 0,
+                'avg_orders_per_customer': 0,
+                'avg_time_between_orders': 0,
+                'total_orders': 0
+            },
+            'cohort_analysis': {
+                'cohorts': [],
+                'periods': [],
+                'matrix': [],
+                'totals': [],
+                'metric': cohort_metric,
+                'cohort_type': cohort_type,
+            },
+            'cohort_metric': cohort_metric,
+            'cohort_type': cohort_type,
+            'cohort_metrics': cohort_metric_options,
+            'cohort_types': cohort_type_options,
+            'cohort_range': {
+                'start': cohort_start.date(),
+                'end': cohort_end.date(),
+            },
             'periods': [
                 {'value': 'today', 'label': 'Сьогодні'},
                 {'value': 'week', 'label': 'Тиждень'},
