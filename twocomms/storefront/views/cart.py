@@ -135,10 +135,23 @@ def view_cart(request):
     contents = []
     total_quantity = 0
     
+    # Optimization: Fetch all products at once to avoid N+1
+    product_ids = [item_data.get('product_id') for item_data in cart.values() if item_data.get('product_id')]
+    products_map = Product.objects.select_related('category').in_bulk(product_ids)
+    
+    # Optimization: Fetch all color variants at once
+    color_variant_ids = [item_data.get('color_variant_id') for item_data in cart.values() if item_data.get('color_variant_id')]
+    from productcolors.models import ProductColorVariant
+    color_variants_map = ProductColorVariant.objects.select_related('color').in_bulk(color_variant_ids)
+    
     for item_key, item_data in cart.items():
         try:
             product_id = item_data.get('product_id')
-            product = Product.objects.select_related('category').get(id=product_id)
+            # product = Product.objects.select_related('category').get(id=product_id) # OLD N+1
+            product = products_map.get(int(product_id))
+            
+            if not product:
+                continue
             
             # Цена всегда берется из Product (актуальная цена)
             price = product.final_price
@@ -149,15 +162,15 @@ def view_cart(request):
             site_line_discount = original_line_total - line_total
             if site_line_discount < 0:
                 site_line_discount = Decimal('0.00')
-            site_line_discount = original_line_total - line_total
-            if site_line_discount < 0:
-                site_line_discount = Decimal('0.00')
             
             # Информация о цвете из color_variant_id
-            color_variant = _get_color_variant_safe(item_data.get('color_variant_id'))
+            # color_variant = _get_color_variant_safe(item_data.get('color_variant_id')) # OLD N+1 risk
+            color_variant_id = item_data.get('color_variant_id')
+            color_variant = color_variants_map.get(int(color_variant_id)) if color_variant_id else None
+            
             color_label = _color_label_from_variant(color_variant)
             size_value = (item_data.get('size', '') or 'S').upper()
-            color_variant_id = color_variant.id if color_variant else None
+            # color_variant_id = color_variant.id if color_variant else None # Already have it
             offer_id = product.get_offer_id(color_variant_id, size_value)
             content_ids.append(offer_id)
             contents.append({
@@ -176,12 +189,6 @@ def view_cart(request):
                     total_points += int(product.points_reward) * qty
             except Exception:
                 pass
-            
-            size_value = (item_data.get('size', '') or '').upper()
-            if not size_value:
-                size_value = 'S'
-            color_variant_id = color_variant.id if color_variant else None
-            offer_id = product.get_offer_id(color_variant_id, size_value)
             
             cart_items.append({
                 'key': item_key,

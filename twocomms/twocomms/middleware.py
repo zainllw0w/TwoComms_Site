@@ -82,6 +82,11 @@ class SimpleRateLimitMiddleware(MiddlewareMixin):
         # Skip rate limiting in DEBUG mode
         if settings.DEBUG:
             return None
+            
+        # Skip static and media files (double check, though WhiteNoise handles them first now)
+        path = request.path
+        if path.startswith(settings.STATIC_URL) or path.startswith(settings.MEDIA_URL):
+            return None
         
         # Get client IP
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')

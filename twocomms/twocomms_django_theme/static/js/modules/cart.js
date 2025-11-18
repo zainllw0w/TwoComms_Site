@@ -57,6 +57,16 @@ const toggleElement = (el, show) => {
   el.classList[show ? 'remove' : 'add']('d-none');
 };
 
+const escapeHtml = (unsafe) => {
+  if (unsafe === null || unsafe === undefined) return '';
+  return String(unsafe)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+};
+
 class CartPageController {
   constructor(root) {
     this.root = root;
@@ -298,12 +308,13 @@ class CartPageController {
           <img src="${imageUrl}" alt="${item.product_title || 'Товар TwoComms'}" class="cart-item-img" width="80" height="80">
           <div class="cart-item-image-glow"></div>
         </div>
+        </div>
         <div class="cart-item-info">
-          <h3 class="cart-item-title">${item.product_title || ''}</h3>
+          <h3 class="cart-item-title">${escapeHtml(item.product_title || '')}</h3>
           <div class="cart-item-details">
             <div class="cart-item-detail">
               <span class="cart-item-label">Розмір:</span>
-              <span class="cart-item-value">${size}</span>
+              <span class="cart-item-value">${escapeHtml(size)}</span>
             </div>
             <div class="cart-item-detail">
               <span class="cart-item-label">Кількість:</span>
@@ -314,7 +325,7 @@ class CartPageController {
               <span class="cart-item-label">Колір:</span>
               <div class="cart-item-color d-flex align-items-center gap-2">
                 <span class="cart-item-swatch swatch" data-primary="#000"></span>
-                <span class="cart-item-color-name">${colorLabel}</span>
+                <span class="cart-item-color-name">${escapeHtml(colorLabel)}</span>
               </div>
             </div>` : ''}
           </div>

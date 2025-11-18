@@ -7,6 +7,7 @@ from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.conf import settings
 from django.core.management import call_command
+from .tasks import generate_google_merchant_feed_task
 
 from .models import Product
 
