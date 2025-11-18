@@ -126,11 +126,11 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "twocomms.middleware.ForceHTTPSMiddleware",  # Принудительный HTTPS
     "twocomms.middleware.WWWRedirectMiddleware",  # Редирект с www
-    "twocomms.middleware.SimpleRateLimitMiddleware",  # Rate limiting для защиты от злоупотреблений
     "django.middleware.security.SecurityMiddleware",
     "twocomms.middleware.SecurityHeadersMiddleware",  # CSP и дополнительные заголовки
     "whitenoise.middleware.WhiteNoiseMiddleware",
-    "twocomms.image_middleware.ImageOptimizationMiddleware",  # Оптимизация изображений
+    "twocomms.middleware.SimpleRateLimitMiddleware",  # Rate limiting (ПОСЛЕ статики!)
+    # "twocomms.image_middleware.ImageOptimizationMiddleware",  # DISABLED: CPU blocking issue
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -478,6 +478,18 @@ else:
             'TIMEOUT': 300,
         }
     }
+
+# ==================== CELERY CONFIGURATION ====================
+CELERY_BROKER_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}'
+if REDIS_PASSWORD:
+    CELERY_BROKER_URL = f'redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}'
+
+CELERY_RESULT_BACKEND = CELERY_BROKER_URL
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+# CELERY_TASK_ALWAYS_EAGER = DEBUG  # Optional: run tasks synchronously in debug mode
 
 # ============================================================================
 # SESSION CONFIGURATION (E-COMMERCE BEST PRACTICES)

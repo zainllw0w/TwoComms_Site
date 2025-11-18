@@ -133,7 +133,7 @@
     </section>
   {% else %}
     <section class="col-12">
-      {% cache 600 catalog_products cat_slug %}
+      {% cache 600 catalog_products request.get_full_path %}
         <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4" data-stagger-grid>
           {% for p in products %}
             <div class="col product-card-wrap">

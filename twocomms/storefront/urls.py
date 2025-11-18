@@ -37,7 +37,7 @@ urlpatterns=[
     path('cart/mini/', views.cart_mini, name='cart_mini'),
     path('cart/items/', views.cart_items_api, name='cart_items_api'),
     path('cart/clean/', views.clean_cart, name='clean_cart'),
-    path('checkout/', views.checkout, name='checkout'),
+    # path('checkout/', views.checkout, name='checkout'), # REMOVED: Dead code
     # auth - using modular auth views with proper password validation
     path('login/', auth_views.login_view, name='login'),
     path('logout/', auth_views.logout_view, name='logout'),
