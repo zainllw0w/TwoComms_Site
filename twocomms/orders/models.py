@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models, IntegrityError, transaction
+from django.db.models import Max
 from storefront.models import Product, PromoCode
 from productcolors.models import ProductColorVariant
 from django.utils import timezone
@@ -100,16 +101,33 @@ class Order(models.Model):
                 self.order_number = None
     
     def generate_order_number(self):
-        """Генерирует уникальный номер заказа в формате TWC+дата+N+номер."""
+        """
+        Генерирует уникальный номер заказа в формате TWC+дата+N+номер.
+        Оптимизировано: использует Max() вместо перебора в цикле.
+        """
         today = timezone.localdate()
         date_str = today.strftime('%d%m%Y')
-        counter = 1
+        prefix = f"TWC{date_str}N"
+        
+        # Ищем максимальный номер за сегодня с этим префиксом
+        # Используем startswith для надежности, хотя можно и по дате фильтровать
+        last_order = Order.objects.filter(order_number__startswith=prefix).aggregate(Max('order_number'))
+        max_number = last_order.get('order_number__max')
+        
+        if max_number:
+            # Извлекаем последние цифры и инкрементируем
+            try:
+                # TWC30102025N01 -> 01
+                suffix = max_number.replace(prefix, '')
+                counter = int(suffix) + 1
+            except ValueError:
+                # Если формат нарушен, начинаем с 1 (или fallback на безопасный вариант)
+                counter = 1
+        else:
+            counter = 1
 
-        while True:
-            number = f"TWC{date_str}N{counter:02d}"
-            if not Order.objects.filter(order_number=number).exists():
-                return number
-            counter += 1
+        # Формируем новый номер
+        return f"{prefix}{counter:02d}"
     
     def get_user_display(self):
         """Возвращает отображаемое имя пользователя"""
@@ -455,17 +473,31 @@ class DropshipperOrder(models.Model):
         super().save(*args, **kwargs)
     
     def generate_order_number(self):
-        """Генерирует уникальный номер заказа дропшипера"""
+        """
+        Генерирует уникальный номер заказа дропшипера.
+        Оптимизировано: использует Max() вместо перебора.
+        """
         from django.utils import timezone
+        from django.db.models import Max
+        
         today = timezone.localdate()
         date_str = today.strftime('%d%m%Y')
-        counter = 1
+        prefix = f"DS{date_str}"
         
-        while True:
-            number = f"DS{date_str}{counter:03d}"
-            if not DropshipperOrder.objects.filter(order_number=number).exists():
-                return number
-            counter += 1
+        last_order = DropshipperOrder.objects.filter(order_number__startswith=prefix).aggregate(Max('order_number'))
+        max_number = last_order.get('order_number__max')
+        
+        if max_number:
+            try:
+                # DS30102025001 -> 001
+                suffix = max_number.replace(prefix, '')
+                counter = int(suffix) + 1
+            except ValueError:
+                counter = 1
+        else:
+            counter = 1
+            
+        return f"{prefix}{counter:03d}"
     
     def calculate_profit(self):
         """Рассчитывает прибыль от заказа"""

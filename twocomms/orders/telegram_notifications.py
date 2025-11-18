@@ -6,6 +6,11 @@ import os
 from django.conf import settings
 from django.utils import timezone
 from datetime import datetime
+# Import async task
+try:
+    from storefront.tasks import send_telegram_notification_task
+except ImportError:
+    send_telegram_notification_task = None
 
 
 class TelegramNotifier:
@@ -35,24 +40,25 @@ class TelegramNotifier:
         target_id = self.admin_id if self.admin_id else self.chat_id
         print(f"🟡 Target admin ID: {target_id}")
         
-        try:
-            url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
-            data = {
-                'chat_id': target_id,
-                'text': message,
-                'parse_mode': parse_mode
-            }
-            print(f"🟢 Sending POST to Telegram API for admin (chat_id={target_id})")
-            response = requests.post(url, data=data, timeout=10)
-            print(f"🟣 Admin message response status: {response.status_code}")
-            
-            if response.status_code != 200:
-                print(f"❌ Admin message response: {response.text[:200]}")
-            
-            return response.status_code == 200
-        except Exception as e:
-            print(f"❌ Exception in send_message to admin: {e}")
-            return False
+        if send_telegram_notification_task:
+            print(f"🟢 Delegating to Celery task (chat_id={target_id})")
+            send_telegram_notification_task.delay(message, chat_id=target_id, parse_mode=parse_mode)
+            return True
+        else:
+            # Fallback if task not available (e.g. during migration or if import failed)
+            try:
+                url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
+                data = {
+                    'chat_id': target_id,
+                    'text': message,
+                    'parse_mode': parse_mode
+                }
+                print(f"🟢 Sending SYNC POST to Telegram API for admin (chat_id={target_id})")
+                response = requests.post(url, data=data, timeout=10)
+                return response.status_code == 200
+            except Exception as e:
+                print(f"❌ Exception in send_message to admin: {e}")
+                return False
     
     def send_admin_message(self, message, parse_mode='HTML'):
         """
@@ -80,24 +86,24 @@ class TelegramNotifier:
             print(f"❌ No telegram_id provided")
             return False
             
-        try:
-            url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
-            data = {
-                'chat_id': telegram_id,
-                'text': message,
-                'parse_mode': parse_mode
-            }
-            print(f"🟡 Sending POST to {url[:50]}... with chat_id={telegram_id}")
-            response = requests.post(url, data=data, timeout=10)
-            print(f"🟢 Response status: {response.status_code}")
-            
-            if response.status_code != 200:
-                print(f"❌ Response content: {response.text[:200]}")
-            
-            return response.status_code == 200
-        except Exception as e:
-            print(f"❌ Exception in send_personal_message: {e}")
-            return False
+        if send_telegram_notification_task:
+            print(f"🟢 Delegating to Celery task (chat_id={telegram_id})")
+            send_telegram_notification_task.delay(message, chat_id=telegram_id, parse_mode=parse_mode)
+            return True
+        else:
+            try:
+                url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
+                data = {
+                    'chat_id': telegram_id,
+                    'text': message,
+                    'parse_mode': parse_mode
+                }
+                print(f"🟡 Sending SYNC POST to {url[:50]}... with chat_id={telegram_id}")
+                response = requests.post(url, data=data, timeout=10)
+                return response.status_code == 200
+            except Exception as e:
+                print(f"❌ Exception in send_personal_message: {e}")
+                return False
     
     def _format_payment_info(self, order):
         """
