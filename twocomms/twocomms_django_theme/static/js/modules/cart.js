@@ -635,7 +635,8 @@ function showPromoMessage(msgBox, message, type) {
     : type === 'error'
       ? 'cart-promo-message-error'
       : 'cart-promo-message-info';
-  msgBox.innerHTML = `<div class="cart-promo-message ${typeClass}">${message}</div>`;
+  const safeMessage = escapeHtml(message);
+  msgBox.innerHTML = `<div class="cart-promo-message ${typeClass}">${safeMessage}</div>`;
   window.setTimeout(() => {
     try {
       msgBox.innerHTML = '';

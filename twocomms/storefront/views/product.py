@@ -49,7 +49,7 @@ def product_detail(request, slug):
         offer_id_map: JSON mapping (color_variant_id, size) -> offer_id для JS
         default_offer_id: Offer ID для текущего выбора (default цвет + размер)
     """
-    product = get_object_or_404(Product.objects.select_related('category'), slug=slug)
+    product = get_object_or_404(Product.objects.select_related('category').prefetch_related('images'), slug=slug)
     images = product.images.all()
     
     # Читаем параметры из URL (?size=M&color=123)

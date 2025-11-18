@@ -10,6 +10,7 @@ import xml.etree.ElementTree as ET
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from storefront.models import Product, Category
+from productcolors.models import ProductColorVariant
 from typing import Optional
 from storefront.utils.analytics_helpers import get_offer_id
 
@@ -126,8 +127,12 @@ class Command(BaseCommand):
         description = ET.SubElement(channel, 'description')
         description.text = 'Магазин стріт & мілітарі одягу з ексклюзивним дизайном'
 
-        # Получаем все товары
-        products = Product.objects.select_related('category').all()
+        # Получаем все товары с предварительной загрузкой связанных данных
+        products = Product.objects.select_related('category').prefetch_related(
+            'color_variants__color',
+            'color_variants__images',
+            'images'
+        ).all()
         total_products = products.count()
         processed_products = 0
 
@@ -140,16 +145,21 @@ class Command(BaseCommand):
             # Сформируем варианты цветов
             variants = []
             try:
-                from productcolors.models import ProductColorVariant
-                color_variants = ProductColorVariant.objects.filter(product=product).select_related('color')
+                # Используем all() для использования prefetch_related кэша
+                color_variants = product.color_variants.all()
                 for cv in color_variants:
                     color_name = (cv.color.name or "").strip()
                     if not color_name:
                         color_name = hex_to_basic_color_name(getattr(cv.color, 'primary_hex', ''), getattr(cv.color, 'secondary_hex', None))
+                    
+                    # Безопасное получение изображения из кэша prefetch
+                    cv_images = list(cv.images.all())
+                    image = cv_images[0].image if cv_images else None
+                    
                     variants.append({
                         'key': f"cv{cv.id}",
                         'color': color_name,
-                        'image': (cv.images.first().image if cv.images.exists() else None),
+                        'image': image,
                         'variant_id': cv.id
                     })
             except Exception:
