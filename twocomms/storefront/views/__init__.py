@@ -161,8 +161,8 @@ from .api import (
 
 # Оформление заказа
 from .checkout import (
-    checkout,
     create_order,
+
     payment_method,
     monobank_webhook,
     payment_callback,
@@ -396,7 +396,7 @@ __all__ = [
     'product_availability', 'get_related_products', 'newsletter_subscribe', 'contact_form',
     
     # Checkout
-    'checkout', 'create_order', 'payment_method', 'monobank_webhook', 'payment_callback',
+    'create_order', 'payment_method', 'monobank_webhook', 'payment_callback',
     'order_success', 'order_failed', 'calculate_shipping',
     
     # Admin
