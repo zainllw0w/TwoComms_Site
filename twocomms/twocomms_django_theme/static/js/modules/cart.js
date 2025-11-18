@@ -18,7 +18,7 @@ const CART_EMPTY_TEMPLATE = `
   </div>
 `;
 
-const NOOP = () => {};
+const NOOP = () => { };
 
 const getCsrfToken = () =>
   document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
@@ -307,7 +307,6 @@ class CartPageController {
         <div class="cart-item-image">
           <img src="${imageUrl}" alt="${item.product_title || 'Товар TwoComms'}" class="cart-item-img" width="80" height="80">
           <div class="cart-item-image-glow"></div>
-        </div>
         </div>
         <div class="cart-item-info">
           <h3 class="cart-item-title">${escapeHtml(item.product_title || '')}</h3>
