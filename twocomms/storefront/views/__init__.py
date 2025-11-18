@@ -172,6 +172,22 @@ from .checkout import (
     calculate_shipping,
 )
 
+# Debug checkout import
+try:
+    from . import checkout
+    print(f"DEBUG: Successfully imported checkout from {checkout.__file__}")
+except ImportError as e:
+    print(f"DEBUG: Failed to import checkout: {e}")
+    import traceback
+    traceback.print_exc()
+    # Try absolute import as fallback
+    try:
+        import storefront.views.checkout as checkout
+        print(f"DEBUG: Successfully imported checkout via absolute path")
+    except ImportError:
+        print("DEBUG: Absolute import also failed")
+        raise
+
 # Monobank оплата
 from .monobank import (
     monobank_create_invoice,
@@ -217,8 +233,9 @@ def _load_legacy_views(force: bool = False):
     if _legacy_loaded and not force:
         return
 
-    try:
-        views_py_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'views.py')
+        views_py_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'views_legacy.py')
+        if not os.path.exists(views_py_path):
+            print(f"DEBUG: views_legacy.py not found at {views_py_path}")
         spec = importlib.util.spec_from_file_location("storefront.views_old", views_py_path)
         _old_views = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(_old_views)
