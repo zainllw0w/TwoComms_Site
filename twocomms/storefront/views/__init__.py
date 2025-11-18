@@ -330,15 +330,8 @@ clean_cart = clear_cart  # для urls.py: views.clean_cart
 profile_setup_db = profile_setup  # для urls.py: views.profile_setup_db
 
 # Checkout aliases  
-# КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Используем старую order_create() из views.py
-try:
-    _legacy_module = globals().get('_old_views')
-    if _legacy_module is not None:
-        order_create = _legacy_module.order_create  # Старая функция с правильной логикой
-    else:
-        raise AttributeError
-except (AttributeError, NameError):
-    order_create = create_order  # Fallback на новую
+# КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Используем восстановленную create_order из checkout.py
+order_create = create_order
 
 # Admin aliases (если нужны)
 
