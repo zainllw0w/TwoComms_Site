@@ -203,7 +203,7 @@ class Product(models.Model):
         blank=True,
         verbose_name='Сітка розмірів'
     )
-    price = models.PositiveIntegerField(verbose_name='Ціна (грн)')
+    price = models.PositiveIntegerField(verbose_name='Ціна (грн)', db_index=True)
     # has_discount field removed - see migration 0008_remove_has_discount_field
     # Use @property has_discount below instead (auto-calculated from discount_percent)
     discount_percent = models.PositiveIntegerField(blank=True, null=True)
