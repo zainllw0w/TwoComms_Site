@@ -233,6 +233,7 @@ def _load_legacy_views(force: bool = False):
     if _legacy_loaded and not force:
         return
 
+    try:
         views_py_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'views_legacy.py')
         if not os.path.exists(views_py_path):
             print(f"DEBUG: views_legacy.py not found at {views_py_path}")
