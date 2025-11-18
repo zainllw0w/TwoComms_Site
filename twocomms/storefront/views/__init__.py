@@ -166,27 +166,12 @@ from .checkout import (
     payment_method,
     monobank_webhook,
     payment_callback,
-    order_success,
-    order_success_preview,
-    order_failed,
-    calculate_shipping,
+    payment_success,
+    payment_failed,
+    checkout_view,
+    handle_payment,
+    get_liqpay_context
 )
-
-# Debug checkout import
-try:
-    from . import checkout
-    print(f"DEBUG: Successfully imported checkout from {checkout.__file__}")
-except ImportError as e:
-    print(f"DEBUG: Failed to import checkout: {e}")
-    import traceback
-    traceback.print_exc()
-    # Try absolute import as fallback
-    try:
-        import storefront.views.checkout as checkout
-        print(f"DEBUG: Successfully imported checkout via absolute path")
-    except ImportError:
-        print("DEBUG: Absolute import also failed")
-        raise
 
 # Monobank оплата
 from .monobank import (
