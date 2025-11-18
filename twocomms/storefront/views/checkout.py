@@ -102,8 +102,8 @@ def create_order(request):
             return redirect('cart')
         
         # Нормализуем pay_type для использования в заказе
-        from storefront.views import _normalize_pay_type
-        pay_type = _normalize_pay_type(pay_type)
+        from .utils import _normalize_order_pay_type
+        pay_type = _normalize_order_pay_type(pay_type)
         
         # Обновляем профиль пользователя данными из формы (БЕЗ pay_type - пользователь должен выбирать каждый раз)
         prof.full_name = full_name
