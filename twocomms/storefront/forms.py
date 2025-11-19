@@ -47,7 +47,8 @@ class ProductForm(forms.ModelForm):
         widget=MultiFileInput(attrs={
             "multiple": True,
             "accept": "image/*",
-            "class": "form-control"
+            "class": "form-control d-none",
+            "data-extra-images-input": "1"
         })
     )
 
@@ -83,7 +84,7 @@ class ProductForm(forms.ModelForm):
             "price": forms.NumberInput(attrs={"class": "form-control", "min": "0"}),
             "discount_percent": forms.NumberInput(attrs={"class": "form-control", "min": "0", "max": "100"}),
             "featured": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-            "main_image": forms.FileInput(attrs={"class": "form-control", "accept": "image/*"}),
+            "main_image": forms.FileInput(attrs={"class": "form-control d-none", "accept": "image/*", "data-main-image-input": "1"}),
             "main_image_alt": forms.TextInput(attrs={"class": "form-control"}),
             "points_reward": forms.NumberInput(attrs={"class": "form-control", "min": "0", "value": "0"}),
         }
