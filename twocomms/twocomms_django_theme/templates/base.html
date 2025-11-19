@@ -6,7 +6,8 @@
 <!DOCTYPE html>
 <html lang='uk' data-bs-theme='dark' {% if not debug %}data-ga-id="G-109EFTWM05" data-clarity-id="t7u94cvpqc"
   data-meta-pixel-id="823958313630148" {% endif %}
-  data-tiktok-pixel-id="{% if TIKTOK_PIXEL_ID %}{{ TIKTOK_PIXEL_ID }}{% else %}D43L7DBC77UA61AHLTVG{% endif %}" {% if TIKTOK_TEST_EVENT_CODE %}data-tiktok-test-event-code="{{ TIKTOK_TEST_EVENT_CODE }}" {% endif %}>
+  data-tiktok-pixel-id="{% if TIKTOK_PIXEL_ID %}{{ TIKTOK_PIXEL_ID }}{% else %}D43L7DBC77UA61AHLTVG{% endif %}" {% if
+  TIKTOK_TEST_EVENT_CODE %}data-tiktok-test-event-code="{{ TIKTOK_TEST_EVENT_CODE }}" {% endif %}>
 
 <head>
   {% if not debug %}
@@ -438,7 +439,21 @@
   {% endwith %}
   {% endwith %}
   {% else %}
+  {% if not debug %}
+  {% with "109EFTWM05" as ga_id %}
+  {% with "t7u94cvpqc" as clarity_id %}
+  {% with "823958313630148" as meta_pixel_id %}
+  {% with "D43L7DBC77UA61AHLTVG" as tiktok_pixel_id %}
+  <div id="am" data-ga-id="{{ ga_id }}" data-clarity-id="{{ clarity_id }}" data-meta-pixel-id="{{ meta_pixel_id }}"
+    data-tiktok-pixel-id="{{ tiktok_pixel_id }}" style="display:none">
+  </div>
+  {% endwith %}
+  {% endwith %}
+  {% endwith %}
+  {% endwith %}
+  {% else %}
   <div id="am" style="display:none"></div>
+  {% endif %}
   {% endif %}
   <noscript><img height="1" width="1" style="display:none"
       src="https://www.facebook.com/tr?id=823958313630148&ev=PageView&noscript=1" /></noscript>
