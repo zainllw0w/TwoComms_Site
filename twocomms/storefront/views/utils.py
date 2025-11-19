@@ -761,3 +761,10 @@ def clear_cart(request):
     if 'promo_code_data' in request.session:
         del request.session['promo_code_data']
     request.session.modified = True
+
+
+def get_liqpay_context(request):
+    """
+    Get LiqPay context for payment.
+    """
+    return {}
