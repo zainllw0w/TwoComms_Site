@@ -128,11 +128,11 @@ class Command(BaseCommand):
         description.text = 'Магазин стріт & мілітарі одягу з ексклюзивним дизайном'
 
         # Получаем все товары с предварительной загрузкой связанных данных
-        products = Product.objects.select_related('category').prefetch_related(
+        products = Product.objects.filter(status='published', is_dropship_available=True).select_related('category').prefetch_related(
             'color_variants__color',
             'color_variants__images',
             'images'
-        ).all()
+        )
         total_products = products.count()
         processed_products = 0
 

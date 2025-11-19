@@ -27,10 +27,10 @@ def update_google_merchant_feed_on_product_save(sender, instance, created, **kwa
         media_root = getattr(settings, 'MEDIA_ROOT', os.path.join(settings.BASE_DIR, 'media'))
         output_path = os.path.join(media_root, 'google-merchant-v3.xml')
         
-        # Вызываем команду генерации feed
-        call_command('generate_google_merchant_feed', output=output_path, verbosity=0)
+        # Вызываем задачу Celery асинхронно
+        generate_google_merchant_feed_task.delay()
         
-        logger.info(f"Google Merchant feed успешно обновлен: {output_path}")
+        logger.info(f"Запущена фоновая задача обновления Google Merchant feed")
         
     except Exception as e:
         logger.error(f"Ошибка при обновлении Google Merchant feed: {e}", exc_info=True)
@@ -48,10 +48,10 @@ def update_google_merchant_feed_on_product_delete(sender, instance, **kwargs):
         media_root = getattr(settings, 'MEDIA_ROOT', os.path.join(settings.BASE_DIR, 'media'))
         output_path = os.path.join(media_root, 'google-merchant-v3.xml')
         
-        # Вызываем команду генерации feed
-        call_command('generate_google_merchant_feed', output=output_path, verbosity=0)
+        # Вызываем задачу Celery асинхронно
+        generate_google_merchant_feed_task.delay()
         
-        logger.info(f"Google Merchant feed успешно обновлен: {output_path}")
+        logger.info(f"Запущена фоновая задача обновления Google Merchant feed")
         
     except Exception as e:
         logger.error(f"Ошибка при обновлении Google Merchant feed: {e}", exc_info=True)
