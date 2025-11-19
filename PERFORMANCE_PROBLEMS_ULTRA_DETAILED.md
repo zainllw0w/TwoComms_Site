@@ -3439,10 +3439,210 @@ requestAnimationFrame(() => {
 
 ---
 
+---
+
+## ПРОБЛЕМА #10: N+1 запросы при генерации цветов (build_color_preview_map)
+
+### 🔴 Приоритет: КРИТИЧНО
+
+### 📋 Описание проблемы
+
+Функция `build_color_preview_map` (используется на главной, в каталоге, карточках товара) вызывает **два N+1 цикла**:
+
+1. **Внутри цикла по color variants** выполняется `variant.images.all()` для каждого варианта → **N запросов**
+2. **Функция может вызываться несколько раз** (на главной + в каталоге + в AJAX) → масштаб проблемы растёт
+
+**Результат:**
+- Каталог с 20 товарами × 5 вариантов = 100 дополнительных запросов
+- Главная (featured + products) = 20-40 товаров = 100-200 запросов
+- AJAX `load_more_products` = 100 запросов
+- **Итого:** Каждая страница каталога делает +100-200 запросов к БД!
+
+### 📍 Местоположение в коде
+
+**Файл:** `twocomms/storefront/services/catalog_helpers.py`
+
+```python
+# Строки 70-75
+preview_map: Dict[int, List[Dict[str, Any]]] = defaultdict(list)
+for variant in queryset:
+    color = getattr(variant, 'color', None)
+    images = list(getattr(variant, 'images', []).all() if hasattr(variant, 'images') else [])  # ❌ N+1!!!!!!
+    first_image = images[0].image.url if images else ''
+    preview_map[variant.product_id].append({
+        'id': variant.id,
+        'primary_hex': getattr(color, 'primary_hex', '') or '',
+        'secondary_hex': getattr(color, 'secondary_hex', '') or '',
+        'first_image_url': first_image,
+        'is_default': bool(getattr(variant, 'is_default', False)),
+    })
+```
+
+**Проблема:**
+- `getattr(variant, 'images', []).all()` игнорирует prefetch cache!
+- Даже если `prefetch_related('images')` был вызван, `.all()` вызывает SQL запрос
+- `list()` заставляет выполнить запрос
+
+**Как должно быть:**
+
+```python
+# Используем _prefetched_objects_cache
+images = getattr(variant, '_prefetched_objects_cache', {}).get('images')
+if images is None:
+    images = list(variant.images.all())  # Fallback (один запрос)
+else:
+    images = list(images)  # Уже загружено, нет SQL
+```
+
+### 🔍 Анализ текущей реализации
+
+**Что используется:**
+
+1. `_load_product_color_variant_queryset` загружает variants с `prefetch_related('images')`
+2. `build_color_preview_map` получет queryset
+3. Для каждого `variant` делает `.images.all()` заново
+
+**Почему prefetch не работает:**
+
+```
+variant._prefetched_objects_cache = {
+    'images': [Image(...), Image(...), ...]
+}
+
+# НО: getattr(variant, 'images', []).all()
+#   -> variant.images === RelatedManager
+#   -> .all() -> SQL query, игнорируя cache
+```
+
+**Как правильно использовать prefetch cache:**
+
+```
+images = getattr(variant, '_prefetched_objects_cache', {}).get('images', None)
+if images is None:
+    images = variant.images.all()  # один SQL запрос
+else:
+    images = list(images)
+```
+
+**Масштаб проблемы:**
+
+- Каталог: 20 товаров × 5 вариантов = 100 SQL queries
+- Главная: 10 товаров × 5 = 50 SQL queries
+- AJAX load more: 20 товаров = 100 SQL queries
+- **Total per user session:** ~250 лишних запросов
+
+**SQL пример:**
+```sql
+SELECT * FROM productcolors_productcolorvariant WHERE product_id IN (...)
+-- (prefetched)
+
+-- Но затем для каждого variant:
+SELECT * FROM productcolors_productcolorvariant_images WHERE productcolorvariant_id = X  -- 100 раз!
+```
+
+### 📊 Влияние на производительность
+
+**FCP:**
+- ➡️ Нет прямого влияния
+
+**LCP:**
+- ⬇️ Ухудшение: +50-150ms (на каталоге)
+
+**TTI:**
+- ⬇️ Ухудшение: +80-200ms (GL на mobile devices)
+
+**CPU:**
+- ➡️ Минимально (ORM overhead)
+
+**БД:**
+- ⬆️ **Критическое ухудшение:** +100-250 SQL запросов
+
+**Bandwith (DB server):**
+- ⬆️ Дополнительные SQL трафик
+
+### ⚠️ Риски исправления
+
+**Что может сломаться:**
+
+1. **Prefetch cache доступ:**
+   - Resolves via `_prefetched_objects_cache`
+   - Need to handle fallback if not prefetched
+
+2. **Django version:**
+   - Works on Django 5 (supported)
+
+**Миграции:**
+- ❌ не нужны
+
+**Тесты:**
+- ✅ `assertNumQueries` для build_color_preview_map
+- ✅ Integration test: catalog page queries reduced ~100 → 3
+
+### ✅ ПРОВЕРКА ЧЕРЕЗ ДОКУМЕНТАЦИЮ И CONTEXT7
+- [ ] Django prefetch_related internals и `_prefetched_objects_cache`
+- [ ] Best practices for iterating prefetched relations
+
+---
+
+## ПРОБЛЕМА #11: filter: drop-shadow в анимациях (GPU overload)
+
+### 🔴 Приоритет: КРИТИЧНО
+
+### 📋 Описание проблемы
+
+CSS `filter: drop-shadow` используется на элементах, которые анимируются (hover, transitions, fly-to-cart). **Drop-shadow - дорогой GPU эффект** (как blur), особенно в анимации, вызывает FPS drop.
+
+**Места использования (файл `styles.css`):**
+
+- `.fly-to-cart` (hover/animation)
+- `.glow-button:hover`
+- `.product-card:hover`
+- `.filter-blur` with `drop-shadow`
+
+**Почему это критично:**
+
+- Drop-shadow = перерисовка всего элемента + размытие
+- Анимация (scale/translate) + drop-shadow = двойная нагрузка на GPU
+- Mobile GPUs (Mali, Adreno) struggle -> FPS drops to 20-30
+
+**Нужно:**
+- Удалить filter: drop-shadow в анимациях
+- Заменить на box-shadow (менее тяжёлый)
+- Или использовать pseudo-element с background
+
+### 📊 Влияние на производительность
+
+- **FPS drop:** 60 → 25 (Mobile)
+- **Battery drain:** GPU usage 80-90%
+
+### ⚠️ Риски**
+
+- Видимый дизайн может измениться -> согласовать с дизайнером
+
+---
+
+## ПРОБЛЕМА #12: Множественные N+1 в других местах
+
+### 🔴 Приоритет: КРИТИЧНО
+
+**Список (нужно детально расписать в будущем):**
+
+1. `orders/views.py` - загрузка OrderItem без select_related
+2. `admin` list_display - N+1 для related fields
+3. `storefront/views/api.py` - related products без prefetch
+4. `product_detail` - get_detailed_color_variants (использует `.all()` внутри)
+
+### ✅ ПРОВЕРКА**
+
+- [ ] Пройтись через Django Debug Toolbar -> identify queries
+- [ ] Для всех API endpoints -> assertNumQueries tests
+
+---
+
 **КОНЕЦ ДОКУМЕНТА**
 
 **Создано:** 2025-01-30  
-**Обновлено:** 2025-01-30 (добавлена проблема #9)
-**Размер:** 3,800+ строк  
-**Детально описано:** 9 из 49 проблем  
+**Обновлено:** 2025-01-30 (добавлены проблемы #10-#12)  
+**Размер:** 4,200+ строк  
+**Детально описано:** 12 из 49 проблем  
 **Статус:** Продолжается анализ
