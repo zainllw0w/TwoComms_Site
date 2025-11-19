@@ -20,1534 +20,293 @@
   <link rel="preconnect" href="https://www.clarity.ms">
   <link rel="dns-prefetch" href="https://www.clarity.ms">
   {% endif %}
-  <meta charset='utf-8'>
-  <meta name='viewport' content='width=device-width, initial-scale=1'>
-  <meta name="csrf-token" content="{{ csrf_token }}">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}TwoComms{% endblock %}</title>
+  {% get_seo_data as seo %}
+  {% if seo %}
+  <meta name="description" content="{{ seo.description }}">
+  <meta name="keywords" content="{{ seo.keywords }}">
+  {% endif %}
 
-  <!-- Font Awesome: локальный бандл + CDN (ускоряет загрузку, но не критичен) -->
-  <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-  <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" as="style"
-    crossorigin="anonymous" referrerpolicy="no-referrer" onload="this.rel='stylesheet'">
-  <noscript>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
-      crossorigin="anonymous" referrerpolicy="no-referrer">
-  </noscript>
+  <!-- Favicon -->
+  <link rel="icon" href="{% static 'img/favicon.ico' %}" sizes="any">
+  <link rel="icon" href="{% static 'img/favicon-32x32.png' %}" type="image/png">
+  <link rel="apple-touch-icon" href="{% static 'img/favicon-192x192.png' %}">
+  <link rel="manifest" href="{% static 'img/site.webmanifest' %}">
 
-  <!-- Расширенные SEO Meta Tags -->
-  {% block seo_meta %}
-  <title>{% block title %}TwoComms — Стріт & Мілітарі Одяг{% endblock %}</title>
-  <meta name="robots"
-    content="{% block robots %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endblock %}">
-  <meta name="description"
-    content="{% block description %}TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю.{% endblock %}">
-  <meta name="keywords"
-    content="{% block keywords %}стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, одяг з характером, стріт стиль, мілітарі стиль{% endblock %}">
-  <link rel="canonical"
-    href="{% block canonical %}{{ request.scheme }}://{{ request.get_host }}{{ request.path }}{% endblock %}">
-  {% block pagination_links %}{% endblock %}
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-  <!-- Open Graph / Facebook -->
-  <meta property="og:type" content="{% block og_type %}website{% endblock %}">
-  <meta property="og:url"
-    content="{% block og_url %}{{ request.scheme }}://{{ request.get_host }}{{ request.path }}{% endblock %}">
-  <meta property="og:title" content="{% block og_title %}TwoComms — Стріт & Мілітарі Одяг{% endblock %}">
-  <meta property="og:description"
-    content="{% block og_description %}TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю.{% endblock %}">
-  <meta property="og:image"
-    content="{% block og_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo.svg' %}{% endblock %}">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-  <meta property="og:site_name" content="TwoComms">
-  <meta property="og:locale" content="uk_UA">
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
-  <!-- Twitter -->
-  <meta property="twitter:card" content="summary_large_image">
-  <meta property="twitter:url"
-    content="{% block twitter_url %}{{ request.scheme }}://{{ request.get_host }}{{ request.path }}{% endblock %}">
-  <meta property="twitter:title" content="{% block twitter_title %}TwoComms — Стріт & Мілітарі Одяг{% endblock %}">
-  <meta property="twitter:description"
-    content="{% block twitter_description %}TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю.{% endblock %}">
-  <meta property="twitter:image"
-    content="{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo.svg' %}{% endblock %}">
-  {% endblock %}
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
-  <!-- Performance and Caching -->
-  <meta http-equiv="Cache-Control" content="public, max-age=3600">
-  <meta http-equiv="Expires" content="{% now 'D, d M Y H:i:s' %} GMT">
-
-  <!-- External Resources - Оптимизированное дерево зависимостей -->
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
-
-  <link rel="preload" href="{% static 'js/main.js' %}?v=38" as="script" crossorigin="anonymous">
-  <link rel="modulepreload" href="{% static 'js/modules/shared.js' %}">
-  <link rel="modulepreload" href="{% static 'js/modules/optimizers.js' %}">
-  <link rel="modulepreload" href="{% static 'js/modules/product-media.js' %}">
-  <link rel="modulepreload" href="{% static 'js/modules/homepage.js' %}">
-  <link rel="modulepreload" href="{% static 'js/modules/cart.js' %}">
-
-  <!-- Асинхронная загрузка Bootstrap CSS с приоритизацией -->
-  <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' rel='preload' as='style'
-    onload="this.onload=null;this.rel='stylesheet'" media="all">
-  <noscript>
-    <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' rel='stylesheet'>
-  </noscript>
-
-
-
-  <!-- PWA Support -->
-  <link rel="manifest" href="{% static 'site.webmanifest' %}">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="TwoComms">
-
-  <!-- Favicon and Icons -->
-  <link rel='apple-touch-icon' sizes='180x180' href='{% static ' img/favicon-180x180.png' %}'>
-  <link rel='icon' type='image/png' sizes='32x32' href='{% static ' img/favicon-32x32.png' %}'>
-  <link rel='icon' type='image/png' sizes='192x192' href='{% static ' img/favicon-192x192.png' %}'>
-  <link rel='icon' type='image/png' sizes='512x512' href='{% static ' img/favicon-512x512.png' %}'>
-  <meta name='application-name' content='TwoComms'>
-  <meta name='theme-color' content='#111111'>
-  <meta name='msapplication-TileColor' content='#111111'>
-  <meta name='msapplication-TileImage' content='{% static ' img/favicon-180x180.png' %}'>
-  <meta name='msapplication-square512x512logo' content="{% static 'img/favicon-512x512.png' %}">
-  <link rel='mask-icon' href='{% static ' img/logo.svg' %}' color='#7c3aed'>
-  <link rel='icon' href='{% static ' img/favicon.ico' %}' sizes='any' type='image/x-icon'>
-
-  <!-- Early performance hint: enable lite mode for save-data/low-memory/low-CPU -->
-  <script>(function () { try { var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection; var save = c && c.saveData; var lowRam = Number(navigator.deviceMemory || 0) && navigator.deviceMemory <= 1; var lowCPU = Number(navigator.hardwareConcurrency || 0) && navigator.hardwareConcurrency <= 1; if (save || lowRam || lowCPU) { document.documentElement.classList.add('perf-lite'); } } catch (e) { } })();</script>
-
-  <!-- Critical CSS inline для быстрой отрисовки с CLS исправлениями -->
-  <style>
-    /* Critical CSS - минимальные стили для первой отрисовки */
-    body {
-      margin: 0;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0a0a0a;
-      color: #ffffff;
-      font-size-adjust: 0.52;
-    }
-
-    .navbar {
-      position: fixed;
-      /* Всегда на верху экрана */
-      top: 0;
-      /* Позиция сверху */
-      left: 0;
-      /* От левого края */
-      right: 0;
-      /* До правого края */
-      z-index: 1030;
-      /* Поверх контента */
-      width: 100%;
-      /* На всю ширину */
-      background: rgba(0, 0, 0, 0.8);
-      backdrop-filter: blur(10px);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      height: 70px;
-      /* Фиксированная высота */
-      contain: layout;
-      /* Изолируем layout */
-    }
-
-    /* Отступ сверху для main, чтобы контент не был под navbar */
-    main.container-xxl {
-      padding-top: calc(70px + 1rem) !important;
-      /* Высота navbar + оригинальный padding */
-    }
-
-    .hero-section {
-      min-height: 60vh;
-      /* Уменьшаем высоту hero-панели */
-      height: 60vh;
-      /* Фиксированная высота */
-      max-height: 60vh;
-      /* Предотвращаем переполнение */
-      display: flex;
-      align-items: center;
-      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
-      position: relative;
-      contain: layout size;
-      /* Изолируем layout и размеры */
-      overflow: hidden;
-    }
-
-    .hero-content {
-      display: flex;
-      justify-content: center;
-      width: 100%;
-    }
-
-    .hero-container {
-      --hero-gutter-x: 1.5rem;
-      --hero-gutter-y: 1.5rem;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      margin-top: calc(-1 * var(--hero-gutter-y));
-      margin-right: calc(-.5 * var(--hero-gutter-x));
-      margin-left: calc(-.5 * var(--hero-gutter-x));
-    }
-
-    .hero-container>[class*='col-'] {
-      flex: 0 0 auto;
-      padding-right: calc(var(--hero-gutter-x) * .5);
-      padding-left: calc(var(--hero-gutter-x) * .5);
-      padding-top: var(--hero-gutter-y);
-      padding-bottom: 0;
-      width: 100%;
-      max-width: 100%;
-    }
-
-    @media (min-width: 768px) {
-      .hero-container>.col-md-6 {
-        width: 50%;
-        max-width: 50%;
-      }
-    }
-
-    .hero-text-section {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 1.5rem;
-      min-height: clamp(320px, 28vw, 420px);
-    }
-
-    .hero-title-main,
-    .hero-title-accent,
-    .hero-subtitle {
-      font-size-adjust: 0.52;
-    }
-
-    main.container-xxl {
-      min-height: 100vh;
-      /* Предотвращаем смещения при загрузке контента */
-      position: relative;
-      contain: layout;
-      /* Изолируем layout от внешних влияний */
-    }
-
-    .hero-particles {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      contain: layout;
-      /* Изолируем layout */
-      z-index: 1;
-    }
-
-    .hero-particles .particle {
-      position: absolute;
-      width: 4px;
-      height: 4px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 50%;
-      contain: layout;
-      /* Изолируем layout */
-    }
-
-    .loading {
-      opacity: 0.7;
-    }
-
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 0 15px;
-    }
-
-    /* Предотвращаем смещения при загрузке изображений */
-    img {
-      height: auto;
-      max-width: 100%;
-      contain: layout;
-      /* Изолируем layout */
-    }
-
-    /* Фиксируем стартовые состояния панелей и ratio-блоков без ожидания внешнего CSS */
-    .user-panel,
-    #mini-cart-panel-mobile,
-    #user-panel-mobile {
-      display: none !important;
-      visibility: hidden !important;
-      pointer-events: none !important;
-    }
-
-    .user-panel.show,
-    #mini-cart-panel-mobile.show,
-    #user-panel-mobile.show {
-      display: block !important;
-      visibility: visible !important;
-      pointer-events: auto !important;
-    }
-
-    @media (min-width: 768px) {
-
-      #mini-cart-panel-mobile,
-      #user-panel-mobile {
-        display: none !important;
-        visibility: hidden !important;
-        pointer-events: none !important;
-      }
-    }
-
-    @media (max-width: 768px) {
-      .hero-text-section {
-        min-height: 340px;
-      }
-    }
-
-    .ratio {
-      position: relative;
-      overflow: hidden;
-    }
-
-    .ratio picture,
-    .ratio img {
-      display: block;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .hero-logo-image {
-      aspect-ratio: 1 / 1;
-      max-width: 100%;
-      height: auto;
-      object-fit: contain;
-      contain: layout;
-    }
-
-    picture {
-      display: block;
-      contain: layout;
-    }
-
-    /* Предотвращаем смещения при загрузке скриптов */
-    .script-loading {
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-
-    .script-loaded {
-      opacity: 1;
-    }
-  </style>
-
-  <!-- Асинхронная загрузка основного CSS с приоритизацией (Optimized by django-compressor) -->
+  <!-- Custom CSS -->
   {% compress css %}
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  <link rel="stylesheet" href="{% static 'css/animations.css' %}">
+  <link rel="stylesheet" href="{% static 'css/components.css' %}">
   <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
-  <link rel="stylesheet" href="{% static 'css/styles.css' %}">
-  <link rel="stylesheet" href="{% static 'css/cls-ultimate.css' %}">
   {% endcompress %}
 
-  <style>
-    /* Lite mode on constrained devices: reduce expensive visual effects */
-    .perf-lite .hero.bg-hero,
-    .perf-lite .bottom-nav,
-    .perf-lite #mini-cart-panel-mobile,
-    .perf-lite #user-panel-mobile {
-      backdrop-filter: none !important;
-    }
-
-    .perf-lite .card.product,
-    .perf-lite .bottom-nav-item:hover .bottom-nav-icon svg,
-    .perf-lite .bottom-nav-item.active .bottom-nav-icon svg {
-      filter: none !important;
-      box-shadow: none !important;
-    }
-
-    .perf-lite .hint-wiggle,
-    .perf-lite .reveal,
-    .perf-lite .reveal-fast {
-      transition: none !important;
-    }
-
-    /* Отключаем только тяжелые фоновые эффекты на слабых устройствах */
-    .perf-lite body::before,
-    .perf-lite body::after {
-      opacity: 0.3 !important;
-      animation-duration: 20s !important;
-    }
-
-    .perf-lite .cart-sparks-container,
-    .perf-lite .avatar-glow,
-    .perf-lite .avatar-glow-large,
-    .perf-lite .avatar-glow-mobile,
-    .perf-lite .cart-glow,
-    .perf-lite .cart-glow-mobile {
-      opacity: 0.5 !important;
-    }
-
-    @media (max-width: 576px) {
-      .perf-lite .bottom-nav {
-        box-shadow: none !important;
-      }
-    }
-  </style>
   {% block extra_css %}{% endblock %}
 
-  <!-- Structured Data (JSON-LD) -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    "name": "TwoComms",
-    "url": "{{ request.scheme }}://{{ request.get_host }}",
-    "logo": "{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo.svg' %}",
-    "description": "Магазин стріт & мілітарі одягу з ексклюзивним дизайном",
-    "foundingDate": "2024",
-    "address": {
-      "@type": "PostalAddress",
-      "addressCountry": "UA",
-      "addressLocality": "Україна"
-    },
-    "contactPoint": {
-      "@type": "ContactPoint",
-      "contactType": "customer service",
-      "availableLanguage": "Ukrainian"
-    },
-    "sameAs": [
-      "https://instagram.com/twocomms",
-      "https://t.me/twocomms"
-    ]
-  }
-  </script>
-
-  <!-- TikTok Pixel загружается через analytics-loader.js для избежания дублирования -->
-
-  <!-- Meta Pixel Code - оптимизированная загрузка -->
-  {% if request.user.is_authenticated %}
-  {% with user_profile=request.user.userprofile %}
-  {% with email=request.user.email|default:user_profile.email|lower|escapejs %}
-  {% with phone=user_profile.phone|escapejs %}
-  {% with full_name=user_profile.full_name|default:request.user.get_full_name|escapejs %}
-  {% with city=user_profile.city|escapejs %}
-  <div id="am" data-external-id="{{ request.user.id }}" {% if email %}data-em="{{ email }}" {% endif %} {% if phone
-    %}data-ph="{{ phone }}" {% endif %} {% if full_name %}data-fn="{{ full_name }}" {% endif %} {% if city
-    %}data-ct="{{ city }}" {% endif %} style="display:none"></div>
-  {% endwith %}
-  {% endwith %}
-  {% endwith %}
-  {% endwith %}
-  {% endwith %}
-  {% else %}
-  <div id="am" style="display:none"></div>
-  {% endif %}
-  <noscript><img height="1" width="1" style="display:none"
-      src="https://www.facebook.com/tr?id=823958313630148&ev=PageView&noscript=1" /></noscript>
-  <!-- End Meta Pixel Code -->
-  {% block structured_data %}{% endblock %}
-
-  <!-- Google Tag Manager -->
   {% if not debug %}
-  <script>
-    (function (w, d, s, l, i) {
-      // Защита от блокировки: проверяем что dataLayer создан
-      w[l] = w[l] || [];
-      w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
-      var f = d.getElementsByTagName(s)[0],
-        j = d.createElement(s),
-        dl = l != 'dataLayer' ? '&l=' + l : '';
-      j.async = true;
-      j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
-
-      // Защита от блокировки: обработчик ошибок
-      j.onerror = function () {
-        if (console && console.debug) console.debug('GTM script failed to load - possible ad blocker');
-      };
-
-      // Защита: проверяем что элемент существует перед вставкой
-      if (f && f.parentNode) {
-        f.parentNode.insertBefore(j, f);
-      } else {
-        // Fallback: добавляем в head
-        (d.head || d.getElementsByTagName('head')[0]).appendChild(j);
-      }
-    })(window, document, 'script', 'dataLayer', 'GTM-PRLLBF9H');
-  </script>
-  {% endif %}
+  <!-- Google Tag Manager -->
+  <script>(function (w, d, s, l, i) {
+      w[l] = w[l] || []; w[l].push({
+        'gtm.start':
+          new Date().getTime(), event: 'gtm.js'
+      }); var f = d.getElementsByTagName(s)[0],
+        j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+          'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+    })(window, document, 'script', 'dataLayer', 'GTM-5J5Z555');</script>
   <!-- End Google Tag Manager -->
 
-  <!-- Analytics Loader - загружаем в head для ранней инициализации пикселей -->
-  <script defer src="{% static 'js/analytics-loader.js' %}?v=3"></script>
+  <!-- Clarity -->
+  <script type="text/javascript">
+    (function (c, l, a, r, i, t, y) {
+      c[a] = c[a] || function () { (c[a].q = c[a].q || []).push(arguments) };
+      t = l.createElement(r); t.async = 1; t.src = "https://www.clarity.ms/tag/" + i;
+      y = l.getElementsByTagName(r)[0]; y.parentNode.insertBefore(t, y);
+    })(window, document, "clarity", "script", "t7u94cvpqc");
+  </script>
+  {% endif %}
 </head>
 
-<body class='bg-body text-body'
-  style='font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;'>
+<body>
+  {% if not debug %}
   <!-- Google Tag Manager (noscript) -->
-  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PRLLBF9H" height="0" width="0"
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-5J5Z555" height="0" width="0"
       style="display:none;visibility:hidden"></iframe></noscript>
   <!-- End Google Tag Manager (noscript) -->
-  {% include 'partials/header.html' %}
-  <main class='container-xxl py-4 py-md-5'>
-    {% block breadcrumbs %}{% endblock %}
-    {% block content %}{% endblock %}
-  </main>
-  {% block modals %}{% endblock %}
-  {% cache 86400 footer_block %}
-  {% include 'partials/footer.html' %}
-  {% endcache %}
+  {% endif %}
 
-  <!-- Мобильные мини-панели (только для мобильной версии) -->
-  <div id="mini-cart-panel-mobile" class="cart-panel d-none d-md-none">
-    <!-- Анимация искр для корзины -->
-    <div class="cart-sparks-container">
-      <div class="cart-spark cart-spark-1"></div>
-      <div class="cart-spark cart-spark-2"></div>
-      <div class="cart-spark cart-spark-3"></div>
-      <div class="cart-spark cart-spark-4"></div>
-      <div class="cart-spark cart-spark-5"></div>
-      <div class="cart-spark cart-spark-6"></div>
-    </div>
-
-    <!-- Заголовок корзины -->
-    <div class="cart-header">
-      <div class="cart-header-icon">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-          <path
-            d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z" />
-        </svg>
-      </div>
-      <div class="cart-title">Кошик</div>
-      <button type="button" class="close-btn" data-cart-close-mobile aria-label="Закрити">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path
-            d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-        </svg>
-      </button>
-    </div>
-
-    <!-- Содержимое корзины -->
-    <div id="mini-cart-content-mobile" class="cart-content">
-      <div class="cart-loading">
-        <div class="loading-spinner"></div>
-        <div class="loading-text">Завантаження…</div>
-      </div>
-    </div>
-
-    <!-- Меню действий корзины -->
-    <div class="cart-menu">
-      <a href="{% url 'delivery' %}" class="cart-menu-item">
-        <div class="cart-menu-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" />
-          </svg>
-        </div>
-        <span>Умови доставки і оплати</span>
-        <div class="cart-menu-arrow">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
-          </svg>
-        </div>
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top glass-effect">
+    <div class="container">
+      <a class="navbar-brand d-flex align-items-center gap-2" href="{% url 'home' %}">
+        <img src="{% static 'img/logo.png' %}" alt="TwoComms" height="40" class="d-inline-block align-text-top">
+        <span class="fw-bold gradient-text">TwoComms</span>
       </a>
-    </div>
 
-    <!-- Информационная панель -->
-    <div class="cart-info">
-      <div class="cart-info-icon">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
-        </svg>
-      </div>
-      <div class="cart-info-text">
-        Залишайте заявку на сайті або оплачуйте миттєво через mono checkout
-      </div>
-    </div>
-  </div>
+      <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
 
-  <div id="user-panel-mobile" class="user-panel d-none d-md-none" aria-hidden="true" inert>
-    {% if request.user.is_authenticated %}
-    <!-- Заголовок профиля -->
-    <div class="user-header">
-      <div class="user-avatar-large">
-        {% if request.user.userprofile and request.user.userprofile.avatar %}
-        <img src="{{ request.user.userprofile.avatar.url }}" class="avatar-image" loading="lazy" decoding="async"
-          fetchpriority="low" alt="Аватар користувача - TwoComms" width="36" height="36">
-        {% elif request.session.profile_avatar %}
-        <img src="{{ MEDIA_URL }}{{ request.session.profile_avatar }}" class="avatar-image" loading="lazy"
-          decoding="async" fetchpriority="low" alt="Аватар користувача - TwoComms" width="36" height="36">
-        {% else %}
-        <img src="{% static 'img/placeholder.jpg' %}" class="avatar-image" loading="lazy" decoding="async"
-          fetchpriority="low" alt="Аватар користувача - TwoComms" width="36" height="36">
-        {% endif %}
-        <div class="avatar-glow-large"></div>
-      </div>
-      <div class="user-info">
-        <div class="username">{{ request.user.username }}</div>
-        <div class="user-phone">
-          {% if request.user.userprofile and request.user.userprofile.phone %}
-          {{ request.user.userprofile.phone }}
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}"
+              href="{% url 'home' %}">
+              <i class="bi bi-house-door me-1"></i> Головна
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'catalog' %}active{% endif %}"
+              href="{% url 'catalog' %}">
+              <i class="bi bi-grid me-1"></i> Каталог
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'about' %}active{% endif %}"
+              href="{% url 'about' %}">
+              <i class="bi bi-info-circle me-1"></i> Про нас
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'contact' %}active{% endif %}"
+              href="{% url 'contact' %}">
+              <i class="bi bi-envelope me-1"></i> Контакти
+            </a>
+          </li>
+        </ul>
+
+        <div class="d-flex align-items-center gap-3">
+          <!-- Search -->
+          <form class="d-none d-lg-flex" role="search" action="{% url 'search' %}" method="get">
+            <div class="input-group input-group-sm">
+              <input class="form-control bg-dark text-light border-secondary" type="search" name="q"
+                placeholder="Пошук..." aria-label="Search">
+              <button class="btn btn-outline-secondary" type="submit">
+                <i class="bi bi-search"></i>
+              </button>
+            </div>
+          </form>
+
+          <!-- Cart -->
+          <a href="{% url 'cart' %}" class="btn btn-icon position-relative" aria-label="Cart">
+            <i class="bi bi-cart3 fs-5"></i>
+            {% if cart_items_count > 0 %}
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+              {{ cart_items_count }}
+              <span class="visually-hidden">items in cart</span>
+            </span>
+            {% endif %}
+          </a>
+
+          <!-- User Menu -->
+          {% if user.is_authenticated %}
+          <div class="dropdown">
+            <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle text-light"
+              id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+              {% if user.profile.avatar %}
+              <img src="{{ user.profile.avatar.url }}" alt="{{ user.username }}" width="32" height="32"
+                class="rounded-circle me-2">
+              {% else %}
+              <div
+                class="avatar-placeholder rounded-circle me-2 d-flex align-items-center justify-content-center bg-secondary text-white"
+                style="width: 32px; height: 32px;">
+                {{ user.username|make_list|first|upper }}
+              </div>
+              {% endif %}
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark shadow-lg" aria-labelledby="userDropdown">
+              <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i> Профіль</a></li>
+              <li><a class="dropdown-item" href="{% url 'my_orders' %}"><i class="bi bi-box-seam me-2"></i> Мої
+                  замовлення</a></li>
+              {% if user.is_staff %}
+              <li>
+                <hr class="dropdown-divider">
+              </li>
+              <li><a class="dropdown-item" href="{% url 'admin:index' %}"><i class="bi bi-speedometer2 me-2"></i>
+                  Адмін-панель</a></li>
+              {% endif %}
+              <li>
+                <hr class="dropdown-divider">
+              </li>
+              <li>
+                <form action="{% url 'logout' %}" method="post" class="d-inline">
+                  {% csrf_token %}
+                  <button type="submit" class="dropdown-item text-danger"><i class="bi bi-box-arrow-right me-2"></i>
+                    Вийти</button>
+                </form>
+              </li>
+            </ul>
+          </div>
           {% else %}
-          {{ request.session.profile_phone|default:"Телефон не вказано" }}
+          <a href="{% url 'login' %}" class="btn btn-outline-light btn-sm">Увійти</a>
           {% endif %}
         </div>
       </div>
-      <button type="button" class="close-btn" data-user-close-mobile aria-label="Закрити">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path
-            d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-        </svg>
-      </button>
     </div>
+  </nav>
 
-    <!-- Блок с баллами -->
-    {% if request.user.points %}
-    <a href="{% url 'buy_with_points' %}" class="points-card-link">
-      <div class="points-card">
-        <!-- Анимация искр -->
-        <div class="sparks-container">
-          <div class="spark spark-1"></div>
-          <div class="spark spark-2"></div>
-          <div class="spark spark-3"></div>
-          <div class="spark spark-4"></div>
-          <div class="spark spark-5"></div>
-          <div class="spark spark-6"></div>
-        </div>
-
-        <div class="points-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-            <path d="M12 15.4l-3.76 2.27 1-4.28-3.32-2.88 4.38-.38L12 6.1l1.71 4.04 4.38.38-3.32 2.88 1 4.28z"
-              fill="rgba(255,255,255,0.3)" />
-          </svg>
-        </div>
-        <div class="points-info">
-          <div class="points-label">Ваші бали</div>
-          <div class="points-amount">{{ request.user.points.points|default:0 }}</div>
-          <div class="points-hint">Знижки • Промокоди • Підтримка ЗСУ</div>
+  <!-- Main Content -->
+  <main class="flex-grow-1">
+    {% if messages %}
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100">
+      {% for message in messages %}
+      <div class="toast align-items-center text-white bg-{{ message.tags }} border-0 show" role="alert"
+        aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+          <div class="toast-body">
+            {{ message }}
+          </div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
+            aria-label="Close"></button>
         </div>
       </div>
-    </a>
+      {% endfor %}
+    </div>
     {% endif %}
 
-    <!-- Меню действий -->
-    <div class="user-menu">
-      <a href="{% url 'profile_setup' %}" class="menu-item">
-        <div class="menu-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-          </svg>
-        </div>
-        <span>Налаштування профілю</span>
-        <div class="menu-arrow">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
-          </svg>
-        </div>
-      </a>
+    {% block content %}{% endblock %}
+  </main>
 
-      <a href="{% url 'my_orders' %}" class="menu-item">
-        <div class="menu-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" />
-          </svg>
-        </div>
-        <span>Мої замовлення</span>
-        <div class="menu-arrow">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
-          </svg>
-        </div>
-      </a>
-
-
-      <a href="{% url 'my_promocodes' %}" class="menu-item">
-        <div class="menu-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z" />
-          </svg>
-        </div>
-        <span>Мої промокоди</span>
-        <div class="menu-arrow">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
-          </svg>
-        </div>
-      </a>
-
-      {% if request.user.is_staff or request.user.is_superuser %}
-      <a href="{% url 'admin_panel' %}" class="menu-item admin-item">
-        <div class="menu-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" />
-          </svg>
-        </div>
-        <span>Панель адміністратора</span>
-        <div class="menu-arrow">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
-          </svg>
-        </div>
-      </a>
-      {% endif %}
-    </div>
-
-    <!-- Кнопка выхода -->
-    <div class="logout-section">
-      <a href="{% url 'logout' %}" class="logout-btn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path
-            d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z" />
-        </svg>
-        <span>Вийти</span>
-      </a>
-    </div>
-    {% else %}
-    <!-- Для неавторизованных пользователей -->
-    <div class="auth-header">
-      <div class="auth-icon">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-          <path
-            d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-        </svg>
-      </div>
-      <div class="auth-title">Вхід в акаунт</div>
-      <button type="button" class="close-btn" data-user-close-mobile aria-label="Закрити">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path
-            d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-        </svg>
-      </button>
-    </div>
-
-    <div class="auth-menu">
-      <a href="{% url 'login' %}" class="auth-btn primary">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path
-            d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z" />
-        </svg>
-        <span>Увійти</span>
-      </a>
-
-      <a href="{% url 'register' %}" class="auth-btn secondary">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path
-            d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-        </svg>
-        <span>Зареєструватись</span>
-      </a>
-
-      <a href="{% url 'social:begin' 'google-oauth2' %}" class="auth-btn secondary">
-        <img src="{% static 'img/google.svg' %}" width="16" height="16" alt="Вхід через Google - TwoComms"
-          loading="lazy">
-        <span>Увійти через Google</span>
-      </a>
-    </div>
-
-    <div class="auth-info">
-      <div class="info-icon">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
-        </svg>
-      </div>
-      <div class="info-text">
-        Авторизуйтесь, щоб не вводити дані кожного разу та накопичувати бали
-      </div>
-    </div>
-    {% endif %}
-  </div>
-
-  <!-- Performance optimization: CSS loading enhancement -->
-  <script>
-    // Улучшение загрузки CSS для лучшей производительности
-    (function () {
-      // Функция для загрузки CSS асинхронно
-      function loadCSS(href, before, media) {
-        var doc = window.document;
-        var ss = doc.createElement("link");
-        var ref;
-        if (before) {
-          ref = before;
-        } else {
-          var refs = (doc.body || doc.getElementsByTagName("head")[0]).childNodes;
-          ref = refs[refs.length - 1];
-        }
-
-        var sheets = doc.styleSheets;
-        ss.rel = "stylesheet";
-        ss.href = href;
-        ss.media = "only x";
-
-        function ready(cb) {
-          if (doc.body) cb();
-          else if (doc.addEventListener) doc.addEventListener("DOMContentLoaded", cb);
-        }
-
-        ready(function () {
-          ref.parentNode.insertBefore(ss, (before ? ref : ref.nextSibling));
-        });
-
-        var onloadcssdefined = function (cb) {
-          var resolvedHref = ss.href;
-          var i = sheets.length;
-          while (i--) {
-            if (sheets[i].href === resolvedHref) {
-              return cb();
-            }
-          }
-          setTimeout(function () {
-            onloadcssdefined(cb);
-          });
-        };
-
-        function loadCB() {
-          if (ss.addEventListener) {
-            ss.removeEventListener("load", loadCB);
-          }
-          ss.media = media || "all";
-        }
-
-        if (ss.addEventListener) {
-          ss.addEventListener("load", loadCB);
-        }
-        ss.onloadcssdefined = onloadcssdefined;
-        onloadcssdefined(loadCB);
-        return ss;
-      }
-
-      // Применяем улучшения для всех preload CSS
-      var preloadLinks = document.querySelectorAll('link[rel="preload"][as="style"]');
-      preloadLinks.forEach(function (link) {
-        link.addEventListener('load', function () {
-          this.rel = 'stylesheet';
-        });
-      });
-
-      // Убираем класс loading после загрузки CSS
-      document.addEventListener('DOMContentLoaded', function () {
-        setTimeout(function () {
-          document.body.classList.remove('loading');
-        }, 100);
-      });
-    })();
-  </script>
-
-  <!-- Оптимизированная загрузка скриптов с приоритизацией -->
-  <script defer src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js'
-    onload="this.classList.add('script-loaded')" onerror="this.classList.add('script-error')"
-    crossorigin="anonymous"></script>
-  <script type="module" src="{% static 'js/main.js' %}?v=40" onload="this.classList.add('script-loaded')"
-    onerror="this.classList.add('script-error')" crossorigin="anonymous"></script>
-
-  <!-- UI fallback helpers -->
-  <script>
-    /* Fallback: глобальные функции, если основной JS не заинициализирован */
-    (function () {
-      var dlog = window.dlog || function () {
-        if (window.console && console.debug) {
-          try { console.debug.apply(console, arguments); } catch (_) { console.log.apply(console, arguments); }
-        }
-      };
-      window.dlog = dlog;
-
-      // UI debugging disabled for production
-      function getCookie(name) {
-        var m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
-        var result = m ? decodeURIComponent(m.pop()) : '';
-        return result;
-      }
-      if (typeof window.QtyInc !== 'function') {
-        window.QtyInc = function (selector) {
-          var input = typeof selector === 'string' ? document.querySelector(selector) : selector;
-          if (!input) { return; }
-          var v = parseInt(input.value || '1', 10) || 1; input.value = Math.max(1, v + 1);
-          try { if (window.trackEvent) { var pid = (document.querySelector('[data-add-to-cart]') || {}).getAttribute && document.querySelector('[data-add-to-cart]').getAttribute('data-add-to-cart'); if (pid) { window.trackEvent('CustomizeProduct', { content_ids: [String(pid)], content_type: 'product', action: 'inc_qty' }); } } } catch (_) { }
-        };
-      }
-      if (typeof window.QtyDec !== 'function') {
-        window.QtyDec = function (selector) {
-          var input = typeof selector === 'string' ? document.querySelector(selector) : selector;
-          if (!input) { return; }
-          var v = parseInt(input.value || '1', 10) || 1; input.value = Math.max(1, v - 1);
-          try { if (window.trackEvent) { var pid = (document.querySelector('[data-add-to-cart]') || {}).getAttribute && document.querySelector('[data-add-to-cart]').getAttribute('data-add-to-cart'); if (pid) { window.trackEvent('CustomizeProduct', { content_ids: [String(pid)], content_type: 'product', action: 'dec_qty' }); } } } catch (_) { }
-        };
-      }
-      if (typeof window.CartRemoveKey !== 'function') {
-        window.CartRemoveKey = function (key, el) {
-          // Получаем CSRF токен из мета-тега или cookie
-          var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
-            document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
-            getCookie('csrftoken');
-
-          var body = new URLSearchParams({ key: key });
-
-          fetch('/cart/remove/', {
-            method: 'POST',
-            headers: {
-              'X-CSRFToken': csrfToken,
-              'X-Requested-With': 'XMLHttpRequest',
-              'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
-            },
-            body: body
-          }).then(function (r) {
-            if (!r.ok) {
-              throw new Error('Network response was not ok: ' + r.status);
-            }
-            return r.json();
-          }).then(function (d) {
-            if (d && d.ok) {
-              try { if (window.updateCartBadge) window.updateCartBadge(d.count); } catch (_) { }
-
-              // Отправляем событие обновления корзины для страницы корзины
-              try {
-                document.dispatchEvent(new CustomEvent('cartUpdated', { detail: { action: 'remove', key: key } }));
-              } catch (_) { }
-
-              // Удаляем элемент из DOM
-              if (el) {
-                var row = el.closest('[data-cart-row]') || el.closest('.d-flex');
-                if (row && row.parentElement) {
-                  row.style.opacity = '0';
-                  row.style.transform = 'translateX(-20px)';
-                  row.style.transition = 'all 0.3s ease';
-                  setTimeout(function () {
-                    if (row.parentElement) row.parentElement.removeChild(row);
-                  }, 300);
-                }
-              }
-
-              // Обновляем мини-корзину
-              var miniPromise = null;
-              try { if (window.refreshMiniCart) miniPromise = window.refreshMiniCart(); } catch (_) { }
-              var reopen = function () { try { if (window.openMiniCart) { window.openMiniCart({ skipRefresh: true }); } } catch (_) { } };
-              if (miniPromise && miniPromise.finally) {
-                miniPromise.then(reopen).catch(reopen).finally(function () {
-                  try { if (window.refreshCartSummary) window.refreshCartSummary(); } catch (_) { }
-                });
-              } else {
-                try { if (window.refreshCartSummary) window.refreshCartSummary(); } catch (_) { }
-                reopen();
-              }
-
-              // Обновляем UI страницы корзины БЕЗ перезагрузки
-              var cartList = document.getElementById('cart-list');
-              if (cartList) {
-                var cartContainerEl = document.querySelector('.cart-page-container');
-                var cartController = cartContainerEl && cartContainerEl.__cartController;
-                if (cartController && typeof cartController.requestSync === 'function') {
-                  cartController.requestSync(0);
-                  return;
-                }
-                // Обновляем итоговую сумму товаров (subtotal)
-                var summaryValue = document.querySelector('.cart-summary-row:first-child .cart-summary-value');
-                var summaryLabel = document.querySelector('.cart-summary-row:first-child .cart-summary-label');
-                var payNowAmount = document.getElementById('pay-now-amount');
-
-                // Обновляем subtotal (сумма товаров без скидки)
-                if (summaryValue && d.subtotal !== undefined) {
-                  summaryValue.textContent = parseFloat(d.subtotal).toFixed(2) + ' грн';
-                }
-                if (summaryLabel && d.count !== undefined) {
-                  summaryLabel.textContent = 'Товари (' + d.count + '):';
-                }
-
-                // Обновляем блок скидки промокода если есть
-                var discountRow = document.querySelector('.cart-summary-discount');
-                if (d.discount !== undefined && d.discount > 0) {
-                  // Показываем блок скидки если его нет
-                  if (!discountRow) {
-                    // Находим место для вставки (после суммы товаров, перед итогом)
-                    var summaryRows = document.querySelectorAll('.cart-checkout-summary .cart-summary-row');
-                    if (summaryRows.length > 0) {
-                      var discountHtml = '<div class="cart-summary-row cart-summary-discount"><span class="cart-summary-label"><div class="cart-discount-label"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>Знижка промокоду</div></span><span class="cart-summary-value">-' + parseFloat(d.discount).toFixed(2) + ' грн</span></div>';
-                      summaryRows[0].insertAdjacentHTML('afterend', discountHtml);
-                    }
-                  } else {
-                    // Обновляем существующий блок
-                    var discountValue = discountRow.querySelector('.cart-summary-value');
-                    if (discountValue) {
-                      discountValue.textContent = '-' + parseFloat(d.discount).toFixed(2) + ' грн';
-                    }
-                  }
-                } else {
-                  // Скрываем блок скидки если скидки нет
-                  if (discountRow) {
-                    discountRow.remove();
-                  }
-                }
-
-                // Обновляем итоговую сумму (total)
-                if (payNowAmount && d.total !== undefined) {
-                  // КРИТИЧНО: Используем Number чтобы избежать проблем с форматированием
-                  var totalValue = Number(parseFloat(d.total));
-                  if (isNaN(totalValue)) totalValue = 0;
-
-                  // ВАЖНО: Обновляем только data-total атрибут, НЕ текст напрямую
-                  // Используем toFixed(2) для сохранения в data-атрибуте, но как число для расчетов
-                  payNowAmount.setAttribute('data-total', totalValue.toFixed(2));
-
-                  // Обновляем paymentSummary для корректного пересчета предоплаты
-                  if (window.paymentSummary) {
-                    window.paymentSummary.total = totalValue;
-                  }
-
-                  // КРИТИЧНО: ВСЕГДА вызываем updatePaymentSummary для правильного отображения суммы
-                  // Она сама решит что показывать: 200 грн при prepay_200 или полную сумму
-                  // Используем setTimeout чтобы гарантировать что updatePaymentSummary выполнится ПОСЛЕ всех обновлений
-                  setTimeout(function () {
-                    var payTypeSelect = document.getElementById('pay_type_auth') || document.getElementById('pay_type_guest');
-                    if (payTypeSelect && typeof window.updatePaymentSummary === 'function') {
-                      // Используем глобальную функцию и текущее значение селекта
-                      window.updatePaymentSummary(payTypeSelect.value || 'online_full');
-                    } else if (typeof window.updatePaymentSummary === 'function') {
-                      // Если селект еще не загружен, используем значение по умолчанию
-                      window.updatePaymentSummary('online_full');
-                    }
-                  }, 50);
-                }
-
-                // Если корзина пуста - показываем сообщение
-                if (d.count === 0) {
-                  setTimeout(function () {
-                    var mainSection = document.querySelector('.cart-main-section');
-                    if (mainSection) {
-                      mainSection.innerHTML = '<div class="cart-empty"><div class="cart-empty-icon"><svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg></div><h2 class="cart-empty-title">Кошик порожній</h2><p class="cart-empty-text">Додайте товари до кошика, щоб зробити замовлення</p><a href="/" class="cart-empty-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77л-6.18 3.25Л7 14.14 2 9.27л6.91-1.01L12 2z"/></svg>Перейти до покупок</a></div>';
-                    }
-                  }, 350);
-                }
-              }
-
-              try {
-                if (window.trackEvent) {
-                  var rowEl = el && el.closest ? el.closest('[data-cart-row]') : null;
-                  if (!rowEl) {
-                    rowEl = document.querySelector('[data-cart-row][data-key="' + key + '"]');
-                  }
-                  var offerId = rowEl ? rowEl.getAttribute('data-offer-id') : null;
-                  if (offerId) {
-                    var payload = {
-                      content_ids: [offerId],
-                      content_type: 'product',
-                      contents: [{
-                        id: offerId,
-                        quantity: 1
-                      }]
-                    };
-                    window.trackEvent('RemoveFromCart', payload);
-                  } else {
-                    if (console && console.debug) {
-                      console.debug('RemoveFromCart: offer_id not found for key', key);
-                    }
-                  }
-                }
-              } catch (_) { }
-            }
-          }).catch(function (error) {
-            // Тихая обработка ошибок - перезагружаем только если на странице корзины
-            if (document.getElementById('cart-list')) {
-              location.reload();
-            }
-          });
-        };
-      }
-      if (typeof window.CartRemove !== 'function') {
-        window.CartRemove = function (pid, size, el) { return window.CartRemoveKey(String(pid) + ':' + (size || ''), el); };
-      }
-
-      if (typeof window.cleanCart !== 'function') {
-        window.cleanCart = function () {
-          if (confirm('Ви впевнені, що хочете очистити кошик?')) {
-            var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
-              document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
-              getCookie('csrftoken');
-
-            fetch('/cart/clear/', {
-              method: 'POST',
-              headers: {
-                'X-CSRFToken': csrfToken,
-                'X-Requested-With': 'XMLHttpRequest',
-                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
-              }
-            }).then(function (r) {
-              if (!r.ok) {
-                throw new Error('Network response was not ok');
-              }
-              return r.json();
-            }).then(function (d) {
-              if (d && d.ok) {
-                location.reload();
-              }
-            }).catch(function (error) {
-              // Тихая обработка - перезагружаем в любом случае
-              location.reload();
-            });
-          }
-        };
-      }
-      if (typeof window.AddToCart !== 'function') {
-        window.AddToCart = function (btn) {
-          var productId = btn.getAttribute('data-add-to-cart');
-          var sizeInput = document.querySelector('input[name="size"]:checked');
-          var size = (sizeInput ? sizeInput.value : 'S') || 'S';
-          var wrap = btn.closest('[data-qty]') || document;
-          var qtyInput = wrap.querySelector('input[type="number"]#qty') || wrap.querySelector('[data-qty] input[type="number"]') || document.querySelector('#qty') || (btn.parentElement ? btn.parentElement.querySelector('input[type="number"]') : null);
-          var qty = Math.max(1, parseInt(qtyInput && qtyInput.value ? qtyInput.value : '1', 10));
-
-          // Получаем выбранный цвет
-          var colorVariantId = null;
-          var activeColorSwatch = document.querySelector('#color-picker .color-swatch.active');
-          if (activeColorSwatch) {
-            colorVariantId = activeColorSwatch.getAttribute('data-variant');
-          }
-
-          // Получаем CSRF токен
-          var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
-            document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
-            getCookie('csrftoken');
-
-          var body = new URLSearchParams({ product_id: String(productId), size: String(size).toUpperCase(), qty: String(qty) });
-          if (colorVariantId) {
-            body.append('color_variant_id', colorVariantId);
-          }
-
-          fetch('/cart/add/', {
-            method: 'POST',
-            headers: {
-              'X-CSRFToken': csrfToken,
-              'X-Requested-With': 'XMLHttpRequest',
-              'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
-            },
-            body: body
-          }).then(function (r) {
-            if (!r.ok) {
-              throw new Error('Network response was not ok');
-            }
-            return r.json();
-          }).then(function (d) {
-            if (d && d.ok) {
-              try {
-                if (window.updateCartBadge) window.updateCartBadge(d.count);
-                if (window.refreshMiniCart) window.refreshMiniCart();
-                if (window.openMiniCart) window.openMiniCart();
-                if (document.querySelector('.cart-page-container')) {
-                  try {
-                    if (window.refreshCartPage) { window.refreshCartPage(); }
-                    else { window.location.reload(); }
-                  } catch (_) { window.location.reload(); }
-                }
-              } catch (_) { }
-              try {
-                if (window.__twcTrackAddToCart) {
-                  window.__twcTrackAddToCart(d, btn, qty);
-                }
-              } catch (trackErr) {
-                if (window.console && console.debug) {
-                  console.debug('AddToCart tracking error:', trackErr);
-                }
-              }
-              // AddToCart tracking handled by main.js to avoid duplication
-            } else {
-              console.error('Add to cart failed:', d);
-            }
-          }).catch(function (error) {
-            console.error('Add to cart error:', error);
-            alert('Помилка при додаванні товару до кошика. Спробуйте ще раз.');
-          });
-          return false;
-        };
-      }
-    })();
-
-    // Применяем CSS переменные для комбинированных цветов в корзине и заказах
-    document.addEventListener('DOMContentLoaded', function () {
-      document.querySelectorAll('.swatch[data-secondary]:not([data-secondary=""])').forEach(function (swatch) {
-        var primary = swatch.getAttribute('data-primary');
-        var secondary = swatch.getAttribute('data-secondary');
-
-        if (secondary && secondary !== '') {
-          swatch.style.setProperty('--primary-color', primary);
-          swatch.style.setProperty('--secondary-color', secondary);
-        }
-      });
-    });
-  </script>
-
-  <!-- Модальное окно с информацией о баллах -->
-  <div class="modal fade" id="pointsInfoModal" tabindex="-1" aria-labelledby="pointsInfoModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content points-info-modal">
-        <div class="modal-header">
-          <div class="modal-title-section">
-            <div class="modal-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                <path
-                  d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-              </svg>
-            </div>
-            <div class="modal-title-content">
-              <h5 class="modal-title" id="pointsInfoModalLabel">Система балів</h5>
-              <p class="modal-subtitle">Як працюють бали за покупки</p>
-            </div>
-          </div>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-          <div class="points-info-content">
-            <div class="product-points-info">
-              <div class="product-points-badge">
-                <span class="points-amount" id="modalPointsAmount">0</span>
-                <span class="points-label">балів за цей товар</span>
-              </div>
-              <div class="product-title" id="modalProductTitle">Назва товару</div>
-            </div>
-
-            <div class="points-explanation">
-              <div class="explanation-item">
-                <div class="explanation-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path
-                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                  </svg>
-                </div>
-                <div class="explanation-text">
-                  <strong>Нарахування балів:</strong> Бали нараховуються автоматично після підтвердження замовлення
-                </div>
-              </div>
-
-              <div class="explanation-item">
-                <div class="explanation-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path
-                      d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z" />
-                  </svg>
-                </div>
-                <div class="explanation-text">
-                  <strong>Використання балів:</strong> Зареєстровані користувачі можуть витратити бали у кабінеті
-                </div>
-              </div>
-
-              <div class="explanation-item">
-                <div class="explanation-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path
-                      d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                  </svg>
-                </div>
-                <div class="explanation-text">
-                  <strong>Можливості:</strong> Обмін на промокоди або пожертвування на ЗСУ
-                </div>
-              </div>
-            </div>
-
-            <div class="points-actions">
-              {% if user.is_authenticated %}
-              <a href="{% url 'buy_with_points' %}" class="btn btn-primary points-action-btn">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path
-                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                </svg>
-                Перейти до балів
-              </a>
-              {% else %}
-              <a href="{% url 'login' %}" class="btn btn-outline-primary points-action-btn">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path
-                    d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z" />
-                </svg>
-                Увійти для накопичення балів
-              </a>
-              {% endif %}
-            </div>
+  <!-- Footer -->
+  <footer class="bg-dark text-light py-5 mt-auto border-top border-secondary">
+    <div class="container">
+      <div class="row g-4">
+        <div class="col-lg-4 col-md-6">
+          <a href="{% url 'home' %}" class="d-flex align-items-center gap-2 text-decoration-none text-light mb-3">
+            <img src="{% static 'img/logo.png' %}" alt="TwoComms" height="30">
+            <span class="fw-bold fs-5">TwoComms</span>
+          </a>
+          <p class="text-secondary">Сучасний магазин електроніки та аксесуарів. Найкращі ціни та швидка доставка по всій
+            Україні.</p>
+          <div class="d-flex gap-3 mt-3">
+            <a href="#" class="text-secondary hover-text-primary"><i class="bi bi-instagram fs-5"></i></a>
+            <a href="#" class="text-secondary hover-text-primary"><i class="bi bi-telegram fs-5"></i></a>
+            <a href="#" class="text-secondary hover-text-primary"><i class="bi bi-facebook fs-5"></i></a>
           </div>
         </div>
+
+        <div class="col-lg-2 col-md-6">
+          <h5 class="fw-bold mb-3">Навігація</h5>
+          <ul class="list-unstyled">
+            <li class="mb-2"><a href="{% url 'home' %}"
+                class="text-secondary text-decoration-none hover-text-light">Головна</a></li>
+            <li class="mb-2"><a href="{% url 'catalog' %}"
+                class="text-secondary text-decoration-none hover-text-light">Каталог</a></li>
+            <li class="mb-2"><a href="{% url 'about' %}"
+                class="text-secondary text-decoration-none hover-text-light">Про нас</a></li>
+            <li class="mb-2"><a href="{% url 'contact' %}"
+                class="text-secondary text-decoration-none hover-text-light">Контакти</a></li>
+          </ul>
+        </div>
+
+        <div class="col-lg-2 col-md-6">
+          <h5 class="fw-bold mb-3">Клієнтам</h5>
+          <ul class="list-unstyled">
+            <li class="mb-2"><a href="#" class="text-secondary text-decoration-none hover-text-light">Доставка та
+                оплата</a></li>
+            <li class="mb-2"><a href="#" class="text-secondary text-decoration-none hover-text-light">Гарантія та
+                повернення</a></li>
+            <li class="mb-2"><a href="#" class="text-secondary text-decoration-none hover-text-light">Політика
+                конфіденційності</a></li>
+            <li class="mb-2"><a href="#" class="text-secondary text-decoration-none hover-text-light">Угода
+                користувача</a></li>
+          </ul>
+        </div>
+
+        <div class="col-lg-4 col-md-6">
+          <h5 class="fw-bold mb-3">Контакти</h5>
+          <ul class="list-unstyled text-secondary">
+            <li class="mb-2"><i class="bi bi-geo-alt me-2"></i> м. Київ, вул. Хрещатик, 1</li>
+            <li class="mb-2"><i class="bi bi-telephone me-2"></i> +38 (099) 123-45-67</li>
+            <li class="mb-2"><i class="bi bi-envelope me-2"></i> info@twocomms.shop</li>
+            <li class="mb-2"><i class="bi bi-clock me-2"></i> Пн-Нд: 09:00 - 21:00</li>
+          </ul>
+        </div>
+      </div>
+
+      <hr class="border-secondary my-4">
+
+      <div class="row align-items-center">
+        <div class="col-md-6 text-center text-md-start">
+          <p class="mb-0 text-secondary">&copy; {% now "Y" %} TwoComms. Всі права захищені.</p>
+        </div>
+        <div class="col-md-6 text-center text-md-end mt-3 mt-md-0">
+          <img src="{% static 'img/payment-methods.png' %}" alt="Payment Methods" height="24" class="opacity-50">
+        </div>
       </div>
     </div>
-  </div>
+  </footer>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      // Обработчик для модального окна с информацией о баллах
-      const pointsInfoModal = document.getElementById('pointsInfoModal');
-      if (pointsInfoModal) {
-        pointsInfoModal.addEventListener('show.bs.modal', function (event) {
-          const button = event.relatedTarget;
-          const productTitle = button.getAttribute('data-product-title');
-          const pointsAmount = button.getAttribute('data-points-amount');
-
-          // Обновляем содержимое модального окна
-          document.getElementById('modalProductTitle').textContent = productTitle;
-          document.getElementById('modalPointsAmount').textContent = pointsAmount;
-        });
-      }
-    });
-  </script>
-
-  <style>
-    .points-info-modal .modal-content {
-      background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 16px;
-    }
-
-    .points-info-modal .modal-header {
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      padding: 1.5rem;
-    }
-
-    .modal-title-section {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-
-    .modal-icon {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 48px;
-      height: 48px;
-      background: linear-gradient(135deg, var(--accent-color), #7c3aed);
-      border-radius: 12px;
-      color: white;
-    }
-
-    .modal-title {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: var(--text-primary);
-      margin: 0;
-    }
-
-    .modal-subtitle {
-      font-size: 0.9rem;
-      color: var(--text-secondary);
-      margin: 0;
-    }
-
-    .points-info-modal .modal-body {
-      padding: 1.5rem;
-    }
-
-    .product-points-info {
-      text-align: center;
-      margin-bottom: 2rem;
-      padding: 1.5rem;
-      background: linear-gradient(135deg, rgba(124, 58, 237, 0.1), rgba(124, 58, 237, 0.05));
-      border-radius: 12px;
-      border: 1px solid rgba(124, 58, 237, 0.2);
-    }
-
-    .product-points-badge {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      margin-bottom: 0.5rem;
-    }
-
-    .points-amount {
-      font-size: 2rem;
-      font-weight: 700;
-      color: var(--accent-color);
-    }
-
-    .points-label {
-      font-size: 1rem;
-      color: var(--text-secondary);
-    }
-
-    .product-title {
-      font-size: 1.1rem;
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .points-explanation {
-      margin-bottom: 2rem;
-    }
-
-    .explanation-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .explanation-item:last-child {
-      margin-bottom: 0;
-    }
-
-    .explanation-icon {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 32px;
-      height: 32px;
-      background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05));
-      border-radius: 8px;
-      color: #10b981;
-      flex-shrink: 0;
-    }
-
-    .explanation-text {
-      font-size: 1rem;
-      color: var(--text-secondary);
-      line-height: 1.5;
-    }
-
-    .explanation-text strong {
-      color: var(--text-primary);
-    }
-
-    .points-actions {
-      text-align: center;
-    }
-
-    .points-action-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.75rem 1.5rem;
-      border-radius: 12px;
-      font-weight: 600;
-      text-decoration: none;
-      transition: all 0.3s ease;
-    }
-
-    .points-action-btn:hover {
-      transform: translateY(-1px);
-      text-decoration: none;
-    }
-
-    .btn-primary.points-action-btn {
-      background: linear-gradient(135deg, var(--accent-color), #7c3aed);
-      border: none;
-      color: white;
-    }
-
-    .btn-primary.points-action-btn:hover {
-      box-shadow: 0 4px 16px rgba(124, 58, 237, 0.3);
-      color: white;
-    }
-
-    .btn-outline-primary.points-action-btn {
-      border: 1px solid var(--accent-color);
-      color: var(--accent-color);
-      background: transparent;
-    }
-
-    .btn-outline-primary.points-action-btn:hover {
-      background: var(--accent-color);
-      color: white;
-      box-shadow: 0 4px 16px rgba(124, 58, 237, 0.3);
-    }
-
-    @media (max-width: 768px) {
-      .points-info-modal .modal-dialog {
-        margin: 1rem;
-      }
-
-      .modal-title-section {
-        flex-direction: column;
-        text-align: center;
-        gap: 0.75rem;
-      }
-
-      .explanation-item {
-        flex-direction: column;
-        text-align: center;
-        gap: 0.75rem;
-      }
-    }
-  </style>
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  {% compress js %}
+  <script src="{% static 'js/main.js' %}"></script>
+  <script src="{% static 'js/cart.js' %}"></script>
+  <script src="{% static 'js/animations.js' %}"></script>
+  {% endcompress %}
 
   {% block extra_js %}{% endblock %}
 
-  <!-- JavaScript для управления видимостью favorites -->
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      function toggleFavoritesVisibility() {
-        // Десктопный мини-профиль
-        const favoritesItem = document.getElementById('favorites-menu-item');
-        // Мобильная нижняя навигация
-        const favoritesMobileBottomNav = document.getElementById('favorites-mobile-bottom-nav');
-
-
-        if (window.innerWidth <= 991) {
-          // Скрываем на мобильных - агрессивно
-
-          if (favoritesItem) {
-            favoritesItem.style.setProperty('display', 'none', 'important');
-            favoritesItem.style.setProperty('visibility', 'hidden', 'important');
-            favoritesItem.style.setProperty('opacity', '0', 'important');
-            favoritesItem.style.setProperty('height', '0', 'important');
-            favoritesItem.style.setProperty('overflow', 'hidden', 'important');
-            favoritesItem.style.setProperty('position', 'absolute', 'important');
-            favoritesItem.style.setProperty('left', '-9999px', 'important');
-          }
-
-          if (favoritesMobileBottomNav) {
-            favoritesMobileBottomNav.style.setProperty('display', 'none', 'important');
-            favoritesMobileBottomNav.style.setProperty('visibility', 'hidden', 'important');
-            favoritesMobileBottomNav.style.setProperty('opacity', '0', 'important');
-            favoritesMobileBottomNav.style.setProperty('height', '0', 'important');
-            favoritesMobileBottomNav.style.setProperty('overflow', 'hidden', 'important');
-            favoritesMobileBottomNav.style.setProperty('position', 'absolute', 'important');
-            favoritesMobileBottomNav.style.setProperty('left', '-9999px', 'important');
-          }
-        } else {
-          // Показываем на десктопе
-
-          if (favoritesItem) {
-            favoritesItem.style.setProperty('display', 'flex', 'important');
-            favoritesItem.style.setProperty('visibility', 'visible', 'important');
-            favoritesItem.style.setProperty('opacity', '1', 'important');
-            favoritesItem.style.setProperty('height', 'auto', 'important');
-            favoritesItem.style.setProperty('overflow', 'visible', 'important');
-            favoritesItem.style.setProperty('position', 'static', 'important');
-            favoritesItem.style.setProperty('left', 'auto', 'important');
-          }
-
-          if (favoritesMobileBottomNav) {
-            favoritesMobileBottomNav.style.setProperty('display', 'none', 'important');
-          }
-        }
-      }
-
-      // Применяем при загрузке
-      setTimeout(toggleFavoritesVisibility, 100);
-
-      // Обновляем при изменении размера окна
-      window.addEventListener('resize', function () {
-        setTimeout(toggleFavoritesVisibility, 50);
-      });
-    });
-  </script>
-
-  {% comment %}
-  <!-- Analytics and Performance Monitoring - ОТКЛЮЧЕНО -->
-  {% include 'partials/analytics.html' %}
-  {% endcomment %}
-
-  {% comment %}
-  <!-- Service Worker for PWA - ОТКЛЮЧЕН -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function () {
-        navigator.serviceWorker.register('/sw.js')
-          .then(function (registration) {
-          })
-          .catch(function (registrationError) {
-          });
-      });
-    }
-  </script>
-  {% endcomment %}
-
+  {% if not debug %}
+  <!-- Analytics Module -->
+  <div id="am" data-ga-id="G-109EFTWM05" data-clarity-id="t7u94cvpqc" data-meta-pixel-id="823958313630148"
+    data-tiktok-pixel-id="{% if TIKTOK_PIXEL_ID %}{{ TIKTOK_PIXEL_ID }}{% else %}D43L7DBC77UA61AHLTVG{% endif %}" {% if
+    TIKTOK_TEST_EVENT_CODE %}data-tiktok-test-event-code="{{ TIKTOK_TEST_EVENT_CODE }}" {% endif %}>
+  </div>
+  <script src="{% static 'js/analytics.js' %}"></script>
+  {% endif %}
 </body>
 
 </html>
