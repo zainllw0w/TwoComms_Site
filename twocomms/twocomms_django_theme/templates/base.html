@@ -6,7 +6,8 @@
 <!DOCTYPE html>
 <html lang='uk' data-bs-theme='dark' {% if not debug %}data-ga-id="G-109EFTWM05" data-clarity-id="t7u94cvpqc"
   data-meta-pixel-id="823958313630148" {% endif %}
-  data-tiktok-pixel-id="{% if TIKTOK_PIXEL_ID %}{{ TIKTOK_PIXEL_ID }}{% else %}D43L7DBC77UA61AHLTVG{% endif %}" {% if TIKTOK_TEST_EVENT_CODE %}data-tiktok-test-event-code="{{ TIKTOK_TEST_EVENT_CODE }}" {% endif %}>
+  data-tiktok-pixel-id="{% if TIKTOK_PIXEL_ID %}{{ TIKTOK_PIXEL_ID }}{% else %}D43L7DBC77UA61AHLTVG{% endif %}" {% if
+  TIKTOK_TEST_EVENT_CODE %}data-tiktok-test-event-code="{{ TIKTOK_TEST_EVENT_CODE }}" {% endif %}>
 
 <head>
   {% if not debug %}
@@ -429,9 +430,7 @@
   {% with phone=user_profile.phone|escapejs %}
   {% with full_name=user_profile.full_name|default:request.user.get_full_name|escapejs %}
   {% with city=user_profile.city|escapejs %}
-  <div id="am" data-external-id="{{ request.user.id }}" {% if email %}data-em="{{ email }}" {% endif %} {% if phone
-    %}data-ph="{{ phone }}" {% endif %} {% if full_name %}data-fn="{{ full_name }}" {% endif %} {% if city
-    %}data-ct="{{ city }}" {% endif %} style="display:none"></div>
+  <div id="am" data-external-id="{{ request.user.id }}" {% if email %}data-em="{{ email }}" {% endif %} {% if phone %}data-ph="{{ phone }}" {% endif %} {% if full_name %}data-fn="{{ full_name }}" {% endif %} {% if city %}data-ct="{{ city }}" {% endif %} style="display:none"></div>
   {% endwith %}
   {% endwith %}
   {% endwith %}
