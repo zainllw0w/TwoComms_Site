@@ -26,6 +26,7 @@ from .utils import (
     get_cart_from_session,
     save_cart_to_session,
     calculate_cart_total,
+    clear_cart,
     _reset_monobank_session,
     _normalize_color_variant_id,
     _get_color_variant_safe,
@@ -137,7 +138,7 @@ def view_cart(request):
     
     # Optimization: Fetch all products at once to avoid N+1
     product_ids = [item_data.get('product_id') for item_data in cart.values() if item_data.get('product_id')]
-    products_map = Product.objects.select_related('category').in_bulk(product_ids)
+    products_map = Product.objects.select_related('category').prefetch_related('color_variants__images').in_bulk(product_ids)
     
     # Optimization: Fetch all color variants at once
     color_variant_ids = [item_data.get('color_variant_id') for item_data in cart.values() if item_data.get('color_variant_id')]
@@ -585,19 +586,7 @@ def remove_from_cart(request):
     })
 
 
-def clear_cart(request):
-    """
-    Очистка корзины.
-    
-    Удаляет все товары из корзины и сбрасывает промокод.
-    """
-    request.session['cart'] = {}
-    if 'promo_code_id' in request.session:
-        del request.session['promo_code_id']
-    if 'promo_code_data' in request.session:
-        del request.session['promo_code_data']
-    request.session.modified = True
-    
+
     return redirect('cart')
 
 

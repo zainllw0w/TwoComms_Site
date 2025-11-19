@@ -4,7 +4,7 @@
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from .models import Order
-from .telegram_notifications import telegram_notifier
+from .tasks import send_telegram_notification_task
 
 
 # Отключен автоматический сигнал - уведомления отправляются вручную в views
@@ -25,15 +25,17 @@ def track_order_changes(sender, instance, **kwargs):
             
             # Отслеживаем изменение статуса заказа
             if old_instance.status != instance.status:
-                telegram_notifier.send_order_status_update(
-                    instance, 
-                    old_instance.get_status_display(), 
-                    instance.get_status_display()
+                # Async Telegram notification
+                send_telegram_notification_task.delay(
+                    instance.id, 
+                    'status_update', 
+                    old_status=old_instance.get_status_display(), 
+                    new_status=instance.get_status_display()
                 )
             
             # Отслеживаем добавление ТТН
             if not old_instance.tracking_number and instance.tracking_number:
-                telegram_notifier.send_ttn_added_notification(instance)
+                send_telegram_notification_task.delay(instance.id, 'ttn_added')
                 
         except Order.DoesNotExist:
             pass
