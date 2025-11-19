@@ -200,7 +200,10 @@ def calculate_shipping(request):
     return JsonResponse({'price': 0}) # Stub
 
 def get_liqpay_context(request):
-    return {} # Stub
+    """
+    Get LiqPay context for payment.
+    """
+    return {}
 
 def handle_payment(request):
     return redirect('cart')
