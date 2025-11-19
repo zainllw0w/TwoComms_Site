@@ -5,7 +5,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.conf import settings
 from .models import Product, Category
-from .seo_utils import SEOKeywordGenerator, SEOContentOptimizer
+from .tasks import generate_ai_content_for_product_task, generate_ai_content_for_category_task
 import os
 
 
@@ -27,23 +27,8 @@ def generate_ai_content_for_product(sender, instance, created, **kwargs):
         return  # AI функции отключены
     
     try:
-        # Генерируем AI-ключевые слова
-        if use_keywords:
-            ai_keywords = SEOKeywordGenerator.generate_product_keywords_ai(instance)
-            if ai_keywords:
-                instance.ai_keywords = ', '.join(ai_keywords)
-        
-        # Генерируем AI-описание
-        if use_descriptions:
-            ai_description = SEOContentOptimizer.generate_ai_product_description(instance)
-            if ai_description:
-                instance.ai_description = ai_description
-        
-        # Отмечаем что контент сгенерирован и сохраняем
-        if (use_keywords and instance.ai_keywords) or (use_descriptions and instance.ai_description):
-            instance.ai_content_generated = True
-            # Используем update_fields чтобы избежать рекурсии
-            instance.save(update_fields=['ai_keywords', 'ai_description', 'ai_content_generated'])
+        # Запускаем асинхронную задачу
+        generate_ai_content_for_product_task.delay(instance.id)
     
     except Exception as e:
         # Логируем ошибку, но не прерываем создание товара
@@ -70,23 +55,8 @@ def generate_ai_content_for_category(sender, instance, created, **kwargs):
         return  # AI функции отключены
     
     try:
-        # Генерируем AI-ключевые слова
-        if use_keywords:
-            ai_keywords = SEOKeywordGenerator.generate_category_keywords_ai(instance)
-            if ai_keywords:
-                instance.ai_keywords = ', '.join(ai_keywords)
-        
-        # Генерируем AI-описание
-        if use_descriptions:
-            ai_description = SEOContentOptimizer.generate_ai_category_description(instance)
-            if ai_description:
-                instance.ai_description = ai_description
-        
-        # Отмечаем что контент сгенерирован и сохраняем
-        if (use_keywords and instance.ai_keywords) or (use_descriptions and instance.ai_description):
-            instance.ai_content_generated = True
-            # Используем update_fields чтобы избежать рекурсии
-            instance.save(update_fields=['ai_keywords', 'ai_description', 'ai_content_generated'])
+        # Запускаем асинхронную задачу
+        generate_ai_content_for_category_task.delay(instance.id)
     
     except Exception as e:
         # Логируем ошибку, но не прерываем создание категории

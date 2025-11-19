@@ -162,16 +162,20 @@ from .api import (
 # Оформление заказа
 from .checkout import (
     create_order,
-
     payment_method,
     monobank_webhook,
     payment_callback,
-    payment_success,
-    payment_failed,
-    checkout_view,
+    order_success,
+    order_success_preview,
+    order_failed,
+    calculate_shipping,
+    get_liqpay_context,
     handle_payment,
-    get_liqpay_context
+    checkout_view,
+    update_payment_method,
+    confirm_payment
 )
+
 
 # Monobank оплата
 from .monobank import (
@@ -197,126 +201,28 @@ from .admin import (
     inventory_management,
 )
 
-
-# ==================== ВРЕМЕННЫЙ ИМПОРТ ИЗ СТАРОГО views.py ====================
-# TODO: Постепенно мигрировать все функции в соответствующие модули
-
-# Импортируем все остальное из старого views.py
-# Это обеспечивает обратную совместимость во время рефакторинга
-import sys
-import os
-import importlib.util
-
-_legacy_loaded = False
-_legacy_error = None
-
-
-def _load_legacy_views(force: bool = False):
-    """Загружает старый monolithic views.py для обратной совместимости."""
-    global _legacy_loaded, _legacy_error, _old_views
-
-    if _legacy_loaded and not force:
-        return
-
-    try:
-        views_py_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'views_legacy.py')
-        if not os.path.exists(views_py_path):
-            print(f"DEBUG: views_legacy.py not found at {views_py_path}")
-        spec = importlib.util.spec_from_file_location("storefront.views_old", views_py_path)
-        _old_views = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(_old_views)
-
-        _exclude = {
-            'cache_page_for_anon', 'unique_slugify', 'get_cart_from_session',
-            'save_cart_to_session', 'calculate_cart_total', 'get_favorites_from_session',
-            'save_favorites_to_session', 'HOME_PRODUCTS_PER_PAGE',
-            'LoginForm', 'RegisterForm', 'ProfileSetupForm',
-            'login_view', 'register_view', 'logout_view',
-            'home', 'load_more_products', 'catalog', 'search',
-            'product_detail', 'get_product_images', 'get_product_variants', 'quick_view',
-            'view_cart', 'add_to_cart', 'update_cart', 'remove_from_cart', 'clear_cart',
-            'get_cart_count', 'apply_promo_code', 'remove_promo_code', 'cart_summary', 'cart_mini', 'cart_items_api',
-            'robots_txt', 'static_sitemap', 'google_merchant_feed',
-            'static_verification_file', 'about', 'contacts', 'delivery', 'returns',
-            'privacy_policy', 'terms_of_service',
-            'profile', 'edit_profile', 'profile_setup', 'order_history', 'order_detail',
-            'favorites', 'favorites_list', 'toggle_favorite', 'add_to_favorites',
-            'remove_from_favorites', 'check_favorite_status', 'favorites_count',
-            'points_history', 'settings', 'user_points', 'my_promocodes',
-            'buy_with_points', 'purchase_with_points',
-            'PromoCodeForm', 'PromoCodeGroupForm', 'get_promo_admin_context',
-            'admin_promocodes', 'admin_promocode_create', 'admin_promocode_edit',
-            'admin_promocode_toggle', 'admin_promocode_delete',
-            'admin_promo_groups', 'admin_promo_group_create', 'admin_promo_group_edit',
-            'admin_promo_group_delete', 'admin_promo_stats',
-            'admin_promocode_get_form', 'admin_promocode_edit_ajax',
-            'admin_promo_group_get_form', 'admin_promo_group_edit_ajax',
-            'admin_promocode_change_group', 'admin_promo_export',
-            'get_product_json', 'get_categories_json', 'track_event', 'search_suggestions',
-            'product_availability', 'get_related_products', 'newsletter_subscribe', 'contact_form',
-            'checkout', 'create_order', 'payment_method', 'monobank_webhook', 'payment_callback',
-            'order_success', 'order_failed', 'calculate_shipping',
-            'admin_panel', 'admin_dashboard', 'manage_products', 'add_product', 'add_category', 'add_print',
-            'manage_print_proposals', 'manage_promo_codes', 'generate_seo_content',
-            'generate_alt_texts', 'manage_orders', 'sales_statistics', 'inventory_management',
-            'cart', 'cart_remove', 'clean_cart', 'profile_setup_db', 'order_create', 'register_view_new',
-            '__name__', '__doc__', '__package__', '__loader__', '__spec__',
-            '__file__', '__cached__', '__builtins__',
-        }
-
-        for name in dir(_old_views):
-            if not name.startswith('_') and name not in _exclude:
-                globals()[name] = getattr(_old_views, name)
-
-        _legacy_loaded = True
-        _legacy_error = None
-    except Exception as exc:
-        _legacy_error = exc
-        if force:
-            return
-        try:
-            from django.core.exceptions import AppRegistryNotReady
-        except Exception:  # pragma: no cover - fail silently without Django
-            AppRegistryNotReady = None
-
-        if AppRegistryNotReady and isinstance(exc, AppRegistryNotReady):
-            return
-
-        import warnings
-        warnings.warn(f"Could not import old views.py: {exc}")
-
-
-_load_legacy_views()
-
-
-def __getattr__(name):
-    """Ленивая прокси для функций из legacy views.py."""
-
-    if name in globals():
-        return globals()[name]
-
-    try:
-        from django.apps import apps
-    except Exception:
-        apps = None
-
-    if apps is not None and not apps.ready:
-
-        def _deferred(*args, **kwargs):
-            _load_legacy_views(force=True)
-            handler = globals().get(name)
-            if handler is None:
-                raise AttributeError(name)
-            return handler(*args, **kwargs)
-
-        _deferred.__name__ = name
-        return _deferred
-
-    _load_legacy_views(force=True)
-    if name in globals():
-        return globals()[name]
-
-    raise AttributeError(name)
+# Legacy Stubs (для обратной совместимости с urls.py)
+from .legacy_stubs import (
+    admin_offline_stores, admin_offline_store_create, admin_offline_store_edit,
+    admin_offline_store_toggle, admin_offline_store_delete,
+    admin_store_management, admin_store_add_product_to_order, admin_store_get_order_items,
+    admin_store_get_product_colors, admin_store_remove_product_from_order,
+    admin_store_add_products_to_store, admin_store_generate_invoice,
+    admin_store_update_product, admin_store_mark_product_sold, admin_store_remove_product,
+    admin_print_proposal_update_status, admin_print_proposal_award_points,
+    admin_print_proposal_award_promocode,
+    api_colors, debug_media, debug_media_page, debug_product_images, dev_grant_admin,
+    add_print, delivery_view, cooperation,
+    pricelist_redirect, pricelist_page, test_pricelist, wholesale_page,
+    wholesale_order_form, generate_wholesale_invoice, download_invoice_file,
+    delete_wholesale_invoice, check_invoice_approval_status, check_payment_status,
+    debug_invoices, create_wholesale_payment, wholesale_payment_webhook, get_user_invoices,
+    admin_update_invoice_status, toggle_invoice_approval, toggle_invoice_payment_status,
+    reset_all_invoices_status,
+    admin_update_dropship_status, admin_get_dropship_order, admin_update_dropship_order,
+    admin_delete_dropship_order,
+    monobank_create_checkout, monobank_return
+)
 
 
 # ==================== АЛИАСЫ ДЛЯ ОБРАТНОЙ СОВМЕСТИМОСТИ ====================
@@ -332,14 +238,14 @@ clean_cart = clear_cart  # для urls.py: views.clean_cart
 # Profile aliases (если нужны)
 profile_setup_db = profile_setup  # для urls.py: views.profile_setup_db
 
-# Checkout aliases  
-# КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Используем восстановленную create_order из checkout.py
-order_create = create_order
-
-# Admin aliases (если нужны)
-
 # Auth aliases (если нужны)
 register_view_new = register_view  # для urls.py: views.register_view_new
+
+# Checkout aliases
+order_create = create_order
+
+# Profile aliases
+my_orders = order_history
 
 
 # ==================== ЭКСПОРТЫ ====================
@@ -366,7 +272,6 @@ __all__ = [
     
     # Static Pages
     'robots_txt', 'static_sitemap', 'google_merchant_feed',
-    # 'uaprom_products_feed' - загружается через __getattr__ из legacy views.py
     'static_verification_file', 'about', 'contacts', 'delivery', 'returns',
     'privacy_policy', 'terms_of_service', 'test_analytics_events',
     
@@ -391,15 +296,33 @@ __all__ = [
     'get_product_json', 'get_categories_json', 'track_event', 'search_suggestions',
     'product_availability', 'get_related_products', 'newsletter_subscribe', 'contact_form',
     
-    # Checkout
-    'create_order', 'payment_method', 'monobank_webhook', 'payment_callback',
-    'order_success', 'order_failed', 'calculate_shipping',
-    
     # Admin
     'admin_panel', 'admin_dashboard', 'manage_products', 'add_product', 'add_category', 'add_print',
     'manage_print_proposals', 'manage_promo_codes', 'generate_seo_content',
     'generate_alt_texts', 'manage_orders', 'sales_statistics', 'inventory_management',
     
     # Aliases (для обратной совместимости)
-    'cart', 'cart_remove', 'clean_cart', 'profile_setup_db', 'order_create', 'register_view_new',
+    'cart', 'cart_remove', 'clean_cart', 'profile_setup_db', 'register_view_new',
+    'order_create', 'my_orders',
+
+    # Legacy Stubs
+    'admin_offline_stores', 'admin_offline_store_create', 'admin_offline_store_edit',
+    'admin_offline_store_toggle', 'admin_offline_store_delete',
+    'admin_store_management', 'admin_store_add_product_to_order', 'admin_store_get_order_items',
+    'admin_store_get_product_colors', 'admin_store_remove_product_from_order',
+    'admin_store_add_products_to_store', 'admin_store_generate_invoice',
+    'admin_store_update_product', 'admin_store_mark_product_sold', 'admin_store_remove_product',
+    'admin_print_proposal_update_status', 'admin_print_proposal_award_points',
+    'admin_print_proposal_award_promocode',
+    'api_colors', 'debug_media', 'debug_media_page', 'debug_product_images', 'dev_grant_admin',
+    'add_print', 'delivery_view', 'cooperation',
+    'pricelist_redirect', 'pricelist_page', 'test_pricelist', 'wholesale_page',
+    'wholesale_order_form', 'generate_wholesale_invoice', 'download_invoice_file',
+    'delete_wholesale_invoice', 'check_invoice_approval_status', 'check_payment_status',
+    'debug_invoices', 'create_wholesale_payment', 'wholesale_payment_webhook', 'get_user_invoices',
+    'admin_update_invoice_status', 'toggle_invoice_approval', 'toggle_invoice_payment_status',
+    'reset_all_invoices_status',
+    'admin_update_dropship_status', 'admin_get_dropship_order', 'admin_update_dropship_order',
+    'admin_delete_dropship_order',
+    'monobank_create_checkout', 'monobank_return'
 ]

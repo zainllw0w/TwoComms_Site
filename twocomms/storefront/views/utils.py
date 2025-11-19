@@ -748,3 +748,16 @@ def _update_order_from_checkout_result(order, result, source='api'):
 
 
 
+
+def clear_cart(request):
+    """
+    Очистка корзины.
+    
+    Удаляет все товары из корзины и сбрасывает промокод.
+    """
+    request.session['cart'] = {}
+    if 'promo_code_id' in request.session:
+        del request.session['promo_code_id']
+    if 'promo_code_data' in request.session:
+        del request.session['promo_code_data']
+    request.session.modified = True
