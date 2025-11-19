@@ -398,22 +398,6 @@ body::after {
 }.bg-elevate{background-color:var(--tc-elevate)!important}.hero.bg-hero{border:1px solid rgba(255,255,255,.06);border-radius:1.25rem;background:url('../img/vignette.png') center/cover no-repeat,linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));backdrop-filter:blur(10px) saturate(120%)}.card.product{border:1px solid rgba(255,255,255,.06);background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));border-radius:1.25rem;transition:transform .25s,box-shadow .25s,border-color .25s}
 
 /* ВЫРАВНИВАНИЕ КАРТОЧЕК С ПОДДЕРЖКОЙ JAVASCRIPT */
-.row[data-stagger-grid] {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  margin: 0 !important;
-  align-items: stretch !important;
-  gap: 0.5rem !important;
-}
-
-.row[data-stagger-grid] .col {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: stretch !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  height: auto !important;
-}
 
 .card.product {
   display: flex !important;
