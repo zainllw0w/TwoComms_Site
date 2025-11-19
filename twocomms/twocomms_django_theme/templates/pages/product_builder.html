@@ -1,29 +1,25 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{% if product %}Редагувати товар — {{ product.title }}{% else %}Новий товар — Конструктор{% endif %}{% endblock %}
+{% block title %}{% if product %}Редагувати товар — {{ product.title }}{% else %}Новий товар — Конструктор{% endif %}{%
+endblock %}
 
 {% url 'api-admin-product-builder-list' as builder_api_list %}
 
 {% block extra_head %}
-  <link rel="stylesheet" href="{% static 'css/product-builder.css' %}?v=2025.10.24.001">
+<link rel="stylesheet" href="{% static 'css/product-builder.css' %}?v=2025.10.24.001">
 {% endblock %}
 
 {% block content %}
-<div
-  class="builder-shell"
-  data-product-builder
+<div class="builder-shell" data-product-builder
   data-progress-basic="{{ builder_progress.steps.basic|yesno:'true,false' }}"
   data-progress-catalog="{{ builder_progress.steps.catalog|yesno:'true,false' }}"
   data-progress-colors="{{ builder_progress.steps.colors|yesno:'true,false' }}"
   data-progress-seo="{{ builder_progress.steps.seo|yesno:'true,false' }}"
   data-progress-preview="{{ builder_progress.steps.preview|yesno:'true,false' }}"
-  data-progress-percent="{{ builder_progress.percent }}"
-  data-endpoint-base="{{ builder_api_list }}"
+  data-progress-percent="{{ builder_progress.percent }}" data-endpoint-base="{{ builder_api_list }}"
   data-endpoint-detail="{% if product %}{% url 'api-admin-product-builder-detail' product.id %}{% endif %}"
-  data-endpoint-new="{{ builder_api_list }}product/new/"
-  data-endpoint-catalog="{{ builder_api_list }}catalogs/"
->
+  data-endpoint-new="{{ builder_api_list }}product/new/" data-endpoint-catalog="{{ builder_api_list }}catalogs/">
   <aside class="builder-menu" data-builder-sidebar>
     <div class="menu-header">
       <div class="menu-brand">
@@ -41,7 +37,8 @@
           <strong data-progress-value>{{ builder_progress.percent }}%</strong>
         </div>
         <div class="progress">
-          <div class="progress-bar" role="progressbar" data-progress-bar data-width="{{ builder_progress.percent }}"></div>
+          <div class="progress-bar" role="progressbar" data-progress-bar data-width="{{ builder_progress.percent }}">
+          </div>
         </div>
       </div>
     </div>
@@ -118,7 +115,8 @@
         <button class="btn btn-cta" type="submit" form="product-builder-form">
           <i class="fas fa-save me-2"></i>Зберегти зміни
         </button>
-        <button class="btn btn-outline-light" type="button" data-feature-placeholder data-beta-hint="Автозбереження увімкнемо після інтеграції фонових черг.">
+        <button class="btn btn-outline-light" type="button" data-feature-placeholder
+          data-beta-hint="Автозбереження увімкнемо після інтеграції фонових черг.">
           <i class="fas fa-cloud-upload-alt me-2"></i>Зберегти чернетку
         </button>
         <a href="/admin-panel/?section=catalogs" class="btn btn-outline-light">
@@ -129,10 +127,7 @@
   </aside>
 
   <main class="builder-content">
-    <form id="product-builder-form"
-          method="post"
-          enctype="multipart/form-data"
-          data-builder-form>
+    <form id="product-builder-form" method="post" enctype="multipart/form-data" data-builder-form>
       {% csrf_token %}
 
       <section class="tab-panel is-active" data-tab-panel="basic" data-step="basic">
@@ -149,157 +144,159 @@
 
         <div class="panel-body">
           {% if product_form %}
-            <div class="grid grid--info">
-              <div class="grid-item">
-                <label class="form-label">Назва товару</label>
-                {{ product_form.title }}
-                <small class="form-hint">Унікальна назва, яка відображається в каталозі.</small>
+          <div class="grid grid--info">
+            <div class="grid-item">
+              <label class="form-label">Назва товару</label>
+              {{ product_form.title }}
+              <small class="form-hint">Унікальна назва, яка відображається в каталозі.</small>
+            </div>
+            <div class="grid-item">
+              <label class="form-label">Slug</label>
+              <div class="input-with-button">
+                {{ product_form.slug }}
+                <button type="button" class="btn btn-outline-light btn-sm" data-action="generate-slug">
+                  <i class="fas fa-magic me-1"></i>Згенерувати
+                </button>
               </div>
-              <div class="grid-item">
-                <label class="form-label">Slug</label>
-                <div class="input-with-button">
-                  {{ product_form.slug }}
-                  <button type="button" class="btn btn-outline-light btn-sm" data-action="generate-slug">
-                    <i class="fas fa-magic me-1"></i>Згенерувати
-                  </button>
-                </div>
-                <small class="form-hint">URL-ідентифікатор (оновиться при збереженні, якщо залишити порожнім).</small>
-              </div>
-              <div class="grid-item">
-                <label class="form-label">Категорія</label>
-                {{ product_form.category }}
-                <small class="form-hint">Виберіть категорію, до якої належить товар.</small>
-              </div>
-              <div class="grid-item">
-                <label class="form-label">Каталог</label>
-                {{ product_form.catalog }}
-                <small class="form-hint">Каталог визначає доступні опції, сетки розмірів та шаблони.</small>
-              </div>
-              <div class="grid-item">
-                <label class="form-label">Статус публікації</label>
-                {{ product_form.status }}
-                <small class="form-hint">Чернетка, модерація, опубліковано чи інший статус.</small>
-              </div>
-              <div class="grid-item">
-                <label class="form-label">Пріоритет показу</label>
-                {{ product_form.priority }}
-                <small class="form-hint">Чим вище значення, тим раніше відображається в каталозі.</small>
+              <small class="form-hint">URL-ідентифікатор (оновиться при збереженні, якщо залишити порожнім).</small>
+            </div>
+            <div class="grid-item">
+              <label class="form-label">Категорія</label>
+              {{ product_form.category }}
+              <small class="form-hint">Виберіть категорію, до якої належить товар.</small>
+            </div>
+            <div class="grid-item">
+              <label class="form-label">Каталог</label>
+              {{ product_form.catalog }}
+              <small class="form-hint">Каталог визначає доступні опції, сетки розмірів та шаблони.</small>
+            </div>
+            <div class="grid-item">
+              <label class="form-label">Статус публікації</label>
+              {{ product_form.status }}
+              <small class="form-hint">Чернетка, модерація, опубліковано чи інший статус.</small>
+            </div>
+            <div class="grid-item">
+              <label class="form-label">Пріоритет показу</label>
+              {{ product_form.priority }}
+              <small class="form-hint">Чим вище значення, тим раніше відображається в каталозі.</small>
+            </div>
+          </div>
+
+          <div class="panel-divider"></div>
+
+          <div class="grid grid--pricing">
+            <div class="grid-item">
+              <label class="form-label">Базова ціна, грн</label>
+              {{ product_form.price }}
+              <small class="form-hint">Фактична ціна продажу, без знижки.</small>
+            </div>
+            <div class="grid-item">
+              <label class="form-label">Знижка, %</label>
+              {{ product_form.discount_percent }}
+              <small class="form-hint">Автоматично розрахуємо ціну зі знижкою.</small>
+            </div>
+            <div class="grid-item">
+              <label class="form-label">Бали за покупку</label>
+              {{ product_form.points_reward }}
+              <small class="form-hint">Нарахування бонусів клієнту за купівлю.</small>
+            </div>
+            <div class="grid-item">
+              <label class="form-label">Рекомендований товар</label>
+              <div class="form-check form-switch">
+                {{ product_form.featured }}
+                <label class="form-check-label" for="{{ product_form.featured.id_for_label }}">Показувати у
+                  рекомендаціях</label>
               </div>
             </div>
-
-            <div class="panel-divider"></div>
-
-            <div class="grid grid--pricing">
-              <div class="grid-item">
-                <label class="form-label">Базова ціна, грн</label>
-                {{ product_form.price }}
-                <small class="form-hint">Фактична ціна продажу, без знижки.</small>
-              </div>
-              <div class="grid-item">
-                <label class="form-label">Знижка, %</label>
-                {{ product_form.discount_percent }}
-                <small class="form-hint">Автоматично розрахуємо ціну зі знижкою.</small>
-              </div>
-              <div class="grid-item">
-                <label class="form-label">Бали за покупку</label>
-                {{ product_form.points_reward }}
-                <small class="form-hint">Нарахування бонусів клієнту за купівлю.</small>
-              </div>
-              <div class="grid-item">
-                <label class="form-label">Рекомендований товар</label>
-                <div class="form-check form-switch">
-                  {{ product_form.featured }}
-                  <label class="form-check-label" for="{{ product_form.featured.id_for_label }}">Показувати у рекомендаціях</label>
-                </div>
-              </div>
-              <div class="grid-item">
-                <label class="form-label">Дроп ціна</label>
-                {{ product_form.drop_price }}
-                <small class="form-hint">Ціна для дропшиперів.</small>
-              </div>
-              <div class="grid-item">
-                <label class="form-label">Оптова ціна</label>
-                {{ product_form.wholesale_price }}
-                <small class="form-hint">Ціна для оптових партнерів.</small>
-              </div>
+            <div class="grid-item">
+              <label class="form-label">Дроп ціна</label>
+              {{ product_form.drop_price }}
+              <small class="form-hint">Ціна для дропшиперів.</small>
             </div>
-
-            <div class="panel-divider"></div>
-
-            <div class="grid grid--description">
-              <div class="grid-item">
-                <label class="form-label">Короткий опис</label>
-                <div class="input-with-button">
-                  {{ product_form.short_description }}
-                  <button class="btn btn-outline-light btn-sm" type="button" data-action="copy-description">
-                    <i class="fas fa-level-down-alt me-1"></i>Заповнити з повного
-                  </button>
-                </div>
-                <small class="form-hint">До 300 символів. Використовується для списків товарів та SEO.</small>
-              </div>
-              <div class="grid-item grid-item--full">
-                <label class="form-label">Повний опис</label>
-                {{ product_form.full_description }}
-                <small class="form-hint">Розкажіть детально про товар, матеріали, особливості. Підтримується HTML-розмітка.</small>
-              </div>
+            <div class="grid-item">
+              <label class="form-label">Оптова ціна</label>
+              {{ product_form.wholesale_price }}
+              <small class="form-hint">Ціна для оптових партнерів.</small>
             </div>
+          </div>
 
-            <div class="panel-divider"></div>
+          <div class="panel-divider"></div>
 
-            <div class="grid grid--media">
-              <div class="grid-item grid-item--image">
-                <label class="form-label">Головне зображення</label>
-                <div class="main-upload-card">
-                  <div class="main-preview" data-main-image-preview>
-                    {% if product and product.main_image %}
-                      <img src="{{ product.main_image.url }}" alt="{{ product.main_image_alt|default:'Main image' }}">
-                    {% else %}
-                      <span class="placeholder-icon"><i class="fas fa-image"></i></span>
-                    {% endif %}
-                  </div>
-                  <div class="main-upload-actions">
-                    <label class="btn btn-outline-light btn-sm w-100 mb-2">
-                      <i class="fas fa-upload me-1"></i>Завантажити
-                      {{ product_form.main_image.as_widget(attrs={'class': 'd-none', 'data-main-image-input': '1'}) }}
-                    </label>
-                    <small class="text-muted d-block">JPG, PNG, WebP до 10 МБ.</small>
-                  </div>
+          <div class="grid grid--description">
+            <div class="grid-item">
+              <label class="form-label">Короткий опис</label>
+              <div class="input-with-button">
+                {{ product_form.short_description }}
+                <button class="btn btn-outline-light btn-sm" type="button" data-action="copy-description">
+                  <i class="fas fa-level-down-alt me-1"></i>Заповнити з повного
+                </button>
+              </div>
+              <small class="form-hint">До 300 символів. Використовується для списків товарів та SEO.</small>
+            </div>
+            <div class="grid-item grid-item--full">
+              <label class="form-label">Повний опис</label>
+              {{ product_form.full_description }}
+              <small class="form-hint">Розкажіть детально про товар, матеріали, особливості. Підтримується
+                HTML-розмітка.</small>
+            </div>
+          </div>
+
+          <div class="panel-divider"></div>
+
+          <div class="grid grid--media">
+            <div class="grid-item grid-item--image">
+              <label class="form-label">Головне зображення</label>
+              <div class="main-upload-card">
+                <div class="main-preview" data-main-image-preview>
+                  {% if product and product.main_image %}
+                  <img src="{{ product.main_image.url }}" alt="{{ product.main_image_alt|default:'Main image' }}">
+                  {% else %}
+                  <span class="placeholder-icon"><i class="fas fa-image"></i></span>
+                  {% endif %}
                 </div>
-              </div>
-              <div class="grid-item">
-                <label class="form-label">Alt текст для головного зображення</label>
-                {{ product_form.main_image_alt }}
-                <small class="form-hint">Опишіть зображення для SEO та доступності.</small>
-              </div>
-              <div class="grid-item grid-item--full">
-                <label class="form-label">Додаткові зображення</label>
-                <div class="gallery-upload">
-                  {% with gallery_images=product.images.all %}
-                    {% if product and gallery_images|length %}
-                      <div class="gallery-existing" data-existing-gallery>
-                        {% for gallery_image in gallery_images %}
-                          <div class="gallery-thumb">
-                            <img src="{{ gallery_image.image.url }}" alt="{{ gallery_image.alt_text|default:'Gallery image' }}">
-                          </div>
-                        {% endfor %}
-                      </div>
-                    {% else %}
-                      <p class="text-muted small" data-existing-gallery-empty>Додаткових зображень немає.</p>
-                    {% endif %}
-                  {% endwith %}
-                  <label class="upload-tile upload-tile--wide" data-extra-upload>
-                    <span class="icon"><i class="fas fa-plus"></i></span>
-                    <span>Додати зображення</span>
-                    {{ product_form.extra_images.as_widget(attrs={'class': 'd-none', 'data-extra-images-input': '1'}) }}
+                <div class="main-upload-actions">
+                  <label class="btn btn-outline-light btn-sm w-100 mb-2">
+                    <i class="fas fa-upload me-1"></i>Завантажити
+                    {{ product_form.main_image }}
                   </label>
-                  <div class="selected-files" data-extra-upload-list>
-                    <span class="text-muted small">Файли не обрано</span>
-                  </div>
+                  <small class="text-muted d-block">JPG, PNG, WebP до 10 МБ.</small>
                 </div>
               </div>
             </div>
+            <div class="grid-item">
+              <label class="form-label">Alt текст для головного зображення</label>
+              {{ product_form.main_image_alt }}
+              <small class="form-hint">Опишіть зображення для SEO та доступності.</small>
+            </div>
+            <div class="grid-item grid-item--full">
+              <label class="form-label">Додаткові зображення</label>
+              <div class="gallery-upload">
+                {% with gallery_images=product.images.all %}
+                {% if product and gallery_images|length %}
+                <div class="gallery-existing" data-existing-gallery>
+                  {% for gallery_image in gallery_images %}
+                  <div class="gallery-thumb">
+                    <img src="{{ gallery_image.image.url }}" alt="{{ gallery_image.alt_text|default:'Gallery image' }}">
+                  </div>
+                  {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted small" data-existing-gallery-empty>Додаткових зображень немає.</p>
+                {% endif %}
+                {% endwith %}
+                <label class="upload-tile upload-tile--wide" data-extra-upload>
+                  <span class="icon"><i class="fas fa-plus"></i></span>
+                  <span>Додати зображення</span>
+                  {{ product_form.extra_images }}
+                </label>
+                <div class="selected-files" data-extra-upload-list>
+                  <span class="text-muted small">Файли не обрано</span>
+                </div>
+              </div>
+            </div>
+          </div>
           {% else %}
-            <div class="alert alert-warning">Форма товару відсутня у контексті.</div>
+          <div class="alert alert-warning">Форма товару відсутня у контексті.</div>
           {% endif %}
         </div>
       </section>
@@ -322,55 +319,55 @@
                 <i class="fas fa-sliders-h me-2"></i>Опції каталогу
               </h3>
               {% if option_formset %}
-                {{ option_formset.management_form }}
-                <div class="catalog-options" data-catalog-options>
-                  {% for form in option_formset %}
-                    <div class="catalog-option-card" data-option-row>
-                      {{ form.id }}
-                      {{ form.DELETE }}
-                      <div class="option-header">
-                        <div class="option-title">
-                          <i class="fas fa-cube"></i>
-                          <span>{{ form.name.value|default:"Нова опція" }}</span>
-                        </div>
-                        <div class="option-actions">
-                          <button type="button" class="btn btn-outline-danger btn-sm" data-action="delete-option">
-                            <i class="fas fa-trash-alt"></i>
-                          </button>
-                        </div>
+              {{ option_formset.management_form }}
+              <div class="catalog-options" data-catalog-options>
+                {% for form in option_formset %}
+                <div class="catalog-option-card" data-option-row>
+                  {{ form.id }}
+                  {{ form.DELETE }}
+                  <div class="option-header">
+                    <div class="option-title">
+                      <i class="fas fa-cube"></i>
+                      <span>{{ form.name.value|default:"Нова опція" }}</span>
+                    </div>
+                    <div class="option-actions">
+                      <button type="button" class="btn btn-outline-danger btn-sm" data-action="delete-option">
+                        <i class="fas fa-trash-alt"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="option-grid">
+                    <label class="form-label">Назва опції</label>
+                    {{ form.name }}
+                    <div class="option-row">
+                      <div>
+                        <label class="form-label">Тип</label>
+                        {{ form.option_type }}
                       </div>
-                      <div class="option-grid">
-                        <label class="form-label">Назва опції</label>
-                        {{ form.name }}
-                        <div class="option-row">
-                          <div>
-                            <label class="form-label">Тип</label>
-                            {{ form.option_type }}
-                          </div>
-                          <div class="option-switch">
-                            <label class="form-label">Обов'язкова</label>
-                            <div class="form-check form-switch">{{ form.is_required }}</div>
-                          </div>
-                          <div class="option-switch">
-                            <label class="form-label">Дод. вартість</label>
-                            <div class="form-check form-switch">{{ form.is_additional_cost }}</div>
-                          </div>
-                        </div>
-                        <label class="form-label">Ціна (грн)</label>
-                        {{ form.additional_cost }}
-                        <label class="form-label">Порядок</label>
-                        {{ form.order }}
-                        <label class="form-label">Підказка</label>
-                        {{ form.help_text }}
+                      <div class="option-switch">
+                        <label class="form-label">Обов'язкова</label>
+                        <div class="form-check form-switch">{{ form.is_required }}</div>
+                      </div>
+                      <div class="option-switch">
+                        <label class="form-label">Дод. вартість</label>
+                        <div class="form-check form-switch">{{ form.is_additional_cost }}</div>
                       </div>
                     </div>
-                  {% endfor %}
+                    <label class="form-label">Ціна (грн)</label>
+                    {{ form.additional_cost }}
+                    <label class="form-label">Порядок</label>
+                    {{ form.order }}
+                    <label class="form-label">Підказка</label>
+                    {{ form.help_text }}
+                  </div>
                 </div>
-                <button class="btn btn-outline-light mt-3" type="button" data-action="add-option">
-                  <i class="fas fa-plus me-2"></i>Додати опцію
-                </button>
+                {% endfor %}
+              </div>
+              <button class="btn btn-outline-light mt-3" type="button" data-action="add-option">
+                <i class="fas fa-plus me-2"></i>Додати опцію
+              </button>
               {% else %}
-                <div class="alert alert-warning">Formset опцій каталогу не переданий.</div>
+              <div class="alert alert-warning">Formset опцій каталогу не переданий.</div>
               {% endif %}
             </div>
 
@@ -379,21 +376,21 @@
                 <i class="fas fa-ruler-combined me-2"></i>Сітка розмірів
               </h3>
               {% if size_grid_form %}
-                <div class="size-grid-card">
-                  {{ size_grid_form.management_form }}
-                  <label class="form-label">Назва сітки</label>
-                  {{ size_grid_form.name }}
-                  <label class="form-label">Зображення</label>
-                  {{ size_grid_form.image }}
-                  <label class="form-label">Опис</label>
-                  {{ size_grid_form.description }}
-                  <div class="form-check form-switch mt-2">
-                    {{ size_grid_form.is_active }}
-                    <label class="form-check-label">Сітка активна</label>
-                  </div>
+              <div class="size-grid-card">
+                {{ size_grid_form.management_form }}
+                <label class="form-label">Назва сітки</label>
+                {{ size_grid_form.name }}
+                <label class="form-label">Зображення</label>
+                {{ size_grid_form.image }}
+                <label class="form-label">Опис</label>
+                {{ size_grid_form.description }}
+                <div class="form-check form-switch mt-2">
+                  {{ size_grid_form.is_active }}
+                  <label class="form-check-label">Сітка активна</label>
                 </div>
+              </div>
               {% else %}
-                <div class="alert alert-warning">Форма сітки розмірів не передана.</div>
+              <div class="alert alert-warning">Форма сітки розмірів не передана.</div>
               {% endif %}
 
               <div class="size-grid-preview" data-size-grid-preview>
@@ -421,242 +418,119 @@
 
         <div class="panel-body">
           {% if color_formset %}
-            {{ color_formset.management_form }}
-            <div class="color-toolbox">
-              <button class="btn btn-outline-light" type="button" data-action="add-variant">
-                <i class="fas fa-plus me-2"></i>Додати варіант
-              </button>
-              <button class="btn btn-outline-light" type="button" data-feature-placeholder data-beta-hint="AI-палетки кольорів додамо після інтеграції.">
-                <i class="fas fa-robot me-2"></i>Підібрати AI палітру
-              </button>
-            </div>
+          {{ color_formset.management_form }}
+          <div class="color-toolbox">
+            <button class="btn btn-outline-light" type="button" data-action="add-variant">
+              <i class="fas fa-plus me-2"></i>Додати варіант
+            </button>
+            <button class="btn btn-outline-light" type="button" data-feature-placeholder
+              data-beta-hint="AI-палетки кольорів додамо після інтеграції.">
+              <i class="fas fa-robot me-2"></i>Підібрати AI палітру
+            </button>
+          </div>
 
-            <div class="variant-dropzone" data-dnd-zone>
-              {% for form in color_formset %}
-                <article class="color-variant-card" data-variant-row data-form-prefix="{{ form.prefix }}" data-variant-order="{{ forloop.counter0 }}">
-                  {{ form.id }}
-                  {{ form.DELETE }}
-                  {{ form.order }}
-                  <header class="variant-header">
-                    <div class="variant-title">
-                      <div class="variant-color-preview" data-color-preview>
-                        <span class="color-dot primary"></span>
-                        <span class="color-dot secondary"></span>
-                      </div>
-                      <h6>{{ form.name.value|default:"Варіант кольору" }}</h6>
-                    </div>
-                    <div class="variant-controls">
-                      <div class="form-check form-switch">
-                        {{ form.is_default }}
-                        <label class="form-check-label">Головний</label>
-                      </div>
-                      <button type="button" class="btn btn-outline-danger btn-sm" data-action="delete-variant">
-                        <i class="fas fa-trash-alt"></i>
-                      </button>
-                      <span class="drag-handle" data-dnd-handle>
-                        <i class="fas fa-grip-vertical"></i>
-                      </span>
-                    </div>
-                  </header>
-                  <div class="variant-body">
-                    <div class="grid grid--variant">
-                      <div class="grid-item">
-                        <label class="form-label">Назва кольору</label>
-                        {{ form.name }}
-                      </div>
-                      <div class="grid-item">
-                        <label class="form-label">Основний HEX</label>
-                        {{ form.primary_hex }}
-                      </div>
-                      <div class="grid-item">
-                        <label class="form-label">Додатковий HEX</label>
-                        {{ form.secondary_hex }}
-                      </div>
-                      {{ form.color }}
-                      <div class="grid-item">
-                        <label class="form-label">SKU</label>
-                        {{ form.sku }}
-                      </div>
-                      <div class="grid-item">
-                        <label class="form-label">Штрих-код</label>
-                        {{ form.barcode }}
-                      </div>
-                      <div class="grid-item">
-                        <label class="form-label">Запас</label>
-                        {{ form.stock }}
-                      </div>
-                      <div class="grid-item">
-                        <label class="form-label">Ціна варіанту</label>
-                        {{ form.price_override }}
-                        <small class="form-hint">Залиште порожнім, щоб використовувати базову ціну.</small>
-                      </div>
-                      <div class="grid-item grid-item--full">
-                        <label class="form-label">Додаткові метадані (JSON)</label>
-                        {{ form.metadata }}
-                      </div>
-                      <div class="grid-item grid-item--full">
-                        <label class="form-label">Галерея зображень</label>
-                        <div class="variant-images" data-variant-gallery>
-                          {% if form.images_formset %}
-                            {{ form.images_formset.management_form }}
-                            <div class="row g-3" data-image-list>
-                              {% for img_form in form.images_formset %}
-                                <div class="col-md-4">
-                                  <div class="image-card">
-                                    <div class="image-preview" data-image-preview>
-                                      {% if img_form.instance.pk and img_form.instance.image %}
-                                        <img src="{{ img_form.instance.image.url }}" alt="{{ img_form.instance.alt_text }}">
-                                      {% else %}
-                                        <span class="placeholder-icon"><i class="fas fa-image"></i></span>
-                                      {% endif %}
-                                    </div>
-                                    <div class="image-actions">
-                                      {{ img_form.id }}
-                                      {{ img_form.DELETE }}
-                                      <label class="btn btn-outline-light btn-sm w-100">
-                                        <i class="fas fa-upload me-1"></i>Завантажити
-                                        {{ img_form.image }}
-                                      </label>
-                                      <input type="text"
-                                             name="{{ img_form.alt_text.html_name }}"
-                                             value="{{ img_form.alt_text.value|default:'' }}"
-                                             class="form-control form-control-sm mt-2"
-                                             placeholder="ALT-текст">
-                                      <div class="d-flex align-items-center justify-content-between mt-2">
-                                        <input type="number"
-                                               name="{{ img_form.order.html_name }}"
-                                               value="{{ img_form.order.value|default:0 }}"
-                                               class="form-control form-control-sm w-50"
-                                               placeholder="Порядок">
-                                        <button type="button"
-                                                class="btn btn-outline-danger btn-sm"
-                                                data-action="delete-image">
-                                          <i class="fas fa-trash-alt"></i>
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              {% endfor %}
-                              <div class="col-md-4">
-                                <label class="upload-tile" data-action="add-image">
-                                  <span class="icon"><i class="fas fa-plus"></i></span>
-                                  <span>Додати зображення</span>
-                                  <input type="file" name="__new_color_images" accept="image/*" multiple hidden>
-                                </label>
+          <div class="variant-dropzone" data-dnd-zone>
+            {% for form in color_formset %}
+            <article class="color-variant-card" data-variant-row data-form-prefix="{{ form.prefix }}"
+              data-variant-order="{{ forloop.counter0 }}">
+              {{ form.id }}
+              {{ form.DELETE }}
+              {{ form.order }}
+              <header class="variant-header">
+                <div class="variant-title">
+                  <div class="variant-color-preview" data-color-preview>
+                    <span class="color-dot primary"></span>
+                    <span class="color-dot secondary"></span>
+                  </div>
+                  <h6>{{ form.name.value|default:"Варіант кольору" }}</h6>
+                </div>
+                <div class="variant-controls">
+                  <div class="form-check form-switch">
+                    {{ form.is_default }}
+                    <label class="form-check-label">Головний</label>
+                  </div>
+                  <button type="button" class="btn btn-outline-danger btn-sm" data-action="delete-variant">
+                    <i class="fas fa-trash-alt"></i>
+                  </button>
+                  <span class="drag-handle" data-dnd-handle>
+                    <i class="fas fa-grip-vertical"></i>
+                  </span>
+                </div>
+              </header>
+              <div class="variant-body">
+                <div class="grid grid--variant">
+                  <div class="grid-item">
+                    <label class="form-label">Назва кольору</label>
+                    {{ form.name }}
+                  </div>
+                  <div class="grid-item">
+                    <label class="form-label">Основний HEX</label>
+                    {{ form.primary_hex }}
+                  </div>
+                  <div class="grid-item">
+                    <label class="form-label">Додатковий HEX</label>
+                    {{ form.secondary_hex }}
+                  </div>
+                  {{ form.color }}
+                  <div class="grid-item">
+                    <label class="form-label">SKU</label>
+                    {{ form.sku }}
+                  </div>
+                  <div class="grid-item">
+                    <label class="form-label">Штрих-код</label>
+                    {{ form.barcode }}
+                  </div>
+                  <div class="grid-item">
+                    <label class="form-label">Запас</label>
+                    {{ form.stock }}
+                  </div>
+                  <div class="grid-item">
+                    <label class="form-label">Ціна варіанту</label>
+                    {{ form.price_override }}
+                    <small class="form-hint">Залиште порожнім, щоб використовувати базову ціну.</small>
+                  </div>
+                  <div class="grid-item grid-item--full">
+                    <label class="form-label">Додаткові метадані (JSON)</label>
+                    {{ form.metadata }}
+                  </div>
+                  <div class="grid-item grid-item--full">
+                    <label class="form-label">Галерея зображень</label>
+                    <div class="variant-images" data-variant-gallery>
+                      {% if form.images_formset %}
+                      {{ form.images_formset.management_form }}
+                      <div class="row g-3" data-image-list>
+                        {% for img_form in form.images_formset %}
+                        <div class="col-md-4">
+                          <div class="image-card">
+                            <div class="image-preview" data-image-preview>
+                              {% if img_form.instance.pk and img_form.instance.image %}
+                              <img src="{{ img_form.instance.image.url }}" alt="{{ img_form.instance.alt_text }}">
+                              {% else %}
+                              <span class="placeholder-icon"><i class="fas fa-image"></i></span>
+                              {% endif %}
+                            </div>
+                            <div class="image-actions">
+                              {{ img_form.id }}
+                              {{ img_form.DELETE }}
+                              <label class="btn btn-outline-light btn-sm w-100">
+                                <i class="fas fa-upload me-1"></i>Завантажити
+                                {{ img_form.image }}
+                              </label>
+                              <input type="text" name="{{ img_form.alt_text.html_name }}"
+                                value="{{ img_form.alt_text.value|default:'' }}"
+                                class="form-control form-control-sm mt-2" placeholder="ALT-текст">
+                              <div class="d-flex align-items-center justify-content-between mt-2">
+                                <input type="number" name="{{ img_form.order.html_name }}"
+                                  value="{{ img_form.order.value|default:0 }}" class="form-control form-control-sm w-50"
+                                  placeholder="Порядок">
+                                <button type="button" class="btn btn-outline-danger btn-sm" data-action="delete-image">
+                                  <i class="fas fa-trash-alt"></i>
+                                </button>
                               </div>
                             </div>
-                            <template data-image-template>
-                              <div class="col-md-4">
-                                <div class="image-card">
-                                  <div class="image-preview" data-image-preview>
-                                    <span class="placeholder-icon"><i class="fas fa-image"></i></span>
-                                  </div>
-                                  <div class="image-actions">
-                                    {{ form.images_formset.empty_form.id }}
-                                    {{ form.images_formset.empty_form.DELETE }}
-                                    <label class="btn btn-outline-light btn-sm w-100">
-                                      <i class="fas fa-upload me-1"></i>Завантажити
-                                      {{ form.images_formset.empty_form.image }}
-                                    </label>
-                                    <input type="text"
-                                           name="{{ form.images_formset.empty_form.alt_text.html_name }}"
-                                           value="{{ form.images_formset.empty_form.alt_text.value|default:'' }}"
-                                           class="form-control form-control-sm mt-2"
-                                           placeholder="ALT-текст">
-                                    <div class="d-flex align-items-center justify-content-between mt-2">
-                                      <input type="number"
-                                             name="{{ form.images_formset.empty_form.order.html_name }}"
-                                             value="{{ form.images_formset.empty_form.order.value|default:0 }}"
-                                             class="form-control form-control-sm w-50"
-                                             placeholder="Порядок">
-                                      <button type="button"
-                                              class="btn btn-outline-danger btn-sm"
-                                              data-action="delete-image">
-                                        <i class="fas fa-trash-alt"></i>
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </template>
-                          {% else %}
-                            <div class="alert alert-info">Formset зображень не переданий.</div>
-                          {% endif %}
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              {% endfor %}
-            </div>
-
-            <template id="builder-variant-template">
-              <article class="color-variant-card" data-variant-row data-form-prefix="{{ color_formset.empty_form.prefix }}" data-variant-order="__prefix__">
-                <header class="variant-header">
-                  <div class="variant-title">
-                    <div class="variant-color-preview" data-color-preview>
-                      <span class="color-dot primary"></span>
-                      <span class="color-dot secondary"></span>
-                    </div>
-                    <h6>Новий варіант</h6>
-                  </div>
-                  <div class="variant-controls">
-                    <div class="form-check form-switch">
-                      {{ color_formset.empty_form.is_default }}
-                      <label class="form-check-label">Головний</label>
-                    </div>
-                    <button type="button" class="btn btn-outline-danger btn-sm" data-action="delete-variant">
-                      <i class="fas fa-trash-alt"></i>
-                    </button>
-                    <span class="drag-handle" data-dnd-handle>
-                      <i class="fas fa-grip-vertical"></i>
-                    </span>
-                  </div>
-                </header>
-                <div class="variant-body">
-                  <div class="grid grid--variant">
-                    {{ color_formset.empty_form.id }}
-                    {{ color_formset.empty_form.DELETE }}
-                    {{ color_formset.empty_form.order }}
-                    <div class="grid-item">
-                      <label class="form-label">Назва кольору</label>
-                      {{ color_formset.empty_form.name }}
-                    </div>
-                    <div class="grid-item">
-                      <label class="form-label">Основний HEX</label>
-                      {{ color_formset.empty_form.primary_hex }}
-                    </div>
-                    <div class="grid-item">
-                      <label class="form-label">Додатковий HEX</label>
-                      {{ color_formset.empty_form.secondary_hex }}
-                    </div>
-                    {{ color_formset.empty_form.color }}
-                    <div class="grid-item">
-                      <label class="form-label">SKU</label>
-                      {{ color_formset.empty_form.sku }}
-                    </div>
-                    <div class="grid-item">
-                      <label class="form-label">Штрих-код</label>
-                      {{ color_formset.empty_form.barcode }}
-                    </div>
-                    <div class="grid-item">
-                      <label class="form-label">Запас</label>
-                      {{ color_formset.empty_form.stock }}
-                    </div>
-                    <div class="grid-item">
-                      <label class="form-label">Ціна варіанту</label>
-                      {{ color_formset.empty_form.price_override }}
-                    </div>
-                    <div class="grid-item grid-item--full">
-                      <label class="form-label">Додаткові дані</label>
-                      {{ color_formset.empty_form.metadata }}
-                    </div>
-                    <div class="grid-item grid-item--full">
-                      <label class="form-label">Галерея зображень</label>
-                      <div class="variant-images" data-variant-gallery>
-                        {{ color_formset.empty_form.images_formset.management_form }}
-                        <div class="row g-3" data-image-list></div>
+                        {% endfor %}
                         <div class="col-md-4">
                           <label class="upload-tile" data-action="add-image">
                             <span class="icon"><i class="fas fa-plus"></i></span>
@@ -664,48 +538,158 @@
                             <input type="file" name="__new_color_images" accept="image/*" multiple hidden>
                           </label>
                         </div>
-                        <template data-image-template>
-                          <div class="col-md-4">
-                            <div class="image-card">
-                              <div class="image-preview" data-image-preview>
-                                <span class="placeholder-icon"><i class="fas fa-image"></i></span>
-                              </div>
-                              <div class="image-actions">
-                                {{ color_formset.empty_form.images_formset.empty_form.id }}
-                                {{ color_formset.empty_form.images_formset.empty_form.DELETE }}
-                                <label class="btn btn-outline-light btn-sm w-100">
-                                  <i class="fas fa-upload me-1"></i>Завантажити
-                                  {{ color_formset.empty_form.images_formset.empty_form.image }}
-                                </label>
-                                <input type="text"
-                                       name="{{ color_formset.empty_form.images_formset.empty_form.alt_text.html_name }}"
-                                       value="{{ color_formset.empty_form.images_formset.empty_form.alt_text.value|default:'' }}"
-                                       class="form-control form-control-sm mt-2"
-                                       placeholder="ALT-текст">
-                                <div class="d-flex align-items-center justify-content-between mt-2">
-                                  <input type="number"
-                                         name="{{ color_formset.empty_form.images_formset.empty_form.order.html_name }}"
-                                         value="{{ color_formset.empty_form.images_formset.empty_form.order.value|default:0 }}"
-                                         class="form-control form-control-sm w-50"
-                                         placeholder="Порядок">
-                                  <button type="button"
-                                          class="btn btn-outline-danger btn-sm"
-                                          data-action="delete-image">
-                                    <i class="fas fa-trash-alt"></i>
-                                  </button>
-                                </div>
+                      </div>
+                      <template data-image-template>
+                        <div class="col-md-4">
+                          <div class="image-card">
+                            <div class="image-preview" data-image-preview>
+                              <span class="placeholder-icon"><i class="fas fa-image"></i></span>
+                            </div>
+                            <div class="image-actions">
+                              {{ form.images_formset.empty_form.id }}
+                              {{ form.images_formset.empty_form.DELETE }}
+                              <label class="btn btn-outline-light btn-sm w-100">
+                                <i class="fas fa-upload me-1"></i>Завантажити
+                                {{ form.images_formset.empty_form.image }}
+                              </label>
+                              <input type="text" name="{{ form.images_formset.empty_form.alt_text.html_name }}"
+                                value="{{ form.images_formset.empty_form.alt_text.value|default:'' }}"
+                                class="form-control form-control-sm mt-2" placeholder="ALT-текст">
+                              <div class="d-flex align-items-center justify-content-between mt-2">
+                                <input type="number" name="{{ form.images_formset.empty_form.order.html_name }}"
+                                  value="{{ form.images_formset.empty_form.order.value|default:0 }}"
+                                  class="form-control form-control-sm w-50" placeholder="Порядок">
+                                <button type="button" class="btn btn-outline-danger btn-sm" data-action="delete-image">
+                                  <i class="fas fa-trash-alt"></i>
+                                </button>
                               </div>
                             </div>
                           </div>
-                        </template>
-                      </div>
+                        </div>
+                      </template>
+                      {% else %}
+                      <div class="alert alert-info">Formset зображень не переданий.</div>
+                      {% endif %}
                     </div>
                   </div>
                 </div>
-              </article>
-            </template>
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+
+          <template id="builder-variant-template">
+            <article class="color-variant-card" data-variant-row
+              data-form-prefix="{{ color_formset.empty_form.prefix }}" data-variant-order="__prefix__">
+              <header class="variant-header">
+                <div class="variant-title">
+                  <div class="variant-color-preview" data-color-preview>
+                    <span class="color-dot primary"></span>
+                    <span class="color-dot secondary"></span>
+                  </div>
+                  <h6>Новий варіант</h6>
+                </div>
+                <div class="variant-controls">
+                  <div class="form-check form-switch">
+                    {{ color_formset.empty_form.is_default }}
+                    <label class="form-check-label">Головний</label>
+                  </div>
+                  <button type="button" class="btn btn-outline-danger btn-sm" data-action="delete-variant">
+                    <i class="fas fa-trash-alt"></i>
+                  </button>
+                  <span class="drag-handle" data-dnd-handle>
+                    <i class="fas fa-grip-vertical"></i>
+                  </span>
+                </div>
+              </header>
+              <div class="variant-body">
+                <div class="grid grid--variant">
+                  {{ color_formset.empty_form.id }}
+                  {{ color_formset.empty_form.DELETE }}
+                  {{ color_formset.empty_form.order }}
+                  <div class="grid-item">
+                    <label class="form-label">Назва кольору</label>
+                    {{ color_formset.empty_form.name }}
+                  </div>
+                  <div class="grid-item">
+                    <label class="form-label">Основний HEX</label>
+                    {{ color_formset.empty_form.primary_hex }}
+                  </div>
+                  <div class="grid-item">
+                    <label class="form-label">Додатковий HEX</label>
+                    {{ color_formset.empty_form.secondary_hex }}
+                  </div>
+                  {{ color_formset.empty_form.color }}
+                  <div class="grid-item">
+                    <label class="form-label">SKU</label>
+                    {{ color_formset.empty_form.sku }}
+                  </div>
+                  <div class="grid-item">
+                    <label class="form-label">Штрих-код</label>
+                    {{ color_formset.empty_form.barcode }}
+                  </div>
+                  <div class="grid-item">
+                    <label class="form-label">Запас</label>
+                    {{ color_formset.empty_form.stock }}
+                  </div>
+                  <div class="grid-item">
+                    <label class="form-label">Ціна варіанту</label>
+                    {{ color_formset.empty_form.price_override }}
+                  </div>
+                  <div class="grid-item grid-item--full">
+                    <label class="form-label">Додаткові дані</label>
+                    {{ color_formset.empty_form.metadata }}
+                  </div>
+                  <div class="grid-item grid-item--full">
+                    <label class="form-label">Галерея зображень</label>
+                    <div class="variant-images" data-variant-gallery>
+                      {{ color_formset.empty_form.images_formset.management_form }}
+                      <div class="row g-3" data-image-list></div>
+                      <div class="col-md-4">
+                        <label class="upload-tile" data-action="add-image">
+                          <span class="icon"><i class="fas fa-plus"></i></span>
+                          <span>Додати зображення</span>
+                          <input type="file" name="__new_color_images" accept="image/*" multiple hidden>
+                        </label>
+                      </div>
+                      <template data-image-template>
+                        <div class="col-md-4">
+                          <div class="image-card">
+                            <div class="image-preview" data-image-preview>
+                              <span class="placeholder-icon"><i class="fas fa-image"></i></span>
+                            </div>
+                            <div class="image-actions">
+                              {{ color_formset.empty_form.images_formset.empty_form.id }}
+                              {{ color_formset.empty_form.images_formset.empty_form.DELETE }}
+                              <label class="btn btn-outline-light btn-sm w-100">
+                                <i class="fas fa-upload me-1"></i>Завантажити
+                                {{ color_formset.empty_form.images_formset.empty_form.image }}
+                              </label>
+                              <input type="text"
+                                name="{{ color_formset.empty_form.images_formset.empty_form.alt_text.html_name }}"
+                                value="{{ color_formset.empty_form.images_formset.empty_form.alt_text.value|default:'' }}"
+                                class="form-control form-control-sm mt-2" placeholder="ALT-текст">
+                              <div class="d-flex align-items-center justify-content-between mt-2">
+                                <input type="number"
+                                  name="{{ color_formset.empty_form.images_formset.empty_form.order.html_name }}"
+                                  value="{{ color_formset.empty_form.images_formset.empty_form.order.value|default:0 }}"
+                                  class="form-control form-control-sm w-50" placeholder="Порядок">
+                                <button type="button" class="btn btn-outline-danger btn-sm" data-action="delete-image">
+                                  <i class="fas fa-trash-alt"></i>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </template>
           {% else %}
-            <div class="alert alert-warning">Formset кольорів не переданий у контекст.</div>
+          <div class="alert alert-warning">Formset кольорів не переданий у контекст.</div>
           {% endif %}
         </div>
       </section>
@@ -727,57 +711,63 @@
               <div class="seo-toggle">
                 <label class="form-label">Режим SEO</label>
                 <div class="btn-group" role="group">
-                  <input type="radio" class="btn-check" name="seo_mode" id="seo-mode-auto" value="auto" autocomplete="off" checked>
+                  <input type="radio" class="btn-check" name="seo_mode" id="seo-mode-auto" value="auto"
+                    autocomplete="off" checked>
                   <label class="btn btn-outline-light" for="seo-mode-auto" data-seo-mode="auto">
                     <i class="fas fa-wand-magic me-1"></i>Автоматично
                   </label>
 
-                  <input type="radio" class="btn-check" name="seo_mode" id="seo-mode-manual" value="manual" autocomplete="off">
+                  <input type="radio" class="btn-check" name="seo_mode" id="seo-mode-manual" value="manual"
+                    autocomplete="off">
                   <label class="btn btn-outline-light" for="seo-mode-manual" data-seo-mode="manual">
                     <i class="fas fa-user-edit me-1"></i>Вручну
                   </label>
                 </div>
-                <small class="form-hint">Автоматичний режим підтягує AI-налаштування, ручний – відкриває всі поля для редагування.</small>
+                <small class="form-hint">Автоматичний режим підтягує AI-налаштування, ручний – відкриває всі поля для
+                  редагування.</small>
               </div>
 
               {% if seo_form %}
-                <div class="grid grid--seo" data-seo-manual-fields>
-                  <div class="grid-item">
-                    <label class="form-label">SEO Title</label>
-                    <div class="input-with-counter" data-field="seo_title">
-                      {{ seo_form.seo_title }}
-                      <span class="char-counter" data-counter target="{{ seo_form.seo_title.auto_id }}">0/160</span>
-                    </div>
-                  </div>
-                  <div class="grid-item grid-item--full">
-                    <label class="form-label">SEO Description</label>
-                    <div class="input-with-counter" data-field="seo_description">
-                      {{ seo_form.seo_description }}
-                      <span class="char-counter" data-counter target="{{ seo_form.seo_description.auto_id }}">0/320</span>
-                    </div>
-                  </div>
-                  <div class="grid-item">
-                    <label class="form-label">Ключові слова</label>
-                    {{ seo_form.seo_keywords }}
-                    <small class="form-hint">Перелічіть ключові слова через кому.</small>
-                  </div>
-                  <div class="grid-item grid-item--full">
-                    <label class="form-label">Structured Data (JSON-LD)</label>
-                    {{ seo_form.seo_schema }}
+              <div class="grid grid--seo" data-seo-manual-fields>
+                <div class="grid-item">
+                  <label class="form-label">SEO Title</label>
+                  <div class="input-with-counter" data-field="seo_title">
+                    {{ seo_form.seo_title }}
+                    <span class="char-counter" data-counter target="{{ seo_form.seo_title.auto_id }}">0/160</span>
                   </div>
                 </div>
+                <div class="grid-item grid-item--full">
+                  <label class="form-label">SEO Description</label>
+                  <div class="input-with-counter" data-field="seo_description">
+                    {{ seo_form.seo_description }}
+                    <span class="char-counter" data-counter target="{{ seo_form.seo_description.auto_id }}">0/320</span>
+                  </div>
+                </div>
+                <div class="grid-item">
+                  <label class="form-label">Ключові слова</label>
+                  {{ seo_form.seo_keywords }}
+                  <small class="form-hint">Перелічіть ключові слова через кому.</small>
+                </div>
+                <div class="grid-item grid-item--full">
+                  <label class="form-label">Structured Data (JSON-LD)</label>
+                  {{ seo_form.seo_schema }}
+                </div>
+              </div>
               {% else %}
-                <div class="alert alert-warning">SEO форма не передана у контекст.</div>
+              <div class="alert alert-warning">SEO форма не передана у контекст.</div>
               {% endif %}
 
               <div class="ai-actions">
-                <button class="btn btn-outline-light" type="button" data-feature-placeholder data-beta-hint="AI-опис згенеруємо після підключення нового провайдера.">
+                <button class="btn btn-outline-light" type="button" data-feature-placeholder
+                  data-beta-hint="AI-опис згенеруємо після підключення нового провайдера.">
                   <i class="fas fa-robot me-2"></i>Згенерувати опис
                 </button>
-                <button class="btn btn-outline-light" type="button" data-feature-placeholder data-beta-hint="AI-рекомендації SEO у процесі інтеграції.">
+                <button class="btn btn-outline-light" type="button" data-feature-placeholder
+                  data-beta-hint="AI-рекомендації SEO у процесі інтеграції.">
                   <i class="fas fa-bullhorn me-2"></i>AI SEO рекомендації
                 </button>
-                <button class="btn btn-outline-light" type="button" data-feature-placeholder data-beta-hint="Аналіз ALT-текстів додамо після запуску сервісу розпізнавання.">
+                <button class="btn btn-outline-light" type="button" data-feature-placeholder
+                  data-beta-hint="Аналіз ALT-текстів додамо після запуску сервісу розпізнавання.">
                   <i class="fas fa-camera me-2"></i>Аналіз ALT-текстів
                 </button>
               </div>
@@ -808,9 +798,9 @@
                 <h4><i class="fas fa-tags me-2 text-info"></i>Рекомендаційні теги</h4>
                 <div class="tags-cloud" data-recommendation-tags>
                   {% for tag in product.recommendation_tags %}
-                    <span class="tag">{{ tag }}</span>
+                  <span class="tag">{{ tag }}</span>
                   {% empty %}
-                    <span class="text-muted small">Теги рекомендацій поки відсутні.</span>
+                  <span class="text-muted small">Теги рекомендацій поки відсутні.</span>
                   {% endfor %}
                 </div>
               </div>
@@ -838,7 +828,8 @@
                 <p>Натисніть “Оновити прев'ю”, щоб побачити картку товару.</p>
               </div>
               <div class="preview-actions">
-                <button class="btn btn-outline-light" type="button" data-feature-placeholder data-beta-hint="Прев'ю товарної картки додамо після API інтеграції.">
+                <button class="btn btn-outline-light" type="button" data-feature-placeholder
+                  data-beta-hint="Прев'ю товарної картки додамо після API інтеграції.">
                   <i class="fas fa-sync-alt me-2"></i>Оновити прев'ю
                 </button>
               </div>
@@ -860,10 +851,12 @@
                 </li>
               </ul>
               <div class="publish-actions">
-                <button class="btn btn-outline-light" type="button" data-feature-placeholder data-beta-hint="Глобальна перевірка полів додасться після впровадження валідаторів.">
+                <button class="btn btn-outline-light" type="button" data-feature-placeholder
+                  data-beta-hint="Глобальна перевірка полів додасться після впровадження валідаторів.">
                   <i class="fas fa-shield-check me-2"></i>Перевірити все
                 </button>
-                <button class="btn btn-outline-light" type="button" data-feature-placeholder data-beta-hint="Планування публікації з'явиться після релізу cron-сервісу.">
+                <button class="btn btn-outline-light" type="button" data-feature-placeholder
+                  data-beta-hint="Планування публікації з'явиться після релізу cron-сервісу.">
                   <i class="fas fa-calendar-alt me-2"></i>Запланувати
                 </button>
               </div>
@@ -881,5 +874,5 @@
 {% endblock %}
 
 {% block extra_scripts %}
-  <script type="module" src="{% static 'js/product-builder.js' %}?v=2025.10.24.001"></script>
+<script type="module" src="{% static 'js/product-builder.js' %}?v=2025.10.24.001"></script>
 {% endblock %}
