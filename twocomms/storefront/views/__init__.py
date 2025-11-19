@@ -169,12 +169,13 @@ from .checkout import (
     order_success_preview,
     order_failed,
     calculate_shipping,
-    get_liqpay_context,
+    calculate_shipping,
     handle_payment,
     checkout_view,
     update_payment_method,
     confirm_payment
 )
+from .utils import get_liqpay_context
 
 
 # Monobank оплата
