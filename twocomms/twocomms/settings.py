@@ -538,7 +538,7 @@ STATICFILES_FINDERS = [
     'compressor.finders.CompressorFinder',
 ]
 
-def _ensure_compress_offline(enabled_flag):
+def ensure_compress_offline(enabled_flag):
     """
     Проверяем, что для offline-компрессии сгенерирован manifest.
     Если его нет (deploy без python manage.py compress), откатываемся
@@ -576,7 +576,7 @@ if not DEBUG:
     WHITENOISE_IMMUTABLE_FILE_TEST = lambda path, url: True
 
 # Переключаемся на on-the-fly режим, если offline bundle ещё не сгенерирован
-COMPRESS_OFFLINE = _ensure_compress_offline(COMPRESS_OFFLINE)
+COMPRESS_OFFLINE = ensure_compress_offline(COMPRESS_OFFLINE)
 
 # ===== НАСТРОЙКИ БЕЗОПАСНОСТИ =====
 # Базовые настройки безопасности
