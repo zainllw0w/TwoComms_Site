@@ -4,6 +4,15 @@
 
 import os
 from pathlib import Path
+from functools import lru_cache
+
+
+@lru_cache(maxsize=4096)
+def _cached_mtime(path):
+    try:
+        return os.path.getmtime(path)
+    except OSError:
+        return 0
 
 
 def add_cache_headers(headers, path, url):
@@ -16,32 +25,32 @@ def add_cache_headers(headers, path, url):
     # Критические ресурсы - кешируем на 1 год
     if file_extension in ['.css', '.js'] and 'min' in path:
         headers['Cache-Control'] = 'public, max-age=31536000, immutable'  # 1 год
-        headers['ETag'] = f'"{os.path.getmtime(path)}"'
+        headers['ETag'] = f'"{_cached_mtime(path)}"'
     
     # Изображения - кешируем на 1 год
     elif file_extension in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico']:
         headers['Cache-Control'] = 'public, max-age=31536000, immutable'  # 1 год
-        headers['ETag'] = f'"{os.path.getmtime(path)}"'
+        headers['ETag'] = f'"{_cached_mtime(path)}"'
     
     # Шрифты - кешируем на 1 год
     elif file_extension in ['.woff', '.woff2', '.ttf', '.eot']:
         headers['Cache-Control'] = 'public, max-age=31536000, immutable'  # 1 год
-        headers['ETag'] = f'"{os.path.getmtime(path)}"'
+        headers['ETag'] = f'"{_cached_mtime(path)}"'
     
     # HTML файлы - кешируем на 1 час
     elif file_extension in ['.html', '.htm']:
         headers['Cache-Control'] = 'public, max-age=3600'  # 1 час
-        headers['ETag'] = f'"{os.path.getmtime(path)}"'
+        headers['ETag'] = f'"{_cached_mtime(path)}"'
     
     # Медиа файлы - кешируем на 30 дней
     elif file_extension in ['.mp4', '.mp3', '.avi', '.mov']:
         headers['Cache-Control'] = 'public, max-age=2592000'  # 30 дней
-        headers['ETag'] = f'"{os.path.getmtime(path)}"'
+        headers['ETag'] = f'"{_cached_mtime(path)}"'
     
     # Остальные файлы - кешируем на 7 дней
     else:
         headers['Cache-Control'] = 'public, max-age=604800'  # 7 дней
-        headers['ETag'] = f'"{os.path.getmtime(path)}"'
+        headers['ETag'] = f'"{_cached_mtime(path)}"'
     
     # Добавляем заголовки для оптимизации
     headers['Vary'] = 'Accept-Encoding'
@@ -61,16 +70,16 @@ def get_media_cache_headers(path):
     # Изображения продуктов - кешируем на 30 дней
     if file_extension in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
         headers['Cache-Control'] = 'public, max-age=2592000'  # 30 дней
-        headers['ETag'] = f'"{os.path.getmtime(path)}"'
+        headers['ETag'] = f'"{_cached_mtime(path)}"'
     
     # Аватары - кешируем на 7 дней
     elif 'avatars' in path:
         headers['Cache-Control'] = 'public, max-age=604800'  # 7 дней
-        headers['ETag'] = f'"{os.path.getmtime(path)}"'
+        headers['ETag'] = f'"{_cached_mtime(path)}"'
     
     # Остальные медиа файлы - кешируем на 1 день
     else:
         headers['Cache-Control'] = 'public, max-age=86400'  # 1 день
-        headers['ETag'] = f'"{os.path.getmtime(path)}"'
+        headers['ETag'] = f'"{_cached_mtime(path)}"'
     
     return headers
