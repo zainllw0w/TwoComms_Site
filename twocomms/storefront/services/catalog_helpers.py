@@ -70,7 +70,13 @@ def build_color_preview_map(products: Iterable[Any]) -> Dict[int, List[Dict[str,
     preview_map: Dict[int, List[Dict[str, Any]]] = defaultdict(list)
     for variant in queryset:
         color = getattr(variant, 'color', None)
-        images = list(getattr(variant, 'images', []).all() if hasattr(variant, 'images') else [])
+        # Use the prefetched images directly without calling .all() again
+        # This prevents N+1 queries
+        images = getattr(variant, '_prefetched_objects_cache', {}).get('images', [])
+        if not images:
+            # Fallback if prefetch didn't work
+            images = list(variant.images.all()) if hasattr(variant, 'images') else []
+            
         first_image = images[0].image.url if images else ''
         preview_map[variant.product_id].append(
             {

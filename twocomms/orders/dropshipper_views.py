@@ -268,7 +268,10 @@ def dropshipper_orders(request):
     status_filter = request.GET.get('status', '')
     
     # Базовый queryset - сортировка от новых к старым (новые сверху)
-    orders = DropshipperOrder.objects.filter(dropshipper=request.user).prefetch_related('items__product').order_by('-created_at')
+    orders = DropshipperOrder.objects.filter(dropshipper=request.user).prefetch_related(
+        'items__product',
+        'items__color_variant__color'
+    ).order_by('-created_at')
     print(f"=== ОТЛАДКА ЗАКАЗОВ ===")
     print(f"Пользователь: {request.user.username} (ID: {request.user.id})")
     print(f"Всего заказов в БД: {orders.count()}")

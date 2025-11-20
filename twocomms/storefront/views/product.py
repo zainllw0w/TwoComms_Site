@@ -49,7 +49,7 @@ def product_detail(request, slug):
         offer_id_map: JSON mapping (color_variant_id, size) -> offer_id для JS
         default_offer_id: Offer ID для текущего выбора (default цвет + размер)
     """
-    product = get_object_or_404(Product.objects.select_related('category').prefetch_related('images'), slug=slug)
+    product = get_object_or_404(Product.objects.select_related('category').prefetch_related('images'), slug=slug, status='published')
     images = product.images.all()
     
     # Читаем параметры из URL (?size=M&color=123)
@@ -206,7 +206,7 @@ def get_product_images(request, product_id):
         JsonResponse: Список URL изображений
     """
     try:
-        product = Product.objects.get(id=product_id)
+        product = Product.objects.get(id=product_id, status='published')
         images = product.images.all()
         
         image_urls = []
@@ -249,7 +249,7 @@ def get_product_variants(request, product_id):
         JsonResponse: Список вариантов с изображениями
     """
     try:
-        product = Product.objects.get(id=product_id)
+        product = Product.objects.get(id=product_id, status='published')
         color_variants = get_detailed_color_variants(product)
         
         return JsonResponse({
@@ -276,7 +276,7 @@ def quick_view(request, product_id):
         JsonResponse или rendered HTML fragment
     """
     try:
-        product = Product.objects.select_related('category').get(id=product_id)
+        product = Product.objects.select_related('category').get(id=product_id, status='published')
         color_variants = get_detailed_color_variants(product)
         
         from django.template.loader import render_to_string

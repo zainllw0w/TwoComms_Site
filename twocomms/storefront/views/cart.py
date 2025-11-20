@@ -830,6 +830,10 @@ def cart_mini(request):
     ids = [i['product_id'] for i in cart_sess.values()]
     prods = Product.objects.in_bulk(ids)
     
+    # Optimization: Fetch color variants
+    variant_ids = [i.get('color_variant_id') for i in cart_sess.values() if i.get('color_variant_id')]
+    variants_map = ProductColorVariant.objects.select_related('color').in_bulk(variant_ids)
+    
     # Проверяем, какие товары найдены
     found_products = set(prods.keys())
     missing_products = set(ids) - found_products
@@ -854,7 +858,9 @@ def cart_mini(request):
             continue
         
         # Получаем информацию о цвете
-        color_variant = _get_color_variant_safe(it.get('color_variant_id'))
+        # Получаем информацию о цвете
+        variant_id = it.get('color_variant_id')
+        color_variant = variants_map.get(int(variant_id)) if variant_id else None
         
         unit = p.final_price
         line = unit * it['qty']
@@ -1029,10 +1035,19 @@ def cart_items_api(request):
     total_points = 0
     total_quantity = 0
     
+    # Optimization: Fetch all products and variants at once
+    product_ids = [item.get('product_id') for item in cart.values() if item.get('product_id')]
+    products_map = Product.objects.select_related('category').prefetch_related('color_variants__images').in_bulk(product_ids)
+
+    color_variant_ids = [item.get('color_variant_id') for item in cart.values() if item.get('color_variant_id')]
+    variants_map = ProductColorVariant.objects.select_related('color').prefetch_related('images').in_bulk(color_variant_ids)
+    
     for item_key, item_data in cart.items():
         try:
             product_id = item_data.get('product_id')
-            product = Product.objects.select_related('category').get(id=product_id)
+            product = products_map.get(int(product_id))
+            if not product:
+                continue
             
             price = product.final_price
             original_price = Decimal(product.price)
@@ -1044,7 +1059,8 @@ def cart_items_api(request):
                 site_line_discount = Decimal('0.00')
             total_quantity += qty
             
-            color_variant = _get_color_variant_safe(item_data.get('color_variant_id'))
+            variant_id = item_data.get('color_variant_id')
+            color_variant = variants_map.get(int(variant_id)) if variant_id else None
             color_label = _color_label_from_variant(color_variant)
             size_value = (item_data.get('size', '') or 'S').upper()
             color_variant_id = color_variant.id if color_variant else None

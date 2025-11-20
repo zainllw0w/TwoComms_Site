@@ -83,7 +83,7 @@ export function scheduleIdle(fn, timeout = 400) {
     if ('requestIdleCallback' in window) {
       return window.requestIdleCallback(fn, { timeout });
     }
-  } catch (_) {}
+  } catch (_) { }
   return setTimeout(fn, Math.min(timeout, 400));
 }
 
@@ -96,4 +96,14 @@ export function getCookie(name) {
   return match ? decodeURIComponent(match.pop()) : '';
 }
 
-export const noop = () => {};
+export const noop = () => { };
+
+export function escapeHtml(unsafe) {
+  if (typeof unsafe !== 'string') return '';
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
