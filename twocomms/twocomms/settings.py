@@ -134,7 +134,7 @@ MIDDLEWARE = [
     "twocomms.middleware.SecurityHeadersMiddleware",  # CSP и дополнительные заголовки
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "twocomms.middleware.SimpleRateLimitMiddleware",  # Rate limiting (ПОСЛЕ статики!)
-    # "twocomms.image_middleware.ImageOptimizationMiddleware",  # DISABLED: CPU blocking issue
+    "twocomms.image_middleware.ImageOptimizationMiddleware",  # Enabled with caching
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -538,7 +538,7 @@ STATICFILES_FINDERS = [
 ]
 
 COMPRESS_ENABLED = True
-COMPRESS_OFFLINE = False
+COMPRESS_OFFLINE = not DEBUG
 COMPRESS_CSS_FILTERS = [
     'compressor.filters.css_default.CssAbsoluteFilter',
     'compressor.filters.cssmin.rCSSMinFilter',
