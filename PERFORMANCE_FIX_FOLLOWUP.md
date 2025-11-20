@@ -4,7 +4,7 @@
 
 - **Проблема #16 (COMPRESS_OFFLINE)** — предыдущий агент выставил `COMPRESS_OFFLINE = not DEBUG`, но не добавил защиту и шаг `python manage.py compress` в рабочий процесс. На сервере выполняли только `git pull`, поэтому Django Compressor пытался найти `staticfiles/CACHE/manifest.json` и падал с `OfflineGenerationError`, что и давало 500-ые.
 - **Что сделано сейчас**:
-  - добавил функцию `_ensure_compress_offline()` в `settings.py`/`production_settings.py`. Если манифест отсутствует, проект автоматически откатывается в on-the-fly режим и выводит предупреждение, вместо полного падения;
+  - добавил функцию `ensure_compress_offline()` в `settings.py`/`production_settings.py`. Если манифест отсутствует, проект автоматически откатывается в on-the-fly режим и выводит предупреждение, вместо полного падения;
   - описал требование запускать `python manage.py compress --force` перед `collectstatic` (см. ниже), чтобы оффлайн-режим действительно работал.
 - Остальные пункты 1‑15 остались без ощутимых изменений — CSS по‑прежнему ~475 KB, `backdrop-filter` используется сотни раз, поэтому нагрузка на GPU/CPU не упала.
 
@@ -25,7 +25,7 @@
    SECRET_KEY=dummy DEBUG=1 python3 manage.py compress --force
    python3 manage.py collectstatic --noinput
    ```
-2. На сервере выполнять тот же порядок (compress → collectstatic), иначе `_ensure_compress_offline()` переведёт проект в on-the-fly режим.
+2. На сервере выполнять тот же порядок (compress → collectstatic), иначе `ensure_compress_offline()` переведёт проект в on-the-fly режим.
 3. После `git pull` обязательно:
    ```bash
    source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate
