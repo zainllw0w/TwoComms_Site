@@ -418,15 +418,7 @@
   <!-- Meta Pixel Code - оптимизированная загрузка -->
   {% if request.user.is_authenticated %}
   {% with user_profile=request.user.userprofile %}
-  {% with email=request.user.email|default:user_profile.email|lower|escapejs %}
-  {% with phone=user_profile.phone|escapejs %}
-  {% with full_name=user_profile.full_name|default:request.user.get_full_name|escapejs %}
-  {% with city=user_profile.city|escapejs %}
-  <div id="am" data-external-id="{{ request.user.id }}"{% if email %} data-em="{{ email }}"{% endif %}{% if phone %} data-ph="{{ phone }}"{% endif %}{% if full_name %} data-fn="{{ full_name }}"{% endif %}{% if city %} data-ct="{{ city }}"{% endif %} style="display:none"></div>
-  {% endwith %}
-  {% endwith %}
-  {% endwith %}
-  {% endwith %}
+  <div id="am" data-external-id="{{ request.user.id }}"{% if request.user.email or user_profile.email %} data-em="{{ request.user.email|default:user_profile.email|lower|escapejs }}"{% endif %}{% if user_profile.phone %} data-ph="{{ user_profile.phone|escapejs }}"{% endif %}{% if user_profile.full_name or request.user.get_full_name %} data-fn="{{ user_profile.full_name|default:request.user.get_full_name|escapejs }}"{% endif %}{% if user_profile.city %} data-ct="{{ user_profile.city|escapejs }}"{% endif %} style="display:none"></div>
   {% endwith %}
   {% else %}
   {% if not debug %}
