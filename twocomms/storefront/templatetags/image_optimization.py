@@ -6,10 +6,27 @@ Template tags для оптимизации изображений
 from django import template
 from django.template import Context, Template
 from django.utils.safestring import mark_safe
-import os
+from django.conf import settings
+from functools import lru_cache
 from pathlib import Path
 
 register = template.Library()
+STATIC_SEARCH_DIRS = []
+if hasattr(settings, 'STATICFILES_DIRS'):
+    STATIC_SEARCH_DIRS.extend(Path(p) for p in settings.STATICFILES_DIRS)
+STATIC_SEARCH_DIRS.append(Path("static"))
+if hasattr(settings, 'STATIC_ROOT') and settings.STATIC_ROOT:
+    STATIC_SEARCH_DIRS.append(Path(settings.STATIC_ROOT))
+
+@lru_cache(maxsize=4096)
+def _static_file_exists(relative_path):
+    """Кэшируем проверку существования файла, чтобы не дёргать файловую систему каждый раз"""
+    normalized = relative_path.lstrip('/')
+    for base_dir in STATIC_SEARCH_DIRS:
+        candidate = base_dir / normalized
+        if candidate.exists():
+            return True
+    return False
 
 @register.simple_tag
 def optimized_image(image_path, alt_text="", width=None, height=None, loading="lazy", class_name=""):
@@ -19,8 +36,6 @@ def optimized_image(image_path, alt_text="", width=None, height=None, loading="l
     if not image_path:
         return ""
     
-    # Получаем путь к статическим файлам
-    static_path = Path("static") / image_path.lstrip("/")
     image_path_clean = image_path.lstrip("/")
     
     # Проверяем существование файлов
@@ -46,11 +61,11 @@ def optimized_image(image_path, alt_text="", width=None, height=None, loading="l
     html = f'<picture>'
     
     # AVIF (лучший сжатие)
-    if os.path.exists(static_path.parent / avif_path):
+    if _static_file_exists(avif_path):
         html += f'<source srcset="/static/{avif_path}" type="image/avif">'
     
     # WebP (хорошее сжатие, широкая поддержка)
-    if os.path.exists(static_path.parent / webp_path):
+    if _static_file_exists(webp_path):
         html += f'<source srcset="/static/{webp_path}" type="image/webp">'
     
     # Fallback на оригинальный формат
@@ -96,10 +111,10 @@ def responsive_image(image_path, alt_text="", sizes="(max-width: 768px) 100vw, 5
         webp_responsive = f"{base_name}_{size}w.webp"
         original_responsive = f"{base_name}_{size}w.{extension}"
         
-        if os.path.exists(Path("static") / webp_responsive):
+        if _static_file_exists(webp_responsive):
             srcset_webp.append(f"/static/{webp_responsive} {size}w")
         
-        if os.path.exists(Path("static") / original_responsive):
+        if _static_file_exists(original_responsive):
             srcset_original.append(f"/static/{original_responsive} {size}w")
     
     # Если нет адаптивных версий, используем оригинал
@@ -151,11 +166,11 @@ def icon_image(icon_path, size=24, alt_text="", class_name=""):
     html = '<picture>'
     
     # WebP версия иконки
-    if os.path.exists(Path("static") / icon_webp_path):
+    if _static_file_exists(icon_webp_path):
         html += f'<source srcset="/static/{icon_webp_path}" type="image/webp">'
     
     # Fallback на оригинальную иконку нужного размера или оригинал
-    if os.path.exists(Path("static") / icon_size_path):
+    if _static_file_exists(icon_size_path):
         html += f'<img src="/static/{icon_size_path}" {attrs_str}>'
     else:
         html += f'<img src="/static/{icon_path_clean}" {attrs_str}>'
@@ -179,8 +194,8 @@ def image_optimization_info(image_path):
         'original': image_path_clean,
         'webp': f"{base_name}.webp",
         'avif': f"{base_name}.avif",
-        'has_webp': os.path.exists(Path("static") / f"{base_name}.webp"),
-        'has_avif': os.path.exists(Path("static") / f"{base_name}.avif"),
+        'has_webp': _static_file_exists(f"{base_name}.webp"),
+        'has_avif': _static_file_exists(f"{base_name}.avif"),
     }
     
     return info
