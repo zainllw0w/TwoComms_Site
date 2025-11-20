@@ -26,9 +26,99 @@
 .perf-lite .profile-card,
 .perf-lite .points-card,
 .perf-lite .cart-checkout-card,
-.perf-lite .cart-sidebar-card {
+.perf-lite .cart-sidebar-card,
+.effects-lite .modal,
+.effects-lite .offcanvas,
+.effects-lite .bottom-nav,
+.effects-lite .navbar.bg-body,
+.effects-lite .hero.bg-hero,
+.effects-lite .card.glassy,
+.effects-lite .profile-card,
+.effects-lite .points-card,
+.effects-lite .cart-checkout-card,
+.effects-lite .cart-sidebar-card {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+}
+
+/* Глобальный режим минимизации эффектов (уменьшаем нагрузку на GPU/CPU) */
+html.effects-lite *,
+html.effects-lite *::before,
+html.effects-lite *::after,
+html.perf-lite *,
+html.perf-lite *::before,
+html.perf-lite *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+html.effects-lite body,
+html.perf-lite body {
+  background: #0b0c10;
+}
+
+html.effects-lite body::before,
+html.perf-lite body::before {
+  animation: none !important;
+  filter: none !important;
+  background: linear-gradient(135deg, #060607 0%, #101116 100%) !important;
+}
+
+html.effects-lite body::after,
+html.perf-lite body::after {
+  display: none !important;
+}
+
+html.effects-lite [class*="glow"],
+html.effects-lite [class*="floating"],
+html.effects-lite [class*="spark"],
+html.effects-lite [class*="particle"],
+html.effects-lite [class*="flare"],
+html.effects-lite .hint-wiggle,
+html.effects-lite .pulse,
+html.effects-lite .hero-floating-labels,
+html.effects-lite .hero-logo-glow,
+html.effects-lite .hero-floating-card,
+html.effects-lite .hero-floating-logo,
+html.effects-lite .hero-floating-item,
+html.effects-lite .price-glow,
+html.effects-lite .cart-updated,
+html.effects-lite .animated-glow,
+html.effects-lite .hero-particles {
+  animation: none !important;
+  filter: none !important;
+  box-shadow: none !important;
+}
+
+html.effects-lite .btn-cta::before,
+html.effects-lite .btn-cta::after,
+html.effects-lite .bottom-nav-item::before,
+html.effects-lite .bottom-nav-item::after {
+  display: none !important;
+}
+
+html.effects-lite .navbar.bg-body,
+html.effects-lite .bottom-nav,
+html.effects-lite .modal-glass,
+html.effects-lite .panel-glass,
+html.effects-lite .card.glassy,
+html.effects-lite .cart-checkout-card,
+html.effects-lite .cart-sidebar-card,
+html.effects-lite .profile-card,
+html.effects-lite .points-card,
+html.effects-lite .floating-card,
+html.effects-lite .floating-panel,
+html.effects-lite .hero.bg-hero {
+  background-color: rgba(13, 14, 17, 0.94) !important;
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.45) !important;
+  border-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+html.effects-lite .hero.bg-hero::before,
+html.effects-lite .hero.bg-hero::after,
+html.effects-lite .hero-floating-logo::before,
+html.effects-lite .hero-floating-logo::after {
+  display: none !important;
 }
 
 /* Reduce strong blurs to cheaper values */
@@ -159,17 +249,6 @@ body::after {
     /* Отключаем анимацию шума на мобильных */
     opacity: 0.03;
   }
-}
-
-/* Режим производительности (perf-lite) */
-.perf-lite body::before {
-  animation: none !important;
-  filter: none !important;
-  background: linear-gradient(135deg, #0a0b0f 0%, #0e0f12 100%) !important;
-}
-
-.perf-lite body::after {
-  display: none !important;
 }
 
 /* Отключение анимаций при предпочтении reduced-motion */

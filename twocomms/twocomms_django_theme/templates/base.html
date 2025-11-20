@@ -4,7 +4,7 @@
 {% load seo_tags %}
 {% load image_optimization %}
 <!DOCTYPE html>
-<html lang='uk' data-bs-theme='dark' {% if not debug %}data-ga-id="G-109EFTWM05" data-clarity-id="t7u94cvpqc"
+<html lang='uk' class='effects-lite' data-bs-theme='dark' {% if not debug %}data-ga-id="G-109EFTWM05" data-clarity-id="t7u94cvpqc"
   data-meta-pixel-id="823958313630148" {% endif %}
   data-tiktok-pixel-id="{% if TIKTOK_PIXEL_ID %}{{ TIKTOK_PIXEL_ID }}{% else %}D43L7DBC77UA61AHLTVG{% endif %}"{% if TIKTOK_TEST_EVENT_CODE %} data-tiktok-test-event-code="{{ TIKTOK_TEST_EVENT_CODE }}"{% endif %}>
 
@@ -109,7 +109,34 @@
   <link rel='icon' href='{% static ' img/favicon.ico' %}' sizes='any' type='image/x-icon'>
 
   <!-- Early performance hint: enable lite mode for save-data/low-memory/low-CPU -->
-  <script>(function () { try { var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection; var save = c && c.saveData; var lowRam = Number(navigator.deviceMemory || 0) && navigator.deviceMemory <= 1; var lowCPU = Number(navigator.hardwareConcurrency || 0) && navigator.hardwareConcurrency <= 1; if (save || lowRam || lowCPU) { document.documentElement.classList.add('perf-lite'); } } catch (e) { } })();</script>
+  <script>(function () {
+      try {
+        var docEl = document.documentElement;
+        if (!docEl.classList.contains('effects-lite')) {
+          docEl.classList.add('effects-lite');
+        }
+        var connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        var saveData = connection && connection.saveData;
+        var deviceMemory = Number(navigator.deviceMemory || 0);
+        var cpuCores = Number(navigator.hardwareConcurrency || 0);
+        var lowRam = deviceMemory && deviceMemory <= 1;
+        var lowCPU = cpuCores && cpuCores <= 1;
+        if (saveData || lowRam || lowCPU) {
+          docEl.classList.add('perf-lite');
+        }
+        var storedMode = null;
+        try {
+          storedMode = window.localStorage ? localStorage.getItem('twc-effects-mode') : null;
+        } catch (_) { storedMode = null; }
+        var qualifiesForFull = !saveData && deviceMemory >= 12 && cpuCores >= 8;
+        if (storedMode === 'lite') {
+          docEl.classList.add('effects-lite');
+        } else if (storedMode === 'high' || (storedMode === null && qualifiesForFull)) {
+          docEl.classList.remove('effects-lite');
+          docEl.classList.add('effects-high');
+        }
+      } catch (e) { }
+    })();</script>
 
   <!-- Critical CSS inline для быстрой отрисовки с CLS исправлениями -->
   <style>
