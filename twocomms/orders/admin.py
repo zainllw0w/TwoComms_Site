@@ -52,6 +52,16 @@ class DropshipperOrderAdmin(admin.ModelAdmin):
     
     inlines = [DropshipperOrderItemInline]
     
+    def get_queryset(self, request):
+        """Оптимизация запросов для списка заказов"""
+        qs = super().get_queryset(request)
+        return qs.select_related(
+            'dropshipper__userprofile'
+        ).prefetch_related(
+            'items__product',
+            'items__color_variant__color'
+        )
+    
     def dropshipper_info(self, obj):
         """Отображает информацию о дропшипере"""
         try:
@@ -162,6 +172,15 @@ class DropshipperOrderItemAdmin(admin.ModelAdmin):
     readonly_fields = ('order', 'product', 'color_variant', 'total_drop_price', 
                       'total_selling_price', 'item_profit')
     
+    def get_queryset(self, request):
+        """Оптимизация запросов для списка товаров"""
+        qs = super().get_queryset(request)
+        return qs.select_related(
+            'order', 
+            'product', 
+            'color_variant__color'
+        )
+    
     def order_link(self, obj):
         """Ссылка на заказ"""
         url = reverse('admin:orders_dropshipperorder_change', args=[obj.order.id])
@@ -197,6 +216,15 @@ class DropshipperPayoutAdmin(admin.ModelAdmin):
                     'dropshipper__userprofile__company_name')
     readonly_fields = ('payout_number', 'dropshipper', 'requested_at', 
                       'processed_at', 'completed_at', 'orders_list')
+    
+    def get_queryset(self, request):
+        """Оптимизация запросов для списка выплат"""
+        qs = super().get_queryset(request)
+        return qs.select_related(
+            'dropshipper__userprofile'
+        ).prefetch_related(
+            'included_orders'
+        )
     
     fieldsets = (
         ('Основна інформація', {

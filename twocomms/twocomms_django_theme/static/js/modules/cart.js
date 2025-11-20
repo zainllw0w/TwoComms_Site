@@ -1,4 +1,4 @@
-import { getCookie } from './shared.js';
+import { getCookie, DOMCache, escapeHtml } from './shared.js';
 
 const CART_EMPTY_TEMPLATE = `
   <div class="cart-empty">
@@ -21,8 +21,8 @@ const CART_EMPTY_TEMPLATE = `
 const NOOP = () => { };
 
 const getCsrfToken = () =>
-  document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
-  document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
+  DOMCache.query('meta[name="csrf-token"]')?.getAttribute('content') ||
+  DOMCache.query('input[name="csrfmiddlewaretoken"]')?.value ||
   getCookie('csrftoken') ||
   '';
 
@@ -57,15 +57,7 @@ const toggleElement = (el, show) => {
   el.classList[show ? 'remove' : 'add']('d-none');
 };
 
-const escapeHtml = (unsafe) => {
-  if (unsafe === null || unsafe === undefined) return '';
-  return String(unsafe)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-};
+
 
 class CartPageController {
   constructor(root) {
@@ -298,14 +290,14 @@ class CartPageController {
       : `<span class="cart-item-price-current">${formatUAH(unitPrice)}</span>`;
 
     return `
-      <div class="cart-item" data-cart-row data-key="${item.key}" data-offer-id="${item.offer_id || ''}">
+      <div class="cart-item" data-cart-row data-key="${escapeHtml(item.key)}" data-offer-id="${escapeHtml(item.offer_id || '')}">
         <div class="cart-item-sparks">
           <div class="cart-item-spark cart-item-spark-1"></div>
           <div class="cart-item-spark cart-item-spark-2"></div>
           <div class="cart-item-spark cart-item-spark-3"></div>
         </div>
         <div class="cart-item-image">
-          <img src="${imageUrl}" alt="${item.product_title || 'Товар TwoComms'}" class="cart-item-img" width="80" height="80">
+          <img src="${imageUrl}" alt="${escapeHtml(item.product_title || 'Товар TwoComms')}" class="cart-item-img" width="80" height="80">
           <div class="cart-item-image-glow"></div>
         </div>
         <div class="cart-item-info">
@@ -347,7 +339,7 @@ class CartPageController {
             <span class="cart-item-total-label">Разом:</span>
             <span class="cart-item-total-value">${formatUAH(lineTotal)}</span>
           </div>
-          <button type="button" class="cart-item-remove-btn" data-key="${item.key}">
+          <button type="button" class="cart-item-remove-btn" data-key="${escapeHtml(item.key)}">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5л-1-1h-5л-1 1H5v2h14V4z"/>
             </svg>
@@ -774,10 +766,10 @@ function setupCartValidation(form) {
 }
 
 export function initCartInteractions() {
-  const promoInput = document.getElementById('promo-code-input');
-  const applyBtn = document.querySelector('.cart-promo-apply-btn');
-  const removeBtn = document.querySelector('.cart-promo-remove-btn');
-  const msgBox = document.getElementById('promo-message');
+  const promoInput = DOMCache.get('promo-code-input');
+  const applyBtn = DOMCache.query('.cart-promo-apply-btn');
+  const removeBtn = DOMCache.query('.cart-promo-remove-btn');
+  const msgBox = DOMCache.get('promo-message');
 
   if (applyBtn && promoInput) {
     applyBtn.addEventListener('click', (event) => {
