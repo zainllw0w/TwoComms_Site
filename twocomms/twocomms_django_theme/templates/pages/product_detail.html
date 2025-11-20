@@ -704,7 +704,79 @@ document.addEventListener('DOMContentLoaded', function() {
   cursor: not-allowed !important;
   pointer-events: none !important;
 }
+
+.product-recommendations {
+  margin-top: 3rem;
+  padding: 2.5rem;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(20, 22, 27, 0.9), rgba(10, 12, 17, 0.92));
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  box-shadow: 0 25px 65px rgba(15, 17, 22, 0.55);
+  position: relative;
+  overflow: hidden;
+}
+
+.product-recommendations::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top right, rgba(139, 92, 246, 0.15), transparent 55%);
+  pointer-events: none;
+}
+
+.product-recommendations-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+}
+
+.product-recommendations-title {
+  font-size: clamp(1.5rem, 2vw, 1.8rem);
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+
+.product-recommendations-hint {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+@media (max-width: 768px) {
+  .product-recommendations {
+    padding: 1.5rem;
+    border-radius: 18px;
+    margin-top: 2rem;
+  }
+
+  .product-recommendations-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
 </style>
+
+{% if recommended_products %}
+  {% cache 3600 product_detail_recommendations product.id %}
+  <section class="product-recommendations">
+    <div class="product-recommendations-header">
+      <div>
+        <h2 class="product-recommendations-title">Вам також сподобається</h2>
+        <p class="product-recommendations-hint mb-0">Підібрано автоматично, виходячи з переглянутого товару</p>
+      </div>
+    </div>
+    <div class="row g-3 g-lg-4">
+      {% for rec_product in recommended_products %}
+        <div class="col-6 col-md-4 col-lg-3">
+          {% include "partials/product_card.html" with p=rec_product %}
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endcache %}
+{% endif %}
 
 {% endblock %}
 
