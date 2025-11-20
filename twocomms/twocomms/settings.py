@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+import warnings
 import pymysql
 
 # Настройка PyMySQL для работы с MySQL
@@ -537,6 +538,24 @@ STATICFILES_FINDERS = [
     'compressor.finders.CompressorFinder',
 ]
 
+def _ensure_compress_offline(enabled_flag):
+    """
+    Проверяем, что для offline-компрессии сгенерирован manifest.
+    Если его нет (deploy без python manage.py compress), откатываемся
+    на on-the-fly режим, чтобы не получать 500-ые ошибки.
+    """
+    if not enabled_flag:
+        return False
+    manifest_path = (STATIC_ROOT / 'CACHE' / 'manifest.json')
+    if not manifest_path.exists():
+        warnings.warn(
+            "COMPRESS_OFFLINE=True, но manifest CACHE/manifest.json не найден. "
+            "Запустите 'python manage.py compress' перед деплоем, чтобы включить offline-компрессию.",
+            RuntimeWarning
+        )
+        return False
+    return True
+
 COMPRESS_ENABLED = True
 COMPRESS_OFFLINE = not DEBUG
 COMPRESS_CSS_FILTERS = [
@@ -555,6 +574,9 @@ if not DEBUG:
     STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
     WHITENOISE_MAX_AGE = 60*60*24*180  # 180 дней
     WHITENOISE_IMMUTABLE_FILE_TEST = lambda path, url: True
+
+# Переключаемся на on-the-fly режим, если offline bundle ещё не сгенерирован
+COMPRESS_OFFLINE = _ensure_compress_offline(COMPRESS_OFFLINE)
 
 # ===== НАСТРОЙКИ БЕЗОПАСНОСТИ =====
 # Базовые настройки безопасности
