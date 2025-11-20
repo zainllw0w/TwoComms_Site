@@ -20,6 +20,8 @@
 - **Cache decorator (#19):**
   - `cache_page_for_anon()` теперь генерирует ключ на основе `path + sorted query params + LANGUAGE_CODE + Accept-Language` и не кэширует POST/streaming страницы;
   - анонимные каталоги с `?page=` и фильтрами больше не подтягивают чужой кэш, при этом response хранится стандартным Django `cache`.
+- **Fragment cache (#20):**
+  - блок рекомендаций на `product_detail.html` оборачивается в `{% cache 3600 product_detail_recommendations product.id %}` и рендерится через готовый `product_card`, что экономит ~80‑120 мс при повторных просмотрах товара.
 - **Template tags #17/#18:**
   - `image_optimization.py` больше не дергает `os.path.exists()` десятки раз за рендер — добавлен кэш проверок (4K элементов) и поддержка путей из `STATICFILES_DIRS`/`STATIC_ROOT`;
   - `cache_headers.py` теперь кэширует `os.path.getmtime()`, поэтому WhiteNoise не бомбит файловую систему при каждом ответе (особенно заметно на медленных дисках).
