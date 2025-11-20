@@ -6,8 +6,7 @@
 <!DOCTYPE html>
 <html lang='uk' data-bs-theme='dark' {% if not debug %}data-ga-id="G-109EFTWM05" data-clarity-id="t7u94cvpqc"
   data-meta-pixel-id="823958313630148" {% endif %}
-  data-tiktok-pixel-id="{% if TIKTOK_PIXEL_ID %}{{ TIKTOK_PIXEL_ID }}{% else %}D43L7DBC77UA61AHLTVG{% endif %}" {% if
-  TIKTOK_TEST_EVENT_CODE %}data-tiktok-test-event-code="{{ TIKTOK_TEST_EVENT_CODE }}" {% endif %}>
+  data-tiktok-pixel-id="{% if TIKTOK_PIXEL_ID %}{{ TIKTOK_PIXEL_ID }}{% else %}D43L7DBC77UA61AHLTVG{% endif %}"{% if TIKTOK_TEST_EVENT_CODE %} data-tiktok-test-event-code="{{ TIKTOK_TEST_EVENT_CODE }}"{% endif %}>
 
 <head>
   {% if not debug %}
