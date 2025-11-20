@@ -4,12 +4,37 @@
 Содержит общие функции, которые используются в разных view модулях.
 """
 
+import hashlib
+from urllib.parse import urlencode
 from functools import wraps
+
+from django.core.cache import cache
 from django.db import transaction
-from django.views.decorators.cache import cache_page
+from django.utils.encoding import iri_to_uri
 
 
-def cache_page_for_anon(timeout):
+def _build_query_string(querydict):
+    if not querydict:
+        return ''
+    parts = []
+    for key, values in sorted(querydict.lists()):
+        for value in values:
+            parts.append((key, value))
+    return urlencode(parts, doseq=True)
+
+
+def _build_anon_cache_key(request, view_func, key_prefix=None):
+    path = iri_to_uri(request.path)
+    query = _build_query_string(request.GET)
+    accept_lang = request.META.get('HTTP_ACCEPT_LANGUAGE', '')
+    language = getattr(request, 'LANGUAGE_CODE', '')
+    prefix = key_prefix or f"{view_func.__module__}.{view_func.__name__}"
+    fingerprint = f"{path}?{query}|{language}|{accept_lang}"
+    digest = hashlib.sha256(fingerprint.encode('utf-8')).hexdigest()
+    return f"anon-page:{prefix}:{digest}"
+
+
+def cache_page_for_anon(timeout, key_prefix=None):
     """
     Кэширует страницу только для анонимных пользователей.
     
@@ -30,11 +55,23 @@ def cache_page_for_anon(timeout):
     def decorator(view_func):
         @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
-            if request.user.is_authenticated:
-                # Авторизованные пользователи - без кэша
+            if request.method not in ('GET', 'HEAD') or request.user.is_authenticated:
                 return view_func(request, *args, **kwargs)
-            # Анонимные пользователи - с кэшем
-            return cache_page(timeout)(view_func)(request, *args, **kwargs)
+
+            cache_key = _build_anon_cache_key(request, view_func, key_prefix)
+            cached_response = cache.get(cache_key)
+            if cached_response is not None:
+                return cached_response
+
+            response = view_func(request, *args, **kwargs)
+
+            if getattr(response, 'streaming', False):
+                return response
+            if response.status_code != 200:
+                return response
+
+            cache.set(cache_key, response, timeout)
+            return response
         return _wrapped_view
     return decorator
 
