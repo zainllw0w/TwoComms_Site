@@ -23435,3 +23435,87 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
     padding: 0 0.7rem;
   }
 }
+
+/* === GPU-accelerated shimmer transitions === */
+.menu-item,
+.payment-btn,
+.cart-menu-item,
+.btn-cta,
+.featured-btn-primary,
+.nav-pills .nav-link,
+#user-panel-mobile .auth-btn,
+.catalog-link-compact,
+.btn-gradient-suggest,
+.feature-card,
+.cta-button,
+.contact-method,
+.location-card,
+.submit-btn,
+.stat-card {
+  --shimmer-slide-duration: 0.5s;
+}
+
+.category-form-container {
+  --shimmer-slide-duration: 0.8s;
+}
+
+.points-card::before,
+.menu-item::before,
+.order-points-card::before,
+.order-item-card::before,
+.delivery-item::before,
+.payment-btn::before,
+.cart-menu-item::before,
+.btn-cta::before,
+.featured-btn-primary::before,
+.featured-header-btn::before,
+.featured-badge-compact::before,
+.nav-pills .nav-link::before,
+#user-panel-mobile .auth-btn::before,
+.catalog-link-compact::before,
+.btn-gradient-suggest::before,
+.feature-card::before,
+.cta-button::before,
+.contact-method::before,
+.location-card::before,
+.submit-btn::before,
+.stat-card::before,
+.category-form-container::before,
+.user-card::after,
+.admin-order-card::after {
+  left: 0;
+  transform: translate3d(-100%, 0, 0);
+  transition: transform var(--shimmer-slide-duration, 0.6s) ease;
+  will-change: transform;
+}
+
+.points-card:hover::before,
+.menu-item:hover::before,
+.order-points-card:hover::before,
+.order-item-card:hover::before,
+.delivery-item:hover::before,
+.payment-btn:hover::before,
+.cart-menu-item:hover::before,
+.btn-cta:hover::before,
+.featured-btn-primary:hover::before,
+.featured-header-btn:hover::before,
+.featured-badge-compact:hover::before,
+.nav-pills .nav-link:hover::before,
+.nav-pills .nav-link:focus::before,
+.nav-pills .nav-link:focus-visible::before,
+.nav-pills .nav-link.active::before,
+#user-panel-mobile .auth-btn:hover::before,
+.catalog-link-compact:hover::before,
+.btn-gradient-suggest:hover::before,
+.feature-card:hover::before,
+.cta-button:hover::before,
+.contact-method:hover::before,
+.location-card:hover::before,
+.submit-btn:hover::before,
+.stat-card:hover::before,
+.category-form-container:hover::before,
+.user-card:hover::after,
+.admin-order-card:hover::after {
+  left: 0;
+  transform: translate3d(100%, 0, 0);
+}
