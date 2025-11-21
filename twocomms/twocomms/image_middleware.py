@@ -21,21 +21,27 @@ class ImageOptimizationMiddleware(MiddlewareMixin):
     Middleware для автоматической оптимизации изображений с кэшированием на диске
     """
 
-    executor = ThreadPoolExecutor(max_workers=2)
-    _pending_paths = set()
-    _pending_lock = threading.Lock()
-    SMALL_IMAGE_THRESHOLD = 200 * 1024  # 200KB — можно оптимизировать синхронно
-    
     def __init__(self, get_response):
         super().__init__(get_response)
-        self.cache_dir = os.path.join(settings.MEDIA_ROOT, 'optimized_cache')
-        if not os.path.exists(self.cache_dir):
-            os.makedirs(self.cache_dir, exist_ok=True)
+        self.enabled = getattr(settings, "IMAGE_OPTIMIZATION_MIDDLEWARE_ENABLED", False)
+        self.allow_on_demand = getattr(settings, "IMAGE_OPTIMIZATION_ALLOW_ON_DEMAND", False)
+        self.executor = ThreadPoolExecutor(max_workers=2)
+        self._pending_paths = set()
+        self._pending_lock = threading.Lock()
+        self.SMALL_IMAGE_THRESHOLD = 200 * 1024  # 200KB — можно оптимизировать синхронно
+        if self.enabled:
+            self.cache_dir = os.path.join(settings.MEDIA_ROOT, 'optimized_cache')
+            if not os.path.exists(self.cache_dir):
+                os.makedirs(self.cache_dir, exist_ok=True)
+        else:
+            self.cache_dir = None
             
     def process_request(self, request):
         """
         Проверяем наличие кэшированной версии изображения перед обработкой запроса
         """
+        if not self.enabled:
+            return None
         if not self._is_image_request(request):
             return None
         if not self._client_supports_webp(request):
@@ -58,6 +64,8 @@ class ImageOptimizationMiddleware(MiddlewareMixin):
     
     def process_response(self, request, response):
         # Проверяем, что это запрос изображения
+        if not self.enabled:
+            return response
         if not self._is_image_request(request):
             return response
         
@@ -70,6 +78,9 @@ class ImageOptimizationMiddleware(MiddlewareMixin):
             
         # Если уже отдали из кэша (в process_request), ничего не делаем
         if response.has_header('X-Image-Cache'):
+            return response
+        # В продакшене отключаем оптимизацию "на лету" — только возвращаем исходный ответ
+        if not self.allow_on_demand:
             return response
         
         # Оптимизируем изображение

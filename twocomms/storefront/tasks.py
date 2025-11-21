@@ -1,8 +1,14 @@
 import logging
 import os
+from pathlib import Path
+
 from celery import shared_task
+from django.apps import apps
 from django.conf import settings
 from django.core.management import call_command
+
+from twocomms.image_optimizer import ImageOptimizer
+
 from .models import Product, Category
 from .seo_utils import SEOKeywordGenerator, SEOContentOptimizer
 
@@ -27,6 +33,64 @@ def generate_google_merchant_feed_task():
         
     except Exception as e:
         logger.error(f"Error generating Google Merchant feed: {e}", exc_info=True)
+
+
+def _resolve_image_path(instance, field_name: str) -> Path | None:
+    """
+    Safely extracts absolute image path from a model instance field.
+    """
+    image_field = getattr(instance, field_name, None)
+    if not image_field:
+        return None
+    try:
+        path = Path(image_field.path)
+    except Exception:
+        return None
+    return path if path.exists() else None
+
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 3})
+def optimize_image_field_task(self, model_label: str, object_id: int, field_name: str) -> bool:
+    """
+    Celery task to generate optimized (WebP/AVIF + responsive) versions for a single FileField/ImageField.
+
+    Args:
+        model_label: Full Django model label (e.g. 'storefront.Product')
+        object_id: Primary key of the instance
+        field_name: Image/File field name to optimize
+    """
+    try:
+        Model = apps.get_model(model_label)
+    except Exception as exc:  # pragma: no cover - defensive branch
+        logger.warning("Cannot resolve model %s: %s", model_label, exc)
+        return False
+
+    instance = (
+        Model.objects.filter(pk=object_id)
+        .only(field_name)
+        .first()
+    )
+    if not instance:
+        logger.debug("Instance %s:%s not found for image optimization", model_label, object_id)
+        return False
+
+    image_path = _resolve_image_path(instance, field_name)
+    if not image_path:
+        logger.debug("No image path for %s.%s (id=%s)", model_label, field_name, object_id)
+        return False
+
+    optimized_dir = image_path.parent / "optimized"
+    optimizer = ImageOptimizer()
+    optimized_variants = optimizer.optimize_product_image(str(image_path))
+    if not optimized_variants:
+        logger.info("Nothing to optimize for %s", image_path.name)
+        return False
+
+    optimizer.save_optimized_images(optimized_variants, optimized_dir)
+    logger.info(
+        "Generated optimized variants for %s (%s)", image_path.name, optimized_dir.relative_to(settings.MEDIA_ROOT)
+    )
+    return True
 
 @shared_task
 def generate_ai_content_for_product_task(product_id):

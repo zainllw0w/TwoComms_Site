@@ -429,6 +429,10 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Image optimization (middleware is disabled by default to avoid CPU-heavy on-the-fly conversions)
+IMAGE_OPTIMIZATION_MIDDLEWARE_ENABLED = _env_bool('IMAGE_OPTIMIZATION_MIDDLEWARE_ENABLED', default=False)
+IMAGE_OPTIMIZATION_ALLOW_ON_DEMAND = _env_bool('IMAGE_OPTIMIZATION_ALLOW_ON_DEMAND', default=False)
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -610,7 +614,8 @@ _CSP_DEFAULT = (
     "https://analytics.tiktok.com https://ads.tiktok.com "
     "https://www.clarity.ms https://scripts.clarity.ms https://c.clarity.ms "
     "https://c.bing.com "
-    "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+    "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com "
+    "https://*.google.com.ua; "
     # Fonts
     "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; "
     # AJAX/Fetch connections: Enhanced Conversions, Analytics, Facebook CAPI, TikTok Pixel, Server-Side Tagging
@@ -625,7 +630,8 @@ _CSP_DEFAULT = (
     "https://www.clarity.ms https://scripts.clarity.ms https://*.clarity.ms "
     "https://fonts.googleapis.com https://fonts.gstatic.com "
     "https://cdnjs.cloudflare.com https://cdn.jsdelivr.net "
-    "https://*.run.app https://*.datah04.com; "
+    "https://*.run.app https://*.datah04.com "
+    "https://*.tiktokw.us; "
     # Frames/iframes: GTM preview, Facebook, TikTok Pixel, Server-Side Tagging
     "frame-src 'self' https://www.googletagmanager.com https://googletagmanager.com "
     "https://td.doubleclick.net https://bid.g.doubleclick.net "

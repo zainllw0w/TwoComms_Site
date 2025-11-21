@@ -19,6 +19,16 @@ from cache_utils import get_fragment_cache
 
 # ==================== API ENDPOINTS ====================
 
+
+def _public_product_queryset(request):
+    """
+    Возвращает queryset товаров c учетом статуса публикации.
+    """
+    qs = Product.objects.select_related('category')
+    if not (request.user.is_authenticated and request.user.is_staff):
+        qs = qs.filter(status='published')
+    return qs
+
 @require_http_methods(["GET"])
 def get_product_json(request, product_id):
     """
@@ -31,7 +41,7 @@ def get_product_json(request, product_id):
         JsonResponse: Полные данные товара
     """
     try:
-        product = Product.objects.select_related('category').get(id=product_id)
+        product = _public_product_queryset(request).get(id=product_id)
         
         data = {
             'id': product.id,
@@ -161,7 +171,7 @@ def search_suggestions(request):
         })
     
     # Ищем по началу названия (быстрее чем contains)
-    products = Product.objects.filter(
+    products = _public_product_queryset(request).filter(
         title__istartswith=query
     ).values('id', 'title', 'slug')[:limit]
     
@@ -193,7 +203,8 @@ def product_availability(request, product_id):
         JsonResponse: available, in_stock
     """
     try:
-        product = Product.objects.get(id=product_id)
+        qs = _public_product_queryset(request)
+        product = qs.get(id=product_id)
         
         # TODO: Добавить реальную проверку наличия на складе
         # Пока просто возвращаем True
@@ -224,10 +235,11 @@ def get_related_products(request, product_id):
         JsonResponse: Список похожих товаров
     """
     try:
-        product = Product.objects.get(id=product_id)
+        qs = _public_product_queryset(request)
+        product = qs.get(id=product_id)
         
         # Ищем товары из той же категории
-        related = Product.objects.filter(
+        related = qs.filter(
             category=product.category
         ).exclude(
             id=product_id
@@ -337,7 +349,6 @@ def contact_form(request):
             'success': False,
             'error': str(e)
         }, status=400)
-
 
 
 

@@ -21,6 +21,17 @@ from ..models import Product
 from .auth import ProfileSetupForm
 
 
+def _published_products(request):
+    """
+    Returns queryset limited to published products for non-staff users.
+    Staff can see all items (for support/QA).
+    """
+    qs = Product.objects.all()
+    if not (request.user.is_authenticated and request.user.is_staff):
+        qs = qs.filter(status='published')
+    return qs
+
+
 # ==================== PROFILE VIEWS ====================
 
 @login_required
@@ -190,7 +201,11 @@ def order_history(request):
     """
     status_filter = request.GET.get('status', '')
     
-    orders = Order.objects.filter(user=request.user).order_by('-created')
+    orders = Order.objects.filter(user=request.user).order_by('-created').prefetch_related(
+        'items__product',
+        'items__color_variant__color',
+        'items__color_variant__images'
+    )
     
     if status_filter:
         orders = orders.filter(status=status_filter)
@@ -213,8 +228,13 @@ def order_detail(request, order_number):
     Args:
         order_number (str): Номер заказа
     """
+    queryset = Order.objects.prefetch_related(
+        'items__product',
+        'items__color_variant__color',
+        'items__color_variant__images'
+    )
     order = get_object_or_404(
-        Order,
+        queryset,
         order_number=order_number,
         user=request.user
     )
@@ -235,7 +255,9 @@ def favorites(request):
         # Для авторизованных пользователей - получаем из базы данных
         favorites = FavoriteProduct.objects.filter(
             user=request.user
-        ).select_related('product', 'product__category')
+        ).select_related('product', 'product__category').prefetch_related(
+            'product__color_variants__color'
+        )
     else:
         # Для неавторизованных пользователей - получаем из сессии
         session_favorites = request.session.get('favorites', [])
@@ -243,9 +265,11 @@ def favorites(request):
         
         if session_favorites:
             # Получаем товары по ID из сессии
-            products = Product.objects.filter(
+            products = _published_products(request).filter(
                 id__in=session_favorites
-            ).select_related('category')
+            ).select_related('category').prefetch_related(
+                'color_variants__color'
+            )
             
             # Создаем объекты, похожие на FavoriteProduct
             for product in products:
@@ -258,10 +282,8 @@ def favorites(request):
     # Получаем варианты цветов для избранных товаров
     for favorite in favorites:
         try:
-            from productcolors.models import ProductColorVariant
-            variants = ProductColorVariant.objects.select_related('color').filter(
-                product=favorite.product
-            )
+            # Используем all() вместо filter(), так как данные уже предзагружены
+            variants = favorite.product.color_variants.all()
             # Создаем список словарей с данными о цветах
             color_variants_data = [
                 {
@@ -291,7 +313,7 @@ def toggle_favorite(request, product_id):
     Универсальная функция для авторизованных и неавторизованных пользователей.
     """
     try:
-        product = get_object_or_404(Product, id=product_id)
+        product = get_object_or_404(_published_products(request), id=product_id)
         
         if request.user.is_authenticated:
             # Для авторизованных пользователей - используем базу данных
@@ -354,7 +376,7 @@ def toggle_favorite(request, product_id):
 def add_to_favorites(request, product_id):
     """Добавление товара в избранное (только для авторизованных)."""
     try:
-        product = Product.objects.get(id=product_id)
+        product = _published_products(request).get(id=product_id)
         favorite, created = FavoriteProduct.objects.get_or_create(
             user=request.user,
             product=product
@@ -647,4 +669,3 @@ def purchase_with_points(request):
         messages.error(request, 'Невідомий товар')
     
     return redirect('buy_with_points')
-
