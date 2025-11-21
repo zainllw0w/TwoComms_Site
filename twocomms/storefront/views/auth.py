@@ -16,6 +16,17 @@ from django.core.exceptions import ValidationError
 from ..models import Product
 from accounts.models import UserProfile, FavoriteProduct
 
+
+def _published_products_for_user(user):
+    """
+    Returns queryset limited to published products for non-staff users.
+    Staff retains access to all products for support/QA tasks.
+    """
+    qs = Product.objects.all()
+    if not (user.is_authenticated and user.is_staff):
+        qs = qs.filter(status='published')
+    return qs
+
 logger = logging.getLogger(__name__)
 
 
@@ -198,7 +209,7 @@ def login_view(request):
             if session_favorites:
                 for product_id in session_favorites:
                     try:
-                        product = Product.objects.get(id=product_id)
+                        product = _published_products_for_user(user).get(id=product_id)
                         FavoriteProduct.objects.get_or_create(
                             user=user,
                             product=product
