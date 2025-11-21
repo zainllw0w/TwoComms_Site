@@ -9,8 +9,17 @@ from pathlib import Path
 class Command(BaseCommand):
     help = 'Optimizes images for all products and categories using ImageOptimizer'
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--limit',
+            type=int,
+            default=None,
+            help='Maximum number of images to process in one run (for staged execution).'
+        )
+
     def handle(self, *args, **options):
         optimizer = ImageOptimizer()
+        limit = options.get('limit')
         
         self.stdout.write('Starting image optimization...')
         
@@ -24,6 +33,10 @@ class Command(BaseCommand):
             return webp.exists() and avif.exists()
 
         saved_total = 0
+        processed = 0
+
+        def _should_stop() -> bool:
+            return limit is not None and processed >= limit
 
         # 1. Products Main Images
         products = Product.objects.exclude(main_image='').defer('catalog')
@@ -41,6 +54,11 @@ class Command(BaseCommand):
                     if variants:
                         optimizer.save_optimized_images(variants, path.parent / "optimized")
                         saved_total += len(variants)
+                        processed += 1
+                        if _should_stop():
+                            self.stdout.write(self.style.WARNING(f'Reached limit {limit}, stopping early.'))
+                            self.stdout.write(self.style.SUCCESS(f'Saved {saved_total} optimized files.'))
+                            return
         
         # 2. Product Extra Images
         product_images = ProductImage.objects.all()
@@ -58,6 +76,11 @@ class Command(BaseCommand):
                     if variants:
                         optimizer.save_optimized_images(variants, path.parent / "optimized")
                         saved_total += len(variants)
+                        processed += 1
+                        if _should_stop():
+                            self.stdout.write(self.style.WARNING(f'Reached limit {limit}, stopping early.'))
+                            self.stdout.write(self.style.SUCCESS(f'Saved {saved_total} optimized files.'))
+                            return
 
         # 3. Product Color Images
         color_images = ProductColorImage.objects.all()
@@ -75,6 +98,11 @@ class Command(BaseCommand):
                     if variants:
                         optimizer.save_optimized_images(variants, path.parent / "optimized")
                         saved_total += len(variants)
+                        processed += 1
+                        if _should_stop():
+                            self.stdout.write(self.style.WARNING(f'Reached limit {limit}, stopping early.'))
+                            self.stdout.write(self.style.SUCCESS(f'Saved {saved_total} optimized files.'))
+                            return
 
         # 4. Categories
         categories = Category.objects.all()
@@ -91,6 +119,11 @@ class Command(BaseCommand):
                         if variants:
                             optimizer.save_optimized_images(variants, path.parent / "optimized")
                             saved_total += len(variants)
+                            processed += 1
+                            if _should_stop():
+                                self.stdout.write(self.style.WARNING(f'Reached limit {limit}, stopping early.'))
+                                self.stdout.write(self.style.SUCCESS(f'Saved {saved_total} optimized files.'))
+                                return
             
             # Cover
             if cat.cover:
@@ -102,6 +135,11 @@ class Command(BaseCommand):
                         if variants:
                             optimizer.save_optimized_images(variants, path.parent / "optimized")
                             saved_total += len(variants)
+                            processed += 1
+                            if _should_stop():
+                                self.stdout.write(self.style.WARNING(f'Reached limit {limit}, stopping early.'))
+                                self.stdout.write(self.style.SUCCESS(f'Saved {saved_total} optimized files.'))
+                                return
 
         # 5. Catalog Options
         options = CatalogOptionValue.objects.exclude(image='')
@@ -118,6 +156,11 @@ class Command(BaseCommand):
                     if variants:
                         optimizer.save_optimized_images(variants, path.parent / "optimized")
                         saved_total += len(variants)
+                        processed += 1
+                        if _should_stop():
+                            self.stdout.write(self.style.WARNING(f'Reached limit {limit}, stopping early.'))
+                            self.stdout.write(self.style.SUCCESS(f'Saved {saved_total} optimized files.'))
+                            return
 
         # 6. Size Grids
         grids = SizeGrid.objects.exclude(image='')
@@ -134,6 +177,11 @@ class Command(BaseCommand):
                     if variants:
                         optimizer.save_optimized_images(variants, path.parent / "optimized")
                         saved_total += len(variants)
+                        processed += 1
+                        if _should_stop():
+                            self.stdout.write(self.style.WARNING(f'Reached limit {limit}, stopping early.'))
+                            self.stdout.write(self.style.SUCCESS(f'Saved {saved_total} optimized files.'))
+                            return
 
         # 7. Print Proposals (если есть)
         from storefront.models import PrintProposal
@@ -150,5 +198,10 @@ class Command(BaseCommand):
                     if variants:
                         optimizer.save_optimized_images(variants, path.parent / "optimized")
                         saved_total += len(variants)
+                        processed += 1
+                        if _should_stop():
+                            self.stdout.write(self.style.WARNING(f'Reached limit {limit}, stopping early.'))
+                            self.stdout.write(self.style.SUCCESS(f'Saved {saved_total} optimized files.'))
+                            return
 
         self.stdout.write(self.style.SUCCESS(f'Image optimization completed. Saved {saved_total} optimized files.'))
