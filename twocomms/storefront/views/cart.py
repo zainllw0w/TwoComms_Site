@@ -172,7 +172,7 @@ def view_cart(request):
             color_label = _color_label_from_variant(color_variant)
             size_value = (item_data.get('size', '') or 'S').upper()
             # color_variant_id = color_variant.id if color_variant else None # Already have it
-            offer_id = product.get_offer_id(color_variant_id, size_value)
+            offer_id = product.get_offer_id(color_variant_id, size_value, color_name=color_label)
             content_ids.append(offer_id)
             contents.append({
                 'id': offer_id,

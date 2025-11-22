@@ -1,0 +1,5569 @@
+/* Анимация свечения цены - упрощенная */
+
+
+/* PERF: soften global glassmorphism where expensive */
+.perf-lite .modal,
+.perf-lite .bottom-nav,
+.perf-lite .navbar.bg-body,
+.perf-lite .hero.bg-hero,
+.perf-lite .points-card,
+.effects-lite .modal,
+.effects-lite .bottom-nav,
+.effects-lite .navbar.bg-body,
+.effects-lite .hero.bg-hero,
+.effects-lite .points-card {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Глобальный режим минимизации эффектов (уменьшаем нагрузку на GPU/CPU) */
+html.effects-lite *,
+html.effects-lite *::before,
+html.effects-lite *::after,
+html.perf-lite *,
+html.perf-lite *::before,
+html.perf-lite *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+html.effects-lite body,
+html.perf-lite body {
+  background: #0b0c10;
+}
+
+html.effects-lite body::before,
+html.perf-lite body::before {
+  animation: none !important;
+  filter: none !important;
+  background: linear-gradient(135deg, #060607 0%, #101116 100%) !important;
+}
+
+html.effects-lite body::after,
+html.perf-lite body::after {
+  display: none !important;
+}
+
+html.effects-lite [class*="glow"],
+html.effects-lite [class*="spark"],
+html.effects-lite [class*="particle"],
+html.effects-lite .hint-wiggle,
+html.effects-lite .hero-particles {
+  animation: none !important;
+  filter: none !important;
+  box-shadow: none !important;
+}
+
+
+html.effects-lite .bottom-nav-item::before,
+html.effects-lite .bottom-nav-item::after {
+  display: none !important;
+}
+
+html.effects-lite .navbar.bg-body,
+html.effects-lite .bottom-nav,
+html.effects-lite .points-card,
+html.effects-lite .hero.bg-hero {
+  background-color: rgba(13, 14, 17, 0.94) !important;
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.45) !important;
+  border-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+html.effects-lite .hero.bg-hero::before,
+html.effects-lite .hero.bg-hero::after {
+  display: none !important;
+}
+
+/* Reduce strong blurs to cheaper values */
+.navbar.bg-body {
+  backdrop-filter: saturate(120%) blur(5px)
+}
+
+.bottom-nav {
+  backdrop-filter: blur(5px) saturate(110%)
+}
+
+:root {
+  --tc-bg: #0e0f12;
+  --tc-elevate: #14161b;
+  --tc-text: #e8e9ec;
+  --tc-primary: #8b5cf6;
+}
+
+/* Современный фон главной страницы */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden !important;
+  position: static !important;
+  /* Changed from relative to fix position: fixed for bottom-nav */
+  transform: none !important;
+  /* Prevent transform from breaking position: fixed */
+  will-change: auto !important;
+  /* Prevent will-change from breaking position: fixed */
+}
+
+body {
+  background: var(--tc-bg);
+  color: var(--tc-text);
+  position: relative;
+  overflow-x: hidden !important;
+  font-size-adjust: 0.52;
+  min-height: 100vh;
+  max-height: none;
+  height: auto;
+  width: 100%;
+  max-width: 100vw;
+}
+
+/* Prevent any horizontal overflow */
+body>* {
+  max-width: 100%;
+}
+
+/* Основной градиентный фон - оптимизированный */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  background:
+    radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+    linear-gradient(135deg, #0a0b0f 0%, #0e0f12 25%, #121318 50%, #0e0f12 75%, #0a0b0f 100%);
+  background-size: 100% 100%;
+  animation: backgroundShift 120s ease-in-out infinite;
+  /* Используем легкий фильтр вместо тяжелого backdrop-filter */
+  filter: blur(0.4px);
+  will-change: transform;
+}
+
+/* Анимированные частицы фона (шум) - оптимизированные */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background: url('../img/noise.webp') repeat;
+  opacity: 0.06;
+  animation: noiseMove 150s linear infinite;
+  filter: blur(0.3px);
+  pointer-events: none;
+}
+
+/* Плавные и ненавязчивые анимации фона */
+@keyframes backgroundShift {
+
+  0%,
+  100% {
+    transform: scale(1);
+    filter: hue-rotate(0deg);
+  }
+
+  50% {
+    transform: scale(1.02);
+    filter: hue-rotate(2deg);
+  }
+}
+
+@keyframes noiseMove {
+  0% {
+    transform: translate(0, 0);
+  }
+
+  100% {
+    transform: translate(-20px, -20px);
+  }
+}
+
+/* Оптимизация для мобильных устройств */
+@media (max-width: 768px) {
+  body::before {
+    animation-duration: 180s;
+    /* Медленнее для экономии ресурсов */
+    background-image:
+      radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+      linear-gradient(135deg, #0a0b0f 0%, #0e0f12 100%);
+  }
+
+  body::after {
+    animation: none;
+    /* Отключаем анимацию шума на мобильных */
+    opacity: 0.03;
+  }
+}
+
+/* Отключение анимаций при предпочтении reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+
+  body::before,
+  body::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.hero.bg-hero {
+  border: 1px solid rgba(255, 255, 255, .06);
+  border-radius: 1.25rem;
+  background: url('../img/vignette.png') center/cover no-repeat, linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .02))
+    /*,backdrop-filter:blur(8px) saturate(120%)*/
+}
+
+.card.product {
+  border: 1px solid rgba(255, 215, 0, .2);
+  background: linear-gradient(180deg, rgba(255, 248, 220, .15), rgba(255, 248, 220, .05));
+  border-radius: 1.25rem;
+  transition: transform .25s, box-shadow .25s, border-color .25s;
+  box-shadow: 0 0 20px rgba(255, 215, 0, .1), 0 4px 15px rgba(0, 0, 0, .1)
+}
+
+/* ВЫРАВНИВАНИЕ КАРТОЧЕК С ПОДДЕРЖКОЙ JAVASCRIPT */
+/* .row[data-stagger-grid] overrides removed to fix Bootstrap grid layout */
+
+.card.product {
+  display: flex !important;
+  flex-direction: column !important;
+  height: auto !important;
+  margin: 0 !important;
+  border: 1px solid rgba(255, 215, 0, .2) !important;
+  background: linear-gradient(180deg, rgba(255, 248, 220, .15), rgba(255, 248, 220, .05)) !important;
+  border-radius: 1.25rem !important;
+  transition: transform .25s, box-shadow .25s, border-color .25s !important;
+  box-shadow: 0 0 20px rgba(255, 215, 0, .1), 0 4px 15px rgba(0, 0, 0, .1) !important;
+  min-height: 0 !important;
+}
+
+.card.product .ratio {
+  height: 250px !important;
+  min-height: 250px !important;
+  max-height: 250px !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  border-radius: 1.25rem 1.25rem 0 0 !important;
+  overflow: hidden !important;
+}
+
+
+.card.product h5 {
+  height: auto !important;
+  min-height: 1.2em !important;
+  max-height: none !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  white-space: normal !important;
+  margin-bottom: 0 !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  line-height: 1.2em !important;
+  font-size: 0.9rem !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  hyphens: auto !important;
+  font-weight: 600 !important;
+}
+
+/* Принудительное выравнивание элементов карточки */
+
+/* Блок с балами прижимается к низу и растягивается */
+
+/* Правильные отступы для карточек */
+
+/* Правильное распределение элементов */
+
+/* Стилизованная основная цена */
+
+/* Стилизация основной цены (жирная) - Увеличенный градиентный стиль */
+
+/* Анимация градиента для цены - яркая и динамичная */
+@keyframes priceGradientFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  20% {
+    background-position: 25% 0%;
+  }
+
+  40% {
+    background-position: 50% 25%;
+  }
+
+  60% {
+    background-position: 75% 50%;
+  }
+
+  80% {
+    background-position: 100% 75%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Псевдоэлемент убран для чистого вида */
+
+/* Дополнительная защита от переполнения */
+
+/* Стили для старой цены */
+
+/* Стили для бейджа скидки */
+
+@media (max-width: 576px) {
+
+  /* Правильная структура card-body с разделением на блоки */
+
+  /* Price row базовые стили (переопределяются ниже для visual dividers) */
+
+  /* ВАРИАНТ 1: Фиксированная высота заголовка с визуальным разделением */
+  .card.product .product-title {
+    font-size: 0.75rem !important;
+    height: 5.6em !important;
+    /* 4 строки × 1.4 line-height = 5.6em */
+    min-height: 5.6em !important;
+    max-height: 5.6em !important;
+    line-height: 1.4 !important;
+    margin-bottom: 0.6rem !important;
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 4 !important;
+    /* До 4 строк */
+    line-clamp: 4 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    word-break: break-word !important;
+    hyphens: auto !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Категория с отступом */
+
+  /* Визуальный разделитель перед ценами */
+
+  /* Визуальный разделитель перед баллами */
+}
+
+/* Дополнительные стили для очень маленьких экранов */
+@media (max-width: 480px) {
+
+  .card.product .product-title {
+    font-size: 0.7rem !important;
+    height: 5.2em !important;
+    /* 4 строки для маленьких экранов */
+    min-height: 5.2em !important;
+    max-height: 5.2em !important;
+    line-height: 1.3 !important;
+    margin-bottom: 0.5rem !important;
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 4 !important;
+    line-clamp: 4 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    word-break: break-word !important;
+    hyphens: auto !important;
+    flex-shrink: 0 !important;
+  }
+}
+
+/* Плейсхолдеры для выравнивания */
+
+/* Дополнительные стили для плейсхолдеров */
+
+/* Убираем старые правила для скрытых элементов */
+
+/* Убираем дублирующиеся правила */
+
+/* Убираем конфликтующие правила */
+
+/* Позволяем карточкам растягиваться */
+
+/* Дополнительные стили для принудительного выравнивания */
+
+/* Правильное распределение контента */
+
+/* Полностью видимое название товара */
+.card.product .product-title {
+  min-height: 3.9em !important;
+  max-height: none !important;
+  line-height: 1.3 !important;
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 3 !important;
+  line-clamp: 3 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  hyphens: auto !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  white-space: normal !important;
+}
+
+/* Bootstrap grid handles responsive columns - no overrides needed */
+
+/* ===== МИНИ-ПРОФИЛЬ ===== */
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.avatar-glow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 50%;
+  background: linear-gradient(45deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+@keyframes avatarPulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+
+  50% {
+    transform: scale(1.1);
+    opacity: 0.6;
+  }
+}
+
+@keyframes badgePulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+@keyframes pointsIconPulse {
+
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+    box-shadow:
+      0 0 30px rgba(255, 215, 0, 0.4),
+      inset 0 2px 4px rgba(255, 255, 255, 0.2);
+  }
+
+  25% {
+    transform: scale(1.05) rotate(5deg);
+    box-shadow:
+      0 0 40px rgba(255, 215, 0, 0.6),
+      inset 0 2px 4px rgba(255, 255, 255, 0.3);
+  }
+
+  50% {
+    transform: scale(1.1) rotate(0deg);
+    box-shadow:
+      0 0 50px rgba(255, 215, 0, 0.8),
+      inset 0 2px 4px rgba(255, 255, 255, 0.4);
+  }
+
+  75% {
+    transform: scale(1.05) rotate(-5deg);
+    box-shadow:
+      0 0 40px rgba(255, 215, 0, 0.6),
+      inset 0 2px 4px rgba(255, 255, 255, 0.3);
+  }
+}
+
+@keyframes iconGlow {
+
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: scale(1.2);
+  }
+}
+
+@keyframes textShine {
+
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes borderGlow {
+
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes starRotate {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes starGlow {
+  0% {
+    filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.8)) brightness(1);
+  }
+
+  100% {
+    filter: drop-shadow(0 0 20px rgba(255, 215, 0, 1)) brightness(1.2);
+  }
+}
+
+@keyframes starFloat {
+
+  0%,
+  100% {
+    transform: translateY(0px) scale(1);
+  }
+
+  50% {
+    transform: translateY(-3px) scale(1.05);
+  }
+}
+
+@keyframes pulseRing {
+  0% {
+    opacity: 0.8;
+    transform: scale(0.8);
+  }
+
+  50% {
+    opacity: 0.3;
+    transform: scale(1.2);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+/* Счетчик избранного в минипрофиле */
+
+/* Скрываем "Обрані товари" в мобильной версии */
+@media (max-width: 991px) {
+  .menu-item[href*="favorites"] {
+    display: none !important;
+  }
+}
+
+/* Стили для планшетов (768px - 991px) - исправляем отображение логотипа */
+@media (min-width: 768px) and (max-width: 991px) {
+
+  /* Убеждаемся, что контейнер navbar правильно отображает логотип */
+  .navbar .container-xxl {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+}
+
+/* Дополнительные стили для больших планшетов (992px - 1199px) */
+
+
+
+
+/* Панель пользователя */
+.user-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 10px;
+  /* Сдвиг влево для лучшего позиционирования */
+  width: 380px !important;
+  max-width: calc(100vw - 20px) !important;
+  min-width: 320px !important;
+  background: linear-gradient(135deg, rgba(20, 22, 27, 0.98), rgba(10, 12, 17, 0.95));
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 20px;
+  padding: 1.5rem;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45), 0 0 32px rgba(139, 92, 246, 0.08);
+  backdrop-filter: blur(8px);
+  z-index: 1080;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px) scale(0.95);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.user-panel.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+}
+
+/* Заголовок профиля */
+.user-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.user-avatar-large {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid rgba(139, 92, 246, 0.4);
+}
+
+.avatar-glow-large {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 50%;
+  background: linear-gradient(45deg, rgba(139, 92, 246, 0.3), rgba(99, 102, 241, 0.3));
+  animation: avatarGlowLarge 3s ease-in-out infinite;
+}
+
+@keyframes avatarGlowLarge {
+
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: scale(1.05);
+  }
+}
+
+.user-info {
+  flex: 1;
+}
+
+.username {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #e8e9ec;
+  margin-bottom: 0.25rem;
+}
+
+.user-phone {
+  font-size: 0.9rem;
+  color: #9ca3af;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  padding: 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.close-btn:hover {
+  background: rgba(139, 92, 246, 0.1);
+  color: #8b5cf6;
+  transform: scale(1.1);
+}
+
+/* Точное позиционирование кнопки закрытия в шапке мини‑профиля */
+.user-panel .user-header .close-btn {
+  margin-left: auto;
+}
+
+/* Блок с баллами */
+.points-card-link {
+  text-decoration: none;
+  display: block;
+  margin-bottom: 1.5rem;
+}
+
+.points-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg,
+      rgba(255, 215, 0, 0.08) 0%,
+      rgba(255, 193, 7, 0.12) 25%,
+      rgba(255, 152, 0, 0.08) 50%,
+      rgba(255, 215, 0, 0.06) 75%,
+      rgba(255, 193, 7, 0.1) 100%);
+  border: 2px solid rgba(255, 215, 0, 0.4);
+  border-radius: 20px;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  min-height: 100px;
+  width: 100%;
+  box-shadow:
+    0 8px 32px rgba(255, 215, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Контейнер для искр */
+.sparks-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Искры */
+.spark {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: linear-gradient(45deg, #FFD700, #FFA500);
+  border-radius: 50%;
+  opacity: 0;
+  animation: sparkFloat 4s ease-in-out infinite;
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.8);
+}
+
+.spark::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
+  background: radial-gradient(circle, rgba(255, 215, 0, 0.4) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: sparkleGlow 4s ease-in-out infinite;
+}
+
+.spark-1 {
+  top: 20%;
+  left: 15%;
+  animation-delay: 0s;
+  animation-duration: 3.5s;
+}
+
+.spark-2 {
+  top: 60%;
+  left: 25%;
+  animation-delay: 0.8s;
+  animation-duration: 4.2s;
+}
+
+.spark-3 {
+  top: 30%;
+  left: 70%;
+  animation-delay: 1.5s;
+  animation-duration: 3.8s;
+}
+
+.spark-4 {
+  top: 70%;
+  left: 80%;
+  animation-delay: 2.2s;
+  animation-duration: 4.5s;
+}
+
+.spark-5 {
+  top: 40%;
+  left: 45%;
+  animation-delay: 0.3s;
+  animation-duration: 3.2s;
+}
+
+.spark-6 {
+  top: 80%;
+  left: 60%;
+  animation-delay: 1.8s;
+  animation-duration: 4s;
+}
+
+@keyframes sparkFloat {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0) rotate(0deg);
+  }
+
+  20% {
+    opacity: 0.9;
+    transform: translateY(-15px) scale(1.2) rotate(72deg);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translateY(-30px) scale(1.5) rotate(180deg);
+  }
+
+  80% {
+    opacity: 0.7;
+    transform: translateY(-45px) scale(1.1) rotate(288deg);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-60px) scale(0) rotate(360deg);
+  }
+}
+
+@keyframes sparkleGlow {
+
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+
+  25% {
+    opacity: 0.4;
+    transform: scale(1.2);
+  }
+
+  50% {
+    opacity: 0.8;
+    transform: scale(2);
+  }
+
+  75% {
+    opacity: 0.3;
+    transform: scale(1.5);
+  }
+}
+
+/* Усиление анимации при hover */
+.points-card:hover .spark {
+  animation-duration: 2.5s;
+}
+
+.points-card:hover .spark::before {
+  box-shadow: 0 0 15px rgba(255, 215, 0, 1);
+}
+
+.points-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 215, 0, 0.15), transparent);
+  transition: left 0.6s ease;
+}
+
+.points-card::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg,
+      rgba(255, 215, 0, 0.1) 0%,
+      rgba(255, 193, 7, 0.15) 25%,
+      rgba(255, 152, 0, 0.1) 50%,
+      rgba(255, 215, 0, 0.08) 75%,
+      rgba(255, 193, 7, 0.12) 100%);
+  border-radius: 22px;
+  z-index: -1;
+  animation: borderGlow 4s ease-in-out infinite;
+}
+
+.points-card:hover::before {
+  left: 100%;
+}
+
+.points-card:hover {
+  background: linear-gradient(135deg,
+      rgba(255, 215, 0, 0.15) 0%,
+      rgba(255, 193, 7, 0.2) 25%,
+      rgba(255, 152, 0, 0.15) 50%,
+      rgba(255, 215, 0, 0.12) 75%,
+      rgba(255, 193, 7, 0.18) 100%);
+  border-color: rgba(255, 215, 0, 0.8);
+  transform: translateY(-6px) scale(1.03);
+  box-shadow:
+    0 20px 60px rgba(255, 215, 0, 0.3),
+    0 0 40px rgba(255, 193, 7, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.points-card:hover .points-icon {
+  background: linear-gradient(135deg,
+      rgba(255, 215, 0, 0.3) 0%,
+      rgba(255, 193, 7, 0.4) 50%,
+      rgba(255, 152, 0, 0.3) 100%);
+  border-color: rgba(255, 215, 0, 0.9);
+  transform: scale(1.1) rotate(5deg);
+  box-shadow:
+    0 0 50px rgba(255, 215, 0, 0.8),
+    0 0 80px rgba(255, 193, 7, 0.4),
+    inset 0 2px 4px rgba(255, 255, 255, 0.3);
+}
+
+.points-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 70px;
+  height: 70px;
+  background: linear-gradient(135deg,
+      rgba(255, 215, 0, 0.2) 0%,
+      rgba(255, 193, 7, 0.3) 50%,
+      rgba(255, 152, 0, 0.2) 100%);
+  border: 3px solid rgba(255, 215, 0, 0.6);
+  border-radius: 20px;
+  color: #FFD700;
+  animation: pointsIconPulse 2.5s ease-in-out infinite, starRotate 8s linear infinite;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+  transition: all 0.4s ease;
+  margin: 0;
+  box-shadow:
+    0 0 30px rgba(255, 215, 0, 0.4),
+    0 0 60px rgba(255, 193, 7, 0.2),
+    inset 0 2px 4px rgba(255, 255, 255, 0.2);
+}
+
+.points-icon svg {
+  animation: starGlow 2s ease-in-out infinite alternate, starFloat 4s ease-in-out infinite;
+  filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.8));
+}
+
+.points-icon::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  background: radial-gradient(circle, rgba(255, 215, 0, 0.3) 0%, transparent 70%);
+  border-radius: 28px;
+  animation: iconGlow 3s ease-in-out infinite;
+  z-index: -1;
+}
+
+.points-icon::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  border: 2px solid rgba(255, 215, 0, 0.2);
+  border-radius: 32px;
+  animation: pulseRing 3s ease-in-out infinite;
+  z-index: -2;
+}
+
+.points-info {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 0;
+  margin: 0;
+}
+
+.points-label {
+  font-size: 1rem;
+  color: rgba(255, 215, 0, 0.9);
+  margin: 0 0 0.75rem 0;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  line-height: 1.2;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+
+.points-amount {
+  font-size: 2.5rem;
+  font-weight: 900;
+  color: #FFD700;
+  text-shadow:
+    0 0 20px rgba(255, 215, 0, 0.8),
+    0 0 40px rgba(255, 193, 7, 0.4);
+  margin: 0 0 0.75rem 0;
+  line-height: 1;
+  letter-spacing: -0.5px;
+  background: linear-gradient(45deg, #FFD700, #FFA500, #FFD700);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: textShine 3s ease-in-out infinite;
+}
+
+.points-hint {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  font-weight: 500;
+  opacity: 0.9;
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* Меню пользователя */
+.user-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  width: 100% !important;
+  min-width: 0 !important;
+  overflow: visible !important;
+}
+
+.menu-item {
+  display: flex !important;
+  align-items: center;
+  gap: 0.25rem !important;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  color: #e8e9ec;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: visible !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  width: auto !important;
+}
+
+.menu-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.menu-item:hover::before {
+  left: 100%;
+}
+
+.menu-item:hover {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.3);
+  transform: translateX(4px);
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.2);
+}
+
+.menu-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: rgba(139, 92, 246, 0.1);
+  border-radius: 8px;
+  color: #8b5cf6;
+  transition: all 0.3s ease;
+}
+
+.menu-item:hover .menu-icon {
+  background: rgba(139, 92, 246, 0.2);
+  transform: scale(1.1);
+}
+
+.menu-item span {
+  flex: 1;
+  font-weight: 500;
+}
+
+/* Дополнительные стили для предотвращения переноса */
+.menu-item * {
+  white-space: nowrap !important;
+}
+
+/* Специфичные стили для "Обрані товари" */
+
+/* Агрессивные стили для всех родительских контейнеров */
+.user-panel *,
+.user-menu *,
+.menu-item * {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  word-wrap: normal !important;
+}
+
+/* Дополнительные стили для предотвращения ограничений ширины */
+.user-panel,
+.user-menu,
+.menu-item {
+  min-width: 0 !important;
+  max-width: none !important;
+  width: auto !important;
+  flex-shrink: 0 !important;
+}
+
+/* Увеличение ширины панели для favorites */
+.user-panel:has(.menu-item[href*="favorites"]) {
+  width: 400px !important;
+  min-width: 400px !important;
+}
+
+.menu-arrow {
+  color: #6b7280;
+  transition: all 0.3s ease;
+}
+
+.menu-item:hover .menu-arrow {
+  color: #8b5cf6;
+  transform: translateX(2px);
+}
+
+.admin-item {
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.admin-item:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.5);
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.2);
+}
+
+.admin-item .menu-icon {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.admin-item:hover .menu-icon {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+/* Кнопка выхода */
+.logout-section {
+  border-top: 1px solid rgba(139, 92, 246, 0.2);
+  padding-top: 1rem;
+}
+
+.logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.1));
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 12px;
+  color: #ef4444;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.logout-btn:hover {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.2));
+  border-color: rgba(239, 68, 68, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+  text-decoration: none;
+}
+
+/* Для неавторизованных пользователей */
+.auth-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.auth-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2));
+  border-radius: 10px;
+  color: #8b5cf6;
+}
+
+.auth-title {
+  flex: 1;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #e8e9ec;
+}
+
+.auth-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.auth-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.auth-btn.primary {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.8), rgba(99, 102, 241, 0.8));
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  color: white;
+}
+
+.auth-btn.primary:hover {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 1), rgba(99, 102, 241, 1));
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(139, 92, 246, 0.3);
+  color: white;
+  text-decoration: none;
+}
+
+.auth-btn.secondary {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e8e9ec;
+}
+
+.auth-btn.secondary:hover {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.2);
+  color: #e8e9ec;
+  text-decoration: none;
+}
+
+.auth-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgba(139, 92, 246, 0.05);
+  border: 1px solid rgba(139, 92, 246, 0.1);
+  border-radius: 12px;
+}
+
+.info-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: rgba(139, 92, 246, 0.1);
+  border-radius: 6px;
+  color: #8b5cf6;
+  flex-shrink: 0;
+}
+
+.info-text {
+  font-size: 0.85rem;
+  color: #9ca3af;
+  line-height: 1.4;
+}
+
+/* ===== СТРАНИЦА КОРЗИНЫ ===== */
+
+/* Контейнер страницы корзины */
+.cart-page-container {
+  position: relative;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 0;
+}
+
+/* Анимация искр для страницы корзины */
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes cartPageSparkFloat {
+
+    0%,
+    100% {
+      opacity: 0;
+      transform: translateY(0) scale(0.5);
+    }
+
+    20% {
+      opacity: 0.8;
+      transform: translateY(-20px) scale(1);
+    }
+
+    80% {
+      opacity: 0.6;
+      transform: translateY(-40px) scale(0.8);
+    }
+  }
+}
+
+/* Заголовок страницы корзины */
+
+/* Сообщения корзины */
+
+@keyframes cartMessageSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Контент страницы корзины */
+
+/* Основная секция корзины */
+.cart-main-section {
+  position: relative;
+}
+
+/* Фон для товаров */
+
+@keyframes cartPatternFloat {
+
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-10px) rotate(1deg);
+  }
+}
+
+/* Контейнер товаров */
+
+/* Товар в корзине */
+
+/* Анимация искр для товара */
+
+@keyframes cartItemSparkFloat {
+
+  0%,
+  100% {
+    opacity: 0;
+    transform: translateY(0) scale(0.5);
+  }
+
+  30% {
+    opacity: 0.8;
+    transform: translateY(-15px) scale(1);
+  }
+
+  70% {
+    opacity: 0.4;
+    transform: translateY(-25px) scale(0.7);
+  }
+}
+
+/* Изображение товара */
+
+/* Информация о товаре */
+
+/* Информация о баллах в товаре */
+
+/* Действия с товаром */
+
+/* Пустая корзина */
+.cart-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  background: linear-gradient(135deg, rgba(20, 22, 27, 0.95), rgba(10, 12, 17, 0.9));
+  border: 1px solid rgba(139, 92, 246, 0.16);
+  border-radius: 20px;
+  backdrop-filter: blur(8px);
+}
+
+.cart-empty-icon {
+  width: 80px;
+  height: 80px;
+  color: #8b5cf6;
+  margin-bottom: 1.5rem;
+  opacity: 0.6;
+}
+
+.cart-empty-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 0.5rem 0;
+}
+
+.cart-empty-text {
+  font-size: 1rem;
+  color: #94a3b8;
+  margin: 0 0 2rem 0;
+}
+
+.cart-empty-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2));
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  border-radius: 12px;
+  color: #8b5cf6;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.cart-empty-btn:hover {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(99, 102, 241, 0.3));
+  border-color: rgba(139, 92, 246, 0.6);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(139, 92, 246, 0.3);
+  color: #8b5cf6;
+}
+
+/* Боковая панель */
+
+/* Карточки боковой панели */
+
+/* Формы корзины */
+
+/* Промокоды */
+
+/* Карточка оформления заказа */
+
+/* Сводка заказа */
+.cart-checkout-summary {
+  margin-bottom: 2rem;
+  position: relative;
+  z-index: 2;
+}
+
+.cart-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.1);
+}
+
+.cart-summary-row:last-child {
+  border-bottom: none;
+}
+
+.cart-summary-label {
+  font-size: 0.95rem;
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.cart-summary-value {
+  font-size: 0.95rem;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.cart-summary-discount .cart-summary-value {
+  color: #22c55e;
+}
+
+.cart-discount-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #22c55e;
+  font-weight: 600;
+}
+
+/* Информация о баллах */
+
+/* Действия оформления */
+
+@keyframes gpay-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Анимация появления кнопки */
+@keyframes googlePayButtonAppear {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Итого (старые стили для совместимости) */
+
+/* ===== СТРАНИЦА МОИ ЗАКАЗЫ ===== */
+
+/* Основная страница заказов */
+
+/* Заголовок страницы */
+
+/* Контейнер заказов */
+
+/* Карточка заказа */
+
+/* Анимация искр для заказов */
+
+@keyframes sparkFloat {
+
+  0%,
+  100% {
+    opacity: 0;
+    transform: translateY(0) scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translateY(-20px) scale(1.5);
+  }
+}
+
+/* Заголовок заказа */
+
+/* Карточка с баллами */
+
+.points-amount {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #fbbf24;
+}
+
+.points-label {
+  font-size: 0.55rem;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  color: rgba(251, 191, 36, 0.8);
+}
+
+/* Карточка с датой */
+
+@keyframes starPulse {
+
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+    filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.6));
+  }
+
+  25% {
+    transform: scale(1.1) rotate(5deg);
+    opacity: 0.9;
+    filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.8));
+  }
+
+  50% {
+    transform: scale(1.05) rotate(-3deg);
+    opacity: 1;
+    filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.7));
+  }
+
+  75% {
+    transform: scale(1.15) rotate(3deg);
+    opacity: 0.8;
+    filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.9));
+  }
+}
+
+@keyframes numberGlow {
+
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.3;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes copySuccess {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.1);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Компактная информация о доставке */
+
+/* Трек статуса заказа */
+
+@keyframes statusPulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+/* Информация о доставке */
+
+/* Товары в заказе */
+
+/* Анимация кружочков для товаров */
+
+@keyframes itemsSparkFloat {
+
+  0%,
+  100% {
+    opacity: 0;
+    transform: translateY(0) scale(1);
+  }
+
+  25% {
+    opacity: 1;
+    transform: translateY(-15px) scale(1.2);
+  }
+
+  50% {
+    opacity: 0.8;
+    transform: translateY(-25px) scale(1.5);
+  }
+
+  75% {
+    opacity: 0.5;
+    transform: translateY(-20px) scale(1.3);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Товары в заказе */
+
+/* Компактная сводка заказа */
+
+/* Информация о способе оплаты */
+
+/* Действия с оплатой */
+
+/* Редактор способа оплаты */
+
+@keyframes editorSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes editorSlideOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+}
+
+/* Модальное окно предоплаты */
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Админ-панель */
+
+/* Статистика */
+
+/* Управление заказами */
+
+/* Активные фильтры */
+
+/* Цветовое кодирование статусов заказов */
+
+/* ===== СЕКЦИЯ ПОЛЬЗОВАТЕЛЕЙ ===== */
+
+/* Поиск по пользователям */
+
+/* Кнопка очистки поиска */
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 768px) {
+
+  /* Скоупим вертикальную раскладку только для админских карт пользователей,
+     чтобы не ломать мини‑профиль на мобильных */
+
+  
+  .user-phone {
+    font-size: 0.8rem;
+    margin-bottom: 0.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+
+  /* Дополнительные исправления для очень маленьких экранов */
+}
+
+/* Сетка пользователей */
+
+/* Общие стили для статусов заказов */
+
+/* Цветовая схема для статусов заказов */
+
+/* Цветовая схема для статусов оплаты */
+
+/* Мобильная адаптация для сетки пользователей */
+
+/* Карточка пользователя */
+
+/* Анимация искр */
+
+@keyframes sparkle {
+  0% {
+    opacity: 0;
+    transform: scale(0) rotate(0deg);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1) rotate(180deg);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(0) rotate(360deg);
+  }
+}
+
+/* Заголовок пользователя */
+.user-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+
+.user-phone {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #9ca3af;
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+
+.user-phone svg {
+  color: #8b5cf6;
+  flex-shrink: 0;
+}
+
+/* УБД статус в основной информации профиля */
+
+/* Статистика пользователя */
+
+/* Компактная статистика пользователя */
+
+/* Кликабельные элементы */
+
+/* Секция управления балами */
+
+/* Кнопка сохранения для управления балами */
+
+/* Подсекции промокодов */
+
+/* Детальная информация */
+
+/* Цвета статусов */
+
+/* Управление пользователем */
+
+/* Управление балами */
+
+/* Кнопка сохранения */
+
+/* Промокоды и доставка */
+
+/* Улучшенный дизайн для секции доставки */
+
+/* Специальные стили для УБД статуса */
+
+/* Цветовое кодирование статусов оплаты */
+
+/* Специальные hover-эффекты для статусов */
+
+/* Специальные hover-эффекты для статусов оплаты */
+
+/* Карточки заказов в админке */
+
+@keyframes shimmer {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Кликабельные статусы для админа */
+
+/* Статус оплаты */
+
+/* Сворачиваемый скриншот */
+
+/* Сумма заказа */
+
+/* Скриншот оплаты */
+
+/* Управление статусами */
+
+/* Уведомления */
+
+/* Адаптивность */
+
+/* Адаптивность для модального окна */
+
+/* Кнопки оплаты */
+
+/* Сводка заказа */
+
+/* Уведомление о копировании */
+
+/* Адаптивные стили для заказов */
+
+/* Пустое состояние */
+
+/* Адаптивность */
+
+/* Адаптивность */
+
+@media (max-width: 768px) {
+  .cart-page-container {
+    padding: 1rem 0;
+  }
+}
+
+/* ===== НАВИГАЦИЯ ===== */
+/* Адаптивность для панелей */
+@media (min-width: 769px) {
+
+  .cart-panel,
+  .user-panel {
+    max-width: 380px;
+  }
+
+  /* Предотвращение выхода за правый край экрана */
+}
+
+@media (max-width: 768px) {
+
+  .cart-panel,
+  .user-panel {
+    position: fixed;
+    top: 70px;
+    right: 10px;
+    left: 10px;
+    width: auto;
+    max-width: none;
+  }
+
+  /* Мобильные стили для navbar */
+  .navbar .container-xxl {
+    padding: 0 !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    display: flex !important;
+  }
+
+  /* Принудительно устанавливаем позицию логотипа */
+}
+
+@media (max-width: 576px) {
+
+  .cart-panel,
+  .user-panel {
+    top: 60px;
+    right: 5px;
+    left: 5px;
+    padding: 1rem;
+  }
+
+  /* Сохраняем горизонтальный заголовок в мини‑профиле на мобильных */
+  #user-panel-mobile .user-header {
+    flex-direction: row;
+    align-items: center;
+    text-align: left;
+    gap: 1rem;
+  }
+
+  #user-panel-mobile .user-avatar-large {
+    width: 56px;
+    height: 56px;
+  }
+
+  #user-panel-mobile .username {
+    font-size: 1.1rem;
+  }
+
+  #user-panel-mobile .user-phone {
+    font-size: 0.9rem;
+  }
+
+  /* Стили для очень маленьких экранов */
+  .navbar .container-xxl {
+    padding: 0 !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    display: flex !important;
+  }
+
+  /* Принудительно устанавливаем позицию логотипа */
+
+  /* Принудительно убираем все отступы у контейнера */
+  .navbar>.container-xxl {
+    padding: 0 !important;
+  }
+
+  /* Принудительно убираем все отступы у логотипа */
+
+  /* Принудительно убираем все отступы у navbar */
+  .navbar {
+    padding: 0.5rem 0 0.5rem 0 !important;
+  }
+
+  /* Принудительно убираем все отступы у body и html */
+  body,
+  html {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Принудительно переопределяем основные стили для мобильных */
+  .navbar>.container-xxl {
+    padding: 0 !important;
+    justify-content: flex-start !important;
+  }
+
+  /* Принудительно убираем все отступы у navbar */
+  .navbar {
+    padding: 0.5rem 0 0.5rem 0 !important;
+  }
+
+  /* Принудительно переопределяем основные стили для мобильных */
+  .navbar>.container-xxl {
+    padding: 0 !important;
+    justify-content: flex-start !important;
+  }
+}
+
+.navbar {
+  min-height: auto !important;
+  padding: 0.5rem 0 !important;
+}
+
+.navbar .container-xxl {
+  padding: 0 1rem !important;
+}
+
+/* ===== КОРЗИНА ===== */
+
+.cart-glow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 50%;
+  background: linear-gradient(45deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+@keyframes cartPulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+
+  50% {
+    transform: scale(1.1);
+    opacity: 0.6;
+  }
+}
+
+@keyframes cartBadgePulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+/* Контейнер для корзины и избранного */
+
+/* Стили для иконки избранного */
+
+/* Анимация сердечка когда есть товары в избранном */
+
+@keyframes heartBeat {
+
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  }
+
+  25% {
+    transform: translate(-50%, -50%) scale(1.1);
+    filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.8)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  }
+
+  50% {
+    transform: translate(-50%, -50%) scale(1.05);
+    filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.7)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  }
+
+  75% {
+    transform: translate(-50%, -50%) scale(1.1);
+    filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.8)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  }
+}
+
+/* Постоянное свечение когда есть товары в избранном */
+
+@keyframes favoritesPulse {
+
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.3;
+  }
+
+  50% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 0.6;
+  }
+}
+
+@keyframes favoritesConstantGlow {
+
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.4;
+    background: radial-gradient(circle, rgba(239, 68, 68, 0.4) 0%, transparent 70%);
+  }
+
+  50% {
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 0.6;
+    background: radial-gradient(circle, rgba(239, 68, 68, 0.6) 0%, transparent 70%);
+  }
+}
+
+@keyframes favoritesBadgePulse {
+  0% {
+    transform: scale(0);
+  }
+
+  50% {
+    transform: scale(1.2);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Панель корзины */
+.cart-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 10px;
+  /* Сдвиг влево для лучшего позиционирования */
+  width: 380px;
+  max-width: calc(100vw - 40px);
+  background: linear-gradient(135deg, rgba(20, 22, 27, 0.98), rgba(10, 12, 17, 0.95));
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 20px;
+  padding: 1.5rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(139, 92, 246, 0.1);
+  backdrop-filter: blur(8px);
+  z-index: 1080;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px) scale(0.95);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+/* Контейнер для искр корзины */
+.cart-sparks-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Искры корзины */
+.cart-spark {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: rgba(139, 92, 246, 0.6);
+  border-radius: 50%;
+  opacity: 0;
+  animation: cartSparkFloat 4s ease-in-out infinite;
+}
+
+.cart-spark::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: inherit;
+  border-radius: inherit;
+  box-shadow: 0 0 4px rgba(139, 92, 246, 0.8);
+}
+
+.cart-spark-1 {
+  top: 15%;
+  left: 20%;
+  animation-delay: 0.5s;
+  animation-duration: 3.8s;
+}
+
+.cart-spark-2 {
+  top: 65%;
+  left: 30%;
+  animation-delay: 1.2s;
+  animation-duration: 4.5s;
+}
+
+.cart-spark-3 {
+  top: 25%;
+  left: 75%;
+  animation-delay: 0.8s;
+  animation-duration: 3.5s;
+}
+
+.cart-spark-4 {
+  top: 75%;
+  left: 85%;
+  animation-delay: 1.8s;
+  animation-duration: 4.2s;
+}
+
+.cart-spark-5 {
+  top: 45%;
+  left: 50%;
+  animation-delay: 0.3s;
+  animation-duration: 3.2s;
+}
+
+.cart-spark-6 {
+  top: 85%;
+  left: 65%;
+  animation-delay: 1.5s;
+  animation-duration: 4s;
+}
+
+@keyframes cartSparkFloat {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0);
+  }
+
+  20% {
+    opacity: 0.8;
+    transform: translateY(-8px) scale(1);
+  }
+
+  80% {
+    opacity: 0.6;
+    transform: translateY(-20px) scale(0.8);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-35px) scale(0);
+  }
+}
+
+/* Усиление анимации при hover */
+.cart-panel:hover .cart-spark {
+  animation-duration: 2.8s;
+}
+
+.cart-panel:hover .cart-spark::before {
+  box-shadow: 0 0 6px rgba(139, 92, 246, 1);
+}
+
+.cart-panel.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+}
+
+/* Заголовок корзины */
+.cart-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+  position: relative;
+  z-index: 2;
+}
+
+.cart-header-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2));
+  border-radius: 10px;
+  color: #8b5cf6;
+}
+
+.cart-title {
+  flex: 1;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #e8e9ec;
+}
+
+/* Содержимое корзины */
+.cart-content {
+  min-height: 200px;
+  margin-bottom: 1.5rem;
+  position: relative;
+  z-index: 2;
+}
+
+.cart-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  gap: 1rem;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(139, 92, 246, 0.2);
+  border-top: 3px solid #8b5cf6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text {
+  font-size: 0.9rem;
+  color: #9ca3af;
+}
+
+/* Меню корзины */
+.cart-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  position: relative;
+  z-index: 2;
+}
+
+.cart-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  color: #e8e9ec;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.cart-menu-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.cart-menu-item:hover::before {
+  left: 100%;
+}
+
+.cart-menu-item:hover {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.3);
+  transform: translateX(4px);
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.2);
+}
+
+.cart-menu-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: rgba(139, 92, 246, 0.1);
+  border-radius: 8px;
+  color: #8b5cf6;
+  transition: all 0.3s ease;
+}
+
+.cart-menu-item:hover .cart-menu-icon {
+  background: rgba(139, 92, 246, 0.2);
+  transform: scale(1.1);
+}
+
+.cart-menu-item span {
+  flex: 1;
+  font-weight: 500;
+}
+
+.cart-menu-arrow {
+  color: #6b7280;
+  transition: all 0.3s ease;
+}
+
+.cart-menu-item:hover .cart-menu-arrow {
+  color: #8b5cf6;
+  transform: translateX(2px);
+}
+
+/* Информационная панель корзины */
+.cart-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgba(139, 92, 246, 0.05);
+  border: 1px solid rgba(139, 92, 246, 0.1);
+  border-radius: 12px;
+  position: relative;
+  z-index: 2;
+}
+
+.cart-info-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: rgba(139, 92, 246, 0.1);
+  border-radius: 6px;
+  color: #8b5cf6;
+  flex-shrink: 0;
+}
+
+.cart-info-text {
+  font-size: 0.85rem;
+  color: #9ca3af;
+  line-height: 1.4;
+}
+
+/* ===== СТРАНИЦА ПРОФИЛЯ ===== */
+
+/* Контейнер профиля */
+
+/* Заголовок страницы */
+
+@keyframes profileGlow {
+  0% {
+    box-shadow: 0 8px 32px rgba(139, 92, 246, 0.3);
+  }
+
+  100% {
+    box-shadow: 0 12px 48px rgba(139, 92, 246, 0.5);
+  }
+}
+
+/* Карточка профиля */
+
+@keyframes profileCardGlow {
+  0% {
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(139, 92, 246, 0.1);
+    border-color: rgba(139, 92, 246, 0.2);
+  }
+
+  100% {
+    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6), 0 0 60px rgba(139, 92, 246, 0.2);
+    border-color: rgba(139, 92, 246, 0.4);
+  }
+}
+
+/* Секция аватара */
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* Секции формы */
+
+/* Группы полей */
+
+/* Поля ввода */
+
+/* Сообщения об ошибках */
+
+/* Кликабельная карточка с баллами */
+
+/* Карточка с баллами */
+
+@keyframes pointsCardGlow {
+  0% {
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), 0 0 30px rgba(139, 92, 246, 0.15);
+    border-color: rgba(139, 92, 246, 0.3);
+  }
+
+  100% {
+    box-shadow: 0 16px 50px rgba(0, 0, 0, 0.5), 0 0 40px rgba(139, 92, 246, 0.25);
+    border-color: rgba(139, 92, 246, 0.5);
+  }
+}
+
+.points-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(99, 102, 241, 0.3));
+  border-radius: 16px;
+  color: #8b5cf6;
+  animation: pointsIconPulse 2s ease-in-out infinite;
+}
+
+@keyframes pointsIconPulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.points-amount {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #8b5cf6;
+  margin-bottom: 0.25rem;
+  text-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+}
+
+/* Секция УБД */
+
+/* Секция документа УБД */
+
+/* Кнопки действий */
+
+/* Информационная панель */
+
+.info-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2));
+  border-radius: 10px;
+  color: #8b5cf6;
+  flex-shrink: 0;
+}
+
+/* Скрытие файловых инпутов только в определенных контекстах */
+
+/* Адаптивность для профиля */
+
+/* Адаптивность для карточек товаров на мобильных устройствах */
+@media (max-width: 768px) {
+  /* Grid gap handled by base styles */
+
+  /* Фиксированная высота карточек */
+  .card.product {
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    min-height: 0 !important;
+  }
+
+  /* Фиксированная высота изображения */
+  .card.product .ratio {
+    height: 180px !important;
+    min-height: 180px !important;
+  }
+
+  
+  .card.product h5 {
+    font-size: 0.85rem !important;
+    line-height: 1.1 !important;
+    margin-bottom: 0.125rem !important;
+    height: 1.1em !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  /* Фиксированная высота названия товара на мобильных */
+  .card.product .product-title {
+    height: auto !important;
+    min-height: 3.6em !important;
+    max-height: none !important;
+    font-size: 0.85rem !important;
+    line-height: 1.2 !important;
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 3 !important;
+    line-clamp: 3 !important;
+    overflow: hidden !important;
+  }
+
+  /* Уменьшаем отступы в карточке */
+
+  /* Адаптируем цену */
+
+  /* Предотвращение переноса цен на мобильных */
+
+  /* Выравнивание сетки */
+}
+
+/* Еще более компактно для очень маленьких экранов */
+@media (max-width: 480px) {
+  /* Grid gap handled by base styles */
+
+  /* Фиксированная высота карточек */
+  .card.product {
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  /* Фиксированная высота изображения */
+  .card.product .ratio {
+    height: 200px !important;
+    min-height: 200px !important;
+  }
+
+  
+  .card.product h5 {
+    font-size: 0.8rem !important;
+    line-height: 1.1 !important;
+    height: 1.1em !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  /* Фиксированная высота названия товара на очень маленьких экранах */
+  .card.product .product-title {
+    height: auto !important;
+    min-height: 3.6em !important;
+    max-height: none !important;
+    font-size: 0.8rem !important;
+    line-height: 1.2 !important;
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 3 !important;
+    line-clamp: 3 !important;
+    overflow: hidden !important;
+  }
+
+  /* Предотвращение переноса цен на очень маленьких экранах */
+
+  /* Адаптируем сетку карточек */
+
+  .row {
+    margin-left: -0.25rem;
+    margin-right: -0.25rem;
+  }
+
+  /* Принудительное выравнивание всех карточек */
+}
+
+/* Дополнительные улучшения для планшетов */
+@media (min-width: 769px) and (max-width: 1024px) {
+  /* Grid gap handled by base styles */
+
+  /* Фиксированная высота карточек */
+  .card.product {
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  /* Фиксированная высота изображения */
+  .card.product .ratio {
+    height: 220px !important;
+    min-height: 220px !important;
+  }
+
+  
+  .card.product h5 {
+    font-size: 0.95rem !important;
+    line-height: 1.3 !important;
+    height: 1.3em !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  /* Выравнивание сетки */
+}
+
+.navbar.bg-body {
+  backdrop-filter: saturate(110%) blur(5px);
+  background-color: rgba(13, 14, 17, .72) !important
+}
+
+/* Bottom Navigation - Fixed at bottom */
+.bottom-nav {
+  position: fixed !important;
+  left: 50% !important;
+  bottom: 10px !important;
+  transform: translateX(-50%) !important;
+  width: min(560px, 92%) !important;
+  max-width: 92vw !important;
+  background: rgba(20, 22, 27, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(5px) saturate(110%);
+  border-radius: 18px;
+  padding: 8px;
+  z-index: 1030 !important;
+  transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.2s ease;
+  will-change: auto;
+  /* Changed back to auto to prevent jank with position: fixed */
+  display: flex !important;
+  /* Override Bootstrap d-lg-none */
+  box-sizing: border-box !important;
+}
+
+/* Hide on desktop (lg and up) */
+@media (min-width: 992px) {
+  .bottom-nav {
+    display: none !important;
+  }
+}
+
+/* Extra rules for mobile to ensure it stays fixed */
+@media (max-width: 991px) {
+  .bottom-nav {
+    position: fixed !important;
+    left: 50% !important;
+    bottom: 10px !important;
+    transform: translateX(-50%) !important;
+  }
+}
+
+/* Улучшение плавности рендеринга */
+.bottom-nav,
+.bottom-nav * {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  -webkit-perspective: 1000;
+  perspective: 1000;
+}
+
+.bottom-nav .btn {
+  flex: 1 1 0;
+  background: transparent;
+  border: none;
+  color: var(--tc-text);
+  opacity: 0.8;
+}
+
+.bottom-nav .btn.active,
+.bottom-nav .btn:hover {
+  opacity: 1;
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: 400ms ease;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Поочередное красивое появление карточек — keyframes + индивидуальная задержка */
+@keyframes cardLift {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(.94);
+    filter: blur(10px);
+  }
+
+  60% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.01);
+    filter: blur(0);
+  }
+
+  100% {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+/* Масштабирование: растягивание в контейнер без обрезания */
+
+/* Красивый контрол количества */
+
+/* Admin product form: секции и единый стиль */
+
+/* Кружочки кольорів у карточках (на головній) */
+
+/* Адаптивность для цветовых точек на мобильных */
+
+/* Комбинированные цвета для color-dot */
+
+/* Hover эффект для цветовых точек */
+
+/* Активное состояние цветовой точки */
+
+/* Анимация переключения цветовых точек */
+
+/* Анимация переключения изображений */
+
+/* Анимация пульсации при переключении цветов */
+@keyframes colorSwitchPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  }
+
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 8px 30px rgba(139, 92, 246, 0.2);
+  }
+
+  100% {
+    transform: scale(1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* Показываем цветовые точки при hover на карточку */
+
+/* Счетчик заказов в обработке */
+
+/* Стили для информации о баллах в заказах */
+.points-info {
+  margin-top: 0.5rem;
+}
+
+/* Стили для отображения баллов в админпанели пользователей */
+
+.points-label {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.1);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Блок "Рекомендовано" - профессиональный дизайн */
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes featuredGlow {
+    0% {
+      box-shadow: 0 8px 32px rgba(139, 92, 246, 0.3);
+    }
+
+    100% {
+      box-shadow: 0 12px 48px rgba(139, 92, 246, 0.5);
+    }
+  }
+}
+
+/* Комбинированные цвета для featured-color-dot */
+
+@keyframes discountPulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+/* Заголовок-кнопка управления блоком "Рекомендовано" */
+
+/* Анимация скрытия/показа блока */
+
+@keyframes expandBlock {
+  0% {
+    opacity: 0;
+    transform: translateY(-30px) scale(0.9);
+    max-height: 0;
+    filter: blur(2px);
+  }
+
+  30% {
+    opacity: 0.6;
+    transform: translateY(-15px) scale(0.95);
+    filter: blur(1px);
+  }
+
+  70% {
+    opacity: 0.9;
+    transform: translateY(-5px) scale(0.98);
+    filter: blur(0.5px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    max-height: 2000px;
+    filter: blur(0);
+  }
+}
+
+/* Анимация для подсказки при скрытии */
+
+@keyframes smoothFadeInOut {
+  0% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+
+  40% {
+    opacity: 0;
+    transform: scale(0.95) translateY(-2px);
+  }
+
+  60% {
+    opacity: 0;
+    transform: scale(0.95) translateY(2px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Эффект пульсации для заголовка-кнопки */
+
+@keyframes headerPulseGlow {
+  0% {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  50% {
+    box-shadow: 0 8px 35px rgba(139, 92, 246, 0.25);
+    border-color: rgba(139, 92, 246, 0.3);
+  }
+
+  100% {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* Адаптивность для мобильных устройств */
+
+/* ===== КОМПАКТНЫЙ БЛОК РЕКОМЕНДАЦИЙ В СТИЛЕ КАТЕГОРИЙ ===== */
+
+/* Основной блок рекомендаций */
+
+@keyframes featuredOuterGlow {
+
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+    filter: blur(8px);
+  }
+
+  50% {
+    opacity: 0.8;
+    transform: scale(1.02);
+    filter: blur(12px);
+  }
+}
+
+/* Фоновые эффекты */
+
+@keyframes featuredFloat {
+
+  0%,
+  100% {
+    transform: translateY(0px) translateX(0px) scale(1) rotate(0deg);
+    opacity: 0.6;
+    box-shadow: 0 0 8px rgba(255, 193, 7, 0.5);
+  }
+
+  25% {
+    transform: translateY(-25px) translateX(15px) scale(1.3) rotate(90deg);
+    opacity: 1;
+    box-shadow: 0 0 15px rgba(255, 193, 7, 0.8);
+  }
+
+  50% {
+    transform: translateY(-15px) translateX(-10px) scale(0.9) rotate(180deg);
+    opacity: 0.7;
+    box-shadow: 0 0 12px rgba(255, 193, 7, 0.6);
+  }
+
+  75% {
+    transform: translateY(-35px) translateX(20px) scale(1.2) rotate(270deg);
+    opacity: 0.9;
+    box-shadow: 0 0 18px rgba(255, 193, 7, 0.7);
+  }
+}
+
+@keyframes featuredGlow {
+
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    opacity: 0.4;
+    filter: blur(2px);
+  }
+
+  25% {
+    transform: translate(-50%, -50%) scale(1.1) rotate(90deg);
+    opacity: 0.7;
+    filter: blur(3px);
+  }
+
+  50% {
+    transform: translate(-50%, -50%) scale(1.3) rotate(180deg);
+    opacity: 0.8;
+    filter: blur(4px);
+  }
+
+  75% {
+    transform: translate(-50%, -50%) scale(1.1) rotate(270deg);
+    opacity: 0.6;
+    filter: blur(3px);
+  }
+}
+
+@keyframes featuredLogoFloat {
+  0% {
+    transform: translateY(0px) rotate(0deg);
+    opacity: 0.1;
+  }
+
+  25% {
+    transform: translateY(-15px) rotate(90deg);
+    opacity: 0.2;
+  }
+
+  50% {
+    transform: translateY(-5px) rotate(180deg);
+    opacity: 0.15;
+  }
+
+  75% {
+    transform: translateY(-20px) rotate(270deg);
+    opacity: 0.25;
+  }
+
+  100% {
+    transform: translateY(0px) rotate(360deg);
+    opacity: 0.1;
+  }
+}
+
+/* Заголовок */
+
+@keyframes featuredBadgeGlow {
+
+  0%,
+  100% {
+    box-shadow:
+      0 4px 15px rgba(255, 193, 7, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    transform: scale(1);
+  }
+
+  50% {
+    box-shadow:
+      0 6px 20px rgba(255, 193, 7, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    transform: scale(1.02);
+  }
+}
+
+@keyframes featuredLineGlow {
+
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: scaleX(1);
+    box-shadow: 0 0 8px rgba(255, 193, 7, 0.5);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scaleX(1.2);
+    box-shadow: 0 0 12px rgba(255, 193, 7, 0.8);
+  }
+}
+
+/* Кнопка сворачивания */
+
+/* Контент */
+
+/* Адаптивные стили */
+@media (max-width: 768px) {
+
+  /* Исправление расположения кнопки на мобильных */
+}
+
+@media (max-width: 480px) {
+
+  /* Дополнительные стили для очень маленьких экранов */
+}
+
+/* Страница успешного заказа */
+
+@keyframes successPulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+/* Адаптивность для страницы успешного заказа */
+
+/* Стили для валидации форм */
+
+/* Анимация для полей с ошибками */
+@keyframes shake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-5px);
+  }
+
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+/* Админ панель заказов - новый дизайн */
+
+/* Адаптивность для админ панели заказов */
+
+/* Hero секция с логотипом TWO COMMS */
+.hero-section {
+  position: relative;
+  min-height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.6));
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.hero-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  --hero-gutter-x: 1.5rem;
+  --hero-gutter-y: 1.5rem;
+  margin-top: calc(-1 * var(--hero-gutter-y));
+  margin-right: calc(-.5 * var(--hero-gutter-x));
+  margin-left: calc(-.5 * var(--hero-gutter-x));
+  padding: 3rem 2rem;
+  z-index: 2;
+}
+
+.hero-container>[class*='col-'] {
+  flex: 0 0 auto;
+  padding-right: calc(var(--hero-gutter-x) * .5);
+  padding-left: calc(var(--hero-gutter-x) * .5);
+  padding-top: var(--hero-gutter-y);
+  padding-bottom: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+@media (min-width: 768px) {
+  .hero-container>.col-md-6 {
+    width: 50%;
+    max-width: 50%;
+  }
+}
+
+/* Фоновый логотип */
+
+.hero-logo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+  will-change: transform;
+}
+
+@keyframes logoFloat {
+
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+  }
+
+  50% {
+    transform: translate(-50%, -50%) scale(1.05) rotate(1deg);
+  }
+}
+
+/* Основной контент */
+.hero-section .hero-content {
+  position: relative;
+  z-index: 3;
+  text-align: center;
+  max-width: 600px;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.hero-section .hero-text-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  min-height: clamp(320px, 28vw, 420px);
+}
+
+.hero-section .hero-title-main {
+  font-size: 3.5rem;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-size-adjust: 0.52;
+}
+
+.hero-section .hero-title-accent {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #8b5cf6;
+  text-shadow: 0 2px 15px rgba(139, 92, 246, 0.4);
+  letter-spacing: 0.05em;
+  font-size-adjust: 0.52;
+}
+
+.hero-section .hero-subtitle {
+  font-size: 1.2rem;
+  color: #d1d5db;
+  font-weight: 400;
+  margin: 0;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  font-size-adjust: 0.52;
+}
+
+/* Декоративные элементы */
+
+@keyframes glowPulse {
+
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+}
+
+.hero-section .hero-particles {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+
+.hero-section .particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  animation: particleFloat 6s ease-in-out infinite;
+}
+
+.hero-section .particle:nth-child(1) {
+  top: 20%;
+  left: 10%;
+  animation-delay: 0s;
+}
+
+.hero-section .particle:nth-child(2) {
+  top: 60%;
+  left: 80%;
+  animation-delay: 1s;
+}
+
+.hero-section .particle:nth-child(3) {
+  top: 80%;
+  left: 20%;
+  animation-delay: 2s;
+}
+
+.hero-section .particle:nth-child(4) {
+  top: 30%;
+  left: 70%;
+  animation-delay: 3s;
+}
+
+.hero-section .particle:nth-child(5) {
+  top: 70%;
+  left: 60%;
+  animation-delay: 4s;
+}
+
+@keyframes particleFloat {
+
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.3;
+  }
+
+  50% {
+    transform: translateY(-20px) scale(1.2);
+    opacity: 0.8;
+  }
+}
+
+/* Адаптивность для hero секции */
+@media (max-width: 768px) {
+  .hero-section {
+    min-height: 300px;
+    border-radius: 16px;
+  }
+
+  .hero-section .hero-container {
+    padding: 2rem 1rem;
+  }
+
+  .hero-section .hero-text-section {
+    min-height: 340px;
+  }
+
+  .hero-section .hero-title-main {
+    font-size: 2.5rem;
+  }
+
+  .hero-section .hero-title-accent {
+    font-size: 1.8rem;
+  }
+
+  .hero-section .hero-subtitle {
+    font-size: 1rem;
+  }
+}
+
+/* Селектор кольорів у товарі — темний «вдавлений» */
+
+/* Удалено - дублирующийся стиль */
+
+.color-swatch:active {
+  transform: scale(.98);
+}
+
+/* Перемикачі і панелі для опису/сітки */
+
+/* Красивые вкладки для описания и размерной сетки в стиле селектора цветов */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Стили для таблицы размеров в стиле селектора цветов */
+
+/* Улучшенная читаемость текста в описании */
+
+/* Унифицированный вид инпутов */
+
+/* Admin product form: hide slug and extra_images fields if present */
+
+/* Анимации мини‑кошика */
+
+/* Панель користувача — така ж анімація */
+#user-panel {
+  opacity: 0;
+  transform: translateY(-6px) scale(.98);
+  transition: opacity .22s ease, transform .22s ease
+}
+
+#user-panel.show {
+  opacity: 1;
+  transform: none
+}
+
+/* ===== ПРОМОКОДЫ ===== */
+
+/* Секция промокодов */
+
+/* Заголовок секции */
+
+/* Список промокодов */
+
+/* Детали промокода */
+
+/* Статистика промокода */
+
+/* Действия с промокодом */
+
+/* Состояние без промокодов */
+
+/* ===== ФОРМА ПРОМОКОДА ===== */
+
+/* Стили для информации о промокоде в заказах */
+
+/* Стили для отображения баллов */
+
+.points-icon {
+  color: #f39c12;
+}
+
+/* Компактное отображение баллов в блоке с цветами */
+
+/* Стили для анимации кнопок сохранения */
+
+/* Анимация для кнопок */
+.btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Адаптивность для промокодов */
+
+/* Unified product edit page */
+
+/* Button animations */
+
+/* Color and image cards */
+
+/* Enhanced product edit page styles */
+
+/* Modal enhancements */
+.modal-content {
+  border-radius: 20px;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+  backdrop-filter: blur(8px);
+}
+
+.modal-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 1.75rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent);
+}
+
+.modal-body {
+  padding: 1.75rem;
+}
+
+/* Card enhancements */
+
+/* Form group enhancements */
+
+/* Badge enhancements */
+
+/* Empty state enhancements */
+
+/* Enhanced glass effect for cards */
+
+/* Lighter background matching site style */
+
+/* Enhanced card backgrounds */
+.card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+/* Enhanced sidebar */
+
+/* Enhanced button styles */
+.btn-outline-primary {
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  color: #8b5cf6;
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.1), rgba(139, 92, 246, 0.05));
+  backdrop-filter: blur(4px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-outline-primary:hover {
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.2), rgba(139, 92, 246, 0.1));
+  border-color: #8b5cf6;
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.3);
+}
+
+/* Enhanced tab content */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Enhanced sidebar */
+
+/* Enhanced gradient backgrounds */
+
+/* Enhanced empty states */
+
+/* Enhanced card headers */
+
+/* Enhanced form sections */
+
+/* Enhanced form checkboxes */
+
+/* Enhanced textarea */
+
+/* Enhanced file inputs */
+
+/* Enhanced select dropdowns */
+
+/* Enhanced animations */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Enhanced hover effects */
+
+/* Professional form sections */
+
+/* Новый стильный дизайн для основных данных */
+
+/* Цветовые акценты для разных групп */
+
+/* Стили для переключателя "Рекомендованный" */
+
+/* Стили для секции ценообразования */
+
+/* Улучшенные стили для полей ввода */
+
+/* Стили для кнопки сохранения */
+
+/* Стили для модала с палитрой цветов */
+
+/* Переключатель режимов цвета */
+
+/* Color picker контейнер */
+
+.color-picker {
+  width: 50px;
+  height: 50px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  background: none;
+}
+
+.color-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+  border-radius: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.color-picker::-webkit-color-swatch {
+  border: none;
+  border-radius: 6px;
+}
+
+/* Стили для загрузки множественных изображений */
+
+/* Предварительный просмотр */
+
+/* Стили для цветовых кружков в карточках товаров */
+
+/* Стили для цветовых кружков в корзине и заказах */
+.swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+  overflow: hidden;
+  display: inline-block;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Стили для комбинированных цветов в карточках */
+.color-swatch .swatch[data-secondary]:not([data-secondary=""]) {
+  position: relative;
+  overflow: hidden;
+  background: transparent !important;
+}
+
+.color-swatch .swatch[data-secondary]:not([data-secondary=""])::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background: var(--primary-color);
+  border-radius: 50% 0 0 50%;
+}
+
+.color-swatch .swatch[data-secondary]:not([data-secondary=""])::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 50%;
+  height: 100%;
+  background: var(--secondary-color);
+  border-radius: 0 50% 50% 0;
+}
+
+/* Разделительная линия для комбинированных цветов */
+
+/* Стили для комбинированных цветов в корзине и заказах */
+.swatch[data-secondary]:not([data-secondary=""]) {
+  position: relative;
+  overflow: hidden;
+}
+
+.swatch[data-secondary]:not([data-secondary=""])::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background: var(--primary-color);
+  border-radius: 50% 0 0 50%;
+}
+
+.swatch[data-secondary]:not([data-secondary=""])::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 50%;
+  height: 100%;
+  background: var(--secondary-color);
+  border-radius: 0 50% 50% 0;
+}
+
+/* Адаптивность для мобильных устройств */
+
+/* Enhanced form labels */
+
+/* Enhanced form hints */
+
+/* Enhanced form controls */
+
+/* Enhanced checkboxes */
+
+/* Promo settings */
+
+/* Image upload section */
+
+/* Enhanced alerts */
+.alert {
+  border-radius: 8px;
+  border: none;
+  padding: 0.75rem 1rem;
+}
+
+/* Enhanced textarea */
+
+/* Enhanced select */
+
+/* Enhanced file input */
+
+/* Form floating styles - более специфичные селекторы */
+
+/* Form floating file input - специфичные стили */
+
+/* КРИТИЧЕСКИЕ ИСПРАВЛЕНИЯ ДЛЯ FORM-FLOATING - ПРИНУДИТЕЛЬНОЕ ПРИМЕНЕНИЕ */
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+
+  .modal-dialog {
+    margin: 1rem;
+  }
+}
+
+/* ===== КРАСИВОЕ НИЖНЕЕ МЕНЮ ДЛЯ МОБИЛЬНЫХ ===== */
+/* Стили перенесены в основной блок выше - удаляем дубликаты */
+
+@keyframes bottomNavHintUpDown {
+  0% {
+    transform: translateY(0);
+  }
+
+  35% {
+    transform: translateY(4px);
+  }
+
+  70% {
+    transform: translateY(-6px);
+  }
+
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.bottom-nav.hint-wiggle {
+  animation: bottomNavHintUpDown 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: rgba(255, 255, 255, 0.5);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  padding: 0.6rem 0.8rem;
+  border-radius: 16px;
+  flex: 1;
+  max-width: 80px;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+/* Красивое активное состояние с "island" эффектом */
+.bottom-nav-item.active {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(99, 102, 241, 0.12));
+  box-shadow:
+    0 4px 12px rgba(139, 92, 246, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  color: #a78bfa;
+  transform: translateY(-2px);
+}
+
+/* Hover эффект */
+.bottom-nav-item:hover:not(.active) {
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-1px);
+}
+
+.bottom-nav-icon {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.3rem;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Анимированное свечение для активной иконки */
+.bottom-nav-item.active .bottom-nav-icon::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.4) 0%, transparent 70%);
+  border-radius: 50%;
+  z-index: -1;
+  animation: icon-glow 2s ease-in-out infinite;
+  opacity: 0.8;
+}
+
+/* Анимация иконки при hover */
+.bottom-nav-item:hover .bottom-nav-icon {
+  transform: scale(1.15) translateY(-2px);
+}
+
+.bottom-nav-item.active .bottom-nav-icon {
+  transform: scale(1.12);
+}
+
+/* SVG иконки */
+.bottom-nav-icon svg {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+  transition: filter 0.3s ease;
+}
+
+.bottom-nav-item.active .bottom-nav-icon svg {
+  filter: drop-shadow(0 4px 8px rgba(139, 92, 246, 0.5));
+}
+
+/* Анимации для нижнего меню */
+@keyframes icon-glow {
+
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes badge-bounce {
+  0% {
+    transform: scale(0);
+  }
+
+  50% {
+    transform: scale(1.2);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes badge-pulse {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+
+  50% {
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0);
+  }
+}
+
+/* Анимация при наведении на иконки */
+.bottom-nav-icon svg {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  padding: 0;
+}
+
+.bottom-nav-item:hover .bottom-nav-icon svg {
+  /* filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.6)); REMOVED for performance */
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.bottom-nav-item.active .bottom-nav-icon svg {
+  /* filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.8)); REMOVED for performance */
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+/* Эффект нажатия */
+.bottom-nav-item:active {
+  transform: scale(0.95);
+}
+
+.bottom-nav-item:active .bottom-nav-icon {
+  transform: scale(0.9);
+}
+
+/* Адаптивность для очень маленьких экранов */
+@media (max-width: 360px) {
+
+  .bottom-nav-item {
+    min-width: 50px;
+    padding: 0.4rem;
+  }
+
+  .bottom-nav-icon {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+/* Позиционирование мини-панелей на мобильных устройствах */
+@media (max-width: 768px) {
+
+  .cart-panel,
+  .user-panel {
+    bottom: 80px !important;
+    top: auto !important;
+    right: 10px !important;
+    left: 10px !important;
+    width: auto !important;
+    max-width: none !important;
+    position: fixed !important;
+    z-index: 1001 !important;
+    max-height: calc(100vh - 100px) !important;
+    overflow-y: auto !important;
+    border-radius: 20px 20px 0 0 !important;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.3) !important;
+    transform: translateY(100%) !important;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  }
+
+  .cart-panel.show,
+  .user-panel.show {
+    transform: translateY(0) !important;
+  }
+
+  /* Убираем отступ снизу у основного контента */
+  main.container-xxl {
+    padding-bottom: 100px !important;
+  }
+
+  /* Анимация появления снизу */
+  .cart-panel,
+  .user-panel {
+    animation: slideUpFromBottom 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  }
+
+  @keyframes slideUpFromBottom {
+    0% {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+
+    100% {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  /* Дополнительные стили для мобильных панелей */
+  .cart-panel .cart-header,
+  .user-panel .user-header {
+    border-radius: 20px 20px 0 0 !important;
+    padding: 1.25rem !important;
+  }
+
+  .cart-panel .cart-content,
+  .user-panel .user-menu {
+    padding: 0 1.25rem 1.25rem !important;
+  }
+
+  /* Улучшенная прокрутка для мобильных */
+  .cart-panel::-webkit-scrollbar,
+  .user-panel::-webkit-scrollbar {
+    width: 4px !important;
+  }
+
+  .cart-panel::-webkit-scrollbar-track,
+  .user-panel::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 2px !important;
+  }
+
+  .cart-panel::-webkit-scrollbar-thumb,
+  .user-panel::-webkit-scrollbar-thumb {
+    background: rgba(139, 92, 246, 0.3) !important;
+    border-radius: 2px !important;
+  }
+
+  .cart-panel::-webkit-scrollbar-thumb:hover,
+  .user-panel::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 92, 246, 0.5) !important;
+  }
+}
+
+/* Мобильные стили для корзины и профиля в нижнем меню */
+
+/* Стили для мобильных панелей в base.html */
+#mini-cart-panel-mobile,
+#user-panel-mobile {
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  max-height: 85vh !important;
+  border-radius: 20px 20px 0 0 !important;
+  z-index: 1050 !important;
+  background: linear-gradient(135deg, rgba(20, 22, 27, 0.98), rgba(10, 12, 17, 0.95)) !important;
+  border: 1px solid rgba(139, 92, 246, 0.2) !important;
+  border-bottom: none !important;
+  box-shadow: 0 -16px 48px rgba(0, 0, 0, 0.45), 0 0 32px rgba(139, 92, 246, 0.08) !important;
+  backdrop-filter: blur(12px) !important;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex !important;
+  pointer-events: none;
+  /* не перехватывать клики, пока панель скрыта */
+  flex-direction: column;
+  padding: 1.5rem !important;
+  overflow: hidden;
+}
+
+#mini-cart-panel-mobile.show,
+#user-panel-mobile.show {
+  transform: translateY(0);
+  pointer-events: auto;
+  /* кликабельна только когда показана */
+}
+
+#mini-cart-panel-mobile .cart-header,
+#user-panel-mobile .user-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+  position: relative;
+  z-index: 2;
+}
+
+/* ===== Мобильный мини‑профиль: кнопки как на десктопе ===== */
+#user-panel-mobile .user-menu {
+  gap: 0.75rem;
+}
+
+#user-panel-mobile .menu-item {
+  padding: 1rem 1.25rem;
+  border-radius: 16px;
+  font-size: 1.02rem;
+}
+
+#user-panel-mobile .menu-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+}
+
+#user-panel-mobile .menu-arrow {
+  font-size: 1rem;
+}
+
+/* ===== Мобильный мини‑профиль: компактная карточка баллов ===== */
+#user-panel-mobile .points-card-link {
+  margin-bottom: 1rem;
+}
+
+#user-panel-mobile .points-card {
+  padding: 1rem 0.8rem;
+  gap: 1rem;
+  border-radius: 16px;
+  min-height: 70px;
+  background: linear-gradient(135deg,
+      rgba(255, 215, 0, 0.08) 0%,
+      rgba(255, 193, 7, 0.12) 25%,
+      rgba(255, 152, 0, 0.08) 50%,
+      rgba(255, 215, 0, 0.06) 75%,
+      rgba(255, 193, 7, 0.1) 100%);
+  border: 2px solid rgba(255, 215, 0, 0.4);
+}
+
+#user-panel-mobile .points-icon {
+  width: 45px;
+  height: 45px;
+  border-radius: 14px;
+  background: linear-gradient(135deg,
+      rgba(255, 215, 0, 0.2) 0%,
+      rgba(255, 193, 7, 0.3) 50%,
+      rgba(255, 152, 0, 0.2) 100%);
+  border: 2px solid rgba(255, 215, 0, 0.6);
+  color: #FFD700;
+}
+
+#user-panel-mobile .points-label {
+  font-size: 0.75rem;
+  margin-bottom: 0.25rem;
+  color: rgba(255, 215, 0, 0.9);
+  font-weight: 700;
+}
+
+#user-panel-mobile .points-amount {
+  font-size: 1.3rem;
+  margin-bottom: 0.25rem;
+  color: #FFD700;
+  font-weight: 900;
+}
+
+#user-panel-mobile .points-hint {
+  font-size: 0.65rem;
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+#mini-cart-panel-mobile .cart-content,
+#user-panel-mobile .user-menu {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+  z-index: 2;
+  max-height: calc(85vh - 200px);
+}
+
+/* Адаптивная высота для панелей */
+@media (max-height: 600px) {
+
+  #mini-cart-panel-mobile,
+  #user-panel-mobile {
+    max-height: 90vh !important;
+  }
+
+  #mini-cart-panel-mobile .cart-content,
+  #user-panel-mobile .user-menu {
+    max-height: calc(90vh - 150px);
+  }
+}
+
+@media (min-height: 800px) {
+
+  #mini-cart-panel-mobile,
+  #user-panel-mobile {
+    max-height: 75vh !important;
+  }
+
+  #mini-cart-panel-mobile .cart-content,
+  #user-panel-mobile .user-menu {
+    max-height: calc(75vh - 200px);
+  }
+}
+
+#mini-cart-panel-mobile .close-btn,
+#user-panel-mobile .close-btn {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  padding: 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+#mini-cart-panel-mobile .close-btn:hover,
+#user-panel-mobile .close-btn:hover {
+  background: rgba(139, 92, 246, 0.1);
+  color: #8b5cf6;
+  transform: scale(1.1);
+}
+
+/* Специальные стили для мобильных панелей */
+#mini-cart-panel-mobile .cart-sparks-container,
+#user-panel-mobile .sparks-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Мобильные панели используют общие стили десктопных панелей */
+#mini-cart-panel-mobile .cart-menu,
+#user-panel-mobile .user-menu {
+  position: relative;
+  z-index: 2;
+}
+
+#mini-cart-panel-mobile .cart-menu-item,
+#user-panel-mobile .menu-item {
+  position: relative;
+  z-index: 2;
+}
+
+#mini-cart-panel-mobile .cart-info,
+#user-panel-mobile .logout-section {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgba(139, 92, 246, 0.05);
+  border: 1px solid rgba(139, 92, 246, 0.1);
+  border-radius: 12px;
+  position: relative;
+  z-index: 2;
+}
+
+#mini-cart-panel-mobile .cart-info-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: rgba(139, 92, 246, 0.1);
+  border-radius: 6px;
+  color: #8b5cf6;
+  flex-shrink: 0;
+}
+
+#mini-cart-panel-mobile .cart-info-text {
+  font-size: 0.85rem;
+  color: #9ca3af;
+  line-height: 1.4;
+}
+
+/* Мобильные панели используют общие стили десктопных панелей для кнопки выхода */
+#user-panel-mobile .logout-btn {
+  position: relative;
+  z-index: 2;
+}
+
+/* Мобильные панели используют общие стили десктопных панелей для блока с баллами */
+#user-panel-mobile .points-card {
+  position: relative;
+  z-index: 2;
+}
+
+/* Стили для аутентификации в мобильной панели */
+#user-panel-mobile .auth-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+#user-panel-mobile .auth-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2));
+  border-radius: 12px;
+  color: #8b5cf6;
+}
+
+#user-panel-mobile .auth-title {
+  flex: 1;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #e8e9ec;
+}
+
+#user-panel-mobile .auth-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+#user-panel-mobile .auth-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+#user-panel-mobile .auth-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+#user-panel-mobile .auth-btn:hover::before {
+  left: 100%;
+}
+
+#user-panel-mobile .auth-btn.primary {
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  color: white;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+#user-panel-mobile .auth-btn.primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
+}
+
+#user-panel-mobile .auth-btn.secondary {
+  background: rgba(255, 255, 255, 0.05);
+  color: #e8e9ec;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#user-panel-mobile .auth-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+#user-panel-mobile .auth-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgba(139, 92, 246, 0.05);
+  border: 1px solid rgba(139, 92, 246, 0.1);
+  border-radius: 12px;
+}
+
+#user-panel-mobile .info-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: rgba(139, 92, 246, 0.1);
+  border-radius: 6px;
+  color: #8b5cf6;
+  flex-shrink: 0;
+}
+
+#user-panel-mobile .info-text {
+  font-size: 0.85rem;
+  color: #9ca3af;
+  line-height: 1.4;
+}
+
+.cart-glow-mobile {
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(99, 102, 241, 0.3));
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: -1;
+}
+
+/* Мобильные стили для профиля */
+
+/* Счетчик избранного для мобильных */
+
+/* Анимация и свечение для мобильного сердечка избранного - специфичный селектор */
+
+.avatar-glow-mobile {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 50%;
+  background: linear-gradient(45deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+/* Активные состояния для мобильных элементов */
+
+.bottom-nav-item.active .cart-glow-mobile,
+.bottom-nav-item.active .avatar-glow-mobile {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+/* МАКСИМАЛЬНО АГРЕССИВНЫЕ СТИЛИ ДЛЯ МОБИЛЬНОГО NAVBAR - В КОНЦЕ ФАЙЛА */
+@media (max-width: 768px) {
+
+  /* Принудительно переопределяем ВСЕ стили Bootstrap */
+}
+
+/* ===== КОМПАКТНЫЙ ТЕМНЫЙ БЛОК КАТЕГОРИЙ В СТИЛЕ HERO ===== */
+
+/* Основная секция категорий */
+
+/* Единый блок категорий */
+
+/* Заголовок в едином блоке */
+
+/* Фоновые эффекты для единого блока */
+
+@keyframes darkParticleFloat {
+
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.4;
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+  }
+
+  25% {
+    transform: translateY(-10px) scale(1.2);
+    opacity: 0.7;
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.6);
+  }
+
+  50% {
+    transform: translateY(-20px) scale(1.3);
+    opacity: 1;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.7);
+  }
+
+  75% {
+    transform: translateY(-10px) scale(1.1);
+    opacity: 0.6;
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.5);
+  }
+}
+
+@keyframes darkGlowPulse {
+
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: translate(-50%, -50%) scale(1);
+    filter: blur(1px);
+  }
+
+  25% {
+    opacity: 0.5;
+    transform: translate(-50%, -50%) scale(1.05);
+    filter: blur(1.5px);
+  }
+
+  50% {
+    opacity: 0.7;
+    transform: translate(-50%, -50%) scale(1.1);
+    filter: blur(2px);
+  }
+
+  75% {
+    opacity: 0.4;
+    transform: translate(-50%, -50%) scale(1.08);
+    filter: blur(1.2px);
+  }
+}
+
+/* Компактный заголовок */
+
+/* Заголовок с иконкой каталога */
+
+/* Иконка каталога для мобильных */
+
+@keyframes accentLineGlow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 15px rgba(139, 92, 246, 0.5);
+    transform: scaleX(1);
+  }
+
+  25% {
+    box-shadow: 0 0 25px rgba(168, 85, 247, 0.7);
+    transform: scaleX(1.1);
+  }
+
+  50% {
+    box-shadow: 0 0 30px rgba(99, 102, 241, 0.8);
+    transform: scaleX(1.2);
+  }
+
+  75% {
+    box-shadow: 0 0 25px rgba(59, 130, 246, 0.7);
+    transform: scaleX(1.1);
+  }
+}
+
+/* Компактная кнопка "Весь каталог" */
+
+/* Текст кнопки каталога */
+
+/* Иконка кнопки каталога */
+
+/* ===== КРАСИВАЯ КНОПКА СВОРАЧИВАНИЯ КАТЕГОРИЙ ===== */
+
+/* Основная кнопка сворачивания */
+
+/* Контент кнопки */
+
+/* Иконка стрелки */
+
+/* Текст кнопки */
+
+/* Свечение кнопки */
+
+@keyframes toggleBtnGlowPulse {
+
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+}
+
+/* Ripple эффект при клике */
+
+/* Состояние свернуто */
+
+/* Анимация сворачивания контента */
+
+/* Анимация появления/исчезновения сетки */
+
+/* Анимация фоновых эффектов */
+
+/* Улучшенные анимации для сворачивания */
+
+@keyframes categoriesExpandUnified {
+  0% {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-40px) scale(0.9);
+    filter: blur(8px);
+  }
+
+  30% {
+    opacity: 0.3;
+    transform: translateY(-25px) scale(0.95);
+    filter: blur(4px);
+  }
+
+  70% {
+    opacity: 0.8;
+    transform: translateY(-5px) scale(0.98);
+    filter: blur(1px);
+  }
+
+  100% {
+    max-height: 1000px;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes categoriesCollapseUnified {
+  0% {
+    max-height: 1000px;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+
+  30% {
+    opacity: 0.8;
+    transform: translateY(-5px) scale(0.98);
+    filter: blur(1px);
+  }
+
+  70% {
+    opacity: 0.3;
+    transform: translateY(-25px) scale(0.95);
+    filter: blur(4px);
+  }
+
+  100% {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-40px) scale(0.9);
+    filter: blur(8px);
+  }
+}
+
+/* Эффект пульсации кнопки */
+
+@keyframes toggleBtnPulse {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 12px 35px rgba(139, 92, 246, 0.4);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Контент категорий в едином блоке */
+
+/* Темные фоновые эффекты */
+
+@keyframes darkBgRotate1 {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes darkBgRotate2 {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(-360deg);
+  }
+}
+
+/* Летающие логотипчики */
+
+@keyframes logoFloat1 {
+
+  0%,
+  100% {
+    transform: translateY(0) translateX(0) rotate(0deg) scale(1);
+    opacity: 0.6;
+  }
+
+  25% {
+    transform: translateY(-15px) translateX(10px) rotate(90deg) scale(1.1);
+    opacity: 0.8;
+  }
+
+  50% {
+    transform: translateY(-25px) translateX(-5px) rotate(180deg) scale(0.9);
+    opacity: 0.4;
+  }
+
+  75% {
+    transform: translateY(-10px) translateX(-15px) rotate(270deg) scale(1.05);
+    opacity: 0.7;
+  }
+}
+
+@keyframes logoFloat2 {
+
+  0%,
+  100% {
+    transform: translateY(0) translateX(0) rotate(0deg) scale(1);
+    opacity: 0.5;
+  }
+
+  30% {
+    transform: translateY(-20px) translateX(-10px) rotate(120deg) scale(1.15);
+    opacity: 0.8;
+  }
+
+  60% {
+    transform: translateY(-30px) translateX(15px) rotate(240deg) scale(0.85);
+    opacity: 0.3;
+  }
+
+  90% {
+    transform: translateY(-5px) translateX(20px) rotate(360deg) scale(1.1);
+    opacity: 0.6;
+  }
+}
+
+@keyframes logoFloat3 {
+
+  0%,
+  100% {
+    transform: translateY(0) translateX(0) rotate(0deg) scale(1);
+    opacity: 0.7;
+  }
+
+  20% {
+    transform: translateY(-18px) translateX(12px) rotate(72deg) scale(1.2);
+    opacity: 0.9;
+  }
+
+  40% {
+    transform: translateY(-35px) translateX(-8px) rotate(144deg) scale(0.8);
+    opacity: 0.4;
+  }
+
+  60% {
+    transform: translateY(-22px) translateX(-18px) rotate(216deg) scale(1.1);
+    opacity: 0.6;
+  }
+
+  80% {
+    transform: translateY(-8px) translateX(25px) rotate(288deg) scale(0.95);
+    opacity: 0.8;
+  }
+}
+
+@keyframes logoFloat4 {
+
+  0%,
+  100% {
+    transform: translateY(0) translateX(0) rotate(0deg) scale(1);
+    opacity: 0.4;
+  }
+
+  35% {
+    transform: translateY(-12px) translateX(-15px) rotate(126deg) scale(1.25);
+    opacity: 0.7;
+  }
+
+  70% {
+    transform: translateY(-28px) translateX(18px) rotate(252deg) scale(0.75);
+    opacity: 0.3;
+  }
+}
+
+@keyframes logoFloat5 {
+
+  0%,
+  100% {
+    transform: translateY(0) translateX(0) rotate(0deg) scale(1);
+    opacity: 0.6;
+  }
+
+  40% {
+    transform: translateY(-16px) translateX(14px) rotate(144deg) scale(1.3);
+    opacity: 0.9;
+  }
+
+  80% {
+    transform: translateY(-24px) translateX(-12px) rotate(288deg) scale(0.8);
+    opacity: 0.4;
+  }
+}
+
+/* Компактная сетка категорий */
+
+/* Компактные карточки категорий */
+
+/* Темные фоновые эффекты карточек */
+
+@keyframes cardGlowDarkPulse {
+
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  50% {
+    opacity: 0.4;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+}
+
+/* Компактный контент карточки */
+
+/* Компактная иконка */
+
+/* Компактный текст */
+
+/* Анимация появления компактных карточек */
+
+@keyframes categoryCardCompactAppear {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+    filter: blur(5px);
+  }
+
+  60% {
+    opacity: 0.9;
+    transform: translateY(-2px) scale(1.02);
+    filter: blur(1px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+/* Адаптивность для планшетов */
+@media (max-width: 1024px) {
+
+  /* Адаптивность кнопки сворачивания */
+
+  /* Адаптивность кнопки "Весь каталог" */
+
+  /* Показываем иконку каталога для планшетов */
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 768px) {
+
+  /* Скрываем текст кнопки каталога на мобильных */
+
+  /* Показываем только иконку */
+
+  /* Показываем иконку каталога в заголовке */
+
+  /* Уменьшаем количество частиц на мобильных */
+
+  /* Упрощаем анимации для лучшей производительности */
+
+  /* Адаптивность кнопки сворачивания для мобильных */
+
+  /* Изменяем порядок элементов в заголовке для мобильных */
+}
+
+/* Адаптивность для маленьких мобильных устройств */
+@media (max-width: 480px) {
+
+  /* Скрываем текст кнопки каталога на маленьких экранах */
+
+  /* Показываем только иконку */
+
+  /* Показываем иконку каталога в заголовке */
+
+  /* Уменьшаем интенсивность сложных анимаций на очень маленьких экранах */
+
+  /* Адаптивность кнопки сворачивания для маленьких экранов */
+
+  /* Изменяем порядок элементов в заголовке для маленьких экранов */
+}
+
+/* Оптимизация производительности */
+
+/* ===== КРАСИВЫЕ КНОПКИ КАТЕГОРИЙ (ТОЛЬКО ИКОНКИ) ===== */
+
+/* Все кнопки категорий в зеленом стиле */
+
+/* Специальная кнопка "Все" - можно оставить как есть или сделать еще более выделенной */
+
+@keyframes categoryGlowPulse {
+
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: scale(1.05);
+  }
+}
+
+/* Анимация появления кнопок */
+
+@keyframes categoryBtnAppear {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.8);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Адаптивность для мобильных */
+
+/* ===== КНОПКА ИЗБРАННОГО ===== */
+
+/* Анимация пульсации для активного состояния */
+
+/* Эффект искр для избранного товара */
+
+/* Анимация загрузки */
+
+@keyframes heartBeat {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  15% {
+    transform: translate(-50%, -50%) scale(1.3);
+  }
+
+  30% {
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+
+  45% {
+    transform: translate(-50%, -50%) scale(1.25);
+  }
+
+  60% {
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+
+  75% {
+    transform: translate(-50%, -50%) scale(1.15);
+  }
+
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes favoriteGlow {
+
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Новые анимации для улучшенного состояния избранного */
+@keyframes favoriteButtonPulse {
+
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 3px rgba(239, 68, 68, 0.5),
+      0 6px 25px rgba(239, 68, 68, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 5px rgba(239, 68, 68, 0.7),
+      0 8px 35px rgba(239, 68, 68, 0.8),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  }
+}
+
+@keyframes favoriteHeartGlow {
+
+  0%,
+  100% {
+    filter: drop-shadow(0 0 12px rgba(239, 68, 68, 1)) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4));
+  }
+
+  50% {
+    filter: drop-shadow(0 0 20px rgba(239, 68, 68, 1.2)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
+  }
+}
+
+@keyframes favoriteGlowPulse {
+
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.6;
+  }
+
+  50% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 1;
+  }
+}
+
+@keyframes favoriteSparkle {
+  0% {
+    transform: rotate(0deg);
+    opacity: 0.8;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: rotate(360deg);
+    opacity: 0.8;
+  }
+}
+
+@keyframes favoriteSparkleGlow {
+
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.5;
+    transform: scale(1.1);
+  }
+}
+
+/* Адаптивные стили для мобильных устройств */
+
+/* Стили для пустой страницы избранного */
+
+/* Стили для уведомления гостей */
+
+/* ===== АВАТАР ДЛЯ ГОСТЕЙ ===== */
+
+/* ===== УВЕДОМЛЕНИЯ ===== */
+
+/* CSS v=2025.08.28.185 */
+
+/* Информация о фильтрации по пользователю */
+
+/* Catalogs Admin Section Styles */
+
+/* Categories Grid */
+
+@keyframes sparkle {
+
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Products Grid */
+
+.product-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+/* Empty State */
+
+/* Responsive Design */
+
+/* CSS v=2025.08.28.188 */
+
+/* ===== СЕКЦИЯ ПРОМОКОДОВ ===== */
+
+/* ===== СЕКЦИЯ ОФФЛАЙН МАГАЗИНОВ ===== */
+
+/* ===== АДАПТИВНОСТЬ ДЛЯ НОВЫХ СЕКЦИЙ ===== */
+
+/* ===== ЗАПРОПОНОВАНІ ПРИНТИ ===== */
+
+/* Секция запропонованих принтов */
+
+/* Заголовок секции */
+
+/* Поиск */
+
+/* Список принтов */
+
+/* Искры */
+
+@keyframes sparkle {
+
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Заголовок карточки */
+
+.user-info {
+  flex: 1;
+}
+
+/* Изображение принта */
+
+/* Ссылка на изображение */
+
+/* Отсутствующий контент */
+
+/* Описание */
+
+/* Контакты */
+
+/* Статистика */
+
+/* Действия */
+
+/* Пустое состояние */
+
+/* Адаптивность для запропонованных принтов */
+
+/* ===== КРАСИВАЯ КНОПКА "ЗАПРОПОНУВАТИ ПРИНТ" ===== */
+
+/* Анимация для иконки */
+@keyframes bounce {
+
+  0%,
+  20%,
+  50%,
+  80%,
+  100% {
+    transform: translateY(0);
+  }
+
+  40% {
+    transform: translateY(-3px);
+  }
+
+  60% {
+    transform: translateY(-2px);
+  }
+}
+
+/* Адаптивность */
+
+/* ===== COOPERATION PAGE STYLES ===== */
+
+@keyframes ctaFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive */
+
+/* About page styles */
+
+@keyframes sparkleFloat {
+
+  0%,
+  100% {
+    transform: translateY(0px) scale(1);
+    opacity: 0.7;
+  }
+
+  50% {
+    transform: translateY(-20px) scale(1.2);
+    opacity: 1;
+  }
+}
+
+@keyframes logoGlow {
+  0% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes titleSlideIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes subtitleFadeIn {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cardSlideIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Story Section */
+
+
+.points-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 2rem;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.1));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8b5cf6;
+}
+
+/* CTA Section */
+
+/* Responsive */
+
+/* Contacts page styles */
+
+/* Contact Methods */
+
+/* Store Locations */
+
+/* Contact Form */
+
+/* Responsive */
+
+/* Hide cart and profile on mobile in header - теперь скрыты Bootstrap классами */
+/* @media (max-width: 991.98px) {
+  .navbar .cart-container,
+  .navbar .user-profile-container {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+} */
+
+/* Force hide cart and profile on mobile - highest priority - теперь скрыты Bootstrap классами */
+/* @media (max-width: 991.98px) {
+  .navbar .d-flex .cart-container,
+  .navbar .d-flex .user-profile-container {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    position: absolute !important;
+    left: -9999px !important;
+  }
+} */
+
+/* Admin Panel Stats Categories */
+
+/* Stats Filters */
+
+/* Not Working Badge */
+
+/* Responsive stats */
+
+/* Category Form Styles */
+
+/* File inputs в form-group используют стили из .file-upload-wrapper */
+
+/* Стили для textarea в форме категории */
+
+/* Стили для чекбоксов в форме категории */
+
+/* Responsive */
+
+/* Admin Panel Category Buttons */
+
+/* Responsive category buttons */
+
+/* Print Hero Styles */
+
+.spark {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: radial-gradient(circle, #fff, rgba(255, 255, 255, .3));
+  border-radius: 50%;
+  animation: spark 8s linear infinite;
+}
+
+@keyframes spark {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: .6
+  }
+
+  50% {
+    transform: translateY(-6px) scale(1.2);
+    opacity: .9
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: .4
+  }
+}
+
+/* Responsive adjustments */
+
+/* Стили для кнопки "Показать еще" */
+
+/* Анимация появления новых карточек теперь использует существующую систему reveal-stagger */
+
+/* Стили для кнопки подтверждения Telegram */
+
+/* Подсказка для Telegram */
+
+/* Адаптивность для мобильных устройств */
+
+/* Адаптивность для мобильных устройств */
+
+/* Стили для кнопки Telegram в заказах */
+
+/* Анимация загрузки для кнопки Telegram */
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Кнопка информации о баллах поверх блока с баллами */
+
+/* Соотношение сторон для карточек товаров 1080x1350 */
+
+/* Соотношение сторон для детальной страницы товара - более вытянутое по вертикали */
+
+/* Дополнительные стили для стабильного отображения изображений товара */
+
+/* Убираем возможные конфликты с ratio */
+.ratio img {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Дополнительные стили для карточек товаров */
+
+/* Убираем возможные проблемы с z-index */
+
+/* АГРЕССИВНЫЕ стили для принудительного отображения изображений */
+.ratio img,
+.ratio picture {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 1 !important;
+}
+
+.ratio img {
+  object-fit: cover !important;
+}
+
+/* Убираем все возможные скрытия */
+
+/* Уменьшаем высоту изображения на десктопе */
+@media (min-width: 992px) {
+  .ratio:not(.ratio-product-detail) {
+    --bs-aspect-ratio: 110% !important;
+  }
+}
+
+/* ========================================
+   Monobank & Mono Checkout Styles
+   ======================================== */
+
+/* Mini Cart - Mono Checkout Button */
+
+/* Cart Page - Monobank Payment Button */
+
+@keyframes monobank-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* === GPU-accelerated shimmer transitions === */
+.menu-item,
+.cart-menu-item,
+#user-panel-mobile .auth-btn {
+  --shimmer-slide-duration: 0.5s;
+}
+
+.points-card::before,
+.menu-item::before,
+.cart-menu-item::before,
+#user-panel-mobile .auth-btn::before {
+  left: 0;
+  transform: translate3d(-100%, 0, 0);
+  transition: transform var(--shimmer-slide-duration, 0.6s) ease;
+  will-change: transform;
+}
+
+.points-card:hover::before,
+.menu-item:hover::before,
+.cart-menu-item:hover::before,
+#user-panel-mobile .auth-btn:hover::before {
+  left: 0;
+  transform: translate3d(100%, 0, 0);
+}

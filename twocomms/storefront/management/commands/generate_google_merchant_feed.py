@@ -138,7 +138,7 @@ class Command(BaseCommand):
 
         self.stdout.write(f'Обрабатываем {total_products} товаров...')
 
-        for product in products:
+        for product in products.iterator(chunk_size=1000):
             processed_products += 1
             self.stdout.write(f'Обрабатываем товар {processed_products}/{total_products}: {product.title}')
 

@@ -3,11 +3,15 @@
 {% load cache %}
 {% load responsive_images %}
 
-{% block title %}{% if category %}{{ category.name }} — TwoComms{% else %}Каталог одягу — TwoComms{% endif %}{% endblock %}
+{% block title %}{% if category %}{{ category.name }} — TwoComms{% else %}Каталог одягу — TwoComms{% endif %}{% endblock
+%}
 
-{% block description %}{% if category %}Купити {{ category.name|lower }} в TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном. Швидка доставка по Україні.{% else %}Каталог стріт & мілітарі одягу TwoComms. Футболки, худі, лонгсліви з ексклюзивним дизайном. Якісний одяг з характером.{% endif %}{% endblock %}
+{% block description %}{% if category %}Купити {{ category.name|lower }} в TwoComms. Якісний стріт & мілітарі одяг з
+ексклюзивним дизайном. Швидка доставка по Україні.{% else %}Каталог стріт & мілітарі одягу TwoComms. Футболки, худі,
+лонгсліви з ексклюзивним дизайном. Якісний одяг з характером.{% endif %}{% endblock %}
 
-{% block keywords %}{% if category %}{{ category.name|lower }}, {% endif %}стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, каталог одягу{% endblock %}
+{% block keywords %}{% if category %}{{ category.name|lower }}, {% endif %}стріт одяг, мілітарі одяг, футболки, худі,
+лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, каталог одягу{% endblock %}
 
 {% block og_type %}website{% endblock %}
 
@@ -78,92 +82,131 @@
     <header class="mb-3 mb-md-4">
       <h1 class="h2 h1-lg fw-bold">
         {% if category %}
-          {{ category.name }} — стріт & мілітарі одяг TwoComms
+        {{ category.name }} — стріт & мілітарі одяг TwoComms
         {% else %}
-          Каталог одягу TwoComms — стріт & мілітарі колекція
+        Каталог одягу TwoComms — стріт & мілітарі колекція
         {% endif %}
       </h1>
       {% if category and category.description %}
-        <p class="text-secondary mb-0">{{ category.description|striptags|truncatewords:40 }}</p>
+      <p class="text-secondary mb-0">{{ category.description|striptags|truncatewords:40 }}</p>
       {% elif not category %}
-        <p class="text-secondary mb-0">Обирайте футболки, худі та лонгсліви з авторськими принтами, українським виробництвом та швидкою доставкою по всій країні.</p>
+      <p class="text-secondary mb-0">Обирайте футболки, худі та лонгсліви з авторськими принтами, українським
+        виробництвом та швидкою доставкою по всій країні.</p>
       {% endif %}
     </header>
   </div>
 
   <aside class="col-12">
     <div class="d-flex flex-wrap gap-2 mb-3">
-      <a href="{% url 'catalog' %}" class="btn btn-outline-light {% if not category %}active{% endif %} d-inline-flex align-items-center gap-2">
+      <a href="{% url 'catalog' %}"
+        class="btn btn-outline-light {% if not category %}active{% endif %} d-inline-flex align-items-center gap-2">
         <img src="{% static 'img/icons/all.svg' %}" width="18" height="18" alt="Усі товари"> Усі
       </a>
       {% for c in categories %}
-        <a href="{% url 'catalog_by_cat' c.slug %}" class="btn btn-outline-light {% if category and category.id == c.id %}active{% endif %} d-inline-flex align-items-center gap-2">
-          {% if c.icon %}
-            <img src="{{ c.icon.url }}" width="18" height="18" alt="{{ c.name }}">
-          {% else %}
-            <img src="{% static 'img/icons/default.svg' %}" width="18" height="18" alt="Категорія">
-          {% endif %}
-          {{ c.name }}
-        </a>
+      <a href="{% url 'catalog_by_cat' c.slug %}"
+        class="btn btn-outline-light {% if category and category.id == c.id %}active{% endif %} d-inline-flex align-items-center gap-2">
+        {% if c.icon %}
+        <img src="{{ c.icon.url }}" width="18" height="18" alt="{{ c.name }}">
+        {% else %}
+        <img src="{% static 'img/icons/default.svg' %}" width="18" height="18" alt="Категорія">
+        {% endif %}
+        {{ c.name }}
+      </a>
       {% endfor %}
     </div>
   </aside>
 
   {% if show_category_cards %}
-    <section class="col-12">
-      {% cache 1800 catalog_categories %}
-        <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4">
-          {% for c in categories %}
-            <div class="col">
-              <a href="{% url 'catalog_by_cat' c.slug %}" class="card product glass hover-raise text-decoration-none text-body">
-                <div class="ratio ratio-1x1 rounded-top-4 overflow-hidden bg-elevate">
-                  {% if c.cover %}
-                    {% optimized_image c.cover.url c.name "w-100 h-100 object-fit-cover" c.cover.width c.cover.height loading='lazy' fetchpriority='low' sizes='(max-width: 576px) 50vw, (max-width: 992px) 33vw, (max-width: 1400px) 25vw, 18vw' %}
-                  {% endif %}
-                </div>
-                <div class="card-body">
-                  <div class="fw-semibold">{{ c.name }}</div>
-                  <div class="text-secondary small">{{ c.products.count }} товарів</div>
-                </div>
-              </a>
-            </div>
-          {% endfor %}
-        </div>
-      {% endcache %}
-    </section>
+  <section class="col-12">
+    {% cache 1800 catalog_categories %}
+    <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4">
+      {% for c in categories %}
+      <div class="col">
+        <a href="{% url 'catalog_by_cat' c.slug %}"
+          class="card product glass hover-raise text-decoration-none text-body">
+          <div class="ratio ratio-1x1 rounded-top-4 overflow-hidden bg-elevate">
+            {% if c.cover %}
+            {% optimized_image c.cover.url c.name "w-100 h-100 object-fit-cover" c.cover.width c.cover.height
+            loading='lazy' fetchpriority='low' sizes='(max-width: 576px) 50vw, (max-width: 992px) 33vw, (max-width:
+            1400px) 25vw, 18vw' %}
+            {% endif %}
+          </div>
+          <div class="card-body">
+            <div class="fw-semibold">{{ c.name }}</div>
+            <div class="text-secondary small">{{ c.products.count }} товарів</div>
+          </div>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+    {% endcache %}
+  </section>
   {% else %}
-    <section class="col-12">
-      {% cache 600 catalog_products request.get_full_path %}
-        <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4" data-stagger-grid>
-          {% for p in products %}
-            <div class="col product-card-wrap">
-              {% cache 900 product_card p.id p.final_price p.discount_percent p.display_image.name p.category_id forloop.counter0 %}
-                {% if forloop.counter0 < 6 %}
-                  {% include "partials/product_card.html" with p=p stagger=False eager=True animate=False %}
-                {% else %}
-                  {% include "partials/product_card.html" with p=p stagger=False eager=False animate=False %}
-                {% endif %}
-              {% endcache %}
-              {% if p.colors_preview %}
-              <div class="product-card-dots">
-                <span class="text-secondary small me-1">Кольори:</span>
-                <div class="d-flex align-items-center gap-1">
-                  {% for v in p.colors_preview %}
-                    <span class="color-dot" 
-                          title="{{ v.primary_hex }}{% if v.secondary_hex %}+{{ v.secondary_hex }}{% endif %}" 
-                          style="--c1: {{ v.primary_hex }}; --c2: {{ v.secondary_hex|default:'' }};"
-                          data-image-url="{{ v.first_image_url|default:'' }}"></span>
-                  {% endfor %}
-                </div>
-              </div>
-              {% endif %}
-            </div>
-          {% empty %}
-            <div class="text-secondary small">Немає товарів.</div>
-          {% endfor %}
-        </div>
-      {% endcache %}
-    </section>
-  {% endif %}
+  <section class="col-12">
+    {% cache 600 catalog_products request.get_full_path %}
+    <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4" data-stagger-grid>
+      {% for p in products %}
+      <div class="col product-card-wrap">
+        {% cache 900 product_card p.id p.final_price p.discount_percent p.display_image.name p.category_id
+        forloop.counter0 %}
+        {% if forloop.counter0 < 6 %} {% include "partials/product_card.html" with p=p stagger=False eager=True
+          animate=False %} {% else %} {% include "partials/product_card.html" with p=p stagger=False eager=False
+          animate=False %} {% endif %} {% endcache %} {% if p.colors_preview %} <div class="product-card-dots">
+          <span class="text-secondary small me-1">Кольори:</span>
+          <div class="d-flex align-items-center gap-1">
+            {% for v in p.colors_preview %}
+            <span class="color-dot" title="{{ v.primary_hex }}{% if v.secondary_hex %}+{{ v.secondary_hex }}{% endif %}"
+              style="--c1: {{ v.primary_hex }}; --c2: {{ v.secondary_hex|default:'' }};"
+              data-image-url="{{ v.first_image_url|default:'' }}"></span>
+            {% endfor %}
+          </div>
+      </div>
+      {% endif %}
+    </div>
+    {% empty %}
+    <div class="text-secondary small">Немає товарів.</div>
+    {% endfor %}
+</div>
+{% endcache %}
+
+{% if page_obj.has_other_pages %}
+<nav aria-label="Page navigation" class="mt-5">
+  <ul class="pagination justify-content-center">
+    {% if page_obj.has_previous %}
+    <li class="page-item">
+      <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Попередня">
+        <span aria-hidden="true">&laquo;</span>
+      </a>
+    </li>
+    {% else %}
+    <li class="page-item disabled">
+      <span class="page-link" aria-hidden="true">&laquo;</span>
+    </li>
+    {% endif %}
+
+    {% for i in paginator.page_range %}
+    {% if page_obj.number == i %}
+    <li class="page-item active"><span class="page-link">{{ i }}</span></li>
+    {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %} <li class="page-item"><a class="page-link"
+        href="?page={{ i }}">{{ i }}</a></li>
+      {% endif %}
+      {% endfor %}
+
+      {% if page_obj.has_next %}
+      <li class="page-item">
+        <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Наступна">
+          <span aria-hidden="true">&raquo;</span>
+        </a>
+      </li>
+      {% else %}
+      <li class="page-item disabled">
+        <span class="page-link" aria-hidden="true">&raquo;</span>
+      </li>
+      {% endif %}
+  </ul>
+</nav>
+{% endif %}
+</section>
+{% endif %}
 </div>
 {% endblock %}
