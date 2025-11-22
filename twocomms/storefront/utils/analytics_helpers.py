@@ -33,7 +33,7 @@ def _build_color_slug(raw_color: Optional[str]) -> str:
     return slug_upper or "COLOR"
 
 
-def get_offer_id(product_id: int, color_variant_id: Optional[int] = None, size: str = 'S') -> str:
+def get_offer_id(product_id: int, color_variant_id: Optional[int] = None, size: str = 'S', color_name: Optional[str] = None) -> str:
     """
     Генерирует offer_id в том же формате, что и товарный фид.
     
@@ -41,6 +41,7 @@ def get_offer_id(product_id: int, color_variant_id: Optional[int] = None, size: 
         product_id: ID товара
         color_variant_id: ID цветового варианта (может быть None)
         size: Размер (S, M, L, XL, XXL)
+        color_name: Название цвета (опционально, чтобы избежать запроса к БД)
     
     Returns:
         str: offer_id в формате TC-{product_id:04d}-{COLOR}-{SIZE}
@@ -52,8 +53,10 @@ def get_offer_id(product_id: int, color_variant_id: Optional[int] = None, size: 
 
     normalized_size = (size or "S").upper()
 
-    color_name = None
-    if color_variant_id:
+    if color_name:
+        # Если передано имя цвета, используем его
+        pass
+    elif color_variant_id:
         try:
             from productcolors.models import ProductColorVariant  # локальный импорт, чтобы избежать циклов
 

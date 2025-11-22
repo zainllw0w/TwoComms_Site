@@ -2,150 +2,207 @@
 
 {# Диспетчер - UTM Analytics & Tracking #}
 <div class="dispatcher-section">
-  
+
   {# Header with Period Filter #}
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-    <h2 style="font-size: 2rem; font-weight: 800; background: linear-gradient(135deg, #8b5cf6, #6366f1); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;">
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 10px;">
-        <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/>
+    <h2
+      style="font-size: 2rem; font-weight: 800; background: linear-gradient(135deg, #8b5cf6, #6366f1); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"
+        style="vertical-align: middle; margin-right: 10px;">
+        <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z" />
       </svg>
       Диспетчер UTM-аналітики
     </h2>
-    
+
     {# Period Filter #}
     <div style="display: flex; gap: 8px;">
       {% for p in periods %}
-        <a href="?section=dispatcher&period={{ p.value }}" 
-           class="period-btn {% if period == p.value %}active{% endif %}"
-           style="padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; text-decoration: none; {% if period == p.value %}background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white;{% else %}background: rgba(255,255,255,.05); color: rgba(229,231,235,.6);{% endif %}">
-          {{ p.label }}
-        </a>
+      <a href="?section=dispatcher&period={{ p.value }}" class="period-btn {% if period == p.value %}active{% endif %}"
+        style="padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; text-decoration: none; {% if period == p.value %}background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white;{% else %}background: rgba(255,255,255,.05); color: rgba(229,231,235,.6);{% endif %}">
+        {{ p.label }}
+      </a>
       {% endfor %}
     </div>
   </div>
 
   {# General Stats Cards #}
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px;">
-    <div style="background: linear-gradient(145deg, rgba(139,92,246,.15), rgba(99,102,241,.15)); border: 1px solid rgba(139,92,246,.3); border-radius: 16px; padding: 24px; transition: all 0.3s;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 30px rgba(139,92,246,.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-      <div style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #8b5cf6, #6366f1); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">{{ general_stats.total_sessions }}</div>
-      <div style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Всього сесій</div>
+  <div
+    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px;">
+    <div
+      style="background: linear-gradient(145deg, rgba(139,92,246,.15), rgba(99,102,241,.15)); border: 1px solid rgba(139,92,246,.3); border-radius: 16px; padding: 24px; transition: all 0.3s;"
+      onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 30px rgba(139,92,246,.3)'"
+      onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+      <div
+        style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #8b5cf6, #6366f1); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">
+        {{ general_stats.total_sessions }}</div>
+      <div
+        style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
+        Всього сесій</div>
     </div>
-    
-    <div style="background: linear-gradient(145deg, rgba(139,92,246,.15), rgba(99,102,241,.15)); border: 1px solid rgba(139,92,246,.3); border-radius: 16px; padding: 24px; transition: all 0.3s;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 30px rgba(139,92,246,.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-      <div style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #10b981, #059669); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">{{ general_stats.total_conversions }}</div>
-      <div style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Конверсій</div>
+
+    <div
+      style="background: linear-gradient(145deg, rgba(139,92,246,.15), rgba(99,102,241,.15)); border: 1px solid rgba(139,92,246,.3); border-radius: 16px; padding: 24px; transition: all 0.3s;"
+      onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 30px rgba(139,92,246,.3)'"
+      onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+      <div
+        style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #10b981, #059669); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">
+        {{ general_stats.total_conversions }}</div>
+      <div
+        style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
+        Конверсій</div>
       <div style="font-size: 0.8rem; color: #34d399; margin-top: 4px;">{{ general_stats.conversion_rate }}%</div>
     </div>
-    
-    <div style="background: linear-gradient(145deg, rgba(139,92,246,.15), rgba(99,102,241,.15)); border: 1px solid rgba(139,92,246,.3); border-radius: 16px; padding: 24px; transition: all 0.3s;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 30px rgba(139,92,246,.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-      <div style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #f59e0b, #d97706); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">{{ general_stats.total_revenue|floatformat:0 }} ₴</div>
-      <div style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Дохід</div>
-      <div style="font-size: 0.8rem; color: rgba(229,231,235,.5); margin-top: 4px;">Середній чек: {{ general_stats.avg_order_value|floatformat:0 }} ₴</div>
+
+    <div
+      style="background: linear-gradient(145deg, rgba(139,92,246,.15), rgba(99,102,241,.15)); border: 1px solid rgba(139,92,246,.3); border-radius: 16px; padding: 24px; transition: all 0.3s;"
+      onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 30px rgba(139,92,246,.3)'"
+      onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+      <div
+        style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #f59e0b, #d97706); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">
+        {{ general_stats.total_revenue|floatformat:0 }} ₴</div>
+      <div
+        style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
+        Дохід</div>
+      <div style="font-size: 0.8rem; color: rgba(229,231,235,.5); margin-top: 4px;">Середній чек: {{
+        general_stats.avg_order_value|floatformat:0 }} ₴</div>
     </div>
-    
-    <div style="background: linear-gradient(145deg, rgba(139,92,246,.15), rgba(99,102,241,.15)); border: 1px solid rgba(139,92,246,.3); border-radius: 16px; padding: 24px; transition: all 0.3s;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 30px rgba(139,92,246,.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-      <div style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #ec4899, #db2777); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">{{ general_stats.unique_visitors }}</div>
-      <div style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Унікальні відвідувачі</div>
+
+    <div
+      style="background: linear-gradient(145deg, rgba(139,92,246,.15), rgba(99,102,241,.15)); border: 1px solid rgba(139,92,246,.3); border-radius: 16px; padding: 24px; transition: all 0.3s;"
+      onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 30px rgba(139,92,246,.3)'"
+      onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+      <div
+        style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #ec4899, #db2777); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">
+        {{ general_stats.unique_visitors }}</div>
+      <div
+        style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
+        Унікальні відвідувачі</div>
     </div>
   </div>
 
   {# Conversion Funnel #}
-  <div style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px; margin-bottom: 30px;">
-    <h3 style="font-size: 1.5rem; font-weight: 700; color: #e5e7eb; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
+  <div
+    style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px; margin-bottom: 30px;">
+    <h3
+      style="font-size: 1.5rem; font-weight: 700; color: #e5e7eb; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
       <span>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 8px;">
-          <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"
+          style="vertical-align: middle; margin-right: 8px;">
+          <path
+            d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" />
         </svg>
         Воронка конверсій
       </span>
       <span id="funnel-conversion-rate" style="font-size: 0.9rem; color: rgba(229,231,235,.6);"></span>
     </h3>
-    
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 30px;">
+
+    <div
+      style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 30px;">
       <div style="text-align: center; padding: 16px; background: rgba(139,92,246,.1); border-radius: 12px;">
         <div style="font-size: 2rem; font-weight: 700; color: #a78bfa;">{{ funnel_stats.total }}</div>
         <div style="font-size: 0.85rem; color: rgba(229,231,235,.6); margin-top: 4px;">Сесії</div>
         <div style="font-size: 0.75rem; color: rgba(229,231,235,.4); margin-top: 2px;">100%</div>
       </div>
-      
+
       <div style="text-align: center; padding: 16px; background: rgba(59,130,246,.1); border-radius: 12px;">
         <div style="font-size: 2rem; font-weight: 700; color: #60a5fa;">{{ funnel_stats.product_views }}</div>
         <div style="font-size: 0.85rem; color: rgba(229,231,235,.6); margin-top: 4px;">Перегляди товарів</div>
         <div style="font-size: 0.75rem; color: #60a5fa; margin-top: 2px;">{{ funnel_stats.product_views_rate }}%</div>
       </div>
-      
+
       <div style="text-align: center; padding: 16px; background: rgba(16,185,129,.1); border-radius: 12px;">
         <div style="font-size: 2rem; font-weight: 700; color: #34d399;">{{ funnel_stats.add_to_cart }}</div>
         <div style="font-size: 0.85rem; color: rgba(229,231,235,.6); margin-top: 4px;">В кошик</div>
         <div style="font-size: 0.75rem; color: #34d399; margin-top: 2px;">{{ funnel_stats.add_to_cart_rate }}%</div>
       </div>
-      
+
       <div style="text-align: center; padding: 16px; background: rgba(245,158,11,.1); border-radius: 12px;">
         <div style="font-size: 2rem; font-weight: 700; color: #fbbf24;">{{ funnel_stats.initiate_checkout }}</div>
         <div style="font-size: 0.85rem; color: rgba(229,231,235,.6); margin-top: 4px;">Оформлення</div>
         <div style="font-size: 0.75rem; color: #fbbf24; margin-top: 2px;">{{ funnel_stats.checkout_rate }}%</div>
       </div>
-      
+
       <div style="text-align: center; padding: 16px; background: rgba(236,72,153,.1); border-radius: 12px;">
         <div style="font-size: 2rem; font-weight: 700; color: #f472b6;">{{ funnel_stats.leads }}</div>
         <div style="font-size: 0.85rem; color: rgba(229,231,235,.6); margin-top: 4px;">Ліди</div>
         <div style="font-size: 0.75rem; color: #f472b6; margin-top: 2px;">{{ funnel_stats.lead_rate }}%</div>
       </div>
-      
+
       <div style="text-align: center; padding: 16px; background: rgba(16,185,129,.15); border-radius: 12px;">
         <div style="font-size: 2rem; font-weight: 700; color: #10b981;">{{ funnel_stats.purchases }}</div>
         <div style="font-size: 0.85rem; color: rgba(229,231,235,.6); margin-top: 4px;">Покупки</div>
         <div style="font-size: 0.75rem; color: #10b981; margin-top: 2px;">{{ funnel_stats.purchase_rate }}%</div>
       </div>
     </div>
-    
+
     <div style="background: rgba(255,255,255,.03); border-radius: 16px; padding: 20px;">
       <canvas id="funnelChart" height="120"></canvas>
     </div>
   </div>
 
   {# Sources Stats Table #}
-  <div style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px; margin-bottom: 30px;">
-    <h3 style="font-size: 1.5rem; font-weight: 700; color: #e5e7eb; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
+  <div
+    style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px; margin-bottom: 30px;">
+    <h3
+      style="font-size: 1.5rem; font-weight: 700; color: #e5e7eb; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
       <span>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 8px;">
-          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"
+          style="vertical-align: middle; margin-right: 8px;">
+          <path
+            d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" />
         </svg>
         Джерела трафіку (Top 20)
       </span>
       <span style="font-size: 0.85rem; color: rgba(229,231,235,.6);">Дані оновлюються в реальному часі</span>
     </h3>
-    
+
     <div style="background: rgba(255,255,255,.03); border-radius: 16px; padding: 20px; margin-bottom: 24px;">
       <canvas id="sourcesChart" height="140"></canvas>
     </div>
-    
+
     <div style="overflow-x: auto;">
       <table style="width: 100%; border-collapse: collapse;">
         <thead>
           <tr style="border-bottom: 2px solid rgba(255,255,255,.1);">
-            <th style="padding: 12px; text-align: left; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">Джерело</th>
-            <th style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">Сесії</th>
-            <th style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">Конверсії</th>
-            <th style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">CR%</th>
-            <th style="padding: 12px; text-align: right; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">Дохід</th>
-            <th style="padding: 12px; text-align: right; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">Сер. чек</th>
+            <th
+              style="padding: 12px; text-align: left; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              Джерело</th>
+            <th
+              style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              Сесії</th>
+            <th
+              style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              Конверсії</th>
+            <th
+              style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              CR%</th>
+            <th
+              style="padding: 12px; text-align: right; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              Дохід</th>
+            <th
+              style="padding: 12px; text-align: right; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              Сер. чек</th>
           </tr>
         </thead>
         <tbody>
           {% for source in sources_stats %}
-            <tr style="border-bottom: 1px solid rgba(255,255,255,.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(139,92,246,.05)'" onmouseout="this.style.background='transparent'">
-              <td style="padding: 12px; font-weight: 600; color: #a78bfa;">{{ source.utm_source }}</td>
-              <td style="padding: 12px; text-align: center; color: #e5e7eb;">{{ source.sessions }}</td>
-              <td style="padding: 12px; text-align: center; color: #34d399;">{{ source.conversions }}</td>
-              <td style="padding: 12px; text-align: center; {% if source.conversion_rate >= 5 %}color: #10b981;{% elif source.conversion_rate >= 2 %}color: #fbbf24;{% else %}color: #f87171;{% endif %}">{{ source.conversion_rate }}%</td>
-              <td style="padding: 12px; text-align: right; color: #60a5fa;">{{ source.revenue|floatformat:0 }} ₴</td>
-              <td style="padding: 12px; text-align: right; color: rgba(229,231,235,.7);">{{ source.avg_order_value|floatformat:0 }} ₴</td>
-            </tr>
+          <tr style="border-bottom: 1px solid rgba(255,255,255,.05); transition: background 0.2s;"
+            onmouseover="this.style.background='rgba(139,92,246,.05)'" onmouseout="this.style.background='transparent'">
+            <td style="padding: 12px; font-weight: 600; color: #a78bfa;">{{ source.utm_source }}</td>
+            <td style="padding: 12px; text-align: center; color: #e5e7eb;">{{ source.sessions }}</td>
+            <td style="padding: 12px; text-align: center; color: #34d399;">{{ source.conversions }}</td>
+            <td
+              style="padding: 12px; text-align: center; {% if source.conversion_rate >= 5 %}color: #10b981;{% elif source.conversion_rate >= 2 %}color: #fbbf24;{% else %}color: #f87171;{% endif %}">
+              {{ source.conversion_rate }}%</td>
+            <td style="padding: 12px; text-align: right; color: #60a5fa;">{{ source.revenue|floatformat:0 }} ₴</td>
+            <td style="padding: 12px; text-align: right; color: rgba(229,231,235,.7);">{{
+              source.avg_order_value|floatformat:0 }} ₴</td>
+          </tr>
           {% empty %}
-            <tr>
-              <td colspan="6" style="padding: 24px; text-align: center; color: rgba(229,231,235,.4);">Немає даних за вибраний період</td>
-            </tr>
+          <tr>
+            <td colspan="6" style="padding: 24px; text-align: center; color: rgba(229,231,235,.4);">Немає даних за
+              вибраний період</td>
+          </tr>
           {% endfor %}
         </tbody>
       </table>
@@ -153,40 +210,59 @@
   </div>
 
   {# Campaigns Stats #}
-  <div style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px; margin-bottom: 30px;">
+  <div
+    style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px; margin-bottom: 30px;">
     <h3 style="font-size: 1.5rem; font-weight: 700; color: #e5e7eb; margin-bottom: 20px;">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 8px;">
-        <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"
+        style="vertical-align: middle; margin-right: 8px;">
+        <path
+          d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z" />
       </svg>
       Кампанії (Top 20)
     </h3>
-    
+
     <div style="overflow-x: auto;">
       <table style="width: 100%; border-collapse: collapse;">
         <thead>
           <tr style="border-bottom: 2px solid rgba(255,255,255,.1);">
-            <th style="padding: 12px; text-align: left; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">Кампанія</th>
-            <th style="padding: 12px; text-align: left; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">Джерело</th>
-            <th style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">Сесії</th>
-            <th style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">Конверсії</th>
-            <th style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">CR%</th>
-            <th style="padding: 12px; text-align: right; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">Дохід</th>
+            <th
+              style="padding: 12px; text-align: left; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              Кампанія</th>
+            <th
+              style="padding: 12px; text-align: left; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              Джерело</th>
+            <th
+              style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              Сесії</th>
+            <th
+              style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              Конверсії</th>
+            <th
+              style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              CR%</th>
+            <th
+              style="padding: 12px; text-align: right; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              Дохід</th>
           </tr>
         </thead>
         <tbody>
           {% for campaign in campaigns_stats %}
-            <tr style="border-bottom: 1px solid rgba(255,255,255,.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(139,92,246,.05)'" onmouseout="this.style.background='transparent'">
-              <td style="padding: 12px; font-weight: 600; color: #60a5fa;">{{ campaign.utm_campaign }}</td>
-              <td style="padding: 12px; color: rgba(229,231,235,.6);">{{ campaign.utm_source }}</td>
-              <td style="padding: 12px; text-align: center; color: #e5e7eb;">{{ campaign.sessions }}</td>
-              <td style="padding: 12px; text-align: center; color: #34d399;">{{ campaign.conversions }}</td>
-              <td style="padding: 12px; text-align: center; {% if campaign.conversion_rate >= 5 %}color: #10b981;{% elif campaign.conversion_rate >= 2 %}color: #fbbf24;{% else %}color: #f87171;{% endif %}">{{ campaign.conversion_rate }}%</td>
-              <td style="padding: 12px; text-align: right; color: #60a5fa;">{{ campaign.revenue|floatformat:0 }} ₴</td>
-            </tr>
+          <tr style="border-bottom: 1px solid rgba(255,255,255,.05); transition: background 0.2s;"
+            onmouseover="this.style.background='rgba(139,92,246,.05)'" onmouseout="this.style.background='transparent'">
+            <td style="padding: 12px; font-weight: 600; color: #60a5fa;">{{ campaign.utm_campaign }}</td>
+            <td style="padding: 12px; color: rgba(229,231,235,.6);">{{ campaign.utm_source }}</td>
+            <td style="padding: 12px; text-align: center; color: #e5e7eb;">{{ campaign.sessions }}</td>
+            <td style="padding: 12px; text-align: center; color: #34d399;">{{ campaign.conversions }}</td>
+            <td
+              style="padding: 12px; text-align: center; {% if campaign.conversion_rate >= 5 %}color: #10b981;{% elif campaign.conversion_rate >= 2 %}color: #fbbf24;{% else %}color: #f87171;{% endif %}">
+              {{ campaign.conversion_rate }}%</td>
+            <td style="padding: 12px; text-align: right; color: #60a5fa;">{{ campaign.revenue|floatformat:0 }} ₴</td>
+          </tr>
           {% empty %}
-            <tr>
-              <td colspan="6" style="padding: 24px; text-align: center; color: rgba(229,231,235,.4);">Немає даних за вибраний період</td>
-            </tr>
+          <tr>
+            <td colspan="6" style="padding: 24px; text-align: center; color: rgba(229,231,235,.4);">Немає даних за
+              вибраний період</td>
+          </tr>
           {% endfor %}
         </tbody>
       </table>
@@ -196,119 +272,139 @@
   {# Two columns: Device Stats & Geo Stats #}
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
     {# Device Stats #}
-    <div style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px;">
+    <div
+      style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px;">
       <h3 style="font-size: 1.3rem; font-weight: 700; color: #e5e7eb; margin-bottom: 20px;">Пристрої</h3>
-      
+
       {% for device in device_stats %}
-        <div style="margin-bottom: 16px;">
-          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-            <span style="color: #e5e7eb; font-weight: 600;">{{ device.device_type }}</span>
-            <span style="color: #a78bfa;">{{ device.sessions }} ({{ device.conversion_rate }}%)</span>
-          </div>
-          <div style="background: rgba(255,255,255,.05); border-radius: 8px; height: 8px; overflow: hidden;">
-            <div style="background: linear-gradient(90deg, #8b5cf6, #6366f1); height: 100%; border-radius: 8px; width: {% widthratio device.sessions 100 100 %}%;"></div>
+      <div style="margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span style="color: #e5e7eb; font-weight: 600;">{{ device.device_type }}</span>
+          <span style="color: #a78bfa;">{{ device.sessions }} ({{ device.conversion_rate }}%)</span>
+        </div>
+        <div style="background: rgba(255,255,255,.05); border-radius: 8px; height: 8px; overflow: hidden;">
+          <div
+            style="background: linear-gradient(90deg, #8b5cf6, #6366f1); height: 100%; border-radius: 8px; width: {% widthratio device.sessions 100 100 %}%;">
           </div>
         </div>
+      </div>
       {% empty %}
-        <p style="color: rgba(229,231,235,.4); text-align: center;">Немає даних</p>
+      <p style="color: rgba(229,231,235,.4); text-align: center;">Немає даних</p>
       {% endfor %}
     </div>
 
     {# Geo Stats - Countries #}
-    <div style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px;">
+    <div
+      style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px;">
       <h3 style="font-size: 1.3rem; font-weight: 700; color: #e5e7eb; margin-bottom: 20px;">Географія (Країни)</h3>
-      
+
       {% for country in geo_stats.countries|slice:":5" %}
-        <div style="margin-bottom: 16px;">
-          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-            <span style="color: #e5e7eb; font-weight: 600;">{{ country.country }}</span>
-            <span style="color: #34d399;">{{ country.sessions }} ({{ country.conversion_rate }}%)</span>
-          </div>
-          <div style="background: rgba(255,255,255,.05); border-radius: 8px; height: 8px; overflow: hidden;">
-            <div style="background: linear-gradient(90deg, #10b981, #059669); height: 100%; border-radius: 8px; width: {% widthratio country.sessions 100 100 %}%;"></div>
+      <div style="margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span style="color: #e5e7eb; font-weight: 600;">{{ country.country }}</span>
+          <span style="color: #34d399;">{{ country.sessions }} ({{ country.conversion_rate }}%)</span>
+        </div>
+        <div style="background: rgba(255,255,255,.05); border-radius: 8px; height: 8px; overflow: hidden;">
+          <div
+            style="background: linear-gradient(90deg, #10b981, #059669); height: 100%; border-radius: 8px; width: {% widthratio country.sessions 100 100 %}%;">
           </div>
         </div>
+      </div>
       {% empty %}
-        <p style="color: rgba(229,231,235,.4); text-align: center;">Немає даних</p>
+      <p style="color: rgba(229,231,235,.4); text-align: center;">Немає даних</p>
       {% endfor %}
     </div>
   </div>
 
   {# Export & Tools Section #}
   <div style="display: flex; gap: 16px; margin-bottom: 30px;">
-    <a href="/api/utm/export-csv/?period={{ period }}&type=sessions" 
-       style="flex: 1; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white; padding: 16px; border-radius: 12px; text-align: center; text-decoration: none; font-weight: 600; transition: all 0.3s;"
-       onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(139,92,246,.4)'"
-       onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 8px;">
-        <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"/>
+    <a href="/api/utm/export-csv/?period={{ period }}&type=sessions"
+      style="flex: 1; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white; padding: 16px; border-radius: 12px; text-align: center; text-decoration: none; font-weight: 600; transition: all 0.3s;"
+      onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(139,92,246,.4)'"
+      onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"
+        style="vertical-align: middle; margin-right: 8px;">
+        <path
+          d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z" />
       </svg>
       Експорт сесій CSV
     </a>
-    
-    <a href="/api/utm/export-csv/?period={{ period }}&type=sources" 
-       style="flex: 1; background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 16px; border-radius: 12px; text-align: center; text-decoration: none; font-weight: 600; transition: all 0.3s;"
-       onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(16,185,129,.4)'"
-       onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 8px;">
-        <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"/>
+
+    <a href="/api/utm/export-csv/?period={{ period }}&type=sources"
+      style="flex: 1; background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 16px; border-radius: 12px; text-align: center; text-decoration: none; font-weight: 600; transition: all 0.3s;"
+      onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(16,185,129,.4)'"
+      onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"
+        style="vertical-align: middle; margin-right: 8px;">
+        <path
+          d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z" />
       </svg>
       Експорт джерел CSV
     </a>
-    
-    <a href="/api/utm/export-csv/?period={{ period }}&type=campaigns" 
-       style="flex: 1; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 16px; border-radius: 12px; text-align: center; text-decoration: none; font-weight: 600; transition: all 0.3s;"
-       onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(245,158,11,.4)'"
-       onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 8px;">
-        <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"/>
+
+    <a href="/api/utm/export-csv/?period={{ period }}&type=campaigns"
+      style="flex: 1; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 16px; border-radius: 12px; text-align: center; text-decoration: none; font-weight: 600; transition: all 0.3s;"
+      onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(245,158,11,.4)'"
+      onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"
+        style="vertical-align: middle; margin-right: 8px;">
+        <path
+          d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z" />
       </svg>
       Експорт кампаній CSV
     </a>
   </div>
 
   {# ROI Calculator #}
-  <div style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px; margin-bottom: 30px;">
+  <div
+    style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px; margin-bottom: 30px;">
     <h3 style="font-size: 1.5rem; font-weight: 700; color: #e5e7eb; margin-bottom: 20px;">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 8px;">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"
+        style="vertical-align: middle; margin-right: 8px;">
+        <path
+          d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z" />
       </svg>
       ROI калькулятор
     </h3>
-    
+
     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
       <div>
-        <label style="color: rgba(229,231,235,.7); font-size: 0.9rem; display: block; margin-bottom: 8px;">Витрати на рекламу (грн)</label>
-        <input type="number" id="ad-spend-input" placeholder="0" value="0" 
-               style="width: 100%; padding: 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; color: #e5e7eb; font-size: 1rem;">
+        <label style="color: rgba(229,231,235,.7); font-size: 0.9rem; display: block; margin-bottom: 8px;">Витрати на
+          рекламу (грн)</label>
+        <input type="number" id="ad-spend-input" placeholder="0" value="0"
+          style="width: 100%; padding: 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; color: #e5e7eb; font-size: 1rem;">
       </div>
-      
+
       <div>
-        <label style="color: rgba(229,231,235,.7); font-size: 0.9rem; display: block; margin-bottom: 8px;">Дохід (грн)</label>
-        <div id="roi-revenue" style="padding: 12px; background: rgba(16,185,129,.1); border: 1px solid rgba(16,185,129,.3); border-radius: 8px; color: #10b981; font-size: 1.2rem; font-weight: 700;">
+        <label style="color: rgba(229,231,235,.7); font-size: 0.9rem; display: block; margin-bottom: 8px;">Дохід
+          (грн)</label>
+        <div id="roi-revenue"
+          style="padding: 12px; background: rgba(16,185,129,.1); border: 1px solid rgba(16,185,129,.3); border-radius: 8px; color: #10b981; font-size: 1.2rem; font-weight: 700;">
           {{ general_stats.total_revenue|floatformat:0 }}
         </div>
       </div>
-      
+
       <div>
-        <label style="color: rgba(229,231,235,.7); font-size: 0.9rem; display: block; margin-bottom: 8px;">ROI (%)</label>
-        <div id="roi-percentage" style="padding: 12px; background: rgba(139,92,246,.1); border: 1px solid rgba(139,92,246,.3); border-radius: 8px; color: #a78bfa; font-size: 1.2rem; font-weight: 700;">
+        <label style="color: rgba(229,231,235,.7); font-size: 0.9rem; display: block; margin-bottom: 8px;">ROI
+          (%)</label>
+        <div id="roi-percentage"
+          style="padding: 12px; background: rgba(139,92,246,.1); border: 1px solid rgba(139,92,246,.3); border-radius: 8px; color: #a78bfa; font-size: 1.2rem; font-weight: 700;">
           0%
         </div>
       </div>
     </div>
-    
+
     <div style="margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
       <div style="text-align: center; padding: 16px; background: rgba(16,185,129,.08); border-radius: 12px;">
         <div style="font-size: 0.85rem; color: rgba(229,231,235,.6); margin-bottom: 4px;">Прибуток</div>
         <div id="roi-profit" style="font-size: 1.5rem; font-weight: 700; color: #10b981;">0 ₴</div>
       </div>
-      
+
       <div style="text-align: center; padding: 16px; background: rgba(245,158,11,.08); border-radius: 12px;">
         <div style="font-size: 0.85rem; color: rgba(229,231,235,.6); margin-bottom: 4px;">ROAS</div>
         <div id="roi-roas" style="font-size: 1.5rem; font-weight: 700; color: #fbbf24;">0x</div>
       </div>
-      
+
       <div style="text-align: center; padding: 16px; background: rgba(236,72,153,.08); border-radius: 12px;">
         <div style="font-size: 0.85rem; color: rgba(229,231,235,.6); margin-bottom: 4px;">Вартість конверсії</div>
         <div id="roi-cpc" style="font-size: 1.5rem; font-weight: 700; color: #ec4899;">0 ₴</div>
@@ -318,43 +414,68 @@
 
   {# Repeat Purchase Rate - NEW v3.0 #}
   {% if repeat_rate %}
-  <div style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px; margin-bottom: 30px;">
+  <div
+    style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px; margin-bottom: 30px;">
     <h3 style="font-size: 1.5rem; font-weight: 700; color: #e5e7eb; margin-bottom: 20px;">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 8px;">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"
+        style="vertical-align: middle; margin-right: 8px;">
+        <path
+          d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
       </svg>
       Повторні покупки
       <span style="font-size: 0.85rem; color: rgba(229,231,235,.6); font-weight: 400; margin-left: 12px;">v3.0</span>
     </h3>
-    
+
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
-      <div style="text-align: center; padding: 24px; background: linear-gradient(145deg, rgba(139,92,246,.15), rgba(99,102,241,.15)); border: 1px solid rgba(139,92,246,.3); border-radius: 16px;">
-        <div style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #8b5cf6, #6366f1); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">{{ repeat_rate.repeat_rate }}%</div>
-        <div style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Repeat Rate</div>
+      <div
+        style="text-align: center; padding: 24px; background: linear-gradient(145deg, rgba(139,92,246,.15), rgba(99,102,241,.15)); border: 1px solid rgba(139,92,246,.3); border-radius: 16px;">
+        <div
+          style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #8b5cf6, #6366f1); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">
+          {{ repeat_rate.repeat_rate }}%</div>
+        <div
+          style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
+          Repeat Rate</div>
         <div style="font-size: 0.75rem; color: rgba(229,231,235,.4); margin-top: 4px;">Відсоток повторних покупок</div>
       </div>
-      
-      <div style="text-align: center; padding: 24px; background: linear-gradient(145deg, rgba(16,185,129,.15), rgba(5,150,105,.15)); border: 1px solid rgba(16,185,129,.3); border-radius: 16px;">
-        <div style="font-size: 2.5rem; font-weight: 900; color: #10b981; margin-bottom: 8px;">{{ repeat_rate.repeat_customers }}</div>
-        <div style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Повторні клієнти</div>
-        <div style="font-size: 0.75rem; color: rgba(229,231,235,.4); margin-top: 4px;">З {{ repeat_rate.total_customers }} загалом</div>
+
+      <div
+        style="text-align: center; padding: 24px; background: linear-gradient(145deg, rgba(16,185,129,.15), rgba(5,150,105,.15)); border: 1px solid rgba(16,185,129,.3); border-radius: 16px;">
+        <div style="font-size: 2.5rem; font-weight: 900; color: #10b981; margin-bottom: 8px;">{{
+          repeat_rate.repeat_customers }}</div>
+        <div
+          style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
+          Повторні клієнти</div>
+        <div style="font-size: 0.75rem; color: rgba(229,231,235,.4); margin-top: 4px;">З {{ repeat_rate.total_customers
+          }} загалом</div>
       </div>
-      
-      <div style="text-align: center; padding: 24px; background: linear-gradient(145deg, rgba(245,158,11,.15), rgba(217,119,6,.15)); border: 1px solid rgba(245,158,11,.3); border-radius: 16px;">
-        <div style="font-size: 2.5rem; font-weight: 900; color: #fbbf24; margin-bottom: 8px;">{{ repeat_rate.avg_orders_per_customer }}</div>
-        <div style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Замовлень на клієнта</div>
+
+      <div
+        style="text-align: center; padding: 24px; background: linear-gradient(145deg, rgba(245,158,11,.15), rgba(217,119,6,.15)); border: 1px solid rgba(245,158,11,.3); border-radius: 16px;">
+        <div style="font-size: 2.5rem; font-weight: 900; color: #fbbf24; margin-bottom: 8px;">{{
+          repeat_rate.avg_orders_per_customer }}</div>
+        <div
+          style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
+          Замовлень на клієнта</div>
         <div style="font-size: 0.75rem; color: rgba(229,231,235,.4); margin-top: 4px;">В середньому</div>
       </div>
-      
-      <div style="text-align: center; padding: 24px; background: linear-gradient(145deg, rgba(236,72,153,.15), rgba(219,39,119,.15)); border: 1px solid rgba(236,72,153,.3); border-radius: 16px;">
-        <div style="font-size: 2.5rem; font-weight: 900; color: #ec4899; margin-bottom: 8px;">{{ repeat_rate.avg_time_between_orders|floatformat:0 }}</div>
-        <div style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Днів між замовленнями</div>
+
+      <div
+        style="text-align: center; padding: 24px; background: linear-gradient(145deg, rgba(236,72,153,.15), rgba(219,39,119,.15)); border: 1px solid rgba(236,72,153,.3); border-radius: 16px;">
+        <div style="font-size: 2.5rem; font-weight: 900; color: #ec4899; margin-bottom: 8px;">{{
+          repeat_rate.avg_time_between_orders|floatformat:0 }}</div>
+        <div
+          style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
+          Днів між замовленнями</div>
         <div style="font-size: 0.75rem; color: rgba(229,231,235,.4); margin-top: 4px;">В середньому</div>
       </div>
-      
-      <div style="text-align: center; padding: 24px; background: linear-gradient(145deg, rgba(59,130,246,.15), rgba(37,99,235,.15)); border: 1px solid rgba(59,130,246,.3); border-radius: 16px;">
-        <div style="font-size: 2.5rem; font-weight: 900; color: #60a5fa; margin-bottom: 8px;">{{ repeat_rate.one_time_customers }}</div>
-        <div style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Разові клієнти</div>
+
+      <div
+        style="text-align: center; padding: 24px; background: linear-gradient(145deg, rgba(59,130,246,.15), rgba(37,99,235,.15)); border: 1px solid rgba(59,130,246,.3); border-radius: 16px;">
+        <div style="font-size: 2.5rem; font-weight: 900; color: #60a5fa; margin-bottom: 8px;">{{
+          repeat_rate.one_time_customers }}</div>
+        <div
+          style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
+          Разові клієнти</div>
         <div style="font-size: 0.75rem; color: rgba(229,231,235,.4); margin-top: 4px;">Зробили 1 замовлення</div>
       </div>
     </div>
@@ -363,39 +484,60 @@
 
   {# LTV Comparison - NEW v3.0 #}
   {% if ltv_comparison %}
-  <div style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px; margin-bottom: 30px;">
+  <div
+    style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px; margin-bottom: 30px;">
     <h3 style="font-size: 1.5rem; font-weight: 700; color: #e5e7eb; margin-bottom: 20px;">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 8px;">
-        <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"
+        style="vertical-align: middle; margin-right: 8px;">
+        <path
+          d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z" />
       </svg>
       LTV сравнение по источникам (Top 5)
       <span style="font-size: 0.85rem; color: rgba(229,231,235,.6); font-weight: 400; margin-left: 12px;">v3.0</span>
     </h3>
-    
+
     <div style="overflow-x: auto;">
       <table style="width: 100%; border-collapse: collapse;">
         <thead>
           <tr style="border-bottom: 2px solid rgba(255,255,255,.1);">
-            <th style="padding: 12px; text-align: left; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">Джерело</th>
-            <th style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">Всього сесій</th>
-            <th style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">Конверсії</th>
-            <th style="padding: 12px; text-align: right; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">Загальний дохід</th>
-            <th style="padding: 12px; text-align: right; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">LTV/Сесія</th>
-            <th style="padding: 12px; text-align: right; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">Сер. чек</th>
-            <th style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">Замовлень/Сесія</th>
+            <th
+              style="padding: 12px; text-align: left; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              Джерело</th>
+            <th
+              style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              Всього сесій</th>
+            <th
+              style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              Конверсії</th>
+            <th
+              style="padding: 12px; text-align: right; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              Загальний дохід</th>
+            <th
+              style="padding: 12px; text-align: right; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              LTV/Сесія</th>
+            <th
+              style="padding: 12px; text-align: right; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              Сер. чек</th>
+            <th
+              style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              Замовлень/Сесія</th>
           </tr>
         </thead>
         <tbody>
           {% for item in ltv_comparison %}
-            <tr style="border-bottom: 1px solid rgba(255,255,255,.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(139,92,246,.05)'" onmouseout="this.style.background='transparent'">
-              <td style="padding: 12px; font-weight: 600; color: #a78bfa;">{{ item.utm_source }}</td>
-              <td style="padding: 12px; text-align: center; color: #e5e7eb;">{{ item.total_sessions }}</td>
-              <td style="padding: 12px; text-align: center; color: #34d399;">{{ item.converted_sessions }}</td>
-              <td style="padding: 12px; text-align: right; color: #60a5fa;">{{ item.total_revenue|floatformat:0 }} ₴</td>
-              <td style="padding: 12px; text-align: right; font-weight: 700; {% if item.ltv_per_session >= 500 %}color: #10b981;{% elif item.ltv_per_session >= 200 %}color: #fbbf24;{% else %}color: #f87171;{% endif %}">{{ item.ltv_per_session|floatformat:0 }} ₴</td>
-              <td style="padding: 12px; text-align: right; color: rgba(229,231,235,.7);">{{ item.avg_order_value|floatformat:0 }} ₴</td>
-              <td style="padding: 12px; text-align: center; color: #ec4899;">{{ item.orders_per_session }}</td>
-            </tr>
+          <tr style="border-bottom: 1px solid rgba(255,255,255,.05); transition: background 0.2s;"
+            onmouseover="this.style.background='rgba(139,92,246,.05)'" onmouseout="this.style.background='transparent'">
+            <td style="padding: 12px; font-weight: 600; color: #a78bfa;">{{ item.utm_source }}</td>
+            <td style="padding: 12px; text-align: center; color: #e5e7eb;">{{ item.total_sessions }}</td>
+            <td style="padding: 12px; text-align: center; color: #34d399;">{{ item.converted_sessions }}</td>
+            <td style="padding: 12px; text-align: right; color: #60a5fa;">{{ item.total_revenue|floatformat:0 }} ₴</td>
+            <td
+              style="padding: 12px; text-align: right; font-weight: 700; {% if item.ltv_per_session >= 500 %}color: #10b981;{% elif item.ltv_per_session >= 200 %}color: #fbbf24;{% else %}color: #f87171;{% endif %}">
+              {{ item.ltv_per_session|floatformat:0 }} ₴</td>
+            <td style="padding: 12px; text-align: right; color: rgba(229,231,235,.7);">{{
+              item.avg_order_value|floatformat:0 }} ₴</td>
+            <td style="padding: 12px; text-align: center; color: #ec4899;">{{ item.orders_per_session }}</td>
+          </tr>
           {% endfor %}
         </tbody>
       </table>
@@ -405,12 +547,14 @@
 
   {# Cohort Analysis - NEW v3.0 #}
   {% if cohort_analysis %}
-  <div id="cohort-analysis-section" style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px; margin-bottom: 30px;">
+  <div id="cohort-analysis-section"
+    style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px; margin-bottom: 30px;">
     <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; margin-bottom: 20px;">
       <div>
-        <h3 style="font-size: 1.5rem; font-weight: 700; color: #e5e7eb; margin: 0 0 8px 0; display: flex; align-items: center; gap: 8px;">
+        <h3
+          style="font-size: 1.5rem; font-weight: 700; color: #e5e7eb; margin: 0 0 8px 0; display: flex; align-items: center; gap: 8px;">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+            <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" />
           </svg>
           Когортний аналіз
           <span style="font-size: 0.8rem; color: rgba(229,231,235,.5); font-weight: 500;">v3.0</span>
@@ -418,138 +562,180 @@
         <div style="font-size: 0.85rem; color: rgba(229,231,235,.6);">
           Період: {{ cohort_range.start|date:"d.m.Y" }} — {{ cohort_range.end|date:"d.m.Y" }}
           {% if source_filter %}
-            <span style="margin-left: 12px;">Джерело: {{ source_filter }}</span>
+          <span style="margin-left: 12px;">Джерело: {{ source_filter }}</span>
           {% endif %}
         </div>
       </div>
       <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
         <div>
-          <label for="cohort-metric-select" style="display: block; font-size: 0.8rem; color: rgba(229,231,235,.6); margin-bottom: 6px;">Метрика</label>
-          <select id="cohort-metric-select" style="min-width: 180px; padding: 10px 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; color: #e5e7eb; font-size: 0.9rem;">
+          <label for="cohort-metric-select"
+            style="display: block; font-size: 0.8rem; color: rgba(229,231,235,.6); margin-bottom: 6px;">Метрика</label>
+          <select id="cohort-metric-select"
+            style="min-width: 180px; padding: 10px 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; color: #e5e7eb; font-size: 0.9rem;">
             {% for m in cohort_metrics %}
-              <option value="{{ m.value }}" {% if cohort_metric == m.value %}selected{% endif %}>{{ m.label }}</option>
+            <option value="{{ m.value }}" {% if cohort_metric==m.value %}selected{% endif %}>{{ m.label }}</option>
             {% endfor %}
           </select>
         </div>
         <div>
-          <label for="cohort-type-select" style="display: block; font-size: 0.8rem; color: rgba(229,231,235,.6); margin-bottom: 6px;">Тип когорти</label>
-          <select id="cohort-type-select" style="min-width: 150px; padding: 10px 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; color: #e5e7eb; font-size: 0.9rem;">
+          <label for="cohort-type-select"
+            style="display: block; font-size: 0.8rem; color: rgba(229,231,235,.6); margin-bottom: 6px;">Тип
+            когорти</label>
+          <select id="cohort-type-select"
+            style="min-width: 150px; padding: 10px 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; color: #e5e7eb; font-size: 0.9rem;">
             {% for t in cohort_types %}
-              <option value="{{ t.value }}" {% if cohort_type == t.value %}selected{% endif %}>{{ t.label }}</option>
+            <option value="{{ t.value }}" {% if cohort_type==t.value %}selected{% endif %}>{{ t.label }}</option>
             {% endfor %}
           </select>
         </div>
-        <button id="cohort-refresh-btn" type="button" style="padding: 10px 16px; border-radius: 8px; border: none; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white; font-weight: 600; cursor: pointer;">
+        <button id="cohort-refresh-btn" type="button"
+          style="padding: 10px 16px; border-radius: 8px; border: none; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white; font-weight: 600; cursor: pointer;">
           Оновити
         </button>
       </div>
     </div>
 
-    <div id="cohort-heatmap-container" style="overflow-x: auto; background: rgba(255,255,255,.03); border-radius: 12px; padding: 16px; min-height: 220px;">
+    <div id="cohort-heatmap-container"
+      style="overflow-x: auto; background: rgba(255,255,255,.03); border-radius: 12px; padding: 16px; min-height: 220px;">
       <div style="text-align: center; padding: 40px; color: rgba(229,231,235,.4);">Завантаження даних когорт...</div>
     </div>
 
     <div id="cohort-totals-container" style="margin-top: 24px;"></div>
   </div>
   {% else %}
-  <div style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px; margin-bottom: 30px;">
+  <div
+    style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px; margin-bottom: 30px;">
     <h3 style="font-size: 1.5rem; font-weight: 700; color: #e5e7eb; margin-bottom: 10px;">Когортний аналіз</h3>
-    <p style="color: rgba(229,231,235,.5); font-size: 0.9rem;">Недостатньо даних для побудови когорт. Зберіть більше сесій з конверсіями.</p>
+    <p style="color: rgba(229,231,235,.5); font-size: 0.9rem;">Недостатньо даних для побудови когорт. Зберіть більше
+      сесій з конверсіями.</p>
   </div>
   {% endif %}
 
   {# A/B Testing - NEW v3.0 #}
-  <div id="ab-test-section" style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px; margin-bottom: 30px;">
-    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; margin-bottom: 20px; align-items: flex-end;">
+  <div id="ab-test-section"
+    style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px; margin-bottom: 30px;">
+    <div
+      style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; margin-bottom: 20px; align-items: flex-end;">
       <div>
-        <h3 style="font-size: 1.5rem; font-weight: 700; color: #e5e7eb; margin: 0 0 8px 0; display: flex; align-items: center; gap: 8px;">
+        <h3
+          style="font-size: 1.5rem; font-weight: 700; color: #e5e7eb; margin: 0 0 8px 0; display: flex; align-items: center; gap: 8px;">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M3 5h18v2H3V5zm2 6h14v2H5v-2zm-2 6h18v2H3v-2z"/>
+            <path d="M3 5h18v2H3V5zm2 6h14v2H5v-2zm-2 6h18v2H3v-2z" />
           </svg>
           A/B тестування креативів
           <span style="font-size: 0.8rem; color: rgba(229,231,235,.5); font-weight: 500;">v3.0</span>
         </h3>
-        <p style="font-size: 0.85rem; color: rgba(229,231,235,.6); margin: 0;">Порівняння ефективності креативів в межах рекламної кампанії</p>
+        <p style="font-size: 0.85rem; color: rgba(229,231,235,.6); margin: 0;">Порівняння ефективності креативів в межах
+          рекламної кампанії</p>
       </div>
       <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
         <div>
-          <label for="ab-test-campaign-select" style="display: block; font-size: 0.8rem; color: rgba(229,231,235,.6); margin-bottom: 6px;">Кампанія</label>
-          <select id="ab-test-campaign-select" style="min-width: 200px; padding: 10px 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; color: #e5e7eb; font-size: 0.9rem;">
+          <label for="ab-test-campaign-select"
+            style="display: block; font-size: 0.8rem; color: rgba(229,231,235,.6); margin-bottom: 6px;">Кампанія</label>
+          <select id="ab-test-campaign-select"
+            style="min-width: 200px; padding: 10px 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; color: #e5e7eb; font-size: 0.9rem;">
             <option value="">Оберіть кампанію</option>
             {% for campaign in campaigns_stats %}
-              {% if campaign.utm_campaign %}
-                <option value="{{ campaign.utm_campaign }}">{{ campaign.utm_campaign }}{% if campaign.utm_source %} ({{ campaign.utm_source }}){% endif %}</option>
-              {% endif %}
+            {% if campaign.utm_campaign %}
+            <option value="{{ campaign.utm_campaign }}">{{ campaign.utm_campaign }}{% if campaign.utm_source %} ({{
+              campaign.utm_source }}){% endif %}</option>
+            {% endif %}
             {% endfor %}
           </select>
         </div>
         <div>
-          <label for="ab-test-period-select" style="display: block; font-size: 0.8rem; color: rgba(229,231,235,.6); margin-bottom: 6px;">Період</label>
-          <select id="ab-test-period-select" style="min-width: 140px; padding: 10px 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; color: #e5e7eb; font-size: 0.9rem;">
+          <label for="ab-test-period-select"
+            style="display: block; font-size: 0.8rem; color: rgba(229,231,235,.6); margin-bottom: 6px;">Період</label>
+          <select id="ab-test-period-select"
+            style="min-width: 140px; padding: 10px 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; color: #e5e7eb; font-size: 0.9rem;">
             <option value="week">Тиждень</option>
             <option value="month" selected>Місяць</option>
             <option value="all_time">Весь час</option>
           </select>
         </div>
-        <button id="ab-test-load-btn" type="button" style="padding: 10px 16px; border-radius: 8px; border: none; background: linear-gradient(135deg, #10b981, #059669); color: white; font-weight: 600; cursor: pointer;">
+        <button id="ab-test-load-btn" type="button"
+          style="padding: 10px 16px; border-radius: 8px; border: none; background: linear-gradient(135deg, #10b981, #059669); color: white; font-weight: 600; cursor: pointer;">
           Показати результат
         </button>
       </div>
     </div>
 
-    <div id="ab-test-result" style="background: rgba(255,255,255,.03); border-radius: 12px; padding: 24px; min-height: 140px;">
-      <div style="text-align: center; color: rgba(229,231,235,.4);">Оберіть кампанію, щоб побачити результати A/B тесту.</div>
+    <div id="ab-test-result"
+      style="background: rgba(255,255,255,.03); border-radius: 12px; padding: 24px; min-height: 140px;">
+      <div style="text-align: center; color: rgba(229,231,235,.4);">Оберіть кампанію, щоб побачити результати A/B тесту.
+      </div>
     </div>
   </div>
 
   {# Recent Sessions #}
-  <div style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px;">
+  <div
+    style="background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 30px;">
     <h3 style="font-size: 1.5rem; font-weight: 700; color: #e5e7eb; margin-bottom: 20px;">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 8px;">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"
+        style="vertical-align: middle; margin-right: 8px;">
+        <path
+          d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
       </svg>
       Останні сесії
     </h3>
-    
+
     <div style="overflow-x: auto;">
       <table style="width: 100%; border-collapse: collapse;">
         <thead>
           <tr style="border-bottom: 2px solid rgba(255,255,255,.1);">
-            <th style="padding: 12px; text-align: left; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">Дата</th>
-            <th style="padding: 12px; text-align: left; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">Джерело</th>
-            <th style="padding: 12px; text-align: left; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">Кампанія</th>
-            <th style="padding: 12px; text-align: left; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">Пристрій</th>
-            <th style="padding: 12px; text-align: left; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">Локація</th>
-            <th style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">Конверсія</th>
-            <th style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">Дії</th>
+            <th
+              style="padding: 12px; text-align: left; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              Дата</th>
+            <th
+              style="padding: 12px; text-align: left; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              Джерело</th>
+            <th
+              style="padding: 12px; text-align: left; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              Кампанія</th>
+            <th
+              style="padding: 12px; text-align: left; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              Пристрій</th>
+            <th
+              style="padding: 12px; text-align: left; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              Локація</th>
+            <th
+              style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              Конверсія</th>
+            <th
+              style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); font-size: 0.85rem; text-transform: uppercase;">
+              Дії</th>
           </tr>
         </thead>
         <tbody>
           {% for session in recent_sessions|slice:":30" %}
-            <tr style="border-bottom: 1px solid rgba(255,255,255,.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(139,92,246,.05)'" onmouseout="this.style.background='transparent'">
-              <td style="padding: 12px; color: rgba(229,231,235,.6); font-size: 0.85rem;">{{ session.first_seen|date:"d.m.Y H:i" }}</td>
-              <td style="padding: 12px; color: #a78bfa; font-weight: 600;">{{ session.utm_source|default:"direct" }}</td>
-              <td style="padding: 12px; color: #60a5fa;">{{ session.utm_campaign|default:"—" }}</td>
-              <td style="padding: 12px; color: rgba(229,231,235,.6);">{{ session.device_type|default:"unknown" }}</td>
-              <td style="padding: 12px; color: rgba(229,231,235,.6);">{{ session.city|default:"—" }}, {{ session.country|default:"—" }}</td>
-              <td style="padding: 12px; text-align: center;">
-                {% if session.is_converted %}
-                  <span style="color: #10b981; font-weight: 600;">✓ {{ session.conversion_type }}</span>
-                {% else %}
-                  <span style="color: rgba(229,231,235,.3);">—</span>
-                {% endif %}
-              </td>
-              <td style="padding: 12px; text-align: center;">
-                <button onclick="viewSessionDetail({{ session.id }})" 
-                        style="background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600;">
-                  Деталі
-                </button>
-              </td>
-            </tr>
+          <tr style="border-bottom: 1px solid rgba(255,255,255,.05); transition: background 0.2s;"
+            onmouseover="this.style.background='rgba(139,92,246,.05)'" onmouseout="this.style.background='transparent'">
+            <td style="padding: 12px; color: rgba(229,231,235,.6); font-size: 0.85rem;">{{
+              session.first_seen|date:"d.m.Y H:i" }}</td>
+            <td style="padding: 12px; color: #a78bfa; font-weight: 600;">{{ session.utm_source|default:"direct" }}</td>
+            <td style="padding: 12px; color: #60a5fa;">{{ session.utm_campaign|default:"—" }}</td>
+            <td style="padding: 12px; color: rgba(229,231,235,.6);">{{ session.device_type|default:"unknown" }}</td>
+            <td style="padding: 12px; color: rgba(229,231,235,.6);">{{ session.city|default:"—" }}, {{
+              session.country|default:"—" }}</td>
+            <td style="padding: 12px; text-align: center;">
+              {% if session.is_converted %}
+              <span style="color: #10b981; font-weight: 600;">✓ {{ session.conversion_type }}</span>
+              {% else %}
+              <span style="color: rgba(229,231,235,.3);">—</span>
+              {% endif %}
+            </td>
+            <td style="padding: 12px; text-align: center;">
+              <button onclick="viewSessionDetail({{ session.id }})"
+                style="background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600;">
+                Деталі
+              </button>
+            </td>
+          </tr>
           {% empty %}
-            <tr>
-              <td colspan="7" style="padding: 24px; text-align: center; color: rgba(229,231,235,.4);">Немає даних за вибраний період</td>
-            </tr>
+          <tr>
+            <td colspan="7" style="padding: 24px; text-align: center; color: rgba(229,231,235,.4);">Немає даних за
+              вибраний період</td>
+          </tr>
           {% endfor %}
         </tbody>
       </table>
@@ -559,17 +745,19 @@
 </div>
 
 {# Session Detail Modal #}
-<div id="session-detail-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.8); z-index: 9999; overflow-y: auto; padding: 40px;">
-  <div style="max-width: 1000px; margin: 0 auto; background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 20px; padding: 40px; position: relative;">
-    <button onclick="closeSessionDetail()" 
-            style="position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,.1); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 1.5rem; line-height: 1;">
+<div id="session-detail-modal"
+  style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.8); z-index: 9999; overflow-y: auto; padding: 40px;">
+  <div
+    style="max-width: 1000px; margin: 0 auto; background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 20px; padding: 40px; position: relative;">
+    <button onclick="closeSessionDetail()"
+      style="position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,.1); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 1.5rem; line-height: 1;">
       ×
     </button>
-    
+
     <h2 style="font-size: 1.8rem; font-weight: 700; color: #e5e7eb; margin-bottom: 30px;">
       Детальна інформація про сесію
     </h2>
-    
+
     <div id="session-detail-content">
       <div style="text-align: center; padding: 40px; color: rgba(229,231,235,.5);">
         Завантаження...
@@ -579,111 +767,111 @@
 </div>
 
 {# Load Chart.js from CDN #}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
 
 {# JavaScript for Charts, ROI Calculator and Session Detail Modal #}
 <script>
-// Chart.js default configuration for dark theme
-if (typeof Chart !== 'undefined') {
-  Chart.defaults.color = 'rgba(229, 231, 235, 0.7)';
-  Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.1)';
-  Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-}
+  // Chart.js default configuration for dark theme
+  if (typeof Chart !== 'undefined') {
+    Chart.defaults.color = 'rgba(229, 231, 235, 0.7)';
+    Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.1)';
+    Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  }
 
-// Initialize Funnel Chart
-function initFunnelChart() {
-  const ctx = document.getElementById('funnelChart');
-  if (!ctx || typeof Chart === 'undefined') return;
-  
-  new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: ['Сесії', 'Перегляди', 'В кошик', 'Оформлення', 'Ліди', 'Покупки'],
-      datasets: [{
-        label: 'Кількість',
-        data: [
-          {{ funnel_stats.total }},
-          {{ funnel_stats.product_views }},
+  // Initialize Funnel Chart
+  function initFunnelChart() {
+    const ctx = document.getElementById('funnelChart');
+    if (!ctx || typeof Chart === 'undefined') return;
+
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['Сесії', 'Перегляди', 'В кошик', 'Оформлення', 'Ліди', 'Покупки'],
+        datasets: [{
+          label: 'Кількість',
+          data: [
+            {{ funnel_stats.total }},
+        {{ funnel_stats.product_views }},
           {{ funnel_stats.add_to_cart }},
-          {{ funnel_stats.initiate_checkout }},
-          {{ funnel_stats.leads }},
-          {{ funnel_stats.purchases }}
+  { { funnel_stats.initiate_checkout } },
+  { { funnel_stats.leads } },
+  { { funnel_stats.purchases } }
         ],
-        backgroundColor: [
-          'rgba(139, 92, 246, 0.7)',
-          'rgba(59, 130, 246, 0.7)',
-          'rgba(16, 185, 129, 0.7)',
-          'rgba(245, 158, 11, 0.7)',
-          'rgba(236, 72, 153, 0.7)',
-          'rgba(16, 185, 129, 0.9)'
-        ],
-        borderColor: [
-          'rgba(139, 92, 246, 1)',
-          'rgba(59, 130, 246, 1)',
-          'rgba(16, 185, 129, 1)',
-          'rgba(245, 158, 11, 1)',
-          'rgba(236, 72, 153, 1)',
-          'rgba(16, 185, 129, 1)'
-        ],
-        borderWidth: 2,
+  backgroundColor: [
+    'rgba(139, 92, 246, 0.7)',
+    'rgba(59, 130, 246, 0.7)',
+    'rgba(16, 185, 129, 0.7)',
+    'rgba(245, 158, 11, 0.7)',
+    'rgba(236, 72, 153, 0.7)',
+    'rgba(16, 185, 129, 0.9)'
+  ],
+    borderColor: [
+      'rgba(139, 92, 246, 1)',
+      'rgba(59, 130, 246, 1)',
+      'rgba(16, 185, 129, 1)',
+      'rgba(245, 158, 11, 1)',
+      'rgba(236, 72, 153, 1)',
+      'rgba(16, 185, 129, 1)'
+    ],
+      borderWidth: 2,
         borderRadius: 8
       }]
     },
-    options: {
-      responsive: true,
+  options: {
+    responsive: true,
       maintainAspectRatio: false,
-      plugins: {
-        legend: {
+        plugins: {
+      legend: {
+        display: false
+      },
+      tooltip: {
+        backgroundColor: 'rgba(24, 26, 31, 0.95)',
+          titleColor: '#e5e7eb',
+            bodyColor: '#e5e7eb',
+              borderColor: 'rgba(139, 92, 246, 0.5)',
+                borderWidth: 1,
+                  padding: 12,
+                    cornerRadius: 8
+      }
+    },
+    scales: {
+      x: {
+        grid: {
           display: false
         },
-        tooltip: {
-          backgroundColor: 'rgba(24, 26, 31, 0.95)',
-          titleColor: '#e5e7eb',
-          bodyColor: '#e5e7eb',
-          borderColor: 'rgba(139, 92, 246, 0.5)',
-          borderWidth: 1,
-          padding: 12,
-          cornerRadius: 8
+        ticks: {
+          font: {
+            size: 11
+          }
         }
       },
-      scales: {
-        x: {
+      y: {
+        beginAtZero: true,
           grid: {
-            display: false
-          },
-          ticks: {
-            font: {
-              size: 11
-            }
-          }
-        },
-        y: {
-          beginAtZero: true,
-          grid: {
-            color: 'rgba(255, 255, 255, 0.05)'
-          }
+          color: 'rgba(255, 255, 255, 0.05)'
         }
       }
     }
+  }
   });
 }
 
-// Initialize Sources Chart
-function initSourcesChart() {
-  const ctx = document.getElementById('sourcesChart');
-  if (!ctx || typeof Chart === 'undefined') return;
-  
-  const sourcesData = [
-    {% for source in sources_stats|slice:":10" %}
-      {
-        name: '{{ source.utm_source|default_if_none:"direct" }}',
-        sessions: {{ source.sessions }},
-        conversions: {{ source.conversions }},
-        revenue: {{ source.revenue|floatformat:0 }}
-      }{% if not forloop.last %},{% endif %}
-    {% endfor %}
+  // Initialize Sources Chart
+  function initSourcesChart() {
+    const ctx = document.getElementById('sourcesChart');
+    if (!ctx || typeof Chart === 'undefined') return;
+
+    const sourcesData = [
+      {% for source in sources_stats | slice: ":10" %}
+  {
+    name: '{{ source.utm_source|default_if_none:"direct" }}',
+      sessions: { { source.sessions } },
+    conversions: { { source.conversions } },
+    revenue: { { source.revenue | floatformat: 0 } }
+  } {% if not forloop.last %}, {% endif %}
+  {% endfor %}
   ];
-  
+
   new Chart(ctx, {
     type: 'line',
     data: {
@@ -772,72 +960,72 @@ function initSourcesChart() {
   });
 }
 
-// Initialize charts on page load
-document.addEventListener('DOMContentLoaded', function() {
-  initFunnelChart();
-  initSourcesChart();
-  const funnelConversionRateEl = document.getElementById('funnel-conversion-rate');
-  if (funnelConversionRateEl) {
-    funnelConversionRateEl.textContent = 'CR покупки: {{ funnel_stats.purchase_rate }}%';
-  }
-});
-
-// ROI Calculator
-const adSpendInput = document.getElementById('ad-spend-input');
-const currentPeriod = '{{ period }}';
-const currentRevenue = parseFloat('{{ general_stats.total_revenue }}') || 0;
-const currentConversions = parseInt('{{ general_stats.total_conversions }}') || 0;
-
-if (adSpendInput) {
-  adSpendInput.addEventListener('input', function() {
-    const adSpend = parseFloat(this.value) || 0;
-    
-    // Рассчитываем метрики
-    const profit = currentRevenue - adSpend;
-    const roi = adSpend > 0 ? ((profit / adSpend) * 100) : 0;
-    const roas = adSpend > 0 ? (currentRevenue / adSpend) : 0;
-    const costPerConversion = currentConversions > 0 ? (adSpend / currentConversions) : 0;
-    
-    // Обновляем UI
-    document.getElementById('roi-percentage').textContent = roi.toFixed(2) + '%';
-    document.getElementById('roi-profit').textContent = profit.toFixed(0) + ' ₴';
-    document.getElementById('roi-roas').textContent = roas.toFixed(2) + 'x';
-    document.getElementById('roi-cpc').textContent = costPerConversion.toFixed(2) + ' ₴';
-    
-    // Цветовая индикация
-    const roiEl = document.getElementById('roi-percentage');
-    if (roi > 100) {
-      roiEl.style.color = '#10b981';
-    } else if (roi > 0) {
-      roiEl.style.color = '#fbbf24';
-    } else {
-      roiEl.style.color = '#f87171';
+  // Initialize charts on page load
+  document.addEventListener('DOMContentLoaded', function () {
+    initFunnelChart();
+    initSourcesChart();
+    const funnelConversionRateEl = document.getElementById('funnel-conversion-rate');
+    if (funnelConversionRateEl) {
+      funnelConversionRateEl.textContent = 'CR покупки: {{ funnel_stats.purchase_rate }}%';
     }
   });
-}
 
-// Session Detail Modal
-function viewSessionDetail(sessionId) {
-  const modal = document.getElementById('session-detail-modal');
-  const content = document.getElementById('session-detail-content');
-  
-  modal.style.display = 'block';
-  content.innerHTML = '<div style="text-align: center; padding: 40px; color: rgba(229,231,235,.5);">Завантаження...</div>';
-  
-  // Fetch session details via API
-  fetch(`/api/utm/${sessionId}/session_detail/`)
-    .then(response => response.json())
-    .then(data => {
-      if (data.error) {
-        content.innerHTML = `<div style="text-align: center; padding: 40px; color: #f87171;">Помилка: ${data.error}</div>`;
-        return;
+  // ROI Calculator
+  const adSpendInput = document.getElementById('ad-spend-input');
+  const currentPeriod = '{{ period }}';
+  const currentRevenue = parseFloat('{{ general_stats.total_revenue }}') || 0;
+  const currentConversions = parseInt('{{ general_stats.total_conversions }}') || 0;
+
+  if (adSpendInput) {
+    adSpendInput.addEventListener('input', function () {
+      const adSpend = parseFloat(this.value) || 0;
+
+      // Рассчитываем метрики
+      const profit = currentRevenue - adSpend;
+      const roi = adSpend > 0 ? ((profit / adSpend) * 100) : 0;
+      const roas = adSpend > 0 ? (currentRevenue / adSpend) : 0;
+      const costPerConversion = currentConversions > 0 ? (adSpend / currentConversions) : 0;
+
+      // Обновляем UI
+      document.getElementById('roi-percentage').textContent = roi.toFixed(2) + '%';
+      document.getElementById('roi-profit').textContent = profit.toFixed(0) + ' ₴';
+      document.getElementById('roi-roas').textContent = roas.toFixed(2) + 'x';
+      document.getElementById('roi-cpc').textContent = costPerConversion.toFixed(2) + ' ₴';
+
+      // Цветовая индикация
+      const roiEl = document.getElementById('roi-percentage');
+      if (roi > 100) {
+        roiEl.style.color = '#10b981';
+      } else if (roi > 0) {
+        roiEl.style.color = '#fbbf24';
+      } else {
+        roiEl.style.color = '#f87171';
       }
-      
-      const session = data.session;
-      const actions = data.actions || [];
-      const orders = data.orders || [];
-      
-      let html = `
+    });
+  }
+
+  // Session Detail Modal
+  function viewSessionDetail(sessionId) {
+    const modal = document.getElementById('session-detail-modal');
+    const content = document.getElementById('session-detail-content');
+
+    modal.style.display = 'block';
+    content.innerHTML = '<div style="text-align: center; padding: 40px; color: rgba(229,231,235,.5);">Завантаження...</div>';
+
+    // Fetch session details via API
+    fetch(`/api/utm/${sessionId}/session_detail/`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.error) {
+          content.innerHTML = `<div style="text-align: center; padding: 40px; color: #f87171;">Помилка: ${data.error}</div>`;
+          return;
+        }
+
+        const session = data.session;
+        const actions = data.actions || [];
+        const orders = data.orders || [];
+
+        let html = `
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
           <div>
             <h3 style="color: #a78bfa; font-size: 1.1rem; margin-bottom: 16px;">UTM Параметри</h3>
@@ -925,220 +1113,220 @@ function viewSessionDetail(sessionId) {
           </div>
         ` : ''}
       `;
-      
-      content.innerHTML = html;
-    })
-    .catch(error => {
-      content.innerHTML = `<div style="text-align: center; padding: 40px; color: #f87171;">Помилка завантаження: ${error}</div>`;
-    });
-}
 
-function closeSessionDetail() {
-  document.getElementById('session-detail-modal').style.display = 'none';
-}
-
-// Close modal on ESC key
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') {
-    closeSessionDetail();
-  }
-});
-
-// Cohort Analysis - Initialize and load data
-function loadCohortAnalysis() {
-  const metric = document.getElementById('cohort-metric-select')?.value || 'retention';
-  const cohortType = document.getElementById('cohort-type-select')?.value || 'week';
-  const container = document.getElementById('cohort-heatmap-container');
-  const source = '{{ source_filter|default_if_none:""|escapejs }}';
-  const startDate = '{{ cohort_range.start|date:"Y-m-d"|default_if_none:"" }}';
-  const endDate = '{{ cohort_range.end|date:"Y-m-d"|default_if_none:"" }}';
-  
-  if (!container) return;
-  
-  container.innerHTML = '<div style="text-align: center; padding: 40px; color: rgba(229,231,235,.4);">Завантаження...</div>';
-  
-  const query = new URLSearchParams({ cohort_type: cohortType, metric });
-  if (startDate) query.append('start_date', startDate);
-  if (endDate) query.append('end_date', endDate);
-  if (source) query.append('utm_source', source);
-  const url = `/api/utm/cohort-analysis/?${query.toString()}`;
-  
-  fetch(url)
-    .then(response => response.json())
-    .then(data => {
-      if (data.error || !data.cohorts || data.cohorts.length === 0) {
-        container.innerHTML = '<div style="text-align: center; padding: 40px; color: rgba(229,231,235,.4);">Недостатньо даних для когортного аналізу</div>';
-        return;
-      }
-      
-      // Build heatmap table
-      let html = '<table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;"><thead><tr style="border-bottom: 2px solid rgba(255,255,255,.1);"><th style="padding: 10px; text-align: left; font-weight: 600; color: rgba(229,231,235,.6); position: sticky; left: 0; background: rgba(24,26,31,.98);">Когорта</th>';
-      
-      data.periods.forEach(period => {
-        html += `<th style="padding: 10px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); white-space: nowrap;">${period}</th>`;
+        content.innerHTML = html;
+      })
+      .catch(error => {
+        content.innerHTML = `<div style="text-align: center; padding: 40px; color: #f87171;">Помилка завантаження: ${error}</div>`;
       });
-      
-      html += '</tr></thead><tbody>';
-      
-      data.cohorts.forEach((cohort, cohortIdx) => {
-        html += '<tr style="border-bottom: 1px solid rgba(255,255,255,.05);"><td style="padding: 10px; font-weight: 600; color: #a78bfa; position: sticky; left: 0; background: rgba(24,26,31,.95);">' + cohort + '</td>';
-        
-        const cohortRow = data.matrix[cohortIdx] || [];
-        cohortRow.forEach(rawValue => {
-          const hasValue = rawValue !== null && rawValue !== undefined;
-          const numericValue = hasValue ? Number(rawValue) : null;
-          let displayValue = '—';
-          let opacity = 0;
-          
-          if (hasValue && !Number.isNaN(numericValue)) {
-            if (metric === 'retention') {
-              displayValue = `${numericValue.toFixed(1)}%`;
-              if (numericValue > 0) {
-                opacity = Math.min(numericValue / 100, 1);
-              }
-            } else if (metric === 'orders') {
-              displayValue = Math.round(numericValue).toString();
-              if (numericValue > 0) {
-                opacity = 0.3;
-              }
-            } else if (metric === 'ltv' || metric === 'revenue') {
-              const rounded = Math.round(numericValue);
-              displayValue = `${rounded.toLocaleString('uk-UA')} ₴`;
-              if (numericValue > 0) {
-                opacity = 0.3;
-              }
-            } else {
-              displayValue = numericValue.toFixed(1);
-              if (numericValue > 0) {
-                opacity = 0.3;
+  }
+
+  function closeSessionDetail() {
+    document.getElementById('session-detail-modal').style.display = 'none';
+  }
+
+  // Close modal on ESC key
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      closeSessionDetail();
+    }
+  });
+
+  // Cohort Analysis - Initialize and load data
+  function loadCohortAnalysis() {
+    const metric = document.getElementById('cohort-metric-select')?.value || 'retention';
+    const cohortType = document.getElementById('cohort-type-select')?.value || 'week';
+    const container = document.getElementById('cohort-heatmap-container');
+    const source = '{{ source_filter|default_if_none:""|escapejs }}';
+    const startDate = '{{ cohort_range.start|date:"Y-m-d"|default_if_none:"" }}';
+    const endDate = '{{ cohort_range.end|date:"Y-m-d"|default_if_none:"" }}';
+
+    if (!container) return;
+
+    container.innerHTML = '<div style="text-align: center; padding: 40px; color: rgba(229,231,235,.4);">Завантаження...</div>';
+
+    const query = new URLSearchParams({ cohort_type: cohortType, metric });
+    if (startDate) query.append('start_date', startDate);
+    if (endDate) query.append('end_date', endDate);
+    if (source) query.append('utm_source', source);
+    const url = `/api/utm/cohort-analysis/?${query.toString()}`;
+
+    fetch(url)
+      .then(response => response.json())
+      .then(data => {
+        if (data.error || !data.cohorts || data.cohorts.length === 0) {
+          container.innerHTML = '<div style="text-align: center; padding: 40px; color: rgba(229,231,235,.4);">Недостатньо даних для когортного аналізу</div>';
+          return;
+        }
+
+        // Build heatmap table
+        let html = '<table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;"><thead><tr style="border-bottom: 2px solid rgba(255,255,255,.1);"><th style="padding: 10px; text-align: left; font-weight: 600; color: rgba(229,231,235,.6); position: sticky; left: 0; background: rgba(24,26,31,.98);">Когорта</th>';
+
+        data.periods.forEach(period => {
+          html += `<th style="padding: 10px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6); white-space: nowrap;">${period}</th>`;
+        });
+
+        html += '</tr></thead><tbody>';
+
+        data.cohorts.forEach((cohort, cohortIdx) => {
+          html += '<tr style="border-bottom: 1px solid rgba(255,255,255,.05);"><td style="padding: 10px; font-weight: 600; color: #a78bfa; position: sticky; left: 0; background: rgba(24,26,31,.95);">' + cohort + '</td>';
+
+          const cohortRow = data.matrix[cohortIdx] || [];
+          cohortRow.forEach(rawValue => {
+            const hasValue = rawValue !== null && rawValue !== undefined;
+            const numericValue = hasValue ? Number(rawValue) : null;
+            let displayValue = '—';
+            let opacity = 0;
+
+            if (hasValue && !Number.isNaN(numericValue)) {
+              if (metric === 'retention') {
+                displayValue = `${numericValue.toFixed(1)}%`;
+                if (numericValue > 0) {
+                  opacity = Math.min(numericValue / 100, 1);
+                }
+              } else if (metric === 'orders') {
+                displayValue = Math.round(numericValue).toString();
+                if (numericValue > 0) {
+                  opacity = 0.3;
+                }
+              } else if (metric === 'ltv' || metric === 'revenue') {
+                const rounded = Math.round(numericValue);
+                displayValue = `${rounded.toLocaleString('uk-UA')} ₴`;
+                if (numericValue > 0) {
+                  opacity = 0.3;
+                }
+              } else {
+                displayValue = numericValue.toFixed(1);
+                if (numericValue > 0) {
+                  opacity = 0.3;
+                }
               }
             }
-          }
-          
-          const bgColor = opacity > 0 ? `rgba(139, 92, 246, ${opacity})` : 'transparent';
-          html += `<td style="padding: 10px; text-align: center; background: ${bgColor}; color: #e5e7eb;">${displayValue}</td>`;
+
+            const bgColor = opacity > 0 ? `rgba(139, 92, 246, ${opacity})` : 'transparent';
+            html += `<td style="padding: 10px; text-align: center; background: ${bgColor}; color: #e5e7eb;">${displayValue}</td>`;
+          });
+
+          html += '</tr>';
         });
-        
-        html += '</tr>';
-      });
-      
-      html += '</tbody></table>';
-      
-      html += `<div style="margin-top: 20px; font-size: 0.85rem; color: rgba(229,231,235,.6);"><strong>Метрика:</strong> ${metric} | <strong>Тип когорти:</strong> ${cohortType} | <strong>Всього когорт:</strong> ${data.cohorts.length}</div>`;
-      
-      container.innerHTML = html;
-      
-      // Display totals
-      const totalsContainer = document.getElementById('cohort-totals-container');
-      if (totalsContainer && data.totals && data.totals.length > 0) {
-        let totalsHtml = '<h4 style="color: #e5e7eb; margin-bottom: 12px;">Сумарні показники:</h4><div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;">';
-        
-        data.totals.slice(0, 5).forEach(total => {
-          totalsHtml += `<div style="background: rgba(139,92,246,.08); padding: 12px; border-radius: 8px;">
+
+        html += '</tbody></table>';
+
+        html += `<div style="margin-top: 20px; font-size: 0.85rem; color: rgba(229,231,235,.6);"><strong>Метрика:</strong> ${metric} | <strong>Тип когорти:</strong> ${cohortType} | <strong>Всього когорт:</strong> ${data.cohorts.length}</div>`;
+
+        container.innerHTML = html;
+
+        // Display totals
+        const totalsContainer = document.getElementById('cohort-totals-container');
+        if (totalsContainer && data.totals && data.totals.length > 0) {
+          let totalsHtml = '<h4 style="color: #e5e7eb; margin-bottom: 12px;">Сумарні показники:</h4><div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;">';
+
+          data.totals.slice(0, 5).forEach(total => {
+            totalsHtml += `<div style="background: rgba(139,92,246,.08); padding: 12px; border-radius: 8px;">
             <div style="font-size: 0.75rem; color: rgba(229,231,235,.6); margin-bottom: 4px;">${total.cohort}</div>
             <div style="font-size: 1.2rem; font-weight: 700; color: #a78bfa;">${total.size} сесій</div>
             <div style="font-size: 0.75rem; color: #34d399; margin-top: 2px;">${total.converted} конв. (${total.orders} зам.)</div>
           </div>`;
-        });
-        
-        totalsHtml += '</div>';
-        totalsContainer.innerHTML = totalsHtml;
-      }
-    })
-    .catch(error => {
-      container.innerHTML = '<div style="text-align: center; padding: 40px; color: #f87171;">Помилка завантаження: ' + error + '</div>';
-    });
-}
+          });
 
-// Cohort refresh button
-const cohortRefreshBtn = document.getElementById('cohort-refresh-btn');
-if (cohortRefreshBtn) {
-  cohortRefreshBtn.addEventListener('click', loadCohortAnalysis);
-}
-
-const cohortMetricSelect = document.getElementById('cohort-metric-select');
-if (cohortMetricSelect) {
-  cohortMetricSelect.addEventListener('change', loadCohortAnalysis);
-}
-
-const cohortTypeSelect = document.getElementById('cohort-type-select');
-if (cohortTypeSelect) {
-  cohortTypeSelect.addEventListener('change', loadCohortAnalysis);
-}
-
-// Load cohort analysis on page load
-if (document.getElementById('cohort-analysis-section')) {
-  loadCohortAnalysis();
-}
-
-// A/B Test - Load results
-function loadABTestResults() {
-  const campaign = document.getElementById('ab-test-campaign-select').value;
-  const period = document.getElementById('ab-test-period-select').value;
-  const container = document.getElementById('ab-test-result');
-  
-  if (!campaign) {
-    container.innerHTML = '<div style="text-align: center; color: rgba(229,231,235,.4);">Оберіть кампанію</div>';
-    return;
+          totalsHtml += '</div>';
+          totalsContainer.innerHTML = totalsHtml;
+        }
+      })
+      .catch(error => {
+        container.innerHTML = '<div style="text-align: center; padding: 40px; color: #f87171;">Помилка завантаження: ' + error + '</div>';
+      });
   }
-  
-  container.innerHTML = '<div style="text-align: center; padding: 20px; color: rgba(229,231,235,.4);">Завантаження...</div>';
-  
-  const url = `/api/utm/ab-test/?campaign=${encodeURIComponent(campaign)}&period=${period}`;
-  
-  fetch(url)
-    .then(response => response.json())
-    .then(data => {
-      if (data.error || !data.variants || data.variants.length === 0) {
-        container.innerHTML = '<div style="text-align: center; padding: 20px; color: rgba(229,231,235,.4);">Немає даних для A/B тесту цієї кампанії</div>';
-        return;
-      }
-      
-      let html = `<h4 style="color: #e5e7eb; margin-bottom: 16px;">Результати для кампанії: ${data.campaign}</h4>`;
-      
-      if (data.winner) {
-        html += `<div style="background: linear-gradient(135deg, rgba(16,185,129,.15), rgba(5,150,105,.15)); border: 1px solid rgba(16,185,129,.3); padding: 12px; border-radius: 8px; margin-bottom: 20px;">
+
+  // Cohort refresh button
+  const cohortRefreshBtn = document.getElementById('cohort-refresh-btn');
+  if (cohortRefreshBtn) {
+    cohortRefreshBtn.addEventListener('click', loadCohortAnalysis);
+  }
+
+  const cohortMetricSelect = document.getElementById('cohort-metric-select');
+  if (cohortMetricSelect) {
+    cohortMetricSelect.addEventListener('change', loadCohortAnalysis);
+  }
+
+  const cohortTypeSelect = document.getElementById('cohort-type-select');
+  if (cohortTypeSelect) {
+    cohortTypeSelect.addEventListener('change', loadCohortAnalysis);
+  }
+
+  // Load cohort analysis on page load
+  if (document.getElementById('cohort-analysis-section')) {
+    loadCohortAnalysis();
+  }
+
+  // A/B Test - Load results
+  function loadABTestResults() {
+    const campaign = document.getElementById('ab-test-campaign-select').value;
+    const period = document.getElementById('ab-test-period-select').value;
+    const container = document.getElementById('ab-test-result');
+
+    if (!campaign) {
+      container.innerHTML = '<div style="text-align: center; color: rgba(229,231,235,.4);">Оберіть кампанію</div>';
+      return;
+    }
+
+    container.innerHTML = '<div style="text-align: center; padding: 20px; color: rgba(229,231,235,.4);">Завантаження...</div>';
+
+    const url = `/api/utm/ab-test/?campaign=${encodeURIComponent(campaign)}&period=${period}`;
+
+    fetch(url)
+      .then(response => response.json())
+      .then(data => {
+        if (data.error || !data.variants || data.variants.length === 0) {
+          container.innerHTML = '<div style="text-align: center; padding: 20px; color: rgba(229,231,235,.4);">Немає даних для A/B тесту цієї кампанії</div>';
+          return;
+        }
+
+        let html = `<h4 style="color: #e5e7eb; margin-bottom: 16px;">Результати для кампанії: ${data.campaign}</h4>`;
+
+        if (data.winner) {
+          html += `<div style="background: linear-gradient(135deg, rgba(16,185,129,.15), rgba(5,150,105,.15)); border: 1px solid rgba(16,185,129,.3); padding: 12px; border-radius: 8px; margin-bottom: 20px;">
           <strong style="color: #10b981;">🏆 Переможець:</strong> <span style="color: #e5e7eb;">${data.winner}</span>
           <span style="color: rgba(229,231,235,.6); margin-left: 12px;">(+${data.winner_lift}% кращий)</span>
         </div>`;
-      }
-      
-      html += '<table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;"><thead><tr style="border-bottom: 2px solid rgba(255,255,255,.1);">';
-      html += '<th style="padding: 12px; text-align: left; font-weight: 600; color: rgba(229,231,235,.6);">Креатив</th>';
-      html += '<th style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6);">Сесії</th>';
-      html += '<th style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6);">Конверсії</th>';
-      html += '<th style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6);">CR%</th>';
-      html += '<th style="padding: 12px; text-align: right; font-weight: 600; color: rgba(229,231,235,.6);">Дохід</th>';
-      html += '<th style="padding: 12px; text-align: right; font-weight: 600; color: rgba(229,231,235,.6);">Сер. чек</th>';
-      html += '<th style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6);">Confidence</th>';
-      html += '</tr></thead><tbody>';
-      
-      data.variants.forEach(variant => {
-        const isWinner = variant.utm_content === data.winner;
-        html += `<tr style="border-bottom: 1px solid rgba(255,255,255,.05); ${isWinner ? 'background: rgba(16,185,129,.05);' : ''}">`;
-        html += `<td style="padding: 12px; font-weight: 600; color: ${isWinner ? '#10b981' : '#a78bfa'};">${variant.utm_content}${isWinner ? ' 🏆' : ''}</td>`;
-        html += `<td style="padding: 12px; text-align: center; color: #e5e7eb;">${variant.sessions}</td>`;
-        html += `<td style="padding: 12px; text-align: center; color: #34d399;">${variant.conversions}</td>`;
-        html += `<td style="padding: 12px; text-align: center; font-weight: 600; color: ${variant.conversion_rate >= 5 ? '#10b981' : variant.conversion_rate >= 2 ? '#fbbf24' : '#f87171'};">${variant.conversion_rate}%</td>`;
-        html += `<td style="padding: 12px; text-align: right; color: #60a5fa;">${variant.revenue.toFixed(0)} ₴</td>`;
-        html += `<td style="padding: 12px; text-align: right; color: rgba(229,231,235,.7);">${variant.avg_order_value.toFixed(0)} ₴</td>`;
-        html += `<td style="padding: 12px; text-align: center; color: ${variant.confidence >= 95 ? '#10b981' : variant.confidence >= 80 ? '#fbbf24' : '#f87171'};">${variant.confidence.toFixed(1)}%</td>`;
-        html += '</tr>';
-      });
-      
-      html += '</tbody></table>';
-      html += '<div style="margin-top: 16px; font-size: 0.85rem; color: rgba(229,231,235,.5);"><strong>Примітка:</strong> Confidence ≥95% - результат статистично значущий</div>';
-      
-      container.innerHTML = html;
-    })
-    .catch(error => {
-      container.innerHTML = '<div style="text-align: center; padding: 20px; color: #f87171;">Помилка: ' + error + '</div>';
-    });
-}
+        }
 
-// A/B Test load button
-const abTestLoadBtn = document.getElementById('ab-test-load-btn');
-if (abTestLoadBtn) {
-  abTestLoadBtn.addEventListener('click', loadABTestResults);
-}
+        html += '<table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;"><thead><tr style="border-bottom: 2px solid rgba(255,255,255,.1);">';
+        html += '<th style="padding: 12px; text-align: left; font-weight: 600; color: rgba(229,231,235,.6);">Креатив</th>';
+        html += '<th style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6);">Сесії</th>';
+        html += '<th style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6);">Конверсії</th>';
+        html += '<th style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6);">CR%</th>';
+        html += '<th style="padding: 12px; text-align: right; font-weight: 600; color: rgba(229,231,235,.6);">Дохід</th>';
+        html += '<th style="padding: 12px; text-align: right; font-weight: 600; color: rgba(229,231,235,.6);">Сер. чек</th>';
+        html += '<th style="padding: 12px; text-align: center; font-weight: 600; color: rgba(229,231,235,.6);">Confidence</th>';
+        html += '</tr></thead><tbody>';
+
+        data.variants.forEach(variant => {
+          const isWinner = variant.utm_content === data.winner;
+          html += `<tr style="border-bottom: 1px solid rgba(255,255,255,.05); ${isWinner ? 'background: rgba(16,185,129,.05);' : ''}">`;
+          html += `<td style="padding: 12px; font-weight: 600; color: ${isWinner ? '#10b981' : '#a78bfa'};">${variant.utm_content}${isWinner ? ' 🏆' : ''}</td>`;
+          html += `<td style="padding: 12px; text-align: center; color: #e5e7eb;">${variant.sessions}</td>`;
+          html += `<td style="padding: 12px; text-align: center; color: #34d399;">${variant.conversions}</td>`;
+          html += `<td style="padding: 12px; text-align: center; font-weight: 600; color: ${variant.conversion_rate >= 5 ? '#10b981' : variant.conversion_rate >= 2 ? '#fbbf24' : '#f87171'};">${variant.conversion_rate}%</td>`;
+          html += `<td style="padding: 12px; text-align: right; color: #60a5fa;">${variant.revenue.toFixed(0)} ₴</td>`;
+          html += `<td style="padding: 12px; text-align: right; color: rgba(229,231,235,.7);">${variant.avg_order_value.toFixed(0)} ₴</td>`;
+          html += `<td style="padding: 12px; text-align: center; color: ${variant.confidence >= 95 ? '#10b981' : variant.confidence >= 80 ? '#fbbf24' : '#f87171'};">${variant.confidence.toFixed(1)}%</td>`;
+          html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        html += '<div style="margin-top: 16px; font-size: 0.85rem; color: rgba(229,231,235,.5);"><strong>Примітка:</strong> Confidence ≥95% - результат статистично значущий</div>';
+
+        container.innerHTML = html;
+      })
+      .catch(error => {
+        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #f87171;">Помилка: ' + error + '</div>';
+      });
+  }
+
+  // A/B Test load button
+  const abTestLoadBtn = document.getElementById('ab-test-load-btn');
+  if (abTestLoadBtn) {
+    abTestLoadBtn.addEventListener('click', loadABTestResults);
+  }
 </script>

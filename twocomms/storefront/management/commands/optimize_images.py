@@ -71,7 +71,7 @@ class Command(BaseCommand):
             self.stdout.write(f'Found {total_products} products with main images')
             self.stdout.flush()
             
-            for i, product in enumerate(products, 1):
+            for i, product in enumerate(products.iterator(chunk_size=1000), 1):
                 if product.main_image:
                     path = Path(product.main_image.path)
                     if path.exists():
@@ -97,7 +97,7 @@ class Command(BaseCommand):
             self.stdout.write(f'\nFound {total_p_images} extra product images')
             self.stdout.flush()
             
-            for i, img in enumerate(product_images, 1):
+            for i, img in enumerate(product_images.iterator(chunk_size=1000), 1):
                 if img.image:
                     path = Path(img.image.path)
                     if path.exists():
@@ -123,7 +123,7 @@ class Command(BaseCommand):
             self.stdout.write(f'\nFound {total_c_images} product color images')
             self.stdout.flush()
             
-            for i, img in enumerate(color_images, 1):
+            for i, img in enumerate(color_images.iterator(chunk_size=1000), 1):
                 if img.image:
                     path = Path(img.image.path)
                     if path.exists():
@@ -148,7 +148,7 @@ class Command(BaseCommand):
             self.stdout.write(f'\nFound {categories.count()} categories')
             self.stdout.flush()
             
-            for cat in categories:
+            for cat in categories.iterator(chunk_size=1000):
                 # Icon
                 if cat.icon:
                     path = Path(cat.icon.path)
@@ -191,7 +191,7 @@ class Command(BaseCommand):
             self.stdout.write(f'\nFound {options.count()} catalog options with images')
             self.stdout.flush()
             
-            for opt in options:
+            for opt in options.iterator(chunk_size=1000):
                 if opt.image:
                     path = Path(opt.image.path)
                     if path.exists():
@@ -216,7 +216,7 @@ class Command(BaseCommand):
             self.stdout.write(f'\nFound {grids.count()} size grids with images')
             self.stdout.flush()
             
-            for grid in grids:
+            for grid in grids.iterator(chunk_size=1000):
                 if grid.image:
                     path = Path(grid.image.path)
                     if path.exists():
@@ -241,7 +241,7 @@ class Command(BaseCommand):
             proposals = PrintProposal.objects.exclude(image='')
             self.stdout.write(f'\nFound {proposals.count()} print proposals with images')
             self.stdout.flush()
-            for proposal in proposals:
+            for proposal in proposals.iterator(chunk_size=1000):
                 if proposal.image:
                     path = Path(proposal.image.path)
                     if path.exists():

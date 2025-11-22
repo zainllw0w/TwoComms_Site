@@ -38,7 +38,11 @@ def home(request):
     - Предпросмотр цветовых вариантов
     """
     # Оптимизированные запросы с select_related и prefetch_related
-    featured = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images').filter(
+    featured = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images').defer(
+        'description', 'full_description', 'short_description', 'ai_description', 'ai_keywords',
+        'seo_title', 'seo_description', 'seo_keywords', 'seo_schema', 'recommendation_tags',
+        'dropship_note', 'unpublished_reason'
+    ).filter(
         featured=True,
         status='published'
     ).order_by('-id').first()
@@ -48,7 +52,11 @@ def home(request):
     
     # Пагинация
     page_number = request.GET.get('page', '1')
-    product_qs = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images').filter(status='published').order_by('-id')
+    product_qs = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images').defer(
+        'description', 'full_description', 'short_description', 'ai_description', 'ai_keywords',
+        'seo_title', 'seo_description', 'seo_keywords', 'seo_schema', 'recommendation_tags',
+        'dropship_note', 'unpublished_reason'
+    ).filter(status='published').order_by('-id')
     paginator = Paginator(product_qs, HOME_PRODUCTS_PER_PAGE)
 
     try:
@@ -103,7 +111,11 @@ def load_more_products(request):
         page = int(request.GET.get('page', 1))
         per_page = HOME_PRODUCTS_PER_PAGE
 
-        product_qs = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images').filter(status='published').order_by('-id')
+        product_qs = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images').defer(
+            'description', 'full_description', 'short_description', 'ai_description', 'ai_keywords',
+            'seo_title', 'seo_description', 'seo_keywords', 'seo_schema', 'recommendation_tags',
+            'dropship_note', 'unpublished_reason'
+        ).filter(status='published').order_by('-id')
         paginator = Paginator(product_qs, per_page)
 
         try:
@@ -157,17 +169,33 @@ def catalog(request, cat_slug=None):
     
     if cat_slug:
         category = get_object_or_404(Category, slug=cat_slug)
-        product_qs = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images').filter(
+        product_qs = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images').defer(
+            'description', 'full_description', 'short_description', 'ai_description', 'ai_keywords',
+            'seo_title', 'seo_description', 'seo_keywords', 'seo_schema', 'recommendation_tags',
+            'dropship_note', 'unpublished_reason'
+        ).filter(
             category=category,
             status='published'
         ).order_by('-id')
         show_category_cards = False
     else:
         category = None
-        product_qs = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images').filter(status='published').order_by('-id')
+        product_qs = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images').defer(
+            'description', 'full_description', 'short_description', 'ai_description', 'ai_keywords',
+            'seo_title', 'seo_description', 'seo_keywords', 'seo_schema', 'recommendation_tags',
+            'dropship_note', 'unpublished_reason'
+        ).filter(status='published').order_by('-id')
         show_category_cards = True
     
-    products = list(product_qs)
+    # Pagination
+    paginator = Paginator(product_qs, PRODUCTS_PER_PAGE)
+    page_number = request.GET.get('page')
+    try:
+        page_obj = paginator.get_page(page_number)
+    except EmptyPage:
+        page_obj = paginator.get_page(paginator.num_pages)
+
+    products = list(page_obj.object_list)
     color_previews = build_color_preview_map(products)
     
     for product in products:
@@ -181,7 +209,9 @@ def catalog(request, cat_slug=None):
             'category': category,
             'products': products,
             'show_category_cards': show_category_cards,
-            'cat_slug': cat_slug or ''
+            'cat_slug': cat_slug or '',
+            'page_obj': page_obj,
+            'paginator': paginator,
         }
     )
 
@@ -208,7 +238,11 @@ def search(request):
         category_slug = request.GET.get('category', '').strip()
         
         # Используем тот же подход, что и в рабочей версии из views.py
-        product_qs = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images').filter(status='published')
+        product_qs = Product.objects.select_related('category').prefetch_related('images', 'color_variants__images').defer(
+            'description', 'full_description', 'short_description', 'ai_description', 'ai_keywords',
+            'seo_title', 'seo_description', 'seo_keywords', 'seo_schema', 'recommendation_tags',
+            'dropship_note', 'unpublished_reason'
+        ).filter(status='published')
         
         if query:
             # Поиск по названию (базовый поиск, как в рабочей версии из views.py)

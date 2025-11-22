@@ -1,6 +1,7 @@
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.db import models
+from django.db.models import F
 from django.contrib.auth.models import User
 from django.conf import settings
 from django.utils import timezone
@@ -370,13 +371,14 @@ class Product(models.Model):
             return False
         return True
 
-    def get_offer_id(self, color_variant_id=None, size='S'):
+    def get_offer_id(self, color_variant_id=None, size='S', color_name=None):
         """
         Генерирует offer_id для синхронизации с Google Merchant Feed и пикселями.
         
         Args:
             color_variant_id: ID цветового варианта (опционально)
             size: Размер (S, M, L, XL, XXL)
+            color_name: Название цвета (опционально, для оптимизации)
         
         Returns:
             str: offer_id в формате TC-{id:04d}-{COLOR}-{SIZE}
@@ -388,7 +390,7 @@ class Product(models.Model):
             'TC-0001-RED-M'
         """
         from storefront.utils.analytics_helpers import get_offer_id
-        return get_offer_id(self.id, color_variant_id, size)
+        return get_offer_id(self.id, color_variant_id, size, color_name)
     
     def get_all_offer_ids(self, sizes=None):
         """
@@ -582,8 +584,8 @@ class PromoCode(models.Model):
     def use(self):
         """Использует промокод (увеличивает счетчик)"""
         if self.can_be_used():
-            self.current_uses += 1
-            self.save()
+            self.current_uses = F('current_uses') + 1
+            self.save(update_fields=['current_uses'])
             return True
         return False
     
@@ -1068,7 +1070,7 @@ class UTMSession(models.Model):
     
     def increment_visit(self):
         """Увеличивает счетчик визитов"""
-        self.visit_count += 1
+        self.visit_count = F('visit_count') + 1
         self.is_first_visit = False
         self.is_returning_visitor = True
         self.last_seen = timezone.now()

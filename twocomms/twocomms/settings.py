@@ -132,6 +132,7 @@ MIDDLEWARE = [
     "twocomms.middleware.ForceHTTPSMiddleware",  # Принудительный HTTPS
     "twocomms.middleware.WWWRedirectMiddleware",  # Редирект с www
     "django.middleware.security.SecurityMiddleware",
+    "django.middleware.gzip.GZipMiddleware",  # Gzip compression for dynamic responses
     "twocomms.middleware.SecurityHeadersMiddleware",  # CSP и дополнительные заголовки
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "twocomms.middleware.SimpleRateLimitMiddleware",  # Rate limiting (ПОСЛЕ статики!)

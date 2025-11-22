@@ -95,6 +95,7 @@ def create_order(request):
             variant_ids = [item.get('color_variant_id') for item in cart.values() if item.get('color_variant_id')]
             variants_map = ProductColorVariant.objects.in_bulk(variant_ids)
 
+            order_items = []
             for item in cart.values():
                 product = products_map.get(int(item['product_id']))
                 if not product:
@@ -106,15 +107,17 @@ def create_order(request):
                 variant_id = item.get('color_variant_id')
                 variant = variants_map.get(int(variant_id)) if variant_id else None
                 
-                OrderItem.objects.create(
+                order_items.append(OrderItem(
                     order=order,
                     product=product,
                     color_variant=variant,
                     size=item.get('size', 'S'),
                     quantity=qty,
                     price=price
-                )
+                ))
                 total_sum += price * qty
+
+            OrderItem.objects.bulk_create(order_items)
 
             order.total_sum = total_sum
             
@@ -164,7 +167,10 @@ def payment_callback(request):
     return redirect('home')
 
 def order_success(request, order_id):
-    order = get_object_or_404(Order, id=order_id)
+    order = get_object_or_404(
+        Order.objects.prefetch_related('items__product', 'items__color_variant'), 
+        id=order_id
+    )
     return render(request, 'storefront/order_success.html', {'order': order})
 
 def order_success_preview(request):

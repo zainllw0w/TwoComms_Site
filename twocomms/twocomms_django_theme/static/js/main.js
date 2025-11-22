@@ -9,7 +9,8 @@ import {
   getCookie,
   escapeHtml
 } from './modules/shared.js';
-import { PerformanceOptimizer, ImageOptimizer } from './modules/optimizers.js';
+import { PerformanceOptimizer, ImageOptimizer, MobileOptimizer } from './modules/optimizers.js';
+import { initProductMedia } from './modules/product-media.js';
 
 // Помечаем, что основной JS инициализирован и можно запускать анимации
 document.documentElement.classList.add('js-ready');
@@ -346,7 +347,10 @@ const io = supportsIO ? new IntersectionObserver(e => {
 
 document.addEventListener('DOMContentLoaded', () => {
   // Инициализация оптимизации изображений переносится в idle, чтобы не блокировать главный поток
-  scheduleIdle(() => ImageOptimizer.init());
+  scheduleIdle(() => {
+    ImageOptimizer.init();
+    MobileOptimizer.initMobileOptimizations();
+  });
 
   const registerRevealTargets = (scope = document) => {
     const basicTargets = scope.querySelectorAll('.reveal, .reveal-fast');

@@ -24,6 +24,7 @@ from django.db.models import (
     ExpressionWrapper,
     F,
     Sum,
+    Prefetch,
 )
 from django.http import JsonResponse, HttpResponse
 from django.template.loader import render_to_string
@@ -255,7 +256,9 @@ def _build_orders_context(request):
 
     orders_qs = (
         Order.objects.select_related('user')
-        .prefetch_related('items', 'items__product')
+        .prefetch_related(
+            Prefetch('items', queryset=OrderItem.objects.select_related('product'))
+        )
         .order_by('-created')
     )
 
