@@ -5,8 +5,6 @@ from django.apps import apps
 
 from storefront.models import Product, ProductImage, Category, CatalogOptionValue, SizeGrid, PrintProposal
 from productcolors.models import ProductColorImage
-from storefront.tasks import optimize_image_field_task
-
 
 class Command(BaseCommand):
     """
@@ -35,6 +33,8 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        from storefront.tasks import optimize_image_field_task  # импортируем внутри, чтобы избежать проблем с PYTHONPATH
+
         steps = {s.strip() for s in (options.get('steps') or '').split(',') if s.strip()}
         limit = options.get('limit')
         offset = options.get('offset') or 0
