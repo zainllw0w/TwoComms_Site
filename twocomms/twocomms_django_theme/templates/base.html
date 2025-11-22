@@ -361,9 +361,9 @@
 
   <!-- Асинхронная загрузка основного CSS с приоритизацией (Optimized by django-compressor) -->
   {% compress css %}
-  <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
-  <link rel="stylesheet" href="{% static 'css/styles.css' %}">
-  <link rel="stylesheet" href="{% static 'css/cls-ultimate.css' %}">
+  <link rel="stylesheet" href="{% static 'css/fonts.css' %}" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="{% static 'css/cls-ultimate.css' %}" media="print" onload="this.media='all'">
   {% endcompress %}
   <noscript>
     <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
