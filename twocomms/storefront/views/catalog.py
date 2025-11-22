@@ -22,7 +22,7 @@ from ..services.catalog_helpers import (
     get_categories_cached,
 )
 from cache_utils import get_fragment_cache
-from .utils import cache_page_for_anon, HOME_PRODUCTS_PER_PAGE
+from .utils import cache_page_for_anon, HOME_PRODUCTS_PER_PAGE, PRODUCTS_PER_PAGE
 
 
 # ==================== CATALOG VIEWS ====================
@@ -305,7 +305,6 @@ def search(request):
                 'error': 'Произошла ошибка при поиске. Попробуйте еще раз.'
             }
         )
-
 
 
 
