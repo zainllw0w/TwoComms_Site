@@ -1,4 +1,5 @@
 from django.urls import path
+from django.views.decorators.csrf import csrf_exempt
 from django.http import Http404
 from . import views
 # Import auth views from the modular auth.py module
@@ -138,7 +139,7 @@ urlpatterns=[
     path('cart/monobank/create-invoice/', views.monobank_create_invoice, name='monobank_create_invoice'),
     path('cart/monobank/quick/', views.monobank_create_checkout, name='monobank_quick_invoice'),
     path('payments/monobank/return/', views.monobank_return, name='monobank_return'),
-    path('payments/monobank/webhook/', views.monobank_webhook, name='monobank_webhook'),
+    path('payments/monobank/webhook/', csrf_exempt(views.monobank_webhook), name='monobank_webhook'),
     # API endpoints
     path('api/colors/', views.api_colors, name='api_colors'),
     path('debug/media/', views.debug_media, name='debug_media'),
