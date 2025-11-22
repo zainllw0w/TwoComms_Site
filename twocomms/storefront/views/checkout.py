@@ -171,7 +171,7 @@ def order_success(request, order_id):
         Order.objects.prefetch_related('items__product', 'items__color_variant'), 
         id=order_id
     )
-    return render(request, 'storefront/order_success.html', {'order': order})
+    return render(request, 'pages/order_success.html', {'order': order})
 
 def order_success_preview(request):
     """
@@ -183,10 +183,10 @@ def order_success_preview(request):
     except Exception:
         last_order = None
         
-    return render(request, 'storefront/order_success.html', {'order': last_order})
+    return render(request, 'pages/order_success.html', {'order': last_order})
 
 def order_failed(request):
-    return render(request, 'storefront/order_failed.html')
+    return render(request, 'pages/order_failed.html')
 
 def update_payment_method(request):
     """
