@@ -30,6 +30,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.core.cache import cache
 from django.db import transaction
+from django.contrib import messages
 
 import requests
 
@@ -241,7 +242,7 @@ class MonobankAPIError(Exception):
     pass
 
 
-def _monobank_api_request(method, endpoint, json_payload=None):
+def _monobank_api_request(method, endpoint, json_payload=None, params=None):
     """
     Выполняет запрос к API Monobank.
     
@@ -270,9 +271,9 @@ def _monobank_api_request(method, endpoint, json_payload=None):
     
     try:
         if method.upper() == 'POST':
-            response = requests.post(url, json=json_payload, headers=headers, timeout=30)
+            response = requests.post(url, json=json_payload, params=params, headers=headers, timeout=30)
         else:
-            response = requests.get(url, headers=headers, timeout=30)
+            response = requests.get(url, params=params, headers=headers, timeout=30)
         
         data = response.json()
         monobank_logger.info(f'Monobank API {method} {endpoint}: status={response.status_code}')
@@ -961,3 +962,155 @@ def _monobank_finalize_invoice(order, request=None):
     except Exception as e:
         monobank_logger.error(f'Error finalizing invoice {order.payment_invoice_id}: {e}', exc_info=True)
         return None
+
+
+# ==================== MONOBANK RETURN & WEBHOOK ====================
+
+def _ensure_payment_payload(order):
+    """Guarantee payment_payload has a history list."""
+    if not order.payment_payload or not isinstance(order.payment_payload, dict):
+        order.payment_payload = {}
+    if 'history' not in order.payment_payload or not isinstance(order.payment_payload.get('history'), list):
+        order.payment_payload['history'] = []
+
+
+def _append_payment_history(order, status, payload, source):
+    _ensure_payment_payload(order)
+    try:
+        order.payment_payload['history'].append({
+            'ts': timezone.now().isoformat(),
+            'status': status,
+            'source': source,
+            'payload': payload,
+        })
+    except Exception:
+        # keep it safe even if payload is not JSON-serialisable
+        order.payment_payload['history'].append({
+            'ts': timezone.now().isoformat(),
+            'status': status,
+            'source': source,
+            'payload': str(payload)[:1000],
+        })
+
+
+def _cleanup_after_success(request):
+    """Clear cart/promo and Mono session keys after successful payment."""
+    request.session.pop('cart', None)
+    request.session.pop('promo_code', None)
+    request.session.pop('promo_code_id', None)
+    request.session.pop('monobank_invoice_id', None)
+    request.session.pop('monobank_pending_order_id', None)
+    request.session.modified = True
+
+
+def _apply_monobank_status(order, status_value, payload=None, source='webhook'):
+    """
+    Apply Monobank status to Order, update history and payment_status.
+    """
+    status_lower = (status_value or '').lower()
+    _append_payment_history(order, status_lower, payload, source)
+
+    updated_fields = ['payment_payload', 'updated']
+
+    if status_lower in MONOBANK_SUCCESS_STATUSES:
+        order.payment_status = 'paid' if order.pay_type != 'prepay_200' else 'prepaid'
+        updated_fields.append('payment_status')
+    elif status_lower in MONOBANK_PENDING_STATUSES:
+        order.payment_status = 'checking'
+        updated_fields.append('payment_status')
+    elif status_lower in MONOBANK_FAILURE_STATUSES:
+        order.payment_status = 'unpaid'
+        updated_fields.append('payment_status')
+    else:
+        # Unknown status, keep history only
+        order.save(update_fields=['payment_payload'])
+        return status_lower
+
+    order.save(update_fields=list(set(updated_fields)))
+    return status_lower
+
+
+def _get_order_by_payment_refs(invoice_id=None, order_ref=None, order_id=None):
+    """
+    Locate an order using invoice_id or order_number/id.
+    """
+    qs = OrderModel.objects.select_related('user')
+    if invoice_id:
+        order = qs.filter(payment_invoice_id=invoice_id).order_by('-created').first()
+        if order:
+            return order
+    if order_ref:
+        order = qs.filter(order_number=order_ref).order_by('-created').first()
+        if order:
+            return order
+    if order_id:
+        try:
+            return qs.get(id=order_id)
+        except OrderModel.DoesNotExist:
+            return None
+    return None
+
+
+def monobank_return(request):
+    """
+    Handle user return from Monobank payment page: fetch status, update order, redirect to thank you.
+    """
+    invoice_id = request.GET.get('invoiceId') or request.session.get('monobank_invoice_id')
+    order_ref = request.GET.get('orderRef')
+    order_id = request.GET.get('orderId') or request.session.get('monobank_pending_order_id')
+
+    order = _get_order_by_payment_refs(invoice_id=invoice_id, order_ref=order_ref, order_id=order_id)
+    if not order:
+        messages.error(request, 'Замовлення не знайдено. Спробуйте ще раз.')
+        return redirect('cart')
+
+    status_value = None
+    status_payload = None
+    if invoice_id:
+        try:
+            status_payload = _monobank_api_request('GET', '/api/merchant/invoice/status', params={'invoiceId': invoice_id})
+            status_value = status_payload.get('status') or status_payload.get('statusCode')
+        except MonobankAPIError as exc:
+            monobank_logger.warning('Failed to fetch invoice status for %s: %s', invoice_id, exc)
+
+    applied_status = _apply_monobank_status(order, status_value or 'success', payload=status_payload, source='return')
+
+    if applied_status in MONOBANK_SUCCESS_STATUSES:
+        _cleanup_after_success(request)
+        messages.success(request, 'Оплату успішно отримано!')
+        return redirect('order_success', order_id=order.id)
+
+    if applied_status in MONOBANK_PENDING_STATUSES:
+        messages.info(request, 'Платіж обробляється. Ми повідомимо, щойно отримаємо підтвердження.')
+        return redirect('order_success', order_id=order.id)
+
+    messages.error(request, 'Оплату не завершено. Ви можете повторити спробу або обрати інший спосіб оплати.')
+    return redirect('cart')
+
+
+@csrf_exempt
+def monobank_webhook(request):
+    """
+    Receive status updates from Monobank webhook.
+    """
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        return HttpResponse(status=400)
+
+    invoice_id = payload.get('invoiceId') or payload.get('invoice_id')
+    result = payload.get('result') or payload
+    order_ref = result.get('orderRef') or result.get('order_ref')
+    order_id = result.get('orderId') or result.get('order_id')
+
+    order = _get_order_by_payment_refs(invoice_id=invoice_id, order_ref=order_ref, order_id=order_id)
+    if not order:
+        monobank_logger.warning('Webhook received for unknown invoice/order: %s / %s', invoice_id, order_ref)
+        return JsonResponse({'ok': True})
+
+    status_value = result.get('status') or payload.get('status')
+    _apply_monobank_status(order, status_value, payload=payload, source='webhook')
+    return JsonResponse({'ok': True})
