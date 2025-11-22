@@ -780,70 +780,70 @@
           label: 'Кількість',
           data: [
             {{ funnel_stats.total }},
-        {{ funnel_stats.product_views }},
-          {{ funnel_stats.add_to_cart }},
-  { { funnel_stats.initiate_checkout } },
-  { { funnel_stats.leads } },
-  { { funnel_stats.purchases } }
-        ],
-  backgroundColor: [
-    'rgba(139, 92, 246, 0.7)',
-    'rgba(59, 130, 246, 0.7)',
-    'rgba(16, 185, 129, 0.7)',
-    'rgba(245, 158, 11, 0.7)',
-    'rgba(236, 72, 153, 0.7)',
-    'rgba(16, 185, 129, 0.9)'
-  ],
-    borderColor: [
-      'rgba(139, 92, 246, 1)',
-      'rgba(59, 130, 246, 1)',
-      'rgba(16, 185, 129, 1)',
-      'rgba(245, 158, 11, 1)',
-      'rgba(236, 72, 153, 1)',
-      'rgba(16, 185, 129, 1)'
-    ],
-      borderWidth: 2,
-        borderRadius: 8
-      }]
-    },
-  options: {
-    responsive: true,
-      maintainAspectRatio: false,
-        plugins: {
-      legend: {
-        display: false
+            {{ funnel_stats.product_views }},
+            {{ funnel_stats.add_to_cart }},
+            {{ funnel_stats.initiate_checkout }},
+            {{ funnel_stats.leads }},
+            {{ funnel_stats.purchases }}
+          ],
+          backgroundColor: [
+            'rgba(139, 92, 246, 0.7)',
+            'rgba(59, 130, 246, 0.7)',
+            'rgba(16, 185, 129, 0.7)',
+            'rgba(245, 158, 11, 0.7)',
+            'rgba(236, 72, 153, 0.7)',
+            'rgba(16, 185, 129, 0.9)'
+          ],
+          borderColor: [
+            'rgba(139, 92, 246, 1)',
+            'rgba(59, 130, 246, 1)',
+            'rgba(16, 185, 129, 1)',
+            'rgba(245, 158, 11, 1)',
+            'rgba(236, 72, 153, 1)',
+            'rgba(16, 185, 129, 1)'
+          ],
+          borderWidth: 2,
+          borderRadius: 8
+        }]
       },
-      tooltip: {
-        backgroundColor: 'rgba(24, 26, 31, 0.95)',
-          titleColor: '#e5e7eb',
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            backgroundColor: 'rgba(24, 26, 31, 0.95)',
+            titleColor: '#e5e7eb',
             bodyColor: '#e5e7eb',
-              borderColor: 'rgba(139, 92, 246, 0.5)',
-                borderWidth: 1,
-                  padding: 12,
-                    cornerRadius: 8
-      }
-    },
-    scales: {
-      x: {
-        grid: {
-          display: false
+            borderColor: 'rgba(139, 92, 246, 0.5)',
+            borderWidth: 1,
+            padding: 12,
+            cornerRadius: 8
+          }
         },
-        ticks: {
-          font: {
-            size: 11
+        scales: {
+          x: {
+            grid: {
+              display: false
+            },
+            ticks: {
+              font: {
+                size: 11
+              }
+            }
+          },
+          y: {
+            beginAtZero: true,
+            grid: {
+              color: 'rgba(255, 255, 255, 0.05)'
+            }
           }
         }
-      },
-      y: {
-        beginAtZero: true,
-          grid: {
-          color: 'rgba(255, 255, 255, 0.05)'
-        }
       }
-    }
+    });
   }
-  });
-}
 
   // Initialize Sources Chart
   function initSourcesChart() {
@@ -852,110 +852,114 @@
 
     const sourcesData = [
       {% for source in sources_stats|slice:":10" %}
-  {
-    name: '{{ source.utm_source|default_if_none:"direct" }}',
-      sessions: { { source.sessions } },
-    conversions: { { source.conversions } },
-    revenue: { { source.revenue | floatformat: 0 } }
-  } {% if not forloop.last %}, {% endif %}
-  {% endfor %}
-  ];
+      {
+        name: '{{ source.utm_source|default_if_none:"direct" }}',
+        sessions: {{ source.sessions }},
+        conversions: {{ source.conversions }},
+        revenue: {{ source.revenue|floatformat:0 }}
+      }{% if not forloop.last %},{% endif %}
+      {% endfor %}
+    ];
 
-  new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: sourcesData.map(s => s.name),
-      datasets: [
-        {
-          label: 'Сесії',
-          data: sourcesData.map(s => s.sessions),
-          borderColor: 'rgba(139, 92, 246, 1)',
-          backgroundColor: 'rgba(139, 92, 246, 0.1)',
-          borderWidth: 3,
-          fill: true,
-          tension: 0.4,
-          pointBackgroundColor: 'rgba(139, 92, 246, 1)',
-          pointBorderColor: '#fff',
-          pointBorderWidth: 2,
-          pointRadius: 5,
-          pointHoverRadius: 7
-        },
-        {
-          label: 'Конверсії',
-          data: sourcesData.map(s => s.conversions),
-          borderColor: 'rgba(16, 185, 129, 1)',
-          backgroundColor: 'rgba(16, 185, 129, 0.1)',
-          borderWidth: 3,
-          fill: true,
-          tension: 0.4,
-          pointBackgroundColor: 'rgba(16, 185, 129, 1)',
-          pointBorderColor: '#fff',
-          pointBorderWidth: 2,
-          pointRadius: 5,
-          pointHoverRadius: 7
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          display: true,
-          position: 'top',
-          labels: {
-            padding: 16,
-            usePointStyle: true,
-            font: {
-              size: 12,
-              weight: '600'
-            }
-          }
-        },
-        tooltip: {
-          backgroundColor: 'rgba(24, 26, 31, 0.95)',
-          titleColor: '#e5e7eb',
-          bodyColor: '#e5e7eb',
-          borderColor: 'rgba(139, 92, 246, 0.5)',
-          borderWidth: 1,
-          padding: 12,
-          cornerRadius: 8,
-          displayColors: true
-        }
-      },
-      scales: {
-        x: {
-          grid: {
-            display: false
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: sourcesData.map(s => s.name),
+        datasets: [
+          {
+            label: 'Сесії',
+            data: sourcesData.map(s => s.sessions),
+            borderColor: 'rgba(139, 92, 246, 1)',
+            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: 'rgba(139, 92, 246, 1)',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 5,
+            pointHoverRadius: 7
           },
-          ticks: {
-            font: {
-              size: 11
+          {
+            label: 'Конверсії',
+            data: sourcesData.map(s => s.conversions),
+            borderColor: 'rgba(16, 185, 129, 1)',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: 'rgba(16, 185, 129, 1)',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 5,
+            pointHoverRadius: 7
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+            labels: {
+              padding: 16,
+              usePointStyle: true,
+              font: {
+                size: 12,
+                weight: '600'
+              }
+            }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(24, 26, 31, 0.95)',
+            titleColor: '#e5e7eb',
+            bodyColor: '#e5e7eb',
+            borderColor: 'rgba(139, 92, 246, 0.5)',
+            borderWidth: 1,
+            padding: 12,
+            cornerRadius: 8,
+            displayColors: true
+          }
+        },
+        scales: {
+          x: {
+            grid: {
+              display: false
+            },
+            ticks: {
+              font: {
+                size: 11
+              }
+            }
+          },
+          y: {
+            beginAtZero: true,
+            grid: {
+              color: 'rgba(255, 255, 255, 0.05)'
             }
           }
         },
-        y: {
-          beginAtZero: true,
-          grid: {
-            color: 'rgba(255, 255, 255, 0.05)'
-          }
+        interaction: {
+          intersect: false,
+          mode: 'index'
         }
-      },
-      interaction: {
-        intersect: false,
-        mode: 'index'
       }
-    }
-  });
-}
+    });
+  }
 
   // Initialize charts on page load
   document.addEventListener('DOMContentLoaded', function () {
-    initFunnelChart();
-    initSourcesChart();
-    const funnelConversionRateEl = document.getElementById('funnel-conversion-rate');
-    if (funnelConversionRateEl) {
-      funnelConversionRateEl.textContent = 'CR покупки: {{ funnel_stats.purchase_rate }}%';
+    try {
+      initFunnelChart();
+      initSourcesChart();
+      const funnelConversionRateEl = document.getElementById('funnel-conversion-rate');
+      if (funnelConversionRateEl) {
+        funnelConversionRateEl.textContent = 'CR покупки: {{ funnel_stats.purchase_rate }}%';
+      }
+    } catch (e) {
+      console.error('Dispatcher charts init error', e);
     }
   });
 
@@ -1318,4 +1322,10 @@
   if (abTestLoadBtn) {
     abTestLoadBtn.addEventListener('click', loadABTestResults);
   }
+
+  // expose functions for inline handlers
+  window.viewSessionDetail = viewSessionDetail;
+  window.closeSessionDetail = closeSessionDetail;
+  window.loadABTestResults = loadABTestResults;
+  window.loadCohortAnalysis = loadCohortAnalysis;
 </script>
