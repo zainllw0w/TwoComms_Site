@@ -19,6 +19,30 @@ def add_cache_headers(headers, path, url):
     """
     Добавляет эффективные заголовки кеширования для разных типов ресурсов
     """
+    # Специальные заголовки для Service Worker
+    if path.endswith('sw.js') or 'sw.js' in path:
+        service_worker_csp = (
+            "default-src 'self'; "
+            "connect-src 'self' "
+            "https://www.googletagmanager.com https://googletagmanager.com https://tagmanager.google.com "
+            "https://www.google-analytics.com https://ssl.google-analytics.com https://analytics.google.com "
+            "https://region1.analytics.google.com https://region1.google-analytics.com "
+            "https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net "
+            "https://www.google.com https://*.google.com "
+            "https://www.facebook.com https://connect.facebook.net https://graph.facebook.com https://*.facebook.com "
+            "https://analytics.tiktok.com https://ads.tiktok.com "
+            "https://www.clarity.ms https://scripts.clarity.ms https://*.clarity.ms; "
+            "script-src 'self'; "
+            "worker-src 'self'; "
+        )
+        headers['Cache-Control'] = 'public, max-age=0, must-revalidate'
+        headers['Content-Security-Policy'] = service_worker_csp
+        headers['Service-Worker-Allowed'] = '/'
+        headers['Vary'] = 'Accept-Encoding'
+        headers['X-Content-Type-Options'] = 'nosniff'
+        headers['X-Frame-Options'] = 'SAMEORIGIN'
+        return headers
+
     # Определяем тип файла по расширению
     file_extension = Path(path).suffix.lower()
     
