@@ -944,9 +944,12 @@ def admin_product_builder(request, product_id=None):
         'total': total_steps,
         'percent': progress_percent,
     }
+    # Для нового товара product.pk == None, но нам нужен объект в шаблоне,
+    # чтобы выражения вида product.price не падали.
+    product_for_view = product_form.instance if product_form is not None else product
 
     context = {
-        'product': product if product.pk else None,
+        'product': product_for_view,
         'product_form': product_form,
         'seo_form': seo_form,
         'size_grid_form': size_grid_form,
