@@ -1,20 +1,5 @@
 /* Анимация свечения цены - упрощенная */
-@keyframes priceGlow {
-  0% {
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-    transform: scale(1);
-  }
 
-  50% {
-    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4));
-    transform: scale(1.02);
-  }
-
-  100% {
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-    transform: scale(1);
-  }
-}
 
 /* PERF: soften global glassmorphism where expensive */
 .perf-lite .modal,

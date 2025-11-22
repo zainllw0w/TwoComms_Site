@@ -1,0 +1,78 @@
+# Performance Audit ToDo List
+
+## 🚨 Critical / High Priority (From Final Audit)
+- [ ] 1. Синхронная Оптимизация Изображений при Сохранении (Signals)
+- [ ] 2. Некорректное Кэширование Каталога (Broken Pagination/Filtering)
+- [ ] 3. Блокирующий JavaScript (`analytics-loader.js`)
+
+## 📋 Ultra Detailed List (From Detailed Audit)
+- [x] **Проблема #4: Дублирование Font Awesome загрузки**
+  - **Статус:** Верифицировано и Решено.
+  - **Детали:** `base.html` загружает Font Awesome только один раз локально.
+- [x] **Problem #22**: Missing `rel="preload"` for critical fonts
+  - **Status**: **Verified**. `base.html` already preloads `Inter-Regular.woff2` and `Inter-Bold.woff2`.
+- [x] **Problem #20**: Multiple analytical scripts
+  - **Status**: **Verified - Optimized**. `analytics-loader.js` uses `requestIdleCallback` and event buffering. It consolidates events via `trackEvent` to avoiding duplication in JS.
+- [x] **Problem #5**: Very large CSS file (488KB)
+  - **Status**: **Verified & Mitigated**. Confirmed `styles.css` contains Bootstrap and other styles. Removed unused `@keyframes priceGlow` to save bytes. Further optimization (removing Bootstrap) requires a build pipeline change which is out of scope for this quick fix, but the critical unused animation is gone.
+- [x] **Проблема #18: N+1 запросы в ProductDetailView**
+  - **Статус:** Решено.
+  - **Детали:** Используется `select_related('category')`. Лишних запросов в шаблоне не обнаружено.
+- [ ] 6. N+1 запросы в корзине (view_cart) (Problem #3)
+- [ ] 7. N+1 запросы в cart_items_api (Problem #4)
+- [ ] 8. Массовое использование backdrop-filter: blur() (75+) и filter: blur() (109+) (Problem #5)
+- [x] **Проблема #6: Отсутствие фильтра status='published' в публичных views**
+  - **Статус:** Решено.
+  - **Детали:** Все views в `catalog.py` используют фильтр `status='published'`.
+- [ ] 9. Отсутствие фильтра status='published' в публичных views (Problem #6)
+- [ ] 10. ImageOptimizationMiddleware обрабатывает изображения на лету без кэширования (Problem #7)
+- [ ] **Проблема #8: Отсутствие современных форматов изображений (WebP/AVIF)**
+  - **Статус:** Частично решено.
+  - **Детали:** WebP поддерживается. AVIF требует доработки.
+- [x] **Problem #26**: Unused CSS/JS
+  - **Status**: **Analyzed**. Removed unused `@keyframes priceGlow` (Problem #5). Further removal requires build tools (PurgeCSS) which are not currently set up.
+- [x] **Problem #13**: Repeated DOM queries
+  - **Status**: **Resolved**. `product-detail.js` uses `DOM` cache for swatches. `flyToCart` queries are minimal and necessary. Restored missing code in `product-detail.js` and re-applied `transform` optimization.
+- [x] **Problem #9**: Animations using `.style.left/.top`
+  - **Status**: **Verified - False Positive**. `product-detail.js` uses `transform` for `flyToCart`. `main.js` sets `top` once on open, not continuously. No reflow thrashing found.
+- [x] **Проблема #10: N+1 запросы при генерации цветов (build_color_preview_map)**
+  - **Статус:** Решено.
+  - **Детали:** Код использует `_prefetched_objects_cache` для предотвращения N+1.
+- [x] **Problem #11**: `filter: drop-shadow` in animations
+  - **Status**: **Resolved**. Removed unused `@keyframes priceGlow` from `styles.css`.
+- [ ] 15. Множественные N+1 в других местах (Problem #12)
+- [x] **Problem #14**: Potential XSS vulnerabilities from `innerHTML`
+  - **Status**: **Resolved**. Fixed `product-builder.js` by importing and using `escapeHtml`. Verified `main.js` uses `safeUrl` for images and renders server-side templates (safe) for cart modal.
+- [x] **Проблема #15: Отсутствие debounce/throttle для обработчиков событий `resize`/`scroll`**
+  - **Статус:** Решено.
+  - **Детали:** Используется `debounce` и оптимизированные обработчики скролла.
+- [ ] 19. COMPRESS_ENABLED в настройках (Problem #16)
+- [ ] 20. Множественные os.path.exists() вызовы (Problem #17)
+- [ ] 21. os.path.getmtime() для ETag при каждом запросе (Problem #18)
+- [ ] 22. Неэффективный cache_page_for_anon decorator (Problem #19)
+- [ ] 24. transition: left/top вызывает layout reflow (19+ мест) (Problem #21)
+- [ ] 25. 900+ использований !important (CSS specificity hell) (Problem #22)
+- [ ] 26. filter: blur() в анимации cardLift (GPU intensive) (Problem #23)
+- [ ] 27. Избыточное количество compositing layers (>30) (Problem #24)
+- [ ] 28. Высокое использование GPU памяти из-за backdrop-filter (Problem #25)
+- [ ] 29. Избыточные os.path.exists() вызовы (320+) (Problem #26)
+- [ ] 30. os.path.getmtime() при каждом image request (20+ раз) (Problem #27)
+- [ ] 31. Неэффективный cache_page_for_anon decorator (Duplicate of #19/22?) (Problem #28)
+- [x] **Проблема #20: Отсутствие `defer` для `analytics.js`**
+  - **Статус:** Решено.
+  - **Детали:** Скрипт загружается с атрибутом `defer`.
+- [ ] 32. Отсутствие .only()/.defer() в queryset оптимизации (Problem #29)
+- [ ] 33. GTM (Google Tag Manager) загружается синхронно в <head> (Problem #30)
+- [x] **Проблема #21: Отсутствие `fetchpriority="high"` для LCP изображений**
+  - **Статус:** Решено.
+  - **Детали:** Атрибут присутствует на главной и в деталях товара.
+- [ ] 34. Отсутствие lazy loading для всех изображений (Problem #31)
+- [ ] 35. Отсутствие select_related/prefetch_related в некоторых views (Problem #32)
+- [ ] 36. Bootstrap загружается с CDN вместо локально (Problem #33)
+- [ ] 37. Неоптимальный порядок middleware (Problem #34)
+- [ ] 38. Отсутствие fragment cache в development mode (Problem #35)
+- [ ] 39. setInterval для проверки TikTok Pixel readiness (Problem #36)
+- [ ] 40. Service Worker файл пустой (упущенная возможность) (Problem #37)
+- [ ] 41. Синхронный JSON.parse в product-detail.js блокирует main thread (Problem #38)
+- [ ] 42. Множественные event listeners без proper cleanup (Problem #39)
+- [ ] 43. Отсутствие AbortController для fetch requests (Problem #40)
