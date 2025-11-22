@@ -23,6 +23,10 @@
   <meta name='viewport' content='width=device-width, initial-scale=1'>
   <meta name="csrf-token" content="{{ csrf_token }}">
 
+  <!-- Preload критических стилей -->
+  <link rel="preload" href="{% static 'css/fonts.css' %}" as="style">
+  <link rel="preload" href="{% static 'css/styles.css' %}" as="style">
+
   <!-- Font Awesome: Local bundle (optimized via WhiteNoise) -->
   <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
 
