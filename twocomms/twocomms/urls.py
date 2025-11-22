@@ -53,6 +53,10 @@ urlpatterns = [
     path("favicon.ico", RedirectView.as_view(
         url=staticfiles_storage.url("img/favicon.ico"), permanent=False
     )),
+    # PWA sw.js явный маршрут
+    path("sw.js", RedirectView.as_view(
+        url=staticfiles_storage.url("sw.js"), permanent=False
+    )),
     # Явный маршрут для /robots.txt → прямая отдача, без статики
     path("robots.txt", storefront_views.robots_txt, name="robots_txt"),
     # Fallback на случай, если где-то закешировался старый редирект на /static/robots.txt
