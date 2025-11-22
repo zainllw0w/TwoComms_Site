@@ -277,9 +277,21 @@ class Product(models.Model):
             return self.main_image
         
         # Если нет главного изображения, ищем в цветах
-        first_color_variant = self.color_variants.first()
+        # Оптимизация: используем предзагруженные данные, если они есть
+        if hasattr(self, '_prefetched_objects_cache') and 'color_variants' in self._prefetched_objects_cache:
+            variants = list(self.color_variants.all())
+            first_color_variant = variants[0] if variants else None
+        else:
+            first_color_variant = self.color_variants.first()
+            
         if first_color_variant:
-            first_image = first_color_variant.images.first()
+            # Оптимизация для изображений варианта
+            if hasattr(first_color_variant, '_prefetched_objects_cache') and 'images' in first_color_variant._prefetched_objects_cache:
+                images = list(first_color_variant.images.all())
+                first_image = images[0] if images else None
+            else:
+                first_image = first_color_variant.images.first()
+                
             if first_image:
                 return first_image.image
         
