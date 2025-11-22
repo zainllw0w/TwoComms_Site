@@ -19,7 +19,10 @@ Storefront views package.
 - static_pages.py - Статические страницы (в разработке)
 """
 
+import importlib.machinery
+import importlib.util
 from functools import wraps
+from pathlib import Path
 
 # ==================== НОВЫЕ МОДУЛИ ====================
 
@@ -224,6 +227,56 @@ from .legacy_stubs import (
     admin_delete_dropship_order,
     monobank_create_checkout, monobank_return
 )
+
+# ==================== LEGACY LOADER ====================
+# Подгружаем критичные старые вьюхи из монолитного views.py при обращении к legacy-маршрутам.
+_LEGACY_MODULE_LOADED = False
+_LEGACY_VIEW_NAMES = (
+    'admin_update_user',
+    'admin_order_update',
+    'admin_update_payment_status',
+    'admin_approve_payment',
+    'admin_order_delete',
+    'admin_category_new',
+    'admin_category_edit',
+    'admin_category_delete',
+    'admin_product_new',
+    'admin_product_edit',
+    'admin_product_edit_simple',
+    'admin_product_edit_unified',
+    'admin_product_delete',
+    'admin_product_colors',
+    'admin_product_color_delete',
+    'admin_product_image_delete',
+)
+
+
+def _load_legacy_views(force: bool = False):
+    """
+    Ленивая загрузка функций из старого views.py (views.py.backup).
+    Нужна для обратной совместимости маршрутов /admin-panel/product/new/ и др.
+    """
+    global _LEGACY_MODULE_LOADED
+    if _LEGACY_MODULE_LOADED and not force:
+        return
+
+    legacy_path = Path(__file__).resolve().parent.parent / 'views.py.backup'
+    if not legacy_path.exists():
+        return
+
+    loader = importlib.machinery.SourceFileLoader('storefront.legacy_views_backup', str(legacy_path))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    if not spec or not spec.loader:
+        return
+
+    legacy_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(legacy_module)
+
+    for name in _LEGACY_VIEW_NAMES:
+        if name not in globals() and hasattr(legacy_module, name):
+            globals()[name] = getattr(legacy_module, name)
+
+    _LEGACY_MODULE_LOADED = True
 
 
 # ==================== АЛИАСЫ ДЛЯ ОБРАТНОЙ СОВМЕСТИМОСТИ ====================

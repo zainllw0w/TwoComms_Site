@@ -1,4 +1,5 @@
 from django.urls import path
+from django.http import Http404
 from . import views
 # Import auth views from the modular auth.py module
 from .views import auth as auth_views
@@ -10,7 +11,12 @@ def _legacy_view(name):
     def _wrapped(request, *args, **kwargs):
         from . import views as storefront_views
 
-        handler = getattr(storefront_views, name)
+        if hasattr(storefront_views, '_load_legacy_views'):
+            storefront_views._load_legacy_views()
+
+        handler = getattr(storefront_views, name, None)
+        if handler is None:
+            raise Http404(f"Legacy view '{name}' not found")
         return handler(request, *args, **kwargs)
 
     _wrapped.__name__ = name
