@@ -185,6 +185,8 @@ from .utils import get_liqpay_context
 from .monobank import (
     monobank_create_invoice,
     _monobank_finalize_invoice,
+    monobank_webhook,
+    monobank_return,
 )
 
 # Админка
@@ -225,7 +227,6 @@ from .legacy_stubs import (
     reset_all_invoices_status,
     admin_update_dropship_status, admin_get_dropship_order, admin_update_dropship_order,
     admin_delete_dropship_order,
-    monobank_create_checkout, monobank_return
 )
 
 # ==================== LEGACY LOADER ====================
@@ -378,5 +379,5 @@ __all__ = [
     'reset_all_invoices_status',
     'admin_update_dropship_status', 'admin_get_dropship_order', 'admin_update_dropship_order',
     'admin_delete_dropship_order',
-    'monobank_create_checkout', 'monobank_return'
+    'monobank_webhook', 'monobank_return'
 ]
