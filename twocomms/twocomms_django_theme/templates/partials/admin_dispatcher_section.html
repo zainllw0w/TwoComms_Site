@@ -862,7 +862,7 @@
     if (!ctx || typeof Chart === 'undefined') return;
 
     const sourcesData = [
-      {% for source in sources_stats | slice: ":10" %}
+      {% for source in sources_stats|slice:":10" %}
   {
     name: '{{ source.utm_source|default_if_none:"direct" }}',
       sessions: { { source.sessions } },
