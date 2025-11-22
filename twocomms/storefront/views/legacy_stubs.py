@@ -66,10 +66,10 @@ def cooperation(request): return render(request, 'pages/cooperation.html')
 
 # ==================== WHOLESALE STUBS ====================
 def pricelist_redirect(request): return redirect('home')
-def pricelist_page(request): return render(request, 'pages/stub.html')
+def pricelist_page(request): return render(request, 'pages/wholesale.html')
 def test_pricelist(request): return JsonResponse({'status': 'ok'})
-def wholesale_page(request): return render(request, 'pages/stub.html')
-def wholesale_order_form(request): return render(request, 'pages/stub.html')
+def wholesale_page(request): return render(request, 'pages/wholesale.html')
+def wholesale_order_form(request): return render(request, 'pages/wholesale_order_form.html')
 def generate_wholesale_invoice(request): return redirect('wholesale_page')
 def download_invoice_file(request, invoice_id): raise Http404
 def delete_wholesale_invoice(request, invoice_id): return redirect('wholesale_page')
