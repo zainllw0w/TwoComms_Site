@@ -91,14 +91,8 @@ class ImageOptimizationMiddleware(MiddlewareMixin):
             if content is None:
                 # Streaming/FileResponse без .content оптимизировать не будем
                 return response
-            if len(content) <= self.SMALL_IMAGE_THRESHOLD:
-                optimized_response = self._optimize_and_build_response(
-                    cache_path,
-                    content,
-                    response
-                )
-                return optimized_response or response
-            # Для крупных файлов — тёплый кэш в фоне, чтобы не блокировать ответ
+            # Всегда используем фоновую оптимизацию, чтобы не блокировать поток
+            # Отдаем оригинал первому пользователю (Optimistic Response)
             self._schedule_async_optimization(cache_path, content)
             response['X-Image-Cache'] = 'WARMUP'
             return response

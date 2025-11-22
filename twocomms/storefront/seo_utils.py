@@ -109,7 +109,7 @@ class SEOKeywordGenerator:
         # Ключевые слова по цветам (если есть цветовые варианты)
         try:
             from productcolors.models import ProductColorVariant
-            color_variants = ProductColorVariant.objects.filter(product=product)
+            color_variants = ProductColorVariant.objects.filter(product=product).select_related('color')
             for variant in color_variants:
                 if variant.color and variant.color.name:
                     color_name = variant.color.name.lower()
@@ -479,7 +479,7 @@ class StructuredDataGenerator:
         # Добавляем изображения из цветовых вариантов
         try:
             from productcolors.models import ProductColorVariant
-            color_variants = ProductColorVariant.objects.filter(product=product)
+            color_variants = ProductColorVariant.objects.filter(product=product).prefetch_related('images')
             for variant in color_variants[:2]:  # Максимум 2 цветовых варианта
                 for img in variant.images.all()[:2]:
                     if f"https://twocomms.shop{img.image.url}" not in images:
@@ -617,7 +617,7 @@ class StructuredDataGenerator:
         # Изображения цветовых вариантов
         try:
             from productcolors.models import ProductColorVariant
-            color_variants = ProductColorVariant.objects.filter(product=product)
+            color_variants = ProductColorVariant.objects.filter(product=product).prefetch_related('images')
             for variant in color_variants:
                 for img in variant.images.all():
                     img_url = f"https://twocomms.shop{img.image.url}"
@@ -740,7 +740,7 @@ class StructuredDataGenerator:
         try:
             from productcolors.models import ProductColorVariant
             colors = []
-            color_variants = ProductColorVariant.objects.filter(product=product)
+            color_variants = ProductColorVariant.objects.filter(product=product).select_related('color')
             for variant in color_variants:
                 if variant.color and variant.color.name:
                     colors.append(variant.color.name)

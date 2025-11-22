@@ -6,7 +6,8 @@
 <!DOCTYPE html>
 <html lang='uk' data-bs-theme='dark' {% if not debug %}data-ga-id="G-109EFTWM05" data-clarity-id="t7u94cvpqc"
   data-meta-pixel-id="823958313630148" {% endif %}
-  data-tiktok-pixel-id="{% if TIKTOK_PIXEL_ID %}{{ TIKTOK_PIXEL_ID }}{% else %}D43L7DBC77UA61AHLTVG{% endif %}"{% if TIKTOK_TEST_EVENT_CODE %} data-tiktok-test-event-code="{{ TIKTOK_TEST_EVENT_CODE }}"{% endif %}>
+  data-tiktok-pixel-id="{% if TIKTOK_PIXEL_ID %}{{ TIKTOK_PIXEL_ID }}{% else %}D43L7DBC77UA61AHLTVG{% endif %}" {% if
+  TIKTOK_TEST_EVENT_CODE %} data-tiktok-test-event-code="{{ TIKTOK_TEST_EVENT_CODE }}" {% endif %}>
 
 <head>
   {% if not debug %}
@@ -26,6 +27,9 @@
   <!-- Preload критических стилей -->
   <link rel="preload" href="{% static 'css/fonts.css' %}" as="style">
   <link rel="preload" href="{% static 'css/styles.css' %}" as="style">
+  <!-- Preload критических шрифтов -->
+  <link rel="preload" href="{% static 'fonts/Inter-Regular.woff2' %}" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="{% static 'fonts/Inter-Bold.woff2' %}" as="font" type="font/woff2" crossorigin>
 
   <!-- Font Awesome: Local bundle (optimized via WhiteNoise) -->
   <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
@@ -453,7 +457,11 @@
   <!-- Meta Pixel Code - оптимизированная загрузка -->
   {% if request.user.is_authenticated %}
   {% with user_profile=request.user.userprofile %}
-  <div id="am" data-external-id="{{ request.user.id }}" data-em="{{ request.user.email|default:user_profile.email|default:''|lower|escapejs }}" data-ph="{{ user_profile.phone|default:''|escapejs }}" data-fn="{{ user_profile.full_name|default:request.user.get_full_name|default:''|escapejs }}" data-ct="{{ user_profile.city|default:''|escapejs }}" style="display:none"></div>
+  <div id="am" data-external-id="{{ request.user.id }}"
+    data-em="{{ request.user.email|default:user_profile.email|default:''|lower|escapejs }}"
+    data-ph="{{ user_profile.phone|default:''|escapejs }}"
+    data-fn="{{ user_profile.full_name|default:request.user.get_full_name|default:''|escapejs }}"
+    data-ct="{{ user_profile.city|default:''|escapejs }}" style="display:none"></div>
   {% endwith %}
   {% else %}
   {% if not debug %}

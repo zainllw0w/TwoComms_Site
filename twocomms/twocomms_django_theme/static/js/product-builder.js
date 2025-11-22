@@ -1,4 +1,4 @@
-import { scheduleIdle, getCookie } from './modules/shared.js';
+import { scheduleIdle, getCookie, escapeHtml } from './modules/shared.js';
 import { ImageOptimizer } from './modules/optimizers.js';
 
 const qs = (selector, scope = document) => scope.querySelector(selector);
@@ -326,8 +326,8 @@ class ProductBuilder {
     catalog.size_grids.forEach(grid => {
       const item = document.createElement('div');
       item.className = 'size-grid-preview-item';
-      const description = grid.description ? `<p>${grid.description}</p>` : '';
-      item.innerHTML = `<h6>${grid.name}</h6>${description}`;
+      const description = grid.description ? `<p>${escapeHtml(grid.description)}</p>` : '';
+      item.innerHTML = `<h6>${escapeHtml(grid.name)}</h6>${description}`;
       fragment.appendChild(item);
     });
     this.sizeGridList.append(fragment);
