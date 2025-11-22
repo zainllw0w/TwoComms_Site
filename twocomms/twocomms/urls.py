@@ -34,7 +34,7 @@ urlpatterns = [
     
     # Social auth - только для OAuth путей
     path('oauth/', include('social_django.urls', namespace='social')),
-    path('social/', include('social_django.urls')),  # fallback для старых ссылок
+    path('social/', include(('social_django.urls', 'social'), namespace='social_fallback')),  # fallback для старых ссылок
     path("admin/", admin.site.urls),
     
     # Accounts
