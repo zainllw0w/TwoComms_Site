@@ -12,14 +12,14 @@ from django.core.management import call_command
 try:
     from twocomms.image_optimizer import ImageOptimizer
 except ModuleNotFoundError:
-    base_dir = Path(__file__).resolve().parents[3]  # project root (parent of package "twocomms")
-    if str(base_dir) not in sys.path:
-        sys.path.append(str(base_dir))
+    base_dir = Path(__file__).resolve().parent.parent  # twocomms/
+    if str(base_dir.parent) not in sys.path:
+        sys.path.append(str(base_dir.parent))
     try:
         from twocomms.image_optimizer import ImageOptimizer
     except ModuleNotFoundError:
         # Последний шанс: грузим модуль напрямую по пути
-        module_path = Path(__file__).resolve().parents[2] / "image_optimizer.py"
+        module_path = base_dir / "image_optimizer.py"
         from importlib.machinery import SourceFileLoader
         ImageOptimizer = SourceFileLoader("twocomms.image_optimizer", str(module_path)).load_module().ImageOptimizer
 
