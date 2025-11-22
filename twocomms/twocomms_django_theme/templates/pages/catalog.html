@@ -147,11 +147,15 @@
     <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4" data-stagger-grid>
       {% for p in products %}
       <div class="col product-card-wrap">
-        {% cache 900 product_card p.id p.final_price p.discount_percent p.display_image.name p.category_id
-        forloop.counter0 %}
-        {% if forloop.counter0 < 6 %} {% include "partials/product_card.html" with p=p stagger=False eager=True
-          animate=False %} {% else %} {% include "partials/product_card.html" with p=p stagger=False eager=False
-          animate=False %} {% endif %} {% endcache %} {% if p.colors_preview %} <div class="product-card-dots">
+        {% cache 900 product_card p.id p.final_price p.discount_percent p.display_image.name p.category_id forloop.counter0 %}
+          {% if forloop.counter0 < 6 %}
+            {% include "partials/product_card.html" with p=p stagger=False eager=True animate=False %}
+          {% else %}
+            {% include "partials/product_card.html" with p=p stagger=False eager=False animate=False %}
+          {% endif %}
+        {% endcache %}
+        {% if p.colors_preview %}
+        <div class="product-card-dots">
           <span class="text-secondary small me-1">Кольори:</span>
           <div class="d-flex align-items-center gap-1">
             {% for v in p.colors_preview %}
@@ -160,19 +164,19 @@
               data-image-url="{{ v.first_image_url|default:'' }}"></span>
             {% endfor %}
           </div>
+        </div>
+        {% endif %}
       </div>
-      {% endif %}
+      {% empty %}
+      <div class="text-secondary small">Немає товарів.</div>
+      {% endfor %}
     </div>
-    {% empty %}
-    <div class="text-secondary small">Немає товарів.</div>
-    {% endfor %}
-</div>
-{% endcache %}
+    {% endcache %}
 
-{% if page_obj.has_other_pages %}
-<nav aria-label="Page navigation" class="mt-5">
-  <ul class="pagination justify-content-center">
-    {% if page_obj.has_previous %}
+    {% if page_obj.has_other_pages %}
+    <nav aria-label="Page navigation" class="mt-5">
+      <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
     <li class="page-item">
       <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Попередня">
         <span aria-hidden="true">&laquo;</span>
