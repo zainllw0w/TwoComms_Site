@@ -1145,7 +1145,21 @@
     const url = `/api/utm/cohort-analysis/?${query.toString()}`;
 
     fetch(url)
-      .then(response => response.json())
+      .then(async (response) => {
+        const contentType = response.headers.get('content-type') || '';
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`HTTP ${response.status}: ${text.slice(0, 200)}`);
+        }
+
+        if (!contentType.includes('application/json')) {
+          const text = await response.text();
+          throw new Error(`Unexpected response (no JSON): ${text.slice(0, 200)}`);
+        }
+
+        return response.json();
+      })
       .then(data => {
         if (data.error || !data.cohorts || data.cohorts.length === 0) {
           container.innerHTML = '<div style="text-align: center; padding: 40px; color: rgba(229,231,235,.4);">Недостатньо даних для когортного аналізу</div>';
@@ -1228,6 +1242,7 @@
       })
       .catch(error => {
         container.innerHTML = '<div style="text-align: center; padding: 40px; color: #f87171;">Помилка завантаження: ' + error + '</div>';
+        console.error('Cohort analysis load error', error);
       });
   }
 
