@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from pathlib import Path
 
 from celery import shared_task
@@ -7,7 +8,14 @@ from django.apps import apps
 from django.conf import settings
 from django.core.management import call_command
 
-from twocomms.image_optimizer import ImageOptimizer
+# Defensive import for image optimizer in case PYTHONPATH lacks project root
+try:
+    from twocomms.image_optimizer import ImageOptimizer
+except ModuleNotFoundError:
+    base_dir = Path(__file__).resolve().parents[2]
+    if str(base_dir) not in sys.path:
+        sys.path.append(str(base_dir))
+    from twocomms.image_optimizer import ImageOptimizer
 
 from .models import Product, Category
 from .seo_utils import SEOKeywordGenerator, SEOContentOptimizer
