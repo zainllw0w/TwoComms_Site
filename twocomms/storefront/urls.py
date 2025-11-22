@@ -12,7 +12,11 @@ def _legacy_view(name):
         from . import views as storefront_views
 
         if hasattr(storefront_views, '_load_legacy_views'):
-            storefront_views._load_legacy_views()
+            try:
+                storefront_views._load_legacy_views(force=True)
+            except Exception:
+                # Even if legacy load fails, continue to 404 below
+                pass
 
         handler = getattr(storefront_views, name, None)
         if handler is None:
