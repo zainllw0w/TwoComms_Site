@@ -61,7 +61,8 @@ def dev_grant_admin(request): return redirect('home')
 # ==================== STATIC PAGES STUBS ====================
 def add_print(request): return render(request, 'pages/stub.html')
 def delivery_view(request): return render(request, 'pages/delivery.html') # Assuming template exists
-def cooperation(request): return render(request, 'pages/stub.html')
+# Use real template for cooperation
+def cooperation(request): return render(request, 'pages/cooperation.html')
 
 # ==================== WHOLESALE STUBS ====================
 def pricelist_redirect(request): return redirect('home')
