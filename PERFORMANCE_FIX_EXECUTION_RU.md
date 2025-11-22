@@ -3,7 +3,7 @@
 - Вынес генерацию WebP/AVIF и ресайзов в Celery-задачу `optimize_image_field_task`; все сигналы (`Product`, `ProductImage`, `ProductColorImage`, `CatalogOptionValue`, `SizeGrid`, `PrintProposal`) теперь только ставят задачу в очередь и не блокируют сохранение.
 - По умолчанию отключил дорогостоящую оптимизацию «на лету» в `ImageOptimizationMiddleware` (`IMAGE_OPTIMIZATION_MIDDLEWARE_ENABLED=False`, `IMAGE_OPTIMIZATION_ALLOW_ON_DEMAND=False`), чтобы исключить CPU‑стопоры и 504.
 - Добавил защиту публичных API: выдаем товары только со статусом `published` во всех endpoint’ах `api.py`, чтобы поисковые/виджеты не тянули черновики и не ломали кэш.
-- Ускорил загрузку крупных CSS: основная тройка стилей теперь подключается через `media="print"` + `onload` (плюс `noscript` fallback), что убирает render-blocking на FCP/LCP.
+- Ускорил загрузку крупных CSS: затем вернули обычную загрузку из-за несовместимости с offline-компрессором; статика пересобрана через `compress` + `collectstatic`.
 - Каталог избранного и все операции добавления/удаления теперь работают только с опубликованными товарами (для не‑staff) через общий helper `_published_products`; черновики не попадают в публичные списки и кеши.
 - Прогнал `python3 -m compileall twocomms` для проверки синтаксиса после изменений.
 - Команда `optimize_images` теперь пропускает уже оптимизированные файлы, сохраняет варианты, поддерживает `--limit` и выбор шагов (`--steps`) для поэтапного запуска на ограниченном хостинге.
