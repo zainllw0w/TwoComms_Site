@@ -734,8 +734,14 @@
 </div>
 
 {# Session Detail Modal #}
+<style>
+  body.dispatcher-modal-open {
+    overflow: hidden;
+  }
+</style>
+
 <div id="session-detail-modal"
-  style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.8); z-index: 9999; padding: 40px; overflow: auto; align-items: center; justify-content: center;">
+  style="display: none; position: fixed; inset: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,.8); z-index: 9999; padding: 40px; overflow: auto; align-items: center; justify-content: center;">
   <div
     style="max-width: 1000px; width: 100%; background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 20px; padding: 40px; position: relative; box-shadow: 0 20px 60px rgba(0,0,0,0.4);">
     <button onclick="closeSessionDetail()"
@@ -1003,6 +1009,7 @@
     const content = document.getElementById('session-detail-content');
 
     modal.style.display = 'flex';
+    document.body.classList.add('dispatcher-modal-open');
     content.innerHTML = '<div style="text-align: center; padding: 40px; color: rgba(229,231,235,.5);">Завантаження...</div>';
 
     // Fetch session details via API
@@ -1074,15 +1081,17 @@
         </div>
         
         <h3 style="color: #34d399; font-size: 1.1rem; margin-bottom: 16px;">Дії користувача (${actions.length})</h3>
-        <div style="max-height: 300px; overflow-y: auto; background: rgba(255,255,255,.03); padding: 16px; border-radius: 12px; margin-bottom: 24px;">
+        <div style="max-height: 360px; overflow-y: auto; background: rgba(255,255,255,.03); padding: 16px; border-radius: 12px; margin-bottom: 24px;">
           ${actions.length > 0 ? actions.map(action => `
-            <div style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,.05); display: flex; justify-content: space-between;">
+            <div style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,.05); display: grid; grid-template-columns: 1fr auto; gap: 8px;">
               <div>
-                <span style="color: #a78bfa; font-weight: 600;">${action.action_type_display}</span>
-                ${action.product_name ? `<span style="color: rgba(229,231,235,.6); margin-left: 8px;">${action.product_name}</span>` : ''}
-                ${action.cart_value ? `<span style="color: #fbbf24; margin-left: 8px;">${action.cart_value} ₴</span>` : ''}
+                <div style="color: #a78bfa; font-weight: 700;">${action.action_type_display}</div>
+                ${action.page_path ? `<div style="color: rgba(229,231,235,.6); font-size: 0.85rem;">${action.page_path}</div>` : ''}
+                ${action.product_name ? `<div style="color: rgba(229,231,235,.75); font-size: 0.9rem;">${action.product_name}</div>` : ''}
+                ${action.cart_value ? `<div style="color: #fbbf24; font-weight: 600;">${action.cart_value} ₴</div>` : ''}
+                ${action.order_number ? `<div style="color: #10b981; font-weight: 600;">Замовлення: ${action.order_number}</div>` : ''}
               </div>
-              <span style="color: rgba(229,231,235,.4); font-size: 0.85rem;">${new Date(action.timestamp).toLocaleString('uk-UA')}</span>
+              <div style="color: rgba(229,231,235,.4); font-size: 0.85rem; text-align: right;">${new Date(action.timestamp).toLocaleString('uk-UA')}</div>
             </div>
           `).join('') : '<div style="text-align: center; padding: 20px; color: rgba(229,231,235,.4);">Немає дій</div>'}
         </div>
@@ -1116,6 +1125,7 @@
 
   function closeSessionDetail() {
     document.getElementById('session-detail-modal').style.display = 'none';
+    document.body.classList.remove('dispatcher-modal-open');
   }
 
   // Close modal on ESC key
