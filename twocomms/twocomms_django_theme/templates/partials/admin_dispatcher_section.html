@@ -584,7 +584,7 @@
           <select id="cohort-type-select"
             style="min-width: 150px; padding: 10px 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; color: #e5e7eb; font-size: 0.9rem;">
             {% for t in cohort_types %}
-            <option value="{{ t.value }}" {% if cohort_type==t.value %}selected{% endif %}>{{ t.label }}</option>
+            <option value="{{ t.value }}" {% if cohort_type == t.value %}selected{% endif %}>{{ t.label }}</option>
             {% endfor %}
           </select>
         </div>
