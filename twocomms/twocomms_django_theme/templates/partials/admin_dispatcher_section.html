@@ -735,7 +735,7 @@
 
 {# Session Detail Modal #}
 <div id="session-detail-modal"
-  style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.8); z-index: 9999; padding: 40px; overflow: auto; display: flex; align-items: center; justify-content: center;">
+  style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.8); z-index: 9999; padding: 40px; overflow: auto; align-items: center; justify-content: center;">
   <div
     style="max-width: 1000px; width: 100%; background: linear-gradient(145deg, rgba(24,26,31,.98), rgba(18,20,24,.98)); border: 1px solid rgba(255,255,255,.1); border-radius: 20px; padding: 40px; position: relative; box-shadow: 0 20px 60px rgba(0,0,0,0.4);">
     <button onclick="closeSessionDetail()"
@@ -1002,7 +1002,7 @@
     const modal = document.getElementById('session-detail-modal');
     const content = document.getElementById('session-detail-content');
 
-    modal.style.display = 'block';
+    modal.style.display = 'flex';
     content.innerHTML = '<div style="text-align: center; padding: 40px; color: rgba(229,231,235,.5);">Завантаження...</div>';
 
     // Fetch session details via API
@@ -1142,7 +1142,7 @@
     if (startDate) query.append('start_date', startDate);
     if (endDate) query.append('end_date', endDate);
     if (source) query.append('utm_source', source);
-    // DRF action registered as cohort_analysis (underscore)
+    // DRF action registered as cohort_analysis (underscore, trailing slash)
     const url = `/api/utm/cohort_analysis/?${query.toString()}`;
 
     fetch(url)
@@ -1287,7 +1287,7 @@
 
     container.innerHTML = '<div style="text-align: center; padding: 20px; color: rgba(229,231,235,.4);">Завантаження...</div>';
 
-    // DRF action registered as ab_test (underscore)
+    // DRF action registered as ab_test (underscore, with trailing slash)
     const url = `/api/utm/ab_test/?campaign=${encodeURIComponent(campaign)}&period=${period}`;
 
     fetch(url)
