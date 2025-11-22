@@ -1142,7 +1142,8 @@
     if (startDate) query.append('start_date', startDate);
     if (endDate) query.append('end_date', endDate);
     if (source) query.append('utm_source', source);
-    const url = `/api/utm/cohort-analysis/?${query.toString()}`;
+    // DRF action registered as cohort_analysis (underscore)
+    const url = `/api/utm/cohort_analysis/?${query.toString()}`;
 
     fetch(url)
       .then(async (response) => {
