@@ -1004,7 +1004,15 @@
   }
 
   // Session Detail Modal
+  function ensureModalAttached() {
+    const modal = document.getElementById('session-detail-modal');
+    if (modal && modal.parentNode !== document.body) {
+      document.body.appendChild(modal);
+    }
+  }
+
   function viewSessionDetail(sessionId) {
+    ensureModalAttached();
     const modal = document.getElementById('session-detail-modal');
     const content = document.getElementById('session-detail-content');
 
@@ -1124,7 +1132,10 @@
   }
 
   function closeSessionDetail() {
-    document.getElementById('session-detail-modal').style.display = 'none';
+    const modal = document.getElementById('session-detail-modal');
+    if (modal) {
+      modal.style.display = 'none';
+    }
     document.body.classList.remove('dispatcher-modal-open');
   }
 
