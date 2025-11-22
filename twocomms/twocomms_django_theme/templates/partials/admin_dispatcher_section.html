@@ -1159,7 +1159,13 @@
           throw new Error(`Unexpected response (no JSON): ${text.slice(0, 200)}`);
         }
 
-        return response.json();
+        // Попытка безопасно распарсить JSON, иначе показать тело ответа
+        try {
+          return await response.json();
+        } catch (e) {
+          const text = await response.text();
+          throw new Error(`Invalid JSON: ${text.slice(0, 200)}`);
+        }
       })
       .then(data => {
         if (data.error || !data.cohorts || data.cohorts.length === 0) {
