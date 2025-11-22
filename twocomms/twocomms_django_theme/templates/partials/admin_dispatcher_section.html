@@ -573,7 +573,7 @@
           <select id="cohort-metric-select"
             style="min-width: 180px; padding: 10px 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; color: #e5e7eb; font-size: 0.9rem;">
             {% for m in cohort_metrics %}
-            <option value="{{ m.value }}" {% if cohort_metric==m.value %}selected{% endif %}>{{ m.label }}</option>
+            <option value="{{ m.value }}" {% if cohort_metric == m.value %}selected{% endif %}>{{ m.label }}</option>
             {% endfor %}
           </select>
         </div>
