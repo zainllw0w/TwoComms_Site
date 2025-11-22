@@ -15,7 +15,13 @@ except ModuleNotFoundError:
     base_dir = Path(__file__).resolve().parents[3]  # project root (parent of package "twocomms")
     if str(base_dir) not in sys.path:
         sys.path.append(str(base_dir))
-    from twocomms.image_optimizer import ImageOptimizer
+    try:
+        from twocomms.image_optimizer import ImageOptimizer
+    except ModuleNotFoundError:
+        # Последний шанс: грузим модуль напрямую по пути
+        module_path = Path(__file__).resolve().parents[2] / "image_optimizer.py"
+        from importlib.machinery import SourceFileLoader
+        ImageOptimizer = SourceFileLoader("twocomms.image_optimizer", str(module_path)).load_module().ImageOptimizer
 
 from .models import Product, Category
 from .seo_utils import SEOKeywordGenerator, SEOContentOptimizer
