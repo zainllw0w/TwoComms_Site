@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Оплату не завершено — TwoComms{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-7">
+      <div class="card shadow-sm border-0">
+        <div class="card-body p-4 text-center">
+          <div class="mb-3">
+            <span class="display-5 text-danger">⚠️</span>
+          </div>
+          <h3 class="mb-3">Оплату не завершено</h3>
+          <p class="text-muted mb-4">Платіж не пройшов. Спробуйте ще раз або оберіть інший спосіб оплати.</p>
+          <div class="d-flex gap-2 justify-content-center">
+            <a class="btn btn-primary" href="/cart/">Повернутися в кошик</a>
+            <a class="btn btn-outline-secondary" href="/">На головну</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
