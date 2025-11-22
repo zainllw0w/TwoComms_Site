@@ -36,6 +36,7 @@ import requests
 
 from ..models import Product, PromoCode
 from orders.models import Order as OrderModel, OrderItem
+from orders.telegram_notifications import TelegramNotifier
 from productcolors.models import ProductColorVariant
 from accounts.models import UserProfile
 from .utils import _reset_monobank_session, get_cart_from_session, _get_color_variant_safe
@@ -1011,6 +1012,7 @@ def _apply_monobank_status(order, status_value, payload=None, source='webhook'):
     _append_payment_history(order, status_lower, payload, source)
 
     updated_fields = ['payment_payload', 'updated']
+    old_payment_status = order.payment_status
 
     if status_lower in MONOBANK_SUCCESS_STATUSES:
         order.payment_status = 'paid' if order.pay_type != 'prepay_200' else 'prepaid'
@@ -1027,6 +1029,20 @@ def _apply_monobank_status(order, status_value, payload=None, source='webhook'):
         return status_lower
 
     order.save(update_fields=list(set(updated_fields)))
+
+    # Уведомление в Telegram при смене статуса оплаты на оплачено/предоплата
+    if order.payment_status in ('paid', 'prepaid') and order.payment_status != old_payment_status:
+        try:
+            notifier = TelegramNotifier()
+            notifier.send_order_status_update(
+                order,
+                old_status=old_payment_status or 'unpaid',
+                new_status=order.payment_status
+            )
+        except Exception:
+            # Не блокируем основной поток при ошибке уведомления
+            pass
+
     return status_lower
 
 
