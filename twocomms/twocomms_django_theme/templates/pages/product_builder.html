@@ -1,8 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{% if product %}Редагувати товар — {{ product.title }}{% else %}Новий товар — Конструктор{% endif %}{%
-endblock %}
+{% block title %}{% if product %}Редагувати товар — {{ product.title }}{% else %}Новий товар — Конструктор{% endif %}{% endblock %}
 
 {% url 'api-admin-product-builder-list' as builder_api_list %}
 
