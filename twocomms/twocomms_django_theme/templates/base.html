@@ -25,7 +25,7 @@
 
   <!-- Preload критических стилей -->
   <link rel="preload" href="{% static 'css/fonts.css' %}" as="style">
-  <link rel="preload" href="{% static 'css/styles.css' %}" as="style">
+  <link rel="preload" href="{% static 'css/styles.purged.css' %}" as="style">
   <!-- Preload критических шрифтов -->
   <link rel="preload" href="{% static 'fonts/Inter-Regular.woff2' %}" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="{% static 'fonts/Inter-Bold.woff2' %}" as="font" type="font/woff2" crossorigin>
@@ -369,12 +369,12 @@
   <!-- Асинхронная загрузка основного CSS с приоритизацией (Optimized by django-compressor) -->
   {% compress css %}
   <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
-  <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+  <link rel="stylesheet" href="{% static 'css/styles.purged.css' %}">
   <link rel="stylesheet" href="{% static 'css/cls-ultimate.css' %}">
   {% endcompress %}
   <noscript>
     <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
-    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <link rel="stylesheet" href="{% static 'css/styles.purged.css' %}">
     <link rel="stylesheet" href="{% static 'css/cls-ultimate.css' %}">
   </noscript>
 

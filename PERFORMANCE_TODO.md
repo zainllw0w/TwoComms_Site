@@ -2,8 +2,8 @@
 
 ## 🚨 Critical / High Priority (From Final Audit)
 - [ ] 1. Синхронная Оптимизация Изображений при Сохранении (Signals)
-- [ ] 2. Некорректное Кэширование Каталога (Broken Pagination/Filtering)
-- [ ] 3. Блокирующий JavaScript (`analytics-loader.js`)
+- [x] 2. Некорректное Кэширование Каталога (Broken Pagination/Filtering) — кэш в `catalog.html` использует `request.get_full_path`, фильтры/пагинация учитываются.
+- [x] 3. Блокирующий JavaScript (`analytics-loader.js`) — `analytics-loader.js` уже с `defer`; на `product_detail_new.html` внешние скрипты (Swiper, Medium Zoom, `product-detail.js`) переведены на `defer`.
 
 ## 📋 Ultra Detailed List (From Detailed Audit)
 - [x] **Проблема #4: Дублирование Font Awesome загрузки**
@@ -14,7 +14,7 @@
 - [x] **Problem #20**: Multiple analytical scripts
   - **Status**: **Verified - Optimized**. `analytics-loader.js` uses `requestIdleCallback` and event buffering. It consolidates events via `trackEvent` to avoiding duplication in JS.
 - [x] **Problem #5**: Very large CSS file (488KB)
-  - **Status**: **Verified & Mitigated**. Confirmed `styles.css` contains Bootstrap and other styles. Removed unused `@keyframes priceGlow` to save bytes. Further optimization (removing Bootstrap) requires a build pipeline change which is out of scope for this quick fix, but the critical unused animation is gone.
+  - **Status**: **Mitigated**. Собран и подключен `styles.purged.css` (PurgeCSS + cssnano) — размер снижен с ~469KB до ~313KB, лишняя анимация уже удалена. Дальнейшее уменьшение возможно через более агрессивный safelist/декомпозицию утилит.
 - [x] **Проблема #18: N+1 запросы в ProductDetailView**
   - **Статус:** Решено.
   - **Детали:** Используется `select_related('category')`. Лишних запросов в шаблоне не обнаружено.
