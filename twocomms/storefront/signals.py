@@ -16,36 +16,49 @@ logger = logging.getLogger(__name__)
 @receiver(post_save, sender=Product)
 def update_google_merchant_feed_on_product_save(sender, instance, created, **kwargs):
     """
-    Автоматически обновляет Google Merchant feed при создании или обновлении товара
+    Автоматически обновляет Google Merchant feed при создании или обновлении товара.
+    Использует debounce (5 минут), чтобы избежать частых перегенераций при массовых изменениях.
     """
     try:
-        action = "создан" if created else "обновлен"
-        logger.info(f"Товар {instance.title} (ID: {instance.id}) {action}. Обновляем Google Merchant feed...")
+        from django.core.cache import cache
+        LOCK_KEY = 'google_merchant_feed_update_pending'
+        LOCK_TIMEOUT = 300  # 5 минут
         
-        # Вызываем задачу Celery асинхронно
-        generate_google_merchant_feed_task.delay()
-        
-        logger.info(f"Запущена фоновая задача обновления Google Merchant feed")
+        if not cache.get(LOCK_KEY):
+            # Если обновления еще не запланировано, планируем через 5 минут
+            generate_google_merchant_feed_task.apply_async(countdown=300)
+            cache.set(LOCK_KEY, True, timeout=LOCK_TIMEOUT)
+            
+            action = "создан" if created else "обновлен"
+            logger.info(f"Товар {instance.title} (ID: {instance.id}) {action}. Запланировано обновление Google Merchant feed через 5 минут.")
+        else:
+            logger.debug(f"Обновление Google Merchant feed уже запланировано.")
         
     except Exception as e:
-        logger.error(f"Ошибка при обновлении Google Merchant feed: {e}", exc_info=True)
+        logger.error(f"Ошибка при планировании обновления Google Merchant feed: {e}", exc_info=True)
 
 
 @receiver(post_delete, sender=Product)
 def update_google_merchant_feed_on_product_delete(sender, instance, **kwargs):
     """
-    Автоматически обновляет Google Merchant feed при удалении товара
+    Автоматически обновляет Google Merchant feed при удалении товара.
+    Использует debounce (5 минут).
     """
     try:
-        logger.info(f"Товар {instance.title} (ID: {instance.id}) удален. Обновляем Google Merchant feed...")
+        from django.core.cache import cache
+        LOCK_KEY = 'google_merchant_feed_update_pending'
+        LOCK_TIMEOUT = 300  # 5 минут
         
-        # Вызываем задачу Celery асинхронно
-        generate_google_merchant_feed_task.delay()
-        
-        logger.info(f"Запущена фоновая задача обновления Google Merchant feed")
+        if not cache.get(LOCK_KEY):
+            generate_google_merchant_feed_task.apply_async(countdown=300)
+            cache.set(LOCK_KEY, True, timeout=LOCK_TIMEOUT)
+            
+            logger.info(f"Товар {instance.title} (ID: {instance.id}) удален. Запланировано обновление Google Merchant feed через 5 минут.")
+        else:
+            logger.debug(f"Обновление Google Merchant feed уже запланировано.")
         
     except Exception as e:
-        logger.error(f"Ошибка при обновлении Google Merchant feed: {e}", exc_info=True)
+        logger.error(f"Ошибка при планировании обновления Google Merchant feed: {e}", exc_info=True)
 
 
 

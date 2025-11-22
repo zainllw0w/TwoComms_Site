@@ -733,7 +733,7 @@ def admin_promo_export(request):
         writer = csv.writer(response)
         writer.writerow(['Код', 'Тип', 'Знижка', 'Група', 'Використань', 'Макс. використань', 'Активний', 'Створено'])
         
-        for promo in queryset:
+        for promo in queryset.iterator():
             writer.writerow([
                 promo.code,
                 promo.get_promo_type_display(),
@@ -771,7 +771,7 @@ def admin_promo_export(request):
                 cell.alignment = Alignment(horizontal='center')
             
             # Дані
-            for promo in queryset:
+            for promo in queryset.iterator():
                 ws.append([
                     promo.code,
                     promo.get_promo_type_display(),

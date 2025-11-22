@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "build:css": "postcss twocomms/twocomms_django_theme/static/css/styles.css -o twocomms/twocomms_django_theme/static/css/styles.purged.css"
+  },
   "devDependencies": {
     "@fullhuman/postcss-purgecss": "^7.0.2",
     "@modelcontextprotocol/server-sequential-thinking": "^2025.7.1",

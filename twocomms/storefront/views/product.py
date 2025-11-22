@@ -206,7 +206,7 @@ def get_product_images(request, product_id):
         JsonResponse: Список URL изображений
     """
     try:
-        product = Product.objects.get(id=product_id, status='published')
+        product = Product.objects.prefetch_related('images').get(id=product_id, status='published')
         images = product.images.all()
         
         image_urls = []
