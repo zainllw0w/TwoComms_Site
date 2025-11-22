@@ -435,3 +435,5 @@ sshpass -p 'PASSWORD' ssh -o StrictHostKeyChecking=no USER@IP "bash -lc 'source 
 
 **Примечание:** Пользователь предоставит точную SSH команду после копирования промпта.
 
+
+
