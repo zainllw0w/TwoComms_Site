@@ -63,8 +63,7 @@
       <div
         style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
         Дохід</div>
-      <div style="font-size: 0.8rem; color: rgba(229,231,235,.5); margin-top: 4px;">Середній чек: {{
-        general_stats.avg_order_value|floatformat:0 }} ₴</div>
+      <div style="font-size: 0.8rem; color: rgba(229,231,235,.5); margin-top: 4px;">Середній чек: {{ general_stats.avg_order_value|floatformat:0 }} ₴</div>
     </div>
 
     <div
@@ -195,8 +194,7 @@
               style="padding: 12px; text-align: center; {% if source.conversion_rate >= 5 %}color: #10b981;{% elif source.conversion_rate >= 2 %}color: #fbbf24;{% else %}color: #f87171;{% endif %}">
               {{ source.conversion_rate }}%</td>
             <td style="padding: 12px; text-align: right; color: #60a5fa;">{{ source.revenue|floatformat:0 }} ₴</td>
-            <td style="padding: 12px; text-align: right; color: rgba(229,231,235,.7);">{{
-              source.avg_order_value|floatformat:0 }} ₴</td>
+            <td style="padding: 12px; text-align: right; color: rgba(229,231,235,.7);">{{ source.avg_order_value|floatformat:0 }} ₴</td>
           </tr>
           {% empty %}
           <tr>
@@ -440,19 +438,16 @@
 
       <div
         style="text-align: center; padding: 24px; background: linear-gradient(145deg, rgba(16,185,129,.15), rgba(5,150,105,.15)); border: 1px solid rgba(16,185,129,.3); border-radius: 16px;">
-        <div style="font-size: 2.5rem; font-weight: 900; color: #10b981; margin-bottom: 8px;">{{
-          repeat_rate.repeat_customers }}</div>
+        <div style="font-size: 2.5rem; font-weight: 900; color: #10b981; margin-bottom: 8px;">{{ repeat_rate.repeat_customers }}</div>
         <div
           style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
           Повторні клієнти</div>
-        <div style="font-size: 0.75rem; color: rgba(229,231,235,.4); margin-top: 4px;">З {{ repeat_rate.total_customers
-          }} загалом</div>
+        <div style="font-size: 0.75rem; color: rgba(229,231,235,.4); margin-top: 4px;">З {{ repeat_rate.total_customers }} загалом</div>
       </div>
 
       <div
         style="text-align: center; padding: 24px; background: linear-gradient(145deg, rgba(245,158,11,.15), rgba(217,119,6,.15)); border: 1px solid rgba(245,158,11,.3); border-radius: 16px;">
-        <div style="font-size: 2.5rem; font-weight: 900; color: #fbbf24; margin-bottom: 8px;">{{
-          repeat_rate.avg_orders_per_customer }}</div>
+        <div style="font-size: 2.5rem; font-weight: 900; color: #fbbf24; margin-bottom: 8px;">{{ repeat_rate.avg_orders_per_customer }}</div>
         <div
           style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
           Замовлень на клієнта</div>
@@ -461,8 +456,7 @@
 
       <div
         style="text-align: center; padding: 24px; background: linear-gradient(145deg, rgba(236,72,153,.15), rgba(219,39,119,.15)); border: 1px solid rgba(236,72,153,.3); border-radius: 16px;">
-        <div style="font-size: 2.5rem; font-weight: 900; color: #ec4899; margin-bottom: 8px;">{{
-          repeat_rate.avg_time_between_orders|floatformat:0 }}</div>
+        <div style="font-size: 2.5rem; font-weight: 900; color: #ec4899; margin-bottom: 8px;">{{ repeat_rate.avg_time_between_orders|floatformat:0 }}</div>
         <div
           style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
           Днів між замовленнями</div>
@@ -471,8 +465,7 @@
 
       <div
         style="text-align: center; padding: 24px; background: linear-gradient(145deg, rgba(59,130,246,.15), rgba(37,99,235,.15)); border: 1px solid rgba(59,130,246,.3); border-radius: 16px;">
-        <div style="font-size: 2.5rem; font-weight: 900; color: #60a5fa; margin-bottom: 8px;">{{
-          repeat_rate.one_time_customers }}</div>
+        <div style="font-size: 2.5rem; font-weight: 900; color: #60a5fa; margin-bottom: 8px;">{{ repeat_rate.one_time_customers }}</div>
         <div
           style="font-size: 0.9rem; color: rgba(229,231,235,.6); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
           Разові клієнти</div>
@@ -534,8 +527,7 @@
             <td
               style="padding: 12px; text-align: right; font-weight: 700; {% if item.ltv_per_session >= 500 %}color: #10b981;{% elif item.ltv_per_session >= 200 %}color: #fbbf24;{% else %}color: #f87171;{% endif %}">
               {{ item.ltv_per_session|floatformat:0 }} ₴</td>
-            <td style="padding: 12px; text-align: right; color: rgba(229,231,235,.7);">{{
-              item.avg_order_value|floatformat:0 }} ₴</td>
+            <td style="padding: 12px; text-align: right; color: rgba(229,231,235,.7);">{{ item.avg_order_value|floatformat:0 }} ₴</td>
             <td style="padding: 12px; text-align: center; color: #ec4899;">{{ item.orders_per_session }}</td>
           </tr>
           {% endfor %}
@@ -637,8 +629,7 @@
             <option value="">Оберіть кампанію</option>
             {% for campaign in campaigns_stats %}
             {% if campaign.utm_campaign %}
-            <option value="{{ campaign.utm_campaign }}">{{ campaign.utm_campaign }}{% if campaign.utm_source %} ({{
-              campaign.utm_source }}){% endif %}</option>
+            <option value="{{ campaign.utm_campaign }}">{{ campaign.utm_campaign }}{% if campaign.utm_source %} ({{ campaign.utm_source }}){% endif %}</option>
             {% endif %}
             {% endfor %}
           </select>
@@ -710,13 +701,11 @@
           {% for session in recent_sessions|slice:":30" %}
           <tr style="border-bottom: 1px solid rgba(255,255,255,.05); transition: background 0.2s;"
             onmouseover="this.style.background='rgba(139,92,246,.05)'" onmouseout="this.style.background='transparent'">
-            <td style="padding: 12px; color: rgba(229,231,235,.6); font-size: 0.85rem;">{{
-              session.first_seen|date:"d.m.Y H:i" }}</td>
+            <td style="padding: 12px; color: rgba(229,231,235,.6); font-size: 0.85rem;">{{ session.first_seen|date:"d.m.Y H:i" }}</td>
             <td style="padding: 12px; color: #a78bfa; font-weight: 600;">{{ session.utm_source|default:"direct" }}</td>
             <td style="padding: 12px; color: #60a5fa;">{{ session.utm_campaign|default:"—" }}</td>
             <td style="padding: 12px; color: rgba(229,231,235,.6);">{{ session.device_type|default:"unknown" }}</td>
-            <td style="padding: 12px; color: rgba(229,231,235,.6);">{{ session.city|default:"—" }}, {{
-              session.country|default:"—" }}</td>
+            <td style="padding: 12px; color: rgba(229,231,235,.6);">{{ session.city|default:"—" }}, {{ session.country|default:"—" }}</td>
             <td style="padding: 12px; text-align: center;">
               {% if session.is_converted %}
               <span style="color: #10b981; font-weight: 600;">✓ {{ session.conversion_type }}</span>
