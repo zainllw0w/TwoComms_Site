@@ -250,6 +250,21 @@ _LEGACY_VIEW_NAMES = (
     'admin_product_colors',
     'admin_product_color_delete',
     'admin_product_image_delete',
+    # Wholesale & static
+    'pricelist_redirect',
+    'pricelist_page',
+    'test_pricelist',
+    'wholesale_page',
+    'wholesale_order_form',
+    'generate_wholesale_invoice',
+    'download_invoice_file',
+    'delete_wholesale_invoice',
+    'check_invoice_approval_status',
+    'check_payment_status',
+    'debug_invoices',
+    'create_wholesale_payment',
+    'wholesale_payment_webhook',
+    'get_user_invoices',
 )
 
 
@@ -275,7 +290,7 @@ def _load_legacy_views(force: bool = False):
     spec.loader.exec_module(legacy_module)
 
     for name in _LEGACY_VIEW_NAMES:
-        if name not in globals() and hasattr(legacy_module, name):
+        if hasattr(legacy_module, name):
             globals()[name] = getattr(legacy_module, name)
 
     _LEGACY_MODULE_LOADED = True
