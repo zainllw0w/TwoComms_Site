@@ -265,6 +265,7 @@ _LEGACY_VIEW_NAMES = (
     'create_wholesale_payment',
     'wholesale_payment_webhook',
     'get_user_invoices',
+    'wholesale_prices_xlsx',
 )
 
 
