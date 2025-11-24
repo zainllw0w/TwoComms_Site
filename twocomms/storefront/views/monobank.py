@@ -37,6 +37,7 @@ import requests
 from ..models import Product, PromoCode
 from orders.models import Order as OrderModel, OrderItem
 from orders.telegram_notifications import TelegramNotifier
+from orders.facebook_conversions_service import get_facebook_conversions_service
 from productcolors.models import ProductColorVariant
 from accounts.models import UserProfile
 from .utils import _reset_monobank_session, get_cart_from_session, _get_color_variant_safe
@@ -697,6 +698,9 @@ def monobank_create_invoice(request):
                     'success': False,
                     'error': 'Не вдалося створити платіж. Спробуйте пізніше.'
                 })
+
+            # Детерминированный event_id для дедупликации AddPaymentInfo
+            add_payment_event_id = order.get_add_payment_event_id()
             
             # Собираем tracking данные для Facebook/TikTok Conversions API
             tracking_context = {}
@@ -737,6 +741,9 @@ def monobank_create_invoice(request):
                     if key in tracking_context:
                         continue
                     tracking_context[key] = value
+
+            # Сохраняем event_id для AddPaymentInfo, чтобы браузер и CAPI использовали одинаковое значение
+            tracking_context['add_payment_event_id'] = add_payment_event_id
             
             # КРИТИЧНО: External ID должен ВСЕГДА быть определен
             external_source = tracking_context.get('external_id')
@@ -821,6 +828,18 @@ def monobank_create_invoice(request):
             request.session['monobank_pending_order_id'] = order.id
             request.session.modified = True
             
+            # Отправляем AddPaymentInfo через CAPI для дедупликации с пикселем
+            try:
+                facebook_service = get_facebook_conversions_service()
+                facebook_service.send_add_payment_info_event(
+                    order=order,
+                    payment_amount=float(payment_amount),
+                    event_id=add_payment_event_id,
+                    source_url=request.build_absolute_uri(request.path),
+                )
+            except Exception as capi_err:
+                monobank_logger.warning(f'⚠️ Failed to send AddPaymentInfo to Facebook CAPI: {capi_err}')
+            
             # НЕ очищаем корзину здесь - корзина будет очищена ТОЛЬКО после успешной оплаты
             # в monobank_return или через webhook
             
@@ -839,7 +858,8 @@ def monobank_create_invoice(request):
                 'invoice_url': invoice_url,
                 'invoice_id': invoice_id,
                 'order_id': order.id,
-                'order_ref': order.order_number
+                'order_ref': order.order_number,
+                'add_payment_event_id': add_payment_event_id
             })
             
     except Exception as e:

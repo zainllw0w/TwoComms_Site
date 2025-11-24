@@ -162,6 +162,16 @@ class Order(models.Model):
         # Используем order_number + timestamp создания + event_type как уникальный идентификатор
         timestamp = int(self.created.timestamp()) if self.created else int(time.time())
         return f"{self.order_number}_{timestamp}_{event_type}"
+
+    def get_add_payment_event_id(self):
+        """
+        Генерирует event_id для AddPaymentInfo (добавление платёжных данных).
+        Используется для дедупликации Pixel ↔ Conversions API при создании инвойса.
+
+        Format: {order_number}_{timestamp}_add_payment_info
+        Example: TWC30102025N01_1730304000_add_payment_info
+        """
+        return self.get_facebook_event_id(event_type='add_payment_info')
     
     def get_lead_event_id(self):
         """
