@@ -502,6 +502,106 @@ class FacebookConversionsService:
         custom_data.order_id = order.order_number
         
         return custom_data
+
+    def send_add_payment_info_event(
+        self,
+        order,
+        payment_amount: Optional[float] = None,
+        event_id: Optional[str] = None,
+        source_url: Optional[str] = None,
+        test_event_code: Optional[str] = None,
+    ) -> bool:
+        """
+        Отправляет AddPaymentInfo событие (добавление платежных данных) в Facebook CAPI.
+        Используется при создании инвойса Monobank, чтобы дедуплицировать с браузерным событием.
+        """
+        if not self.enabled:
+            logger.warning("Facebook Conversions API disabled, skipping AddPaymentInfo event")
+            return False
+
+        try:
+            resolved_event_id = (
+                event_id
+                or getattr(order, 'get_add_payment_event_id', lambda: None)()
+                or order.get_facebook_event_id(event_type='add_payment_info')
+            )
+            logger.info(
+                "📊 Generated AddPaymentInfo event_id for order %s: %s",
+                order.order_number,
+                resolved_event_id,
+            )
+
+            event_time = self._calculate_event_time(order)
+            user_data = self._prepare_user_data(order)
+            custom_data = self._prepare_custom_data(order)
+
+            # Используем сумму платежа (предоплата или полная)
+            value_to_send = payment_amount if payment_amount is not None else order.total_sum
+            custom_data.value = self._ensure_positive_value(
+                value_to_send,
+                order,
+                'AddPaymentInfo value',
+                fallback=self.MIN_EVENT_VALUE,
+            )
+            custom_data.currency = 'UAH'
+
+            event = self.Event(
+                event_name='AddPaymentInfo',
+                event_time=event_time,
+                event_id=resolved_event_id,
+                user_data=user_data,
+                custom_data=custom_data,
+                action_source=self.ActionSource.WEBSITE,
+                event_source_url=source_url or f"https://twocomms.com/orders/{order.order_number}/"
+            )
+
+            event_request = self.EventRequest(
+                pixel_id=self.pixel_id,
+                events=[event]
+            )
+            test_code = test_event_code or self.test_event_code
+            if test_code:
+                event_request.test_event_code = test_code
+
+            response = self._send_request_with_retry(event_request, order, 'AddPaymentInfo')
+            if not self._validate_response(response, order, 'AddPaymentInfo', resolved_event_id):
+                return False
+
+            logger.info(
+                "✅ AddPaymentInfo event sent to Facebook Conversions API: "
+                "Order %s, Value %.2f UAH, Event ID: %s",
+                order.order_number,
+                custom_data.value,
+                resolved_event_id,
+            )
+
+            # Сохраняем маркер отправки (не критично для основного потока)
+            try:
+                if not order.payment_payload:
+                    order.payment_payload = {}
+                order.payment_payload['fb_capi_add_payment_info'] = {
+                    'event_name': 'AddPaymentInfo',
+                    'event_id': resolved_event_id,
+                    'sent_at': int(time.time()),
+                    'value': custom_data.value,
+                    'currency': 'UAH'
+                }
+                order.save(update_fields=['payment_payload'])
+            except Exception as payload_err:
+                logger.warning(
+                    "⚠️ Failed to persist AddPaymentInfo payload for order %s: %s",
+                    order.order_number,
+                    payload_err,
+                )
+
+            return True
+        except Exception as e:
+            logger.error(
+                "❌ Failed to send AddPaymentInfo event to Facebook Conversions API: %s",
+                e,
+                exc_info=True,
+            )
+            return False
     
     def send_purchase_event(
         self,
