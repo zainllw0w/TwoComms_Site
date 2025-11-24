@@ -933,7 +933,7 @@ function startMonoCheckout(button, statusEl, options) {
         const analytics = getCheckoutAnalyticsPayload();
         try {
           if (window.trackEvent && analytics) {
-            const eventId = safeGenerateAnalyticsEventId();
+            const eventId = data.add_payment_event_id || safeGenerateAnalyticsEventId();
             const meta = buildMetaWithUserData(eventId);
             window.trackEvent('AddPaymentInfo', {
               value: analytics.value,
@@ -1117,7 +1117,7 @@ function startMonobankPay(button, statusEl) {
         const analytics = getCheckoutAnalyticsPayload();
         try {
           if (window.trackEvent && analytics) {
-            const eventId = safeGenerateAnalyticsEventId();
+            const eventId = data.add_payment_event_id || safeGenerateAnalyticsEventId();
             const meta = buildMetaWithUserData(eventId);
             window.trackEvent('AddPaymentInfo', {
               value: analytics.value,
