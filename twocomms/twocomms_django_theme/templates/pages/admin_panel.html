@@ -1371,6 +1371,7 @@
     {% elif section == 'catalogs' %}
       <!-- Управление каталогами -->
       <div class="catalogs-admin-section">
+        <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
         <!-- Заголовок секции -->
         <div class="section-header">
           <div class="section-icon">
@@ -1596,8 +1597,15 @@
                     <div class="stat-label">Фото</div>
                   </div>
                 </div>
-                
+
                 <div class="product-actions">
+                  <div class="status-select">
+                    <select class="form-select form-select-sm" data-action="update-product-status" data-product-id="{{ product.id }}">
+                      {% for key, label in product_statuses.choices %}
+                        <option value="{{ key }}" {% if product.status == key %}selected{% endif %}>{{ label }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
                   <a href="{% url 'admin_product_edit_unified' product.id %}" class="action-btn edit">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
@@ -2609,6 +2617,37 @@ function deleteProduct(productId, productName) {
     finalize();
   });
   grid.addEventListener('dragend', finalize);
+})();
+
+/* Обновление статусів товарів */
+(function setupProductStatus() {
+  const selects = document.querySelectorAll('[data-action="update-product-status"]');
+  if (!selects.length) return;
+  const csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+
+  selects.forEach(select => {
+    select.addEventListener('change', () => {
+      const productId = select.dataset.productId;
+      const status = select.value;
+      fetch('/admin-panel/products/update-status/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrf ? csrf.value : '',
+        },
+        body: JSON.stringify({ product_id: productId, status }),
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (!data.success) throw new Error(data.error || 'Не вдалося оновити статус');
+          showNotification('Статус оновлено', 'success');
+        })
+        .catch(err => {
+          console.error(err);
+          showNotification('Помилка оновлення статусу', 'error');
+        });
+    });
+  });
 })();
 
 function updateOrderStatus(orderId, newStatus) {
