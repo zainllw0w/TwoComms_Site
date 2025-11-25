@@ -197,6 +197,7 @@ from .admin import (
     add_product,
     admin_product_builder,
     admin_reorder_products,
+    admin_update_product_status,
     add_category,
     add_print,
     manage_print_proposals,
@@ -373,7 +374,7 @@ __all__ = [
     'admin_panel', 'admin_dashboard', 'manage_products', 'add_product', 'add_category', 'add_print',
     'manage_print_proposals', 'manage_promo_codes', 'generate_seo_content',
     'generate_alt_texts', 'manage_orders', 'sales_statistics', 'inventory_management',
-    'admin_reorder_products',
+    'admin_reorder_products', 'admin_update_product_status',
     
     # Aliases (для обратной совместимости)
     'cart', 'cart_remove', 'clean_cart', 'profile_setup_db', 'register_view_new',
