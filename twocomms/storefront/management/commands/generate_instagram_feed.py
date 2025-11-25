@@ -140,6 +140,57 @@ def get_all_product_images(product) -> List[Dict]:
     return all_images
 
 
+def _image_url_safe(image_field) -> Optional[str]:
+    """Безопасно возвращает URL изображения."""
+    try:
+        return image_field.url
+    except Exception:
+        return None
+
+
+def _image_size_safe(image_field) -> Optional[int]:
+    """Безопасно возвращает размер файла в байтах, если доступен."""
+    try:
+        return image_field.size
+    except Exception:
+        try:
+            if hasattr(image_field, "name") and image_field.name:
+                return image_field.storage.size(image_field.name)
+        except Exception:
+            return None
+    return None
+
+
+def choose_main_and_additional(all_images: List[Dict], max_bytes: int = 8 * 1024 * 1024):
+    """
+    Выбирает основное изображение (с url и размером <= max_bytes, если есть) и доп. изображения.
+    Если подходящих по размеру нет, берет первое с валидным url.
+    """
+    main = None
+    for img in all_images:
+        url = _image_url_safe(img.get("image"))
+        if not url:
+            continue
+        size = _image_size_safe(img.get("image"))
+        if size is not None and size > max_bytes:
+            continue
+        main = img
+        break
+
+    if not main:
+        for img in all_images:
+            url = _image_url_safe(img.get("image"))
+            if url:
+                main = img
+                break
+
+    if not main:
+        return None, []
+
+    additional = [img for img in all_images if img is not main and _image_url_safe(img.get("image"))]
+    return main, additional
+
+
 def is_hoodie(product) -> bool:
     """Проверяет, относится ли товар к худи (по категории, slug или названию)."""
     if product.category:
@@ -298,10 +349,19 @@ class Command(BaseCommand):
             all_images = get_all_product_images(product)
             if not all_images:
                 skipped_products += 1
+                skip_reasons["few_images"] += 1
+                if log_skipped:
+                    self.stdout.write(f"SKIP no images: id={product.id} title='{product.title}' slug='{product.slug}'")
                 continue
 
-            main_image = all_images[0]["image"]
-            additional_images = all_images[1:]
+            main_img_data, additional_images = choose_main_and_additional(all_images)
+            if not main_img_data:
+                skipped_products += 1
+                skip_reasons["few_images"] += 1
+                if log_skipped:
+                    self.stdout.write(f"SKIP no usable main image: id={product.id} title='{product.title}' slug='{product.slug}'")
+                continue
+            main_image = main_img_data["image"]
 
             variants = []
             try:
@@ -374,11 +434,19 @@ class Command(BaseCommand):
                     g_link.text = f"https://twocomms.shop/product/{product.slug}/"
 
                     g_image_link = ET.SubElement(item, "g:image_link")
-                    g_image_link.text = f"https://twocomms.shop{main_image.url}"
+                    main_url = _image_url_safe(main_image)
+                    if main_url and main_url.startswith("http"):
+                        g_image_link.text = main_url
+                    else:
+                        g_image_link.text = f"https://twocomms.shop{main_url or ''}"
 
                     for img_data in additional_images:
                         additional_image_link = ET.SubElement(item, "additional_image_link")
-                        additional_image_link.text = f"https://twocomms.shop{img_data['image'].url}"
+                        add_url = _image_url_safe(img_data["image"])
+                        if add_url and add_url.startswith("http"):
+                            additional_image_link.text = add_url
+                        else:
+                            additional_image_link.text = f"https://twocomms.shop{add_url or ''}"
 
                     g_availability = ET.SubElement(item, "g:availability")
                     g_availability.text = "in stock"
