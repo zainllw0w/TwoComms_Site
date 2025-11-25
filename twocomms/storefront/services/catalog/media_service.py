@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Iterable, List, Optional
 
 from django.core.files.uploadedfile import UploadedFile
-from django.db import transaction
+from django.db import models, transaction
 
 from productcolors.models import ProductColorImage, ProductColorVariant
 from storefront.models import Product, ProductImage
@@ -153,10 +153,19 @@ def append_product_gallery(
     if not files:
         return created
 
+    next_order = (
+        product.images.aggregate(max_order=models.Max("order")).get("max_order") or 0
+    )
+
     for uploaded in files:
         if not uploaded:
             continue
-        image_obj = ProductImage.objects.create(product=product, image=uploaded)
+        image_obj = ProductImage.objects.create(
+            product=product,
+            image=uploaded,
+            order=next_order,
+        )
+        next_order += 1
         created.append(image_obj)
 
     if created and not product.main_image:
@@ -164,4 +173,3 @@ def append_product_gallery(
         product.save(update_fields=["main_image"])
 
     return created
-

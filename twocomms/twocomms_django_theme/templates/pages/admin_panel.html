@@ -1540,7 +1540,7 @@
           
           <div class="products-grid">
             {% for product in products %}
-              <div class="product-card" data-product-name="{{ product.title|lower }}" data-category-name="{{ product.category.name|lower }}">
+              <div class="product-card" data-product-id="{{ product.id }}" data-product-name="{{ product.title|lower }}" data-category-name="{{ product.category.name|lower }}" draggable="true">
                 <div class="product-sparks">
                   <div class="product-spark product-spark-1"></div>
                   <div class="product-spark product-spark-2"></div>
@@ -2549,6 +2549,67 @@ function deleteProduct(productId, productName) {
     window.location.href = `/admin-panel/product/${productId}/delete/`;
   }
 }
+
+/* Drag & drop порядок товарів у каталозі */
+(function setupProductDnd() {
+  const grid = document.querySelector('.products-grid');
+  if (!grid) return;
+  const csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+  let dragged = null;
+
+  const sendOrder = () => {
+    const ids = Array.from(grid.querySelectorAll('.product-card')).map(card => card.dataset.productId);
+    if (!ids.length) return;
+    fetch('/admin-panel/products/reorder/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrf ? csrf.value : '',
+      },
+      body: JSON.stringify({ order: ids }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (!data.success) throw new Error(data.error || 'Не вдалося зберегти порядок');
+        showNotification(`Порядок оновлено (${data.updated})`, 'success');
+      })
+      .catch(err => {
+        console.error(err);
+        showNotification('Помилка збереження порядку', 'error');
+      });
+  };
+
+  grid.addEventListener('dragstart', evt => {
+    const card = evt.target.closest('.product-card');
+    if (!card) return;
+    dragged = card;
+    card.classList.add('is-dragging');
+    evt.dataTransfer.effectAllowed = 'move';
+  });
+
+  grid.addEventListener('dragover', evt => {
+    if (!dragged) return;
+    evt.preventDefault();
+    const target = evt.target.closest('.product-card');
+    if (!target || target === dragged) return;
+    const bounds = target.getBoundingClientRect();
+    const shouldInsertAfter = (evt.clientY - bounds.top) > bounds.height / 2;
+    grid.insertBefore(dragged, shouldInsertAfter ? target.nextSibling : target);
+  });
+
+  const finalize = () => {
+    if (!dragged) return;
+    dragged.classList.remove('is-dragging');
+    dragged = null;
+    sendOrder();
+  };
+
+  grid.addEventListener('drop', evt => {
+    evt.preventDefault();
+    finalize();
+  });
+  grid.addEventListener('dragend', finalize);
+})();
 
 function updateOrderStatus(orderId, newStatus) {
   

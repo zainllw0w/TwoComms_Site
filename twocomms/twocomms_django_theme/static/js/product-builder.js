@@ -81,6 +81,7 @@ class ProductBuilder {
     this.setupVariantControls();
     this.setupCatalogListeners();
     this.setupMediaUploads();
+    this.setupProductGalleryReorder();
     this.setupFeaturePlaceholders();
     this.updateCounters();
     this.evaluateSteps();
@@ -542,6 +543,7 @@ class ProductBuilder {
     });
 
     qsa('.image-card', list).forEach(imageCard => this.syncImageState(imageCard));
+    this.setupImageDnD(list);
   }
 
   addImageForm(card, file) {
@@ -604,6 +606,105 @@ class ProductBuilder {
     if (deleteInput && (deleteInput.checked || deleteInput.value === 'on')) {
       imageCard.classList.add('is-deleted');
     }
+  }
+
+  setupImageDnD(list) {
+    if (!list) return;
+    let dragged = null;
+
+    list.addEventListener('dragstart', evt => {
+      const card = evt.target.closest('.image-card');
+      if (!card || card.classList.contains('is-deleted')) return;
+      dragged = card;
+      card.classList.add('is-dragging');
+      evt.dataTransfer.effectAllowed = 'move';
+    });
+
+    list.addEventListener('dragover', evt => {
+      if (!dragged) return;
+      evt.preventDefault();
+      const target = evt.target.closest('.image-card');
+      if (!target || target === dragged || target.classList.contains('is-deleted')) return;
+      const bounds = target.getBoundingClientRect();
+      const shouldInsertAfter = (evt.clientY - bounds.top) > bounds.height / 2;
+      list.insertBefore(dragged, shouldInsertAfter ? target.nextSibling : target);
+    });
+
+    const finalize = () => {
+      if (!dragged) return;
+      dragged.classList.remove('is-dragging');
+      dragged = null;
+      this.commitImageOrder(list);
+    };
+
+    list.addEventListener('drop', evt => {
+      evt.preventDefault();
+      finalize();
+    });
+    list.addEventListener('dragend', finalize);
+
+    this.commitImageOrder(list);
+  }
+
+  commitImageOrder(list) {
+    const cards = qsa('.image-card', list).filter(card => !card.classList.contains('is-deleted'));
+    cards.forEach((card, index) => {
+      const orderInput = card.querySelector('input[name$="-order"]');
+      if (orderInput) {
+        orderInput.value = index;
+      }
+    });
+  }
+
+  setupProductGalleryReorder() {
+    const gallery = qs('[data-product-gallery]', this.root);
+    if (!gallery) return;
+    const orderInput = qs('[data-product-gallery-order]', this.root);
+    let dragged = null;
+
+    const updateOrder = () => {
+      const items = qsa('[data-product-image-id]', gallery);
+      const ids = items.map((item, idx) => {
+        item.dataset.order = String(idx);
+        return item.dataset.productImageId;
+      });
+      if (orderInput) {
+        orderInput.value = ids.join(',');
+      }
+    };
+
+    gallery.addEventListener('dragstart', evt => {
+      const item = evt.target.closest('[data-product-image-id]');
+      if (!item) return;
+      dragged = item;
+      item.classList.add('is-dragging');
+      evt.dataTransfer.effectAllowed = 'move';
+    });
+
+    gallery.addEventListener('dragover', evt => {
+      if (!dragged) return;
+      evt.preventDefault();
+      const target = evt.target.closest('[data-product-image-id]');
+      if (!target || target === dragged) return;
+      const bounds = target.getBoundingClientRect();
+      const shouldInsertAfter = (evt.clientY - bounds.top) > bounds.height / 2;
+      gallery.insertBefore(dragged, shouldInsertAfter ? target.nextSibling : target);
+    });
+
+    const finalize = () => {
+      if (!dragged) return;
+      dragged.classList.remove('is-dragging');
+      dragged = null;
+      updateOrder();
+    };
+
+    gallery.addEventListener('drop', evt => {
+      evt.preventDefault();
+      finalize();
+    });
+    gallery.addEventListener('dragend', finalize);
+
+    updateOrder();
   }
 
   updateCounters() {
