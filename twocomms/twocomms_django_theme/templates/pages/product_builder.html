@@ -270,20 +270,14 @@
             <div class="grid-item grid-item--full">
               <label class="form-label">Додаткові зображення</label>
               <div class="gallery-upload">
-                {% if product and product.pk %}
-                  {% with gallery_images=product.images.all %}
-                    {% if gallery_images|length %}
-                    <div class="gallery-existing" data-existing-gallery data-product-gallery>
-                      {% for gallery_image in gallery_images %}
-                      <div class="gallery-thumb" data-product-image-id="{{ gallery_image.id }}" draggable="true">
-                        <img src="{{ gallery_image.image.url }}" alt="{{ gallery_image.alt_text|default:'Gallery image' }}">
-                      </div>
-                      {% endfor %}
+                {% if gallery_images %}
+                  <div class="gallery-existing" data-existing-gallery data-product-gallery>
+                    {% for gallery_image in gallery_images %}
+                    <div class="gallery-thumb" data-product-image-id="{{ gallery_image.id }}" draggable="true">
+                      <img src="{{ gallery_image.image.url }}" alt="{{ gallery_image.alt_text|default:'Gallery image' }}">
                     </div>
-                    {% else %}
-                    <p class="text-muted small" data-existing-gallery-empty>Додаткових зображень немає.</p>
-                    {% endif %}
-                  {% endwith %}
+                    {% endfor %}
+                  </div>
                 {% else %}
                   <p class="text-muted small" data-existing-gallery-empty>Додаткових зображень немає.</p>
                 {% endif %}
