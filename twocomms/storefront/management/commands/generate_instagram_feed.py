@@ -161,28 +161,16 @@ def _image_size_safe(image_field) -> Optional[int]:
     return None
 
 
-def choose_main_and_additional(all_images: List[Dict], max_bytes: int = 8 * 1024 * 1024):
+def choose_main_and_additional(all_images: List[Dict]):
     """
-    Выбирает основное изображение (с url и размером <= max_bytes, если есть) и доп. изображения.
-    Если подходящих по размеру нет, берет первое с валидным url.
+    Выбирает основное изображение — строго последнее добавленное (max id) с валидным URL.
+    Дополнительные — остальные с валидным URL.
     """
     main = None
     for img in all_images:
-        url = _image_url_safe(img.get("image"))
-        if not url:
-            continue
-        size = _image_size_safe(img.get("image"))
-        if size is not None and size > max_bytes:
-            continue
-        main = img
-        break
-
-    if not main:
-        for img in all_images:
-            url = _image_url_safe(img.get("image"))
-            if url:
-                main = img
-                break
+        if _image_url_safe(img.get("image")):
+            main = img
+            break
 
     if not main:
         return None, []
