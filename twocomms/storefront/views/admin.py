@@ -1023,6 +1023,8 @@ def admin_product_builder(request, product_id=None):
     # чтобы выражения вида product.price не падали.
     product_for_view = product_form.instance if product_form is not None else product
 
+    gallery_images = list(product.images.all()) if getattr(product, "pk", None) else []
+
     context = {
         'product': product_for_view,
         'product_form': product_form,
@@ -1034,6 +1036,7 @@ def admin_product_builder(request, product_id=None):
         'selected_catalog': catalog_instance,
         'is_new': is_new,
         'builder_progress': builder_progress,
+        'gallery_images': gallery_images,
     }
 
     return render(request, 'pages/product_builder.html', context)
