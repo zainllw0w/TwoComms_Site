@@ -59,6 +59,8 @@ class ProductForm(forms.ModelForm):
             "title",
             "slug",
             "category",
+            "status",
+            "priority",
             "price",
             "discount_percent",
             "featured",
@@ -71,6 +73,8 @@ class ProductForm(forms.ModelForm):
             "short_description",
             "full_description",
             "main_image_alt",
+            "drop_price",
+            "wholesale_price",
         ]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 6, "class": "form-control"}),
@@ -79,14 +83,18 @@ class ProductForm(forms.ModelForm):
             "title": forms.TextInput(attrs={"class": "form-control"}),
             "slug": forms.TextInput(attrs={"class": "form-control"}),
             "category": forms.Select(attrs={"class": "form-control"}),
+            "status": forms.Select(attrs={"class": "form-control"}),
             "catalog": forms.Select(attrs={"class": "form-control"}),
             "size_grid": forms.Select(attrs={"class": "form-control"}),
             "price": forms.NumberInput(attrs={"class": "form-control", "min": "0"}),
             "discount_percent": forms.NumberInput(attrs={"class": "form-control", "min": "0", "max": "100"}),
+            "priority": forms.NumberInput(attrs={"class": "form-control", "min": "0"}),
             "featured": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "main_image": forms.FileInput(attrs={"class": "form-control d-none", "accept": "image/*", "data-main-image-input": "1"}),
             "main_image_alt": forms.TextInput(attrs={"class": "form-control"}),
             "points_reward": forms.NumberInput(attrs={"class": "form-control", "min": "0", "value": "0"}),
+            "drop_price": forms.NumberInput(attrs={"class": "form-control", "min": "0"}),
+            "wholesale_price": forms.NumberInput(attrs={"class": "form-control", "min": "0"}),
         }
 
     def clean(self):
