@@ -272,9 +272,9 @@
               <div class="gallery-upload">
                 {% with gallery_images=product.images.all %}
                 {% if product and gallery_images|length %}
-                <div class="gallery-existing" data-existing-gallery>
+                <div class="gallery-existing" data-existing-gallery data-product-gallery>
                   {% for gallery_image in gallery_images %}
-                  <div class="gallery-thumb">
+                  <div class="gallery-thumb" data-product-image-id="{{ gallery_image.id }}" draggable="true">
                     <img src="{{ gallery_image.image.url }}" alt="{{ gallery_image.alt_text|default:'Gallery image' }}">
                   </div>
                   {% endfor %}
@@ -283,6 +283,7 @@
                 <p class="text-muted small" data-existing-gallery-empty>Додаткових зображень немає.</p>
                 {% endif %}
                 {% endwith %}
+                <input type="hidden" name="product_gallery_order" value="" data-product-gallery-order>
                 <label class="upload-tile upload-tile--wide" data-extra-upload>
                   <span class="icon"><i class="fas fa-plus"></i></span>
                   <span>Додати зображення</span>
@@ -500,7 +501,7 @@
                       <div class="row g-3" data-image-list>
                         {% for img_form in form.images_formset %}
                         <div class="col-md-4">
-                          <div class="image-card">
+                          <div class="image-card" draggable="true">
                             <div class="image-preview" data-image-preview>
                               {% if img_form.instance.pk and img_form.instance.image %}
                               <img src="{{ img_form.instance.image.url }}" alt="{{ img_form.instance.alt_text }}">
@@ -540,7 +541,7 @@
                       </div>
                       <template data-image-template>
                         <div class="col-md-4">
-                          <div class="image-card">
+                          <div class="image-card" draggable="true">
                             <div class="image-preview" data-image-preview>
                               <span class="placeholder-icon"><i class="fas fa-image"></i></span>
                             </div>

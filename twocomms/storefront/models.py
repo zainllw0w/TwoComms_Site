@@ -437,8 +437,12 @@ class Product(models.Model):
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
     image = models.ImageField(upload_to='products/extra/')
+    order = models.IntegerField(default=0, db_index=True)
     alt_text = models.CharField(max_length=200, blank=True, null=True, verbose_name='Alt-текст зображення')
     
+    class Meta:
+        ordering = ['order', 'id']
+
     def __str__(self):
         return f'Image for {self.product_id}'
 
