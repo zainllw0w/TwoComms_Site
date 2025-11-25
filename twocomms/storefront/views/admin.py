@@ -404,7 +404,7 @@ def _build_catalogs_context():
 
     products = (
         Product.objects.select_related('category', 'catalog')
-        .order_by('-id')
+        .order_by('-priority', '-id')
     )
 
     catalogs = Catalog.objects.filter(is_active=True).order_by('order', 'name')
@@ -413,6 +413,7 @@ def _build_catalogs_context():
         'categories': categories,
         'products': products,
         'catalogs': catalogs,
+        'product_statuses': ProductStatus,
     }
 
 
@@ -609,6 +610,28 @@ def admin_reorder_products(request):
         Product.objects.filter(id=pid).update(priority=prio)
 
     return JsonResponse({'success': True, 'updated': len(updates)})
+
+
+@staff_member_required
+def admin_update_product_status(request):
+    """Обновление статуса товара из админ-панели."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+        product_id = int(payload.get('product_id'))
+        status_value = payload.get('status')
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Invalid payload'}, status=400)
+
+    if status_value not in ProductStatus.values:
+        return JsonResponse({'success': False, 'error': 'Invalid status'}, status=400)
+
+    updated = Product.objects.filter(id=product_id).update(status=status_value)
+    if not updated:
+        return JsonResponse({'success': False, 'error': 'Product not found'}, status=404)
+
+    return JsonResponse({'success': True})
 
 
 @staff_member_required
