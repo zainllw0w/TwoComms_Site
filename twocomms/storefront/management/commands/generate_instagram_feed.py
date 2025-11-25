@@ -76,10 +76,31 @@ def format_price_for_meta(price: int) -> str:
 
 
 def count_total_images(product) -> int:
-    """Подсчитывает общее количество изображений товара (общие + все варианты)."""
-    count = len(product.images.all())
+    """Подсчитывает общее количество изображений товара (главное + общие + все варианты) без дублей."""
+    seen = set()
+    count = 0
+
+    def add(img):
+        nonlocal count
+        if not img:
+            return
+        path = getattr(img, "name", None) or getattr(img, "url", None)
+        if not path:
+            path = str(img)
+        if path in seen:
+            return
+        seen.add(path)
+        count += 1
+
+    add(getattr(product, "main_image", None))
+
+    for img in product.images.all():
+        add(img.image)
+
     for cv in product.color_variants.all():
-        count += len(cv.images.all())
+        for img in cv.images.all():
+            add(img.image)
+
     return count
 
 
@@ -89,22 +110,31 @@ def get_all_product_images(product) -> List[Dict]:
     all_images[0] = изображение с максимальным id = последнее добавленное.
     """
     all_images: List[Dict] = []
+    seen_paths = set()
+
+    def append_unique(image_field, img_id: int, img_type: str, variant_id: Optional[int] = None):
+        if not image_field:
+            return
+        path = getattr(image_field, "name", None) or getattr(image_field, "url", None)
+        if not path:
+            path = str(image_field)
+        if path in seen_paths:
+            return
+        seen_paths.add(path)
+        payload = {"image": image_field, "id": img_id, "type": img_type}
+        if variant_id:
+            payload["variant_id"] = variant_id
+        all_images.append(payload)
 
     for img in product.images.all().order_by("-id"):
-        all_images.append({
-            "image": img.image,
-            "id": img.id,
-            "type": "product",
-        })
+        append_unique(img.image, img.id, "product")
 
     for cv in product.color_variants.all():
         for img in cv.images.all().order_by("-id"):
-            all_images.append({
-                "image": img.image,
-                "id": img.id,
-                "type": "variant",
-                "variant_id": cv.id,
-            })
+            append_unique(img.image, img.id, "variant", cv.id)
+
+    # Добавляем главное изображение как резерв (id=0), если его еще не добавили
+    append_unique(getattr(product, "main_image", None), 0, "main")
 
     all_images.sort(key=lambda x: x["id"], reverse=True)
     return all_images
