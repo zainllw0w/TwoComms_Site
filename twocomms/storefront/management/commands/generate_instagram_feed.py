@@ -161,21 +161,44 @@ def _image_size_safe(image_field) -> Optional[int]:
     return None
 
 
-def choose_main_and_additional(all_images: List[Dict]):
+def choose_main_and_additional(all_images: List[Dict], max_bytes: int = 8 * 1024 * 1024, logger=None):
     """
-    Выбирает основное изображение — строго последнее добавленное (max id) с валидным URL.
-    Дополнительные — остальные с валидным URL.
+    Выбирает основное изображение — последнее добавленное (max id) с валидным URL и размером <= max_bytes, если есть.
+    Если все больше лимита, берем последнее с валидным URL. Дополнительные — остальные валидные и не превышающие лимит.
     """
     main = None
+    fallback = None
+
     for img in all_images:
         if _image_url_safe(img.get("image")):
+            size = _image_size_safe(img.get("image"))
+            if size is not None and size > max_bytes:
+                if not fallback:
+                    fallback = img
+                if logger:
+                    logger(f"SKIP main oversized: id={img.get('id')} size={size}")
+                continue
             main = img
             break
 
     if not main:
+        main = fallback
+
+    if not main:
         return None, []
 
-    additional = [img for img in all_images if img is not main and _image_url_safe(img.get("image"))]
+    additional = []
+    for img in all_images:
+        if img is main:
+            continue
+        if not _image_url_safe(img.get("image")):
+            continue
+        size = _image_size_safe(img.get("image"))
+        if size is not None and size > max_bytes:
+            if logger:
+                logger(f"SKIP additional oversized: id={img.get('id')} size={size}")
+            continue
+        additional.append(img)
     return main, additional
 
 
@@ -342,7 +365,8 @@ class Command(BaseCommand):
                     self.stdout.write(f"SKIP no images: id={product.id} title='{product.title}' slug='{product.slug}'")
                 continue
 
-            main_img_data, additional_images = choose_main_and_additional(all_images)
+            logger = self.stdout.write if log_skipped else None
+            main_img_data, additional_images = choose_main_and_additional(all_images, logger=logger)
             if not main_img_data:
                 skipped_products += 1
                 skip_reasons["few_images"] += 1
