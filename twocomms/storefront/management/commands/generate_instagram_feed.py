@@ -187,6 +187,9 @@ def choose_main_and_additional(all_images: List[Dict], max_bytes: int = 8 * 1024
     if not main:
         return None, []
 
+    if logger:
+        logger(f"MAIN chosen: id={main.get('id')} size={_image_size_safe(main.get('image'))} url={_image_url_safe(main.get('image'))}")
+
     additional = []
     for img in all_images:
         if img is main:
