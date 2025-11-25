@@ -88,6 +88,7 @@ urlpatterns=[
     path('admin-panel/product/<int:pk>/colors/', _legacy_view('admin_product_colors'), name='admin_product_colors'),
     path('admin-panel/product/<int:product_pk>/color/<int:color_pk>/delete/', _legacy_view('admin_product_color_delete'), name='admin_product_color_delete'),
     path('admin-panel/product/<int:product_pk>/image/<int:image_pk>/delete/', _legacy_view('admin_product_image_delete'), name='admin_product_image_delete'),
+    path('admin-panel/products/reorder/', views.admin_reorder_products, name='admin_reorder_products'),
     # promocodes
     path('admin-panel/promocodes/', views.admin_promocodes, name='admin_promocodes'),
     path('admin-panel/promocode/create/', views.admin_promocode_create, name='admin_promocode_create'),

@@ -32,10 +32,13 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.text import slugify
 
+import json
+
 from ..models import (
     OfflineStore,
     PageView,
     Product,
+    ProductImage,
     ProductStatus,
     Category,
     PromoCode,
@@ -579,6 +582,36 @@ def admin_panel(request):
 
 
 @staff_member_required
+def admin_reorder_products(request):
+    """
+    Перестановка товаров drag&drop в каталоге: обновляет priority по порядку.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+        ids = payload.get('order') or []
+        ids = [int(x) for x in ids if str(x).isdigit()]
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Invalid payload'}, status=400)
+
+    if not ids:
+        return JsonResponse({'success': False, 'error': 'Empty order'}, status=400)
+
+    priority_start = len(ids)
+    updates = []
+    for idx, product_id in enumerate(ids):
+        priority_value = priority_start - idx
+        updates.append((product_id, priority_value))
+
+    # Обновляем только существующие товары
+    for pid, prio in updates:
+        Product.objects.filter(id=pid).update(priority=prio)
+
+    return JsonResponse({'success': True, 'updated': len(updates)})
+
+
+@staff_member_required
 def manage_products(request):
     """
     Список всех товаров с возможностью фильтрации.
@@ -877,6 +910,25 @@ def admin_product_builder(request, product_id=None):
                 # Дополнительные изображения товара
                 extra_images = product_form.cleaned_data.get('extra_images') or []
                 append_product_gallery(product_obj, extra_images)
+
+                # Порядок существующих изображений товара (product images)
+                gallery_order_raw = request.POST.get('product_gallery_order') or ''
+                if gallery_order_raw:
+                    try:
+                        ids = [int(x) for x in gallery_order_raw.split(',') if x.strip()]
+                        base = len(ids)
+                        for index, image_id in enumerate(ids):
+                            ProductImage.objects.filter(pk=image_id, product=product_obj).update(order=index)
+                        # Остальным выставим порядок после указанных
+                        remainder = product_obj.images.exclude(pk__in=ids).order_by('order', 'id')
+                        offset = base
+                        for extra_img in remainder:
+                            if extra_img.order != offset:
+                                extra_img.order = offset
+                                extra_img.save(update_fields=['order'])
+                            offset += 1
+                    except Exception:
+                        pass
 
                 # Сохранение опций каталога
                 if option_formset is not None and option_formset.is_bound and option_formset_valid and option_formset_has_changes:
