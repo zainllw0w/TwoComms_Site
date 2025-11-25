@@ -151,6 +151,26 @@ def get_quantity_to_sell(product, variant_id: Optional[int] = None, size: str = 
     return 100
 
 
+def is_special_oshp_225(product) -> bool:
+    """
+    Фильтр-исключение для конкретного худи "225 ОШП" (по id/названию/slug).
+    """
+    try:
+        if product.id == 225:
+            return True
+    except Exception:
+        pass
+
+    text = " ".join([
+        str(product.title or ""),
+        str(product.slug or ""),
+        str(getattr(product, "sku", "") or ""),
+        str(getattr(product, "barcode", "") or ""),
+    ]).lower()
+
+    return "225" in text and "ошп" in text
+
+
 class Command(BaseCommand):
     help = "Генерирует XML фид для Instagram/Meta Commerce Platform"
 
@@ -211,8 +231,16 @@ class Command(BaseCommand):
         self.stdout.write(f"Обрабатываем {total_products} товаров...")
 
         for product in products.iterator(chunk_size=1000):
+            if not is_hoodie(product):
+                skipped_products += 1
+                continue
+
+            if is_special_oshp_225(product):
+                skipped_products += 1
+                continue
+
             total_images_count = count_total_images(product)
-            if total_images_count < 3:
+            if total_images_count < 2:
                 skipped_products += 1
                 continue
 
