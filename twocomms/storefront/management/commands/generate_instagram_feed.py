@@ -112,14 +112,19 @@ def get_all_product_images(product) -> List[Dict]:
 
 def is_hoodie(product) -> bool:
     """Проверяет, относится ли товар к худи (по категории, slug или названию)."""
-    if product.category and product.category.slug == "hoodie":
-        return True
+    if product.category:
+        cat_slug = (product.category.slug or "").lower()
+        cat_name = (product.category.name or "").lower()
+        if any(tok in cat_slug for tok in ["hood", "hoodi", "hoody", "hoodie", "hoodies", "sweatshirt", "sweat"]):
+            return True
+        if any(tok in cat_name for tok in ["худи", "худі", "hoodie", "hood", "hoody", "sweatshirt"]):
+            return True
 
     title_lower = (product.title or "").lower()
     slug_lower = (product.slug or "").lower()
     category_name = (product.category.name if product.category else "").lower()
 
-    keywords = ["худи", "hoodie", "hood", "hudi"]
+    keywords = ["худи", "худі", "hoodie", "hoodies", "hoody", "hood", "hudi", "sweatshirt", "sweat"]
     return any(kw in title_lower or kw in slug_lower or kw in category_name for kw in keywords)
 
 
@@ -186,10 +191,16 @@ class Command(BaseCommand):
             action="store_true",
             help="Показать что будет сделано без создания файла",
         )
+        parser.add_argument(
+            "--log-skipped",
+            action="store_true",
+            help="Логировать причины пропуска товаров (для диагностики)",
+        )
 
     def handle(self, *args, **options):
         output_file = options["output"]
         dry_run = options["dry_run"]
+        log_skipped = options["log_skipped"]
 
         if dry_run:
             self.stdout.write(self.style.WARNING("РЕЖИМ ПРЕДВАРИТЕЛЬНОГО ПРОСМОТРА - файл не будет создан"))
@@ -227,21 +238,31 @@ class Command(BaseCommand):
         total_products = products.count()
         processed_products = 0
         skipped_products = 0
+        skip_reasons = {"not_hoodie": 0, "special_oshp": 0, "few_images": 0}
 
         self.stdout.write(f"Обрабатываем {total_products} товаров...")
 
         for product in products.iterator(chunk_size=1000):
             if not is_hoodie(product):
                 skipped_products += 1
+                skip_reasons["not_hoodie"] += 1
+                if log_skipped:
+                    self.stdout.write(f"SKIP not hoodie: id={product.id} title='{product.title}' slug='{product.slug}'")
                 continue
 
             if is_special_oshp_225(product):
                 skipped_products += 1
+                skip_reasons["special_oshp"] += 1
+                if log_skipped:
+                    self.stdout.write(f"SKIP 225 OSHP: id={product.id} title='{product.title}' slug='{product.slug}'")
                 continue
 
             total_images_count = count_total_images(product)
             if total_images_count < 2:
                 skipped_products += 1
+                skip_reasons["few_images"] += 1
+                if log_skipped:
+                    self.stdout.write(f"SKIP few images (<2): id={product.id} title='{product.title}' slug='{product.slug}' (images={total_images_count})")
                 continue
 
             all_images = get_all_product_images(product)
@@ -413,4 +434,7 @@ class Command(BaseCommand):
             self.style.SUCCESS(
                 f"Обработка завершена! Обработано: {processed_products}, Пропущено (мало фото): {skipped_products}"
             )
+        )
+        self.stdout.write(
+            f"Статистика пропусков: not_hoodie={skip_reasons['not_hoodie']}, special_oshp={skip_reasons['special_oshp']}, few_images={skip_reasons['few_images']}"
         )
