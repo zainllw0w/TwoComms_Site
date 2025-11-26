@@ -212,7 +212,7 @@ def order_history(request):
     
     return render(
         request,
-        'pages/order_history.html',
+        'pages/my_orders.html',
         {
             'orders': orders,
             'status_filter': status_filter
@@ -552,7 +552,7 @@ def my_promocodes(request):
     orders_with_promocodes = Order.objects.filter(
         user=request.user,
         promo_code__isnull=False
-    ).select_related('promo_code').order_by('-created_at')
+    ).select_related('promo_code').order_by('-created')
     
     # Создаем список использованных промокодов
     used_promocodes = []
