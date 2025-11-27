@@ -293,9 +293,13 @@
           <div class="order-payment-info">
             <div class="payment-method">
               <div class="payment-method-icon">
-                {% if o.pay_type == 'full' %}
+                {% if o.pay_type == 'full' or o.pay_type == 'online_full' %}
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
+                  </svg>
+                {% elif o.pay_type == 'cod' %}
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 3C7.03 3 3 7.03 3 12s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm1 14.93V17h-2v.93A7.014 7.014 0 0 1 5.07 13H6v-2H5.07A7.014 7.014 0 0 1 11 5.07V6h2v-.93A7.014 7.014 0 0 1 18.93 11H18v2h.93A7.014 7.014 0 0 1 13 17.93z"/>
                   </svg>
                 {% else %}
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -306,10 +310,14 @@
               <div class="payment-method-text">
                 <div class="payment-method-label">
                   <span class="method-text">
-                    {% if o.pay_type == 'full' %}
-                      Повна оплата
+                    {% if o.pay_type == 'full' or o.pay_type == 'online_full' %}
+                      Онлайн оплата (повна сума)
+                    {% elif o.pay_type == 'prepay_200' or o.pay_type == 'partial' %}
+                      Передплата 200 грн
+                    {% elif o.pay_type == 'cod' %}
+                      Оплата при отриманні
                     {% else %}
-                      Часткова оплата
+                      {{ o.get_pay_type_display|default:o.pay_type }}
                     {% endif %}
                   </span>
                   <button class="edit-method-btn" onclick="togglePaymentMethodEdit('{{ o.id }}')" title="Змінити спосіб оплати">
@@ -321,7 +329,7 @@
                 <div class="payment-status" id="payment-status-{{ o.id }}">
                   {% if o.payment_status == 'paid' %}
                     <span class="status-paid">Оплачено повністю</span>
-                  {% elif o.payment_status == 'partial' %}
+                  {% elif o.payment_status == 'prepaid' or o.payment_status == 'partial' %}
                     <span class="status-partial">Внесена передплата</span>
                   {% elif o.payment_status == 'checking' %}
                     <span class="status-checking">На перевірці</span>
@@ -344,7 +352,7 @@
                 </div>
                 <div class="editor-options">
                   <label class="option-item">
-                    <input type="radio" name="payment-method-{{ o.id }}" value="partial" {% if o.pay_type == 'partial' %}checked{% endif %}>
+                    <input type="radio" name="payment-method-{{ o.id }}" value="partial" {% if o.pay_type == 'partial' or o.pay_type == 'prepay_200' %}checked{% endif %}>
                     <span class="option-label">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
@@ -353,7 +361,7 @@
                     </span>
                   </label>
                   <label class="option-item">
-                    <input type="radio" name="payment-method-{{ o.id }}" value="full" {% if o.pay_type == 'full' %}checked{% endif %}>
+                    <input type="radio" name="payment-method-{{ o.id }}" value="full" {% if o.pay_type == 'full' or o.pay_type == 'online_full' %}checked{% endif %}>
                     <span class="option-label">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
@@ -373,14 +381,14 @@
               </div>
               
               {% if o.payment_status != 'paid' and o.payment_status != 'checking' %}
-                {% if o.pay_type == 'partial' %}
+                {% if o.pay_type == 'partial' or o.pay_type == 'prepay_200' %}
                   <button class="payment-btn payment-btn-partial" onclick="payPartial('{{ o.id }}')">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                     </svg>
                     Внести передплату
                   </button>
-                {% else %}
+                {% elif o.pay_type == 'full' or o.pay_type == 'online_full' %}
                   <button class="payment-btn payment-btn-full" onclick="payFull('{{ o.id }}')">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>

@@ -534,6 +534,21 @@ def _record_monobank_status_locked(order, payload, source='api'):
         
         # Отправляем уведомления только если статус изменился
         if previous_status != order.payment_status:
+            # Уведомление админу о смене статуса оплаты
+            try:
+                from orders.telegram_notifications import TelegramNotifier
+                notifier = TelegramNotifier()
+                notifier.send_admin_payment_status_update(
+                    order,
+                    old_status=normalized_previous or 'unpaid',
+                    new_status=order.payment_status,
+                    pay_type=pay_type,
+                )
+            except Exception:
+                monobank_logger.exception(
+                    f'Failed to send admin payment status update for order {order.order_number}'
+                )
+
             # Проверяем что Telegram уведомление еще не отправлено (защита от дублирования)
             payment_payload = order.payment_payload or {}
             telegram_notifications = payment_payload.get('telegram_notifications', {})
