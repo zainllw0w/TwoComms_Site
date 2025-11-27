@@ -260,8 +260,8 @@ class TelegramNotifier:
         message = self.format_order_message(order)
         return self.send_message(message)
     
-    def send_order_status_update(self, order, old_status, new_status):
-        """Отправляет уведомление об изменении статуса заказа"""
+    def send_admin_status_update(self, order, old_status, new_status):
+        """Отправляет админу уведомление об изменении статусу замовлення"""
         if not self.is_configured():
             return False
             
@@ -272,10 +272,46 @@ class TelegramNotifier:
         message += f"⏰ {timezone.now().strftime('%d.%m.%Y %H:%M')}"
         
         return self.send_message(message)
+
+    def send_admin_payment_status_update(self, order, old_status, new_status, pay_type=None):
+        """Отправляет админу уведомление об изменении статусу оплати"""
+        if not self.is_configured():
+            return False
+
+        status_map = {
+            'paid': 'Оплачено повністю',
+            'prepaid': 'Внесена передплата',
+            'partial': 'Внесена передплата',
+            'checking': 'На перевірці',
+            'unpaid': 'Не оплачено',
+        }
+        pay_type_map = {
+            'online_full': 'Онлайн оплата (повна сума)',
+            'full': 'Онлайн оплата (повна сума)',
+            'prepay_200': 'Передплата 200 грн',
+            'partial': 'Передплата 200 грн',
+            'cod': 'Оплата при отриманні',
+        }
+
+        pay_type_label = pay_type_map.get(pay_type or getattr(order, 'pay_type', ''), pay_type or getattr(order, 'pay_type', '—'))
+        old_display = status_map.get(old_status, old_status or '—')
+        new_display = status_map.get(new_status, new_status or '—')
+
+        message = f"""💳 <b>ОПЛАТА ОНОВЛЕНА #{order.order_number}</b>
+
+👤 {order.full_name}
+📞 {order.phone}
+📍 {order.city}, {order.np_office}
+
+Тип оплати: {pay_type_label}
+Статус: {old_display} → <b>{new_display}</b>
+Сума замовлення: {order.total_sum} грн"""
+
+        return self.send_message(message)
     
-    def send_ttn_added_notification(self, order):
+    def send_admin_ttn_added_notification(self, order):
         """
-        Отправляет уведомление о добавлении ТТН к заказу
+        Отправляет админу уведомление о добавлении ТТН к заказу
         
         Args:
             order (Order): Заказ с добавленным ТТН

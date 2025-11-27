@@ -40,7 +40,12 @@ from orders.telegram_notifications import TelegramNotifier
 from orders.facebook_conversions_service import get_facebook_conversions_service
 from productcolors.models import ProductColorVariant
 from accounts.models import UserProfile
-from .utils import _reset_monobank_session, get_cart_from_session, _get_color_variant_safe
+from .utils import (
+    _reset_monobank_session,
+    get_cart_from_session,
+    _get_color_variant_safe,
+    _normalize_order_pay_type,
+)
 
 
 # Loggers
@@ -1033,9 +1038,11 @@ def _apply_monobank_status(order, status_value, payload=None, source='webhook'):
 
     updated_fields = ['payment_payload', 'updated']
     old_payment_status = order.payment_status
+    canonical_pay_type = _normalize_order_pay_type(getattr(order, 'pay_type', None))
+    target_payment_status = 'prepaid' if canonical_pay_type == 'prepay_200' else 'paid'
 
     if status_lower in MONOBANK_SUCCESS_STATUSES:
-        order.payment_status = 'paid' if order.pay_type != 'prepay_200' else 'prepaid'
+        order.payment_status = target_payment_status
         updated_fields.append('payment_status')
     elif status_lower in MONOBANK_PENDING_STATUSES:
         order.payment_status = 'checking'
@@ -1054,10 +1061,11 @@ def _apply_monobank_status(order, status_value, payload=None, source='webhook'):
     if order.payment_status in ('paid', 'prepaid') and order.payment_status != old_payment_status:
         try:
             notifier = TelegramNotifier()
-            notifier.send_order_status_update(
+            notifier.send_admin_payment_status_update(
                 order,
                 old_status=old_payment_status or 'unpaid',
-                new_status=order.payment_status
+                new_status=order.payment_status,
+                pay_type=canonical_pay_type,
             )
         except Exception:
             # Не блокируем основной поток при ошибке уведомления
