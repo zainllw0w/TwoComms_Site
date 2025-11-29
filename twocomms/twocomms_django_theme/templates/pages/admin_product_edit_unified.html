@@ -784,8 +784,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (contentType && contentType.includes('application/json')) {
                 return response.json();
             } else {
-                // Если не JSON, считаем что успешно (данные сохранились)
-                return { success: true, message: 'Товар успішно збережено!' };
+                // Если не JSON, полагаемся на статус: 2xx → успех, иначе ошибка
+                return { success: response.ok, message: response.ok ? 'Товар успішно збережено!' : 'Помилка збереження' };
             }
         })
         .then(data => {
