@@ -97,6 +97,14 @@ class ProductForm(forms.ModelForm):
             "wholesale_price": forms.NumberInput(attrs={"class": "form-control", "min": "0"}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Позволяем создавать товары без явного указания дроп/опт цены — проставляем 0 по умолчанию
+        for price_field in ('drop_price', 'wholesale_price'):
+            if price_field in self.fields:
+                self.fields[price_field].required = False
+                self.fields[price_field].initial = self.fields[price_field].initial or 0
+
     def clean(self):
         data = super().clean()
         # Главное изображение необязательно - оно может быть взято из цветовых вариантов
@@ -161,6 +169,21 @@ class ProductForm(forms.ModelForm):
         full_description = data.get('full_description') or ''
         if not short_description and full_description:
             data['short_description'] = full_description[:297].rstrip() + '...' if len(full_description) > 300 else full_description
+
+        # Дроп/опт цены — задаем 0 по умолчанию, валидируем на неотрицательность
+        for field_name in ('drop_price', 'wholesale_price'):
+            value = data.get(field_name)
+            if value in (None, ''):
+                data[field_name] = 0
+                continue
+            try:
+                numeric_value = int(value)
+                if numeric_value < 0:
+                    self.add_error(field_name, "Ціна не може бути від'ємною")
+                else:
+                    data[field_name] = numeric_value
+            except (ValueError, TypeError):
+                self.add_error(field_name, "Невірний формат ціни")
         
         return data
 
