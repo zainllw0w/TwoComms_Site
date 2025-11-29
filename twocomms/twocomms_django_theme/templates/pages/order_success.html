@@ -1859,11 +1859,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     // Для аналитики purchase всегда отправляем полную стоимость заказа
     
+    function readGuestValue(key) {
+      try {
+        return window.sessionStorage ? window.sessionStorage.getItem('_twc_guest_' + key) || '' : '';
+      } catch (_) {
+        return '';
+      }
+    }
+
     var currency = el.dataset.currency || 'UAH';
-    var fullName = el.dataset.fullName || '';
-    var phone = el.dataset.phone || '';
-    var city = el.dataset.city || '';
-    var email = el.dataset.email || '';
+    var fullName = el.dataset.fullName || '' || readGuestValue('full_name');
+    var phone = el.dataset.phone || '' || readGuestValue('phone');
+    var city = el.dataset.city || '' || readGuestValue('city');
+    var email = el.dataset.email || '' || readGuestValue('email');
     var contents = [];
     var sessionKey = el.dataset.sessionKey || '';
     var userIdAttr = el.dataset.userId || '';
