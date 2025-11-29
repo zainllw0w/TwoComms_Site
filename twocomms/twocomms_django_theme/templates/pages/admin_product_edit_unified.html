@@ -775,7 +775,8 @@ document.addEventListener('DOMContentLoaded', function() {
             method: 'POST',
             body: new FormData(productForm),
             headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'X-Requested-With': 'XMLHttpRequest'
             }
         })
         .then(response => {
@@ -808,6 +809,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Помилка!';
                 submitBtn.classList.remove('btn-cta');
                 submitBtn.classList.add('btn-danger');
+                const errorMsg = data.errors ? JSON.stringify(data.errors) : (data.message || 'Помилка збереження');
+                console.error('Product save error:', errorMsg);
                 setTimeout(() => {
                     submitBtn.innerHTML = originalText;
                     submitBtn.classList.remove('btn-danger');
@@ -818,13 +821,15 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('Error:', error);
-            // Если произошла ошибка, но данные могли сохраниться, показываем успех
-            submitBtn.innerHTML = '<i class="fas fa-check me-1"></i>Збережено!';
+            submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Помилка!';
             submitBtn.classList.remove('btn-cta');
-            submitBtn.classList.add('btn-success');
+            submitBtn.classList.add('btn-danger');
             setTimeout(() => {
-                window.location.reload();
-            }, 1500);
+                submitBtn.innerHTML = originalText;
+                submitBtn.classList.remove('btn-danger');
+                submitBtn.classList.add('btn-cta');
+                submitBtn.disabled = false;
+            }, 2000);
         });
     });
 
