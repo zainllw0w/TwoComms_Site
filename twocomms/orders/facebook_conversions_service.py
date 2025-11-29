@@ -614,6 +614,7 @@ class FacebookConversionsService:
         
         Используется когда:
         - Заказ полностью оплачен (payment_status = 'paid')
+        - Внесена успешная предоплата (payment_status = 'prepaid')
         - Товар получен через Новую Почту и автоматически оплачен
         
         Args:
@@ -643,6 +644,14 @@ class FacebookConversionsService:
             
             # Custom Data (детали покупки)
             custom_data = self._prepare_custom_data(order)
+            if getattr(order, 'payment_status', None) in ('prepaid', 'partial'):
+                prepay_value = order.get_prepayment_amount()
+                custom_data.value = self._ensure_positive_value(
+                    prepay_value,
+                    order,
+                    'Prepayment purchase value',
+                    fallback=custom_data.value,
+                )
             
             # Создаем событие
             event = self.Event(
@@ -714,7 +723,6 @@ class FacebookConversionsService:
         Отправляет Lead событие в Facebook Conversions API.
         
         Используется когда:
-        - Предоплата внесена (payment_status = 'prepaid')
         - Заявка без оплаты (payment_status = 'unpaid', но заказ создан)
         
         Args:
@@ -809,8 +817,8 @@ class FacebookConversionsService:
         
         Логика:
         - payment_status = 'paid' → Purchase
-        - payment_status = 'prepaid' → Lead
-        - payment_status = 'unpaid' → Lead (если заказ создан через форму)
+        - payment_status = 'prepaid' → Purchase
+        - payment_status = 'unpaid' или 'checking' → пропускаем (заявка без оплаты)
         
         Args:
             order: Объект заказа
@@ -818,10 +826,8 @@ class FacebookConversionsService:
         Returns:
             bool: True если событие отправлено
         """
-        if order.payment_status == 'paid':
+        if order.payment_status in ('paid', 'prepaid', 'partial'):
             return self.send_purchase_event(order)
-        elif order.payment_status == 'prepaid':
-            return self.send_lead_event(order)
         elif order.payment_status in ('unpaid', 'checking'):
             logger.info(
                 "Skipping Facebook event for order %s with payment_status=%s",
