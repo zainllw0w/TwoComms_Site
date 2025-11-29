@@ -190,3 +190,4 @@ REDIS_*.md
 !NOVA_POSHTA_DEEP_ANALYSIS_FOR_AI.md
 node_modules/
 *.backup
+!twocomms/storefront/views.py.backup
