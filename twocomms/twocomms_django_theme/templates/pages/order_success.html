@@ -1857,10 +1857,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (paymentStatus === 'prepaid' && prepaidValue === 0) {
       prepaidValue = 200.00;
     }
-    // Для предоплаты отправляем purchase с суммой фактической оплаты (не завышаем value)
-    if ((paymentStatus === 'prepaid' || paymentStatus === 'partial') && prepaidValue > 0) {
-      purchaseValue = prepaidValue;
-    }
+    // Для аналитики purchase всегда отправляем полную стоимость заказа
     
     var currency = el.dataset.currency || 'UAH';
     var fullName = el.dataset.fullName || '';

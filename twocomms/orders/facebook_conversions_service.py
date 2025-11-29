@@ -644,14 +644,6 @@ class FacebookConversionsService:
             
             # Custom Data (детали покупки)
             custom_data = self._prepare_custom_data(order)
-            if getattr(order, 'payment_status', None) in ('prepaid', 'partial'):
-                prepay_value = order.get_prepayment_amount()
-                custom_data.value = self._ensure_positive_value(
-                    prepay_value,
-                    order,
-                    'Prepayment purchase value',
-                    fallback=custom_data.value,
-                )
             
             # Создаем событие
             event = self.Event(
