@@ -1818,43 +1818,31 @@ document.addEventListener('DOMContentLoaded', function() {
     var orderStatus = el.dataset.orderStatus || 'new';
     var orderId = el.dataset.orderId;
     
-    // НОВАЯ ЛОГИКА (по требованиям):
-    // 1. Lead - ТОЛЬКО для prepaid (предоплата 200 грн)
-    // 2. Purchase - только для paid (полная оплата)
-    // 3. Для unpaid - никаких событий
-    // ВАЖНО: Lead и Purchase НЕ отправляются одновременно!
+    // Новая логика: предоплата и полная оплата считаются покупкой (purchase) в GTM/Meta
+    // Legacy partial оставляем как purchase для совместимости
+    var shouldSendPurchase = (
+      paymentStatus === 'paid' ||
+      paymentStatus === 'prepaid' ||
+      paymentStatus === 'partial'
+    );
     
-    var shouldSendLead = paymentStatus === 'prepaid';  // ТОЛЬКО предоплата
-    var shouldSendPurchase = paymentStatus === 'paid';  // ТОЛЬКО полная оплата
-    
-    if (!shouldSendLead && !shouldSendPurchase) {
+    if (!shouldSendPurchase) {
       console.log('No pixel events to send: payment_status=' + paymentStatus + ', order_status=' + orderStatus);
       return;
     }
     
-    // Проверяем sessionStorage и флаги с сервера для каждого события отдельно
-    var leadStorageKey = 'gtm_lead_' + orderId;
+    // Проверяем sessionStorage и флаги с сервера
     var purchaseStorageKey = 'gtm_purchase_' + orderId;
-    var serverLeadSent = el.dataset.facebookLeadSent === 'true';
     var serverPurchaseSent = el.dataset.facebookPurchaseSent === 'true';
     
-    if (serverLeadSent) {
-      sessionStorage.setItem(leadStorageKey, 'true');
-    }
     if (serverPurchaseSent) {
       sessionStorage.setItem(purchaseStorageKey, 'true');
     }
     
-    var leadAlreadySent = shouldSendLead && (serverLeadSent || sessionStorage.getItem(leadStorageKey));
-    var purchaseAlreadySent = shouldSendPurchase && (serverPurchaseSent || sessionStorage.getItem(purchaseStorageKey));
+    var purchaseAlreadySent = serverPurchaseSent || sessionStorage.getItem(purchaseStorageKey);
     
-    // Если оба события уже отправлены или не требуется отправка, выходим
-    if ((!shouldSendLead || leadAlreadySent) && (!shouldSendPurchase || purchaseAlreadySent)) {
-      if (leadAlreadySent || purchaseAlreadySent) {
-        console.log('GTM events already sent for order:', orderId, 
-          'Lead:', leadAlreadySent ? 'sent' : 'not needed',
-          'Purchase:', purchaseAlreadySent ? 'sent' : 'not needed');
-      }
+    if (purchaseAlreadySent) {
+      console.log('GTM Purchase already sent for order:', orderId, 'status:', paymentStatus);
       return;
     }
     
@@ -1868,6 +1856,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Fallback для предоплаты - если не указана, используем 200 UAH (стандартная сумма)
     if (paymentStatus === 'prepaid' && prepaidValue === 0) {
       prepaidValue = 200.00;
+    }
+    // Для предоплаты отправляем purchase с суммой фактической оплаты (не завышаем value)
+    if ((paymentStatus === 'prepaid' || paymentStatus === 'partial') && prepaidValue > 0) {
+      purchaseValue = prepaidValue;
     }
     
     var currency = el.dataset.currency || 'UAH';
@@ -1885,9 +1877,6 @@ document.addEventListener('DOMContentLoaded', function() {
     var shippingValue = parseFloat(el.dataset.shipping || '0');
     if (isNaN(shippingValue)) shippingValue = 0;
     var couponCode = el.dataset.coupon || '';
-    
-    // Для Lead события (предоплата) используем сумму предоплаты, не полную сумму заказа
-    var leadValue = paymentStatus === 'prepaid' ? prepaidValue : purchaseValue;
     
     try {
       contents = JSON.parse(el.dataset.contents || '[]');
@@ -2069,11 +2058,12 @@ document.addEventListener('DOMContentLoaded', function() {
       window.dataLayer = [];
     }
     
-    // Purchase событие - сразу при полной оплате (не ждем получения товара)
+    // Purchase событие - отправляем для успешной предоплаты и полной оплаты
     if (shouldSendPurchase && !sessionStorage.getItem(purchaseStorageKey)) {
+      var purchaseEventId = '{{ order.get_purchase_event_id }}';
       var purchaseData = {
         event: 'purchase',
-        event_id: eventId,
+        event_id: purchaseEventId,
         fbp: fbpValue || null,
         fbc: fbcValue || null,
         ecommerce: {
@@ -2087,7 +2077,7 @@ document.addEventListener('DOMContentLoaded', function() {
           items: ecommerceItems
         },
         eventModel: {
-          event_id: eventId,
+          event_id: purchaseEventId,
           transaction_id: orderNumber,
           affiliation: affiliation,
           value: purchaseValue,
@@ -2110,8 +2100,8 @@ document.addEventListener('DOMContentLoaded', function() {
       // Защита от блокировки: проверяем что dataLayer доступен
       try {
         if (window.dataLayer && Array.isArray(window.dataLayer)) {
-      window.dataLayer.push(purchaseData);
-      console.log('✅ GTM Purchase event sent (PAID):', purchaseData);
+          window.dataLayer.push(purchaseData);
+          console.log('✅ GTM Purchase event sent (payment_status: ' + paymentStatus + '):', purchaseData);
         } else {
           console.debug('GTM dataLayer not available - possible blocker');
         }
@@ -2121,7 +2111,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
       if (window.trackEvent && typeof window.trackEvent === 'function') {
         try {
-          var eventId = '{{ order.get_purchase_event_id }}';
+          var eventId = purchaseEventId;
           var contentIdList = ecommerceIds.slice();
           var purchaseMeta = {
             event_id: eventId,
@@ -2162,92 +2152,7 @@ document.addEventListener('DOMContentLoaded', function() {
       sessionStorage.setItem(purchaseStorageKey, 'true');
     }
     
-    // Lead событие - только для prepaid (предоплата)
-    if (shouldSendLead && !sessionStorage.getItem(leadStorageKey)) {
-      var leadEventId = '{{ order.get_lead_event_id }}';
-      var leadData = {
-        event: 'lead',
-        event_id: leadEventId,
-        fbp: fbpValue || null,
-        fbc: fbcValue || null,
-        ecommerce: {
-          currency: currency,
-          value: leadValue,
-          items: ecommerceItems
-        },
-        eventModel: {
-          event_id: leadEventId,
-          value: leadValue,
-          currency: currency,
-          content_name: 'Lead ' + orderNumber,
-          items: eventModelItems,
-          ecomm_prodid: ecommerceIds,
-          ecomm_pagetype: 'lead',
-          ecomm_totalvalue: leadValue
-        },
-        lead_data: {
-          order_id: orderNumber,
-          value: leadValue,
-          currency: currency,
-          payment_status: paymentStatus
-        }
-      };
-      
-      if (Object.keys(userData).length > 0) {
-        leadData.user_data = userData;
-      }
-      
-      // Защита от блокировки: проверяем что dataLayer доступен
-      try {
-        if (window.dataLayer && Array.isArray(window.dataLayer)) {
-      window.dataLayer.push(leadData);
-          console.log('📋 GTM Lead event sent (PAYMENT: ' + paymentStatus + '):', leadData);
-        } else {
-          console.debug('GTM dataLayer not available for Lead - possible blocker');
-        }
-      } catch (gtmErr) {
-        console.debug('GTM Lead push error (possible blocker):', gtmErr);
-      }
-      
-      if (window.trackEvent && typeof window.trackEvent === 'function') {
-        try {
-          var leadMeta = {
-            event_id: leadEventId,
-            user_data: fbUserData
-          };
-          if (externalHash) {
-            leadMeta.external_id = externalHash;
-          }
-          if (fbpValue) {
-            leadMeta.fbp = fbpValue;
-          }
-          if (fbcValue) {
-            leadMeta.fbc = fbcValue;
-          }
-          var leadTrackPayload = {
-            event_id: leadEventId,
-            value: leadValue,
-            currency: currency,
-            content_name: 'Order ' + orderNumber,
-            content_type: 'product',
-            content_ids: ecommerceIds,
-            contents: pixelContents,
-            __meta: leadMeta
-          };
-          window.trackEvent('Lead', leadTrackPayload);
-          console.log('📋 Pixel events dispatched for Lead (PAYMENT: ' + paymentStatus + ') with eventID:', leadEventId, leadTrackPayload);
-        } catch (leadErr) {
-          console.debug('Lead tracking error (possible blocker):', leadErr);
-        }
-      } else {
-        console.debug('trackEvent bridge not available for Lead - possible blocker');
-      }
-    
-      // Сохраняем что Lead отправлен
-      sessionStorage.setItem(leadStorageKey, 'true');
-    }
-
-    if (shouldSendLead || shouldSendPurchase) {
+    if (shouldSendPurchase) {
       try {
         ['full_name', 'phone', 'city', 'np_office', 'email'].forEach(function(field) {
           sessionStorage.removeItem('_twc_guest_' + field);
