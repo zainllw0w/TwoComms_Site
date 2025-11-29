@@ -3285,7 +3285,12 @@ def admin_product_edit_unified(request, pk):
         form_type = request.POST.get('form_type')
         
         if form_type == 'product':
-            form = ProductForm(request.POST, request.FILES, instance=obj)
+            # Заполняем отсутствующие обязательные поля значениями из объекта,
+            # чтобы не падать на валидации если они не отправляются с формы.
+            data = request.POST.copy()
+            data.setdefault('status', obj.status)
+            data.setdefault('priority', obj.priority or 0)
+            form = ProductForm(data, request.FILES, instance=obj)
             
             if form.is_valid():
                 product = form.save(commit=False)
