@@ -2160,6 +2160,25 @@ document.addEventListener('DOMContentLoaded', function () {
   const colorPicker = document.getElementById('color-picker');
   const carousel = document.getElementById('productCarousel');
   if (!variantTag || !colorPicker || !carousel) return;
+  const bindPointsModal = () => {
+    const pointsInfoModal = document.getElementById('pointsInfoModal');
+    if (pointsInfoModal) {
+      pointsInfoModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+        if (!button) return;
+        const title = button.getAttribute('data-product-title');
+        const points = button.getAttribute('data-points-amount');
+        const t = document.getElementById('modalProductTitle');
+        const p = document.getElementById('modalPointsAmount');
+        if (t) t.textContent = title || '';
+        if (p) p.textContent = points || '0';
+      });
+    }
+  };
+  if (carousel.dataset.galleryInitialized === '1') {
+    bindPointsModal();
+    return;
+  }
   let variants = []; try { variants = JSON.parse(variantTag.textContent || '[]'); } catch (_) { variants = []; }
   const inner = carousel.querySelector('.carousel-inner');
   const indicators = carousel.querySelector('.carousel-indicators');
@@ -2202,9 +2221,8 @@ document.addEventListener('DOMContentLoaded', function () {
   function onColorClick(btn) { const id = parseInt(btn.getAttribute('data-variant') || '-1', 10); const v = variants.find(x => x.id === id); if (!v) return; colorPicker.querySelectorAll('.color-swatch').forEach(b => b.classList.remove('active')); btn.classList.add('active'); rebuild(v.images || []); }
   if (variants.length) { const def = variants.find(v => v.is_default) || variants[0]; rebuild(def && def.images ? def.images : []); }
   colorPicker.querySelectorAll('.color-swatch').forEach(b => b.addEventListener('click', () => onColorClick(b)));
-  // Points info modal binding
-  const pointsInfoModal = document.getElementById('pointsInfoModal');
-  if (pointsInfoModal) { pointsInfoModal.addEventListener('show.bs.modal', function (event) { const button = event.relatedTarget; if (!button) return; const title = button.getAttribute('data-product-title'); const points = button.getAttribute('data-points-amount'); const t = document.getElementById('modalProductTitle'); const p = document.getElementById('modalPointsAmount'); if (t) t.textContent = title || ''; if (p) p.textContent = points || '0'; }); }
+  carousel.dataset.galleryInitialized = '1';
+  bindPointsModal();
 });
 
 // ====== CONTACTS: показать телефон ======

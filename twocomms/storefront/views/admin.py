@@ -879,6 +879,10 @@ def admin_product_builder(request, product_id=None):
                 # Работа с цветовыми вариантами
                 saved_variants = []
                 default_assigned = False
+                main_image_uploaded = bool(product_form.cleaned_data.get('main_image'))
+                primary_image_candidate = None
+                images_updated_any = False
+                default_switched = False
 
                 for variant_form in color_formset.forms:
                     if not hasattr(variant_form, 'cleaned_data'):
@@ -914,6 +918,9 @@ def admin_product_builder(request, product_id=None):
                     if variant.order is None:
                         variant.order = 0
 
+                    if 'is_default' in getattr(variant_form, 'changed_data', []):
+                        default_switched = True
+
                     variant.save()
                     saved_variants.append(variant)
 
@@ -921,7 +928,14 @@ def admin_product_builder(request, product_id=None):
                         images_formset.instance = variant
                         payloads = formset_to_variant_payloads(images_formset)
                         if payloads:
-                            sync_variant_images(variant, payloads)
+                            synced_images = sync_variant_images(variant, payloads)
+                            images_updated_any = images_updated_any or images_changed
+                            if (
+                                not primary_image_candidate
+                                and variant.is_default
+                                and synced_images
+                            ):
+                                primary_image_candidate = synced_images[0].image
 
                 # Если нет варианта по умолчанию — назначаем первый
                 if not default_assigned and saved_variants:
@@ -929,6 +943,32 @@ def admin_product_builder(request, product_id=None):
                     if not primary_variant.is_default:
                         primary_variant.is_default = True
                         primary_variant.save(update_fields=['is_default'])
+                    if not primary_image_candidate:
+                        first_img = primary_variant.images.order_by('order', 'id').first()
+                        if first_img:
+                            primary_image_candidate = first_img.image
+                    default_switched = True
+
+                # Ставим главное фото из default-варіанта, если его не загрузили вручную
+                if not primary_image_candidate:
+                    default_variant_obj = (
+                        product_obj.color_variants.filter(is_default=True)
+                        .order_by('order', 'id')
+                        .first()
+                    ) or product_obj.color_variants.order_by('order', 'id').first()
+                    if default_variant_obj:
+                        first_img = default_variant_obj.images.order_by('order', 'id').first()
+                        if first_img:
+                            primary_image_candidate = first_img.image
+
+                if (
+                    primary_image_candidate
+                    and not main_image_uploaded
+                    and (images_updated_any or default_switched or not product_obj.main_image)
+                ):
+                    if product_obj.main_image != primary_image_candidate:
+                        product_obj.main_image = primary_image_candidate
+                        product_obj.save(update_fields=['main_image'])
 
                 # Дополнительные изображения товара
                 extra_images = product_form.cleaned_data.get('extra_images') or []
