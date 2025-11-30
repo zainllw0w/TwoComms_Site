@@ -517,6 +517,7 @@
 }
 
 .image-card {
+  position: relative;
   border-radius: 18px;
   overflow: hidden;
   background: rgba(15, 23, 42, 0.6);
@@ -527,7 +528,13 @@
   padding: 12px;
 }
 
+.image-card.is-cover {
+  border-color: #38bdf8;
+  box-shadow: 0 10px 30px rgba(56, 189, 248, 0.18);
+}
+
 .image-preview {
+  position: relative;
   border-radius: 12px;
   background: rgba(30, 41, 59, 0.75);
   height: 160px;
@@ -545,6 +552,18 @@
 .image-preview .placeholder-icon {
   font-size: 2rem;
   color: rgba(148, 163, 184, 0.5);
+}
+
+.cover-flag {
+  display: none;
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 12px;
+}
+
+.image-card.is-cover .cover-flag {
+  display: inline-flex;
 }
 
 .image-actions {

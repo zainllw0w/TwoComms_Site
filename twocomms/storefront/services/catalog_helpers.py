@@ -111,8 +111,15 @@ def get_detailed_color_variants(product) -> List[Dict[str, Any]]:
         if not images:
             # Fallback if prefetch didn't work
             images = list(variant.images.all()) if hasattr(variant, 'images') else []
-        
-        image_urls = [image.image.url for image in images]
+        # Явно сортируем по order/id, чтобы порядок соответствовал админскому драг-н-дропу
+        images = sorted(
+            images,
+            key=lambda image: (getattr(image, "order", 0), getattr(image, "id", 0)),
+        )
+
+        image_urls = [
+            image.image.url for image in images if getattr(image, "image", None)
+        ]
         
         variants.append(
             {

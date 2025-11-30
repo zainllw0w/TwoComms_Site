@@ -343,6 +343,8 @@ class ProductBuilder {
     if (!this.variantZone) return;
 
     this.variantZone.addEventListener('dragstart', evt => {
+      const handle = evt.target.closest('[data-dnd-handle]');
+      if (!handle) return;
       const card = evt.target.closest('[data-variant-row]');
       if (!card || card.classList.contains('is-deleted')) return;
       evt.dataTransfer.effectAllowed = 'move';
@@ -436,6 +438,16 @@ class ProductBuilder {
         this.setDefaultVariant(card);
       });
     }
+    const defaultCheckbox = card.querySelector('input[name$="-is_default"]');
+    if (defaultCheckbox) {
+      defaultCheckbox.addEventListener('change', () => {
+        if (defaultCheckbox.checked) {
+          this.setDefaultVariant(card);
+        } else {
+          this.syncDefaultState(card);
+        }
+      });
+    }
 
     const nameInput = card.querySelector(`input[name="${prefix}-name"]`);
     if (nameInput) {
@@ -481,6 +493,7 @@ class ProductBuilder {
     card.classList.add('is-deleted');
     card.style.display = 'none';
     this.updateCounters();
+    this.commitVariantOrder();
   }
 
   setDefaultVariant(card) {
@@ -533,6 +546,14 @@ class ProductBuilder {
     }
 
     gallery.addEventListener('click', evt => {
+      const coverBtn = evt.target.closest('[data-action="make-cover"]');
+      if (coverBtn) {
+        const imageCard = coverBtn.closest('.image-card');
+        if (imageCard) {
+          this.makeImageCover(list, imageCard);
+        }
+        return;
+      }
       const btn = evt.target.closest('[data-action="delete-image"]');
       if (!btn) return;
       evt.preventDefault();
@@ -567,7 +588,13 @@ class ProductBuilder {
     const node = wrapper.firstElementChild;
     if (!node) return;
 
-    list.appendChild(node);
+    const uploadTile = list.querySelector('[data-action="add-image"]');
+    const uploadCol = uploadTile ? uploadTile.closest('.col-md-4') : null;
+    if (uploadCol && uploadCol.parentElement === list) {
+      list.insertBefore(node, uploadCol);
+    } else {
+      list.appendChild(node);
+    }
     totalInput.value = newIndex + 1;
 
     if (file) {
@@ -588,6 +615,7 @@ class ProductBuilder {
       }
     }
 
+    this.commitImageOrder(list);
     this.updateCounters();
   }
 
@@ -598,6 +626,10 @@ class ProductBuilder {
       if (deleteInput.type === 'checkbox') deleteInput.checked = true;
     }
     imageCard.classList.add('is-deleted');
+    const list = imageCard.closest('[data-image-list]');
+    if (list) {
+      this.commitImageOrder(list);
+    }
     this.updateCounters();
   }
 
@@ -647,13 +679,26 @@ class ProductBuilder {
   }
 
   commitImageOrder(list) {
+    if (!list) return;
     const cards = qsa('.image-card', list).filter(card => !card.classList.contains('is-deleted'));
     cards.forEach((card, index) => {
       const orderInput = card.querySelector('input[name$="-order"]');
       if (orderInput) {
         orderInput.value = index;
       }
+      card.classList.toggle('is-cover', index === 0);
     });
+  }
+
+  makeImageCover(list, imageCard) {
+    if (!list || !imageCard || imageCard.classList.contains('is-deleted')) return;
+    const firstActive = qsa('.image-card', list).find(card => !card.classList.contains('is-deleted'));
+    if (!firstActive || firstActive === imageCard) {
+      this.commitImageOrder(list);
+      return;
+    }
+    list.insertBefore(imageCard, firstActive);
+    this.commitImageOrder(list);
   }
 
   setupProductGalleryReorder() {
