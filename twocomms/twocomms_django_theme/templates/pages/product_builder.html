@@ -450,7 +450,7 @@
                   <button type="button" class="btn btn-outline-danger btn-sm" data-action="delete-variant">
                     <i class="fas fa-trash-alt"></i>
                   </button>
-                  <span class="drag-handle" data-dnd-handle>
+                  <span class="drag-handle" data-dnd-handle draggable="true">
                     <i class="fas fa-grip-vertical"></i>
                   </span>
                 </div>
@@ -506,6 +506,7 @@
                               {% else %}
                               <span class="placeholder-icon"><i class="fas fa-image"></i></span>
                               {% endif %}
+                              <span class="cover-flag badge bg-primary" data-cover-flag>Головне фото</span>
                             </div>
                             <div class="image-actions">
                               {{ img_form.id }}
@@ -517,10 +518,16 @@
                               <input type="text" name="{{ img_form.alt_text.html_name }}"
                                 value="{{ img_form.alt_text.value|default:'' }}"
                                 class="form-control form-control-sm mt-2" placeholder="ALT-текст">
-                              <div class="d-flex align-items-center justify-content-between mt-2">
-                                <input type="number" name="{{ img_form.order.html_name }}"
-                                  value="{{ img_form.order.value|default:0 }}" class="form-control form-control-sm w-50"
-                                  placeholder="Порядок">
+                              <div class="d-flex align-items-center justify-content-between mt-2 gap-2 flex-wrap">
+                                <div class="d-flex align-items-center gap-2 flex-grow-1">
+                                  <input type="number" name="{{ img_form.order.html_name }}"
+                                    value="{{ img_form.order.value|default:0 }}" class="form-control form-control-sm w-50"
+                                    placeholder="Порядок">
+                                  <button type="button" class="btn btn-outline-light btn-sm flex-grow-1"
+                                    data-action="make-cover">
+                                    <i class="fas fa-star me-1"></i>Зробити обкладинкою
+                                  </button>
+                                </div>
                                 <button type="button" class="btn btn-outline-danger btn-sm" data-action="delete-image">
                                   <i class="fas fa-trash-alt"></i>
                                 </button>
@@ -542,6 +549,7 @@
                           <div class="image-card" draggable="true">
                             <div class="image-preview" data-image-preview>
                               <span class="placeholder-icon"><i class="fas fa-image"></i></span>
+                              <span class="cover-flag badge bg-primary" data-cover-flag>Головне фото</span>
                             </div>
                             <div class="image-actions">
                               {{ form.images_formset.empty_form.id }}
@@ -553,10 +561,16 @@
                               <input type="text" name="{{ form.images_formset.empty_form.alt_text.html_name }}"
                                 value="{{ form.images_formset.empty_form.alt_text.value|default:'' }}"
                                 class="form-control form-control-sm mt-2" placeholder="ALT-текст">
-                              <div class="d-flex align-items-center justify-content-between mt-2">
-                                <input type="number" name="{{ form.images_formset.empty_form.order.html_name }}"
-                                  value="{{ form.images_formset.empty_form.order.value|default:0 }}"
-                                  class="form-control form-control-sm w-50" placeholder="Порядок">
+                              <div class="d-flex align-items-center justify-content-between mt-2 gap-2 flex-wrap">
+                                <div class="d-flex align-items-center gap-2 flex-grow-1">
+                                  <input type="number" name="{{ form.images_formset.empty_form.order.html_name }}"
+                                    value="{{ form.images_formset.empty_form.order.value|default:0 }}"
+                                    class="form-control form-control-sm w-50" placeholder="Порядок">
+                                  <button type="button" class="btn btn-outline-light btn-sm flex-grow-1"
+                                    data-action="make-cover">
+                                    <i class="fas fa-star me-1"></i>Зробити обкладинкою
+                                  </button>
+                                </div>
                                 <button type="button" class="btn btn-outline-danger btn-sm" data-action="delete-image">
                                   <i class="fas fa-trash-alt"></i>
                                 </button>
@@ -595,7 +609,7 @@
                   <button type="button" class="btn btn-outline-danger btn-sm" data-action="delete-variant">
                     <i class="fas fa-trash-alt"></i>
                   </button>
-                  <span class="drag-handle" data-dnd-handle>
+                  <span class="drag-handle" data-dnd-handle draggable="true">
                     <i class="fas fa-grip-vertical"></i>
                   </span>
                 </div>
@@ -642,19 +656,21 @@
                     <label class="form-label">Галерея зображень</label>
                     <div class="variant-images" data-variant-gallery>
                       {{ color_formset.empty_form.images_formset.management_form }}
-                      <div class="row g-3" data-image-list></div>
-                      <div class="col-md-4">
-                        <label class="upload-tile" data-action="add-image">
-                          <span class="icon"><i class="fas fa-plus"></i></span>
-                          <span>Додати зображення</span>
-                          <input type="file" name="__new_color_images" accept="image/*" multiple hidden>
-                        </label>
+                      <div class="row g-3" data-image-list>
+                        <div class="col-md-4">
+                          <label class="upload-tile" data-action="add-image">
+                            <span class="icon"><i class="fas fa-plus"></i></span>
+                            <span>Додати зображення</span>
+                            <input type="file" name="__new_color_images" accept="image/*" multiple hidden>
+                          </label>
+                        </div>
                       </div>
                       <template data-image-template>
                         <div class="col-md-4">
-                          <div class="image-card">
+                          <div class="image-card" draggable="true">
                             <div class="image-preview" data-image-preview>
                               <span class="placeholder-icon"><i class="fas fa-image"></i></span>
+                              <span class="cover-flag badge bg-primary" data-cover-flag>Головне фото</span>
                             </div>
                             <div class="image-actions">
                               {{ color_formset.empty_form.images_formset.empty_form.id }}
@@ -667,11 +683,17 @@
                                 name="{{ color_formset.empty_form.images_formset.empty_form.alt_text.html_name }}"
                                 value="{{ color_formset.empty_form.images_formset.empty_form.alt_text.value|default:'' }}"
                                 class="form-control form-control-sm mt-2" placeholder="ALT-текст">
-                              <div class="d-flex align-items-center justify-content-between mt-2">
-                                <input type="number"
-                                  name="{{ color_formset.empty_form.images_formset.empty_form.order.html_name }}"
-                                  value="{{ color_formset.empty_form.images_formset.empty_form.order.value|default:0 }}"
-                                  class="form-control form-control-sm w-50" placeholder="Порядок">
+                              <div class="d-flex align-items-center justify-content-between mt-2 gap-2 flex-wrap">
+                                <div class="d-flex align-items-center gap-2 flex-grow-1">
+                                  <input type="number"
+                                    name="{{ color_formset.empty_form.images_formset.empty_form.order.html_name }}"
+                                    value="{{ color_formset.empty_form.images_formset.empty_form.order.value|default:0 }}"
+                                    class="form-control form-control-sm w-50" placeholder="Порядок">
+                                  <button type="button" class="btn btn-outline-light btn-sm flex-grow-1"
+                                    data-action="make-cover">
+                                    <i class="fas fa-star me-1"></i>Зробити обкладинкою
+                                  </button>
+                                </div>
                                 <button type="button" class="btn btn-outline-danger btn-sm" data-action="delete-image">
                                   <i class="fas fa-trash-alt"></i>
                                 </button>

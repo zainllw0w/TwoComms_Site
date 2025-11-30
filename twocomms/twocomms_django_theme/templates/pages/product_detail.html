@@ -279,6 +279,9 @@
       var inner = carousel ? carousel.querySelector('.carousel-inner') : null;
       var indicators = carousel ? carousel.querySelector('.carousel-indicators') : null;
       var thumbs = document.getElementById('product-thumbs');
+      if (carousel) {
+        carousel.dataset.galleryInitialized = '1';
+      }
 
       function rebuildCarousel(images){
         if(!(inner && indicators && thumbs)) return;
@@ -287,7 +290,14 @@
         thumbs.innerHTML = '';
         var list;
         if(images && images.length){
-          list = images;
+          // фильтруем пустые и дубли, сохраняем порядок
+          var seen = {};
+          list = [];
+          images.forEach(function(url){
+            if(!url || seen[url]) return;
+            seen[url] = true;
+            list.push(url);
+          });
         } else {
           // Fallback: главное изображение + дополнительные изображения товара
           var mainUrl = '{% if product.main_image %}{{ product.main_image.url }}{% else %}{% static "img/placeholder.jpg" %}{% endif %}';
@@ -328,6 +338,16 @@
           
           thumbs.appendChild(th);
         });
+        // Принудительно возвращаемся к первому слайду, чтобы не было сдвига на 3-й фото
+        if (carousel && typeof bootstrap !== 'undefined' && bootstrap.Carousel) {
+          try {
+            var bsCarousel = bootstrap.Carousel.getOrCreateInstance(carousel, { interval: false, ride: false, pause: true, wrap: true });
+            bsCarousel.to(0);
+          } catch (_) {}
+        }
+        if (thumbs) {
+          thumbs.scrollLeft = 0;
+        }
       }
 
       function pickDefault(){
