@@ -445,6 +445,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 from urllib.parse import urlparse
 
 REDIS_URL = os.environ.get('REDIS_URL', '').strip()
+if REDIS_URL:
+    # Убираем возможные inline-комментарии/хвосты после пробелов
+    REDIS_URL = REDIS_URL.split()[0].split('#')[0].strip()
 REDIS_SCHEME = os.environ.get('REDIS_SCHEME', '').strip() or 'redis'
 REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
 REDIS_PORT = os.environ.get('REDIS_PORT', '6379')
