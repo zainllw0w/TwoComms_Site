@@ -442,10 +442,40 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ===== КЭШИРОВАНИЕ =====
 # Используем Redis для кэширования в продакшене, LocMemCache для разработки
+from urllib.parse import urlparse
+
+REDIS_URL = os.environ.get('REDIS_URL', '').strip()
+REDIS_SCHEME = os.environ.get('REDIS_SCHEME', '').strip() or 'redis'
 REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
 REDIS_PORT = os.environ.get('REDIS_PORT', '6379')
 REDIS_DB = os.environ.get('REDIS_DB', '0')
-REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', '')  # Redis password for production
+REDIS_USERNAME = os.environ.get('REDIS_USERNAME', '').strip() or None
+REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', '').strip()  # Redis password for production
+REDIS_KEY_PREFIX = os.environ.get('REDIS_KEY_PREFIX', 'twocomms').strip() or 'twocomms'
+REDIS_SOCKET_TIMEOUT = float(os.environ.get('REDIS_SOCKET_TIMEOUT', '5.0'))
+REDIS_SOCKET_CONNECT_TIMEOUT = float(os.environ.get('REDIS_SOCKET_CONNECT_TIMEOUT', '5.0'))
+REDIS_IGNORE_EXCEPTIONS = os.environ.get('REDIS_IGNORE_EXCEPTIONS', 'true').lower() in ('1', 'true', 'yes')
+
+# Если пришёл полный REDIS_URL — парсим его и переопределяем поля
+if REDIS_URL:
+    parsed = urlparse(REDIS_URL)
+    if parsed.scheme:
+        REDIS_SCHEME = parsed.scheme
+    REDIS_HOST = parsed.hostname or REDIS_HOST
+    REDIS_PORT = parsed.port or REDIS_PORT
+    REDIS_DB = parsed.path.lstrip('/') or REDIS_DB
+    # Username/password могут быть нужны для Redis Cloud
+    REDIS_USERNAME = parsed.username or REDIS_USERNAME
+    REDIS_PASSWORD = parsed.password or REDIS_PASSWORD
+
+# Собираем финальную строку подключения
+if REDIS_PASSWORD:
+    REDIS_DSN = f"{REDIS_SCHEME}://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+else:
+    REDIS_DSN = f"{REDIS_SCHEME}://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+# Если указан оригинальный REDIS_URL (включая username) — используем его в приоритете
+if REDIS_URL:
+    REDIS_DSN = REDIS_URL
 
 # Для локальной разработки используем LocMemCache, для продакшена - Redis
 if DEBUG:
@@ -464,37 +494,37 @@ if DEBUG:
 else:
     # Продакшен - Redis with optional password authentication
     redis_options = {
-                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-                'CONNECTION_POOL_KWARGS': {
-                    'max_connections': 50,
-                    'retry_on_timeout': True,
-                },
-                'SOCKET_CONNECT_TIMEOUT': 5,
-                'SOCKET_TIMEOUT': 5,
-                'COMPRESSOR': 'django_redis.compressors.zlib.ZlibCompressor',
-                'IGNORE_EXCEPTIONS': True,  # Не падать если Redis недоступен
+        'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        'CONNECTION_POOL_KWARGS': {
+            'max_connections': 50,
+            'retry_on_timeout': True,
+        },
+        'SOCKET_CONNECT_TIMEOUT': REDIS_SOCKET_CONNECT_TIMEOUT,
+        'SOCKET_TIMEOUT': REDIS_SOCKET_TIMEOUT,
+        'COMPRESSOR': 'django_redis.compressors.zlib.ZlibCompressor',
+        'IGNORE_EXCEPTIONS': REDIS_IGNORE_EXCEPTIONS,  # Не падать если Redis недоступен
     }
-    
-    # Add password if provided
+
+    # Add credentials if provided
     if REDIS_PASSWORD:
         redis_options['PASSWORD'] = REDIS_PASSWORD
-    
+    if REDIS_USERNAME:
+        redis_options['USERNAME'] = REDIS_USERNAME
+
     CACHES = {
         'default': {
             'BACKEND': 'django_redis.cache.RedisCache',
-            'LOCATION': f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}',
+            'LOCATION': REDIS_DSN,
             'OPTIONS': redis_options,
-            'KEY_PREFIX': 'twocomms',
+            'KEY_PREFIX': REDIS_KEY_PREFIX,
             'TIMEOUT': 300,
         }
     }
 
 # ==================== CELERY CONFIGURATION ====================
-CELERY_BROKER_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}'
-if REDIS_PASSWORD:
-    CELERY_BROKER_URL = f'redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}'
+CELERY_BROKER_URL = REDIS_DSN
+CELERY_RESULT_BACKEND = REDIS_DSN
 
-CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
