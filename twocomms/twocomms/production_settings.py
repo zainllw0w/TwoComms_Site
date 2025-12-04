@@ -3,6 +3,7 @@ Production settings for TwoComms project on PythonAnywhere.
 """
 
 from pathlib import Path
+from urllib.parse import urlparse
 import os
 try:
     from dotenv import load_dotenv
@@ -212,9 +213,21 @@ REDIS_FRAGMENT_DB = os.environ.get('REDIS_FRAGMENT_DB', '2')
 REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', '')
 REDIS_USE_SSL = os.environ.get('REDIS_USE_SSL', 'false').lower() in ('1', 'true', 'yes')
 REDIS_SCHEME = 'rediss' if REDIS_USE_SSL else 'redis'
-REDIS_CACHE_URL = os.environ.get('REDIS_CACHE_URL')
-REDIS_STATIC_URL = os.environ.get('REDIS_STATIC_URL')
-REDIS_FRAGMENT_URL = os.environ.get('REDIS_FRAGMENT_URL')
+
+# Общий REDIS_URL (если задан) прокидываем во все типы кэша/брокера
+_primary_redis_url = os.environ.get('REDIS_CACHE_URL') or os.environ.get('REDIS_URL')
+if _primary_redis_url:
+    _primary_redis_url = _primary_redis_url.split()[0].split('#')[0].strip()
+    parsed = urlparse(_primary_redis_url)
+    if parsed.scheme:
+        REDIS_SCHEME = parsed.scheme
+    REDIS_HOST = parsed.hostname or REDIS_HOST
+    REDIS_PORT = parsed.port or REDIS_PORT
+    REDIS_PASSWORD = parsed.password or REDIS_PASSWORD
+
+REDIS_CACHE_URL = os.environ.get('REDIS_CACHE_URL') or _primary_redis_url
+REDIS_STATIC_URL = os.environ.get('REDIS_STATIC_URL') or _primary_redis_url
+REDIS_FRAGMENT_URL = os.environ.get('REDIS_FRAGMENT_URL') or _primary_redis_url
 REDIS_MAX_CONNECTIONS = int(os.environ.get('REDIS_MAX_CONNECTIONS', '100'))
 REDIS_FRAGMENT_MAX_CONNECTIONS = int(os.environ.get('REDIS_FRAGMENT_MAX_CONNECTIONS', '40'))
 
