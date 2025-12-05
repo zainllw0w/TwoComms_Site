@@ -295,8 +295,17 @@ def _build_orders_context(request):
         'paid': Order.objects.filter(payment_status='paid').count(),
     }
 
+    orders = list(orders_qs)
+    for order in orders:
+        payload = order.payment_payload or {}
+        history = payload.get('history') or []
+        last_entry = history[-1] if history else {}
+        order.payment_last_status = last_entry.get('status') or payload.get('last_status')
+        order.payment_last_time = last_entry.get('received_at') or last_entry.get('ts') or payload.get('last_update_at')
+        order.payment_history_safe = history[-10:]
+
     return {
-        'orders': orders_qs,
+        'orders': orders,
         'status_counts': status_counts,
         'payment_status_counts': payment_status_counts,
         'total_orders': Order.objects.count(),
