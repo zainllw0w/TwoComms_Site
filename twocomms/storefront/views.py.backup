@@ -2823,6 +2823,8 @@ def admin_order_update(request):
     oid = request.POST.get('order_id')
     status = request.POST.get('status')
     tracking_number = request.POST.get('tracking_number', '').strip()
+    cancel_reason = request.POST.get('cancellation_reason', '').strip()
+    cancel_comment = request.POST.get('cancellation_comment', '').strip()
     
     try:
         o = Order.objects.get(pk=oid)
@@ -2831,6 +2833,19 @@ def admin_order_update(request):
     
     old_status = o.status
     if status in dict(Order.STATUS_CHOICES):
+        # Валідація причини скасування
+        if status == 'cancelled':
+            valid_reasons = [c[0] for c in Order._meta.get_field('cancellation_reason').choices]
+            if cancel_reason and cancel_reason not in valid_reasons:
+                return JsonResponse({'success': False, 'error': 'Невірна причина скасування'})
+            if not cancel_reason:
+                return JsonResponse({'success': False, 'error': 'Вкажіть причину скасування'})
+            o.cancellation_reason = cancel_reason
+            o.cancellation_comment = cancel_comment or None
+        else:
+            o.cancellation_reason = None
+            o.cancellation_comment = None
+
         o.status = status
         
         # Обновляем ТТН если предоставлен
@@ -2880,7 +2895,9 @@ def admin_order_update(request):
             'success': True, 
             'message': message,
             'status': status,
-            'tracking_number': tracking_number
+            'tracking_number': tracking_number,
+            'cancellation_reason': o.cancellation_reason,
+            'cancellation_comment': o.cancellation_comment
         })
     
     return JsonResponse({'success': False, 'error': 'Невірний статус'})

@@ -596,6 +596,33 @@
                         </svg>
                       </div>
                     </button>
+                    {% if o.payment_status %}
+                      {% if o.payment_status == 'paid' %}
+                        {% with pill_bg='#10b981' pill_text='Оплачено' %}
+                        <span class="payment-status-pill" style="margin-left: 12px; padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; color: #fff; background: {{ pill_bg }};">
+                          {{ pill_text }}
+                        </span>
+                        {% endwith %}
+                      {% elif o.payment_status == 'partial' or o.payment_status == 'prepaid' %}
+                        {% with pill_bg='#f97316' pill_text='Передплата' %}
+                        <span class="payment-status-pill" style="margin-left: 12px; padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; color: #fff; background: {{ pill_bg }};">
+                          {{ pill_text }}
+                        </span>
+                        {% endwith %}
+                      {% elif o.payment_status == 'checking' %}
+                        {% with pill_bg='#3b82f6' pill_text='На перевірці' %}
+                        <span class="payment-status-pill" style="margin-left: 12px; padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; color: #fff; background: {{ pill_bg }};">
+                          {{ pill_text }}
+                        </span>
+                        {% endwith %}
+                      {% else %}
+                        {% with pill_bg='#fbbf24' pill_text='Не оплачено' %}
+                        <span class="payment-status-pill" style="margin-left: 12px; padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; color: #fff; background: {{ pill_bg }};">
+                          {{ pill_text }}
+                        </span>
+                        {% endwith %}
+                      {% endif %}
+                    {% endif %}
                   </div>
                   
                   <div class="order-customer-info">
@@ -665,56 +692,97 @@
       </div>
 
               {% if o.payment_provider %}
-              <div class="payment-meta-card">
-                <div class="payment-meta-header">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-.88 14.88-3.76-3.77 1.41-1.41 2.35 2.36 5.29-5.29 1.41 1.41-6.7 6.7z"/>
+              <div class="payment-meta-wrapper" data-order-id="{{ o.id }}">
+                <button class="payment-meta-toggle" type="button" onclick="togglePaymentMeta('{{ o.id }}')">
+                  <span class="toggle-label">Показати оплату</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" class="toggle-icon">
+                    <path d="M7 10l5 5 5-5z"/>
                   </svg>
-                  <span>Оплата</span>
+                </button>
+                <div class="payment-meta-card" id="payment-card-{{ o.id }}" style="display: none;">
+                  <div class="payment-meta-header">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-.88 14.88-3.76-3.77 1.41-1.41 2.35 2.36 5.29-5.29 1.41 1.41-6.7 6.7z"/>
+                    </svg>
+                    <span>Оплата</span>
+                  </div>
+                  {% with history=o.payment_payload.history %}
+                    {% if history %}
+                      {% with last_entry=history|last %}
+                        {% with mono_status=last_entry.status|default:o.payment_payload.last_status %}
+                        {% with mono_time=last_entry.received_at|default:o.payment_payload.last_update_at %}
+                        <div class="payment-meta-grid">
+                          <div class="info-item">
+                            <span class="info-label">Сервіс:</span>
+                            <span class="info-value">{{ o.payment_provider|capfirst }}</span>
+                          </div>
+                          <div class="info-item">
+                            <span class="info-label">Invoice ID:</span>
+                            <span class="info-value">{{ o.payment_invoice_id|default:'—' }}</span>
+                          </div>
+                          <div class="info-item">
+                            <span class="info-label">Статус Monobank:</span>
+                            <span class="info-value">{{ mono_status|default:'немає даних' }}</span>
+                          </div>
+                          <div class="info-item">
+                            <span class="info-label">Оновлено:</span>
+                            <span class="info-value">
+                              {% if mono_time %}
+                                {{ mono_time|date:"d.m.Y H:i" }}
+                              {% else %}
+                                —
+                              {% endif %}
+                            </span>
+                          </div>
+                        </div>
+                        <div class="payment-history" style="margin-top: 6px;">
+                          {% for entry in history|slice:":10" %}
+                            <div class="payment-history-item">
+                              <span class="history-status">{{ entry.status|default:'—' }}</span>
+                              <span class="history-time">
+                                {% if entry.received_at %}
+                                  {{ entry.received_at|date:"d.m.Y H:i" }}
+                                {% else %}
+                                  —
+                                {% endif %}
+                              </span>
+                              {% if entry.data.modifiedDate %}
+                                <span class="history-modified">{{ entry.data.modifiedDate }}</span>
+                              {% endif %}
+                            </div>
+                          {% endfor %}
+                        </div>
+                        {% endwith %}
+                        {% endwith %}
+                      {% endwith %}
+                    {% else %}
+                      <div class="payment-meta-grid">
+                        <div class="info-item">
+                          <span class="info-label">Сервіс:</span>
+                          <span class="info-value">{{ o.payment_provider|capfirst }}</span>
+                        </div>
+                        <div class="info-item">
+                          <span class="info-label">Invoice ID:</span>
+                          <span class="info-value">{{ o.payment_invoice_id|default:'—' }}</span>
+                        </div>
+                        <div class="info-item">
+                          <span class="info-label">Статус Monobank:</span>
+                          <span class="info-value">{{ o.payment_payload.last_status|default:'немає даних' }}</span>
+                        </div>
+                        <div class="info-item">
+                          <span class="info-label">Оновлено:</span>
+                          <span class="info-value">
+                            {% if o.payment_payload.last_update_at %}
+                              {{ o.payment_payload.last_update_at|date:"d.m.Y H:i" }}
+                            {% else %}
+                              —
+                            {% endif %}
+                          </span>
+                        </div>
+                      </div>
+                    {% endif %}
+                  {% endwith %}
                 </div>
-                <div class="payment-meta-grid">
-                  <div class="info-item">
-                    <span class="info-label">Сервіс:</span>
-                    <span class="info-value">{{ o.payment_provider|capfirst }}</span>
-                  </div>
-                  <div class="info-item">
-                    <span class="info-label">Invoice ID:</span>
-                    <span class="info-value">{{ o.payment_invoice_id|default:'—' }}</span>
-                  </div>
-                  <div class="info-item">
-                    <span class="info-label">Статус Monobank:</span>
-                    <span class="info-value">{{ o.payment_payload.last_status|default:'немає даних' }}</span>
-                  </div>
-                  <div class="info-item">
-                    <span class="info-label">Оновлено:</span>
-                    <span class="info-value">
-                      {% if o.payment_payload.last_update_at %}
-                        {{ o.payment_payload.last_update_at|date:"d.m.Y H:i" }}
-                      {% else %}
-                        —
-                      {% endif %}
-                    </span>
-                  </div>
-                </div>
-                {% if o.payment_payload.history %}
-                <div class="payment-history">
-                  {% for entry in o.payment_payload.history|slice:":5" %}
-                    <div class="payment-history-item">
-                      <span class="history-status">{{ entry.status|default:'—' }}</span>
-                      <span class="history-time">
-                        {% if entry.received_at %}
-                          {{ entry.received_at|date:"d.m.Y H:i" }}
-                        {% else %}
-                          —
-                        {% endif %}
-                      </span>
-                      {% if entry.data.modifiedDate %}
-                        <span class="history-modified">{{ entry.data.modifiedDate }}</span>
-                      {% endif %}
-                    </div>
-                  {% endfor %}
-                </div>
-                {% endif %}
               </div>
               {% endif %}
 
@@ -762,6 +830,28 @@
                   <div class="status-step-label">Отримано</div>
         </div>
       </div>
+
+              <div class="order-cancel-actions">
+                <button class="order-action-btn danger" type="button" onclick="updateOrderStatus('{{ o.id }}', 'cancelled')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                  </svg>
+                  Скасувати
+                </button>
+                {% if o.status == 'cancelled' %}
+                  <div class="cancel-reason-box" style="margin-top: 8px; padding: 10px 12px; border-radius: 8px; background: #fef2f2; color: #991b1b; font-size: 13px;">
+                    <div style="font-weight: 700; margin-bottom: 4px;">Скасовано</div>
+                    {% if o.cancellation_reason %}
+                      <div>Причина: 
+                        {% if o.cancellation_reason == 'out_of_stock' %}Немає товару{% elif o.cancellation_reason == 'no_print' %}Немає принта{% elif o.cancellation_reason == 'fake_number' %}Фейковий номер{% elif o.cancellation_reason == 'no_contact' %}Не виходить на зв’язок{% elif o.cancellation_reason == 'changed_mind' %}Передумав{% elif o.cancellation_reason == 'prepayment_refused' %}Не влаштувала передоплата{% elif o.cancellation_reason == 'other' %}Інше{% else %}—{% endif %}
+                      </div>
+                    {% endif %}
+                    {% if o.cancellation_comment %}
+                      <div>Коментар: {{ o.cancellation_comment }}</div>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              </div>
 
               <!-- Статус оплаты (селект) -->
               <div class="order-payment-status">
@@ -2679,6 +2769,15 @@ function updateOrderStatus(orderId, newStatus) {
     'refused': 'Відмова',
     'delivered': 'Доставлено'
   };
+  const cancellationLabels = {
+    'out_of_stock': 'Немає товару',
+    'no_print': 'Немає принта',
+    'fake_number': 'Фейковий номер',
+    'no_contact': 'Не виходить на зв’язок',
+    'changed_mind': 'Передумав',
+    'prepayment_refused': 'Не влаштувала передоплата',
+    'other': 'Інше'
+  };
   
   /* Если статус "Відправлено", запрашиваем ТТН */
   if (newStatus === 'ship') {
@@ -2760,12 +2859,59 @@ function updateOrderStatus(orderId, newStatus) {
       return;
     }
   }
+
+  let cancellationReason = '';
+  let cancellationComment = '';
+  if (newStatus === 'cancelled') {
+    const reasonMap = [
+      { code: 'out_of_stock', label: 'Немає товару' },
+      { code: 'no_print', label: 'Немає принта' },
+      { code: 'fake_number', label: 'Фейковий номер' },
+      { code: 'no_contact', label: 'Не виходить на зв’язок' },
+      { code: 'changed_mind', label: 'Передумав' },
+      { code: 'prepayment_refused', label: 'Не влаштувала передоплата' },
+      { code: 'other', label: 'Інше (введіть коментар)' },
+    ];
+    const listText = reasonMap.map((r, idx) => `${idx + 1}) ${r.label}`).join('\n');
+    const choice = prompt(`Оберіть причину скасування:\n${listText}`);
+    if (choice === null) {
+      const select = document.querySelector(`[data-order-id="${orderId}"] select[onchange*="updateOrderStatus"]`);
+      if (select) {
+        select.value = select.getAttribute('data-original-value');
+      }
+      return;
+    }
+    const idx = parseInt(choice, 10);
+    if (!isNaN(idx) && idx >= 1 && idx <= reasonMap.length) {
+      cancellationReason = reasonMap[idx - 1].code;
+    } else {
+      // пользователь ввёл текст сразу
+      cancellationReason = 'other';
+      cancellationComment = choice.trim();
+    }
+    if (cancellationReason === 'other') {
+      const comment = cancellationComment || prompt('Вкажіть коментар для скасування (обов’язково для "Інше")', '');
+      if (comment === null || !comment.trim()) {
+        showNotification('Потрібно вказати коментар для причини "Інше"', 'error');
+        const select = document.querySelector(`[data-order-id="${orderId}"] select[onchange*="updateOrderStatus"]`);
+        if (select) {
+          select.value = select.getAttribute('data-original-value');
+        }
+        return;
+      }
+      cancellationComment = comment.trim();
+    }
+  }
   
   if (confirm(`Змінити статус замовлення на "${statusText[newStatus]}"?`)) {
     const formData = new FormData();
     formData.append('order_id', orderId);
     formData.append('status', newStatus);
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    if (cancellationReason) {
+      formData.append('cancellation_reason', cancellationReason);
+      formData.append('cancellation_comment', cancellationComment);
+    }
     
     
     fetch('{% url "admin_update_order_status" %}', {
@@ -2775,16 +2921,37 @@ function updateOrderStatus(orderId, newStatus) {
     .then(response => {
       return response.json();
     })
-    .then(data => {
-      if (data.success) {
-        showNotification(data.message, 'success');
-        /* Обновляем селект в интерфейсе */
-        const select = document.querySelector(`[data-order-id="${orderId}"] select[onchange*="updateOrderStatus"]`);
-        if (select) {
-          select.value = newStatus;
-        }
-      } else {
-        showNotification('Помилка: ' + data.error, 'error');
+      .then(data => {
+        if (data.success) {
+          showNotification(data.message, 'success');
+          /* Обновляем селект в интерфейсе */
+          const select = document.querySelector(`[data-order-id="${orderId}"] select[onchange*="updateOrderStatus"]`);
+          if (select) {
+            select.value = newStatus;
+          }
+          if (newStatus === 'cancelled') {
+            const card = document.querySelector(`[data-order-id="${orderId}"] .cancel-reason-box`);
+            const label = cancellationLabels[data.cancellation_reason] || '—';
+            if (card) {
+              card.style.display = 'block';
+              card.innerHTML = `<div style="font-weight:700;margin-bottom:4px;">Скасовано</div>
+              <div>Причина: ${label}</div>
+              ${data.cancellation_comment ? `<div>Коментар: ${data.cancellation_comment}</div>` : ''}`;
+            } else {
+              const container = document.querySelector(`[data-order-id="${orderId}"] .order-cancel-actions`);
+              if (container) {
+                const newBox = document.createElement('div');
+                newBox.className = 'cancel-reason-box';
+                newBox.style.cssText = 'margin-top:8px; padding:10px 12px; border-radius:8px; background:#fef2f2; color:#991b1b; font-size:13px;';
+                newBox.innerHTML = `<div style="font-weight:700;margin-bottom:4px;">Скасовано</div>
+                <div>Причина: ${label}</div>
+                ${data.cancellation_comment ? `<div>Коментар: ${data.cancellation_comment}</div>` : ''}`;
+                container.appendChild(newBox);
+              }
+            }
+          }
+        } else {
+          showNotification('Помилка: ' + data.error, 'error');
         /* Возвращаем предыдущее значение */
         const select = document.querySelector(`[data-order-id="${orderId}"] select[onchange*="updateOrderStatus"]`);
         if (select) {
@@ -2807,6 +2974,17 @@ function updateOrderStatus(orderId, newStatus) {
     if (select) {
       select.value = select.getAttribute('data-original-value');
     }
+  }
+}
+
+function togglePaymentMeta(orderId) {
+  const card = document.getElementById(`payment-card-${orderId}`);
+  if (!card) return;
+  const isHidden = card.style.display === 'none' || card.style.display === '';
+  card.style.display = isHidden ? 'block' : 'none';
+  const toggle = document.querySelector(`[data-order-id="${orderId}"] .payment-meta-toggle .toggle-label`);
+  if (toggle) {
+    toggle.textContent = isHidden ? 'Сховати оплату' : 'Показати оплату';
   }
 }
 
