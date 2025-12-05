@@ -54,6 +54,27 @@ class Order(models.Model):
     payment_invoice_id = models.CharField(max_length=128, blank=True, default='')
     payment_payload = models.JSONField(blank=True, null=True)
     points_awarded = models.BooleanField(default=False, verbose_name='Бали нараховані')
+    cancellation_reason = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        choices=[
+            ('out_of_stock', 'Немає товару'),
+            ('no_print', 'Немає принта'),
+            ('fake_number', 'Фейковий номер'),
+            ('no_contact', 'Не виходить на зв’язок'),
+            ('changed_mind', 'Передумав'),
+            ('prepayment_refused', 'Не влаштувала передоплата'),
+            ('other', 'Інше'),
+        ],
+        verbose_name='Причина скасування'
+    )
+    cancellation_comment = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name='Коментар до скасування'
+    )
     
     # UTM tracking fields
     utm_session = models.ForeignKey(
