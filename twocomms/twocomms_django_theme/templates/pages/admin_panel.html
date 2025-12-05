@@ -743,9 +743,13 @@
                             —
                           {% endif %}
                         </span>
-                        {% with mod=entry|get_item:"data"|default:{}|get_item:"modifiedDate" %}
-                          {% if mod %}
-                            <span class="history-modified">{{ mod }}</span>
+                        {% with data=entry|get_item:"data" %}
+                          {% if data %}
+                            {% with mod=data|get_item:"modifiedDate" %}
+                              {% if mod %}
+                                <span class="history-modified">{{ mod }}</span>
+                              {% endif %}
+                            {% endwith %}
                           {% endif %}
                         {% endwith %}
                       </div>
