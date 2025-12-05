@@ -706,11 +706,63 @@
                     </svg>
                     <span>Оплата</span>
                   </div>
-                  {% with history=o.payment_payload.history %}
-                    {% if history %}
-                      {% with last_entry=history|last %}
-                        {% with mono_status=last_entry.status|default:o.payment_payload.last_status %}
-                        {% with mono_time=last_entry.received_at|default:o.payment_payload.last_update_at %}
+                  {% with payload=o.payment_payload|default:{} %}
+                    {% with history=payload|get_item:"history" %}
+                      {% if history %}
+                        {% with last_entry=history|last %}
+                          {% with mono_status=last_entry|get_item:"status"|default:payload|get_item:"last_status" %}
+                          {% with mono_time=last_entry|get_item:"received_at"|default:last_entry|get_item:"ts"|default:payload|get_item:"last_update_at" %}
+                          <div class="payment-meta-grid">
+                            <div class="info-item">
+                              <span class="info-label">Сервіс:</span>
+                              <span class="info-value">{{ o.payment_provider|capfirst }}</span>
+                            </div>
+                            <div class="info-item">
+                              <span class="info-label">Invoice ID:</span>
+                              <span class="info-value">{{ o.payment_invoice_id|default:'—' }}</span>
+                            </div>
+                            <div class="info-item">
+                              <span class="info-label">Статус Monobank:</span>
+                              <span class="info-value">{{ mono_status|default:'немає даних' }}</span>
+                            </div>
+                            <div class="info-item">
+                              <span class="info-label">Оновлено:</span>
+                              <span class="info-value">
+                                {% if mono_time %}
+                                  {{ mono_time|date:"d.m.Y H:i" }}
+                                {% else %}
+                                  —
+                                {% endif %}
+                              </span>
+                            </div>
+                          </div>
+                          <div class="payment-history" style="margin-top: 6px;">
+                            {% for entry in history|slice:":10" %}
+                              {% with ts=entry|get_item:"received_at"|default:entry|get_item:"ts" %}
+                              <div class="payment-history-item">
+                                <span class="history-status">{{ entry|get_item:"status"|default:'—' }}</span>
+                                <span class="history-time">
+                                  {% if ts %}
+                                    {{ ts|date:"d.m.Y H:i" }}
+                                  {% else %}
+                                    —
+                                  {% endif %}
+                                </span>
+                                {% with mod=entry|get_item:"data"|default:{}|get_item:"modifiedDate" %}
+                                  {% if mod %}
+                                    <span class="history-modified">{{ mod }}</span>
+                                  {% endif %}
+                                {% endwith %}
+                              </div>
+                              {% endwith %}
+                            {% endfor %}
+                          </div>
+                          {% endwith %}
+                          {% endwith %}
+                        {% endwith %}
+                      {% else %}
+                        {% with mono_status=payload|get_item:"last_status" %}
+                        {% with mono_time=payload|get_item:"last_update_at" %}
                         <div class="payment-meta-grid">
                           <div class="info-item">
                             <span class="info-label">Сервіс:</span>
@@ -735,52 +787,10 @@
                             </span>
                           </div>
                         </div>
-                        <div class="payment-history" style="margin-top: 6px;">
-                          {% for entry in history|slice:":10" %}
-                            <div class="payment-history-item">
-                              <span class="history-status">{{ entry.status|default:'—' }}</span>
-                              <span class="history-time">
-                                {% if entry.received_at %}
-                                  {{ entry.received_at|date:"d.m.Y H:i" }}
-                                {% else %}
-                                  —
-                                {% endif %}
-                              </span>
-                              {% if entry.data.modifiedDate %}
-                                <span class="history-modified">{{ entry.data.modifiedDate }}</span>
-                              {% endif %}
-                            </div>
-                          {% endfor %}
-                        </div>
                         {% endwith %}
                         {% endwith %}
-                      {% endwith %}
-                    {% else %}
-                      <div class="payment-meta-grid">
-                        <div class="info-item">
-                          <span class="info-label">Сервіс:</span>
-                          <span class="info-value">{{ o.payment_provider|capfirst }}</span>
-                        </div>
-                        <div class="info-item">
-                          <span class="info-label">Invoice ID:</span>
-                          <span class="info-value">{{ o.payment_invoice_id|default:'—' }}</span>
-                        </div>
-                        <div class="info-item">
-                          <span class="info-label">Статус Monobank:</span>
-                          <span class="info-value">{{ o.payment_payload.last_status|default:'немає даних' }}</span>
-                        </div>
-                        <div class="info-item">
-                          <span class="info-label">Оновлено:</span>
-                          <span class="info-value">
-                            {% if o.payment_payload.last_update_at %}
-                              {{ o.payment_payload.last_update_at|date:"d.m.Y H:i" }}
-                            {% else %}
-                              —
-                            {% endif %}
-                          </span>
-                        </div>
-                      </div>
-                    {% endif %}
+                      {% endif %}
+                    {% endwith %}
                   {% endwith %}
                 </div>
               </div>
