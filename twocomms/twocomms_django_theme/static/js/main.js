@@ -1243,24 +1243,45 @@ function refreshMiniCart() {
 window.refreshMiniCart = refreshMiniCart;
 window.openMiniCart = openMiniCart;
 
-// Обновляем сводку при загрузке
+// Обновляем сводку при загрузке - DEFERRED до после LCP
 document.addEventListener('DOMContentLoaded', () => {
   try { bindMonoCheckout(document); } catch (_) { }
   try { bindMonobankPay(document); } catch (_) { }
-  // Отложим, чтобы не мешать первому рендеру
-  scheduleIdle(() => {
-    refreshCartSummary();
+  
+  // PERF: Delay cart/favorites requests until AFTER LCP (1.5s) or user interaction
+  // This is critical for mobile PageSpeed TBT score
+  const loadCartData = () => {
+    // Guard against multiple calls
+    if (window.__cartDataLoaded) return;
+    window.__cartDataLoaded = true;
+    
+    // Remove interaction listeners
+    ['scroll', 'click', 'touchstart'].forEach(evt => {
+      window.removeEventListener(evt, loadCartData, { passive: true, capture: true });
+    });
+    
+    scheduleIdle(() => {
+      refreshCartSummary();
 
-    // Загружаем счетчик избранного для незарегистрированных пользователей
-    fetch('/favorites/count/', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (d && d.count !== undefined) {
-          updateFavoritesBadge(d.count);
-        }
-      })
-      .catch(() => { });
+      // Загружаем счетчик избранного для незарегистрированных пользователей
+      fetch('/favorites/count/', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          if (d && d.count !== undefined) {
+            updateFavoritesBadge(d.count);
+          }
+        })
+        .catch(() => { });
+    });
+  };
+  
+  // Load on user interaction (more aggressive for PageSpeed)
+  ['scroll', 'click', 'touchstart'].forEach(evt => {
+    window.addEventListener(evt, loadCartData, { passive: true, capture: true, once: true });
   });
+  
+  // Fallback: Load after 2s if no interaction (allows LCP to complete first)
+  setTimeout(loadCartData, 2000);
 
   // Применим цвета для свотчей на текущей странице
   scheduleIdle(function () { try { applySwatchColors(document); } catch (_) { } });

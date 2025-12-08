@@ -398,13 +398,76 @@
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
     }
+    
+    /* Critical product card styles to prevent CLS */
+    .card.product,
+    .product-card {
+      background: rgba(20, 20, 20, 0.95);
+      border-radius: 16px;
+      overflow: hidden;
+      contain: layout style paint;
+    }
+    
+    .ratio-product {
+      aspect-ratio: 4 / 5;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .card-body {
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      min-height: 120px;
+    }
+    
+    /* Bottom nav placeholder */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 64px;
+      background: rgba(10, 10, 10, 0.95);
+      z-index: 1030;
+      contain: layout;
+    }
+    
+    @media (min-width: 768px) {
+      .bottom-nav {
+        display: none;
+      }
+    }
+    
+    /* Reveal animation defaults - show immediately if perf-lite */
+    .reveal,
+    .reveal-fast,
+    .stagger-item {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    
+    .reveal.visible,
+    .reveal-fast.visible,
+    .stagger-item.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    
+    /* Perf-lite: show immediately without animation */
+    .perf-lite .reveal,
+    .perf-lite .reveal-fast,
+    .perf-lite .stagger-item {
+      opacity: 1 !important;
+      transform: none !important;
+    }
   </style>
 
-  <!-- Асинхронная загрузка основного CSS с приоритизацией (Optimized by django-compressor) -->
+  <!-- Non-blocking CSS load via media="print" hack - renders async -->
   {% compress css %}
-  <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
-  <link rel="stylesheet" href="{% static 'css/styles.purged.css' %}">
-  <link rel="stylesheet" href="{% static 'css/cls-ultimate.css' %}">
+  <link rel="stylesheet" href="{% static 'css/fonts.css' %}" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="{% static 'css/styles.purged.css' %}" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="{% static 'css/cls-ultimate.css' %}" media="print" onload="this.media='all'">
   {% endcompress %}
   <noscript>
     <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
@@ -413,46 +476,127 @@
   </noscript>
 
   <style>
-    /* Lite mode on constrained devices: reduce expensive visual effects */
+    /* ===== AGGRESSIVE PERF-LITE MODE FOR MOBILE PAGESPEED ===== */
+    
+    /* Kill ALL backdrop-filter (very expensive on mobile GPU) */
     .perf-lite .hero.bg-hero,
     .perf-lite .bottom-nav,
     .perf-lite #mini-cart-panel-mobile,
-    .perf-lite #user-panel-mobile {
+    .perf-lite #user-panel-mobile,
+    .perf-lite .navbar,
+    .perf-lite .modal-glass,
+    .perf-lite .panel-glass,
+    .perf-lite .card.glassy {
       backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
     }
 
+    /* Kill ALL filter effects (causes compositing) */
     .perf-lite .card.product,
     .perf-lite .bottom-nav-item:hover .bottom-nav-icon svg,
-    .perf-lite .bottom-nav-item.active .bottom-nav-icon svg {
+    .perf-lite .bottom-nav-item.active .bottom-nav-icon svg,
+    .perf-lite .product-card,
+    .perf-lite .category-card,
+    .perf-lite img,
+    .perf-lite [class*="glow"],
+    .perf-lite [class*="shadow"] {
       filter: none !important;
       box-shadow: none !important;
     }
 
+    /* Kill ALL transitions/animations for TBT reduction */
     .perf-lite .hint-wiggle,
     .perf-lite .reveal,
-    .perf-lite .reveal-fast {
+    .perf-lite .reveal-fast,
+    .perf-lite .reveal-stagger,
+    .perf-lite .stagger-item {
       transition: none !important;
+      animation: none !important;
+      opacity: 1 !important;
+      transform: none !important;
     }
 
-    /* Отключаем только тяжелые фоновые эффекты на слабых устройствах */
+    /* Make reveal items immediately visible */
+    .perf-lite .reveal,
+    .perf-lite .reveal-fast,
+    .perf-lite .reveal-stagger,
+    .perf-lite .stagger-item {
+      visibility: visible !important;
+    }
+
+    /* Kill expensive background animations */
     .perf-lite body::before,
     .perf-lite body::after {
-      opacity: 0.3 !important;
-      animation-duration: 20s !important;
+      display: none !important;
+      content: none !important;
     }
 
+    /* Hide ALL decorative glow/spark elements */
     .perf-lite .cart-sparks-container,
+    .perf-lite .sparks-container,
     .perf-lite .avatar-glow,
     .perf-lite .avatar-glow-large,
     .perf-lite .avatar-glow-mobile,
     .perf-lite .cart-glow,
-    .perf-lite .cart-glow-mobile {
-      opacity: 0.5 !important;
+    .perf-lite .cart-glow-mobile,
+    .perf-lite .toggle-btn-glow,
+    .perf-lite .toggle-btn-ripple,
+    .perf-lite .card-glow-dark,
+    .perf-lite .featured-glow,
+    .perf-lite .dark-glow,
+    .perf-lite .hero-glow,
+    .perf-lite .favorite-btn-glow {
+      display: none !important;
     }
 
-    @media (max-width: 576px) {
+    /* Hide particles and floating decorations */
+    .perf-lite .hero-particles,
+    .perf-lite .featured-particles,
+    .perf-lite .dark-particles,
+    .perf-lite .floating-logos,
+    .perf-lite .featured-floating-logos,
+    .perf-lite .floating-logo,
+    .perf-lite .particle {
+      display: none !important;
+    }
+
+    /* Simplify gradients */
+    .perf-lite .featured-gradient-1,
+    .perf-lite .featured-gradient-2,
+    .perf-lite .dark-gradient-1,
+    .perf-lite .dark-gradient-2 {
+      display: none !important;
+    }
+
+    /* CRITICAL: Kill @keyframes animations globally */
+    .perf-lite *,
+    .perf-lite *::before,
+    .perf-lite *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      animation-delay: 0ms !important;
+      transition-delay: 0ms !important;
+    }
+
+    /* Mobile-specific optimizations */
+    @media (max-width: 768px) {
       .perf-lite .bottom-nav {
         box-shadow: none !important;
+        background: rgba(10, 10, 10, 0.98) !important;
+      }
+      
+      /* Simplify card hover states */
+      .perf-lite .card:hover,
+      .perf-lite .product-card:hover,
+      .perf-lite .category-card:hover {
+        transform: none !important;
+        box-shadow: none !important;
+      }
+      
+      /* Hide hero decoration completely */
+      .perf-lite .hero-decoration {
+        display: none !important;
       }
     }
   </style>
@@ -518,17 +662,24 @@
   <!-- End Meta Pixel Code -->
   {% block structured_data %}{% endblock %}
 
-  <!-- Google Tag Manager - deferred loading for better PageSpeed -->
+  <!-- Google Tag Manager - AGGRESSIVE deferred loading for PageSpeed -->
   {% if not debug %}
   <script>
     // Initialize dataLayer immediately for event buffering
     window.dataLayer = window.dataLayer || [];
-    // Defer GTM load until after page content renders
+    // Defer GTM load until user interaction OR long timeout
     (function() {
       var gtmLoaded = false;
+      var interactionEvents = ['scroll', 'click', 'touchstart', 'mousemove', 'keydown'];
+      
       function loadGTM() {
         if (gtmLoaded) return;
         gtmLoaded = true;
+        // Remove interaction listeners
+        interactionEvents.forEach(function(evt) {
+          window.removeEventListener(evt, loadGTM, {passive: true, capture: true});
+        });
+        
         var w = window, d = document, l = 'dataLayer', i = 'GTM-PRLLBF9H';
         w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
         var f = d.getElementsByTagName('script')[0],
@@ -545,13 +696,14 @@
           (d.head || d.getElementsByTagName('head')[0]).appendChild(j);
         }
       }
-      // Load GTM after page load or after 2.5s timeout (whichever comes first)
-      if (document.readyState === 'complete') {
-        setTimeout(loadGTM, 100);
-      } else {
-        window.addEventListener('load', function() { setTimeout(loadGTM, 100); });
-      }
-      setTimeout(loadGTM, 2500);
+      
+      // Load on first user interaction (scroll, click, touch, etc.)
+      interactionEvents.forEach(function(evt) {
+        window.addEventListener(evt, loadGTM, {passive: true, capture: true, once: true});
+      });
+      
+      // Fallback: Load after 4s timeout if no interaction (increased from 2.5s)
+      setTimeout(loadGTM, 4000);
     })();
   </script>
   {% endif %}

@@ -46,8 +46,9 @@ def add_cache_headers(headers, path, url):
     # Определяем тип файла по расширению
     file_extension = Path(path).suffix.lower()
     
-    # Критические ресурсы - кешируем на 1 год
-    if file_extension in ['.css', '.js'] and 'min' in path:
+    # CSS и JS файлы - кешируем на 1 год (все, не только min)
+    # Версионирование через django-compressor обеспечивает cache busting
+    if file_extension in ['.css', '.js']:
         headers['Cache-Control'] = 'public, max-age=31536000, immutable'  # 1 год
         headers['ETag'] = f'"{_cached_mtime(path)}"'
     
