@@ -38,6 +38,12 @@ module.exports = {
           'loaded',
           'error',
           'success',
+          // Критичные классы для анимаций reveal (добавлены 2025-12-08)
+          'visible',
+          'stagger-item',
+          'reveal',
+          'reveal-fast',
+          'reveal-stagger',
         ],
         greedy: [
           /^toast/,

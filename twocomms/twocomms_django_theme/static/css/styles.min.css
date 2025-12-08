@@ -12084,7 +12084,7 @@ body::after {
 
 .hero-section .hero-title-main {
   font-size: 3.5rem;
-  font-weight: 900;
+  font-weight: 700; /* Changed from 900 - Inter Black not loaded, use Bold instead */
   color: #ffffff;
   text-shadow: 0 4px 20px rgba(0,0,0,0.5);
   letter-spacing: -0.02em;
