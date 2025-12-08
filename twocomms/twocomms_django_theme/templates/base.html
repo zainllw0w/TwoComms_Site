@@ -367,6 +367,13 @@
     .script-loaded {
       opacity: 1;
     }
+
+    /* Доп. экономия для perf-lite: убираем тяжелые фоновые слои */
+    .perf-lite body:before,
+    .perf-lite body:after {
+      display: none !important;
+      content: none !important;
+    }
   </style>
 
   <!-- Асинхронная загрузка основного CSS с приоритизацией (Optimized by django-compressor) -->
