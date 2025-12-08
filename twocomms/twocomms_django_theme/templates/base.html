@@ -463,11 +463,11 @@
     }
   </style>
 
-  <!-- Non-blocking CSS load via media="print" hack - renders async -->
+  <!-- Основные стили (standard load for stability) -->
   {% compress css %}
-  <link rel="stylesheet" href="{% static 'css/fonts.css' %}" media="print" onload="this.media='all'">
-  <link rel="stylesheet" href="{% static 'css/styles.purged.css' %}" media="print" onload="this.media='all'">
-  <link rel="stylesheet" href="{% static 'css/cls-ultimate.css' %}" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
+  <link rel="stylesheet" href="{% static 'css/styles.purged.css' %}">
+  <link rel="stylesheet" href="{% static 'css/cls-ultimate.css' %}">
   {% endcompress %}
   <noscript>
     <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
