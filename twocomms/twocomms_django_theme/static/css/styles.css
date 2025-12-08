@@ -390,7 +390,7 @@ body::after {
 }
 
 /* purgecss start ignore */
-/* Стилизация основной цены (жирная) - Увеличенный градиентный стиль */
+/* Стилизация основной цены (жирная) - Статичный градиент без анимации */
 .card.product .fw-semibold.price-text {
   font-size: 1.05rem !important;
   font-weight: 900 !important;
@@ -402,45 +402,17 @@ body::after {
       #ffd700 60%,
       #f7931e 75%,
       #ff6b35 100%) !important;
-  background-size: 400% 400% !important;
+  background-size: 100% 100% !important; /* Static size - no animation */
   -webkit-background-clip: text !important;
   background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
   text-shadow: none !important;
   letter-spacing: 0.07em !important;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3)) !important;
-  animation: priceGradientFlow 3s ease-in-out infinite !important;
   position: relative !important;
   z-index: 1 !important;
   padding: 0 !important;
   transition: all 0.3s ease !important;
-}
-
-/* Анимация градиента для цены - яркая и динамичная */
-@keyframes priceGradientFlow {
-  0% {
-    background-position: 0% 50%;
-  }
-
-  20% {
-    background-position: 25% 0%;
-  }
-
-  40% {
-    background-position: 50% 25%;
-  }
-
-  60% {
-    background-position: 75% 50%;
-  }
-
-  80% {
-    background-position: 100% 75%;
-  }
-
-  100% {
-    background-position: 0% 50%;
-  }
 }
 /* purgecss end ignore */
 
@@ -538,7 +510,7 @@ body::after {
     text-shadow: none !important;
     letter-spacing: 0.06em !important;
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3)) !important;
-    animation: priceGradientFlow 3s ease-in-out infinite !important;
+    /* animation removed for performance */
     position: relative !important;
     z-index: 1 !important;
     transition: all 0.3s ease !important;
@@ -643,7 +615,7 @@ body::after {
     text-shadow: none !important;
     letter-spacing: 0.05em !important;
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3)) !important;
-    animation: priceGradientFlow 3s ease-in-out infinite !important;
+    /* animation removed for performance */
     position: relative !important;
     z-index: 1 !important;
     padding: 0 !important;

@@ -424,10 +424,20 @@
       display: none !important;
     }
 
-    /* Aggressive perf-lite: disable all decorative elements */
+    /* Balanced perf-lite: disable animations but keep static visuals */
+    /* Hide only animated decorative elements (particles, floating logos) */
     .perf-lite .floating-logo,
     .perf-lite .featured-particles,
     .perf-lite .dark-particles,
+    .perf-lite .featured-floating-logos,
+    .perf-lite .floating-logos,
+    .perf-lite .toggle-btn-ripple,
+    .perf-lite .cart-sparks-container,
+    .perf-lite .sparks-container {
+      display: none !important;
+    }
+    
+    /* Keep glow and gradient elements but disable their animations */
     .perf-lite .featured-glow,
     .perf-lite .dark-glow,
     .perf-lite .featured-gradient-1,
@@ -435,24 +445,24 @@
     .perf-lite .dark-gradient-1,
     .perf-lite .dark-gradient-2,
     .perf-lite .card-glow-dark,
-    .perf-lite .featured-floating-logos,
-    .perf-lite .floating-logos,
-    .perf-lite .toggle-btn-glow,
-    .perf-lite .toggle-btn-ripple,
-    .perf-lite .cart-sparks-container,
-    .perf-lite .sparks-container {
-      display: none !important;
+    .perf-lite .toggle-btn-glow {
+      animation: none !important;
     }
 
-    .perf-lite .featured-unified-block,
-    .perf-lite .categories-unified-block {
-      background: rgba(20, 20, 20, 0.95) !important;
-    }
+    /* Keep beautiful backgrounds for sections - don't replace with plain color */
+    /* .featured-unified-block and .categories-unified-block keep their gradients */
 
+    /* Disable animations globally but keep transitions for hover effects */
     .perf-lite * {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
+    }
+    
+    /* Allow short transitions for hover feedback */
+    .perf-lite a,
+    .perf-lite button,
+    .perf-lite .card {
+      transition-duration: 0.15s !important;
     }
     
     /* Critical product card styles to prevent CLS */
