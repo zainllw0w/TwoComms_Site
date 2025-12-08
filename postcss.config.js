@@ -44,6 +44,22 @@ module.exports = {
           'reveal',
           'reveal-fast',
           'reveal-stagger',
+          // Hero секция - логотип и частицы (добавлены 2025-12-08)
+          'hero-logo-bg',
+          'hero-logo-image',
+          'hero-particles',
+          'hero-glow',
+          'particle',
+          // Цены и анимации (добавлены 2025-12-08)
+          'price-text',
+          'price-row',
+          'fw-semibold',
+          // Декоративные элементы
+          'floating-logo',
+          'featured-particles',
+          'dark-particles',
+          'featured-glow',
+          'dark-glow',
         ],
         greedy: [
           /^toast/,
@@ -51,7 +67,20 @@ module.exports = {
           /^popover/,
           /^dropdown/,
           /^modal/,
+          // Сохраняем все hero-* и logo-* классы
+          /^hero-/,
+          /^logo-/,
+          // Сохраняем все price-* классы
+          /^price-/,
+          // Сохраняем все particle и glow классы
+          /^particle/,
+          /^glow/,
+          /^floating-/,
+          /^featured-/,
+          /^dark-/,
         ],
+        // Сохраняем keyframes анимации
+        keyframes: true,
       },
     }),
     require('autoprefixer'),
