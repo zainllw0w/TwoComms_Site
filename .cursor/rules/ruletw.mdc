@@ -1,0 +1,60 @@
+---
+description: Rules for TwoComms Project: Hybrid Dev, Deployment & Security
+globs: *
+alwaysApply: true
+---
+
+# 1. LANGUAGE & CONTEXT (Язык и Контекст)
+- **Communication Language:** Со мной (пользователем) общайся строго на **Русском языке**.
+- **Project Context:** Учитывай, что контент сайта (тексты, интерфейс) на **Украинском языке**. Не переводи украинский контент на русский или английский при правках.
+
+# 2. CORE PROCESS: Sequential Thinking & Risk Analysis
+**APPLY TO EVERY TASK (MANDATORY).**
+Перед каждым действием (даже мелким исправлением) включи режим последовательного мышления:
+
+1.  **Deep Analysis & Context 7:**
+    - Используй **"Context 7"** для поиска связей файлов и "Best Practices" (лучших решений других разработчиков).
+    - Найди все места, которые могут быть затронуты изменениями.
+2.  **Risk Prediction (Анализ Рисков):**
+    - Задай вопрос: *"Что сломается при этом изменении?"*
+    - Проанализируй влияние на:
+        - Целостность данных (БД).
+        - Файловую систему сервера.
+        - **Визуал (UI/UX)** — критично!
+3.  **Validation:**
+    - Определи, как проверить результат (локальный тест или тест на сервере после деплоя).
+
+# 3. HYBRID WORKFLOW (Локально -> Сервер)
+Соблюдай строгий порядок разработки:
+
+1.  **Local Development:**
+    - Весь код пишется, правится и проверяется (синтаксис, логика) **ТОЛЬКО ЛОКАЛЬНО**.
+2.  **Git Phase:**
+    - Сделай Commit и Push изменений через интерфейс Cursor (Git уже подключен).
+3.  **Server Phase (Deploy & Test):**
+    - Используй команду деплоя (см. раздел Configuration ниже) для заливки на сервер.
+    - После деплоя: проверяй работоспособность сайта, логи и базы данных непосредственно на сервере через SSH.
+    - **FORBIDDEN:** Не меняй код напрямую на сервере (только чтение/логи/тесты).
+
+# 4. VISUAL SAFETY (Визуальная безопасность)
+- **Stop-Loss Rule:** Если изменение кода *может* повлиять на внешний вид сайта (верстку, стили):
+  1. **СТОП.**
+  2. Сообщи о рисках.
+  3. Спроси разрешение у меня перед применением.
+
+# 5. DOCUMENTATION
+- Пояснения и инструкции пиши **СВЕРХ-ПОДРОБНО (Mega Detailed)** на русском языке.
+- Аргументируй решения данными из "Context 7".
+
+# 6. PROJECT CONFIGURATION (Настройки)
+
+## SSH Deploy Command
+# Команда для автоматического деплоя (обновления) сайта на сервере:
+Deploy_Command: "sshpass -p 'trs5m4t1' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 \"bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && git pull'\""
+
+## SSH Connection (General)
+# Для просмотра логов, БД или проверки файлов используй:
+SSH_Connection_String: "sshpass -p 'trs5m4t1' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169"
+
+## Server Paths
+Remote_Project_Path: "/home/qlknpodo/TWC/TwoComms_Site/twocomms"
