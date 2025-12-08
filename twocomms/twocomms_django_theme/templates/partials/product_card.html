@@ -12,13 +12,13 @@
     {% if eager|default_if_none:False %}
     {% optimized_image p.display_image.url p.title "w-100 h-100 object-fit-cover product-main-image" 1080 1350 loading='eager' fetchpriority='high' sizes='(max-width: 576px) 90vw, (max-width: 992px) 45vw, (max-width: 1400px) 30vw, 18vw' %}
     {% else %}
-    {% optimized_image p.display_image.url p.title "w-100 h-100 object-fit-cover product-main-image" 1080 1350 sizes='(max-width: 576px) 90vw, (max-width: 992px) 45vw, (max-width: 1400px) 30vw, 18vw' %}
+    {% optimized_image p.display_image.url p.title "w-100 h-100 object-fit-cover product-main-image" 1080 1350 fetchpriority='low' sizes='(max-width: 576px) 90vw, (max-width: 992px) 45vw, (max-width: 1400px) 30vw, 18vw' %}
     {% endif %}
     {% elif p.main_image %}
     {% if eager|default_if_none:False %}
     {% optimized_image p.main_image.url p.title "w-100 h-100 object-fit-cover product-main-image" 1080 1350 loading='eager' fetchpriority='high' sizes='(max-width: 576px) 90vw, (max-width: 992px) 45vw, (max-width: 1400px) 30vw, 18vw' %}
     {% else %}
-    {% optimized_image p.main_image.url p.title "w-100 h-100 object-fit-cover product-main-image" 1080 1350 sizes='(max-width: 576px) 90vw, (max-width: 992px) 45vw, (max-width: 1400px) 30vw, 18vw' %}
+    {% optimized_image p.main_image.url p.title "w-100 h-100 object-fit-cover product-main-image" 1080 1350 fetchpriority='low' sizes='(max-width: 576px) 90vw, (max-width: 992px) 45vw, (max-width: 1400px) 30vw, 18vw' %}
     {% endif %}
     {% else %}
     {% if eager|default_if_none:False %}
