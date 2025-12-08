@@ -389,6 +389,7 @@ body::after {
   margin: 0 !important;
 }
 
+/* purgecss start ignore */
 /* Стилизация основной цены (жирная) - Увеличенный градиентный стиль */
 .card.product .fw-semibold.price-text {
   font-size: 1.05rem !important;
@@ -441,6 +442,7 @@ body::after {
     background-position: 0% 50%;
   }
 }
+/* purgecss end ignore */
 
 /* Псевдоэлемент убран для чистого вида */
 
@@ -12257,6 +12259,7 @@ body::after {
   }
 }
 
+/* purgecss start ignore */
 /* Фоновый логотип */
 .hero-logo-bg {
   position: absolute;
@@ -12292,6 +12295,7 @@ body::after {
     transform: translate(-50%, -50%) scale(1.05) rotate(1deg);
   }
 }
+/* purgecss end ignore */
 
 /* Основной контент */
 .hero-section .hero-content {
@@ -12414,6 +12418,7 @@ body::after {
   backdrop-filter: blur(10px);
 }
 
+/* purgecss start ignore */
 /* Декоративные элементы */
 .hero-section .hero-decoration {
   position: absolute;
@@ -12508,6 +12513,7 @@ body::after {
     opacity: 0.8;
   }
 }
+/* purgecss end ignore */
 
 /* Адаптивность для hero секции */
 @media (max-width: 768px) {
