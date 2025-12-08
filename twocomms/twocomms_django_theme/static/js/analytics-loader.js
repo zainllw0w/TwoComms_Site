@@ -1342,28 +1342,37 @@
 
   setupGlobalEventBridge();
   
-  // КРИТИЧНО: Пиксели загружаем СРАЗУ для корректной работы инструментов проверки
-  // Meta Pixel и TikTok Pixel должны быть доступны сразу при загрузке страницы
-  // Не используем schedule() для пикселей - это важно для тестирования!
+  // PERF OPTIMIZATION: Defer pixel loading to improve PageSpeed TBT score
+  // Pixels will be loaded on user interaction OR after delay (whichever first)
+  var pixelsLoaded = false;
+  var interactionEvents = ['scroll', 'click', 'touchstart', 'mousemove'];
   
-  // Проверяем состояние DOM и загружаем пиксели сразу
-  function initializePixelsImmediately() {
+  function initializePixelsDeferred() {
+    if (pixelsLoaded) return;
+    pixelsLoaded = true;
+    
+    // Remove interaction listeners
+    interactionEvents.forEach(function(evt) {
+      win.removeEventListener(evt, initializePixelsDeferred, {passive: true, capture: true});
+    });
+    
     if (console && console.log) {
-      console.log('[Analytics] Initializing pixels immediately...');
-      }
+      console.log('[Analytics] Initializing pixels (deferred)...');
+    }
+    
     loadMetaPixel();
     loadTikTokPixel();
     
     // Проверяем что пиксели загрузились (для отладки)
     setTimeout(function() {
       if (win.fbq && typeof win.fbq === 'function') {
-      if (console && console.log) {
+        if (console && console.log) {
           console.log('[Analytics] ✓ Meta Pixel initialized');
         }
       } else {
         if (console && console.warn) {
           console.warn('[Analytics] ⚠ Meta Pixel not detected');
-      }
+        }
       }
       
       if (win.ttq && typeof win.ttq.track === 'function') {
@@ -1378,35 +1387,26 @@
     }, 1000);
   }
   
-  if (doc.readyState === 'loading') {
-    // DOM еще загружается - ждем DOMContentLoaded
-    if (console && console.log) {
-      console.log('[Analytics] Waiting for DOMContentLoaded...');
-    }
-    doc.addEventListener('DOMContentLoaded', initializePixelsImmediately);
-  } else {
-    // DOM уже готов (complete или interactive) - загружаем сразу
-    if (console && console.log) {
-      console.log('[Analytics] DOM ready, initializing pixels now...');
-    }
-    initializePixelsImmediately();
-  }
+  // Load on user interaction (helps PageSpeed score)
+  interactionEvents.forEach(function(evt) {
+    win.addEventListener(evt, initializePixelsDeferred, {passive: true, capture: true, once: true});
+  });
   
-  // Также пытаемся загрузить при window.load (на случай если DOMContentLoaded уже прошел)
+  // Fallback: Load after 3s timeout to ensure pixels work if no interaction
+  // This balances PageSpeed vs analytics tracking
+  setTimeout(initializePixelsDeferred, 3000);
+  
+  // Also try on window.load as safety net
   win.addEventListener('load', function() {
-    // Если пиксели еще не загружены - загружаем
-    if (!win._fbqLoaded) {
-      if (console && console.warn) {
-        console.warn('[Analytics] Meta Pixel not loaded on window.load, retrying...');
-          }
-      loadMetaPixel();
-    }
-    if (!win._ttqLoaded) {
-      if (console && console.warn) {
-        console.warn('[Analytics] TikTok Pixel not loaded on window.load, retrying...');
+    // Give a small delay after load
+    setTimeout(function() {
+      if (!pixelsLoaded) {
+        if (console && console.log) {
+          console.log('[Analytics] window.load fallback - loading pixels...');
+        }
+        initializePixelsDeferred();
       }
-      loadTikTokPixel();
-    }
+    }, 500);
   }, { once: true });
 
   function handleBFCacherestore(event) {
