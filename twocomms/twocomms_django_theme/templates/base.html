@@ -132,6 +132,22 @@
 
   <!-- Critical CSS inline для быстрой отрисовки с CLS исправлениями -->
   <style>
+    /* Critical fonts - inline @font-face to match preloaded fonts */
+    @font-face {
+      font-family: 'Inter';
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url('{% static "fonts/Inter-Regular.woff2" %}') format('woff2');
+    }
+    @font-face {
+      font-family: 'Inter';
+      font-style: normal;
+      font-weight: 700;
+      font-display: swap;
+      src: url('{% static "fonts/Inter-Bold.woff2" %}') format('woff2');
+    }
+    
     /* Critical CSS - минимальные стили для первой отрисовки */
     body {
       margin: 0;
