@@ -398,8 +398,13 @@
       box-shadow: none !important;
     }
 
-    .perf-lite .hero-particles .particle,
+    /* Hero logo показываем в perf-lite режиме (статичный, низкая нагрузка) */
     .perf-lite .hero-logo-bg {
+      animation: none !important; /* Отключаем только анимацию */
+    }
+    
+    /* Частицы скрываем в perf-lite т.к. они анимированы */
+    .perf-lite .hero-particles .particle {
       display: none !important;
     }
 
