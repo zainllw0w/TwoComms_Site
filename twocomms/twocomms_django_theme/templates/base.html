@@ -425,19 +425,16 @@
     }
 
     /* Balanced perf-lite: disable animations but keep static visuals */
-    /* Hide only animated decorative elements (particles, floating logos) */
-    .perf-lite .floating-logo,
+    /* Hide only particles (heavy animation), keep floating logos visible */
     .perf-lite .featured-particles,
     .perf-lite .dark-particles,
-    .perf-lite .featured-floating-logos,
-    .perf-lite .floating-logos,
     .perf-lite .toggle-btn-ripple,
     .perf-lite .cart-sparks-container,
     .perf-lite .sparks-container {
       display: none !important;
     }
     
-    /* Keep glow and gradient elements but disable their animations */
+    /* Keep glow, gradient and floating logo elements but disable their animations */
     .perf-lite .featured-glow,
     .perf-lite .dark-glow,
     .perf-lite .featured-gradient-1,
@@ -445,8 +442,16 @@
     .perf-lite .dark-gradient-1,
     .perf-lite .dark-gradient-2,
     .perf-lite .card-glow-dark,
-    .perf-lite .toggle-btn-glow {
+    .perf-lite .toggle-btn-glow,
+    .perf-lite .floating-logo,
+    .perf-lite .featured-floating-logos,
+    .perf-lite .floating-logos {
       animation: none !important;
+    }
+    
+    /* Static position for floating logos in perf-lite (no float animation) */
+    .perf-lite .floating-logo {
+      opacity: 0.15 !important;
     }
 
     /* Keep beautiful backgrounds for sections - don't replace with plain color */
@@ -615,23 +620,29 @@
       display: none !important;
     }
 
-    /* Hide particles and floating decorations */
+    /* Hide only particles (heavy animation) - keep floating logos visible */
     .perf-lite .hero-particles,
     .perf-lite .featured-particles,
     .perf-lite .dark-particles,
-    .perf-lite .floating-logos,
-    .perf-lite .featured-floating-logos,
-    .perf-lite .floating-logo,
     .perf-lite .particle {
       display: none !important;
     }
+    
+    /* Floating logos visible but static (no animation) */
+    .perf-lite .floating-logos,
+    .perf-lite .featured-floating-logos,
+    .perf-lite .floating-logo {
+      animation: none !important;
+      opacity: 0.12 !important;
+    }
 
-    /* Simplify gradients */
+    /* Keep gradients visible but static */
     .perf-lite .featured-gradient-1,
     .perf-lite .featured-gradient-2,
     .perf-lite .dark-gradient-1,
     .perf-lite .dark-gradient-2 {
-      display: none !important;
+      animation: none !important;
+      opacity: 0.7 !important;
     }
 
     /* CRITICAL: Kill @keyframes animations globally */
@@ -872,21 +883,8 @@
 
   <div id="user-panel-mobile" class="user-panel d-none d-md-none" aria-hidden="true" inert>
     {% if request.user.is_authenticated %}
-    <!-- Заголовок профиля -->
-    <div class="user-header">
-      <div class="user-avatar-large">
-        {% if request.user.userprofile and request.user.userprofile.avatar %}
-        <img src="{{ request.user.userprofile.avatar.url }}" class="avatar-image" loading="lazy" decoding="async"
-          fetchpriority="low" alt="Аватар користувача - TwoComms" width="36" height="36">
-        {% elif request.session.profile_avatar %}
-        <img src="{{ MEDIA_URL }}{{ request.session.profile_avatar }}" class="avatar-image" loading="lazy"
-          decoding="async" fetchpriority="low" alt="Аватар користувача - TwoComms" width="36" height="36">
-        {% else %}
-        <img src="{% static 'img/placeholder.jpg' %}" class="avatar-image" loading="lazy" decoding="async"
-          fetchpriority="low" alt="Аватар користувача - TwoComms" width="36" height="36">
-        {% endif %}
-        <div class="avatar-glow-large"></div>
-      </div>
+    <!-- Заголовок профиля - без аватарки для компактности -->
+    <div class="user-header user-header-compact">
       <div class="user-info">
         <div class="username">{{ request.user.username }}</div>
         <div class="user-phone">

@@ -39,14 +39,18 @@ html.perf-lite *::after {
 
 html.effects-lite body,
 html.perf-lite body {
-  background: #0b0c10;
+  background: #0a0b10;
 }
 
 html.effects-lite body::before,
 html.perf-lite body::before {
   animation: none !important;
   filter: none !important;
-  background: linear-gradient(135deg, #060607 0%, #101116 100%) !important;
+  /* Красивый статичный градиентный фон без анимации */
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 80%, rgba(139, 92, 246, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 80% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
+    linear-gradient(165deg, #08090d 0%, #0c0d12 30%, #101118 60%, #0c0d12 100%) !important;
 }
 
 html.effects-lite body::after,
@@ -390,19 +394,17 @@ body::after {
 }
 
 /* purgecss start ignore */
-/* Стилизация основной цены (жирная) - Статичный градиент без анимации */
+/* Стилизация основной цены (жирная) - Мягкий оранжевый градиент */
 .card.product .fw-semibold.price-text {
   font-size: 1.05rem !important;
   font-weight: 900 !important;
   background: linear-gradient(135deg,
-      #ff6b35 0%,
-      #f7931e 15%,
-      #ffd700 30%,
-      #ffffff 45%,
-      #ffd700 60%,
-      #f7931e 75%,
-      #ff6b35 100%) !important;
-  background-size: 100% 100% !important; /* Static size - no animation */
+      #ff8c42 0%,
+      #ffb347 25%,
+      #ffc857 50%,
+      #ffb347 75%,
+      #ff8c42 100%) !important;
+  background-size: 100% 100% !important;
   -webkit-background-clip: text !important;
   background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
@@ -496,21 +498,18 @@ body::after {
     margin: 0 !important;
     font-weight: 900 !important;
     background: linear-gradient(135deg,
-        #ff6b35 0%,
-        #f7931e 15%,
-        #ffd700 30%,
-        #ffffff 45%,
-        #ffd700 60%,
-        #f7931e 75%,
-        #ff6b35 100%) !important;
-    background-size: 400% 400% !important;
+        #ff8c42 0%,
+        #ffb347 25%,
+        #ffc857 50%,
+        #ffb347 75%,
+        #ff8c42 100%) !important;
+    background-size: 100% 100% !important;
     -webkit-background-clip: text !important;
     background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
     text-shadow: none !important;
     letter-spacing: 0.06em !important;
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3)) !important;
-    /* animation removed for performance */
     position: relative !important;
     z-index: 1 !important;
     transition: all 0.3s ease !important;
@@ -601,21 +600,18 @@ body::after {
     font-size: 0.75rem !important;
     font-weight: 900 !important;
     background: linear-gradient(135deg,
-        #ff6b35 0%,
-        #f7931e 15%,
-        #ffd700 30%,
-        #ffffff 45%,
-        #ffd700 60%,
-        #f7931e 75%,
-        #ff6b35 100%) !important;
-    background-size: 400% 400% !important;
+        #ff8c42 0%,
+        #ffb347 25%,
+        #ffc857 50%,
+        #ffb347 75%,
+        #ff8c42 100%) !important;
+    background-size: 100% 100% !important;
     -webkit-background-clip: text !important;
     background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
     text-shadow: none !important;
     letter-spacing: 0.05em !important;
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3)) !important;
-    /* animation removed for performance */
     position: relative !important;
     z-index: 1 !important;
     padding: 0 !important;
@@ -1123,6 +1119,17 @@ body::after {
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+/* Компактный заголовок (без аватарки) */
+.user-header.user-header-compact {
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+}
+
+.user-header.user-header-compact .user-info {
+  flex: 1;
 }
 
 .user-avatar-large {
@@ -10341,6 +10348,16 @@ body::after {
   transform: translateX(-50%) translateY(calc(100% + 20px)) !important;
   opacity: 0;
   pointer-events: none;
+  transition: transform 0.35s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.25s ease !important;
+}
+
+/* Ensure beautiful animation even in perf-lite */
+.perf-lite .bottom-nav {
+  transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.2s ease !important;
+}
+
+.perf-lite .bottom-nav.bottom-nav--hidden {
+  transition: transform 0.35s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.25s ease !important;
 }
 
 /* Улучшение плавности рендеринга */
