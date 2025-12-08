@@ -9,29 +9,16 @@
   data-tiktok-pixel-id="{% if TIKTOK_PIXEL_ID %}{{ TIKTOK_PIXEL_ID }}{% else %}D43L7DBC77UA61AHLTVG{% endif %}"{% if TIKTOK_TEST_EVENT_CODE %} data-tiktok-test-event-code="{{ TIKTOK_TEST_EVENT_CODE }}"{% endif %}>
 
 <head>
-  {% if not debug %}
-  <link rel="preconnect" href="https://www.googletagmanager.com">
-  <link rel="dns-prefetch" href="https://www.googletagmanager.com">
-  <link rel="preconnect" href="https://connect.facebook.net">
-  <link rel="dns-prefetch" href="https://connect.facebook.net">
-  <link rel="preconnect" href="https://analytics.tiktok.com">
-  <link rel="dns-prefetch" href="https://analytics.tiktok.com">
-  <link rel="preconnect" href="https://www.clarity.ms">
-  <link rel="dns-prefetch" href="https://www.clarity.ms">
-  {% endif %}
   <meta charset='utf-8'>
   <meta name='viewport' content='width=device-width, initial-scale=1'>
   <meta name="csrf-token" content="{{ csrf_token }}">
 
-  <!-- Preload критических стилей -->
-  <link rel="preload" href="{% static 'css/fonts.css' %}" as="style">
-  <link rel="preload" href="{% static 'css/styles.purged.css' %}" as="style">
-  <!-- Preload критических шрифтов -->
+  <!-- Preload критических шрифтов (CSS loads via compress block + media hack) -->
   <link rel="preload" href="{% static 'fonts/Inter-Regular.woff2' %}" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="{% static 'fonts/Inter-Bold.woff2' %}" as="font" type="font/woff2" crossorigin>
 
-  <!-- Font Awesome: Local bundle (optimized via WhiteNoise) -->
-  <link rel="preload" href="{% static 'vendor/fontawesome/css/all.min.css' %}" as="style" onload="this.rel='stylesheet'">
+  <!-- Font Awesome: non-blocking load (icons not critical for first paint) -->
+  <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}" media="print" onload="this.media='all'">
   <noscript>
     <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
   </noscript>
@@ -78,21 +65,16 @@
   <meta http-equiv="Cache-Control" content="public, max-age=3600">
   <meta http-equiv="Expires" content="{% now 'D, d M Y H:i:s' %} GMT">
 
-  <!-- External Resources - Оптимизированное дерево зависимостей -->
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <!-- CDN preconnect for Bootstrap -->
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
 
-  <link rel="preload" href="{% static 'js/main.js' %}?v=38" as="script" crossorigin="anonymous">
+  <!-- Preload only critical JS modules - others loaded on demand -->
   <link rel="modulepreload" href="{% static 'js/modules/shared.js' %}">
-  <link rel="modulepreload" href="{% static 'js/modules/optimizers.js' %}">
-  <link rel="modulepreload" href="{% static 'js/modules/product-media.js' %}">
-  <link rel="modulepreload" href="{% static 'js/modules/homepage.js' %}">
-  <link rel="modulepreload" href="{% static 'js/modules/cart.js' %}">
 
-  <!-- Асинхронная загрузка Bootstrap CSS с приоритизацией -->
-  <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' rel='preload' as='style'
-    onload="this.onload=null;this.rel='stylesheet'" media="all">
+  <!-- Bootstrap CSS: non-blocking load via media="print" hack -->
+  <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' rel='stylesheet'
+    media="print" onload="this.media='all'">
   <noscript>
     <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' rel='stylesheet'>
   </noscript>
@@ -118,7 +100,7 @@
   <link rel='mask-icon' href='{% static "img/logo.svg" %}' color='#7c3aed'>
   <link rel='icon' href='{% static "img/favicon.ico" %}' sizes='any' type='image/x-icon'>
 
-  <!-- Early performance hint: enable lite mode for save-data/low-memory/low-CPU -->
+  <!-- Early performance hint: enable lite mode for mobile/save-data/low-memory/low-CPU -->
   <script>(function () {
       try {
         var docEl = document.documentElement;
@@ -128,21 +110,22 @@
         var cpuCores = Number(navigator.hardwareConcurrency || 0);
         var lowRam = deviceMemory && deviceMemory > 0 && deviceMemory <= 2;
         var lowCPU = cpuCores && cpuCores <= 2;
+        var isMobile = window.innerWidth < 768;
         var storedMode = null;
         try {
           storedMode = window.localStorage ? localStorage.getItem('twc-effects-mode') : null;
         } catch (_) { storedMode = null; }
         var forceLite = storedMode === 'lite';
         var forceHigh = storedMode === 'high';
-        if (forceLite || (!forceHigh && (saveData || lowRam || lowCPU))) {
+        // Auto perf-lite for mobile devices to improve PageSpeed score
+        var needsLite = saveData || lowRam || lowCPU || isMobile;
+        if (forceLite || (!forceHigh && needsLite)) {
           docEl.classList.remove('effects-high');
           docEl.classList.add('effects-lite');
+          docEl.classList.add('perf-lite');
         } else {
           docEl.classList.remove('effects-lite');
           docEl.classList.add('effects-high');
-        }
-        if (saveData || lowRam || lowCPU) {
-          docEl.classList.add('perf-lite');
         }
       } catch (e) { }
     })();</script>
@@ -384,6 +367,37 @@
     .perf-lite .hero-logo-bg {
       display: none !important;
     }
+
+    /* Aggressive perf-lite: disable all decorative elements */
+    .perf-lite .floating-logo,
+    .perf-lite .featured-particles,
+    .perf-lite .dark-particles,
+    .perf-lite .featured-glow,
+    .perf-lite .dark-glow,
+    .perf-lite .featured-gradient-1,
+    .perf-lite .featured-gradient-2,
+    .perf-lite .dark-gradient-1,
+    .perf-lite .dark-gradient-2,
+    .perf-lite .card-glow-dark,
+    .perf-lite .featured-floating-logos,
+    .perf-lite .floating-logos,
+    .perf-lite .toggle-btn-glow,
+    .perf-lite .toggle-btn-ripple,
+    .perf-lite .cart-sparks-container,
+    .perf-lite .sparks-container {
+      display: none !important;
+    }
+
+    .perf-lite .featured-unified-block,
+    .perf-lite .categories-unified-block {
+      background: rgba(20, 20, 20, 0.95) !important;
+    }
+
+    .perf-lite * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   </style>
 
   <!-- Асинхронная загрузка основного CSS с приоритизацией (Optimized by django-compressor) -->
@@ -504,32 +518,41 @@
   <!-- End Meta Pixel Code -->
   {% block structured_data %}{% endblock %}
 
-  <!-- Google Tag Manager -->
+  <!-- Google Tag Manager - deferred loading for better PageSpeed -->
   {% if not debug %}
   <script>
-    (function (w, d, s, l, i) {
-      // Защита от блокировки: проверяем что dataLayer создан
-      w[l] = w[l] || [];
-      w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
-      var f = d.getElementsByTagName(s)[0],
-        j = d.createElement(s),
-        dl = l != 'dataLayer' ? '&l=' + l : '';
-      j.async = true;
-      j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
-
-      // Защита от блокировки: обработчик ошибок
-      j.onerror = function () {
-        if (console && console.debug) console.debug('GTM script failed to load - possible ad blocker');
-      };
-
-      // Защита: проверяем что элемент существует перед вставкой
-      if (f && f.parentNode) {
-        f.parentNode.insertBefore(j, f);
-      } else {
-        // Fallback: добавляем в head
-        (d.head || d.getElementsByTagName('head')[0]).appendChild(j);
+    // Initialize dataLayer immediately for event buffering
+    window.dataLayer = window.dataLayer || [];
+    // Defer GTM load until after page content renders
+    (function() {
+      var gtmLoaded = false;
+      function loadGTM() {
+        if (gtmLoaded) return;
+        gtmLoaded = true;
+        var w = window, d = document, l = 'dataLayer', i = 'GTM-PRLLBF9H';
+        w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+        var f = d.getElementsByTagName('script')[0],
+          j = d.createElement('script'),
+          dl = l != 'dataLayer' ? '&l=' + l : '';
+        j.async = true;
+        j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
+        j.onerror = function () {
+          if (console && console.debug) console.debug('GTM script failed to load - possible ad blocker');
+        };
+        if (f && f.parentNode) {
+          f.parentNode.insertBefore(j, f);
+        } else {
+          (d.head || d.getElementsByTagName('head')[0]).appendChild(j);
+        }
       }
-    })(window, document, 'script', 'dataLayer', 'GTM-PRLLBF9H');
+      // Load GTM after page load or after 2.5s timeout (whichever comes first)
+      if (document.readyState === 'complete') {
+        setTimeout(loadGTM, 100);
+      } else {
+        window.addEventListener('load', function() { setTimeout(loadGTM, 100); });
+      }
+      setTimeout(loadGTM, 2500);
+    })();
   </script>
   {% endif %}
   <!-- End Google Tag Manager -->
@@ -540,6 +563,13 @@
 
 <body class='bg-body text-body'
   style='font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;'>
+  <!-- Deferred preconnects for analytics (not in head to avoid blocking first paint) -->
+  {% if not debug %}
+  <link rel="preconnect" href="https://www.googletagmanager.com">
+  <link rel="preconnect" href="https://connect.facebook.net">
+  <link rel="preconnect" href="https://analytics.tiktok.com">
+  <link rel="dns-prefetch" href="https://www.clarity.ms">
+  {% endif %}
   <!-- Google Tag Manager (noscript) -->
   <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PRLLBF9H" height="0" width="0"
       style="display:none;visibility:hidden"></iframe></noscript>
