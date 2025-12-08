@@ -374,13 +374,23 @@
       display: none !important;
       content: none !important;
     }
+
+    .perf-lite .hero-section {
+      background: #0a0a0a !important;
+      box-shadow: none !important;
+    }
+
+    .perf-lite .hero-particles .particle,
+    .perf-lite .hero-logo-bg {
+      display: none !important;
+    }
   </style>
 
   <!-- Асинхронная загрузка основного CSS с приоритизацией (Optimized by django-compressor) -->
   {% compress css %}
-  <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
-  <link rel="stylesheet" href="{% static 'css/styles.purged.css' %}">
-  <link rel="stylesheet" href="{% static 'css/cls-ultimate.css' %}">
+  <link rel="preload" href="{% static 'css/fonts.css' %}" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="{% static 'css/styles.purged.css' %}" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="{% static 'css/cls-ultimate.css' %}" as="style" onload="this.onload=null;this.rel='stylesheet'">
   {% endcompress %}
   <noscript>
     <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
