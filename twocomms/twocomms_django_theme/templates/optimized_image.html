@@ -22,10 +22,16 @@
   <img 
     src="{{ image_path }}" 
     {% if img_srcset %}srcset="{{ img_srcset }}"{% endif %}
+    {% if img_id %}id="{{ img_id }}"{% endif %}
     alt="{{ alt_text }}"
     {% if class_name %}class="{{ class_name }}"{% endif %}
     {% if width %}width="{{ width }}"{% endif %}
     {% if height %}height="{{ height }}"{% endif %}
+    {% if extra_attrs %}
+      {% for attr_key, attr_val in extra_attrs.items %}
+        {{ attr_key }}="{{ attr_val }}"
+      {% endfor %}
+    {% endif %}
     loading="{{ loading|default:'lazy' }}"
     decoding="async"
     {% if fetchpriority %}fetchpriority="{{ fetchpriority }}"{% endif %}

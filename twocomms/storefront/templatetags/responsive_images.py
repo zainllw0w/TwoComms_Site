@@ -114,6 +114,8 @@ def optimized_image(
     loading="lazy",
     fetchpriority=None,
     sizes=None,
+    img_id=None,
+    extra_attrs=None,
 ):
     """
     Создает оптимизированное изображение с автоматическим выбором формата
@@ -130,12 +132,17 @@ def optimized_image(
             'image_path': '',
             'alt_text': alt_text,
             'class_name': class_name,
+            'img_id': img_id,
             'width': width,
             'height': height,
             'has_webp': False,
             'has_avif': False,
             'loading': loading,
-            'fetchpriority': fetchpriority
+            'fetchpriority': fetchpriority,
+            'sizes': sizes,
+            'extra_attrs': extra_attrs or {},
+            'responsive_srcsets': {},
+            'img_srcset': ''
         }
     
     # Преобразуем URL в файловый путь для проверки существования
@@ -223,6 +230,7 @@ def optimized_image(
         'image_path': default_src,
         'alt_text': alt_text,
         'class_name': class_name,
+        'img_id': img_id,
         'width': width,
         'height': height,
         'has_webp': webp_file_path.exists(),
@@ -233,6 +241,7 @@ def optimized_image(
         'loading': loading,
         'fetchpriority': fetchpriority,
         'sizes': sizes,
+        'extra_attrs': extra_attrs or {},
         'responsive_srcsets': responsive_srcsets,
         'img_srcset': img_srcset
     }
