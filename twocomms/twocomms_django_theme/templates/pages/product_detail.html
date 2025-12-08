@@ -26,24 +26,28 @@
   <div class="col-12 col-lg-6">
     <div class="ratio ratio-product-detail rounded-4 overflow-hidden bg-elevate glass position-relative">
       {% if product.main_image %}
-        <img
-          id="mainImage"
-          src="{{ product.main_image.url }}"
-          loading="eager" decoding="async" fetchpriority="high"
-          class="w-100 h-100 object-fit-contain"
-          alt="{{ product.title }}"
-          width="1080" height="1350"
-        >
+        {% optimized_image
+          product.main_image.url
+          product.title
+          "w-100 h-100 object-fit-contain"
+          img_id='mainImage'
+          product.main_image.width|default:1080
+          product.main_image.height|default:1350
+          loading='eager'
+          fetchpriority='high'
+          sizes='(max-width: 992px) 100vw, 50vw' %}
       {% else %}
         {% static 'img/placeholder.jpg' as ph_url %}
-        <img
-          id="mainImage"
-          src="{{ ph_url }}"
-          loading="eager" decoding="async" fetchpriority="high"
-          class="w-100 h-100 object-fit-contain"
-          alt="{{ product.title }}"
-          width="1080" height="1350"
-        >
+        {% optimized_image
+          ph_url
+          product.title
+          "w-100 h-100 object-fit-contain"
+          img_id='mainImage'
+          1080
+          1350
+          loading='eager'
+          fetchpriority='high'
+          sizes='(max-width: 992px) 100vw, 50vw' %}
       {% endif %}
     </div>
     {# Старый статический блок миниатюр скрыт: теперь миниатюры строит JS в #product-thumbs #}

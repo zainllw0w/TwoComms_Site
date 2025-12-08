@@ -125,10 +125,15 @@
           class="card product glass hover-raise text-decoration-none text-body">
           <div class="ratio ratio-1x1 rounded-top-4 overflow-hidden bg-elevate">
             {% if c.cover %}
-            <img src="{{ c.cover.url }}" alt="{{ c.name }}" class="w-100 h-100 object-fit-cover"
-              loading="lazy" fetchpriority="low"
-              width="{{ c.cover.width|default:'' }}" height="{{ c.cover.height|default:'' }}"
-              sizes="(max-width: 576px) 50vw, (max-width: 992px) 33vw, (max-width: 1400px) 25vw, 18vw">
+            {% optimized_image
+              c.cover.url
+              c.name
+              "w-100 h-100 object-fit-cover"
+              c.cover.width|default:1080
+              c.cover.height|default:1080
+              loading='lazy'
+              fetchpriority='low'
+              sizes='(max-width: 576px) 50vw, (max-width: 992px) 33vw, (max-width: 1400px) 25vw, 18vw' %}
             {% endif %}
           </div>
           <div class="card-body">
@@ -148,7 +153,7 @@
       {% for p in products %}
       <div class="col product-card-wrap">
         {% cache 900 product_card p.id p.final_price p.discount_percent p.display_image.name p.category_id forloop.counter0 %}
-          {% if forloop.counter0 < 6 %}
+          {% if forloop.counter0 < 2 %}
             {% include "partials/product_card.html" with p=p stagger=False eager=True animate=False %}
           {% else %}
             {% include "partials/product_card.html" with p=p stagger=False eager=False animate=False %}
