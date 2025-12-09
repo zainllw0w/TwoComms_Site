@@ -797,8 +797,8 @@ document.addEventListener('DOMContentLoaded', function() {
 .cart-beam-btn:hover {
   transform: scale(1.02);
   box-shadow:
-    0 0 40px -12px rgba(234, 88, 12, 0.6),
-    0 16px 38px -18px rgba(0, 0, 0, 0.8);
+    0 0 26px -14px rgba(234, 88, 12, 0.55),
+    0 12px 28px -18px rgba(0, 0, 0, 0.85);
 }
 
 .cart-beam-btn:hover .btn-text {
@@ -830,7 +830,7 @@ document.addEventListener('DOMContentLoaded', function() {
   inset: 2px;
   border-radius: 999px;
   background:
-    radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.08), transparent 52%),
+    radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.07), transparent 52%),
     linear-gradient(180deg, #151720, #0c0e14 55%, #090b11);
 }
 
@@ -842,7 +842,7 @@ document.addEventListener('DOMContentLoaded', function() {
   z-index: 1;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0)),
-    radial-gradient(circle at 50% 115%, rgba(234, 88, 12, 0.12), transparent 58%);
+    radial-gradient(circle at 50% 115%, rgba(234, 88, 12, 0.08), transparent 58%);
 }
 
 .cart-beam-sheen {
@@ -854,20 +854,20 @@ document.addEventListener('DOMContentLoaded', function() {
 .cart-beam-dots {
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.4) 1px, transparent 1px);
-  background-size: 10px 10px;
-  opacity: 0.45;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.26) 1px, transparent 1px);
+  background-size: 14px 14px;
+  opacity: 0.16;
   mix-blend-mode: overlay;
-  animation: cart-beam-dots 8s linear infinite;
+  animation: cart-beam-dots 10s linear infinite;
 }
 
 .cart-beam-hover {
   position: absolute;
   inset: 15% 10%;
-  background: radial-gradient(circle at 50% 100%, rgba(234, 88, 12, 0.18), transparent 60%);
-  filter: blur(12px);
+  background: radial-gradient(circle at 50% 100%, rgba(234, 88, 12, 0.12), transparent 62%);
+  filter: blur(10px);
   opacity: 0;
-  transition: opacity 0.45s ease;
+  transition: opacity 0.5s ease;
 }
 
 .cart-beam-btn:hover .cart-beam-hover {
@@ -878,13 +878,13 @@ document.addEventListener('DOMContentLoaded', function() {
   position: absolute;
   left: 50%;
   bottom: 8px;
-  width: 44px;
-  height: 3px;
+  width: 46px;
+  height: 2px;
   background: linear-gradient(90deg, transparent, rgba(234, 88, 12, 0.9), transparent);
   border-radius: 999px;
-  filter: drop-shadow(0 0 8px rgba(234, 88, 12, 0.6));
+  filter: drop-shadow(0 0 6px rgba(234, 88, 12, 0.45));
   transform: translateX(-50%);
-  opacity: 0.9;
+  opacity: 0.65;
 }
 
 .cart-beam-btn:focus-visible {
