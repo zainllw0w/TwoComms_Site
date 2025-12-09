@@ -406,6 +406,7 @@
           <span class="cart-beam-dots"></span>
           <span class="cart-beam-hover"></span>
         </span>
+        <span class="cart-beam-underline"></span>
         <span class="cart-beam-content">
           <span class="btn-text">Додати в кошик</span>
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="cart-beam-icon">
@@ -795,7 +796,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .cart-beam-btn:hover {
   transform: scale(1.02);
-  box-shadow: 0 0 40px -10px rgba(234, 88, 12, 0.5);
+  box-shadow:
+    0 0 40px -12px rgba(234, 88, 12, 0.6),
+    0 16px 38px -18px rgba(0, 0, 0, 0.8);
 }
 
 .cart-beam-btn:hover .btn-text {
@@ -826,7 +829,9 @@ document.addEventListener('DOMContentLoaded', function() {
   position: absolute;
   inset: 2px;
   border-radius: 999px;
-  background: var(--cart-beam-base);
+  background:
+    radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.08), transparent 52%),
+    linear-gradient(180deg, #151720, #0c0e14 55%, #090b11);
 }
 
 .cart-beam-surface {
@@ -835,7 +840,9 @@ document.addEventListener('DOMContentLoaded', function() {
   border-radius: 999px;
   overflow: hidden;
   z-index: 1;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0)),
+    radial-gradient(circle at 50% 115%, rgba(234, 88, 12, 0.12), transparent 58%);
 }
 
 .cart-beam-sheen {
@@ -847,9 +854,9 @@ document.addEventListener('DOMContentLoaded', function() {
 .cart-beam-dots {
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.6) 1px, transparent 1px);
-  background-size: 12px 12px;
-  opacity: 0.3;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.4) 1px, transparent 1px);
+  background-size: 10px 10px;
+  opacity: 0.45;
   mix-blend-mode: overlay;
   animation: cart-beam-dots 8s linear infinite;
 }
@@ -857,14 +864,27 @@ document.addEventListener('DOMContentLoaded', function() {
 .cart-beam-hover {
   position: absolute;
   inset: 15% 10%;
-  background: radial-gradient(circle at 50% 100%, rgba(234, 88, 12, 0.14), transparent 60%);
-  filter: blur(10px);
+  background: radial-gradient(circle at 50% 100%, rgba(234, 88, 12, 0.18), transparent 60%);
+  filter: blur(12px);
   opacity: 0;
-  transition: opacity 0.5s ease;
+  transition: opacity 0.45s ease;
 }
 
 .cart-beam-btn:hover .cart-beam-hover {
   opacity: 1;
+}
+
+.cart-beam-underline {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  width: 44px;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, rgba(234, 88, 12, 0.9), transparent);
+  border-radius: 999px;
+  filter: drop-shadow(0 0 8px rgba(234, 88, 12, 0.6));
+  transform: translateX(-50%);
+  opacity: 0.9;
 }
 
 .cart-beam-btn:focus-visible {
@@ -1219,15 +1239,25 @@ document.addEventListener('DOMContentLoaded', function() {
   // и проверка доступности размера для блокировки кнопки
   try{
     var addToCartBtn = document.querySelector('[data-add-to-cart]');
+    var addToCartText = addToCartBtn ? addToCartBtn.querySelector('.btn-text') : null;
+    function setAddToCartText(text){
+      if(addToCartText){
+        addToCartText.textContent = text;
+      } else if(addToCartBtn) {
+        addToCartBtn.textContent = text;
+      }
+    }
     function checkSizeAvailability(){
       if(!addToCartBtn) return;
       var checkedSize = document.querySelector('input[name="size"]:checked');
       if(checkedSize && checkedSize.value === 'XXL'){
         addToCartBtn.classList.add('unavailable');
-        addToCartBtn.textContent = 'Немає в наявності';
+        addToCartBtn.disabled = true;
+        setAddToCartText('Немає в наявності');
       } else {
         addToCartBtn.classList.remove('unavailable');
-        addToCartBtn.textContent = 'Додати в кошик';
+        addToCartBtn.disabled = false;
+        setAddToCartText('Додати в кошик');
       }
     }
     document.querySelectorAll('input[name="size"]').forEach(function(input){
