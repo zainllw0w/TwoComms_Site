@@ -391,12 +391,29 @@
         <button type="button" onclick="QtyInc('#qty'); return false;" aria-label="Збільшити">+</button>
       </div>
       <button type="button"
-              class="btn btn-cta flex-grow-1 flex-md-grow-0"
+              class="cart-beam-btn flex-grow-1 flex-md-grow-0"
               data-add-to-cart="{{ product.id }}"
               data-product-name="{{ product.title|escapejs }}"
               data-product-category="{{ product.category.name|default_if_none:''|escapejs }}"
               data-product-price="{{ product.final_price }}"
-              onclick="return AddToCart(this);">Додати в кошик</button>
+              onclick="return AddToCart(this);">
+        <span class="cart-beam-border">
+          <span class="cart-beam-border-spin"></span>
+          <span class="cart-beam-border-bg"></span>
+        </span>
+        <span class="cart-beam-surface">
+          <span class="cart-beam-sheen"></span>
+          <span class="cart-beam-dots"></span>
+          <span class="cart-beam-hover"></span>
+        </span>
+        <span class="cart-beam-content">
+          <span class="btn-text">Додати в кошик</span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="cart-beam-icon">
+            <path d="M5 12h14"></path>
+            <path d="m12 5 7 7-7 7"></path>
+          </svg>
+        </span>
+      </button>
     </div>
     <div class="small text-secondary mt-2">Накопичуйте бали за покупки та використовуйте їх для знижок</div>
   </div>
@@ -727,6 +744,168 @@ document.addEventListener('DOMContentLoaded', function() {
   opacity: 0.6 !important;
   cursor: not-allowed !important;
   pointer-events: none !important;
+}
+
+/* Анимированная кнопка "Додати в кошик" */
+.cart-beam-btn {
+  --cart-beam-accent: #ea580c;
+  --cart-beam-base: var(--tc-elevate, #0f1117);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  width: 100%;
+  min-width: 220px;
+  min-height: 56px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  font-size: 0.95rem;
+  line-height: 1;
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform 0.45s ease, box-shadow 0.45s ease, filter 0.45s ease;
+}
+
+.cart-beam-btn .cart-beam-content {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 1.05rem 2.75rem;
+}
+
+.cart-beam-btn .btn-text {
+  color: rgba(255, 255, 255, 0.9);
+  transition: color 0.3s ease;
+}
+
+.cart-beam-btn .cart-beam-icon {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.3s ease;
+}
+
+.cart-beam-btn:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 40px -10px rgba(234, 88, 12, 0.5);
+}
+
+.cart-beam-btn:hover .btn-text {
+  color: #fff;
+}
+
+.cart-beam-btn:hover .cart-beam-icon {
+  transform: translateX(3px);
+}
+
+.cart-beam-border {
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: 999px;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.cart-beam-border-spin {
+  position: absolute;
+  inset: -120%;
+  background: conic-gradient(from 0deg, transparent 0deg 300deg, var(--cart-beam-accent) 360deg);
+  animation: cart-beam-spin 3s linear infinite;
+}
+
+.cart-beam-border-bg {
+  position: absolute;
+  inset: 2px;
+  border-radius: 999px;
+  background: var(--cart-beam-base);
+}
+
+.cart-beam-surface {
+  position: absolute;
+  inset: 2px;
+  border-radius: 999px;
+  overflow: hidden;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0));
+}
+
+.cart-beam-sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent);
+}
+
+.cart-beam-dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.6) 1px, transparent 1px);
+  background-size: 12px 12px;
+  opacity: 0.3;
+  mix-blend-mode: overlay;
+  animation: cart-beam-dots 8s linear infinite;
+}
+
+.cart-beam-hover {
+  position: absolute;
+  inset: 15% 10%;
+  background: radial-gradient(circle at 50% 100%, rgba(234, 88, 12, 0.14), transparent 60%);
+  filter: blur(10px);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.cart-beam-btn:hover .cart-beam-hover {
+  opacity: 1;
+}
+
+.cart-beam-btn:focus-visible {
+  outline: 2px solid rgba(234, 88, 12, 0.6);
+  outline-offset: 3px;
+}
+
+.cart-beam-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+@keyframes cart-beam-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes cart-beam-dots {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 24px 24px;
+  }
+}
+
+@media (min-width: 768px) {
+  .cart-beam-btn {
+    width: auto;
+  }
+}
+
+@media (max-width: 576px) {
+  .cart-beam-btn .cart-beam-content {
+    padding: 0.9rem 1.6rem;
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 .product-recommendations {
