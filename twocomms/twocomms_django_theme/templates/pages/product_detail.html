@@ -796,9 +796,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .cart-beam-btn:hover {
   transform: scale(1.02);
-  box-shadow:
-    0 0 26px -14px rgba(234, 88, 12, 0.55),
-    0 12px 28px -18px rgba(0, 0, 0, 0.85);
+  box-shadow: 0 12px 28px -18px rgba(0, 0, 0, 0.85);
 }
 
 .cart-beam-btn:hover .btn-text {
@@ -829,9 +827,7 @@ document.addEventListener('DOMContentLoaded', function() {
   position: absolute;
   inset: 2px;
   border-radius: 999px;
-  background:
-    radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.07), transparent 52%),
-    linear-gradient(180deg, #151720, #0c0e14 55%, #090b11);
+  background: linear-gradient(180deg, #151720, #0c0e14 55%, #090b11);
 }
 
 .cart-beam-surface {
@@ -840,9 +836,7 @@ document.addEventListener('DOMContentLoaded', function() {
   border-radius: 999px;
   overflow: hidden;
   z-index: 1;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0)),
-    radial-gradient(circle at 50% 115%, rgba(234, 88, 12, 0.08), transparent 58%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0));
 }
 
 .cart-beam-sheen {
@@ -864,10 +858,9 @@ document.addEventListener('DOMContentLoaded', function() {
 .cart-beam-hover {
   position: absolute;
   inset: 15% 10%;
-  background: radial-gradient(circle at 50% 100%, rgba(234, 88, 12, 0.12), transparent 62%);
-  filter: blur(10px);
+  background: transparent;
   opacity: 0;
-  transition: opacity 0.5s ease;
+  transition: opacity 0.3s ease;
 }
 
 .cart-beam-btn:hover .cart-beam-hover {
@@ -882,9 +875,9 @@ document.addEventListener('DOMContentLoaded', function() {
   height: 2px;
   background: linear-gradient(90deg, transparent, rgba(234, 88, 12, 0.9), transparent);
   border-radius: 999px;
-  filter: drop-shadow(0 0 6px rgba(234, 88, 12, 0.45));
+  filter: none;
   transform: translateX(-50%);
-  opacity: 0.65;
+  opacity: 0.35;
 }
 
 .cart-beam-btn:focus-visible {
