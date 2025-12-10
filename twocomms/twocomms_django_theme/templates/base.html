@@ -115,7 +115,8 @@
         try {
           storedMode = window.localStorage ? localStorage.getItem('twc-effects-mode') : null;
         } catch (_) { storedMode = null; }
-        var forceLite = storedMode === 'lite';
+        // Уважаем ручной "high", но не фиксируем "lite", если устройство мощное
+        var forceLite = (storedMode === 'lite') && (saveData || lowRam || lowCPU);
         var forceHigh = storedMode === 'high';
         // Auto perf-lite: только при реальных ограничениях, а не просто из-за ширины
         // (иначе на мощных телефонах отключаются эффекты)
