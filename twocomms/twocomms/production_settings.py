@@ -68,6 +68,7 @@ else:
         'localhost',
         '127.0.0.1',
         'testserver',  # Для Django тестового клиента
+        'management.twocomms.shop',
     ]
 
 _csrf_origins_env = os.environ.get('CSRF_TRUSTED_ORIGINS')
