@@ -38,6 +38,7 @@ import re
 import base64
 import time
 from datetime import timedelta
+from storefront.services.catalog import ensure_color_identity
 from cache_utils import get_fragment_cache
 from .services.catalog_helpers import (
     build_color_preview_map,
@@ -3297,95 +3298,245 @@ def admin_product_edit_unified(request, pk):
     from .models import Product, ProductImage
     from productcolors.models import ProductColorVariant, Color, ProductColorImage
     obj = get_object_or_404(Product, pk=pk)
-    
+
+    def _json_success(payload=None, status=200):
+        base = {'success': True}
+        if payload:
+            base.update(payload)
+        return JsonResponse(base, status=status)
+
+    def _json_error(message, status=400, extra=None):
+        base = {'success': False, 'message': message}
+        if extra:
+            base.update(extra)
+        return JsonResponse(base, status=status)
+
+    def _parse_ids(raw_value):
+        ids = []
+        if not raw_value:
+            return ids
+        parts = [part.strip() for part in str(raw_value).split(',') if part.strip()]
+        for part in parts:
+            try:
+                ids.append(int(part))
+            except (TypeError, ValueError):
+                continue
+        return ids
+
+    def _variants_payload(product):
+        payload = []
+        variants_qs = product.color_variants.select_related('color').prefetch_related('images').order_by('order', 'id')
+        for variant in variants_qs:
+            images_data = []
+            for img in variant.images.all():
+                try:
+                    url = img.image.url
+                except Exception:
+                    url = ''
+                images_data.append({
+                    'id': img.id,
+                    'url': url,
+                    'order': img.order,
+                    'alt': img.alt_text or ''
+                })
+            payload.append({
+                'id': variant.id,
+                'name': variant.color.name,
+                'primary_hex': variant.color.primary_hex,
+                'secondary_hex': variant.color.secondary_hex or '',
+                'images': images_data
+            })
+        return payload
+
+    def _product_images_payload(product):
+        payload = []
+        for img in product.images.order_by('order', 'id'):
+            try:
+                url = img.image.url
+            except Exception:
+                url = ''
+            payload.append({'id': img.id, 'url': url, 'order': img.order})
+        return payload
+
+    form = None
+
     if request.method == 'POST':
         form_type = request.POST.get('form_type')
-        
+
         if form_type == 'product':
-            # Заполняем отсутствующие обязательные поля значениями из объекта,
-            # чтобы не падать на валидации если они не отправляются с формы.
             data = request.POST.copy()
             data.setdefault('status', obj.status)
             data.setdefault('priority', obj.priority or 0)
             form = ProductForm(data, request.FILES, instance=obj)
-            
+
             if form.is_valid():
                 product = form.save(commit=False)
-                
-                # Автогенерація slug, якщо порожній
+
                 if not getattr(product, 'slug', None):
                     base = slugify(product.title or '')
                     product.slug = unique_slugify(Product, base)
-                
-                # Если главное изображение не выбрано, используем первую фотографию первого цвета
+
                 if not product.main_image:
-                    first_color_variant = product.color_variants.first()
+                    first_color_variant = product.color_variants.prefetch_related('images').first()
                     if first_color_variant:
                         first_image = first_color_variant.images.first()
                         if first_image:
                             product.main_image = first_image.image
-                
+
                 product.save()
-                
+
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                    return JsonResponse({'success': True, 'message': 'Товар успішно збережено!'})
+                    return _json_success({'message': 'Товар успішно збережено!'})
                 return redirect('/admin-panel/?section=catalogs')
-            else:
-                # Для AJAX возвращаем ошибки, иначе рендерим страницу с ошибками
-                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                    return JsonResponse({'success': False, 'errors': form.errors}, status=400)
-                return render(
-                    request,
-                    'pages/admin_product_edit_unified.html',
-                    {
-                        'form': form,
-                        'obj': obj
-                    }
-                )
-        
+
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return _json_error('Помилка валідації.', status=400, extra={'errors': form.errors})
+
+        elif form_type == 'reorder_product_images':
+            order_raw = request.POST.get('order_payload') or request.POST.get('order') or ''
+            try:
+                order_ids = json.loads(order_raw) if order_raw.startswith('[') else []
+            except json.JSONDecodeError:
+                order_ids = []
+            if not order_ids:
+                order_ids = _parse_ids(order_raw)
+            order_ids = [img_id for img_id in order_ids if isinstance(img_id, int) or str(img_id).isdigit()]
+            order_ids = [int(val) for val in order_ids]
+
+            updated = 0
+            for idx, image_id in enumerate(order_ids):
+                updated += ProductImage.objects.filter(pk=image_id, product=obj).update(order=idx)
+
+            remainder_qs = obj.images.exclude(pk__in=order_ids).order_by('order', 'id')
+            offset = len(order_ids)
+            for img in remainder_qs:
+                if img.order != offset:
+                    img.order = offset
+                    img.save(update_fields=['order'])
+                offset += 1
+
+            cover = obj.images.order_by('order', 'id').first()
+            if cover:
+                obj.main_image = cover.image
+                obj.save(update_fields=['main_image'])
+
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return _json_success({'message': 'Порядок зображень оновлено', 'updated': updated})
+            return redirect(request.path)
+
         elif form_type == 'color':
-            color_name = request.POST.get('color_name')
-            primary_hex = request.POST.get('primary_hex')
-            secondary_hex = request.POST.get('secondary_hex', '')
-            color_images = request.FILES.getlist('color_images')
-            
-            if color_name and primary_hex and color_images:
-                # Создаем цвет с HEX кодами
-                color = Color.objects.create(
-                    name=color_name,
+            variant_id = request.POST.get('variant_id')
+            color_name = (request.POST.get('color_name') or '').strip()
+            primary_hex = (request.POST.get('primary_hex') or '').strip()
+            secondary_hex = (request.POST.get('secondary_hex') or '').strip()
+            color_files = request.FILES.getlist('color_images')
+            set_as_main = request.POST.get('set_as_main') in ('1', 'true', 'on')
+
+            if not color_name or not primary_hex:
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return _json_error('Заповніть назву кольору та основний HEX.', status=400)
+                return redirect(request.path)
+
+            payload_raw = request.POST.get('image_order_payload') or ''
+            try:
+                image_payload = json.loads(payload_raw) if payload_raw else []
+            except json.JSONDecodeError:
+                image_payload = []
+            delete_ids = _parse_ids(request.POST.get('delete_image_ids', ''))
+
+            created_count = 0
+            variant = None
+
+            if variant_id:
+                variant = get_object_or_404(ProductColorVariant, pk=variant_id, product=obj)
+                color_result = ensure_color_identity(
                     primary_hex=primary_hex,
-                    secondary_hex=secondary_hex if secondary_hex else None
+                    secondary_hex=secondary_hex or None,
+                    name=color_name,
+                    color=variant.color,
                 )
-                
-                # Создаем вариант цвета для товара
-                color_variant = ProductColorVariant.objects.create(
-                    product=obj,
-                    color=color
-                )
-                
-                # Создаем изображения для варианта цвета
-                for i, image in enumerate(color_images):
-                    ProductColorImage.objects.create(
-                        variant=color_variant,
-                        image=image,
-                        order=i  # Сохраняем порядок изображений
-                    )
-                
-                # Если у товара нет главного изображения, используем первую фотографию этого цвета
-                if not obj.main_image and color_images:
-                    obj.main_image = color_images[0]
-                    obj.save()
-                
-                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                    return JsonResponse({'success': True, 'message': f'Колір успішно додано з {len(color_images)} зображеннями!'})
-                return redirect(request.path)
+                if variant.color_id != color_result.color.id:
+                    variant.color = color_result.color
+                    variant.save(update_fields=['color'])
             else:
-                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                    return JsonResponse({'success': True, 'message': 'Колір успішно додано!'})
-                return redirect(request.path)
-        
+                color_result = ensure_color_identity(
+                    primary_hex=primary_hex,
+                    secondary_hex=secondary_hex or None,
+                    name=color_name,
+                    color=None,
+                )
+                next_order = ProductColorVariant.objects.filter(product=obj).count()
+                variant = ProductColorVariant.objects.create(
+                    product=obj,
+                    color=color_result.color,
+                    order=next_order
+                )
+
+            if delete_ids:
+                ProductColorImage.objects.filter(variant=variant, pk__in=delete_ids).delete()
+
+            processed_existing = set()
+            order_index = 0
+            for item in image_payload:
+                kind = item.get('kind')
+                if kind == 'existing':
+                    try:
+                        img_id = int(item.get('id'))
+                    except (TypeError, ValueError):
+                        continue
+                    updated = ProductColorImage.objects.filter(pk=img_id, variant=variant).update(order=order_index)
+                    if updated:
+                        processed_existing.add(img_id)
+                        order_index += 1
+                elif kind == 'new':
+                    key = str(item.get('key') or '')
+                    upload = request.FILES.get(f'file-{key}')
+                    if upload:
+                        ProductColorImage.objects.create(
+                            variant=variant,
+                            image=upload,
+                            order=order_index
+                        )
+                        created_count += 1
+                        order_index += 1
+
+            if not image_payload and color_files:
+                start = ProductColorImage.objects.filter(variant=variant).count()
+                for i, upload in enumerate(color_files):
+                    ProductColorImage.objects.create(
+                        variant=variant,
+                        image=upload,
+                        order=start + i
+                    )
+                    created_count += 1
+                order_index = start + len(color_files)
+
+            remainder = (
+                ProductColorImage.objects.filter(variant=variant)
+                .exclude(pk__in=processed_existing)
+                .order_by('order', 'id')
+            )
+            for img in remainder:
+                if img.order != order_index:
+                    img.order = order_index
+                    img.save(update_fields=['order'])
+                order_index += 1
+
+            cover_image = ProductColorImage.objects.filter(variant=variant).order_by('order', 'id').first()
+            should_update_main = set_as_main or bool(image_payload)
+            if cover_image and (should_update_main or not obj.main_image):
+                obj.main_image = cover_image.image
+                obj.save(update_fields=['main_image'])
+
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                action = 'оновлено' if variant_id else 'додано'
+                return _json_success({
+                    'message': f'Колір успішно {action}.',
+                    'created_images': created_count
+                })
+            return redirect(request.path)
+
         elif form_type == 'image':
-            # Поддержка загрузки одного или нескольких изображений
             files = []
             one = request.FILES.get('additional_image')
             many = request.FILES.getlist('additional_image')
@@ -3393,7 +3544,7 @@ def admin_product_edit_unified(request, pk):
                 files = many
             elif one:
                 files = [one]
-            
+
             created = 0
             for f in files:
                 try:
@@ -3401,16 +3552,19 @@ def admin_product_edit_unified(request, pk):
                     created += 1
                 except Exception:
                     continue
-            
+
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'success': True, 'message': f'Додано зображень: {created}'})
+                return _json_success({'message': f'Додано зображень: {created}'})
             return redirect(request.path)
-    
-    form = ProductForm(instance=obj)
-    
+
+    if form is None:
+        form = ProductForm(instance=obj)
+
     return render(request, 'pages/admin_product_edit_unified.html', {
-        'form': form, 
-        'obj': obj
+        'form': form,
+        'obj': obj,
+        'color_variants_payload': _variants_payload(obj),
+        'product_images_payload': _product_images_payload(obj),
     })
 
 def api_colors(request):
