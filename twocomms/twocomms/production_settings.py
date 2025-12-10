@@ -48,8 +48,19 @@ SECRET_KEY = os.environ.get('SECRET_KEY', SECRET_KEY)
 
 # ALLOWED_HOSTS/CSRF_TRUSTED_ORIGINS читаем из переменных окружения
 # ALLOWED_HOSTS="*" допустимо (только временно на время настройки!)
-    # DEBUG: Allow all hosts to diagnose 400 error
-    ALLOWED_HOSTS = ['*']
+_allowed_hosts_env = os.environ.get('ALLOWED_HOSTS')
+if _allowed_hosts_env:
+    _allowed_hosts_env = _allowed_hosts_env.strip()
+    if _allowed_hosts_env == '*':
+         ALLOWED_HOSTS = ['*']
+    else:
+        ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts_env.split(',') if h.strip()]
+        if 'twocomms.shop' in ALLOWED_HOSTS and 'www.twocomms.shop' not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append('www.twocomms.shop')
+            
+    # Always ensure management subdomain is allowed
+    if 'management.twocomms.shop' not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append('management.twocomms.shop')
 else:
     # Значения по умолчанию: ваш домен(ы)
     ALLOWED_HOSTS = [
