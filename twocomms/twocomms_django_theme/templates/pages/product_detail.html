@@ -906,10 +906,21 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 @media (max-width: 576px) {
+  .cart-beam-btn {
+    min-width: 100%;
+    min-height: 60px;
+    font-size: 1.05rem;
+    letter-spacing: 0.12em;
+  }
   .cart-beam-btn .cart-beam-content {
-    padding: 0.9rem 1.6rem;
+    padding: 1.05rem 1.8rem;
     width: 100%;
     justify-content: center;
+  }
+  .cart-beam-btn:hover {
+    box-shadow:
+      0 0 52px -10px rgba(139, 92, 246, 0.75),
+      0 14px 26px -16px rgba(0, 0, 0, 0.9);
   }
 }
 
