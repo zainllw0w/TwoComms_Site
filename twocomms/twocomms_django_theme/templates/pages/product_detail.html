@@ -1199,20 +1199,19 @@ document.addEventListener('DOMContentLoaded', function() {
   }, 200); // Небольшая задержка для гарантии готовности DOM
 
   const main = document.getElementById('mainImage');
-  if(!main) return;
-  
-  // Выбор цвета по умолчанию и первичное изображение обрабатываются выше в логике галереи
-  
-  try{
-    document.querySelectorAll('.thumb[data-img]').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        var url = btn.getAttribute('data-img');
-        if(url){ main.src = url; }
-        document.querySelectorAll('.thumb').forEach(function(b){ b.classList.remove('active'); });
-        btn.classList.add('active');
+  if(main){
+    // Выбор цвета по умолчанию и первичное изображение обрабатываются выше в логике галереи
+    try{
+      document.querySelectorAll('.thumb[data-img]').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var url = btn.getAttribute('data-img');
+          if(url){ main.src = url; }
+          document.querySelectorAll('.thumb').forEach(function(b){ b.classList.remove('active'); });
+          btn.classList.add('active');
+        });
       });
-    });
-  }catch(_){ }
+    }catch(_){ }
+  }
 
   // Подсветка выбранного размера (Bootstrap btn-check это уже делает, добавим только читаемость)
   // и проверка доступности размера для блокировки кнопки
