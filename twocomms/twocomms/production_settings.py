@@ -58,11 +58,6 @@ if _allowed_hosts_env:
         # Принудительно добавляем www-версию для основного домена
         if 'twocomms.shop' in ALLOWED_HOSTS and 'www.twocomms.shop' not in ALLOWED_HOSTS:
             ALLOWED_HOSTS.append('www.twocomms.shop')
-    
-    # Ensure subdomains are always allowed
-    for subdomain in ['management.twocomms.shop', 'mail.twocomms.shop']:
-        if subdomain not in ALLOWED_HOSTS:
-            ALLOWED_HOSTS.append(subdomain)
 else:
     # Значения по умолчанию: ваш домен(ы)
     ALLOWED_HOSTS = [

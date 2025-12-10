@@ -83,10 +83,6 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') if os.environ.get
     'management.twocomms.shop',
 ]
 
-# Ensure management subdomain is always allowed (even if ALLOWED_HOSTS came from env)
-if 'management.twocomms.shop' not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append('management.twocomms.shop')
-
 # Security settings (только для продакшена)
 if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
