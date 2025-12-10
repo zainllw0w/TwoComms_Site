@@ -1,9 +1,6 @@
 from django.urls import path
-from .views import HomeView, ClientCreateView
-
-app_name = 'management'
+from . import views
 
 urlpatterns = [
-    path('', HomeView.as_view(), name='home'),
-    path('api/clients/create/', ClientCreateView.as_view(), name='client_create'),
+    path('', views.home, name='management_home'),
 ]
