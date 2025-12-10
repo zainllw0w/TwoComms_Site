@@ -578,24 +578,40 @@
 
 
           {% if request.user.is_authenticated %}
-            <button type="button" class="cart-checkout-btn" id="placeOrderBtn" data-monobank-pay-trigger="cart">
-              <div class="cart-checkout-btn-content">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            <button type="button" class="cart-checkout-btn cart-cta-beam" id="placeOrderBtn" data-monobank-pay-trigger="cart">
+              <span class="cart-cta-border">
+                <span class="cart-cta-border-spin"></span>
+                <span class="cart-cta-border-bg"></span>
+              </span>
+              <span class="cart-cta-surface">
+                <span class="cart-cta-lines"></span>
+                <span class="cart-cta-hover"></span>
+              </span>
+              <span class="cart-cta-content">
+                <span class="cart-cta-text">Оформити замовлення</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="cart-cta-icon">
+                  <path d="M5 12h14"></path>
+                  <path d="m12 5 7 7-7 7"></path>
                 </svg>
-                <span>Оформити замовлення</span>
-              </div>
-              <div class="cart-checkout-btn-glow"></div>
+              </span>
             </button>
           {% else %}
-            <button type="button" class="cart-checkout-btn cart-checkout-btn-guest" id="guestOrderBtn" data-monobank-pay-trigger="cart">
-              <div class="cart-checkout-btn-content">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2l3.09 6.26L22 9.27л-5 4.87 1.18 6.88L12 17.77л-6.18 3.25Л7 14.14 2 9.27л6.91-1.01L12 2z"/>
+            <button type="button" class="cart-checkout-btn cart-cta-beam cart-checkout-btn-guest" id="guestOrderBtn" data-monobank-pay-trigger="cart">
+              <span class="cart-cta-border">
+                <span class="cart-cta-border-spin"></span>
+                <span class="cart-cta-border-bg"></span>
+              </span>
+              <span class="cart-cta-surface">
+                <span class="cart-cta-lines"></span>
+                <span class="cart-cta-hover"></span>
+              </span>
+              <span class="cart-cta-content">
+                <span class="cart-cta-text">Замовити як гість</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="cart-cta-icon">
+                  <path d="M5 12h14"></path>
+                  <path d="m12 5 7 7-7 7"></path>
                 </svg>
-                <span>Замовити як гість</span>
-              </div>
-              <div class="cart-checkout-btn-glow"></div>
+              </span>
             </button>
           {% endif %}
           <div class="cart-checkout-note text-secondary mt-3">
@@ -705,6 +721,152 @@
 
 {% block extra_css %}
 <style>
+.cart-cta-beam {
+  --cart-accent: #3b82f6;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  width: 100%;
+  min-height: 54px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  font-size: 0.95rem;
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.cart-checkout-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  box-shadow: none;
+}
+
+.cart-checkout-btn .cart-checkout-btn-glow {
+  display: none;
+}
+
+.cart-cta-beam .cart-cta-content {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 1rem 2.25rem;
+}
+
+.cart-cta-text {
+  color: rgba(255, 255, 255, 0.9);
+  transition: color 0.3s ease;
+}
+
+.cart-cta-icon {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.3s ease;
+}
+
+.cart-cta-beam:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 40px -12px rgba(59, 130, 246, 0.55);
+}
+
+.cart-cta-beam:hover .cart-cta-icon {
+  transform: translateX(3px);
+}
+
+.cart-cta-beam:hover .cart-cta-text {
+  color: #fff;
+}
+
+.cart-cta-border {
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: 999px;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.cart-cta-border-spin {
+  position: absolute;
+  inset: -120%;
+  background: conic-gradient(from 0deg, transparent 0deg 300deg, var(--cart-accent) 360deg);
+  animation: cart-beam-spin 3s linear infinite;
+}
+
+.cart-cta-border-bg {
+  position: absolute;
+  inset: 1px;
+  border-radius: 999px;
+  background: #050505;
+}
+
+.cart-cta-surface {
+  position: absolute;
+  inset: 2px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.2), transparent);
+  z-index: 1;
+}
+
+.cart-cta-lines {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(90deg, #fff, #fff 1px, transparent 1px, transparent 8px);
+  background-size: 24px 100%;
+  opacity: 0.07;
+  mix-blend-mode: plus-lighter;
+  animation: cart-lines-slide 1.5s linear infinite;
+}
+
+.cart-cta-hover {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 66%;
+  height: 50%;
+  transform: translateX(-50%);
+  background: radial-gradient(circle at 50% 100%, rgba(59, 130, 246, 0.2), transparent 60%);
+  filter: blur(22px);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.cart-cta-beam:hover .cart-cta-hover {
+  opacity: 1;
+}
+
+.cart-cta-beam:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.6);
+  outline-offset: 3px;
+}
+
+.cart-cta-beam:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+@keyframes cart-beam-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes cart-lines-slide {
+  from { background-position: 0 0; }
+  to { background-position: 24px 0; }
+}
+
 .cart-savings-info {
   margin-top: 18px;
   padding: 14px 18px;
