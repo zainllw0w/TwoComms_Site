@@ -666,7 +666,7 @@
               
               <!-- Поле для загрузки изображений -->
               <div class="file-upload-container mb-3">
-                <input type="file" name="color_images" class="form-control" accept="image/*" multiple required>
+                <input type="file" name="color_images" class="form-control" accept="image/*" multiple>
                 <div class="form-hint">
                   <i class="fas fa-upload me-1"></i>Оберіть одне або кілька зображень
                 </div>
@@ -686,7 +686,7 @@
         </div>
         <div class="modal-footer border-0">
           <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Скасувати</button>
-          <button type="submit" class="btn btn-cta">
+          <button type="submit" class="btn btn-cta" id="colorSubmitBtn">
             <i class="fas fa-plus me-1"></i>Додати колір
           </button>
         </div>
@@ -830,6 +830,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // === Колір та галерея кольору ===
     const colorForm = document.getElementById('color-form');
+    const colorSubmitBtn = colorForm ? document.getElementById('colorSubmitBtn') : null;
     const colorModalEl = document.getElementById('addColorModal');
     const colorModal = colorModalEl && window.bootstrap ? new bootstrap.Modal(colorModalEl) : null;
     const colorVariantIdInput = document.getElementById('colorVariantId');
@@ -1055,6 +1056,9 @@ document.addEventListener('DOMContentLoaded', function() {
         colorState.newImages = [];
         colorState.deleted = new Set();
         if (colorVariantIdInput) colorVariantIdInput.value = '';
+        if (colorSubmitBtn) {
+            colorSubmitBtn.innerHTML = '<i class="fas fa-plus me-1"></i>Додати колір';
+        }
         if (colorImageInput) colorImageInput.value = '';
         if (deleteIdsInput) deleteIdsInput.value = '';
         if (setAsMainToggle) setAsMainToggle.checked = false;
@@ -1077,6 +1081,9 @@ document.addEventListener('DOMContentLoaded', function() {
         colorState.newImages = [];
         colorState.deleted = new Set();
         if (colorVariantIdInput) colorVariantIdInput.value = variant.id;
+        if (colorSubmitBtn) {
+            colorSubmitBtn.innerHTML = '<i class="fas fa-save me-1"></i>Зберегти зміни';
+        }
         if (setAsMainToggle) setAsMainToggle.checked = false;
         if (colorNameInput) colorNameInput.value = variant.name || '';
         primaryHexInput.value = primaryHex.value = variant.primary_hex || '#000000';
