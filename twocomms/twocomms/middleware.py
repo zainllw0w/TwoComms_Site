@@ -51,6 +51,23 @@ class WWWRedirectMiddleware(MiddlewareMixin):
         return None
 
 
+class SubdomainURLRoutingMiddleware(MiddlewareMixin):
+    """
+    Middleware для маршрутизации поддоменов.
+    Если запрос приходит на main.domain.com, переключаем urlconf на специальный конфиг.
+    """
+    def process_request(self, request):
+        host = request.get_host().lower()
+        
+        # Если это management поддомен
+        if host.startswith('management.'):
+            request.urlconf = 'twocomms.urls_management'
+            return None
+            
+        # Продолжаем обычную обработку
+        return None
+
+
 class SecurityHeadersMiddleware(MiddlewareMixin):
     """
     Middleware для установки Content-Security-Policy и связанных security-заголовков.

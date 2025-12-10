@@ -80,6 +80,7 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') if os.environ.get
     'localhost',
     '127.0.0.1',
     'mail.twocomms.shop',  # Added for mail subdomain
+    'management.twocomms.shop',
 ]
 
 # Security settings (только для продакшена)
@@ -125,12 +126,16 @@ INSTALLED_APPS = [
     "productcolors.apps.ProductColorsConfig",  # цветовые варианты товаров
     # Social auth
     "social_django",
+    
+    # Management Subdomain App
+    "management",
 ]
 
 # Явно переопределим список middleware, чтобы исключить любые лишние строки
 MIDDLEWARE = [
     "twocomms.middleware.ForceHTTPSMiddleware",  # Принудительный HTTPS
     "twocomms.middleware.WWWRedirectMiddleware",  # Редирект с www
+    "twocomms.middleware.SubdomainURLRoutingMiddleware",  # Subdomain routing (before SecurityMiddleware to handle routing early)
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.gzip.GZipMiddleware",  # Gzip compression for dynamic responses
     "twocomms.middleware.SecurityHeadersMiddleware",  # CSP и дополнительные заголовки
@@ -708,6 +713,7 @@ CSRF_TRUSTED_ORIGINS = [
     'http://www.twocomms.shop',
     'https://twocomms.shop',
     'https://www.twocomms.shop',
+    'https://management.twocomms.shop',
     # удалён домен pythonanywhere по требованию
 ]
 

@@ -1,0 +1,185 @@
+{% extends 'management/base.html' %}
+
+{% block content %}
+<!-- Tab: Main (Головна) -->
+<div id="tab-main" class="tab-content active">
+
+    <!-- Stats Row -->
+    <div style="display: flex; gap: 20px; margin-bottom: 30px;">
+        <div class="glass-panel animate-slide-up"
+            style="flex:1; padding: 20px; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+                <div style="color: var(--text-secondary); font-size: 12px;">ЗВОНКОВ СЕГОДНЯ</div>
+                <div style="font-size: 24px; font-weight: 600;">12</div>
+            </div>
+            <div style="color: var(--success-color);">+2</div>
+        </div>
+        <div class="glass-panel animate-slide-up"
+            style="flex:1; padding: 20px; display: flex; align-items: center; justify-content: space-between; animation-delay: 0.1s;">
+            <div>
+                <div style="color: var(--text-secondary); font-size: 12px;">КОНВЕРСИЯ</div>
+                <div style="font-size: 24px; font-weight: 600;">18%</div>
+            </div>
+            <div style="color: var(--accent-color);">↗</div>
+        </div>
+        <div class="glass-panel animate-slide-up"
+            style="flex:1; padding: 20px; display: flex; align-items: center; justify-content: space-between; animation-delay: 0.2s;">
+            <div>
+                <div style="color: var(--text-secondary); font-size: 12px;">ПРОДАЖ</div>
+                <div style="font-size: 24px; font-weight: 600;">$420</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clients Panel -->
+    <div class="glass-panel animate-slide-up" style="animation-delay: 0.3s;">
+        <div class="panel-header">
+            <div class="panel-title">Обработка клиентов</div>
+            <button class="btn-primary" onclick="openModal('modal-add-client')">+ Добавить клиента</button>
+        </div>
+
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Магазин/Insta</th>
+                    <th>Телефон</th>
+                    <th>ФИО</th>
+                    <th>Статус контакта</th>
+                    <th>Источник</th>
+                    <th>Итог</th>
+                    <th>След. действие</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for client in clients %}
+                <tr>
+                    <td>{{ client.shop_name }}</td>
+                    <td>{{ client.phone }}</td>
+                    <td>{{ client.full_name }}</td>
+                    <td><span class="status-badge" style="background: rgba(255,255,255,0.1); color: #fff;">{{
+                            client.get_contact_role_display }}</span></td>
+                    <td>{{ client.source }}</td>
+                    <td>{{ client.get_last_call_result_display }}</td>
+                    <td>{{ client.next_call_at|date:"d.m H:i"|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align: center; color: var(--text-secondary); padding: 40px;">Нет данных.
+                        Добавьте первого клиента.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Placeholders for other tabs -->
+<div id="tab-invoice" class="tab-content">
+    <div class="glass-panel">
+        <div class="panel-title">Формирование накладной</div>
+        <p style="margin-top: 20px; color: var(--text-secondary);">Раздел в разработке...</p>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block modals %}
+<!-- Add Client Modal -->
+<div id="modal-add-client" class="modal-overlay">
+    <div class="modal-window">
+        <div class="panel-header">
+            <div class="panel-title">Новый клиент</div>
+            <div style="cursor: pointer;" onclick="closeModal('modal-add-client')">✕</div>
+        </div>
+
+        <form action="{% url 'management:client-create' %}" method="post" class="ajax-form">
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label class="form-label">Название магазина / Instagram</label>
+                <input type="text" name="shop_name" class="form-control" required placeholder="@shop_name">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Номер телефона</label>
+                <input type="text" name="phone" class="form-control" required placeholder="+380...">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">ФИО (ПІБ)</label>
+                <input type="text" name="full_name" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Статус контакта</label>
+                <select name="contact_role" class="form-control">
+                    <option value="manager">Менеджер</option>
+                    <option value="owner">Управляющий</option>
+                    <option value="realizer">Реализатор</option>
+                    <option value="other">Другое</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Где взят контакт</label>
+                <input type="text" name="source" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Итог разговора</label>
+                <select name="last_call_result" class="form-control" onchange="toggleOtherInput(this)">
+                    <option value="order_placed">Оформил заказ</option>
+                    <option value="sent_offer_email">Отправили КП на емейл</option>
+                    <option value="sent_offer_messenger">Отправили КП на мессенджеры</option>
+                    <option value="wrote_instagram">Написали в инстаграм</option>
+                    <option value="no_answer">Не отвечает</option>
+                    <option value="not_interested">Не интересует</option>
+                    <option value="other">Другое</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="other-result-group" style="display:none;">
+                <label class="form-label">Укажите детали (Другое)</label>
+                <textarea name="last_call_result_text" class="form-control"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Следующее действие</label>
+                <select class="form-control" onchange="toggleNextCall(this)">
+                    <option value="date">Выбрать дату и время</option>
+                    <option value="non_conversion">Неконверсионный клиент</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="next-call-group">
+                <label class="form-label">Дата звонка</label>
+                <input type="datetime-local" name="next_call_at" class="form-control">
+            </div>
+
+            <input type="hidden" name="is_non_conversion" id="is_non_conversion_input" value="false">
+
+            <button type="submit" class="btn-primary" style="width: 100%; margin-top: 10px;">Сохранить</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    function toggleOtherInput(select) {
+        const group = document.getElementById('other-result-group');
+        group.style.display = select.value === 'other' ? 'block' : 'none';
+    }
+
+    function toggleNextCall(select) {
+        const group = document.getElementById('next-call-group');
+        const input = document.getElementById('is_non_conversion_input');
+
+        if (select.value === 'non_conversion') {
+            group.style.display = 'none';
+            input.value = 'true';
+        } else {
+            group.style.display = 'block';
+            input.value = 'false';
+        }
+    }
+</script>
+{% endblock %}
