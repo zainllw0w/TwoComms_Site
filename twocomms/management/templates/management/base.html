@@ -65,124 +65,107 @@
             <a href="#" class="nav-item">Отчетность</a>
             <a href="#" class="nav-item">Статистика</a>
             <a href="#" class="nav-item">Настройки</a>
-            <a href="#" class="nav-item">Профиль</a>
-            <a href="#" class="nav-item">Выплаты</a>
-            <a href="#" class="nav-item">Информация</a>
-        </nav>
-        <div class="user-controls">
-            <!-- Icons like Notifications/Settings -->
-            <span style="color:var(--text-secondary);">Nexus OS v1.0</span>
-        </div>
-    </header>
-
-    <div class="app-container">
-        <!-- Left Sidebar -->
-        <aside class="sidebar">
-            <div class="profile-section">
-
-                <!-- Semicircle Gauge (Placeholder visual) -->
-                <div style="position: relative; width: 140px; height: 70px; margin: 0 auto 20px; overflow: hidden;">
-                    <div
-                        style="width: 140px; height: 140px; border-radius: 50%; border: 10px solid rgba(255,255,255,0.05); box-sizing: border-box;">
-                    </div>
-                    <div
-                        style="width: 140px; height: 140px; border-radius: 50%; border: 10px solid var(--accent-color); position: absolute; top:0; left:0; box-sizing: border-box; border-bottom-color: transparent; border-right-color: transparent; border-left-color:transparent; transform: rotate(-45deg);">
+            <div class="app-container">
+                <!-- New Sidebar -->
+                <aside class="sidebar">
+                    <div class="brand-section">
+                        <div class="brand-logo-circle"></div>
+                        <div class="brand-title">TwoComms</div>
                     </div>
 
-                    <div
-                        style="position: absolute; bottom: 0; width: 100%; text-align: center; color: #fff; font-size: 24px; font-weight: bold; text-shadow: 0 0 10px var(--accent-color);">
-                        85
-                        <span
-                            style="font-size: 10px; display: block; color: var(--text-secondary); font-weight: normal;">БАЛЛОВ</span>
-                    </div>
-                </div>
+                    <!-- Main Menu -->
+                    <nav class="sidebar-menu">
+                        <div class="menu-category">Основное</div>
+                        <button class="sidebar-btn active" data-tab="home" onclick="switchTab('home')">
+                            <span>🏠</span> Головна
+                        </button>
+                        <button class="sidebar-btn" data-tab="stats" onclick="switchTab('stats')">
+                            <span>📊</span> Статистика
+                        </button>
+                        <button class="sidebar-btn" data-tab="reports" onclick="switchTab('reports')">
+                            <span>📑</span> Отчетность
+                        </button>
 
-                <div class="manager-name">{{ user.first_name|default:"Иван Иванов" }}</div>
-                <div class="manager-status">Менеджер</div>
+                        <div class="menu-category">Действия</div>
+                        <button class="sidebar-btn" onclick="alert('Feature coming soon')">
+                            <span>📄</span> Сформировать накладную
+                        </button>
+                        <button class="sidebar-btn" onclick="alert('Feature coming soon')">
+                            <span>✉️</span> Отправка КП
+                        </button>
+
+                        <div class="menu-category">Система</div>
+                        <button class="sidebar-btn" data-tab="settings" onclick="switchTab('settings')">
+                            <span>⚙️</span> Настройки
+                        </button>
+                    </nav>
+
+                    <!-- User Profile -->
+                    <div class="user-profile">
+                        <div class="avatar-circle">M</div>
+                        <div class="user-info">
+                            <span class="user-name">{{ user.username }}</span>
+                            <span class="user-role">Manager</span> <!-- Placeholder -->
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- Main Content Area -->
+                <main class="main-content">
+                    <!-- Top Bar -->
+                    <header class="top-bar">
+                        <div class="page-title" id="pageTitle">Management Dashboard</div>
+                        <div class="top-actions">
+                            <button class="btn btn-secondary">🔔</button>
+                            <button class="btn btn-secondary">Log Out</button>
+                        </div>
+                    </header>
+
+                    <!-- Scrollable Content -->
+                    <div class="content-scroll">
+                        {% block content %}{% endblock %}
+                    </div>
+                </main>
             </div>
 
-            <nav class="sidebar-menu">
-                <button class="sidebar-btn active" onclick="switchTab('main')">
-                    <span>🏠</span> Головна
-                </button>
-                <button class="sidebar-btn" onclick="switchTab('invoice')">
-                    <span>📄</span> Сформировать накладную
-                </button>
-                <button class="sidebar-btn" onclick="switchTab('email')">
-                    <span>📧</span> Отправка КП
-                </button>
-                <button class="sidebar-btn" onclick="switchTab('dropshippers')">
-                    <span>👥</span> Дропшипперы
-                </button>
-                <button class="sidebar-btn" onclick="switchTab('shops')">
-                    <span>🛍️</span> Магазины
-                </button>
-            </nav>
-        </aside>
+            <!-- JavaScript for SPA Tabs -->
+            <script>
+                function switchTab(tabId) {
 
-        <!-- Main Content Area -->
-        <main class="main-content">
-            {% block content %}{% endblock %}
-        </main>
-    </div>
-
-    <!-- Modals -->
-    {% block modals %}{% endblock %}
-
-    <script>
-        function switchTab(tabId) {
-            // Logic to switch visuals
-            document.querySelectorAll('.sidebar-btn').forEach(btn => btn.classList.remove('active'));
-            event.currentTarget.classList.add('active');
-
-            // Logic to show content (SPA feel)
-            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-            const target = document.getElementById('tab-' + tabId);
-            if (target) target.classList.add('active');
-        }
-
-        function openModal(modalId) {
-            document.getElementById(modalId).classList.add('open');
-        }
-
-        function closeModal(modalId) {
-            document.getElementById(modalId).classList.remove('open');
-        }
-
-        // Close modal on outside click
-        window.onclick = function (event) {
-            if (event.target.classList.contains('modal-overlay')) {
-                event.target.classList.remove('open');
-            }
-        }
-
-        // Form Handling
-        document.addEventListener('submit', function (e) {
-            if (e.target.classList.contains('ajax-form')) {
-                e.preventDefault();
-                const formData = new FormData(e.target);
-
-                fetch(e.target.action, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
+                    // Close modal on outside click
+                    window.onclick = function (event) {
+                        if (event.target.classList.contains('modal-overlay')) {
+                            event.target.classList.remove('open');
+                        }
                     }
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            // Close modal and refresh table (or append row)
-                            closeModal('modal-add-client');
-                            // Ideally: Append row to table dynamically
-                            location.reload(); // Temporary for simplicity in first iteration
-                        } else {
-                            alert('Ошибка: ' + JSON.stringify(data.errors));
+
+                    // Form Handling
+                    document.addEventListener('submit', function (e) {
+                        if (e.target.classList.contains('ajax-form')) {
+                            e.preventDefault();
+                            const formData = new FormData(e.target);
+
+                            fetch(e.target.action, {
+                                method: 'POST',
+                                body: formData,
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                }
+                            })
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.status === 'success') {
+                                        // Close modal and refresh table (or append row)
+                                        closeModal('modal-add-client');
+                                        // Ideally: Append row to table dynamically
+                                        location.reload(); // Temporary for simplicity in first iteration
+                                    } else {
+                                        alert('Ошибка: ' + JSON.stringify(data.errors));
+                                    }
+                                });
                         }
                     });
-            }
-        });
-    </script>
+            </script>
 </body>
 
 </html>
