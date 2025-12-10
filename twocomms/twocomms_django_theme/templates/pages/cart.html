@@ -228,7 +228,7 @@
               <label class="cart-form-label">Телефон *</label>
               <div class="cart-form-input-wrapper">
                 <input type="tel" name="phone" class="cart-form-input" placeholder="+380XXXXXXXXX"
-                       value="{{ prof.phone|default:'' }}" required>
+                       value="{{ prof.phone|default:'' }}" pattern="[+0-9\s\-()]{7,20}" inputmode="tel" required>
                 <div class="cart-form-input-glow"></div>
               </div>
             </div>
@@ -326,7 +326,8 @@
             <div class="cart-form-group">
               <label class="cart-form-label">Телефон *</label>
               <div class="cart-form-input-wrapper">
-                <input type="tel" name="phone" class="cart-form-input" placeholder="+380XXXXXXXXX" required>
+                <input type="tel" name="phone" class="cart-form-input" placeholder="+380XXXXXXXXX"
+                       pattern="[+0-9\s\-()]{7,20}" inputmode="tel" required>
                 <div class="cart-form-input-glow"></div>
               </div>
               {% if guest_form.phone.errors %}
@@ -824,7 +825,7 @@
   inset: 0;
   background-image: repeating-linear-gradient(90deg, #fff, #fff 1px, transparent 1px, transparent 8px);
   background-size: 24px 100%;
-  opacity: 0.05;
+  opacity: 0.025;
   mix-blend-mode: plus-lighter;
   animation: cart-lines-slide 1.5s linear infinite;
 }
