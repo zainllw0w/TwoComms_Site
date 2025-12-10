@@ -1,0 +1,53 @@
+{% extends "management/base.html" %}
+
+{% block content %}
+<div class="clients-panel">
+    <div class="panel-header">
+        <h2>Обработка клиентов</h2>
+        <button class="btn-primary">+ Добавить клиента</button>
+    </div>
+
+    <table class="nexus-table">
+        <thead>
+            <tr>
+                <th>Магазин/Insta</th>
+                <th>Телефон</th>
+                <th>ПІБ</th>
+                <th>Статус</th>
+                <th>Источник</th>
+                <th>Итог</th>
+                <th>След. звонок</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for client in clients %}
+            <tr>
+                <td>{{ client.shop_name }}</td>
+                <td>{{ client.phone }}</td>
+                <td>{{ client.full_name }}</td>
+                <td><span class="status-badge">{{ client.get_role_display }}</span></td>
+                <td>{{ client.source }}</td>
+                <td>{{ client.get_call_result_display }}</td>
+                <td>{{ client.next_call_at|default:"-" }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" style="text-align: center; color: #555; padding: 40px;">
+                    Нет данных. Добавьте первого клиента.
+                </td>
+            </tr>
+            {% endfor %}
+            <!-- Mock Data for Visual Verification -->
+            <tr>
+                <td>@beautyshop_ua</td>
+                <td>+380 99 123 45 67</td>
+                <td>Иваненко Мария</td>
+                <td><span class="status-badge">Управляющий</span></td>
+                <td>Instagram</td>
+                <td>Подумает</td>
+                <td>Завтра 14:00</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}

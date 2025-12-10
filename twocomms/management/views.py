@@ -1,5 +1,8 @@
 from django.shortcuts import render
 from django.http import HttpResponse
 
+from .models import Client
+
 def home(request):
-    return HttpResponse("<h1>TwoComms Management Subdomain</h1><p>Work in progress...</p>")
+    clients = Client.objects.all().order_by('-created_at')[:10]
+    return render(request, 'management/home.html', {'clients': clients})
