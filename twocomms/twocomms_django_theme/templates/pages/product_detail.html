@@ -748,8 +748,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 /* Анимированная кнопка "Додати в кошик" */
 .cart-beam-btn {
-  --cart-beam-accent: #8b5cf6;
-  --cart-beam-base: #0e0a1a;
+  --cart-beam-accent: #f97316;
+  --cart-beam-base: #0f0f15;
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -796,7 +796,7 @@ document.addEventListener('DOMContentLoaded', function() {
 .cart-beam-btn:hover {
   transform: scale(1.02);
   box-shadow:
-    0 0 46px -12px rgba(139, 92, 246, 0.65),
+    0 0 44px -12px rgba(249, 115, 22, 0.65),
     0 14px 30px -18px rgba(0, 0, 0, 0.9);
 }
 
@@ -829,8 +829,8 @@ document.addEventListener('DOMContentLoaded', function() {
   inset: 2px;
   border-radius: 999px;
   background:
-    radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.06), transparent 52%),
-    linear-gradient(180deg, #1a1430, #120e24 55%, #0c0a17);
+    radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.05), transparent 52%),
+    linear-gradient(180deg, #14131c, #0f0e15 55%, #0b0b12);
 }
 
 .cart-beam-surface {
@@ -841,7 +841,7 @@ document.addEventListener('DOMContentLoaded', function() {
   z-index: 1;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0)),
-    radial-gradient(circle at 50% 115%, rgba(139, 92, 246, 0.22), transparent 58%);
+    radial-gradient(circle at 50% 115%, rgba(249, 115, 22, 0.2), transparent 58%);
 }
 
 .cart-beam-sheen {
@@ -863,7 +863,7 @@ document.addEventListener('DOMContentLoaded', function() {
 .cart-beam-hover {
   position: absolute;
   inset: 15% 10%;
-  background: radial-gradient(circle at 50% 100%, rgba(139, 92, 246, 0.22), transparent 62%);
+  background: radial-gradient(circle at 50% 100%, rgba(249, 115, 22, 0.2), transparent 62%);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -873,7 +873,7 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 .cart-beam-btn:focus-visible {
-  outline: 2px solid rgba(139, 92, 246, 0.65);
+  outline: 2px solid rgba(249, 115, 22, 0.7);
   outline-offset: 3px;
 }
 
