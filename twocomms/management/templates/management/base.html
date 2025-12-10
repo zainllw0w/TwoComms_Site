@@ -1,0 +1,67 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}TwoComms Management{% endblock %}</title>
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/management.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+    <div class="nexus-container">
+        <!-- Left Sidebar -->
+        <aside class="sidebar">
+            <div class="user-profile">
+                <div class="user-avatar-placeholder"></div>
+                <div class="user-name">{{ request.user.get_full_name|default:request.user.username }}</div>
+                <div class="user-role">Manager</div>
+            </div>
+
+            <div class="daily-stats">
+                <div class="circle-progress">
+                    <span>85</span>
+                </div>
+            </div>
+            <div style="text-align: center; font-size: 0.8rem; color: #777; margin-bottom: 20px;">Баллов сегодня</div>
+
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active">Головна</a>
+                <a href="#" class="nav-item">Сформувати накладну</a>
+                <a href="#" class="nav-item">КП Email</a>
+                <a href="#" class="nav-item">Дропшипери</a>
+                <a href="#" class="nav-item">Магазини</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content (Right) -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <div class="app-title">TwoComms Management</div>
+                <div class="top-menu">
+                    <a href="#" class="top-link">Менеджмент</a>
+                    <a href="#" class="top-link">Отчетность</a>
+                    <a href="#" class="top-link">Статистика</a>
+                    <a href="#" class="top-link">Профиль</a>
+                    <a href="#" class="top-link">Информация</a>
+                </div>
+            </header>
+
+            <!-- Dynamic Content Area -->
+            <div class="content-area">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    {% block extra_js %}{% endblock %}
+</body>
+
+</html>
