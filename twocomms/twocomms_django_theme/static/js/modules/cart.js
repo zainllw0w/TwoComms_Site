@@ -170,7 +170,7 @@ class CartPageController {
     if (!activeBtn) {
       return;
     }
-    const textSpan = activeBtn.querySelector('span') || activeBtn;
+    const textSpan = activeBtn.querySelector('.cart-cta-text') || activeBtn.querySelector('span') || activeBtn;
     let text = '';
     switch (payType) {
       case 'online_full':
