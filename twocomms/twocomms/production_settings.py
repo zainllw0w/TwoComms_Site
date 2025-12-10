@@ -55,9 +55,12 @@ if _allowed_hosts_env:
         ALLOWED_HOSTS = ['*']
     else:
         ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts_env.split(',') if h.strip()]
-        # Принудительно добавляем www-версию для основного домена
         if 'twocomms.shop' in ALLOWED_HOSTS and 'www.twocomms.shop' not in ALLOWED_HOSTS:
             ALLOWED_HOSTS.append('www.twocomms.shop')
+        
+    # Always ensure management subdomain is allowed
+    if 'management.twocomms.shop' not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append('management.twocomms.shop')
 else:
     # Значения по умолчанию: ваш домен(ы)
     ALLOWED_HOSTS = [
@@ -86,6 +89,9 @@ if 'https://twocomms.shop' in CSRF_TRUSTED_ORIGINS and 'https://www.twocomms.sho
     CSRF_TRUSTED_ORIGINS.extend(['https://www.twocomms.shop'])
 if 'http://twocomms.shop' in CSRF_TRUSTED_ORIGINS and 'http://www.twocomms.shop' not in CSRF_TRUSTED_ORIGINS:
     CSRF_TRUSTED_ORIGINS.extend(['http://www.twocomms.shop'])
+
+# Add management subdomain to CSRF sources
+CSRF_TRUSTED_ORIGINS.extend(['https://management.twocomms.shop', 'http://management.twocomms.shop'])
 
 # Social Auth: приложения и контекст-процессоры уже подключены из base settings
 if 'social_django' not in INSTALLED_APPS:
