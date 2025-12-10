@@ -180,8 +180,8 @@
     <!-- Красивые вкладки для описания и размерной сетки -->
     <div class="product-tabs-container mb-4">
       <div class="product-tabs-header">
-        <button class="product-tab-button active" data-tab="desc">Опис</button>
-        <button class="product-tab-button" data-tab="size">Розмірна сітка</button>
+        <button type="button" class="product-tab-button active" data-tab="desc">Опис</button>
+        <button type="button" class="product-tab-button" data-tab="size">Розмірна сітка</button>
       </div>
       <div class="product-tab-content">
         <div id="tab-desc" class="product-tab-pane active">
@@ -1246,20 +1246,24 @@ document.addEventListener('DOMContentLoaded', function() {
     checkSizeAvailability();
   }catch(_){ }
 
-  // Переключение вкладок описания и размерной сетки
-  document.querySelectorAll('.product-tab-button').forEach(button => {
-    button.addEventListener('click', function() {
-      const tabName = this.getAttribute('data-tab');
-      
-      // Убираем активный класс со всех кнопок и панелей
-      document.querySelectorAll('.product-tab-button').forEach(btn => btn.classList.remove('active'));
-      document.querySelectorAll('.product-tab-pane').forEach(pane => pane.classList.remove('active'));
-      
-      // Добавляем активный класс к выбранной кнопке и панели
-      this.classList.add('active');
-      document.getElementById('tab-' + tabName).classList.add('active');
-    });
-  });
+  // Переключение вкладок описания и размерной сетки (устойчивое к ошибкам)
+  try {
+    var tabsContainer = document.querySelector('.product-tabs-container');
+    if (tabsContainer) {
+      var tabButtons = Array.from(tabsContainer.querySelectorAll('.product-tab-button'));
+      var tabPanes = Array.from(tabsContainer.querySelectorAll('.product-tab-pane'));
+      var activateTab = function(name) {
+        tabButtons.forEach(function(btn){ btn.classList.toggle('active', btn.dataset.tab === name); });
+        tabPanes.forEach(function(pane){ pane.classList.toggle('active', pane.id === 'tab-' + name); });
+      };
+      tabsContainer.addEventListener('click', function(e){
+        var btn = e.target.closest('.product-tab-button');
+        if(!btn) return;
+        e.preventDefault();
+        activateTab(btn.dataset.tab);
+      });
+    }
+  } catch (_) {}
 })();
 </script>
 {% endblock %}
