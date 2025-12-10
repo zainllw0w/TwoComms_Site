@@ -117,8 +117,9 @@
         } catch (_) { storedMode = null; }
         var forceLite = storedMode === 'lite';
         var forceHigh = storedMode === 'high';
-        // Auto perf-lite for mobile devices to improve PageSpeed score
-        var needsLite = saveData || lowRam || lowCPU || isMobile;
+        // Auto perf-lite: только при реальных ограничениях, а не просто из-за ширины
+        // (иначе на мощных телефонах отключаются эффекты)
+        var needsLite = saveData || lowRam || lowCPU;
         if (forceLite || (!forceHigh && needsLite)) {
           docEl.classList.remove('effects-high');
           docEl.classList.add('effects-lite');
