@@ -52,7 +52,7 @@ _allowed_hosts_env = os.environ.get('ALLOWED_HOSTS')
 if _allowed_hosts_env:
     _allowed_hosts_env = _allowed_hosts_env.strip()
     if _allowed_hosts_env == '*':
-         ALLOWED_HOSTS = ['*']
+        ALLOWED_HOSTS = ['*']
     else:
         ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts_env.split(',') if h.strip()]
         if 'twocomms.shop' in ALLOWED_HOSTS and 'www.twocomms.shop' not in ALLOWED_HOSTS:
