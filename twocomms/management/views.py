@@ -9,7 +9,7 @@ class HomeView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['clients'] = Client.objects.all()[:50] # Покажем последние 50
+        context['clients'] = Client.objects.all().order_by('-created_at')[:50] # Покажем последние 50
         return context
 
 class ClientCreateView(CreateView):
