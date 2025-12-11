@@ -93,7 +93,7 @@
                 <div class="user-name-row">
                     <div class="user-name">{{ request.user.get_full_name|default:request.user.username }}</div>
                     <div class="user-actions">
-                        <button type="button" class="icon-btn ghost" aria-label="Редагувати профіль" title="Редагувати профіль">
+                        <button type="button" class="icon-btn ghost open-profile-modal" aria-label="Редагувати профіль" title="Редагувати профіль">
                             <svg viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"/>
                             </svg>
@@ -185,6 +185,67 @@
     </div>
 
     {% block extra_js %}{% endblock %}
+
+    <!-- Profile Modal -->
+    <div class="modal-overlay" id="profile-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div>
+                    <p class="eyebrow">Профіль</p>
+                    <h3>Редагувати профіль</h3>
+                </div>
+                <button type="button" class="modal-close" aria-label="Закрити">×</button>
+            </div>
+            <form id="profile-form" class="modal-body">
+                {% csrf_token %}
+                <div class="field-grid">
+                    <div class="field">
+                        <label for="pf_full_name">ПІБ</label>
+                        <input type="text" id="pf_full_name" name="full_name" value="{{ request.user.userprofile.full_name|default:request.user.get_full_name }}" placeholder="Ваше імʼя та прізвище">
+                    </div>
+                    <div class="field">
+                        <label for="pf_email">Email</label>
+                        <input type="email" id="pf_email" name="email" value="{{ request.user.userprofile.email|default:request.user.email }}" placeholder="you@example.com">
+                    </div>
+                    <div class="field">
+                        <label for="pf_phone">Телефон</label>
+                        <input type="tel" id="pf_phone" name="phone" value="{{ request.user.userprofile.phone }}" placeholder="+380...">
+                    </div>
+                </div>
+
+                <div class="bot-block">
+                    <div class="bot-block-head">
+                        <div>
+                            <p class="eyebrow">Telegram Management</p>
+                            <h4>Привʼяжіть менеджмент-бота</h4>
+                        </div>
+                        <button type="button" class="btn-primary" id="bind-code-btn">Отримати код</button>
+                    </div>
+                    <p class="bot-desc">
+                        Після привʼязки менеджмент-бот надсилатиме нагадування про дзвінки, важливі події та звіти. Це дозволяє не пропустити клієнтів і швидко реагувати на завдання.
+                    </p>
+                    <div class="bot-status" id="bind-status">
+                        {% if request.user.userprofile.tg_manager_chat_id %}
+                            <span class="status-dot online">●</span> Привʼязано до @{{ request.user.userprofile.tg_manager_username|default:"(невідомо)" }} ({{ request.user.userprofile.tg_manager_chat_id }})
+                        {% else %}
+                            <span class="status-dot offline">●</span> Не привʼязано
+                        {% endif %}
+                    </div>
+                    <div class="bind-code-box" id="bind-code-box" style="display:none;">
+                        <div class="bind-code-title">Код привʼязки</div>
+                        <div class="bind-code-value" id="bind-code-value"></div>
+                        <div class="bind-code-exp" id="bind-code-exp"></div>
+                        <div class="bind-instruction">Надішліть боту /start код у Telegram, щоб завершити привʼязку.</div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-ghost modal-close">Відмінити</button>
+                    <button type="submit" class="btn-primary">Зберегти</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -456,6 +517,68 @@
                 .catch(() => {});
         };
         setInterval(pollFeed, 10000);
+
+        // Profile modal logic
+        const profileModal = document.getElementById('profile-modal');
+        const openProfile = () => {
+            profileModal.classList.add('show');
+            document.body.classList.add('modal-open');
+        };
+        const closeProfile = () => {
+            profileModal.classList.remove('show');
+            document.body.classList.remove('modal-open');
+        };
+        document.querySelectorAll('.open-profile-modal').forEach(btn => btn.addEventListener('click', openProfile));
+        if (profileModal) {
+            profileModal.querySelectorAll('.modal-close').forEach(btn => btn.addEventListener('click', closeProfile));
+            profileModal.addEventListener('click', (e) => { if (e.target === profileModal) closeProfile(); });
+        }
+
+        const bindBtn = document.getElementById('bind-code-btn');
+        const bindBox = document.getElementById('bind-code-box');
+        const bindVal = document.getElementById('bind-code-value');
+        const bindExp = document.getElementById('bind-code-exp');
+        const csrf = (document.querySelector('#profile-form input[name=csrfmiddlewaretoken]') || {}).value;
+
+        if (bindBtn) {
+            bindBtn.addEventListener('click', () => {
+                fetch("{% url 'management_profile_bind_code' %}", {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': csrf,
+                    }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.ok) {
+                        bindVal.textContent = data.code;
+                        bindExp.textContent = `Діє до: ${data.expires}`;
+                        bindBox.style.display = 'block';
+                    }
+                })
+                .catch(() => {});
+            });
+        }
+
+        const profileForm = document.getElementById('profile-form');
+        if (profileForm) {
+            profileForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const formData = new FormData(profileForm);
+                fetch("{% url 'management_profile_update' %}", {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: formData
+                }).then(res => res.json()).then(data => {
+                    if (data.ok) {
+                        closeProfile();
+                    }
+                }).catch(() => {});
+            });
+        }
     });
     </script>
 </body>
