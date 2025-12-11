@@ -39,29 +39,39 @@
         </nav>
         <div class="header-actions">
             <div class="notif-wrapper">
-                <button type="button" class="icon-btn ghost bell" id="notif-btn" aria-label="Нагадування">
+                <div class="bell-static">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M12 2a6 6 0 00-6 6v3.586L4.293 13.293a1 1 0 000 1.414l.707.707h14l.707-.707a1 1 0 000-1.414L18 11.586V8a6 6 0 00-6-6zm0 20a2.5 2.5 0 002.45-2H9.55A2.5 2.5 0 0012 22z"/>
                     </svg>
                     <span class="notif-badge" id="notif-count" data-count="{{ reminders|length|default:0 }}">{{ reminders|length|default:0 }}</span>
-                </button>
+                </div>
                 <div class="notif-panel" id="notif-panel">
-                    {% if reminders %}
-                        {% for n in reminders %}
-                        <div class="notif-item notif-{{ n.status }}">
-                            <div class="notif-title">{{ n.shop }}</div>
-                            {% if n.name or n.phone %}
-                            <div class="notif-meta">{{ n.name }}{% if n.name and n.phone %} • {% endif %}{{ n.phone }}</div>
-                            {% endif %}
-                            <div class="notif-time">{{ n.time_label }}</div>
-                            <button type="button" class="icon-btn ghost notif-done" aria-label="Позначити як прочитане">
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-                            </button>
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        <div class="notif-empty">Нагадувань немає</div>
-                    {% endif %}
+                    <div class="notif-header">
+                        <div class="notif-title-main">Нагадування</div>
+                        <div class="notif-sub">Останні 5 записів</div>
+                    </div>
+                    <div class="notif-list">
+                        {% if reminders %}
+                            {% for n in reminders %}
+                            <div class="notif-item notif-{{ n.status }}">
+                                <div class="notif-row">
+                                    <div>
+                                        <div class="notif-title">{{ n.title|default:n.shop }}</div>
+                                        {% if n.name or n.phone %}
+                                        <div class="notif-meta">{{ n.name }}{% if n.name and n.phone %} • {% endif %}{{ n.phone }}</div>
+                                        {% endif %}
+                                        <div class="notif-time">{{ n.time_label }}</div>
+                                    </div>
+                                    <button type="button" class="icon-btn ghost notif-done" aria-label="Позначити як прочитане">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="notif-empty">Нагадувань немає</div>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
             <span class="header-chip live">Live</span>
@@ -178,20 +188,8 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        const notifBtn = document.getElementById('notif-btn');
         const notifPanel = document.getElementById('notif-panel');
         const notifCountEl = document.getElementById('notif-count');
-
-        if (notifBtn && notifPanel) {
-            notifBtn.addEventListener('click', () => {
-                notifPanel.classList.toggle('show');
-            });
-            document.addEventListener('click', (e) => {
-                if (!notifPanel.contains(e.target) && !notifBtn.contains(e.target)) {
-                    notifPanel.classList.remove('show');
-                }
-            });
-        }
 
         // simple beep when there are reminders
         const count = notifCountEl ? parseInt(notifCountEl.dataset.count || '0', 10) : 0;
@@ -212,15 +210,14 @@
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const item = btn.closest('.notif-item');
-                    if (item) item.remove();
+                    if (item) item.classList.add('read');
                     const badge = document.getElementById('notif-count');
                     if (badge) {
                         const newCount = Math.max(0, parseInt(badge.textContent || '0', 10) - 1);
                         badge.textContent = newCount;
                         badge.dataset.count = newCount;
-                        if (newCount === 0) {
-                            notifPanel.classList.remove('show');
-                            notifPanel.innerHTML = '<div class="notif-empty">Нагадувань немає</div>';
+                        if (newCount <= 0) {
+                            badge.textContent = '0';
                         }
                     }
                 });
