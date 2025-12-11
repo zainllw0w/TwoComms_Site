@@ -8,7 +8,11 @@
             <h2>Панель керування клієнтами</h2>
         </div>
         <div class="panel-actions">
-            <button class="btn-ghost">Експорт</button>
+            <div class="report-hint">
+                <div class="report-title">Звіт до 19:00 (пн–пт)</div>
+                <div class="report-countdown" id="report-countdown">--:--</div>
+            </div>
+            <button class="btn-ghost">Відправити звіт</button>
             <button class="btn-primary open-add-client">+ Додати клієнта</button>
         </div>
     </div>
@@ -196,6 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalTitle = document.querySelector('.modal-header h3');
     const modalSubmit = modal.querySelector('.modal-footer .btn-primary');
     const editButtons = document.querySelectorAll('.edit-client');
+    const reportCountdown = document.getElementById('report-countdown');
 
     const setDefaultDateTime = () => {
         const now = new Date();
@@ -340,6 +345,48 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleSource();
     toggleCallResult();
     toggleNextCall();
+
+    // Countdown to next weekday 19:00
+    const updateCountdown = () => {
+        if (!reportCountdown) return;
+        const now = new Date();
+        let target = new Date(now);
+        target.setHours(19, 0, 0, 0);
+
+        const day = target.getDay(); // 0 Sun, 6 Sat
+        const isWeekend = day === 0 || day === 6;
+        const passedToday = now > target;
+
+        if (isWeekend || passedToday) {
+            let offset = 1;
+            while (true) {
+                const candidate = new Date(target);
+                candidate.setDate(target.getDate() + offset);
+                const d = candidate.getDay();
+                if (d !== 0 && d !== 6) {
+                    target = candidate;
+                    target.setHours(19, 0, 0, 0);
+                    break;
+                }
+                offset += 1;
+            }
+        }
+
+        const diffMs = target - now;
+        if (diffMs <= 0) {
+            reportCountdown.textContent = 'Час подати звіт';
+            reportCountdown.style.color = '#ff7e29';
+            return;
+        }
+        const totalSec = Math.floor(diffMs / 1000);
+        const hours = String(Math.floor(totalSec / 3600)).padStart(2, '0');
+        const minutes = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
+        reportCountdown.textContent = `${hours}:${minutes}`;
+        reportCountdown.style.color = totalSec < 3600 ? '#ff7e29' : '#ffb347';
+    };
+
+    updateCountdown();
+    setInterval(updateCountdown, 30000);
 });
 </script>
 {% endblock %}
