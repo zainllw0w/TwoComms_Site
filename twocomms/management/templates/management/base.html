@@ -14,8 +14,30 @@
     {% block extra_css %}{% endblock %}
 </head>
 
-<body>
-    <div class="nexus-container">
+<body class="management-body">
+    <!-- Глобальный верхний хедер -->
+    <header class="global-header">
+        <div class="header-left">
+            <div class="brand-mark">TC</div>
+            <div class="brand-title">
+                <div class="brand-kicker">TwoComms</div>
+                <div class="brand-name">MANAGEMENT</div>
+            </div>
+        </div>
+        <nav class="header-tabs">
+            <a href="#" class="tab active">Менеджмент</a>
+            <a href="#" class="tab">Звітність</a>
+            <a href="#" class="tab">Статистика</a>
+            <a href="#" class="tab">Профіль</a>
+            <a href="#" class="tab">Інформація</a>
+        </nav>
+        <div class="header-actions">
+            <span class="header-chip live">Live</span>
+            <span class="header-chip subtle">v2.0</span>
+        </div>
+    </header>
+
+    <div class="workspace">
         <!-- Left Sidebar -->
         <aside class="sidebar">
             <div class="user-profile">
@@ -25,16 +47,25 @@
             </div>
 
             <div class="daily-stats">
-                <div class="circle-progress">
-                    <span>85</span>
+                <div class="gauge">
+                    <div class="gauge-inner">
+                        <div class="gauge-value">85</div>
+                        <div class="gauge-caption">Балів</div>
+                    </div>
+                </div>
+                <div class="gauge-meta">
+                    <span>Оброблено за сьогодні</span>
+                    <div class="progress-track">
+                        <div class="progress-fill" style="width: 80%;"></div>
+                    </div>
+                    <div class="progress-legend">12 / 15</div>
                 </div>
             </div>
-            <div style="text-align: center; font-size: 0.8rem; color: #777; margin-bottom: 20px;">Баллов сегодня</div>
 
             <nav class="nav-menu">
-                <a href="#" class="nav-item active">Головна</a>
+                <a href="#" class="nav-item active">Панель</a>
                 <a href="#" class="nav-item">Сформувати накладну</a>
-                <a href="#" class="nav-item">КП Email</a>
+                <a href="#" class="nav-item">КП на e-mail</a>
                 <a href="#" class="nav-item">Дропшипери</a>
                 <a href="#" class="nav-item">Магазини</a>
             </nav>
@@ -42,19 +73,6 @@
 
         <!-- Main Content (Right) -->
         <main class="main-content">
-            <!-- Top Bar -->
-            <header class="top-bar">
-                <div class="app-title">TwoComms Management</div>
-                <div class="top-menu">
-                    <a href="#" class="top-link">Менеджмент</a>
-                    <a href="#" class="top-link">Отчетность</a>
-                    <a href="#" class="top-link">Статистика</a>
-                    <a href="#" class="top-link">Профиль</a>
-                    <a href="#" class="top-link">Информация</a>
-                </div>
-            </header>
-
-            <!-- Dynamic Content Area -->
             <div class="content-area">
                 {% block content %}{% endblock %}
             </div>
