@@ -53,7 +53,7 @@
                     <div class="notif-list">
                         {% if reminders %}
                             {% for n in reminders %}
-                            <div class="notif-item notif-{{ n.status }}">
+                            <div class="notif-item notif-{{ n.status }}" data-key="{{ n.key }}" data-eta="{{ n.eta_seconds|default:0 }}">
                                 <div class="notif-row">
                                     <div>
                                         <div class="notif-title">{{ n.title|default:n.shop }}</div>
@@ -190,10 +190,34 @@
     document.addEventListener('DOMContentLoaded', () => {
         const notifPanel = document.getElementById('notif-panel');
         const notifCountEl = document.getElementById('notif-count');
+        const dismissedKey = 'management_dismissed_notifications';
+        const readKeys = new Set(JSON.parse(localStorage.getItem(dismissedKey) || '[]'));
 
-        // simple beep when there are reminders
-        const count = notifCountEl ? parseInt(notifCountEl.dataset.count || '0', 10) : 0;
-        if (count > 0 && window.AudioContext) {
+        const items = notifPanel ? Array.from(notifPanel.querySelectorAll('.notif-item')) : [];
+
+        // apply persisted read state
+        items.forEach(item => {
+            const key = item.dataset.key;
+            if (key && readKeys.has(key)) {
+                item.classList.add('read');
+            }
+            if (item.dataset.eta && parseInt(item.dataset.eta, 10) > 0) {
+                item.classList.add('countdown');
+            }
+        });
+
+        // recalc count excluding read
+        const calcCount = () => {
+            const unread = items.filter(el => !el.classList.contains('read')).length;
+            if (notifCountEl) {
+                notifCountEl.textContent = unread;
+                notifCountEl.dataset.count = unread;
+            }
+            return unread;
+        };
+
+        // beep only if unread
+        if (calcCount() > 0 && window.AudioContext) {
             const ctx = new AudioContext();
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
@@ -204,24 +228,51 @@
             osc.stop(ctx.currentTime + 0.15);
         }
 
-        // mark as read in UI
+        // mark as read in UI and persist
         if (notifPanel) {
             notifPanel.querySelectorAll('.notif-done').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const item = btn.closest('.notif-item');
+                    const key = item ? item.dataset.key : null;
                     if (item) item.classList.add('read');
-                    const badge = document.getElementById('notif-count');
-                    if (badge) {
-                        const newCount = Math.max(0, parseInt(badge.textContent || '0', 10) - 1);
-                        badge.textContent = newCount;
-                        badge.dataset.count = newCount;
-                        if (newCount <= 0) {
-                            badge.textContent = '0';
+                    if (key) {
+                        readKeys.add(key);
+                        localStorage.setItem(dismissedKey, JSON.stringify(Array.from(readKeys)));
+                    }
+                    calcCount();
+                });
+            });
+        }
+
+        // countdown for "soon" -> switch to "due"
+        if (items.length) {
+            const tick = () => {
+                const now = Date.now();
+                let changed = false;
+                items.forEach(item => {
+                    const eta = parseInt(item.dataset.eta || '0', 10);
+                    if (eta > 0) {
+                        const newEta = Math.max(0, eta - 1);
+                        item.dataset.eta = newEta;
+                        if (newEta === 0) {
+                            item.classList.remove('countdown');
+                            item.classList.remove('notif-soon');
+                            item.classList.add('notif-due');
+                            const timeLabel = item.querySelector('.notif-time');
+                            if (timeLabel) timeLabel.textContent = 'щойно';
+                            const btn = item.querySelector('.notif-done');
+                            if (btn) btn.style.display = '';
+                            changed = true;
+                        } else {
+                            const timeLabel = item.querySelector('.notif-time');
+                            if (timeLabel) timeLabel.textContent = `через ${newEta} сек`;
                         }
                     }
                 });
-            });
+                if (changed) calcCount();
+            };
+            setInterval(tick, 1000);
         }
     });
     </script>
