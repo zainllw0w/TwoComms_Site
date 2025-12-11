@@ -211,9 +211,15 @@
             });
         };
 
-        // recalc count excluding read
+        // recalc count excluding read; игнорируем "soon" если осталось >5 хв (eta=0)
         const calcCount = (listItems = items) => {
-            const unread = listItems.filter(el => !el.classList.contains('read')).length;
+            const unread = listItems.filter(el => {
+                const isRead = el.classList.contains('read');
+                const etaVal = parseInt(el.dataset.eta || '0', 10);
+                const statusVal = el.dataset.status || '';
+                const skipSoonFar = statusVal === 'soon' && etaVal === 0;
+                return !isRead && !skipSoonFar;
+            }).length;
             if (notifCountEl) {
                 notifCountEl.textContent = unread;
                 notifCountEl.dataset.count = unread;
@@ -374,9 +380,11 @@
                     const item = document.createElement('div');
                     const etaVal = parseInt(n.eta_seconds || '0', 10);
                     const isTimer = etaVal > 0;
-                    item.className = `notif-item notif-${n.status || 'soon'}${isTimer ? ' notif-countdown timer-card' : ''}`;
+                    const statusVal = n.status || 'soon';
+                    item.className = `notif-item notif-${statusVal}${isTimer ? ' notif-countdown timer-card' : ''}`;
                     item.dataset.key = n.key || '';
                     item.dataset.eta = etaVal || 0;
+                    item.dataset.status = statusVal;
                     item.dataset.dt = n.dt_iso || '';
                     if (n.read) item.classList.add('read');
                     if (n.read && n.key) readKeys.add(n.key);
