@@ -1,9 +1,12 @@
 from collections import OrderedDict
 from datetime import datetime, timedelta
+import json
 
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import get_user_model
+from django.db.models import Count, Q
 
 from .models import Client
 
@@ -105,7 +108,43 @@ def home(request):
 
     grouped_clients = list(grouped.items())
 
-    return render(request, 'management/home.html', {'grouped_clients': grouped_clients})
+    admin_user_data = []
+    if request.user.is_staff:
+        User = get_user_model()
+        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        users = User.objects.filter(is_active=True).annotate(
+            total_clients=Count('management_clients', distinct=True),
+            today_clients=Count('management_clients', filter=Q(management_clients__created_at__gte=today_start), distinct=True),
+        )
+        for u in users:
+            last_login = u.last_login
+            online = False
+            last_login_local = None
+            if last_login:
+                last_login_local = timezone.localtime(last_login)
+                online = (timezone.now() - last_login) <= timedelta(minutes=5)
+            user_clients = Client.objects.filter(owner=u).order_by('-created_at')[:50]
+            admin_user_data.append({
+                'id': u.id,
+                'name': u.get_full_name() or u.username,
+                'role': 'Адмін' if u.is_staff else 'Менеджер',
+                'today': u.today_clients,
+                'total': u.total_clients,
+                'online': online,
+                'last_login': last_login_local.isoformat() if last_login_local else None,
+                'last_login_display': last_login_local.strftime('%d.%m.%Y %H:%M') if last_login_local else 'Немає даних',
+                'clients': [
+                    {
+                        'shop': c.shop_name,
+                        'created': timezone.localtime(c.created_at).strftime('%d.%m.%Y %H:%M'),
+                    } for c in user_clients
+                ]
+            })
+
+    return render(request, 'management/home.html', {
+        'grouped_clients': grouped_clients,
+        'admin_user_data': admin_user_data,
+    })
 
 
 @login_required(login_url='management_login')
