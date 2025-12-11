@@ -106,7 +106,8 @@ def home(request):
 
     base_qs = Client.objects.select_related('owner').order_by('-created_at')
     # У основній панелі всі бачать тільки свої записи
-    clients = base_qs.filter(owner=request.user)[:200]
+    clients_qs = base_qs.filter(owner=request.user)
+    clients = clients_qs
 
     today = timezone.localdate()
     yesterday = today - timedelta(days=1)
@@ -125,7 +126,7 @@ def home(request):
 
     grouped_clients = list(grouped.items())
 
-    clients_today = clients.filter(created_at__date=today)
+    clients_today = clients_qs.filter(created_at__date=today)
 
     def calc_points(qs):
         total = 0
