@@ -619,6 +619,9 @@ def reminder_feed(request):
     reminders = get_reminders(request.user, stats=stats, report_sent=report_sent)
     serialized = []
     for r in reminders:
+        eta = int(r.get('eta_seconds', 0) or 0)
+        if eta > 300:
+            eta = 0
         serialized.append({
             'shop': r.get('shop', ''),
             'title': r.get('title', ''),
@@ -626,7 +629,7 @@ def reminder_feed(request):
             'phone': r.get('phone', ''),
             'time_label': r.get('time_label', ''),
             'status': r.get('status', ''),
-            'eta_seconds': r.get('eta_seconds', 0),
+            'eta_seconds': eta,
             'key': r.get('key', ''),
             'read': r.get('read', False),
             'dt_iso': r.get('dt_iso', ''),
