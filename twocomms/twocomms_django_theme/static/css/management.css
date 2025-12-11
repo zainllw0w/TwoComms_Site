@@ -728,6 +728,60 @@
     fill: currentColor;
 }
 
+.icon-btn.ghost.danger {
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #ffb3b3;
+}
+
+.icon-btn.ghost.danger:hover {
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.25);
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.admin-panel {
+    margin-top: 24px;
+    background: var(--panel-strong);
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-lg);
+}
+
+.status-dot {
+    font-size: 14px;
+    margin-right: 6px;
+}
+
+.status-dot.online { color: #34d399; }
+.status-dot.offline { color: #94a3b8; }
+
+.overview-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.overview-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.overview-shop {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.overview-date {
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
 /* Modal */
 .modal-overlay {
     position: fixed;
