@@ -48,28 +48,32 @@
                         <td>
                             <button type="button" class="btn-ghost small report-overview" data-report-id="{{ r.id }}">Огляд</button>
                             <div class="report-clients" data-report-id="{{ r.id }}" style="display:none;">
-                                {% for c in r.clients %}
-                                <div class="overview-card">
-                                    <div class="overview-head">
-                                        <div class="overview-main">
-                                            <div class="overview-shop">{{ c.shop }}</div>
-                                            <div class="overview-date">{{ c.created }}</div>
+                                {% if r.clients %}
+                                    {% for c in r.clients %}
+                                    <div class="overview-card">
+                                        <div class="overview-head">
+                                            <div class="overview-main">
+                                                <div class="overview-shop">{{ c.shop }}</div>
+                                                <div class="overview-date">{{ c.created }}</div>
+                                            </div>
+                                            <div class="overview-result result-{{ c.result_code }}">{{ c.result }}</div>
+                                            <button type="button" class="icon-btn ghost toggle-details" aria-label="Деталі">
+                                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
+                                            </button>
                                         </div>
-                                        <div class="overview-result result-{{ c.result_code }}">{{ c.result }}</div>
-                                        <button type="button" class="icon-btn ghost toggle-details" aria-label="Деталі">
-                                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
-                                        </button>
+                                        <div class="overview-details">
+                                            <div><span class="muted">ПІБ:</span> {{ c.full_name }}</div>
+                                            <div><span class="muted">Телефон:</span> {{ c.phone }}</div>
+                                            <div><span class="muted">Статус:</span> {{ c.role }}</div>
+                                            <div><span class="muted">Джерело:</span> {{ c.source }}</div>
+                                            <div><span class="muted">Підсумок:</span> {{ c.result }}{% if c.details %} • {{ c.details }}{% endif %}</div>
+                                            <div><span class="muted">Наступний дзвінок:</span> {{ c.next_call }}</div>
+                                        </div>
                                     </div>
-                                    <div class="overview-details">
-                                        <div><span class="muted">ПІБ:</span> {{ c.full_name }}</div>
-                                        <div><span class="muted">Телефон:</span> {{ c.phone }}</div>
-                                        <div><span class="muted">Статус:</span> {{ c.role }}</div>
-                                        <div><span class="muted">Джерело:</span> {{ c.source }}</div>
-                                        <div><span class="muted">Підсумок:</span> {{ c.result }}{% if c.details %} • {{ c.details }}{% endif %}</div>
-                                        <div><span class="muted">Наступний дзвінок:</span> {{ c.next_call }}</div>
-                                    </div>
-                                </div>
-                                {% endfor %}
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="table-empty" style="margin: 12px 0;">Немає клієнтів у цьому звіті.</div>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>
@@ -87,6 +91,14 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    // Підтягнути заповнення дуги в сайдбарі
+    const arcFill = document.getElementById('gauge-arc-fill');
+    if (arcFill) {
+        const arcLen = 251.3;
+        const init = parseFloat(arcFill.dataset.progress || '0');
+        arcFill.style.strokeDashoffset = arcLen * (1 - init / 100);
+    }
+
     document.querySelectorAll('.report-overview').forEach(btn => {
         btn.addEventListener('click', () => {
             const id = btn.dataset.reportId;
