@@ -13,5 +13,6 @@ urlpatterns = [
     path('reports/', views.reports, name='management_reports'),
     path('reports/send/', views.send_report, name='management_send_report'),
     path('reminders/read/', views.reminder_read, name='management_reminder_read'),
+    path('reminders/feed/', views.reminder_feed, name='management_reminder_feed'),
     path('', views.home, name='management_home'),
 ]
