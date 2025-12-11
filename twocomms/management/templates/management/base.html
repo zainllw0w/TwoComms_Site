@@ -346,6 +346,8 @@
                     item.className = `notif-item notif-${n.status || 'soon'}${isTimer ? ' notif-countdown timer-card' : ''}`;
                     item.dataset.key = n.key || '';
                     item.dataset.eta = etaVal || 0;
+                    if (n.read) item.classList.add('read');
+                    if (n.read && n.key) readKeys.add(n.key);
                     if (isTimer) {
                         item.innerHTML = `
                             <div class="notif-row">
