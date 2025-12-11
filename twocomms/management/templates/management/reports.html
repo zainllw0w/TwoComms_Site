@@ -14,7 +14,7 @@
             </div>
             <form method="post" action="{% url 'management_send_report' %}">
                 {% csrf_token %}
-                <button class="btn-primary">
+                <button class="btn-primary" id="report-submit" data-progress-points="{{ progress_points_pct|default:0 }}" data-progress-clients="{{ progress_clients_pct|default:0 }}">
                     {% if has_report_today %}Відправити ще раз{% else %}Відправити звіт{% endif %}
                 </button>
             </form>
@@ -116,6 +116,19 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     });
+
+    // Confirm if норма не виконана
+    const reportBtn = document.getElementById('report-submit');
+    if (reportBtn && reportBtn.closest('form')) {
+        reportBtn.closest('form').addEventListener('submit', (e) => {
+            const pts = parseInt(reportBtn.dataset.progressPoints || '0', 10);
+            const cls = parseInt(reportBtn.dataset.progressClients || '0', 10);
+            if (pts < 100 || cls < 100) {
+                const ok = confirm('Денна норма не заповнена (бали або клієнти). Відправити звіт зараз?');
+                if (!ok) e.preventDefault();
+            }
+        });
+    }
 });
 </script>
 {% endblock %}
