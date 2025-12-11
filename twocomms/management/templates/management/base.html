@@ -47,7 +47,13 @@
         <!-- Left Sidebar -->
         <aside class="sidebar">
             <div class="user-profile">
+                {% if request.user.userprofile.avatar %}
+                <div class="user-avatar">
+                    <img src="{{ request.user.userprofile.avatar.url }}" alt="{{ request.user.get_full_name|default:request.user.username }}">
+                </div>
+                {% else %}
                 <div class="user-avatar-placeholder"></div>
+                {% endif %}
                 <div class="user-name">{{ request.user.get_full_name|default:request.user.username }}</div>
                 <div class="user-role">Manager</div>
             </div>
