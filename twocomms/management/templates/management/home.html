@@ -14,7 +14,13 @@
             </div>
             <form method="post" action="{% url 'management_send_report' %}">
                 {% csrf_token %}
-                <button class="btn-ghost" id="report-submit" type="submit">Відправити звіт</button>
+                <button
+                    class="btn-primary"
+                    id="report-submit"
+                    type="submit"
+                    data-sent="{{ has_report_today|yesno:'true,false' }}">
+                    {% if has_report_today %}Відправити ще раз{% else %}Відправити звіт{% endif %}
+                </button>
             </form>
             <button class="btn-primary open-add-client">+ Додати клієнта</button>
         </div>
@@ -458,6 +464,10 @@ document.addEventListener('DOMContentLoaded', () => {
         let target = new Date(now);
         target.setHours(19, 0, 0, 0);
 
+        const baseLabel = (reportSubmit && reportSubmit.dataset.sent === 'true')
+            ? 'Відправити ще раз'
+            : 'Відправити звіт';
+
         const day = target.getDay(); // 0 Sun, 6 Sat
         const isWeekend = day === 0 || day === 6;
         const passedToday = now > target;
@@ -466,7 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!isWeekend && passedToday) {
             reportCountdown.textContent = 'Треба відправити звіт';
             reportCountdown.style.color = '#ff7e29';
-            if (reportSubmit) reportSubmit.textContent = 'Відправити звіт';
+            if (reportSubmit) reportSubmit.textContent = baseLabel;
             return;
         }
 
@@ -489,7 +499,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (diffMs <= 0) {
             reportCountdown.textContent = 'Час подати звіт';
             reportCountdown.style.color = '#ff7e29';
-            if (reportSubmit) reportSubmit.textContent = 'Відправити звіт';
+            if (reportSubmit) reportSubmit.textContent = baseLabel;
             return;
         }
         const totalSec = Math.floor(diffMs / 1000);
@@ -498,7 +508,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const seconds = String(totalSec % 60).padStart(2, '0');
         reportCountdown.textContent = `Залишилось ${hours}:${minutes}:${seconds}`;
         reportCountdown.style.color = totalSec < 3600 ? '#ff7e29' : '#ffb347';
-        if (reportSubmit) reportSubmit.textContent = 'Відправити звіт';
+        if (reportSubmit) reportSubmit.textContent = baseLabel;
     };
 
     updateCountdown();
