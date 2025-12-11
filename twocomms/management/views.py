@@ -88,18 +88,18 @@ def _time_label(dt_local, now):
 def get_reminders(user, stats=None, report_sent=False):
     """Return upcoming/due follow-ups + report reminder."""
     now = timezone.localtime(timezone.now())
-    window_end = now + timedelta(minutes=REMINDER_WINDOW_MINUTES)
     read_keys = set(ReminderRead.objects.filter(user=user).values_list('key', flat=True))
     qs = Client.objects.filter(
         owner=user,
-        next_call_at__isnull=False,
-        next_call_at__lte=window_end
+        next_call_at__isnull=False
     ).select_related('owner').order_by('-next_call_at')
     reminders = []
     for c in qs:
         dt_local = timezone.localtime(c.next_call_at)
         status = 'due' if dt_local <= now else 'soon'
         status_key = 'due' if status == 'due' else 'soon'
+        eta_raw = max(0, int((dt_local - now).total_seconds()))
+        eta_display = eta_raw if 0 < eta_raw <= REMINDER_WINDOW_MINUTES * 60 else 0
         reminder = {
             'shop': c.shop_name,
             'name': c.full_name,
@@ -109,7 +109,7 @@ def get_reminders(user, stats=None, report_sent=False):
             'status': status,
             'kind': 'call',
             'dt': dt_local,
-            'eta_seconds': max(0, int((dt_local - now).total_seconds())),
+            'eta_seconds': eta_display,
             'key': f"call-{c.id}-{int(dt_local.timestamp())}-{status_key}",
         }
         # "soon" таймер всегда показываем (не кликается), "due" и позже фильтруем по прочитанным
