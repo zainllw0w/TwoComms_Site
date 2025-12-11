@@ -1,0 +1,47 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TwoComms Management — Вхід</title>
+  <link rel="stylesheet" href="{% static 'css/management.css' %}">
+</head>
+<body class="management-body">
+  <div class="auth-screen">
+    <div class="auth-card">
+      <div class="auth-header">
+        <img src="{% static 'img/logo.svg' %}" alt="TwoComms" class="auth-logo">
+        <div>
+          <p class="eyebrow">TwoComms</p>
+          <h1>Management</h1>
+          <p class="auth-sub">Увійдіть за логіном/паролем або через Google</p>
+        </div>
+      </div>
+      <form method="post" class="auth-form">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+          <div class="auth-error">
+            {% for err in form.non_field_errors %}<div>{{ err }}</div>{% endfor %}
+          </div>
+        {% endif %}
+        <label class="field">
+          <span>Логін або email</span>
+          {{ form.username }}
+        </label>
+        <label class="field">
+          <span>Пароль</span>
+          {{ form.password }}
+        </label>
+        <button type="submit" class="btn-primary w-full">Увійти</button>
+      </form>
+      <div class="auth-divider"><span>або</span></div>
+      <a class="btn-ghost w-full auth-oauth" href="/accounts/google/login/">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" class="auth-oauth-icon">
+        <span>Увійти через Google</span>
+      </a>
+      <p class="auth-footnote">Використовується та ж база користувачів, що і на twocomms.shop</p>
+    </div>
+  </div>
+</body>
+</html>
