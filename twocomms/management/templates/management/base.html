@@ -328,6 +328,7 @@
                     }
                 });
                 if (changed) calcCount(listItems);
+                if (changed) beepIfNew(calcCount(listItems));
             }, 1000);
         };
 
