@@ -20,6 +20,11 @@ class UserProfile(models.Model):
     instagram = models.CharField(max_length=100, blank=True, verbose_name='Instagram')
     is_ubd = models.BooleanField(default=False, verbose_name='УБД')
     ubd_doc = models.ImageField(upload_to='ubd_docs/', blank=True, null=True, verbose_name='Фото посвідчення УБД')
+    # Менеджмент-бот
+    tg_manager_chat_id = models.BigIntegerField(null=True, blank=True, verbose_name='Telegram Management Chat ID')
+    tg_manager_username = models.CharField(max_length=255, blank=True, verbose_name='Telegram Management Username')
+    tg_manager_bind_code = models.CharField(max_length=64, blank=True, verbose_name='Код привʼязки менеджмент-бота')
+    tg_manager_bind_expires_at = models.DateTimeField(null=True, blank=True, verbose_name='Діє до')
     
     # Поля для оптовых заказов
     company_name = models.CharField(max_length=200, blank=True, verbose_name='Назва компанії/ФОП/ПІБ')

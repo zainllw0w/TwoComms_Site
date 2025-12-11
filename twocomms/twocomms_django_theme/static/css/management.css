@@ -324,6 +324,70 @@
     letter-spacing: 0.04em;
 }
 
+/* Profile modal */
+#profile-modal .modal-card {
+    max-width: 720px;
+}
+
+.bot-block {
+    margin-top: 18px;
+    padding: 14px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+}
+
+.bot-block-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.bot-desc {
+    color: var(--text-secondary);
+    margin: 8px 0 10px;
+    line-height: 1.4;
+}
+
+.bot-status {
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+}
+
+.bind-code-box {
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(255,126,41,0.35);
+    background: rgba(255,126,41,0.06);
+}
+
+.bind-code-title {
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.bind-code-value {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+
+.bind-code-exp {
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+.bind-instruction {
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
 .notif-empty {
     text-align: center;
     color: var(--muted);

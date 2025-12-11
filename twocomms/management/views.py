@@ -9,13 +9,16 @@ from django.contrib.auth import get_user_model
 from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.core.files.base import ContentFile
+from django.views.decorators.http import require_POST
 
 import requests
 from io import BytesIO
 import datetime as dt
 import os
+import secrets
 
 from .models import Client, Report, ReminderRead
+from accounts.models import UserProfile
 
 POINTS = {
     'order': 45,
@@ -636,3 +639,36 @@ def reminder_feed(request):
             'dt_iso': r.get('dt_iso', ''),
         })
     return JsonResponse({'reminders': serialized})
+
+
+@login_required(login_url='management_login')
+@require_POST
+def profile_update(request):
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    full_name = request.POST.get('full_name', '').strip()
+    email = request.POST.get('email', '').strip()
+    phone = request.POST.get('phone', '').strip()
+    if full_name:
+        profile.full_name = full_name
+    if email:
+        profile.email = email
+    if phone:
+        profile.phone = phone
+    profile.save()
+    return JsonResponse({'ok': True})
+
+
+@login_required(login_url='management_login')
+@require_POST
+def profile_bind_code(request):
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    code = secrets.token_hex(3)
+    expires_at = timezone.now() + timedelta(minutes=10)
+    profile.tg_manager_bind_code = code
+    profile.tg_manager_bind_expires_at = expires_at
+    profile.save()
+    return JsonResponse({
+        'ok': True,
+        'code': code,
+        'expires': expires_at.strftime('%d.%m.%Y %H:%M'),
+    })
