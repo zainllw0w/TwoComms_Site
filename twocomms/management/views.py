@@ -397,16 +397,24 @@ def reports(request):
     if not (request.user.is_staff or Client.objects.filter(owner=request.user).exists()):
         return render(request, 'management/reports.html', {'denied': True})
 
+    today = timezone.localdate()
+    has_report_today = Report.objects.filter(owner=request.user, created_at__date=today).exists()
+
     qs = Report.objects.select_related('owner').order_by('-created_at')
     if not request.user.is_staff:
         qs = qs.filter(owner=request.user)
 
     reports_list = []
     for r in qs:
-        clients = Client.objects.filter(
+        clients_qs = Client.objects.filter(
             owner=r.owner,
             created_at__date=timezone.localdate(r.created_at)
-        ).order_by('-created_at')[:100]
+        ).order_by('-created_at')
+        clients = list(clients_qs[:100])
+        # fallback: якщо записів за дату немає, але processed > 0, показуємо останніх клієнтів
+        if not clients and r.processed > 0:
+            fallback_limit = max(1, min(100, r.processed))
+            clients = list(Client.objects.filter(owner=r.owner).order_by('-created_at')[:fallback_limit])
         reports_list.append({
             'id': r.id,
             'created_at': r.created_at,
@@ -443,6 +451,7 @@ def reports(request):
         'target_points': TARGET_POINTS_DAY,
         'progress_clients_pct': progress_clients_pct,
         'progress_points_pct': progress_points_pct,
+        'has_report_today': has_report_today,
     })
 
 
