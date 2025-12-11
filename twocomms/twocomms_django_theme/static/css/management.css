@@ -136,6 +136,22 @@
     position: relative;
 }
 
+.bell-static {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.bell-static svg {
+    width: 22px;
+    height: 22px;
+    fill: #f97316;
+}
+
 .notif-badge {
     position: absolute;
     top: -6px;
