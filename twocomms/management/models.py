@@ -22,8 +22,8 @@ class Client(models.Model):
         EXPENSIVE = 'expensive', _('Дорого')
         OTHER = 'other', _('Інше')
 
-    shop_name = models.CharField(_("Название магазина/Instagram"), max_length=255)
-    phone = models.CharField(_("Номер телефона"), max_length=50)
+    shop_name = models.CharField(_("Назва магазину / Instagram"), max_length=255)
+    phone = models.CharField(_("Номер телефону"), max_length=50)
     full_name = models.CharField(_("ПІБ"), max_length=255)
     role = models.CharField(_("Статус"), max_length=50, choices=Role.choices, default=Role.MANAGER)
     source = models.CharField(_("Джерело контакту"), max_length=255, blank=True)

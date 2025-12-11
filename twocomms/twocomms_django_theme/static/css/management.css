@@ -502,6 +502,36 @@
     border-color: rgba(255, 126, 41, 0.4);
 }
 
+.status-badge.role-supervisor {
+    background: rgba(252, 211, 77, 0.2);
+    color: #ffd166;
+    border-color: rgba(252, 211, 77, 0.45);
+}
+
+.status-badge.role-manager {
+    background: rgba(255, 126, 41, 0.2);
+    color: #ffb074;
+    border-color: rgba(255, 126, 41, 0.45);
+}
+
+.status-badge.role-realizer {
+    background: rgba(59, 130, 246, 0.2);
+    color: #9ec5ff;
+    border-color: rgba(59, 130, 246, 0.45);
+}
+
+.status-badge.role-owner {
+    background: rgba(45, 212, 191, 0.2);
+    color: #a4f3e7;
+    border-color: rgba(45, 212, 191, 0.45);
+}
+
+.status-badge.role-other {
+    background: rgba(148, 163, 184, 0.2);
+    color: #d5dbe4;
+    border-color: rgba(148, 163, 184, 0.45);
+}
+
 .table-empty {
     text-align: center;
     color: var(--muted);
@@ -513,6 +543,66 @@
     color: var(--muted);
     margin-left: 6px;
     font-size: 0.85em;
+}
+
+.result-badge {
+    padding: 6px 10px;
+    border-radius: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    font-size: 0.9rem;
+    border: 1px solid transparent;
+}
+
+.result-badge.result-order {
+    background: rgba(34, 197, 94, 0.16);
+    color: #8ef2b8;
+    border-color: rgba(34, 197, 94, 0.35);
+}
+
+.result-badge.result-sent_email,
+.result-badge.result-sent_messenger {
+    background: rgba(59, 130, 246, 0.16);
+    color: #9bc4ff;
+    border-color: rgba(59, 130, 246, 0.32);
+}
+
+.result-badge.result-wrote_ig {
+    background: rgba(236, 72, 153, 0.16);
+    color: #f8b3dc;
+    border-color: rgba(236, 72, 153, 0.32);
+}
+
+.result-badge.result-no_answer,
+.result-badge.result-invalid_number {
+    background: rgba(148, 163, 184, 0.14);
+    color: #cbd5e1;
+    border-color: rgba(148, 163, 184, 0.3);
+}
+
+.result-badge.result-not_interested,
+.result-badge.result-expensive {
+    background: rgba(239, 68, 68, 0.16);
+    color: #ffb3b3;
+    border-color: rgba(239, 68, 68, 0.35);
+}
+
+.result-badge.result-xml_connected {
+    background: rgba(45, 212, 191, 0.16);
+    color: #9cf2e5;
+    border-color: rgba(45, 212, 191, 0.35);
+}
+
+.result-badge.result-thinking {
+    background: rgba(234, 179, 8, 0.16);
+    color: #ffe08a;
+    border-color: rgba(234, 179, 8, 0.35);
+}
+
+.result-badge.result-other {
+    background: rgba(156, 163, 175, 0.14);
+    color: #d1d5db;
+    border-color: rgba(156, 163, 175, 0.3);
 }
 
 .date-group {
