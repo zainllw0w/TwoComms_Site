@@ -6,6 +6,7 @@ class Client(models.Model):
         SUPERVISOR = 'supervisor', _('Управляючий')
         MANAGER = 'manager', _('Менеджер')
         REALIZER = 'realizer', _('Реалізатор')
+        OWNER = 'owner', _('Власник')
         OTHER = 'other', _('Інше')
 
     class CallResult(models.TextChoices):
