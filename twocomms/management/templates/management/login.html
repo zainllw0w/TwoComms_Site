@@ -36,7 +36,7 @@
         <button type="submit" class="btn-primary w-full">Увійти</button>
       </form>
       <div class="auth-divider"><span>або</span></div>
-      <a class="btn-ghost w-full auth-oauth" href="/accounts/google/login/">
+      <a class="btn-ghost w-full auth-oauth" href="{% url 'social:begin' 'google-oauth2' %}">
         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" class="auth-oauth-icon">
         <span>Увійти через Google</span>
       </a>
