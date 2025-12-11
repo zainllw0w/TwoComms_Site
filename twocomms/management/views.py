@@ -112,9 +112,9 @@ def get_reminders(user, stats=None, report_sent=False):
             'eta_seconds': eta_display,
             'key': f"call-{c.id}-{int(dt_local.timestamp())}-{status_key}",
         }
-        # "soon" таймер всегда показываем (не кликается), "due" и позже фильтруем по прочитанным
-        if status == 'soon' or reminder['key'] not in read_keys:
-            reminders.append(reminder)
+        reminder['read'] = reminder['key'] in read_keys
+        # "soon" таймер всегда показываем, due тоже показываем, просто помечаем read
+        reminders.append(reminder)
     # Додаємо нагадування про звіт після 19:00 у будні, якщо є клієнти і звіт не відправлений
     weekday = now.weekday()  # 0 Mon ... 6 Sun
     if stats and stats.get('processed_today', 0) > 0 and not report_sent and weekday < 5 and now.hour >= 19:
@@ -132,8 +132,8 @@ def get_reminders(user, stats=None, report_sent=False):
             'eta_seconds': 0,
             'key': f"report-{dt_local.strftime('%Y%m%d')}",
         }
-        if reminder['key'] not in read_keys:
-            reminders.append(reminder)
+        reminder['read'] = reminder['key'] in read_keys
+        reminders.append(reminder)
     reminders.sort(key=lambda x: x.get('dt', now), reverse=True)
     return reminders
 
@@ -624,5 +624,6 @@ def reminder_feed(request):
             'status': r.get('status', ''),
             'eta_seconds': r.get('eta_seconds', 0),
             'key': r.get('key', ''),
+            'read': r.get('read', False),
         })
     return JsonResponse({'reminders': serialized})
