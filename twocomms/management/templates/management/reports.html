@@ -14,7 +14,9 @@
             </div>
             <form method="post" action="{% url 'management_send_report' %}">
                 {% csrf_token %}
-                <button class="btn-primary">Відправити звіт</button>
+                <button class="btn-primary">
+                    {% if has_report_today %}Відправити ще раз{% else %}Відправити звіт{% endif %}
+                </button>
             </form>
         </div>
 
