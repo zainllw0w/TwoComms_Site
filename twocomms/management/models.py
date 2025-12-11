@@ -20,6 +20,9 @@ class Client(models.Model):
         XML_CONNECTED = 'xml_connected', _('Підключив XML')
         THINKING = 'thinking', _('Подумає')
         EXPENSIVE = 'expensive', _('Дорого')
+        WAITING_PAYMENT = 'waiting_payment', _('Очікується оплата')
+        WAITING_PREPAYMENT = 'waiting_prepayment', _('Очікується передоплата')
+        TEST_BATCH = 'test_batch', _('Замовив тестову партію')
         OTHER = 'other', _('Інше')
 
     shop_name = models.CharField(_("Назва магазину / Instagram"), max_length=255)
@@ -27,8 +30,8 @@ class Client(models.Model):
     full_name = models.CharField(_("ПІБ"), max_length=255)
     role = models.CharField(_("Статус"), max_length=50, choices=Role.choices, default=Role.MANAGER)
     source = models.CharField(_("Джерело контакту"), max_length=255, blank=True)
-    call_result = models.CharField(_("Результат дзвінка"), max_length=50, choices=CallResult.choices, default=CallResult.NO_ANSWER)
-    call_result_details = models.TextField(_("Деталі результату"), blank=True, help_text="Якщо вибрано 'Інше'")
+    call_result = models.CharField(_("Підсумок розмови"), max_length=50, choices=CallResult.choices, default=CallResult.NO_ANSWER)
+    call_result_details = models.TextField(_("Деталі підсумку"), blank=True, help_text="Якщо вибрано 'Інше'")
     next_call_at = models.DateTimeField(_("Наступний дзвінок"), null=True, blank=True)
     
     created_at = models.DateTimeField(auto_now_add=True)

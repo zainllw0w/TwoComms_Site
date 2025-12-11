@@ -132,7 +132,7 @@
                     <input type="text" id="source_other" name="source_other" class="field-conditional" placeholder="Що саме?" />
                 </div>
                 <div class="field">
-                    <label for="call_result">Ітог розмови</label>
+                    <label for="call_result">Підсумок розмови</label>
                     <select id="call_result" name="call_result">
                         <option value="order">Оформив замовлення</option>
                         <option value="sent_email">Відправили КП на e-mail</option>
@@ -144,6 +144,9 @@
                         <option value="xml_connected">Підключив XML</option>
                         <option value="thinking">Подумає</option>
                         <option value="expensive">Дорого</option>
+                        <option value="waiting_payment">Очікується оплата</option>
+                        <option value="waiting_prepayment">Очікується передоплата</option>
+                        <option value="test_batch">Замовив тестову партію</option>
                         <option value="other">Інше</option>
                     </select>
                     <textarea id="call_result_other" name="call_result_other" class="field-conditional" placeholder="Що саме інше?"></textarea>
