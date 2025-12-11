@@ -738,6 +738,11 @@
     background: rgba(239, 68, 68, 0.12);
 }
 
+.btn-ghost.small {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+}
+
 .admin-panel {
     margin-top: 24px;
     background: var(--panel-strong);
@@ -920,8 +925,19 @@
     display: flex;
     justify-content: flex-end;
     gap: 10px;
+    flex-wrap: wrap;
     padding: 14px 22px 20px;
     border-top: 1px solid var(--border);
+}
+
+.modal-footer .btn-ghost,
+.modal-footer .btn-primary {
+    min-width: 130px;
+    justify-content: center;
+}
+
+#admin-overview-modal .modal-card {
+    width: min(860px, 90vw);
 }
 
 .management-body.modal-open {
