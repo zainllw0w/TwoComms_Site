@@ -771,10 +771,11 @@ def management_bot_webhook(request, token):
     chat_id = chat.get('id')
     username = from_user.get('username') or ''
     if text.startswith('/start'):
-        parts = text.split()
-        if len(parts) >= 2:
-            code = parts[1].strip()
-            now = timezone.now()
+        code = ''
+        if ' ' in text:
+            code = text.split(' ', 1)[1].strip()
+        now = timezone.now()
+        if code:
             profile = UserProfile.objects.filter(
                 tg_manager_bind_code=code,
                 tg_manager_bind_expires_at__gte=now
@@ -786,4 +787,8 @@ def management_bot_webhook(request, token):
                 profile.tg_manager_bind_expires_at = None
                 profile.save()
                 _send_telegram_message(bot_token, chat_id, "Готово! Бот привʼязаний. Нагадування будуть тут.")
+            else:
+                _send_telegram_message(bot_token, chat_id, "Код не дійсний або прострочений. Згенеруйте новий у кабінеті і натисніть 'Привʼязати бота'.")
+        else:
+            _send_telegram_message(bot_token, chat_id, "Не отримав код. Згенеруйте його у кабінеті й натисніть 'Привʼязати бота' або надішліть /start <код>.")
     return JsonResponse({'ok': True})
