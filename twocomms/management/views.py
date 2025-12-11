@@ -42,7 +42,7 @@ TARGET_CLIENTS_DAY = 20
 TARGET_POINTS_DAY = 100
 REMINDER_WINDOW_MINUTES = 15
 
-_BOT_USERNAME_CACHE = {"username": "", "ts": 0}
+_BOT_USERNAME_CACHE = {"username": "", "ts": 0, "token": ""}
 
 
 def calc_points(qs):
@@ -53,22 +53,22 @@ def calc_points(qs):
 
 
 def get_manager_bot_username():
+    """Try MANAGER_TG_BOT_USERNAME, else fetch via token. Fall back to report bot token if needed."""
     name = os.environ.get("MANAGER_TG_BOT_USERNAME", "")
     if name:
         return name
-    token = os.environ.get("MANAGER_TG_BOT_TOKEN")
+    token = os.environ.get("MANAGER_TG_BOT_TOKEN") or os.environ.get("MANAGEMENT_TG_BOT_TOKEN")
     if not token:
         return ""
     now = time.time()
-    if _BOT_USERNAME_CACHE["username"] and now - _BOT_USERNAME_CACHE["ts"] < 600:
+    if _BOT_USERNAME_CACHE["username"] and _BOT_USERNAME_CACHE["token"] == token and now - _BOT_USERNAME_CACHE["ts"] < 600:
         return _BOT_USERNAME_CACHE["username"]
     try:
         resp = requests.get(f"https://api.telegram.org/bot{token}/getMe", timeout=4)
         data = resp.json()
         if data.get("ok") and data.get("result", {}).get("username"):
             username = data["result"]["username"]
-            _BOT_USERNAME_CACHE["username"] = username
-            _BOT_USERNAME_CACHE["ts"] = now
+            _BOT_USERNAME_CACHE.update({"username": username, "ts": now, "token": token})
             return username
     except Exception:
         pass
