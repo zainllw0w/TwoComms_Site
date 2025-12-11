@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from datetime import datetime, timedelta
 import json
+import time
 
 from django.shortcuts import render, redirect
 from django.utils import timezone
@@ -41,12 +42,37 @@ TARGET_CLIENTS_DAY = 20
 TARGET_POINTS_DAY = 100
 REMINDER_WINDOW_MINUTES = 15
 
+_BOT_USERNAME_CACHE = {"username": "", "ts": 0}
+
 
 def calc_points(qs):
     total = 0
     for c in qs:
         total += POINTS.get(c.call_result, 0)
     return total
+
+
+def get_manager_bot_username():
+    name = os.environ.get("MANAGER_TG_BOT_USERNAME", "")
+    if name:
+        return name
+    token = os.environ.get("MANAGER_TG_BOT_TOKEN")
+    if not token:
+        return ""
+    now = time.time()
+    if _BOT_USERNAME_CACHE["username"] and now - _BOT_USERNAME_CACHE["ts"] < 600:
+        return _BOT_USERNAME_CACHE["username"]
+    try:
+        resp = requests.get(f"https://api.telegram.org/bot{token}/getMe", timeout=4)
+        data = resp.json()
+        if data.get("ok") and data.get("result", {}).get("username"):
+            username = data["result"]["username"]
+            _BOT_USERNAME_CACHE["username"] = username
+            _BOT_USERNAME_CACHE["ts"] = now
+            return username
+    except Exception:
+        pass
+    return ""
 
 
 def get_today_range():
@@ -398,7 +424,7 @@ def home(request):
     progress_clients_pct = min(100, int(processed_today / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
     progress_points_pct = min(100, int(user_points_today / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
 
-    bot_username = os.environ.get("MANAGER_TG_BOT_USERNAME", "")
+    bot_username = get_manager_bot_username()
     return render(request, 'management/home.html', {
         'grouped_clients': grouped_clients,
         'user_points_today': user_points_today,
@@ -487,7 +513,7 @@ def admin_overview(request):
             ]
         })
 
-    bot_username = os.environ.get("MANAGER_TG_BOT_USERNAME", "")
+    bot_username = get_manager_bot_username()
     reminders = get_reminders(request.user, stats={
         'points_today': user_points_today,
         'processed_today': processed_today,
@@ -560,7 +586,7 @@ def reports(request):
     stats = get_user_stats(request.user)
     progress_clients_pct = min(100, int(stats['processed_today'] / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
     progress_points_pct = min(100, int(stats['points_today'] / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
-    bot_username = os.environ.get("MANAGER_TG_BOT_USERNAME", "")
+    bot_username = get_manager_bot_username()
     reminders = get_reminders(request.user, stats=stats, report_sent=report_sent_today)
 
     return render(request, 'management/reports.html', {

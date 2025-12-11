@@ -559,10 +559,6 @@
 
         if (bindBtn) {
             bindBtn.addEventListener('click', () => {
-                if (!botUsername) {
-                    alert('Бот тимчасово недоступний. Спробуйте пізніше.');
-                    return;
-                }
                 fetch("{% url 'management_profile_bind_code' %}", {
                     method: 'POST',
                     headers: {
@@ -571,16 +567,21 @@
                     }
                 })
                 .then(res => res.json())
-                .then(data => {
-                    if (data.ok) {
-                        bindVal.textContent = data.code;
-                        bindExp.textContent = `Діє до: ${data.expires}`;
-                        bindBox.style.display = 'block';
-                        const deepLink = `https://t.me/${botUsername}?start=${data.code}`;
-                        window.open(deepLink, '_blank', 'noopener');
-                    }
-                })
-                .catch(() => {});
+                    .then(data => {
+                        if (data.ok) {
+                            bindVal.textContent = data.code;
+                            bindExp.textContent = `Діє до: ${data.expires}`;
+                            bindBox.style.display = 'block';
+                        if (botUsername) {
+                            const deepLink = `https://t.me/${botUsername}?start=${data.code}`;
+                            window.open(deepLink, '_blank', 'noopener');
+                        } else {
+                            // fallback: покажем інструкцію без відкриття
+                            bindExp.textContent += ' — скопіюйте код і відправте його вашому менеджмент-боту вручну.';
+                        }
+                        }
+                    })
+                    .catch(() => {});
             });
         }
 
