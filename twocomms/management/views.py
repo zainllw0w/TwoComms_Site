@@ -44,10 +44,23 @@ def calc_points(qs):
     return total
 
 
+def get_today_range():
+    """Localized start/end of current day for consistent filters."""
+    now = timezone.localtime(timezone.now())
+    start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    end = start + timedelta(days=1)
+    return start, end
+
+
+def has_report_today(user):
+    start, end = get_today_range()
+    return Report.objects.filter(owner=user, created_at__gte=start, created_at__lt=end).exists()
+
+
 def get_user_stats(user):
     base_qs = Client.objects.filter(owner=user)
-    today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    today_qs = base_qs.filter(created_at__gte=today_start)
+    today_start, today_end = get_today_range()
+    today_qs = base_qs.filter(created_at__gte=today_start, created_at__lt=today_end)
     return {
         'points_today': calc_points(today_qs),
         'points_total': calc_points(base_qs),
@@ -266,7 +279,7 @@ def home(request):
     clients = clients_qs
 
     today = timezone.localdate()
-    today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start, today_end = get_today_range()
     yesterday = today - timedelta(days=1)
     grouped = OrderedDict()
 
@@ -283,13 +296,13 @@ def home(request):
 
     grouped_clients = list(grouped.items())
 
-    clients_today = clients_qs.filter(created_at__gte=today_start)
+    clients_today = clients_qs.filter(created_at__gte=today_start, created_at__lt=today_end)
 
     user_stats = get_user_stats(request.user)
     user_points_today = user_stats['points_today']
     user_points_total = user_stats['points_total']
     processed_today = user_stats['processed_today']
-    has_report_today = Report.objects.filter(owner=request.user, created_at__date=today).exists()
+    report_sent_today = has_report_today(request.user)
 
     progress_clients_pct = min(100, int(processed_today / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
     progress_points_pct = min(100, int(user_points_today / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
@@ -303,7 +316,7 @@ def home(request):
         'target_points': TARGET_POINTS_DAY,
         'progress_clients_pct': progress_clients_pct,
         'progress_points_pct': progress_points_pct,
-        'has_report_today': has_report_today,
+        'has_report_today': report_sent_today,
     })
 
 
@@ -326,7 +339,7 @@ def admin_overview(request):
         return redirect('management_home')
 
     User = get_user_model()
-    today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start, today_end = get_today_range()
     admin_user_data = []
     users = User.objects.filter(is_active=True).filter(
         Q(is_staff=True) | Q(management_clients__isnull=False)
@@ -350,7 +363,7 @@ def admin_overview(request):
             last_login_local = timezone.localtime(last_login)
             online = (timezone.now() - last_login) <= timedelta(minutes=5)
         user_clients = Client.objects.filter(owner=u).order_by('-created_at')
-        user_clients_today = user_clients.filter(created_at__gte=today_start)
+        user_clients_today = user_clients.filter(created_at__gte=today_start, created_at__lt=today_end)
         points_today = calc_points(user_clients_today)
         points_total = calc_points(user_clients)
         user_clients_preview = user_clients[:50]
@@ -397,8 +410,8 @@ def reports(request):
     if not (request.user.is_staff or Client.objects.filter(owner=request.user).exists()):
         return render(request, 'management/reports.html', {'denied': True})
 
-    today = timezone.localdate()
-    has_report_today = Report.objects.filter(owner=request.user, created_at__date=today).exists()
+    today_start, today_end = get_today_range()
+    report_sent_today = has_report_today(request.user)
 
     qs = Report.objects.select_related('owner').order_by('-created_at')
     if not request.user.is_staff:
@@ -406,9 +419,12 @@ def reports(request):
 
     reports_list = []
     for r in qs:
+        report_day_start = timezone.localtime(r.created_at).replace(hour=0, minute=0, second=0, microsecond=0)
+        report_day_end = report_day_start + timedelta(days=1)
         clients_qs = Client.objects.filter(
             owner=r.owner,
-            created_at__date=timezone.localdate(r.created_at)
+            created_at__gte=report_day_start,
+            created_at__lt=report_day_end
         ).order_by('-created_at')
         clients = list(clients_qs[:100])
         # fallback: якщо записів за дату немає, але processed > 0, показуємо останніх клієнтів
@@ -428,6 +444,7 @@ def reports(request):
                     'full_name': c.full_name,
                     'phone': c.phone,
                     'role': c.get_role_display(),
+                    'role_code': c.role,
                     'source': c.source,
                     'result': c.get_call_result_display(),
                     'result_code': c.call_result,
@@ -451,7 +468,7 @@ def reports(request):
         'target_points': TARGET_POINTS_DAY,
         'progress_clients_pct': progress_clients_pct,
         'progress_points_pct': progress_points_pct,
-        'has_report_today': has_report_today,
+        'has_report_today': report_sent_today,
     })
 
 
@@ -462,8 +479,12 @@ def send_report(request):
     if not (request.user.is_staff or Client.objects.filter(owner=request.user).exists()):
         return redirect('management_reports')
 
-    today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    clients_today = Client.objects.filter(owner=request.user, created_at__gte=today_start).order_by('-created_at')
+    today_start, today_end = get_today_range()
+    clients_today = Client.objects.filter(
+        owner=request.user,
+        created_at__gte=today_start,
+        created_at__lt=today_end
+    ).order_by('-created_at')
     stats = get_user_stats(request.user)
 
     file_bytes = build_report_excel(request.user, stats, clients_today)
