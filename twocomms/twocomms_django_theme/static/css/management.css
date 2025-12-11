@@ -265,6 +265,9 @@
 
 .arc-active {
     filter: drop-shadow(0 0 10px rgba(249, 115, 22, 0.3));
+    stroke-dasharray: 251.3;
+    stroke-dashoffset: 251.3;
+    transition: stroke-dashoffset 0.4s ease;
 }
 
 .gauge-center {
