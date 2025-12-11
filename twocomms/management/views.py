@@ -85,6 +85,7 @@ def get_reminders(user, stats=None, report_sent=False):
     for c in qs:
         dt_local = timezone.localtime(c.next_call_at)
         status = 'due' if dt_local <= now else 'soon'
+        status_key = 'due' if status == 'due' else 'soon'
         reminder = {
             'shop': c.shop_name,
             'name': c.full_name,
@@ -95,7 +96,7 @@ def get_reminders(user, stats=None, report_sent=False):
             'kind': 'call',
             'dt': dt_local,
             'eta_seconds': max(0, int((dt_local - now).total_seconds())),
-            'key': f"call-{c.id}-{int(dt_local.timestamp())}",
+            'key': f"call-{c.id}-{int(dt_local.timestamp())}-{status_key}",
         }
         if reminder['key'] not in read_keys:
             reminders.append(reminder)

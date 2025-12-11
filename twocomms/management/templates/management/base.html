@@ -288,7 +288,7 @@
                         }).catch(() => {});
                     }
                     const unread = calcCount(listItems);
-                    beepIfNew(unread); // keeps last count in sync
+                    localStorage.setItem('management_last_notif_count', String(unread));
                     startNudge(listItems);
                 });
             });
@@ -304,18 +304,20 @@
                     if (eta > 0) {
                         const newEta = Math.max(0, eta - 1);
                         item.dataset.eta = newEta;
+                        const timeLabel = item.querySelector('.notif-time');
                         if (newEta === 0) {
                             item.classList.remove('countdown');
                             item.classList.remove('notif-soon');
                             item.classList.add('notif-due');
-                            const timeLabel = item.querySelector('.notif-time');
-                            if (timeLabel) timeLabel.textContent = 'щойно';
+                            if (timeLabel) timeLabel.textContent = 'зараз';
                             const btn = item.querySelector('.notif-done');
                             if (btn) btn.style.display = '';
                             changed = true;
                         } else {
-                            const timeLabel = item.querySelector('.notif-time');
-                            if (timeLabel) timeLabel.textContent = `через ${newEta} сек`;
+                            const minutes = Math.floor(newEta / 60);
+                            const seconds = newEta % 60;
+                            const label = minutes > 0 ? `через ${minutes} хв ${seconds.toString().padStart(2,'0')} с` : `через ${seconds} с`;
+                            if (timeLabel) timeLabel.textContent = label;
                         }
                     }
                 });
@@ -347,6 +349,10 @@
                             </button>
                         </div>
                     `;
+                    if (parseInt(item.dataset.eta || '0', 10) > 0) {
+                        const btn = item.querySelector('.notif-done');
+                        if (btn) btn.style.display = 'none';
+                    }
                     container.appendChild(item);
                     list.push(item);
                 });
@@ -365,7 +371,7 @@
         // initial setup
         applyReadState(items);
         const unreadInit = calcCount(items);
-        beepIfNew(unreadInit);
+        localStorage.setItem('management_last_notif_count', String(unreadInit));
         attachReadHandlers(items);
         startNudge(items);
         startCountdown(items);
