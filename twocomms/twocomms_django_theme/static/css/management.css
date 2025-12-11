@@ -436,6 +436,32 @@
     font-size: 0.75rem;
 }
 
+.report-hint {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    padding: 8px 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    min-width: 140px;
+    line-height: 1.2;
+}
+
+.report-title {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+}
+
+.report-countdown {
+    margin-top: 4px;
+    font-weight: 700;
+    color: #ffb347;
+    font-family: 'Orbitron', 'Inter', sans-serif;
+    font-size: 0.95rem;
+}
+
 .btn-primary {
     background: linear-gradient(135deg, #ffb347, #ff7e29);
     color: #0d1018;
