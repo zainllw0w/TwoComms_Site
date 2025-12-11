@@ -812,6 +812,8 @@
     box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
     overflow: hidden;
     animation: fadeIn 0.25s ease;
+    display: flex;
+    flex-direction: column;
 }
 
 .modal-header {
@@ -840,6 +842,8 @@
 
 .modal-body {
     padding: 18px 22px 10px;
+    flex: 1 1 auto;
+    overflow-y: auto;
 }
 
 .field-grid {
