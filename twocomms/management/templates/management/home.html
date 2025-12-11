@@ -462,6 +462,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const isWeekend = day === 0 || day === 6;
         const passedToday = now > target;
 
+        // У будній день після 19:00 показуємо нагадування до 00:00, не перезапускаючи таймер
+        if (!isWeekend && passedToday) {
+            reportCountdown.textContent = 'Треба відправити звіт';
+            reportCountdown.style.color = '#ff7e29';
+            if (reportSubmit) reportSubmit.textContent = 'Відправити звіт';
+            return;
+        }
+
         if (isWeekend || passedToday) {
             let offset = 1;
             while (true) {
@@ -490,7 +498,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const seconds = String(totalSec % 60).padStart(2, '0');
         reportCountdown.textContent = `Залишилось ${hours}:${minutes}:${seconds}`;
         reportCountdown.style.color = totalSec < 3600 ? '#ff7e29' : '#ffb347';
-        if (reportSubmit) reportSubmit.textContent = 'Відправити звіт раніше';
+        if (reportSubmit) reportSubmit.textContent = 'Відправити звіт';
     };
 
     updateCountdown();

@@ -1,87 +1,87 @@
 {% extends "management/base.html" %}
 
 {% block content %}
-{% if denied %}
-<div class="clients-panel">
-    <div class="table-empty">У вас немає доступу до звітності.</div>
-</div>
-{% else %}
-<div class="clients-panel">
-    <div class="panel-header">
-        <div>
-            <p class="eyebrow">Звітність</p>
-            <h2>Відправлені звіти</h2>
-        </div>
-        <form method="post" action="{% url 'management_send_report' %}">
-            {% csrf_token %}
-            <button class="btn-primary">Відправити звіт</button>
-        </form>
-    </div>
-
-    {% if reports %}
-    <div class="table-shell">
-        <table class="nexus-table">
-            <thead>
-                <tr>
-                    <th>Дата</th>
-                    <th>Менеджер</th>
-                    <th>Бали (сьогодні)</th>
-                    <th>Оброблено</th>
-                    <th>Файл</th>
-                    <th>Огляд</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for r in reports %}
-                <tr>
-                    <td>{{ r.created_at|date:"d.m.Y H:i" }}</td>
-                    <td>{{ r.owner.get_full_name|default:r.owner.username }}</td>
-                    <td>{{ r.points }}</td>
-                    <td>{{ r.processed }}</td>
-                    <td>
-                        {% if r.file %}
-                            <a class="btn-ghost small" href="{{ r.file.url }}" download>Скачати</a>
-                        {% else %}
-                            –
-                        {% endif %}
-                    </td>
-                    <td>
-                        <button type="button" class="btn-ghost small report-overview" data-report-id="{{ r.id }}">Огляд</button>
-                        <div class="report-clients" data-report-id="{{ r.id }}" style="display:none;">
-                            {% for c in r.clients %}
-                            <div class="overview-card">
-                                <div class="overview-head">
-                                    <div class="overview-main">
-                                        <div class="overview-shop">{{ c.shop }}</div>
-                                        <div class="overview-date">{{ c.created }}</div>
-                                    </div>
-                                    <div class="overview-result result-{{ c.result_code }}">{{ c.result }}</div>
-                                    <button type="button" class="icon-btn ghost toggle-details" aria-label="Деталі">
-                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
-                                    </button>
-                                </div>
-                                <div class="overview-details">
-                                    <div><span class="muted">ПІБ:</span> {{ c.full_name }}</div>
-                                    <div><span class="muted">Телефон:</span> {{ c.phone }}</div>
-                                    <div><span class="muted">Статус:</span> {{ c.role }}</div>
-                                    <div><span class="muted">Джерело:</span> {{ c.source }}</div>
-                                    <div><span class="muted">Підсумок:</span> {{ c.result }}{% if c.details %} • {{ c.details }}{% endif %}</div>
-                                    <div><span class="muted">Наступний дзвінок:</span> {{ c.next_call }}</div>
-                                </div>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    {% if denied %}
+    <div class="clients-panel">
+        <div class="table-empty">У вас немає доступу до звітності.</div>
     </div>
     {% else %}
-        <div class="table-empty">Звітів поки немає. Відправте перший звіт.</div>
-    {% endif %}
-</div>
+    <div class="clients-panel">
+        <div class="panel-header">
+            <div>
+                <p class="eyebrow">Звітність</p>
+                <h2>Відправлені звіти</h2>
+            </div>
+            <form method="post" action="{% url 'management_send_report' %}">
+                {% csrf_token %}
+                <button class="btn-primary">Відправити звіт</button>
+            </form>
+        </div>
 
+        {% if reports %}
+        <div class="table-shell">
+            <table class="nexus-table">
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>Менеджер</th>
+                        <th>Бали (сьогодні)</th>
+                        <th>Оброблено</th>
+                        <th>Файл</th>
+                        <th>Огляд</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in reports %}
+                    <tr>
+                        <td>{{ r.created_at|date:"d.m.Y H:i" }}</td>
+                        <td>{{ r.owner.get_full_name|default:r.owner.username }}</td>
+                        <td>{{ r.points }}</td>
+                        <td>{{ r.processed }}</td>
+                        <td>
+                            {% if r.file %}
+                                <a class="btn-ghost small" href="{{ r.file.url }}" download>Скачати</a>
+                            {% else %}
+                                –
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button type="button" class="btn-ghost small report-overview" data-report-id="{{ r.id }}">Огляд</button>
+                            <div class="report-clients" data-report-id="{{ r.id }}" style="display:none;">
+                                {% for c in r.clients %}
+                                <div class="overview-card">
+                                    <div class="overview-head">
+                                        <div class="overview-main">
+                                            <div class="overview-shop">{{ c.shop }}</div>
+                                            <div class="overview-date">{{ c.created }}</div>
+                                        </div>
+                                        <div class="overview-result result-{{ c.result_code }}">{{ c.result }}</div>
+                                        <button type="button" class="icon-btn ghost toggle-details" aria-label="Деталі">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
+                                        </button>
+                                    </div>
+                                    <div class="overview-details">
+                                        <div><span class="muted">ПІБ:</span> {{ c.full_name }}</div>
+                                        <div><span class="muted">Телефон:</span> {{ c.phone }}</div>
+                                        <div><span class="muted">Статус:</span> {{ c.role }}</div>
+                                        <div><span class="muted">Джерело:</span> {{ c.source }}</div>
+                                        <div><span class="muted">Підсумок:</span> {{ c.result }}{% if c.details %} • {{ c.details }}{% endif %}</div>
+                                        <div><span class="muted">Наступний дзвінок:</span> {{ c.next_call }}</div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <div class="table-empty">Звітів поки немає. Відправте перший звіт.</div>
+        {% endif %}
+    </div>
+    {% endif %}
 {% endblock %}
 
 {% block extra_js %}
@@ -104,4 +104,3 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 {% endblock %}
-{% endif %}
