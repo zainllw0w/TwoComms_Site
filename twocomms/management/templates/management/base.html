@@ -33,6 +33,9 @@
             <a href="#" class="tab">Виплати</a>
             <a href="#" class="tab">Профіль</a>
             <a href="#" class="tab">Інформація</a>
+            {% if request.user.is_staff %}
+            <a href="#" class="tab">Адміністрування</a>
+            {% endif %}
         </nav>
         <div class="header-actions">
             <span class="header-chip live">Live</span>

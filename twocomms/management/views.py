@@ -55,15 +55,17 @@ def home(request):
             if client_id:
                 try:
                     client = Client.objects.get(id=client_id)
-                    client.shop_name = shop_name
-                    client.phone = phone
-                    client.full_name = full_name
-                    client.role = role
-                    client.source = source_display
-                    client.call_result = call_result
-                    client.call_result_details = details
-                    client.next_call_at = next_call_at
-                    client.save()
+                    if request.user.is_staff or client.owner == request.user:
+                        client.shop_name = shop_name
+                        client.phone = phone
+                        client.full_name = full_name
+                        client.role = role
+                        client.source = source_display
+                        client.call_result = call_result
+                        client.call_result_details = details
+                        client.next_call_at = next_call_at
+                        client.owner = client.owner or request.user
+                        client.save()
                 except Client.DoesNotExist:
                     pass
             else:
@@ -76,10 +78,15 @@ def home(request):
                     call_result=call_result,
                     call_result_details=details,
                     next_call_at=next_call_at,
+                    owner=request.user,
                 )
         return redirect('management_home')
 
-    clients = Client.objects.all().order_by('-created_at')[:100]
+    base_qs = Client.objects.select_related('owner').order_by('-created_at')
+    if request.user.is_staff:
+        clients = base_qs[:200]
+    else:
+        clients = base_qs.filter(owner=request.user)[:200]
 
     today = timezone.localdate()
     yesterday = today - timedelta(days=1)
