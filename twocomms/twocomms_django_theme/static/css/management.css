@@ -212,6 +212,18 @@
     letter-spacing: 0.04em;
 }
 
+.user-name-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.user-actions {
+    display: inline-flex;
+    gap: 6px;
+}
+
 .user-role {
     font-size: 0.78rem;
     color: var(--text-secondary);
