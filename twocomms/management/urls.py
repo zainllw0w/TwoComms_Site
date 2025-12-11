@@ -14,5 +14,7 @@ urlpatterns = [
     path('reports/send/', views.send_report, name='management_send_report'),
     path('reminders/read/', views.reminder_read, name='management_reminder_read'),
     path('reminders/feed/', views.reminder_feed, name='management_reminder_feed'),
+    path('profile/update/', views.profile_update, name='management_profile_update'),
+    path('profile/bind-code/', views.profile_bind_code, name='management_profile_bind_code'),
     path('', views.home, name='management_home'),
 ]
