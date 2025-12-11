@@ -339,15 +339,8 @@
     letter-spacing: 0.06em;
 }
 
-.progress-label {
-    margin-top: 8px;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-}
-
-.mt-2 {
-    margin-top: 8px;
-}
+.mt-1 { margin-top: 4px; }
+.mt-2 { margin-top: 8px; }
 
 .nav-menu {
     display: flex;
