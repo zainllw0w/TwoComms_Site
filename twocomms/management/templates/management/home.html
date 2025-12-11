@@ -398,7 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (clientsLegend) clientsLegend.textContent = `Оброблено: ${data.processed_today} / ${data.target_clients}`;
 
             // Insert row into "Сьогодні" group if available
-            if (data.latest && data.latest.created_date_label === 'Сьогодні') {
+            if (data.latest) {
                 const todayChip = Array.from(document.querySelectorAll('.date-chip')).find(chip => chip.textContent.trim() === 'Сьогодні');
                 if (todayChip) {
                     const table = todayChip.parentElement.querySelector('table');
