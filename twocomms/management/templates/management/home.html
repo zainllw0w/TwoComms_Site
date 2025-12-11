@@ -12,13 +12,15 @@
                 <div class="report-title">Звіт о 19:00 (пн–пт)</div>
                 <div class="report-countdown" id="report-countdown">--:--:--</div>
             </div>
-            <form method="post" action="{% url 'management_send_report' %}">
+            <form id="report-form" method="post" action="{% url 'management_send_report' %}">
                 {% csrf_token %}
                 <button
                     class="btn-primary"
                     id="report-submit"
                     type="submit"
-                    data-sent="{{ has_report_today|yesno:'true,false' }}">
+                    data-sent="{{ has_report_today|yesno:'true,false' }}"
+                    data-progress-points="{{ progress_points_pct|default:0 }}"
+                    data-progress-clients="{{ progress_clients_pct|default:0 }}">
                     {% if has_report_today %}Відправити ще раз{% else %}Відправити звіт{% endif %}
                 </button>
             </form>
@@ -222,6 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const editButtons = document.querySelectorAll('.edit-client');
     const reportCountdown = document.getElementById('report-countdown');
     const reportSubmit = document.getElementById('report-submit');
+    const reportForm = document.getElementById('report-form');
 
     const setDefaultDateTime = () => {
         const now = new Date();
@@ -514,6 +517,19 @@ document.addEventListener('DOMContentLoaded', () => {
     updateCountdown();
     setInterval(updateCountdown, 1000);
 
+    // Confirmation before sending report if норма не виконана
+    if (reportForm && reportSubmit) {
+        reportForm.addEventListener('submit', (e) => {
+            const pts = parseInt(reportSubmit.dataset.progressPoints || '0', 10);
+            const cls = parseInt(reportSubmit.dataset.progressClients || '0', 10);
+            if (pts < 100 || cls < 100) {
+                const ok = confirm('Денна норма не заповнена (бали або клієнти). Відправити звіт зараз?');
+                if (!ok) {
+                    e.preventDefault();
+                }
+            }
+        });
+    }
 });
 </script>
 {% endblock %}

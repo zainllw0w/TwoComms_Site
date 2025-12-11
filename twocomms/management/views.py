@@ -57,6 +57,29 @@ def has_report_today(user):
     return Report.objects.filter(owner=user, created_at__gte=start, created_at__lt=end).exists()
 
 
+def get_reminders(user):
+    """Return upcoming/due follow-ups for bell notifications."""
+    now = timezone.localtime(timezone.now())
+    soon = now + timedelta(minutes=5)
+    qs = Client.objects.filter(
+        owner=user,
+        next_call_at__isnull=False,
+        next_call_at__lte=soon
+    ).select_related('owner').order_by('next_call_at')[:50]
+    reminders = []
+    for c in qs:
+        dt_local = timezone.localtime(c.next_call_at)
+        status = 'due' if dt_local <= now else 'soon'
+        reminders.append({
+            'shop': c.shop_name,
+            'name': c.full_name,
+            'phone': c.phone,
+            'when': dt_local.strftime('%d.%m %H:%M'),
+            'status': status,
+        })
+    return reminders
+
+
 def get_user_stats(user):
     base_qs = Client.objects.filter(owner=user)
     today_start, today_end = get_today_range()
@@ -303,6 +326,7 @@ def home(request):
     user_points_total = user_stats['points_total']
     processed_today = user_stats['processed_today']
     report_sent_today = has_report_today(request.user)
+    reminders = get_reminders(request.user)
 
     progress_clients_pct = min(100, int(processed_today / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
     progress_points_pct = min(100, int(user_points_today / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
@@ -317,6 +341,7 @@ def home(request):
         'progress_clients_pct': progress_clients_pct,
         'progress_points_pct': progress_points_pct,
         'has_report_today': report_sent_today,
+        'reminders': reminders,
     })
 
 
@@ -393,6 +418,8 @@ def admin_overview(request):
             ]
         })
 
+    reminders = get_reminders(request.user)
+
     return render(request, 'management/admin.html', {
         'admin_user_data': admin_user_data,
         'target_clients': TARGET_CLIENTS_DAY,
@@ -402,6 +429,7 @@ def admin_overview(request):
         'processed_today': processed_today,
         'progress_clients_pct': progress_clients_pct,
         'progress_points_pct': progress_points_pct,
+        'reminders': reminders,
     })
 
 
@@ -458,6 +486,7 @@ def reports(request):
     stats = get_user_stats(request.user)
     progress_clients_pct = min(100, int(stats['processed_today'] / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
     progress_points_pct = min(100, int(stats['points_today'] / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
+    reminders = get_reminders(request.user)
 
     return render(request, 'management/reports.html', {
         'reports': reports_list,
@@ -469,6 +498,7 @@ def reports(request):
         'progress_clients_pct': progress_clients_pct,
         'progress_points_pct': progress_points_pct,
         'has_report_today': report_sent_today,
+        'reminders': reminders,
     })
 
 
