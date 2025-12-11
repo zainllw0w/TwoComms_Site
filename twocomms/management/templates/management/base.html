@@ -54,7 +54,21 @@
                 {% else %}
                 <div class="user-avatar-placeholder"></div>
                 {% endif %}
-                <div class="user-name">{{ request.user.get_full_name|default:request.user.username }}</div>
+                <div class="user-name-row">
+                    <div class="user-name">{{ request.user.get_full_name|default:request.user.username }}</div>
+                    <div class="user-actions">
+                        <button type="button" class="icon-btn ghost" aria-label="Редагувати профіль" title="Редагувати профіль">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"/>
+                            </svg>
+                        </button>
+                        <a href="{% url 'management_logout' %}" class="icon-btn ghost" aria-label="Вийти" title="Вийти">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M16 13v-2H7V8l-5 4 5 4v-3h9zM19 3h-8v2h8v14h-8v2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
                 <div class="user-role">Manager</div>
             </div>
 
