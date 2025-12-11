@@ -99,6 +99,9 @@ def get_reminders(user, stats=None, report_sent=False):
         status = 'due' if dt_local <= now else 'soon'
         status_key = 'due' if status == 'due' else 'soon'
         eta_raw = max(0, int((dt_local - now).total_seconds()))
+        # Пропускаємо майбутні дзвінки, якщо більше ніж 5 хв
+        if status == 'soon' and eta_raw > 300:
+            continue
         reminder = {
             'shop': c.shop_name,
             'name': c.full_name,
