@@ -2,6 +2,7 @@ from collections import OrderedDict
 from datetime import datetime, timedelta
 import json
 import time
+from pathlib import Path
 
 from django.shortcuts import render, redirect
 from django.utils import timezone
@@ -43,6 +44,30 @@ TARGET_POINTS_DAY = 100
 REMINDER_WINDOW_MINUTES = 15
 
 _BOT_USERNAME_CACHE = {"username": "", "ts": 0, "token": ""}
+
+
+def _load_env_tokens():
+    """Best-effort load bot tokens from .env.production if process env is empty (shared hosting)."""
+    if os.environ.get("MANAGER_TG_BOT_TOKEN") or os.environ.get("MANAGEMENT_TG_BOT_TOKEN"):
+        return
+    env_path = Path(__file__).resolve().parents[2] / ".env.production"
+    if env_path.exists():
+        try:
+            for line in env_path.read_text().splitlines():
+                if not line or line.strip().startswith("#"):
+                    continue
+                if "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                k = k.strip()
+                v = v.strip().strip('"').strip("'")
+                if k and v and k not in os.environ:
+                    os.environ[k] = v
+        except Exception:
+            pass
+
+
+_load_env_tokens()
 
 
 def calc_points(qs):
