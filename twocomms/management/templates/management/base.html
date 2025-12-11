@@ -314,6 +314,7 @@
                         const newEta = Math.max(0, eta - 1);
                         item.dataset.eta = newEta;
                         const timeLabel = item.querySelector('.notif-time');
+                        const timerEl = item.querySelector('.notif-timer');
                         if (newEta === 0) {
                             item.classList.remove('countdown');
                             item.classList.remove('notif-soon');
@@ -323,7 +324,12 @@
                             if (btn) btn.style.display = '';
                             changed = true;
                         } else {
-                            if (timeLabel) timeLabel.textContent = formatEta(newEta);
+                            const label = formatEta(newEta);
+                            if (timerEl) {
+                                timerEl.textContent = label;
+                            } else if (timeLabel) {
+                                timeLabel.textContent = label;
+                            }
                         }
                     }
                 });
