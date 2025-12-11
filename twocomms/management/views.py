@@ -94,7 +94,7 @@ def get_reminders(user, stats=None, report_sent=False):
         owner=user,
         next_call_at__isnull=False,
         next_call_at__lte=window_end
-    ).select_related('owner').order_by('-next_call_at')[:50]
+    ).select_related('owner').order_by('-next_call_at')
     reminders = []
     for c in qs:
         dt_local = timezone.localtime(c.next_call_at)
@@ -135,7 +135,7 @@ def get_reminders(user, stats=None, report_sent=False):
         if reminder['key'] not in read_keys:
             reminders.append(reminder)
     reminders.sort(key=lambda x: x.get('dt', now), reverse=True)
-    return reminders[:5]
+    return reminders
 
 
 def get_user_stats(user):
