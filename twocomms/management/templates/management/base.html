@@ -220,10 +220,10 @@
                             <p class="eyebrow">Telegram Management</p>
                             <h4>Привʼяжіть менеджмент-бота</h4>
                         </div>
-                        <button type="button" class="btn-primary" id="bind-code-btn">Отримати код</button>
+                        <button type="button" class="btn-primary" id="bind-code-btn">Привʼязати бота</button>
                     </div>
                     <p class="bot-desc">
-                        Після привʼязки менеджмент-бот надсилатиме нагадування про дзвінки, важливі події та звіти. Це дозволяє не пропустити клієнтів і швидко реагувати на завдання.
+                        Після привʼязки менеджмент-бот надсилатиме нагадування про дзвінки, важливі події та звіти. Це дозволяє не пропустити клієнтів і швидко реагувати на завдання. Натисніть кнопку, відкриється Telegram із готовою командою /start — підтвердіть запуск, і бот буде привʼязаний.
                     </p>
                     <div class="bot-status" id="bind-status">
                         {% if request.user.userprofile.tg_manager_chat_id %}
@@ -555,9 +555,14 @@
         const bindVal = document.getElementById('bind-code-value');
         const bindExp = document.getElementById('bind-code-exp');
         const csrf = (document.querySelector('#profile-form input[name=csrfmiddlewaretoken]') || {}).value;
+        const botUsername = "{{ manager_bot_username|default_if_none:'' }}";
 
         if (bindBtn) {
             bindBtn.addEventListener('click', () => {
+                if (!botUsername) {
+                    alert('Бот тимчасово недоступний. Спробуйте пізніше.');
+                    return;
+                }
                 fetch("{% url 'management_profile_bind_code' %}", {
                     method: 'POST',
                     headers: {
@@ -571,6 +576,8 @@
                         bindVal.textContent = data.code;
                         bindExp.textContent = `Діє до: ${data.expires}`;
                         bindBox.style.display = 'block';
+                        const deepLink = `https://t.me/${botUsername}?start=${data.code}`;
+                        window.open(deepLink, '_blank', 'noopener');
                     }
                 })
                 .catch(() => {});
