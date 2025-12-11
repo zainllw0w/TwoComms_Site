@@ -78,7 +78,17 @@
                     <div class="gauge-arc">
                         <svg viewBox="0 0 200 140" class="gauge-svg">
                             <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#262626" stroke-width="6" stroke-linecap="round"></path>
-                            <path d="M 20 100 A 80 80 0 0 1 140 35" fill="none" stroke="#f97316" stroke-width="6" stroke-linecap="round" class="arc-active"></path>
+                            <path
+                                id="gauge-arc-fill"
+                                d="M 20 100 A 80 80 0 0 1 180 100"
+                                fill="none"
+                                stroke="#f97316"
+                                stroke-width="6"
+                                stroke-linecap="round"
+                                class="arc-active"
+                                data-progress="{{ progress_points_pct|default:0 }}"
+                                style="stroke-dasharray: 251.3; stroke-dashoffset: 251.3;">
+                            </path>
                             <line x1="20" y1="100" x2="20" y2="108" stroke="#404040" stroke-width="2"></line>
                             <line x1="180" y1="100" x2="180" y2="108" stroke="#404040" stroke-width="2"></line>
                         </svg>
@@ -89,11 +99,7 @@
                     </div>
                 </div>
                 <div class="gauge-meta">
-                    <span>Бали за сьогодні</span>
-                    <div class="progress-track">
-                        <div class="progress-fill" id="points-bar" style="width: {{ progress_points_pct|default:0 }}%;"></div>
-                    </div>
-                    <div class="progress-legend" id="points-legend">{{ user_points_today|default:0 }} / {{ target_points|default:100 }}</div>
+                    <div class="progress-legend" id="points-legend">Бали за сьогодні: {{ user_points_today|default:0 }} / {{ target_points|default:100 }}</div>
                     <div class="progress-label">Оброблено за сьогодні</div>
                     <div class="progress-track mt-2">
                         <div class="progress-fill" id="clients-bar" style="width: {{ progress_clients_pct|default:0 }}%;"></div>
