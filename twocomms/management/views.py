@@ -15,7 +15,7 @@ from io import BytesIO
 import datetime as dt
 import os
 
-from .models import Client, Report
+from .models import Client, Report, ReminderRead
 
 POINTS = {
     'order': 45,
@@ -75,6 +75,7 @@ def get_reminders(user, stats=None, report_sent=False):
     """Return upcoming/due follow-ups + report reminder."""
     now = timezone.localtime(timezone.now())
     soon = now + timedelta(minutes=5)
+    read_keys = set(ReminderRead.objects.filter(user=user).values_list('key', flat=True))
     qs = Client.objects.filter(
         owner=user,
         next_call_at__isnull=False,
@@ -84,7 +85,7 @@ def get_reminders(user, stats=None, report_sent=False):
     for c in qs:
         dt_local = timezone.localtime(c.next_call_at)
         status = 'due' if dt_local <= now else 'soon'
-        reminders.append({
+        reminder = {
             'shop': c.shop_name,
             'name': c.full_name,
             'phone': c.phone,
@@ -95,12 +96,14 @@ def get_reminders(user, stats=None, report_sent=False):
             'dt': dt_local,
             'eta_seconds': max(0, int((dt_local - now).total_seconds())),
             'key': f"call-{c.id}-{int(dt_local.timestamp())}",
-        })
+        }
+        if reminder['key'] not in read_keys:
+            reminders.append(reminder)
     # Додаємо нагадування про звіт після 19:00 у будні, якщо є клієнти і звіт не відправлений
     weekday = now.weekday()  # 0 Mon ... 6 Sun
     if stats and stats.get('processed_today', 0) > 0 and not report_sent and weekday < 5 and now.hour >= 19:
         dt_local = now
-        reminders.append({
+        reminder = {
             'shop': 'Звітність',
             'name': '',
             'phone': '',
@@ -112,7 +115,9 @@ def get_reminders(user, stats=None, report_sent=False):
             'dt': dt_local,
             'eta_seconds': 0,
             'key': f"report-{dt_local.strftime('%Y%m%d')}",
-        })
+        }
+        if reminder['key'] not in read_keys:
+            reminders.append(reminder)
     reminders.sort(key=lambda x: x.get('dt', now), reverse=True)
     return reminders[:5]
 
@@ -570,3 +575,18 @@ def send_report(request):
     send_telegram_report(request.user, stats, clients_today, file_bytes, filename)
 
     return redirect('management_reports')
+
+
+@login_required(login_url='management_login')
+def reminder_read(request):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False}, status=400)
+    try:
+        body = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        return JsonResponse({'ok': False}, status=400)
+    key = body.get('key')
+    if not key:
+        return JsonResponse({'ok': False}, status=400)
+    ReminderRead.objects.get_or_create(user=request.user, key=key)
+    return JsonResponse({'ok': True})
