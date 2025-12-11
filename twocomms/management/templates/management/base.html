@@ -258,6 +258,15 @@
                     if (key) {
                         readKeys.add(key);
                         localStorage.setItem(dismissedKey, JSON.stringify(Array.from(readKeys)));
+                        // Persist read on server
+                        fetch("{% url 'management_reminder_read' %}", {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "X-CSRFToken": (document.cookie.match(/csrftoken=([^;]+)/)||[])[1] || "",
+                            },
+                            body: JSON.stringify({ key }),
+                        }).catch(() => {});
                     }
                     calcCount();
                 });
