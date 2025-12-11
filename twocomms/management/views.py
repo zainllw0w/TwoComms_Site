@@ -12,6 +12,25 @@ from .models import Client
 
 @login_required(login_url='management_login')
 def home(request):
+    POINTS = {
+        'order': 90,
+        'test_batch': 50,
+        'waiting_payment': 40,
+        'waiting_prepayment': 35,
+        'xml_connected': 30,
+        'sent_email': 30,
+        'sent_messenger': 30,
+        'wrote_ig': 30,
+        'thinking': 20,
+        'other': 15,
+        'no_answer': 10,
+        'invalid_number': 10,
+        'not_interested': 10,
+        'expensive': 10,
+    }
+    TARGET_CLIENTS_DAY = 20
+    TARGET_POINTS_DAY = 100
+
     if request.method == 'POST':
         data = request.POST
         client_id = data.get('client_id')
@@ -86,11 +105,8 @@ def home(request):
         return redirect('management_home')
 
     base_qs = Client.objects.select_related('owner').order_by('-created_at')
-    if request.user.is_staff:
-        # Адміни в основній панелі бачать свої власні записи, як і звичайні менеджери
-        clients = base_qs.filter(owner=request.user)[:200]
-    else:
-        clients = base_qs.filter(owner=request.user)[:200]
+    # У основній панелі всі бачать тільки свої записи
+    clients = base_qs.filter(owner=request.user)[:200]
 
     today = timezone.localdate()
     yesterday = today - timedelta(days=1)
@@ -109,8 +125,30 @@ def home(request):
 
     grouped_clients = list(grouped.items())
 
+    clients_today = clients.filter(created_at__date=today)
+
+    def calc_points(qs):
+        total = 0
+        for c in qs:
+            total += POINTS.get(c.call_result, 0)
+        return total
+
+    user_points_today = calc_points(clients_today)
+    user_points_total = calc_points(clients)
+    processed_today = clients_today.count()
+
+    progress_clients_pct = min(100, int(processed_today / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
+    progress_points_pct = min(100, int(user_points_today / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
+
     return render(request, 'management/home.html', {
         'grouped_clients': grouped_clients,
+        'user_points_today': user_points_today,
+        'user_points_total': user_points_total,
+        'processed_today': processed_today,
+        'target_clients': TARGET_CLIENTS_DAY,
+        'target_points': TARGET_POINTS_DAY,
+        'progress_clients_pct': progress_clients_pct,
+        'progress_points_pct': progress_points_pct,
     })
 
 
@@ -134,6 +172,29 @@ def admin_overview(request):
 
     User = get_user_model()
     today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    POINTS = {
+        'order': 90,
+        'test_batch': 50,
+        'waiting_payment': 40,
+        'waiting_prepayment': 35,
+        'xml_connected': 30,
+        'sent_email': 30,
+        'sent_messenger': 30,
+        'wrote_ig': 30,
+        'thinking': 20,
+        'other': 15,
+        'no_answer': 10,
+        'invalid_number': 10,
+        'not_interested': 10,
+        'expensive': 10,
+    }
+
+    def calc_points(qs):
+        total = 0
+        for c in qs:
+            total += POINTS.get(c.call_result, 0)
+        return total
+
     admin_user_data = []
     users = User.objects.filter(is_active=True).filter(
         Q(is_staff=True) | Q(management_clients__isnull=False)
@@ -142,6 +203,15 @@ def admin_overview(request):
         today_clients=Count('management_clients', filter=Q(management_clients__created_at__gte=today_start), distinct=True),
     ).distinct()
 
+    base_qs = Client.objects.filter(owner=request.user)
+    user_clients_today = base_qs.filter(created_at__date=timezone.localdate())
+    user_points_today = calc_points(user_clients_today)
+    user_points_total = calc_points(base_qs)
+    processed_today = user_clients_today.count()
+    TARGET_CLIENTS_DAY = 20
+    TARGET_POINTS_DAY = 100
+    progress_clients_pct = min(100, int(processed_today / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
+
     for u in users:
         last_login = u.last_login
         online = False
@@ -149,23 +219,37 @@ def admin_overview(request):
         if last_login:
             last_login_local = timezone.localtime(last_login)
             online = (timezone.now() - last_login) <= timedelta(minutes=5)
-        user_clients = Client.objects.filter(owner=u).order_by('-created_at')[:50]
+        user_clients = Client.objects.filter(owner=u).order_by('-created_at')
+        user_clients_today = user_clients.filter(created_at__gte=today_start)
+        points_today = calc_points(user_clients_today)
+        points_total = calc_points(user_clients)
+        user_clients_preview = user_clients[:50]
         admin_user_data.append({
             'id': u.id,
             'name': u.get_full_name() or u.username,
             'role': 'Адмін' if u.is_staff else 'Менеджер',
             'today': u.today_clients,
             'total': u.total_clients,
+            'points_today': points_today,
+            'points_total': points_total,
             'online': online,
             'last_login': last_login_local.strftime('%d.%m.%Y %H:%M') if last_login_local else 'Немає даних',
             'clients': [
                 {
                     'shop': c.shop_name,
                     'created': timezone.localtime(c.created_at).strftime('%d.%m.%Y %H:%M'),
-                } for c in user_clients
+                } for c in user_clients_preview
             ]
         })
 
     return render(request, 'management/admin.html', {
         'admin_user_data': admin_user_data,
+        'target_clients': 20,
+        'target_points': 100,
+        'user_points_today': user_points_today,
+        'user_points_total': user_points_total,
+        'processed_today': processed_today,
+        'progress_clients_pct': progress_clients_pct,
+        'target_clients': TARGET_CLIENTS_DAY,
+        'target_points': TARGET_POINTS_DAY,
     })
