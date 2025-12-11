@@ -260,6 +260,7 @@ def admin_overview(request):
     TARGET_CLIENTS_DAY = 20
     TARGET_POINTS_DAY = 100
     progress_clients_pct = min(100, int(processed_today / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
+    progress_points_pct = min(100, int(user_points_today / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
 
     for u in users:
         last_login = u.last_login
@@ -309,4 +310,5 @@ def admin_overview(request):
         'progress_clients_pct': progress_clients_pct,
         'target_clients': TARGET_CLIENTS_DAY,
         'target_points': TARGET_POINTS_DAY,
+        'progress_points_pct': progress_points_pct,
     })
