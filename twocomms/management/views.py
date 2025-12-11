@@ -3,9 +3,11 @@ from datetime import datetime, timedelta
 
 from django.shortcuts import render, redirect
 from django.utils import timezone
+from django.contrib.auth.decorators import login_required
 
 from .models import Client
 
+@login_required(login_url='management_login')
 def home(request):
     if request.method == 'POST':
         data = request.POST
