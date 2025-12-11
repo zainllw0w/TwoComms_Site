@@ -701,10 +701,12 @@ def profile_bind_code(request):
     profile.tg_manager_bind_code = code
     profile.tg_manager_bind_expires_at = expires_at
     profile.save()
+    bot_username = get_manager_bot_username()
     return JsonResponse({
         'ok': True,
         'code': code,
         'expires': expires_at.strftime('%d.%m.%Y %H:%M'),
+        'bot_username': bot_username,
     })
 
 
