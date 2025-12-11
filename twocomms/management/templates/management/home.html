@@ -387,7 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const hours = String(Math.floor(totalSec / 3600)).padStart(2, '0');
         const minutes = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
         const seconds = String(totalSec % 60).padStart(2, '0');
-        reportCountdown.textContent = `${hours}:${minutes}:${seconds}`;
+        reportCountdown.textContent = `Залишилось ${hours}:${minutes}:${seconds}`;
         reportCountdown.style.color = totalSec < 3600 ? '#ff7e29' : '#ffb347';
         if (reportSubmit) reportSubmit.textContent = 'Відправити звіт раніше';
     };
