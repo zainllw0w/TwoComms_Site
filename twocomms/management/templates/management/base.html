@@ -27,14 +27,14 @@
             </div>
         </div>
         <nav class="header-tabs">
-            <a href="#" class="tab active">Менеджмент</a>
+            <a href="{% url 'management_home' %}" class="tab{% if request.resolver_match.url_name == 'management_home' %} active{% endif %}">Менеджмент</a>
             <a href="#" class="tab">Звітність</a>
             <a href="#" class="tab">Статистика</a>
             <a href="#" class="tab">Виплати</a>
             <a href="#" class="tab">Профіль</a>
             <a href="#" class="tab">Інформація</a>
             {% if request.user.is_staff %}
-            <a href="#" class="tab">Адміністрування</a>
+            <a href="{% url 'management_admin' %}" class="tab{% if request.resolver_match.url_name == 'management_admin' %} active{% endif %}">Адміністрування</a>
             {% endif %}
         </nav>
         <div class="header-actions">

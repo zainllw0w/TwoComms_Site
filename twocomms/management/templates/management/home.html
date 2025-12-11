@@ -90,73 +90,6 @@
     {% endif %}
 </div>
 
-{% if request.user.is_staff %}
-<section class="admin-panel">
-    <div class="panel-header">
-        <div>
-            <p class="eyebrow">Адміністрування</p>
-            <h2>Менеджери та прогрес</h2>
-        </div>
-    </div>
-    <div class="table-shell">
-        <table class="nexus-table">
-            <thead>
-                <tr>
-                    <th>Користувач</th>
-                    <th>Статус</th>
-                    <th>Сьогодні</th>
-                    <th>Всього</th>
-                    <th>Онлайн</th>
-                    <th>Останній вхід</th>
-                    <th>Огляд</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for u in admin_user_data %}
-                <tr>
-                    <td>{{ u.name }}</td>
-                    <td>{{ u.role }}</td>
-                    <td>{{ u.today }}</td>
-                    <td>{{ u.total }}</td>
-                    <td>
-                        {% if u.online %}
-                            <span class="status-dot online">●</span> Онлайн
-                        {% else %}
-                            <span class="status-dot offline">●</span> Оффлайн
-                        {% endif %}
-                    </td>
-                    <td>{{ u.last_login_display }}</td>
-                    <td>
-                        <button type="button" class="btn-ghost small admin-overview" data-user-id="{{ u.id }}">Огляд</button>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</section>
-
-<div id="admin-overview-modal" class="modal-overlay">
-    <div class="modal-card">
-        <div class="modal-header">
-            <div>
-                <p class="eyebrow">Список клієнтів</p>
-                <h3 id="admin-overview-title">Огляд користувача</h3>
-            </div>
-            <button type="button" class="modal-close" aria-label="Закрити">×</button>
-        </div>
-        <div class="modal-body">
-            <div id="admin-overview-list" class="overview-list"></div>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn-ghost modal-close">Закрити</button>
-        </div>
-    </div>
-</div>
-
-{{ admin_user_data|json_script:"admin-users-data" }}
-{% endif %}
-
 <!-- Modal: Add Client -->
 <div id="client-modal" class="modal-overlay">
     <div class="modal-card">
@@ -280,14 +213,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const editButtons = document.querySelectorAll('.edit-client');
     const reportCountdown = document.getElementById('report-countdown');
     const reportSubmit = document.getElementById('report-submit');
-    const adminDataEl = document.getElementById('admin-users-data');
-    const adminModal = document.getElementById('admin-overview-modal');
-    const adminModalTitle = document.getElementById('admin-overview-title');
-    const adminModalList = document.getElementById('admin-overview-list');
-    let adminUsers = [];
-    if (adminDataEl) {
-        try { adminUsers = JSON.parse(adminDataEl.textContent); } catch (e) { adminUsers = []; }
-    }
 
     const setDefaultDateTime = () => {
         const now = new Date();
@@ -478,43 +403,6 @@ document.addEventListener('DOMContentLoaded', () => {
     updateCountdown();
     setInterval(updateCountdown, 1000);
 
-    // Admin overview
-    const adminCloseModal = () => {
-        if (!adminModal) return;
-        adminModal.classList.remove('show');
-        body.classList.remove('modal-open');
-    };
-    if (adminModal) {
-        adminModal.querySelectorAll('.modal-close').forEach(btn => btn.addEventListener('click', adminCloseModal));
-        adminModal.addEventListener('click', (e) => { if (e.target === adminModal) adminCloseModal(); });
-    }
-    document.querySelectorAll('.admin-overview').forEach(btn => {
-        btn.addEventListener('click', () => {
-            if (!adminModal) return;
-            const uid = parseInt(btn.dataset.userId, 10);
-            const user = adminUsers.find(u => u.id === uid);
-            if (!user) return;
-            adminModalTitle.textContent = `Огляд: ${user.name}`;
-            adminModalList.innerHTML = '';
-            if (!user.clients || user.clients.length === 0) {
-                const empty = document.createElement('div');
-                empty.className = 'table-empty';
-                empty.textContent = 'Немає клієнтів';
-                adminModalList.appendChild(empty);
-            } else {
-                const frag = document.createDocumentFragment();
-                user.clients.forEach(c => {
-                    const row = document.createElement('div');
-                    row.className = 'overview-row';
-                    row.innerHTML = `<div class="overview-shop">${c.shop}</div><div class="overview-date">${c.created}</div>`;
-                    frag.appendChild(row);
-                });
-                adminModalList.appendChild(frag);
-            }
-            adminModal.classList.add('show');
-            body.classList.add('modal-open');
-        });
-    });
 });
 </script>
 {% endblock %}
