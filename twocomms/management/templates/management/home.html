@@ -9,8 +9,8 @@
         </div>
         <div class="panel-actions">
             <div class="report-hint">
-                <div class="report-title">Звіт до 19:00 (пн–пт)</div>
-                <div class="report-countdown" id="report-countdown">--:--</div>
+                <div class="report-title">Звіт о 19:00 (пн–пт)</div>
+                <div class="report-countdown" id="report-countdown">--:--:--</div>
             </div>
             <button class="btn-ghost">Відправити звіт</button>
             <button class="btn-primary open-add-client">+ Додати клієнта</button>
@@ -384,12 +384,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const totalSec = Math.floor(diffMs / 1000);
         const hours = String(Math.floor(totalSec / 3600)).padStart(2, '0');
         const minutes = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
-        reportCountdown.textContent = `${hours}:${minutes}`;
+        const seconds = String(totalSec % 60).padStart(2, '0');
+        reportCountdown.textContent = `${hours}:${minutes}:${seconds}`;
         reportCountdown.style.color = totalSec < 3600 ? '#ff7e29' : '#ffb347';
     };
 
     updateCountdown();
-    setInterval(updateCountdown, 30000);
+    setInterval(updateCountdown, 1000);
 });
 </script>
 {% endblock %}
