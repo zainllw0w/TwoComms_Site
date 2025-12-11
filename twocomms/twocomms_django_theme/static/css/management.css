@@ -242,8 +242,9 @@
     inset: 0;
     display: grid;
     place-items: center;
-    translate: 0 -6px;
+    translate: 0 10px;
     pointer-events: none;
+    gap: 6px;
 }
 
 .gauge-value {
