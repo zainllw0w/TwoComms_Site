@@ -223,7 +223,7 @@
 .gauge-arc {
     position: relative;
     width: 220px;
-    height: 160px;
+    height: 180px;
     margin: 0 auto;
 }
 
@@ -239,12 +239,14 @@
 
 .gauge-center {
     position: absolute;
-    inset: 0;
+    top: 22%;
+    left: 0;
+    right: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    translate: 0 -6px;
+    justify-content: flex-start;
+    translate: 0 0;
     pointer-events: none;
     gap: 6px;
 }
@@ -266,7 +268,7 @@
     text-align: center;
     color: var(--text-secondary);
     font-size: 0.9rem;
-    margin-top: 18px;
+    margin-top: 22px;
 }
 
 .progress-track {
