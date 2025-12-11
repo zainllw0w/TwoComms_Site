@@ -497,6 +497,12 @@
     font-size: 0.95rem;
 }
 
+.report-clients {
+    margin-top: 10px;
+    display: grid;
+    gap: 10px;
+}
+
 .btn-primary {
     background: linear-gradient(135deg, #ffb347, #ff7e29);
     color: #0d1018;

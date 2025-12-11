@@ -13,6 +13,7 @@ from django.core.files.base import ContentFile
 import requests
 from io import BytesIO
 import datetime as dt
+import os
 
 from .models import Client, Report
 
@@ -53,6 +54,97 @@ def get_user_stats(user):
         'processed_today': today_qs.count(),
         'processed_total': base_qs.count(),
     }
+
+
+def build_report_excel(user, stats, clients):
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Звіт"
+
+    title_font = Font(size=14, bold=True)
+    header_font = Font(size=12, bold=True)
+
+    ws["A1"] = "Звіт менеджера"
+    ws["A1"].font = title_font
+    ws.merge_cells("A1:D1")
+
+    ws["A2"] = "Менеджер"
+    ws["B2"] = user.get_full_name() or user.username
+    ws["A3"] = "Дата"
+    ws["B3"] = timezone.localtime().strftime("%d.%m.%Y %H:%M")
+    ws["A4"] = "Бали за сьогодні"
+    ws["B4"] = stats['points_today']
+    ws["A5"] = "Оброблено за сьогодні"
+    ws["B5"] = stats['processed_today']
+    ws["A6"] = "Бали всього"
+    ws["B6"] = stats['points_total']
+    ws["A7"] = "Оброблено всього"
+    ws["B7"] = stats['processed_total']
+
+    ws.append([])
+    ws.append([
+        "Магазин / Insta", "Телефон", "ПІБ", "Статус",
+        "Джерело", "Підсумок", "Деталі", "Наступний дзвінок", "Створено"
+    ])
+    header_row = ws.max_row
+    for col in range(1, 10):
+        ws.cell(row=header_row, column=col).font = header_font
+        ws.cell(row=header_row, column=col).fill = PatternFill(start_color="1f2937", end_color="1f2937", fill_type="solid")
+        ws.cell(row=header_row, column=col).alignment = Alignment(horizontal="center")
+
+    for c in clients:
+        ws.append([
+            c.shop_name,
+            c.phone,
+            c.full_name,
+            c.get_role_display(),
+            c.source,
+            c.get_call_result_display(),
+            c.call_result_details,
+            timezone.localtime(c.next_call_at).strftime("%d.%m.%Y %H:%M") if c.next_call_at else "–",
+            timezone.localtime(c.created_at).strftime("%d.%m.%Y %H:%M"),
+        ])
+
+    widths = [22, 16, 22, 12, 16, 20, 24, 18, 18]
+    for i, w in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    bio = BytesIO()
+    wb.save(bio)
+    bio.seek(0)
+    return bio.getvalue()
+
+
+def send_telegram_report(user, stats, clients, file_bytes, filename):
+    token = os.environ.get("MANAGEMENT_TG_BOT_TOKEN")
+    chat_id = os.environ.get("MANAGEMENT_TG_ADMIN_CHAT_ID")
+    if not token or not chat_id:
+        return
+    text = (
+        f"Звіт менеджера\n"
+        f"👤 {user.get_full_name() or user.username}\n"
+        f"📅 {timezone.localtime().strftime('%d.%m.%Y %H:%M')}\n"
+        f"Бали за сьогодні: {stats['points_today']}\n"
+        f"Оброблено за сьогодні: {stats['processed_today']}\n"
+        f"Клієнтів всього: {stats['processed_total']}"
+    )
+    url = f"https://api.telegram.org/bot{token}/sendDocument"
+    files = {
+        'document': (filename, file_bytes, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    }
+    data = {
+        'chat_id': chat_id,
+        'caption': text,
+        'parse_mode': 'HTML'
+    }
+    try:
+        requests.post(url, data=data, files=files, timeout=10)
+    except Exception:
+        pass
 
 @login_required(login_url='management_login')
 def home(request):
@@ -129,8 +221,6 @@ def home(request):
                 )
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             # Сформируем актуальные данные после операции
-            base_qs = Client.objects.filter(owner=request.user)
-            today = timezone.localdate()
             stats = get_user_stats(request.user)
             user_points_today = stats['points_today']
             user_points_total = stats['points_total']
@@ -265,11 +355,10 @@ def admin_overview(request):
         today_clients=Count('management_clients', filter=Q(management_clients__created_at__gte=today_start), distinct=True),
     ).distinct()
 
-    base_qs = Client.objects.filter(owner=request.user)
-    user_clients_today = base_qs.filter(created_at__date=timezone.localdate())
-    user_points_today = calc_points(user_clients_today)
-    user_points_total = calc_points(base_qs)
-    processed_today = user_clients_today.count()
+    stats = get_user_stats(request.user)
+    user_points_today = stats['points_today']
+    user_points_total = stats['points_total']
+    processed_today = stats['processed_today']
     TARGET_CLIENTS_DAY = 20
     TARGET_POINTS_DAY = 100
     progress_clients_pct = min(100, int(processed_today / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
@@ -315,13 +404,91 @@ def admin_overview(request):
 
     return render(request, 'management/admin.html', {
         'admin_user_data': admin_user_data,
-        'target_clients': 20,
-        'target_points': 100,
+        'target_clients': TARGET_CLIENTS_DAY,
+        'target_points': TARGET_POINTS_DAY,
         'user_points_today': user_points_today,
         'user_points_total': user_points_total,
         'processed_today': processed_today,
         'progress_clients_pct': progress_clients_pct,
-        'target_clients': TARGET_CLIENTS_DAY,
-        'target_points': TARGET_POINTS_DAY,
         'progress_points_pct': progress_points_pct,
     })
+
+
+@login_required(login_url='management_login')
+def reports(request):
+    if not (request.user.is_staff or Client.objects.filter(owner=request.user).exists()):
+        return render(request, 'management/reports.html', {'denied': True})
+
+    qs = Report.objects.select_related('owner').order_by('-created_at')
+    if not request.user.is_staff:
+        qs = qs.filter(owner=request.user)
+
+    reports_list = []
+    for r in qs:
+        clients = Client.objects.filter(
+            owner=r.owner,
+            created_at__date=timezone.localdate(r.created_at)
+        ).order_by('-created_at')[:100]
+        reports_list.append({
+            'id': r.id,
+            'created_at': r.created_at,
+            'owner': r.owner,
+            'points': r.points,
+            'processed': r.processed,
+            'file': r.file,
+            'clients': [
+                {
+                    'shop': c.shop_name,
+                    'full_name': c.full_name,
+                    'phone': c.phone,
+                    'role': c.get_role_display(),
+                    'source': c.source,
+                    'result': c.get_call_result_display(),
+                    'result_code': c.call_result,
+                    'details': c.call_result_details,
+                    'next_call': timezone.localtime(c.next_call_at).strftime('%d.%m.%Y %H:%M') if c.next_call_at else '–',
+                    'created': timezone.localtime(c.created_at).strftime('%d.%m.%Y %H:%M'),
+                } for c in clients
+            ]
+        })
+
+    stats = get_user_stats(request.user)
+    progress_clients_pct = min(100, int(stats['processed_today'] / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
+    progress_points_pct = min(100, int(stats['points_today'] / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
+
+    return render(request, 'management/reports.html', {
+        'reports': reports_list,
+        'user_points_today': stats['points_today'],
+        'user_points_total': stats['points_total'],
+        'processed_today': stats['processed_today'],
+        'target_clients': TARGET_CLIENTS_DAY,
+        'target_points': TARGET_POINTS_DAY,
+        'progress_clients_pct': progress_clients_pct,
+        'progress_points_pct': progress_points_pct,
+    })
+
+
+@login_required(login_url='management_login')
+def send_report(request):
+    if request.method != 'POST':
+        return redirect('management_reports')
+    if not (request.user.is_staff or Client.objects.filter(owner=request.user).exists()):
+        return redirect('management_reports')
+
+    today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    clients_today = Client.objects.filter(owner=request.user, created_at__gte=today_start).order_by('-created_at')
+    stats = get_user_stats(request.user)
+
+    file_bytes = build_report_excel(request.user, stats, clients_today)
+    filename = f"report_{request.user.username}_{timezone.localtime().strftime('%Y%m%d_%H%M')}.xlsx"
+
+    report = Report.objects.create(
+        owner=request.user,
+        points=stats['points_today'],
+        processed=stats['processed_today'],
+    )
+    report.file.save(filename, ContentFile(file_bytes), save=True)
+
+    send_telegram_report(request.user, stats, clients_today, file_bytes, filename)
+
+    return redirect('management_reports')
