@@ -398,6 +398,7 @@ def home(request):
     progress_clients_pct = min(100, int(processed_today / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
     progress_points_pct = min(100, int(user_points_today / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
 
+    bot_username = os.environ.get("MANAGER_TG_BOT_USERNAME", "")
     return render(request, 'management/home.html', {
         'grouped_clients': grouped_clients,
         'user_points_today': user_points_today,
@@ -409,6 +410,7 @@ def home(request):
         'progress_points_pct': progress_points_pct,
         'has_report_today': report_sent_today,
         'reminders': reminders,
+        'manager_bot_username': bot_username,
     })
 
 
@@ -485,6 +487,7 @@ def admin_overview(request):
             ]
         })
 
+    bot_username = os.environ.get("MANAGER_TG_BOT_USERNAME", "")
     reminders = get_reminders(request.user, stats={
         'points_today': user_points_today,
         'processed_today': processed_today,
@@ -500,6 +503,7 @@ def admin_overview(request):
         'progress_clients_pct': progress_clients_pct,
         'progress_points_pct': progress_points_pct,
         'reminders': reminders,
+        'manager_bot_username': bot_username,
     })
 
 
@@ -556,6 +560,7 @@ def reports(request):
     stats = get_user_stats(request.user)
     progress_clients_pct = min(100, int(stats['processed_today'] / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
     progress_points_pct = min(100, int(stats['points_today'] / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
+    bot_username = os.environ.get("MANAGER_TG_BOT_USERNAME", "")
     reminders = get_reminders(request.user, stats=stats, report_sent=report_sent_today)
 
     return render(request, 'management/reports.html', {
@@ -569,6 +574,7 @@ def reports(request):
         'progress_points_pct': progress_points_pct,
         'has_report_today': report_sent_today,
         'reminders': reminders,
+        'manager_bot_username': bot_username,
     })
 
 
