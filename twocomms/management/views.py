@@ -109,44 +109,8 @@ def home(request):
 
     grouped_clients = list(grouped.items())
 
-    admin_user_data = []
-    if request.user.is_staff:
-        User = get_user_model()
-        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        users = User.objects.filter(is_active=True).filter(
-            Q(is_staff=True) | Q(management_clients__isnull=False)
-        ).annotate(
-            total_clients=Count('management_clients', distinct=True),
-            today_clients=Count('management_clients', filter=Q(management_clients__created_at__gte=today_start), distinct=True),
-        ).distinct()
-        for u in users:
-            last_login = u.last_login
-            online = False
-            last_login_local = None
-            if last_login:
-                last_login_local = timezone.localtime(last_login)
-                online = (timezone.now() - last_login) <= timedelta(minutes=5)
-            user_clients = Client.objects.filter(owner=u).order_by('-created_at')[:50]
-            admin_user_data.append({
-                'id': u.id,
-                'name': u.get_full_name() or u.username,
-                'role': 'Адмін' if u.is_staff else 'Менеджер',
-                'today': u.today_clients,
-                'total': u.total_clients,
-                'online': online,
-                'last_login': last_login_local.isoformat() if last_login_local else None,
-                'last_login_display': last_login_local.strftime('%d.%m.%Y %H:%M') if last_login_local else 'Немає даних',
-                'clients': [
-                    {
-                        'shop': c.shop_name,
-                        'created': timezone.localtime(c.created_at).strftime('%d.%m.%Y %H:%M'),
-                    } for c in user_clients
-                ]
-            })
-
     return render(request, 'management/home.html', {
         'grouped_clients': grouped_clients,
-        'admin_user_data': admin_user_data,
     })
 
 
@@ -161,3 +125,47 @@ def delete_client(request, client_id):
     except Client.DoesNotExist:
         pass
     return redirect('management_home')
+
+
+@login_required(login_url='management_login')
+def admin_overview(request):
+    if not request.user.is_staff:
+        return redirect('management_home')
+
+    User = get_user_model()
+    today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    admin_user_data = []
+    users = User.objects.filter(is_active=True).filter(
+        Q(is_staff=True) | Q(management_clients__isnull=False)
+    ).annotate(
+        total_clients=Count('management_clients', distinct=True),
+        today_clients=Count('management_clients', filter=Q(management_clients__created_at__gte=today_start), distinct=True),
+    ).distinct()
+
+    for u in users:
+        last_login = u.last_login
+        online = False
+        last_login_local = None
+        if last_login:
+            last_login_local = timezone.localtime(last_login)
+            online = (timezone.now() - last_login) <= timedelta(minutes=5)
+        user_clients = Client.objects.filter(owner=u).order_by('-created_at')[:50]
+        admin_user_data.append({
+            'id': u.id,
+            'name': u.get_full_name() or u.username,
+            'role': 'Адмін' if u.is_staff else 'Менеджер',
+            'today': u.today_clients,
+            'total': u.total_clients,
+            'online': online,
+            'last_login': last_login_local.strftime('%d.%m.%Y %H:%M') if last_login_local else 'Немає даних',
+            'clients': [
+                {
+                    'shop': c.shop_name,
+                    'created': timezone.localtime(c.created_at).strftime('%d.%m.%Y %H:%M'),
+                } for c in user_clients
+            ]
+        })
+
+    return render(request, 'management/admin.html', {
+        'admin_user_data': admin_user_data,
+    })

@@ -9,5 +9,6 @@ urlpatterns = [
     ), name='management_login'),
     path('logout/', auth_views.LogoutView.as_view(next_page='management_login'), name='management_logout'),
     path('clients/<int:client_id>/delete/', views.delete_client, name='management_delete_client'),
+    path('admin-panel/', views.admin_overview, name='management_admin'),
     path('', views.home, name='management_home'),
 ]
