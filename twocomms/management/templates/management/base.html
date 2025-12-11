@@ -219,15 +219,18 @@
 
         // toggle panel
         if (notifBtn && notifPanel) {
+            const togglePanel = (open) => {
+                notifPanel.classList[open ? 'add' : 'remove']('show');
+                notifBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+            };
             notifBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const open = notifPanel.classList.toggle('show');
-                notifBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+                const open = !notifPanel.classList.contains('show');
+                togglePanel(open);
             });
             document.addEventListener('click', (e) => {
                 if (!notifPanel.contains(e.target) && !notifBtn.contains(e.target)) {
-                    notifPanel.classList.remove('show');
-                    notifBtn.setAttribute('aria-expanded', 'false');
+                    togglePanel(false);
                 }
             });
         }
