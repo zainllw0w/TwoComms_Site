@@ -42,6 +42,27 @@ class Client(models.Model):
         blank=True,
         related_name="management_clients"
     )
+
+
+class Report(models.Model):
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name=_("Менеджер"),
+        on_delete=models.CASCADE,
+        related_name="management_reports"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    points = models.PositiveIntegerField(default=0)
+    processed = models.PositiveIntegerField(default=0)
+    file = models.FileField(upload_to='reports/', blank=True, null=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = _("Звіт")
+        verbose_name_plural = _("Звіти")
+
+    def __str__(self):
+        return f"Звіт {self.owner} {self.created_at:%Y-%m-%d}"
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
