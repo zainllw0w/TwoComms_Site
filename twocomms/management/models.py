@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django.conf import settings
 
 class Client(models.Model):
     class Role(models.TextChoices):
@@ -33,6 +34,14 @@ class Client(models.Model):
     call_result = models.CharField(_("Підсумок розмови"), max_length=50, choices=CallResult.choices, default=CallResult.NO_ANSWER)
     call_result_details = models.TextField(_("Деталі підсумку"), blank=True, help_text="Якщо вибрано 'Інше'")
     next_call_at = models.DateTimeField(_("Наступний дзвінок"), null=True, blank=True)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name=_("Менеджер"),
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="management_clients"
+    )
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
