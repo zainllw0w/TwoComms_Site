@@ -12,20 +12,20 @@ from django.http import JsonResponse
 from .models import Client
 
 POINTS = {
-    'order': 90,
-    'test_batch': 50,
-    'waiting_payment': 40,
-    'waiting_prepayment': 35,
-    'xml_connected': 30,
-    'sent_email': 30,
-    'sent_messenger': 30,
-    'wrote_ig': 30,
-    'thinking': 20,
-    'other': 15,
-    'no_answer': 10,
-    'invalid_number': 10,
-    'not_interested': 10,
-    'expensive': 10,
+    'order': 45,
+    'test_batch': 25,
+    'waiting_payment': 20,
+    'waiting_prepayment': 18,
+    'xml_connected': 15,
+    'sent_email': 15,
+    'sent_messenger': 15,
+    'wrote_ig': 15,
+    'thinking': 10,
+    'other': 8,
+    'no_answer': 5,
+    'invalid_number': 5,
+    'not_interested': 5,
+    'expensive': 5,
 }
 TARGET_CLIENTS_DAY = 20
 TARGET_POINTS_DAY = 100
