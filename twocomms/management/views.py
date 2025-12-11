@@ -109,6 +109,7 @@ def get_reminders(user, stats=None, report_sent=False):
             'status': status,
             'kind': 'call',
             'dt': dt_local,
+            'dt_iso': dt_local.isoformat(),
             'eta_seconds': eta_display,
             'key': f"call-{c.id}-{int(dt_local.timestamp())}-{status_key}",
         }
@@ -129,6 +130,7 @@ def get_reminders(user, stats=None, report_sent=False):
             'kind': 'report',
             'title': 'Потрібно відправити звіт',
             'dt': dt_local,
+            'dt_iso': dt_local.isoformat(),
             'eta_seconds': 0,
             'key': f"report-{dt_local.strftime('%Y%m%d')}",
         }
@@ -625,5 +627,6 @@ def reminder_feed(request):
             'eta_seconds': r.get('eta_seconds', 0),
             'key': r.get('key', ''),
             'read': r.get('read', False),
+            'dt_iso': r.get('dt_iso', ''),
         })
     return JsonResponse({'reminders': serialized})
