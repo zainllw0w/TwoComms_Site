@@ -759,7 +759,8 @@ def _send_manager_bot_notifications(user, reminders):
         return
     for r in reminders:
         eta = int(r.get('eta_seconds') or 0)
-        if eta == 0 and r.get('status') != 'due':
+        status = r.get('status')
+        if eta == 0 and status not in ('due', 'report'):
             continue
         if eta > 300:
             continue
