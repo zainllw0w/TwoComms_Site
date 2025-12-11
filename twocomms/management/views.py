@@ -590,3 +590,23 @@ def reminder_read(request):
         return JsonResponse({'ok': False}, status=400)
     ReminderRead.objects.get_or_create(user=request.user, key=key)
     return JsonResponse({'ok': True})
+
+
+@login_required(login_url='management_login')
+def reminder_feed(request):
+    stats = get_user_stats(request.user)
+    report_sent = has_report_today(request.user)
+    reminders = get_reminders(request.user, stats=stats, report_sent=report_sent)
+    serialized = []
+    for r in reminders:
+        serialized.append({
+            'shop': r.get('shop', ''),
+            'title': r.get('title', ''),
+            'name': r.get('name', ''),
+            'phone': r.get('phone', ''),
+            'time_label': r.get('time_label', ''),
+            'status': r.get('status', ''),
+            'eta_seconds': r.get('eta_seconds', 0),
+            'key': r.get('key', ''),
+        })
+    return JsonResponse({'reminders': serialized})
