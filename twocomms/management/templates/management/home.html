@@ -358,6 +358,85 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleCallResult();
     toggleNextCall();
 
+    // AJAX submit to update stats instantly
+    const clientForm = document.getElementById('client-form');
+    clientForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(clientForm);
+        try {
+            const res = await fetch("", {
+                method: "POST",
+                body: formData,
+                headers: {'X-Requested-With': 'XMLHttpRequest'},
+            });
+            const data = await res.json();
+            if (!data.success) {
+                clientForm.submit();
+                return;
+            }
+            // Update gauges
+            const pointsValEl = document.getElementById('gauge-points-value');
+            const pointsBar = document.getElementById('points-bar');
+            const pointsLegend = document.getElementById('points-legend');
+            const clientsBar = document.getElementById('clients-bar');
+            const clientsLegend = document.getElementById('clients-legend');
+            if (pointsValEl) pointsValEl.textContent = data.user_points_today;
+            if (pointsBar) pointsBar.style.width = `${data.progress_points_pct}%`;
+            if (pointsLegend) pointsLegend.textContent = `${data.user_points_today} / ${data.target_points}`;
+            if (clientsBar) clientsBar.style.width = `${data.progress_clients_pct}%`;
+            if (clientsLegend) clientsLegend.textContent = `Оброблено: ${data.processed_today} / ${data.target_clients}`;
+
+            // Insert row into "Сьогодні" group if available
+            if (data.latest && data.latest.created_date_label === 'Сьогодні') {
+                const todayChip = Array.from(document.querySelectorAll('.date-chip')).find(chip => chip.textContent.trim() === 'Сьогодні');
+                if (todayChip) {
+                    const table = todayChip.parentElement.querySelector('table');
+                    const tbody = table ? table.querySelector('tbody') : null;
+                    if (tbody) {
+                        const tr = document.createElement('tr');
+                        tr.dataset.clientId = data.latest.id;
+                        tr.dataset.shop = data.latest.shop;
+                        tr.dataset.phone = data.latest.phone;
+                        tr.dataset.fullName = data.latest.full_name;
+                        tr.dataset.role = data.latest.role;
+                        tr.dataset.source = data.latest.source;
+                        tr.dataset.callResult = data.latest.call_result;
+                        tr.dataset.callDetails = data.latest.call_result_details || '';
+                        tr.dataset.nextCallDate = '';
+                        tr.dataset.nextCallTime = '';
+                        tr.innerHTML = `
+                            <td>${data.latest.shop}</td>
+                            <td>${data.latest.phone}</td>
+                            <td>${data.latest.full_name}</td>
+                            <td><span class="status-badge role-${data.latest.role}">${data.latest.role_display}</span></td>
+                            <td>${data.latest.source}</td>
+                            <td><span class="result-badge result-${data.latest.call_result}">${data.latest.call_result_display}</span>${data.latest.call_result_details ? '<span class="muted-detail">• '+data.latest.call_result_details+'</span>' : ''}</td>
+                            <td>${data.latest.next_call}</td>
+                            <td class="actions-cell">
+                                <button type="button" class="icon-btn edit-client" aria-label="Редагувати">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"/>
+                                    </svg>
+                                </button>
+                                <form method="post" action="/clients/${data.latest.id}/delete/" class="inline-form delete-client-form">
+                                    <input type="hidden" name="csrfmiddlewaretoken" value="${formData.get('csrfmiddlewaretoken') || ''}">
+                                    <button type="submit" class="icon-btn ghost danger" aria-label="Видалити" onclick="return confirm('Видалити клієнта?');">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M6 7h12l-1 14H7L6 7zm5-3h2l1 1h5v2H5V5h5l1-1z"/>
+                                        </svg>
+                                    </button>
+                                </form>
+                            </td>`;
+                        tbody.prepend(tr);
+                    }
+                }
+            }
+            closeModal();
+        } catch (err) {
+            clientForm.submit();
+        }
+    });
+
     // Countdown to next weekday 19:00
     const updateCountdown = () => {
         if (!reportCountdown) return;

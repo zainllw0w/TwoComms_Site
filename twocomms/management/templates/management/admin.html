@@ -109,12 +109,38 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 const frag = document.createDocumentFragment();
                 user.clients.forEach(c => {
-                    const row = document.createElement('div');
-                    row.className = 'overview-row';
-                    row.innerHTML = `<div class="overview-shop">${c.shop}</div><div class="overview-date">${c.created}</div>`;
-                    frag.appendChild(row);
+                    const card = document.createElement('div');
+                    card.className = 'overview-card';
+                    card.innerHTML = `
+                        <div class="overview-head">
+                            <div class="overview-main">
+                                <div class="overview-shop">${c.shop}</div>
+                                <div class="overview-date">${c.created}</div>
+                            </div>
+                            <div class="overview-result result-${c.result_code}">${c.result}</div>
+                            <button type="button" class="icon-btn ghost toggle-details" aria-label="Деталі">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
+                            </button>
+                        </div>
+                        <div class="overview-details">
+                            <div><span class="muted">ПІБ:</span> ${c.full_name || '—'}</div>
+                            <div><span class="muted">Телефон:</span> ${c.phone || '—'}</div>
+                            <div><span class="muted">Статус:</span> ${c.role || '—'}</div>
+                            <div><span class="muted">Джерело:</span> ${c.source || '—'}</div>
+                            <div><span class="muted">Підсумок:</span> ${c.result}${c.details ? ' • ' + c.details : ''}</div>
+                            <div><span class="muted">Наступний дзвінок:</span> ${c.next_call}</div>
+                        </div>
+                    `;
+                    frag.appendChild(card);
                 });
                 adminModalList.appendChild(frag);
+
+                adminModalList.querySelectorAll('.toggle-details').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const details = btn.closest('.overview-card').querySelector('.overview-details');
+                        details.classList.toggle('show');
+                    });
+                });
             }
             adminModal.classList.add('show');
             body.classList.add('modal-open');

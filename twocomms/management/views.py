@@ -7,30 +7,38 @@ from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
 from django.db.models import Count, Q
+from django.http import JsonResponse
 
 from .models import Client
 
+POINTS = {
+    'order': 90,
+    'test_batch': 50,
+    'waiting_payment': 40,
+    'waiting_prepayment': 35,
+    'xml_connected': 30,
+    'sent_email': 30,
+    'sent_messenger': 30,
+    'wrote_ig': 30,
+    'thinking': 20,
+    'other': 15,
+    'no_answer': 10,
+    'invalid_number': 10,
+    'not_interested': 10,
+    'expensive': 10,
+}
+TARGET_CLIENTS_DAY = 20
+TARGET_POINTS_DAY = 100
+
+
+def calc_points(qs):
+    total = 0
+    for c in qs:
+        total += POINTS.get(c.call_result, 0)
+    return total
+
 @login_required(login_url='management_login')
 def home(request):
-    POINTS = {
-        'order': 90,
-        'test_batch': 50,
-        'waiting_payment': 40,
-        'waiting_prepayment': 35,
-        'xml_connected': 30,
-        'sent_email': 30,
-        'sent_messenger': 30,
-        'wrote_ig': 30,
-        'thinking': 20,
-        'other': 15,
-        'no_answer': 10,
-        'invalid_number': 10,
-        'not_interested': 10,
-        'expensive': 10,
-    }
-    TARGET_CLIENTS_DAY = 20
-    TARGET_POINTS_DAY = 100
-
     if request.method == 'POST':
         data = request.POST
         client_id = data.get('client_id')
@@ -102,6 +110,46 @@ def home(request):
                     next_call_at=next_call_at,
                     owner=request.user,
                 )
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            # Сформируем актуальные данные после операции
+            base_qs = Client.objects.filter(owner=request.user)
+            today = timezone.localdate()
+            clients_today = base_qs.filter(created_at__date=today)
+            user_points_today = calc_points(clients_today)
+            user_points_total = calc_points(base_qs)
+            processed_today = clients_today.count()
+            progress_clients_pct = min(100, int(processed_today / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
+            progress_points_pct = min(100, int(user_points_today / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
+
+            latest = Client.objects.filter(owner=request.user).order_by('-created_at').first()
+            latest_data = None
+            if latest:
+                latest_data = {
+                    'id': latest.id,
+                    'shop': latest.shop_name,
+                    'phone': latest.phone,
+                    'full_name': latest.full_name,
+                    'role': latest.role,
+                    'role_display': latest.get_role_display(),
+                    'source': latest.source,
+                    'call_result': latest.call_result,
+                    'call_result_display': latest.get_call_result_display(),
+                    'call_result_details': latest.call_result_details,
+                    'next_call': timezone.localtime(latest.next_call_at).strftime('%d.%m.%Y %H:%M') if latest.next_call_at else '–',
+                    'created_date_label': 'Сьогодні' if timezone.localtime(latest.created_at).date() == today else timezone.localtime(latest.created_at).strftime('%d.%m.%Y'),
+                }
+
+            return JsonResponse({
+                'success': True,
+                'user_points_today': user_points_today,
+                'user_points_total': user_points_total,
+                'processed_today': processed_today,
+                'target_clients': TARGET_CLIENTS_DAY,
+                'target_points': TARGET_POINTS_DAY,
+                'progress_clients_pct': progress_clients_pct,
+                'progress_points_pct': progress_points_pct,
+                'latest': latest_data,
+            })
         return redirect('management_home')
 
     base_qs = Client.objects.select_related('owner').order_by('-created_at')
@@ -238,7 +286,15 @@ def admin_overview(request):
             'clients': [
                 {
                     'shop': c.shop_name,
+                    'full_name': c.full_name,
+                    'phone': c.phone,
+                    'role': c.get_role_display(),
                     'created': timezone.localtime(c.created_at).strftime('%d.%m.%Y %H:%M'),
+                    'source': c.source,
+                    'result': c.get_call_result_display(),
+                    'result_code': c.call_result,
+                    'details': c.call_result_details,
+                    'next_call': timezone.localtime(c.next_call_at).strftime('%d.%m.%Y %H:%M') if c.next_call_at else '–',
                 } for c in user_clients_preview
             ]
         })
