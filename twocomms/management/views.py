@@ -289,6 +289,7 @@ def home(request):
     user_points_today = user_stats['points_today']
     user_points_total = user_stats['points_total']
     processed_today = user_stats['processed_today']
+    has_report_today = Report.objects.filter(owner=request.user, created_at__date=today).exists()
 
     progress_clients_pct = min(100, int(processed_today / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
     progress_points_pct = min(100, int(user_points_today / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
@@ -302,6 +303,7 @@ def home(request):
         'target_points': TARGET_POINTS_DAY,
         'progress_clients_pct': progress_clients_pct,
         'progress_points_pct': progress_points_pct,
+        'has_report_today': has_report_today,
     })
 
 
