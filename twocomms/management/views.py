@@ -106,3 +106,16 @@ def home(request):
     grouped_clients = list(grouped.items())
 
     return render(request, 'management/home.html', {'grouped_clients': grouped_clients})
+
+
+@login_required(login_url='management_login')
+def delete_client(request, client_id):
+    if request.method != 'POST':
+        return redirect('management_home')
+    try:
+        client = Client.objects.get(id=client_id)
+        if request.user.is_staff or client.owner == request.user:
+            client.delete()
+    except Client.DoesNotExist:
+        pass
+    return redirect('management_home')
