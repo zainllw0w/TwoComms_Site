@@ -46,13 +46,11 @@
                             <td>{{ client.shop_name }}</td>
                             <td>{{ client.phone }}</td>
                             <td>{{ client.full_name }}</td>
-                            <td><span class="status-badge{% if client.role == 'manager' %} status-manager{% endif %}">{{ client.get_role_display }}</span></td>
+                            <td><span class="status-badge role-{{ client.role }}">{{ client.get_role_display }}</span></td>
                             <td>{{ client.source }}</td>
                             <td>
-                                {{ client.get_call_result_display }}
-                                {% if client.call_result_details %}
-                                    <span class="muted-detail">• {{ client.call_result_details }}</span>
-                                {% endif %}
+                                <span class="result-badge result-{{ client.call_result }}">{{ client.get_call_result_display }}</span>
+                                {% if client.call_result_details %}<span class="muted-detail">• {{ client.call_result_details }}</span>{% endif %}
                             </td>
                             <td>
                                 {% if client.next_call_at %}
@@ -109,10 +107,10 @@
                 <div class="field">
                     <label for="role">Статус людини</label>
                     <select id="role" name="role">
+                        <option value="owner">Власник</option>
                         <option value="supervisor">Управляючий</option>
                         <option value="manager">Менеджер</option>
                         <option value="realizer">Реалізатор</option>
-                        <option value="owner">Власник</option>
                         <option value="other">Інше</option>
                     </select>
                     <input type="text" id="role_custom" name="role_custom" class="field-conditional" placeholder="Кого саме?" />
