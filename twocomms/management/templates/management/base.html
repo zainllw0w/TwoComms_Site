@@ -84,16 +84,20 @@
                         </svg>
                         <div class="gauge-center">
                             <div class="gauge-caption">Балів</div>
-                            <div class="gauge-value">{{ user_points_today|default:0 }}</div>
+                            <div class="gauge-value" id="gauge-points-value">{{ user_points_today|default:0 }}</div>
                         </div>
                     </div>
                 </div>
                 <div class="gauge-meta">
                     <span>Бали за сьогодні</span>
                     <div class="progress-track">
-                        <div class="progress-fill" style="width: {{ progress_points_pct|default:0 }}%;"></div>
+                        <div class="progress-fill" id="points-bar" style="width: {{ progress_points_pct|default:0 }}%;"></div>
                     </div>
-                    <div class="progress-legend">{{ user_points_today|default:0 }} / {{ target_points|default:100 }}</div>
+                    <div class="progress-legend" id="points-legend">{{ user_points_today|default:0 }} / {{ target_points|default:100 }}</div>
+                    <div class="progress-track mt-2">
+                        <div class="progress-fill" id="clients-bar" style="width: {{ progress_clients_pct|default:0 }}%;"></div>
+                    </div>
+                    <div class="progress-legend" id="clients-legend">Оброблено: {{ processed_today|default:0 }} / {{ target_clients|default:20 }}</div>
                 </div>
             </div>
 
