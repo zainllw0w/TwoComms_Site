@@ -89,11 +89,11 @@
                     </div>
                 </div>
                 <div class="gauge-meta">
-                    <span>Оброблено за сьогодні</span>
+                    <span>Бали за сьогодні</span>
                     <div class="progress-track">
-                        <div class="progress-fill" style="width: {{ progress_clients_pct|default:0 }}%;"></div>
+                        <div class="progress-fill" style="width: {{ progress_points_pct|default:0 }}%;"></div>
                     </div>
-                    <div class="progress-legend">{{ processed_today|default:0 }} / {{ target_clients|default:20 }}</div>
+                    <div class="progress-legend">{{ user_points_today|default:0 }} / {{ target_points|default:100 }}</div>
                 </div>
             </div>
 
