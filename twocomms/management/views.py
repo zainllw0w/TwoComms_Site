@@ -112,7 +112,8 @@ def get_reminders(user, stats=None, report_sent=False):
             'eta_seconds': max(0, int((dt_local - now).total_seconds())),
             'key': f"call-{c.id}-{int(dt_local.timestamp())}-{status_key}",
         }
-        if reminder['key'] not in read_keys:
+        # "soon" таймер всегда показываем (не кликается), "due" и позже фильтруем по прочитанным
+        if status == 'soon' or reminder['key'] not in read_keys:
             reminders.append(reminder)
     # Додаємо нагадування про звіт після 19:00 у будні, якщо є клієнти і звіт не відправлений
     weekday = now.weekday()  # 0 Mon ... 6 Sun
