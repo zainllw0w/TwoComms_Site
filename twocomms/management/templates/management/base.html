@@ -352,20 +352,26 @@
             const list = [];
             if (data && data.length) {
                 // нормализуем eta (таймер только если <=300 c), сортируем: таймеры по ETA возрастанию, остальные по дате
-                const normalized = data.map(r => {
-                    const etaRaw = parseInt(r.eta_seconds || '0', 10);
-                    const etaFromServer = (etaRaw > 0 && etaRaw <= 300) ? etaRaw : 0;
-                    // fallback: вычислить eta на клиенте, если сервер прислал 0, но статус soon
-                    let etaClient = etaFromServer;
-                    if (!etaClient && r.status === 'soon' && r.dt_iso) {
-                        const dt = Date.parse(r.dt_iso);
-                        if (dt) {
-                            const diff = Math.max(0, Math.floor((dt - Date.now()) / 1000));
-                            if (diff > 0 && diff <= 300) etaClient = diff;
+                const normalized = data
+                    .filter(r => {
+                        const etaRaw = parseInt(r.eta_seconds || '0', 10);
+                        if (r.status === 'soon' && etaRaw > 300) return false;
+                        return true;
+                    })
+                    .map(r => {
+                        const etaRaw = parseInt(r.eta_seconds || '0', 10);
+                        const etaFromServer = (etaRaw > 0 && etaRaw <= 300) ? etaRaw : 0;
+                        // fallback: вычислить eta на клиенте, если сервер прислал 0, но статус soon
+                        let etaClient = etaFromServer;
+                        if (!etaClient && r.status === 'soon' && r.dt_iso) {
+                            const dt = Date.parse(r.dt_iso);
+                            if (dt) {
+                                const diff = Math.max(0, Math.floor((dt - Date.now()) / 1000));
+                                if (diff > 0 && diff <= 300) etaClient = diff;
+                            }
                         }
-                    }
-                    return { ...r, eta_seconds: etaClient };
-                });
+                        return { ...r, eta_seconds: etaClient };
+                    });
                 const sorted = normalized.sort((a, b) => {
                     const etaA = parseInt(a.eta_seconds || '0', 10);
                     const etaB = parseInt(b.eta_seconds || '0', 10);
