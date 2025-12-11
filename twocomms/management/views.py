@@ -729,7 +729,7 @@ def _send_manager_bot_notifications(user, reminders):
     except UserProfile.DoesNotExist:
         return
     chat_id = profile.tg_manager_chat_id
-    bot_token = os.environ.get("MANAGER_TG_BOT_TOKEN")
+    bot_token = os.environ.get("MANAGER_TG_BOT_TOKEN") or os.environ.get("MANAGEMENT_TG_BOT_TOKEN")
     if not chat_id or not bot_token:
         return
     for r in reminders:
@@ -757,7 +757,7 @@ def _send_manager_bot_notifications(user, reminders):
 
 @csrf_exempt
 def management_bot_webhook(request, token):
-    bot_token = os.environ.get("MANAGER_TG_BOT_TOKEN")
+    bot_token = os.environ.get("MANAGER_TG_BOT_TOKEN") or os.environ.get("MANAGEMENT_TG_BOT_TOKEN")
     if not bot_token or token != bot_token:
         return JsonResponse({'ok': False}, status=403)
     try:
