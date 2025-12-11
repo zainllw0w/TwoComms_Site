@@ -14,8 +14,10 @@
                 <tr>
                     <th>Користувач</th>
                     <th>Статус</th>
-                    <th>Сьогодні</th>
-                    <th>Всього</th>
+                    <th>Сьогодні (клієнти)</th>
+                    <th>Всього (клієнти)</th>
+                    <th>Бали сьогодні</th>
+                    <th>Бали всього</th>
                     <th>Онлайн</th>
                     <th>Останній вхід</th>
                     <th>Огляд</th>
@@ -28,6 +30,8 @@
                     <td>{{ u.role }}</td>
                     <td>{{ u.today }}</td>
                     <td>{{ u.total }}</td>
+                    <td>{{ u.points_today }}</td>
+                    <td>{{ u.points_total }}</td>
                     <td>
                         {% if u.online %}
                             <span class="status-dot online">●</span> Онлайн
