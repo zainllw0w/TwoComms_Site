@@ -35,6 +35,7 @@ POINTS = {
 }
 TARGET_CLIENTS_DAY = 20
 TARGET_POINTS_DAY = 100
+REMINDER_WINDOW_MINUTES = 15
 
 
 def calc_points(qs):
@@ -87,12 +88,12 @@ def _time_label(dt_local, now):
 def get_reminders(user, stats=None, report_sent=False):
     """Return upcoming/due follow-ups + report reminder."""
     now = timezone.localtime(timezone.now())
-    soon = now + timedelta(minutes=5)
+    window_end = now + timedelta(minutes=REMINDER_WINDOW_MINUTES)
     read_keys = set(ReminderRead.objects.filter(user=user).values_list('key', flat=True))
     qs = Client.objects.filter(
         owner=user,
         next_call_at__isnull=False,
-        next_call_at__lte=soon
+        next_call_at__lte=window_end
     ).select_related('owner').order_by('-next_call_at')[:50]
     reminders = []
     for c in qs:
