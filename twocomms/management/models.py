@@ -2,6 +2,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.conf import settings
 
+
 class Client(models.Model):
     class Role(models.TextChoices):
         SUPERVISOR = 'supervisor', _('Управляючий')
@@ -45,6 +46,14 @@ class Client(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
 
+    class Meta:
+        verbose_name = _("Клієнт")
+        verbose_name_plural = _("Клієнти")
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.shop_name} ({self.full_name})"
+
 
 class Report(models.Model):
     owner = models.ForeignKey(
@@ -65,14 +74,3 @@ class Report(models.Model):
 
     def __str__(self):
         return f"Звіт {self.owner} {self.created_at:%Y-%m-%d}"
-    
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = _("Клиент")
-        verbose_name_plural = _("Клиенты")
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"{self.shop_name} ({self.full_name})"

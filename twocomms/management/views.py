@@ -164,6 +164,7 @@ def home(request):
         next_call_type = data.get('next_call_type', 'scheduled')
         next_call_date = data.get('next_call_date', '').strip()
         next_call_time = data.get('next_call_time', '').strip()
+        today = timezone.localdate()
 
         source_display = {
             'instagram': 'Instagram',
@@ -324,29 +325,6 @@ def admin_overview(request):
 
     User = get_user_model()
     today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    POINTS = {
-        'order': 90,
-        'test_batch': 50,
-        'waiting_payment': 40,
-        'waiting_prepayment': 35,
-        'xml_connected': 30,
-        'sent_email': 30,
-        'sent_messenger': 30,
-        'wrote_ig': 30,
-        'thinking': 20,
-        'other': 15,
-        'no_answer': 10,
-        'invalid_number': 10,
-        'not_interested': 10,
-        'expensive': 10,
-    }
-
-    def calc_points(qs):
-        total = 0
-        for c in qs:
-            total += POINTS.get(c.call_result, 0)
-        return total
-
     admin_user_data = []
     users = User.objects.filter(is_active=True).filter(
         Q(is_staff=True) | Q(management_clients__isnull=False)
@@ -359,8 +337,6 @@ def admin_overview(request):
     user_points_today = stats['points_today']
     user_points_total = stats['points_total']
     processed_today = stats['processed_today']
-    TARGET_CLIENTS_DAY = 20
-    TARGET_POINTS_DAY = 100
     progress_clients_pct = min(100, int(processed_today / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
     progress_points_pct = min(100, int(user_points_today / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
 
