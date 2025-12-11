@@ -340,26 +340,36 @@
             if (data && data.length) {
                 data.forEach(n => {
                     const item = document.createElement('div');
-                    item.className = `notif-item notif-${n.status || 'soon'}`;
+                    const isTimer = parseInt(n.eta_seconds || '0', 10) > 0;
+                    item.className = `notif-item notif-${n.status || 'soon'}${isTimer ? ' notif-countdown' : ''}`;
                     item.dataset.key = n.key || '';
                     item.dataset.eta = n.eta_seconds || 0;
-                    item.innerHTML = `
-                        <div class="notif-row">
-                            <div>
-                                <div class="notif-title">${n.title || n.shop || ''}</div>
-                                ${(n.name || n.phone) ? `<div class="notif-meta">${n.name || ''}${(n.name && n.phone) ? ' • ' : ''}${n.phone || ''}</div>` : ''}
-                                <div class="notif-time ${parseInt(n.eta_seconds || '0', 10) > 0 ? 'timer' : ''}">
-                                    ${parseInt(n.eta_seconds || '0', 10) > 0 ? `<span class="notif-timer">${formatEta(parseInt(n.eta_seconds || '0', 10))}</span>` : (n.time_label || '')}
+                    if (isTimer) {
+                        item.innerHTML = `
+                            <div class="notif-row">
+                                <div>
+                                    <div class="notif-title">${n.title || n.shop || ''}</div>
+                                    ${(n.name || n.phone) ? `<div class="notif-meta">${n.name || ''}${(n.name && n.phone) ? ' • ' : ''}${n.phone || ''}</div>` : ''}
+                                    <div class="notif-time timer">
+                                        <span class="notif-timer">${formatEta(parseInt(n.eta_seconds || '0', 10))}</span>
+                                        <div class="notif-note">Потрібно зв'язатися</div>
+                                    </div>
                                 </div>
                             </div>
-                            <button type="button" class="icon-btn ghost notif-done" aria-label="Позначити як прочитане">
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-                            </button>
-                        </div>
-                    `;
-                    if (parseInt(item.dataset.eta || '0', 10) > 0) {
-                        const btn = item.querySelector('.notif-done');
-                        if (btn) btn.style.display = 'none';
+                        `;
+                    } else {
+                        item.innerHTML = `
+                            <div class="notif-row">
+                                <div>
+                                    <div class="notif-title">${n.title || n.shop || ''}</div>
+                                    ${(n.name || n.phone) ? `<div class="notif-meta">${n.name || ''}${(n.name && n.phone) ? ' • ' : ''}${n.phone || ''}</div>` : ''}
+                                    <div class="notif-time">${n.time_label || ''}</div>
+                                </div>
+                                <button type="button" class="icon-btn ghost notif-done" aria-label="Позначити як прочитане">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                                </button>
+                            </div>
+                        `;
                     }
                     container.appendChild(item);
                     list.push(item);
