@@ -17,8 +17,9 @@ import datetime as dt
 import os
 import secrets
 
-from .models import Client, Report, ReminderRead
+from .models import Client, Report, ReminderRead, ReminderSent
 from accounts.models import UserProfile
+from django.views.decorators.csrf import csrf_exempt
 
 POINTS = {
     'order': 45,
@@ -621,6 +622,7 @@ def reminder_feed(request):
     stats = get_user_stats(request.user)
     report_sent = has_report_today(request.user)
     reminders = get_reminders(request.user, stats=stats, report_sent=report_sent)
+    _send_manager_bot_notifications(request.user, reminders)
     serialized = []
     for r in reminders:
         eta = int(r.get('eta_seconds', 0) or 0)
@@ -672,3 +674,82 @@ def profile_bind_code(request):
         'code': code,
         'expires': expires_at.strftime('%d.%m.%Y %H:%M'),
     })
+
+
+def _send_telegram_message(bot_token, chat_id, text):
+    if not bot_token or not chat_id:
+        return
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    try:
+        requests.post(url, data={'chat_id': chat_id, 'text': text}, timeout=5)
+    except Exception:
+        pass
+
+
+def _send_manager_bot_notifications(user, reminders):
+    """Send new reminders (<=5 мин) to manager bot."""
+    if not reminders:
+        return
+    try:
+        profile = user.userprofile
+    except UserProfile.DoesNotExist:
+        return
+    chat_id = profile.tg_manager_chat_id
+    bot_token = os.environ.get("MANAGER_TG_BOT_TOKEN")
+    if not chat_id or not bot_token:
+        return
+    for r in reminders:
+        eta = int(r.get('eta_seconds') or 0)
+        if eta == 0 and r.get('status') != 'due':
+            continue
+        if eta > 300:
+            continue
+        key = r.get('key')
+        if not key:
+            continue
+        if ReminderSent.objects.filter(key=key, chat_id=chat_id).exists():
+            continue
+        when = 'зараз' if eta == 0 else (f"через {eta//60} хв {eta%60:02d} с" if eta >= 60 else f"через {eta} с")
+        text = (
+            "Нагадування\n"
+            f"Магазин: {r.get('shop','')}\n"
+            f"Клієнт: {r.get('name','')}\n"
+            f"Телефон: {r.get('phone','')}\n"
+            f"Коли: {when}\n"
+        )
+        _send_telegram_message(bot_token, chat_id, text)
+        ReminderSent.objects.create(key=key, chat_id=chat_id)
+
+
+@csrf_exempt
+def management_bot_webhook(request, token):
+    bot_token = os.environ.get("MANAGER_TG_BOT_TOKEN")
+    if not bot_token or token != bot_token:
+        return JsonResponse({'ok': False}, status=403)
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        return JsonResponse({'ok': False}, status=400)
+    message = payload.get('message') or {}
+    text = message.get('text', '')
+    chat = message.get('chat') or {}
+    from_user = message.get('from') or {}
+    chat_id = chat.get('id')
+    username = from_user.get('username') or ''
+    if text.startswith('/start'):
+        parts = text.split()
+        if len(parts) >= 2:
+            code = parts[1].strip()
+            now = timezone.now()
+            profile = UserProfile.objects.filter(
+                tg_manager_bind_code=code,
+                tg_manager_bind_expires_at__gte=now
+            ).first()
+            if profile:
+                profile.tg_manager_chat_id = chat_id
+                profile.tg_manager_username = username
+                profile.tg_manager_bind_code = ''
+                profile.tg_manager_bind_expires_at = None
+                profile.save()
+                _send_telegram_message(bot_token, chat_id, "Готово! Бот привʼязаний. Нагадування будуть тут.")
+    return JsonResponse({'ok': True})

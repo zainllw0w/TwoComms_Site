@@ -16,5 +16,6 @@ urlpatterns = [
     path('reminders/feed/', views.reminder_feed, name='management_reminder_feed'),
     path('profile/update/', views.profile_update, name='management_profile_update'),
     path('profile/bind-code/', views.profile_bind_code, name='management_profile_bind_code'),
+    path('tg-manager/webhook/<str:token>/', views.management_bot_webhook, name='management_bot_webhook'),
     path('', views.home, name='management_home'),
 ]
