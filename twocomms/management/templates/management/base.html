@@ -339,7 +339,18 @@
             container.innerHTML = '';
             const list = [];
             if (data && data.length) {
-                data.forEach(n => {
+                // сортируем: таймеры по ETA возрастанию, остальные по дате
+                const sorted = [...data].sort((a, b) => {
+                    const etaA = parseInt(a.eta_seconds || '0', 10);
+                    const etaB = parseInt(b.eta_seconds || '0', 10);
+                    if (etaA > 0 && etaB > 0) return etaA - etaB;
+                    if (etaA > 0) return -1;
+                    if (etaB > 0) return 1;
+                    const dtA = Date.parse(a.dt_iso || '') || 0;
+                    const dtB = Date.parse(b.dt_iso || '') || 0;
+                    return dtB - dtA;
+                });
+                sorted.forEach(n => {
                     const item = document.createElement('div');
                     const etaVal = parseInt(n.eta_seconds || '0', 10);
                     const isTimer = etaVal > 0;
