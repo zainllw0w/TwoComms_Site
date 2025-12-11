@@ -572,13 +572,15 @@
                             bindVal.textContent = data.code;
                             bindExp.textContent = `Діє до: ${data.expires}`;
                             bindBox.style.display = 'block';
-                        if (botUsername) {
-                            const deepLink = `https://t.me/${botUsername}?start=${data.code}`;
-                            window.open(deepLink, '_blank', 'noopener');
-                        } else {
-                            // fallback: покажем інструкцію без відкриття
-                            bindExp.textContent += ' — скопіюйте код і відправте його вашому менеджмент-боту вручну.';
+                        if (!botUsername) {
+                            alert('Бот тимчасово недоступний: не налаштовано username. Зверніться до адміністратора.');
+                            return;
                         }
+                        const appLink = `tg://resolve?domain=${botUsername}&start=${data.code}`;
+                        const webLink = `https://t.me/${botUsername}?start=${data.code}`;
+                        // Сначала пробуем відкрити застосунок, потім — веб як запасний варіант
+                        window.open(appLink, '_blank', 'noopener');
+                        setTimeout(() => window.open(webLink, '_blank', 'noopener'), 500);
                         }
                     })
                     .catch(() => {});
