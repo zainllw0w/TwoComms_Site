@@ -158,6 +158,7 @@ def home(request):
     clients = clients_qs
 
     today = timezone.localdate()
+    today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
     yesterday = today - timedelta(days=1)
     grouped = OrderedDict()
 
@@ -174,7 +175,7 @@ def home(request):
 
     grouped_clients = list(grouped.items())
 
-    clients_today = clients_qs.filter(created_at__date=today)
+    clients_today = clients_qs.filter(created_at__gte=today_start)
 
     def calc_points(qs):
         total = 0
