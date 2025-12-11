@@ -239,14 +239,14 @@
 
 .gauge-center {
     position: absolute;
-    top: 22%;
+    top: 52%;
     left: 0;
     right: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-start;
-    translate: 0 0;
+    justify-content: center;
+    transform: translateY(-50%);
     pointer-events: none;
     gap: 6px;
 }
@@ -268,7 +268,7 @@
     text-align: center;
     color: var(--text-secondary);
     font-size: 0.9rem;
-    margin-top: 22px;
+    margin-top: 26px;
 }
 
 .progress-track {
