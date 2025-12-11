@@ -250,6 +250,19 @@
         }
         localStorage.setItem('management_last_notif_count', String(unread));
 
+        // subtle nudge every 5s if unread
+        let nudgeTimer = null;
+        const startNudge = () => {
+            if (!notifBtn) return;
+            if (nudgeTimer) clearInterval(nudgeTimer);
+            if (calcCount() === 0) return;
+            nudgeTimer = setInterval(() => {
+                notifBtn.classList.add('nudge');
+                setTimeout(() => notifBtn.classList.remove('nudge'), 650);
+            }, 5000);
+        };
+        startNudge();
+
         // mark as read in UI and persist
         if (notifPanel) {
             notifPanel.querySelectorAll('.notif-done').forEach(btn => {
@@ -258,20 +271,21 @@
                     const item = btn.closest('.notif-item');
                     const key = item ? item.dataset.key : null;
                     if (item) item.classList.add('read');
-                    if (key) {
-                        readKeys.add(key);
-                        localStorage.setItem(dismissedKey, JSON.stringify(Array.from(readKeys)));
-                        // Persist read on server
-                        fetch("{% url 'management_reminder_read' %}", {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                                "X-CSRFToken": (document.cookie.match(/csrftoken=([^;]+)/)||[])[1] || "",
-                            },
-                            body: JSON.stringify({ key }),
-                        }).catch(() => {});
-                    }
-                    calcCount();
+                   if (key) {
+                       readKeys.add(key);
+                       localStorage.setItem(dismissedKey, JSON.stringify(Array.from(readKeys)));
+                       // Persist read on server
+                       fetch("{% url 'management_reminder_read' %}", {
+                           method: "POST",
+                           headers: {
+                               "Content-Type": "application/json",
+                               "X-CSRFToken": (document.cookie.match(/csrftoken=([^;]+)/)||[])[1] || "",
+                           },
+                           body: JSON.stringify({ key }),
+                       }).catch(() => {});
+                   }
+                   calcCount();
+                    startNudge();
                 });
             });
         }
