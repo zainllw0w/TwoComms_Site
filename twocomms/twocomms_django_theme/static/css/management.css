@@ -218,6 +218,7 @@
 
 .gauge {
     margin: 0 auto 12px;
+    position: relative;
 }
 
 .gauge-arc {
@@ -269,6 +270,19 @@
     color: var(--text-secondary);
     font-size: 0.9rem;
     margin-top: 26px;
+}
+
+.gauge-label-top {
+    position: absolute;
+    top: -8px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    pointer-events: none;
 }
 
 .progress-track {
