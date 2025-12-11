@@ -84,6 +84,14 @@ document.addEventListener('DOMContentLoaded', () => {
         try { adminUsers = JSON.parse(adminDataEl.textContent); } catch (e) { adminUsers = []; }
     }
 
+    // Apply gauge arc if present
+    const arcFill = document.getElementById('gauge-arc-fill');
+    if (arcFill) {
+        const arcLen = 251.3;
+        const init = parseFloat(arcFill.dataset.progress || '0');
+        arcFill.style.strokeDashoffset = arcLen * (1 - init / 100);
+    }
+
     const adminCloseModal = () => {
         if (!adminModal) return;
         adminModal.classList.remove('show');
