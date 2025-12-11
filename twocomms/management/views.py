@@ -61,14 +61,27 @@ def _time_label(dt_local, now):
     delta = (now - dt_local).total_seconds()
     if delta >= 0:
         minutes = int(delta // 60)
+        hours = int(delta // 3600)
+        days = int(delta // 86400)
         if minutes < 1:
             return "щойно"
-        return f"{minutes} хв тому"
+        if minutes < 60:
+            return f"{minutes} хв тому"
+        if hours < 24:
+            return f"{hours} год тому"
+        return f"{days} дн тому"
     else:
-        minutes = int(abs(delta) // 60)
+        delta_abs = abs(delta)
+        minutes = int(delta_abs // 60)
+        hours = int(delta_abs // 3600)
+        days = int(delta_abs // 86400)
         if minutes < 1:
-            return "менше ніж за хвилину"
-        return f"через {minutes} хв"
+            return "за кілька секунд"
+        if minutes < 60:
+            return f"через {minutes} хв"
+        if hours < 24:
+            return f"через {hours} год"
+        return f"через {days} дн"
 
 
 def get_reminders(user, stats=None, report_sent=False):
