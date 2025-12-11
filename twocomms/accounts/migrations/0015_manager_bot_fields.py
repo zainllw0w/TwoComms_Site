@@ -4,14 +4,14 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0009_userprofile_payment_details'),
+        ('accounts', '0014_userprofile_idx_userprofile_telegram_and_more'),
     ]
 
     operations = [
         migrations.AddField(
             model_name='userprofile',
             name='tg_manager_bind_code',
-            field=models.CharField(blank=True, max_length=64, verbose_name='Код привʼязки менеджмент-бота'),
+            field=models.CharField(blank=True, max_length=64, verbose_name="Код прив'язки менеджмент-бота"),
         ),
         migrations.AddField(
             model_name='userprofile',
