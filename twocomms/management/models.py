@@ -76,6 +76,15 @@ class Report(models.Model):
         return f"Звіт {self.owner} {self.created_at:%Y-%m-%d}"
 
 
+class ReminderSent(models.Model):
+    key = models.CharField(max_length=255, db_index=True)
+    chat_id = models.BigIntegerField()
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('key', 'chat_id')
+
+
 class ReminderRead(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

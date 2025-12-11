@@ -53,7 +53,8 @@
                     <div class="notif-list">
                         {% if reminders %}
                             {% for n in reminders %}
-                            <div class="notif-item notif-{{ n.status }}" data-key="{{ n.key }}" data-eta="{{ n.eta_seconds|default:0 }}">
+                            <div class="notif-item notif-{{ n.status }}{% if n.status == 'soon' and n.eta_seconds|default:0 > 0 %} notif-countdown timer-card{% endif %}"
+                                 data-key="{{ n.key }}" data-eta="{{ n.eta_seconds|default:0 }}" data-status="{{ n.status }}" data-dt="{{ n.dt_iso|default:'' }}">
                                 <div class="notif-row">
                                     <div>
                                         <div class="notif-title">{{ n.title|default:n.shop }}</div>
@@ -259,15 +260,30 @@
 
         let countdownTimer = null;
 
+        const clampEta = (el) => {
+            const raw = parseInt(el.dataset.eta || '0', 10);
+            const statusVal = el.dataset.status || '';
+            if (statusVal === 'soon' && raw > 300) return 0;
+            return Math.max(0, raw);
+        };
+
         const applyReadState = (listItems) => {
             listItems.forEach(item => {
                 const key = item.dataset.key;
                 if (key && readKeys.has(key)) {
                     item.classList.add('read');
                 }
-                const eta = parseInt(item.dataset.eta || '0', 10);
+                const eta = clampEta(item);
+                item.dataset.eta = eta;
                 if (eta > 0) {
-                    item.classList.add('countdown');
+                    item.classList.add('countdown', 'notif-countdown', 'timer-card');
+                }
+                // ensure status is present for downstream logic
+                if (!item.dataset.status) {
+                    const classStatus = Array.from(item.classList).find(c => c.startsWith('notif-') && c !== 'notif-item' && c !== 'notif-countdown' && c !== 'timer-card');
+                    if (classStatus && !item.dataset.status) {
+                        item.dataset.status = classStatus.replace('notif-', '');
+                    }
                 }
             });
         };
@@ -276,7 +292,7 @@
         const calcCount = (listItems = items) => {
             const unread = listItems.filter(el => {
                 const isRead = el.classList.contains('read');
-                const etaVal = parseInt(el.dataset.eta || '0', 10);
+                const etaVal = clampEta(el);
                 const statusVal = el.dataset.status || '';
                 const skipSoonFar = statusVal === 'soon' && etaVal === 0;
                 return !isRead && !skipSoonFar;
@@ -376,7 +392,7 @@
             countdownTimer = setInterval(() => {
                 let changed = false;
                 listItems.forEach(item => {
-                    const eta = parseInt(item.dataset.eta || '0', 10);
+                    const eta = clampEta(item);
                     if (eta > 0) {
                         const newEta = Math.max(0, eta - 1);
                         item.dataset.eta = newEta;
