@@ -175,10 +175,14 @@
     border-radius: var(--radius-lg);
     padding: 12px;
     box-shadow: var(--shadow-lg);
-    display: block;
+    display: none;
     z-index: 50;
     max-height: 420px;
     overflow: hidden;
+}
+
+.notif-panel.show {
+    display: block;
 }
 
 .notif-header {
@@ -202,6 +206,19 @@
     max-height: 340px;
     overflow-y: auto;
     padding-right: 6px;
+}
+
+.notif-list::-webkit-scrollbar {
+    width: 6px;
+}
+.notif-list::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.04);
+    border-radius: 6px;
+}
+.notif-list::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #ffb347, #ff7e29);
+    border-radius: 6px;
+    box-shadow: 0 0 8px rgba(255,126,41,0.4);
 }
 
 .notif-item {
