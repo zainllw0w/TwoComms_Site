@@ -578,8 +578,8 @@
                             alert('Не вдалося сформувати посилання для бота. Перевірте налаштування і спробуйте ще раз.');
                             return;
                         }
-                        const webLink = `https://t.me/${encodeURIComponent(username)}?start=${encodeURIComponent(payload)}`;
-                        window.open(webLink, '_blank', 'noopener');
+                        const appLink = `tg://resolve?domain=${encodeURIComponent(username)}&start=${encodeURIComponent(payload)}`;
+                        window.open(appLink, '_blank', 'noopener');
                         }
                     })
                     .catch(() => {});
