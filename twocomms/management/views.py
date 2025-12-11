@@ -8,8 +8,13 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
 from django.db.models import Count, Q
 from django.http import JsonResponse
+from django.core.files.base import ContentFile
 
-from .models import Client
+import requests
+from io import BytesIO
+import datetime as dt
+
+from .models import Client, Report
 
 POINTS = {
     'order': 45,
@@ -36,6 +41,18 @@ def calc_points(qs):
     for c in qs:
         total += POINTS.get(c.call_result, 0)
     return total
+
+
+def get_user_stats(user):
+    base_qs = Client.objects.filter(owner=user)
+    today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_qs = base_qs.filter(created_at__gte=today_start)
+    return {
+        'points_today': calc_points(today_qs),
+        'points_total': calc_points(base_qs),
+        'processed_today': today_qs.count(),
+        'processed_total': base_qs.count(),
+    }
 
 @login_required(login_url='management_login')
 def home(request):
@@ -114,10 +131,10 @@ def home(request):
             # Сформируем актуальные данные после операции
             base_qs = Client.objects.filter(owner=request.user)
             today = timezone.localdate()
-            clients_today = base_qs.filter(created_at__date=today)
-            user_points_today = calc_points(clients_today)
-            user_points_total = calc_points(base_qs)
-            processed_today = clients_today.count()
+            stats = get_user_stats(request.user)
+            user_points_today = stats['points_today']
+            user_points_total = stats['points_total']
+            processed_today = stats['processed_today']
             progress_clients_pct = min(100, int(processed_today / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
             progress_points_pct = min(100, int(user_points_today / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
 
@@ -177,15 +194,10 @@ def home(request):
 
     clients_today = clients_qs.filter(created_at__gte=today_start)
 
-    def calc_points(qs):
-        total = 0
-        for c in qs:
-            total += POINTS.get(c.call_result, 0)
-        return total
-
-    user_points_today = calc_points(clients_today)
-    user_points_total = calc_points(clients)
-    processed_today = clients_today.count()
+    user_stats = get_user_stats(request.user)
+    user_points_today = user_stats['points_today']
+    user_points_total = user_stats['points_total']
+    processed_today = user_stats['processed_today']
 
     progress_clients_pct = min(100, int(processed_today / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
     progress_points_pct = min(100, int(user_points_today / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
