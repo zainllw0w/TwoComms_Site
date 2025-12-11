@@ -99,7 +99,8 @@ def get_reminders(user, stats=None, report_sent=False):
         status = 'due' if dt_local <= now else 'soon'
         status_key = 'due' if status == 'due' else 'soon'
         eta_raw = max(0, int((dt_local - now).total_seconds()))
-        eta_display = eta_raw if 0 < eta_raw <= REMINDER_WINDOW_MINUTES * 60 else 0
+        # Показуємо таймер лише якщо до події <= 5 хвилин
+        eta_display = eta_raw if 0 < eta_raw <= 300 else 0
         reminder = {
             'shop': c.shop_name,
             'name': c.full_name,
