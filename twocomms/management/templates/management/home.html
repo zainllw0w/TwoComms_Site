@@ -358,6 +358,14 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleCallResult();
     toggleNextCall();
 
+    // Apply initial arc progress
+    const arcFill = document.getElementById('gauge-arc-fill');
+    if (arcFill) {
+        const arcLen = 251.3;
+        const init = parseFloat(arcFill.dataset.progress || '0');
+        arcFill.style.strokeDashoffset = arcLen * (1 - init / 100);
+    }
+
     // AJAX submit to update stats instantly
     const clientForm = document.getElementById('client-form');
     clientForm.addEventListener('submit', async (e) => {
@@ -376,13 +384,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             // Update gauges
             const pointsValEl = document.getElementById('gauge-points-value');
-            const pointsBar = document.getElementById('points-bar');
+            const arcFill = document.getElementById('gauge-arc-fill');
             const pointsLegend = document.getElementById('points-legend');
             const clientsBar = document.getElementById('clients-bar');
             const clientsLegend = document.getElementById('clients-legend');
             if (pointsValEl) pointsValEl.textContent = data.user_points_today;
-            if (pointsBar) pointsBar.style.width = `${data.progress_points_pct}%`;
-            if (pointsLegend) pointsLegend.textContent = `${data.user_points_today} / ${data.target_points}`;
+            if (arcFill) {
+                const arcLen = 251.3;
+                arcFill.style.strokeDashoffset = arcLen * (1 - data.progress_points_pct / 100);
+            }
+            if (pointsLegend) pointsLegend.textContent = `Бали за сьогодні: ${data.user_points_today} / ${data.target_points}`;
             if (clientsBar) clientsBar.style.width = `${data.progress_clients_pct}%`;
             if (clientsLegend) clientsLegend.textContent = `Оброблено: ${data.processed_today} / ${data.target_clients}`;
 
