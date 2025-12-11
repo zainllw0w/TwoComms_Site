@@ -12,5 +12,6 @@ urlpatterns = [
     path('admin-panel/', views.admin_overview, name='management_admin'),
     path('reports/', views.reports, name='management_reports'),
     path('reports/send/', views.send_report, name='management_send_report'),
+    path('reminders/read/', views.reminder_read, name='management_reminder_read'),
     path('', views.home, name='management_home'),
 ]

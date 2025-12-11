@@ -74,3 +74,19 @@ class Report(models.Model):
 
     def __str__(self):
         return f"Звіт {self.owner} {self.created_at:%Y-%m-%d}"
+
+
+class ReminderRead(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="management_read_reminders",
+        verbose_name=_("Користувач"),
+    )
+    key = models.CharField(max_length=255, db_index=True)
+    read_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'key')
+        verbose_name = _("Прочитане нагадування")
+        verbose_name_plural = _("Прочитані нагадування")
