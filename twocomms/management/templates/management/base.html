@@ -28,7 +28,7 @@
         </div>
         <nav class="header-tabs">
             <a href="{% url 'management_home' %}" class="tab{% if request.resolver_match.url_name == 'management_home' %} active{% endif %}">Менеджмент</a>
-            <a href="#" class="tab">Звітність</a>
+            <a href="{% url 'management_reports' %}" class="tab{% if request.resolver_match.url_name == 'management_reports' %} active{% endif %}">Звітність</a>
             <a href="#" class="tab">Статистика</a>
             <a href="#" class="tab">Виплати</a>
             <a href="#" class="tab">Профіль</a>

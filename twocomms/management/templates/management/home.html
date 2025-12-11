@@ -12,7 +12,10 @@
                 <div class="report-title">Звіт о 19:00 (пн–пт)</div>
                 <div class="report-countdown" id="report-countdown">--:--:--</div>
             </div>
-            <button class="btn-ghost" id="report-submit">Відправити звіт</button>
+            <form method="post" action="{% url 'management_send_report' %}">
+                {% csrf_token %}
+                <button class="btn-ghost" id="report-submit" type="submit">Відправити звіт</button>
+            </form>
             <button class="btn-primary open-add-client">+ Додати клієнта</button>
         </div>
     </div>
