@@ -613,6 +613,19 @@
     border-color: rgba(239, 68, 68, 0.35);
 }
 
+.result-badge.result-waiting_payment,
+.result-badge.result-waiting_prepayment {
+    background: rgba(255, 193, 7, 0.16);
+    color: #ffe08a;
+    border-color: rgba(255, 193, 7, 0.35);
+}
+
+.result-badge.result-test_batch {
+    background: rgba(94, 234, 212, 0.18);
+    color: #c0fff3;
+    border-color: rgba(94, 234, 212, 0.4);
+}
+
 .result-badge.result-xml_connected {
     background: rgba(45, 212, 191, 0.16);
     color: #9cf2e5;
