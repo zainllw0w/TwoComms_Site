@@ -341,10 +341,11 @@
             if (data && data.length) {
                 data.forEach(n => {
                     const item = document.createElement('div');
-                    const isTimer = parseInt(n.eta_seconds || '0', 10) > 0;
-                    item.className = `notif-item notif-${n.status || 'soon'}${isTimer ? ' notif-countdown' : ''}`;
+                    const etaVal = parseInt(n.eta_seconds || '0', 10);
+                    const isTimer = etaVal > 0;
+                    item.className = `notif-item notif-${n.status || 'soon'}${isTimer ? ' notif-countdown timer-card' : ''}`;
                     item.dataset.key = n.key || '';
-                    item.dataset.eta = n.eta_seconds || 0;
+                    item.dataset.eta = etaVal || 0;
                     if (isTimer) {
                         item.innerHTML = `
                             <div class="notif-row">
@@ -352,7 +353,7 @@
                                     <div class="notif-title">${n.title || n.shop || ''}</div>
                                     ${(n.name || n.phone) ? `<div class="notif-meta">${n.name || ''}${(n.name && n.phone) ? ' • ' : ''}${n.phone || ''}</div>` : ''}
                                     <div class="notif-time timer">
-                                        <span class="notif-timer">${formatEta(parseInt(n.eta_seconds || '0', 10))}</span>
+                                        <span class="notif-timer">${formatEta(etaVal)}</span>
                                         <div class="notif-note">Потрібно зв'язатися</div>
                                     </div>
                                 </div>

@@ -251,6 +251,12 @@
     background: rgba(255,255,255,0.02);
 }
 
+.notif-countdown.timer-card {
+    background: linear-gradient(135deg, rgba(255, 126, 41, 0.08), rgba(255, 126, 41, 0.02));
+    border-color: rgba(255, 126, 41, 0.65);
+    box-shadow: 0 0 22px rgba(255, 126, 41, 0.35);
+}
+
 .notif-item:last-child {
     margin-bottom: 0;
 }
