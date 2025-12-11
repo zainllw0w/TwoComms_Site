@@ -9,6 +9,7 @@ from .models import Client
 def home(request):
     if request.method == 'POST':
         data = request.POST
+        client_id = data.get('client_id')
         shop_name = data.get('shop_name', '').strip()
         phone = data.get('phone', '').strip()
         full_name = data.get('full_name', '').strip()
@@ -44,18 +45,36 @@ def home(request):
                 next_call_at = timezone.make_aware(naive, timezone.get_current_timezone())
             except ValueError:
                 next_call_at = None
+        elif next_call_type == 'no_follow':
+            next_call_at = None
 
         if shop_name and phone and full_name:
-            Client.objects.create(
-                shop_name=shop_name,
-                phone=phone,
-                full_name=full_name,
-                role=role,
-                source=source_display,
-                call_result=call_result,
-                call_result_details="\n".join(call_result_details_parts),
-                next_call_at=next_call_at,
-            )
+            details = "\n".join(call_result_details_parts)
+            if client_id:
+                try:
+                    client = Client.objects.get(id=client_id)
+                    client.shop_name = shop_name
+                    client.phone = phone
+                    client.full_name = full_name
+                    client.role = role
+                    client.source = source_display
+                    client.call_result = call_result
+                    client.call_result_details = details
+                    client.next_call_at = next_call_at
+                    client.save()
+                except Client.DoesNotExist:
+                    pass
+            else:
+                Client.objects.create(
+                    shop_name=shop_name,
+                    phone=phone,
+                    full_name=full_name,
+                    role=role,
+                    source=source_display,
+                    call_result=call_result,
+                    call_result_details=details,
+                    next_call_at=next_call_at,
+                )
         return redirect('management_home')
 
     clients = Client.objects.all().order_by('-created_at')[:100]

@@ -540,6 +540,36 @@
     background: rgba(255, 255, 255, 0.02);
 }
 
+.actions-cell {
+    text-align: right;
+}
+
+.icon-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.icon-btn:hover {
+    color: var(--accent);
+    border-color: rgba(255, 126, 41, 0.35);
+    box-shadow: 0 0 12px rgba(255, 126, 41, 0.2);
+}
+
+.icon-btn svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+}
+
 /* Modal */
 .modal-overlay {
     position: fixed;

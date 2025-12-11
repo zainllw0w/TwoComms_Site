@@ -28,11 +28,21 @@
                             <th>Джерело</th>
                             <th>Результат</th>
                             <th>Наступний дзвінок</th>
+                            <th class="col-actions">Дія</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for client in items %}
-                        <tr>
+                        <tr data-client-id="{{ client.id }}"
+                            data-shop="{{ client.shop_name|escape }}"
+                            data-phone="{{ client.phone|escape }}"
+                            data-full-name="{{ client.full_name|escape }}"
+                            data-role="{{ client.role }}"
+                            data-source="{{ client.source|escape }}"
+                            data-call-result="{{ client.call_result }}"
+                            data-call-details="{{ client.call_result_details|escape }}"
+                            data-next-call-date="{{ client.next_call_at|date:'Y-m-d' }}"
+                            data-next-call-time="{{ client.next_call_at|date:'H:i' }}">
                             <td>{{ client.shop_name }}</td>
                             <td>{{ client.phone }}</td>
                             <td>{{ client.full_name }}</td>
@@ -50,6 +60,13 @@
                                 {% else %}
                                     –
                                 {% endif %}
+                            </td>
+                            <td class="actions-cell">
+                                <button type="button" class="icon-btn edit-client" aria-label="Редагувати">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"/>
+                                    </svg>
+                                </button>
                             </td>
                         </tr>
                         {% endfor %}
@@ -76,6 +93,7 @@
         <form id="client-form" method="post" class="modal-body">
             {% csrf_token %}
             <div class="field-grid">
+                <input type="hidden" name="client_id" id="client_id" value="">
                 <div class="field">
                     <label for="shop_name">Магазин / Instagram</label>
                     <input type="text" id="shop_name" name="shop_name" placeholder="@shop або назва" required>
@@ -172,6 +190,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextCallWrap = document.getElementById('next_call_datetime');
     const nextCallDate = document.getElementById('next_call_date');
     const nextCallTime = document.getElementById('next_call_time');
+    const clientIdInput = document.getElementById('client_id');
+    const shopNameInput = document.getElementById('shop_name');
+    const phoneInput = document.getElementById('phone');
+    const fullNameInput = document.getElementById('full_name');
+    const modalTitle = document.querySelector('.modal-header h3');
+    const modalSubmit = modal.querySelector('.modal-footer .btn-primary');
+    const editButtons = document.querySelectorAll('.edit-client');
 
     const setDefaultDateTime = () => {
         const now = new Date();
@@ -193,7 +218,6 @@ document.addEventListener('DOMContentLoaded', () => {
         body.classList.remove('modal-open');
     };
 
-    openButtons.forEach(btn => btn.addEventListener('click', openModal));
     closeButtons.forEach(btn => btn.addEventListener('click', closeModal));
     modal.addEventListener('click', (e) => {
         if (e.target === modal) closeModal();
@@ -229,6 +253,84 @@ document.addEventListener('DOMContentLoaded', () => {
             setDefaultDateTime();
         }
     };
+
+    const resetForm = () => {
+        document.getElementById('client-form').reset();
+        clientIdInput.value = '';
+        setDefaultDateTime();
+        document.querySelector('input[name="next_call_type"][value="scheduled"]').checked = true;
+        toggleRole();
+        toggleSource();
+        toggleCallResult();
+        toggleNextCall();
+    };
+
+    const mapSourceValue = (sourceText) => {
+        const text = (sourceText || '').toLowerCase();
+        if (text.includes('instagram')) return { val: 'instagram', link: '', other: '' };
+        if (text.includes('prom')) return { val: 'prom_ua', link: '', other: '' };
+        if (text.includes('google')) return { val: 'google_maps', link: '', other: '' };
+        if (text.includes('сайти') || text.includes('форум')) {
+            const parts = sourceText.split(':');
+            return { val: 'forums', link: parts.slice(1).join(':').trim(), other: '' };
+        }
+        return { val: 'other', link: '', other: sourceText };
+    };
+
+    const fillFormForEdit = (row) => {
+        const cid = row.dataset.clientId || '';
+        clientIdInput.value = cid;
+        shopNameInput.value = row.dataset.shop || '';
+        phoneInput.value = row.dataset.phone || '';
+        fullNameInput.value = row.dataset.fullName || '';
+        roleSelect.value = row.dataset.role || 'manager';
+        roleCustom.value = roleSelect.value === 'other' ? (row.dataset.callDetails || '').replace('Роль: ', '') : '';
+
+        const mapped = mapSourceValue(row.dataset.source || '');
+        sourceSelect.value = mapped.val;
+        sourceLink.value = mapped.link;
+        sourceOther.value = mapped.other;
+
+        callResultSelect.value = row.dataset.callResult || 'thinking';
+        callResultOther.value = callResultSelect.value === 'other'
+            ? (row.dataset.callDetails || '').replace('Інше: ', '').trim()
+            : '';
+
+        if (row.dataset.nextCallDate && row.dataset.nextCallTime) {
+            document.querySelector('input[name="next_call_type"][value="scheduled"]').checked = true;
+            nextCallDate.value = row.dataset.nextCallDate;
+            nextCallTime.value = row.dataset.nextCallTime;
+        } else {
+            document.querySelector('input[name="next_call_type"][value="no_follow"]').checked = true;
+            nextCallDate.value = '';
+            nextCallTime.value = '';
+        }
+
+        modalTitle.textContent = 'Редагувати клієнта';
+        modalSubmit.textContent = 'Оновити';
+
+        toggleRole();
+        toggleSource();
+        toggleCallResult();
+        toggleNextCall();
+    };
+
+    const openCreate = () => {
+        resetForm();
+        modalTitle.textContent = 'Додати клієнта';
+        modalSubmit.textContent = 'Зберегти';
+        openModal();
+    };
+
+    openButtons.forEach(btn => btn.addEventListener('click', openCreate));
+    editButtons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const row = e.currentTarget.closest('tr');
+            if (!row) return;
+            fillFormForEdit(row);
+            openModal();
+        });
+    });
 
     roleSelect.addEventListener('change', toggleRole);
     sourceSelect.addEventListener('change', toggleSource);
