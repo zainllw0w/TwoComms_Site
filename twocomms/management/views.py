@@ -93,9 +93,12 @@ def get_reminders(user, stats=None, report_sent=False):
             'status': status,
             'kind': 'call',
             'dt': dt_local,
+            'eta_seconds': max(0, int((dt_local - now).total_seconds())),
+            'key': f"call-{c.id}-{int(dt_local.timestamp())}",
         })
-    if stats and stats.get('processed_today', 0) > 0 and not report_sent:
-        # Добавляем нагадування про звіт
+    # Додаємо нагадування про звіт після 19:00 у будні, якщо є клієнти і звіт не відправлений
+    weekday = now.weekday()  # 0 Mon ... 6 Sun
+    if stats and stats.get('processed_today', 0) > 0 and not report_sent and weekday < 5 and now.hour >= 19:
         dt_local = now
         reminders.append({
             'shop': 'Звітність',
@@ -107,9 +110,11 @@ def get_reminders(user, stats=None, report_sent=False):
             'kind': 'report',
             'title': 'Потрібно відправити звіт',
             'dt': dt_local,
+            'eta_seconds': 0,
+            'key': f"report-{dt_local.strftime('%Y%m%d')}",
         })
     reminders.sort(key=lambda x: x.get('dt', now), reverse=True)
-    return reminders
+    return reminders[:5]
 
 
 def get_user_stats(user):
