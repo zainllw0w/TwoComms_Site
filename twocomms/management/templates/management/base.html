@@ -294,6 +294,15 @@
             });
         };
 
+        const formatEta = (eta) => {
+            const m = Math.floor(eta / 60);
+            const s = eta % 60;
+            if (m > 0) {
+                return `через ${m} хв ${s.toString().padStart(2,'0')} с`;
+            }
+            return `через ${s} с`;
+        };
+
         const startCountdown = (listItems = items) => {
             if (countdownTimer) clearInterval(countdownTimer);
             if (!listItems.length) return;
@@ -314,10 +323,7 @@
                             if (btn) btn.style.display = '';
                             changed = true;
                         } else {
-                            const minutes = Math.floor(newEta / 60);
-                            const seconds = newEta % 60;
-                            const label = minutes > 0 ? `через ${minutes} хв ${seconds.toString().padStart(2,'0')} с` : `через ${seconds} с`;
-                            if (timeLabel) timeLabel.textContent = label;
+                            if (timeLabel) timeLabel.textContent = formatEta(newEta);
                         }
                     }
                 });
@@ -342,7 +348,9 @@
                             <div>
                                 <div class="notif-title">${n.title || n.shop || ''}</div>
                                 ${(n.name || n.phone) ? `<div class="notif-meta">${n.name || ''}${(n.name && n.phone) ? ' • ' : ''}${n.phone || ''}</div>` : ''}
-                                <div class="notif-time">${n.time_label || ''}</div>
+                                <div class="notif-time ${parseInt(n.eta_seconds || '0', 10) > 0 ? 'timer' : ''}">
+                                    ${parseInt(n.eta_seconds || '0', 10) > 0 ? `<span class="notif-timer">${formatEta(parseInt(n.eta_seconds || '0', 10))}</span>` : (n.time_label || '')}
+                                </div>
                             </div>
                             <button type="button" class="icon-btn ghost notif-done" aria-label="Позначити як прочитане">
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
