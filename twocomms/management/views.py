@@ -87,7 +87,8 @@ def home(request):
 
     base_qs = Client.objects.select_related('owner').order_by('-created_at')
     if request.user.is_staff:
-        clients = base_qs[:200]
+        # Адміни в основній панелі бачать свої власні записи, як і звичайні менеджери
+        clients = base_qs.filter(owner=request.user)[:200]
     else:
         clients = base_qs.filter(owner=request.user)[:200]
 
@@ -112,10 +113,12 @@ def home(request):
     if request.user.is_staff:
         User = get_user_model()
         today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        users = User.objects.filter(is_active=True).annotate(
+        users = User.objects.filter(is_active=True).filter(
+            Q(is_staff=True) | Q(management_clients__isnull=False)
+        ).annotate(
             total_clients=Count('management_clients', distinct=True),
             today_clients=Count('management_clients', filter=Q(management_clients__created_at__gte=today_start), distinct=True),
-        )
+        ).distinct()
         for u in users:
             last_login = u.last_login
             online = False
