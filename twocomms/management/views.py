@@ -57,8 +57,22 @@ def has_report_today(user):
     return Report.objects.filter(owner=user, created_at__gte=start, created_at__lt=end).exists()
 
 
-def get_reminders(user):
-    """Return upcoming/due follow-ups for bell notifications."""
+def _time_label(dt_local, now):
+    delta = (now - dt_local).total_seconds()
+    if delta >= 0:
+        minutes = int(delta // 60)
+        if minutes < 1:
+            return "щойно"
+        return f"{minutes} хв тому"
+    else:
+        minutes = int(abs(delta) // 60)
+        if minutes < 1:
+            return "менше ніж за хвилину"
+        return f"через {minutes} хв"
+
+
+def get_reminders(user, stats=None, report_sent=False):
+    """Return upcoming/due follow-ups + report reminder."""
     now = timezone.localtime(timezone.now())
     soon = now + timedelta(minutes=5)
     qs = Client.objects.filter(
@@ -75,7 +89,21 @@ def get_reminders(user):
             'name': c.full_name,
             'phone': c.phone,
             'when': dt_local.strftime('%d.%m %H:%M'),
+            'time_label': _time_label(dt_local, now),
             'status': status,
+            'kind': 'call',
+        })
+    if stats and stats.get('processed_today', 0) > 0 and not report_sent:
+        # Добавляем нагадування про звіт
+        reminders.append({
+            'shop': 'Звітність',
+            'name': '',
+            'phone': '',
+            'when': now.strftime('%d.%m %H:%M'),
+            'time_label': "щойно",
+            'status': 'report',
+            'kind': 'report',
+            'title': 'Потрібно відправити звіт',
         })
     return reminders
 
@@ -326,7 +354,7 @@ def home(request):
     user_points_total = user_stats['points_total']
     processed_today = user_stats['processed_today']
     report_sent_today = has_report_today(request.user)
-    reminders = get_reminders(request.user)
+    reminders = get_reminders(request.user, stats=user_stats, report_sent=report_sent_today)
 
     progress_clients_pct = min(100, int(processed_today / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
     progress_points_pct = min(100, int(user_points_today / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
@@ -418,7 +446,10 @@ def admin_overview(request):
             ]
         })
 
-    reminders = get_reminders(request.user)
+    reminders = get_reminders(request.user, stats={
+        'points_today': user_points_today,
+        'processed_today': processed_today,
+    }, report_sent=report_sent_today)
 
     return render(request, 'management/admin.html', {
         'admin_user_data': admin_user_data,
@@ -486,7 +517,7 @@ def reports(request):
     stats = get_user_stats(request.user)
     progress_clients_pct = min(100, int(stats['processed_today'] / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
     progress_points_pct = min(100, int(stats['points_today'] / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
-    reminders = get_reminders(request.user)
+    reminders = get_reminders(request.user, stats=stats, report_sent=report_sent_today)
 
     return render(request, 'management/reports.html', {
         'reports': reports_list,
