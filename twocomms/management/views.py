@@ -79,7 +79,7 @@ def get_reminders(user, stats=None, report_sent=False):
         owner=user,
         next_call_at__isnull=False,
         next_call_at__lte=soon
-    ).select_related('owner').order_by('next_call_at')[:50]
+    ).select_related('owner').order_by('-next_call_at')[:50]
     reminders = []
     for c in qs:
         dt_local = timezone.localtime(c.next_call_at)
@@ -92,19 +92,23 @@ def get_reminders(user, stats=None, report_sent=False):
             'time_label': _time_label(dt_local, now),
             'status': status,
             'kind': 'call',
+            'dt': dt_local,
         })
     if stats and stats.get('processed_today', 0) > 0 and not report_sent:
         # Добавляем нагадування про звіт
+        dt_local = now
         reminders.append({
             'shop': 'Звітність',
             'name': '',
             'phone': '',
-            'when': now.strftime('%d.%m %H:%M'),
+            'when': dt_local.strftime('%d.%m %H:%M'),
             'time_label': "щойно",
             'status': 'report',
             'kind': 'report',
             'title': 'Потрібно відправити звіт',
+            'dt': dt_local,
         })
+    reminders.sort(key=lambda x: x.get('dt', now), reverse=True)
     return reminders
 
 
