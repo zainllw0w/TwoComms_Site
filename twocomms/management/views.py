@@ -99,8 +99,6 @@ def get_reminders(user, stats=None, report_sent=False):
         status = 'due' if dt_local <= now else 'soon'
         status_key = 'due' if status == 'due' else 'soon'
         eta_raw = max(0, int((dt_local - now).total_seconds()))
-        # Показуємо таймер лише якщо до події <= 5 хвилин
-        eta_display = eta_raw if 0 < eta_raw <= 300 else 0
         reminder = {
             'shop': c.shop_name,
             'name': c.full_name,
@@ -111,7 +109,7 @@ def get_reminders(user, stats=None, report_sent=False):
             'kind': 'call',
             'dt': dt_local,
             'dt_iso': dt_local.isoformat(),
-            'eta_seconds': eta_display,
+            'eta_seconds': eta_raw,
             'key': f"call-{c.id}-{int(dt_local.timestamp())}-{status_key}",
         }
         # Таймерные (soon) всегда считаем непрочитанными, чтобы не блекли
