@@ -572,16 +572,14 @@
                             bindVal.textContent = data.code;
                             bindExp.textContent = `Діє до: ${data.expires}`;
                             bindBox.style.display = 'block';
-                        const username = data.bot_username || botUsernameFromPage;
-                        if (!username) {
-                            alert('Бот тимчасово недоступний. Перевірте налаштування бота або повідомте адміністратора.');
+                        const username = (data.bot_username || botUsernameFromPage || '').trim();
+                        const payload = (data.code || '').trim();
+                        if (!username || !payload) {
+                            alert('Не вдалося сформувати посилання для бота. Перевірте налаштування і спробуйте ще раз.');
                             return;
                         }
-                        const appLink = `tg://resolve?domain=${username}&start=${data.code}`;
-                        const webLink = `https://t.me/${username}?start=${data.code}`;
-                        // Сначала пробуем відкрити застосунок, потім — веб як запасний варіант
-                        window.open(appLink, '_blank', 'noopener');
-                        setTimeout(() => window.open(webLink, '_blank', 'noopener'), 500);
+                        const webLink = `https://t.me/${encodeURIComponent(username)}?start=${encodeURIComponent(payload)}`;
+                        window.open(webLink, '_blank', 'noopener');
                         }
                     })
                     .catch(() => {});
