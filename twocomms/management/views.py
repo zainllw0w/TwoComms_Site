@@ -113,8 +113,9 @@ def get_reminders(user, stats=None, report_sent=False):
             'eta_seconds': eta_display,
             'key': f"call-{c.id}-{int(dt_local.timestamp())}-{status_key}",
         }
-        reminder['read'] = reminder['key'] in read_keys
-        # "soon" таймер всегда показываем, due тоже показываем, просто помечаем read
+        # Таймерные (soon) всегда считаем непрочитанными, чтобы не блекли
+        reminder['read'] = False if status == 'soon' else reminder['key'] in read_keys
+        # "soon" таймер и due показываем всегда, read влияет только на прозрачность у due
         reminders.append(reminder)
     # Додаємо нагадування про звіт після 19:00 у будні, якщо є клієнти і звіт не відправлений
     weekday = now.weekday()  # 0 Mon ... 6 Sun
