@@ -3,49 +3,242 @@
 {% block content %}
 <div class="clients-panel">
     <div class="panel-header">
-        <h2>Панель керування клієнтами</h2>
-        <button class="btn-primary">+ Додати клієнта</button>
+        <div>
+            <p class="eyebrow">Активні контакти</p>
+            <h2>Панель керування клієнтами</h2>
+        </div>
+        <div class="panel-actions">
+            <button class="btn-ghost">Експорт</button>
+            <button class="btn-primary open-add-client">+ Додати клієнта</button>
+        </div>
     </div>
 
-    <table class="nexus-table">
-        <thead>
-            <tr>
-                <th>Магазин/Insta</th>
-                <th>Телефон</th>
-                <th>ПІБ</th>
-                <th>Статус</th>
-                <th>Джерело</th>
-                <th>Результат</th>
-                <th>Наступний дзвінок</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for client in clients %}
-            <tr>
-                <td>{{ client.shop_name }}</td>
-                <td>{{ client.phone }}</td>
-                <td>{{ client.full_name }}</td>
-                <td><span class="status-badge">{{ client.get_role_display }}</span></td>
-                <td>{{ client.source }}</td>
-                <td>{{ client.get_call_result_display }}</td>
-                <td>{{ client.next_call_at|default:"-" }}</td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="7" class="table-empty">Немає даних. Додайте першого клієнта.</td>
-            </tr>
-            {% endfor %}
-            <!-- Mock Data for Visual Verification -->
-            <tr>
-                <td>@beautyshop_ua</td>
-                <td>+380 99 123 45 67</td>
-                <td>Ivanenko Maria</td>
-                <td><span class="status-badge status-manager">Менеджер</span></td>
-                <td>Instagram</td>
-                <td>Thinking</td>
-                <td>Завтра 14:00</td>
-            </tr>
-        </tbody>
-    </table>
+    {% if grouped_clients %}
+        {% for label, items in grouped_clients %}
+        <div class="date-group">
+            <div class="date-chip">{{ label }}</div>
+            <div class="table-shell">
+                <table class="nexus-table">
+                    <thead>
+                        <tr>
+                            <th>Магазин/Insta</th>
+                            <th>Телефон</th>
+                            <th>ПІБ</th>
+                            <th>Статус</th>
+                            <th>Джерело</th>
+                            <th>Результат</th>
+                            <th>Наступний дзвінок</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for client in items %}
+                        <tr>
+                            <td>{{ client.shop_name }}</td>
+                            <td>{{ client.phone }}</td>
+                            <td>{{ client.full_name }}</td>
+                            <td><span class="status-badge{% if client.role == 'manager' %} status-manager{% endif %}">{{ client.get_role_display }}</span></td>
+                            <td>{{ client.source }}</td>
+                            <td>
+                                {{ client.get_call_result_display }}
+                                {% if client.call_result_details %}
+                                    <span class="muted-detail">• {{ client.call_result_details }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if client.next_call_at %}
+                                    {{ client.next_call_at|date:"d.m.Y H:i" }}
+                                {% else %}
+                                    –
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="table-empty">Немає даних. Додайте першого клієнта.</div>
+    {% endif %}
 </div>
+
+<!-- Modal: Add Client -->
+<div id="client-modal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div>
+                <p class="eyebrow">Новий контакт</p>
+                <h3>Додати клієнта</h3>
+            </div>
+            <button type="button" class="modal-close" aria-label="Закрити">×</button>
+        </div>
+        <form id="client-form" method="post" class="modal-body">
+            {% csrf_token %}
+            <div class="field-grid">
+                <div class="field">
+                    <label for="shop_name">Магазин / Instagram</label>
+                    <input type="text" id="shop_name" name="shop_name" placeholder="@shop або назва" required>
+                </div>
+                <div class="field">
+                    <label for="phone">Номер телефону</label>
+                    <input type="tel" id="phone" name="phone" placeholder="+380..." required>
+                </div>
+                <div class="field">
+                    <label for="full_name">ПІБ</label>
+                    <input type="text" id="full_name" name="full_name" placeholder="ПІБ" required>
+                </div>
+                <div class="field">
+                    <label for="role">Статус людини</label>
+                    <select id="role" name="role">
+                        <option value="manager">Управляючий</option>
+                        <option value="manager">Менеджер</option>
+                        <option value="realizer">Реалізатор</option>
+                        <option value="other">Інше</option>
+                    </select>
+                    <input type="text" id="role_custom" name="role_custom" class="field-conditional" placeholder="Кого саме?" />
+                </div>
+                <div class="field">
+                    <label for="source">Де взяли контакт</label>
+                    <select id="source" name="source">
+                        <option value="instagram">Instagram</option>
+                        <option value="prom_ua">Prom.ua</option>
+                        <option value="google_maps">Google Карти</option>
+                        <option value="forums">Сайти / форуми</option>
+                        <option value="other">Інше</option>
+                    </select>
+                    <input type="url" id="source_link" name="source_link" class="field-conditional" placeholder="Вкажіть лінк" />
+                    <input type="text" id="source_other" name="source_other" class="field-conditional" placeholder="Що саме?" />
+                </div>
+                <div class="field">
+                    <label for="call_result">Ітог розмови</label>
+                    <select id="call_result" name="call_result">
+                        <option value="order">Оформив замовлення</option>
+                        <option value="sent_email">Відправили КП на e-mail</option>
+                        <option value="sent_messenger">Відправили КП у месенджери</option>
+                        <option value="wrote_ig">Написали в Instagram</option>
+                        <option value="no_answer">Не відповідає</option>
+                        <option value="not_interested">Не цікавить</option>
+                        <option value="invalid_number">Номер недоступний</option>
+                        <option value="xml_connected">Підключив XML</option>
+                        <option value="thinking">Подумає</option>
+                        <option value="expensive">Дорого</option>
+                        <option value="other">Інше</option>
+                    </select>
+                    <textarea id="call_result_other" name="call_result_other" class="field-conditional" placeholder="Що саме інше?"></textarea>
+                </div>
+                <div class="field field-span-2">
+                    <label>Наступний дзвінок</label>
+                    <div class="next-call-options">
+                        <label class="pill-radio">
+                            <input type="radio" name="next_call_type" value="scheduled" checked>
+                            <span>Дата та час</span>
+                        </label>
+                        <label class="pill-radio">
+                            <input type="radio" name="next_call_type" value="no_follow">
+                            <span>Неконверcійний клієнт</span>
+                        </label>
+                    </div>
+                    <div class="next-call-datetime" id="next_call_datetime">
+                        <input type="date" id="next_call_date" name="next_call_date">
+                        <input type="time" id="next_call_time" name="next_call_time">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-ghost modal-close">Відмінити</button>
+                <button type="submit" class="btn-primary">Зберегти</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('client-modal');
+    const body = document.body;
+    const openButtons = document.querySelectorAll('.open-add-client');
+    const closeButtons = modal.querySelectorAll('.modal-close');
+    const roleSelect = document.getElementById('role');
+    const roleCustom = document.getElementById('role_custom');
+    const sourceSelect = document.getElementById('source');
+    const sourceLink = document.getElementById('source_link');
+    const sourceOther = document.getElementById('source_other');
+    const callResultSelect = document.getElementById('call_result');
+    const callResultOther = document.getElementById('call_result_other');
+    const nextCallRadios = document.querySelectorAll('input[name="next_call_type"]');
+    const nextCallWrap = document.getElementById('next_call_datetime');
+    const nextCallDate = document.getElementById('next_call_date');
+    const nextCallTime = document.getElementById('next_call_time');
+
+    const setDefaultDateTime = () => {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() + 30);
+        const dateIso = now.toISOString().slice(0, 10);
+        const timeIso = now.toTimeString().slice(0, 5);
+        nextCallDate.value = dateIso;
+        nextCallTime.value = timeIso;
+    };
+    setDefaultDateTime();
+
+    const openModal = () => {
+        modal.classList.add('show');
+        body.classList.add('modal-open');
+    };
+
+    const closeModal = () => {
+        modal.classList.remove('show');
+        body.classList.remove('modal-open');
+    };
+
+    openButtons.forEach(btn => btn.addEventListener('click', openModal));
+    closeButtons.forEach(btn => btn.addEventListener('click', closeModal));
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+
+    const toggleRole = () => {
+        const show = roleSelect.value === 'other';
+        roleCustom.style.display = show ? 'block' : 'none';
+        if (!show) roleCustom.value = '';
+    };
+
+    const toggleSource = () => {
+        sourceLink.style.display = sourceSelect.value === 'forums' ? 'block' : 'none';
+        sourceOther.style.display = sourceSelect.value === 'other' ? 'block' : 'none';
+        if (sourceSelect.value !== 'forums') sourceLink.value = '';
+        if (sourceSelect.value !== 'other') sourceOther.value = '';
+    };
+
+    const toggleCallResult = () => {
+        const show = callResultSelect.value === 'other';
+        callResultOther.style.display = show ? 'block' : 'none';
+        if (!show) callResultOther.value = '';
+    };
+
+    const toggleNextCall = () => {
+        const selected = document.querySelector('input[name="next_call_type"]:checked');
+        const show = selected && selected.value === 'scheduled';
+        nextCallWrap.style.display = show ? 'flex' : 'none';
+        if (!show) {
+            nextCallDate.value = '';
+            nextCallTime.value = '';
+        } else if (!nextCallDate.value || !nextCallTime.value) {
+            setDefaultDateTime();
+        }
+    };
+
+    roleSelect.addEventListener('change', toggleRole);
+    sourceSelect.addEventListener('change', toggleSource);
+    callResultSelect.addEventListener('change', toggleCallResult);
+    nextCallRadios.forEach(r => r.addEventListener('change', toggleNextCall));
+
+    toggleRole();
+    toggleSource();
+    toggleCallResult();
+    toggleNextCall();
+});
+</script>
 {% endblock %}
