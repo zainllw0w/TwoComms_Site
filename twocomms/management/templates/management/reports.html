@@ -57,16 +57,17 @@
                                             <div class="overview-main">
                                                 <div class="overview-shop">{{ c.shop }}</div>
                                                 <div class="overview-date">{{ c.created }}</div>
-                                            </div>
-                                            <div class="overview-result result-{{ c.result_code }}">{{ c.result }}</div>
+                                            <div class="overview-sub">{{ c.full_name }} • {{ c.phone }}</div>
+                                        </div>
+                                        <div class="overview-meta">
+                                                <span class="status-badge role-{{ c.role_code|default_if_none:'manager' }}">{{ c.role }}</span>
+                                                <span class="overview-result result-{{ c.result_code }}">{{ c.result }}</span>
+                                        </div>
                                             <button type="button" class="icon-btn ghost toggle-details" aria-label="Деталі">
                                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
                                             </button>
                                         </div>
                                         <div class="overview-details">
-                                            <div><span class="muted">ПІБ:</span> {{ c.full_name }}</div>
-                                            <div><span class="muted">Телефон:</span> {{ c.phone }}</div>
-                                            <div><span class="muted">Статус:</span> {{ c.role }}</div>
                                             <div><span class="muted">Джерело:</span> {{ c.source }}</div>
                                             <div><span class="muted">Підсумок:</span> {{ c.result }}{% if c.details %} • {{ c.details }}{% endif %}</div>
                                             <div><span class="muted">Наступний дзвінок:</span> {{ c.next_call }}</div>
