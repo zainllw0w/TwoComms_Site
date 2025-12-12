@@ -70,6 +70,17 @@ def _load_env_tokens():
 _load_env_tokens()
 
 
+def user_is_management(user):
+    if not user.is_authenticated:
+        return False
+    try:
+        prof = user.userprofile
+        is_manager = getattr(prof, 'is_manager', False)
+    except UserProfile.DoesNotExist:
+        is_manager = False
+    return user.is_staff or user.is_superuser or is_manager
+
+
 def calc_points(qs):
     total = 0
     for c in qs:
@@ -304,6 +315,8 @@ def send_telegram_report(user, stats, clients, file_bytes, filename):
 
 @login_required(login_url='management_login')
 def home(request):
+    if not user_is_management(request.user):
+        return redirect('management_login')
     if request.method == 'POST':
         data = request.POST
         client_id = data.get('client_id')
@@ -469,6 +482,8 @@ def home(request):
 
 @login_required(login_url='management_login')
 def delete_client(request, client_id):
+    if not user_is_management(request.user):
+        return redirect('management_login')
     if request.method != 'POST':
         return redirect('management_home')
     try:
@@ -563,6 +578,8 @@ def admin_overview(request):
 
 @login_required(login_url='management_login')
 def reports(request):
+    if not user_is_management(request.user):
+        return redirect('management_home')
     if not (request.user.is_staff or Client.objects.filter(owner=request.user).exists()):
         return render(request, 'management/reports.html', {'denied': True})
 
@@ -636,6 +653,8 @@ def reports(request):
 def send_report(request):
     if request.method != 'POST':
         return redirect('management_reports')
+    if not user_is_management(request.user):
+        return redirect('management_home')
     if not (request.user.is_staff or Client.objects.filter(owner=request.user).exists()):
         return redirect('management_reports')
 
@@ -664,6 +683,8 @@ def send_report(request):
 
 @login_required(login_url='management_login')
 def reminder_read(request):
+    if not user_is_management(request.user):
+        return JsonResponse({'ok': False}, status=403)
     if request.method != 'POST':
         return JsonResponse({'ok': False}, status=400)
     try:
@@ -679,6 +700,8 @@ def reminder_read(request):
 
 @login_required(login_url='management_login')
 def reminder_feed(request):
+    if not user_is_management(request.user):
+        return JsonResponse({'reminders': []})
     stats = get_user_stats(request.user)
     report_sent = has_report_today(request.user)
     reminders = get_reminders(request.user, stats=stats, report_sent=report_sent)
@@ -706,6 +729,8 @@ def reminder_feed(request):
 @login_required(login_url='management_login')
 @require_POST
 def profile_update(request):
+    if not user_is_management(request.user):
+        return JsonResponse({'ok': False}, status=403)
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
     full_name = request.POST.get('full_name', '').strip()
     email = request.POST.get('email', '').strip()
@@ -723,6 +748,8 @@ def profile_update(request):
 @login_required(login_url='management_login')
 @require_POST
 def profile_bind_code(request):
+    if not user_is_management(request.user):
+        return JsonResponse({'ok': False}, status=403)
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
     code = secrets.token_hex(3)
     expires_at = timezone.now() + timedelta(minutes=10)
