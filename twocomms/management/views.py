@@ -157,6 +157,7 @@ def get_reminders(user, stats=None, report_sent=False):
         # Пропускаємо майбутні дзвінки, якщо більше ніж 5 хв
         if status == 'soon' and eta_raw > 300:
             continue
+        is_timer = status == 'soon' and eta_raw > 0
         reminder = {
             'shop': c.shop_name,
             'name': c.full_name,
@@ -169,6 +170,7 @@ def get_reminders(user, stats=None, report_sent=False):
             'dt_iso': dt_local.isoformat(),
             'eta_seconds': eta_raw,
             'key': f"call-{c.id}-{int(dt_local.timestamp())}-{status_key}",
+            'is_timer': is_timer,
         }
         # Таймерные (soon) всегда считаем непрочитанными, чтобы не блекли
         reminder['read'] = False if status == 'soon' else reminder['key'] in read_keys

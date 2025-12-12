@@ -52,11 +52,10 @@
                     </div>
                     <div class="notif-list">
                         {% if reminders %}
-                            {% for n in reminders %}
-                            {% with is_timer=n.status == 'soon' and n.eta_seconds|default:0 > 0 %}
-                            <div class="notif-item notif-{{ n.status }}{% if is_timer %} notif-countdown timer-card{% endif %}"
+                        {% for n in reminders %}
+                            <div class="notif-item notif-{{ n.status }}{% if n.is_timer %} notif-countdown timer-card{% endif %}"
                                  data-key="{{ n.key }}" data-eta="{{ n.eta_seconds|default:0 }}" data-status="{{ n.status }}" data-dt="{{ n.dt_iso|default:'' }}">
-                                {% if is_timer %}
+                                {% if n.is_timer %}
                                 <div class="notif-row">
                                     <div>
                                         <div class="notif-title">{{ n.title|default:n.shop }}</div>
@@ -84,7 +83,6 @@
                                 </div>
                                 {% endif %}
                             </div>
-                            {% endwith %}
                             {% endfor %}
                         {% else %}
                             <div class="notif-empty">Нагадувань немає</div>
