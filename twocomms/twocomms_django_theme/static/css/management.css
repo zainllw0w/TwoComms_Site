@@ -1046,6 +1046,233 @@
     overflow-y: auto;
 }
 
+.admin-overview-subtitle {
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 0.95rem;
+}
+
+.admin-overview-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.admin-overview-toolbar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.admin-overview-search {
+    flex: 1;
+    min-width: 240px;
+}
+
+.admin-overview-search input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 12px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+}
+
+.admin-overview-chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.admin-chip {
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(255,255,255,0.04);
+    color: var(--text-secondary);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+}
+
+.admin-chip.accent {
+    border-color: rgba(255, 126, 41, 0.35);
+    background: rgba(255, 126, 41, 0.10);
+    color: #ffb347;
+    box-shadow: 0 0 16px rgba(255, 126, 41, 0.18);
+}
+
+.admin-overview-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.overview-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.overview-group-title {
+    color: var(--muted);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 12px;
+    padding: 2px 2px;
+}
+
+.client-item {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.02);
+    overflow: hidden;
+}
+
+.client-item[open] {
+    border-color: rgba(255, 126, 41, 0.35);
+    box-shadow: 0 0 22px rgba(255, 126, 41, 0.15);
+}
+
+.client-summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 12px;
+}
+
+.client-summary::-webkit-details-marker { display: none; }
+
+.client-left { flex: 1; min-width: 0; }
+.client-shop {
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: 0.02em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.client-sub {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.client-right {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.client-created {
+    color: var(--muted);
+    font-size: 12px;
+    white-space: nowrap;
+    margin-left: 2px;
+}
+
+.pill {
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.04);
+    color: var(--text-secondary);
+    font-weight: 800;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+}
+
+.pill.points {
+    border-color: rgba(255, 126, 41, 0.30);
+    background: rgba(255, 126, 41, 0.10);
+    color: #ffb347;
+}
+
+.pill.next {
+    border-color: rgba(148, 163, 184, 0.30);
+    background: rgba(148, 163, 184, 0.08);
+    color: #cbd5e1;
+}
+.pill.next-due {
+    border-color: rgba(239, 68, 68, 0.45);
+    background: rgba(239, 68, 68, 0.12);
+    color: #fecaca;
+}
+.pill.next-soon {
+    border-color: rgba(255, 126, 41, 0.55);
+    background: rgba(255, 126, 41, 0.14);
+    color: #ffb347;
+}
+
+.pill.role-owner { border-color: rgba(168, 85, 247, 0.45); background: rgba(168, 85, 247, 0.12); color: #e9d5ff; }
+.pill.role-supervisor { border-color: rgba(59, 130, 246, 0.45); background: rgba(59, 130, 246, 0.12); color: #bfdbfe; }
+.pill.role-manager { border-color: rgba(148, 163, 184, 0.35); background: rgba(148, 163, 184, 0.10); color: #e2e8f0; }
+.pill.role-realizer { border-color: rgba(20, 184, 166, 0.45); background: rgba(20, 184, 166, 0.12); color: #99f6e4; }
+.pill.role-other { border-color: rgba(148, 163, 184, 0.25); background: rgba(148, 163, 184, 0.08); color: #cbd5e1; }
+
+.pill.result-order { border-color: rgba(34, 197, 94, 0.55); background: rgba(34, 197, 94, 0.14); color: #bbf7d0; }
+.pill.result-test_batch { border-color: rgba(168, 85, 247, 0.55); background: rgba(168, 85, 247, 0.14); color: #e9d5ff; }
+.pill.result-waiting_payment { border-color: rgba(34, 197, 94, 0.35); background: rgba(34, 197, 94, 0.10); color: #bbf7d0; }
+.pill.result-waiting_prepayment { border-color: rgba(59, 130, 246, 0.35); background: rgba(59, 130, 246, 0.10); color: #bfdbfe; }
+.pill.result-sent_email,
+.pill.result-sent_messenger,
+.pill.result-wrote_ig { border-color: rgba(255, 126, 41, 0.40); background: rgba(255, 126, 41, 0.12); color: #ffb347; }
+.pill.result-xml_connected { border-color: rgba(20, 184, 166, 0.45); background: rgba(20, 184, 166, 0.12); color: #99f6e4; }
+.pill.result-thinking { border-color: rgba(234, 179, 8, 0.45); background: rgba(234, 179, 8, 0.12); color: #fde68a; }
+.pill.result-no_answer,
+.pill.result-not_interested,
+.pill.result-invalid_number,
+.pill.result-expensive { border-color: rgba(239, 68, 68, 0.35); background: rgba(239, 68, 68, 0.10); color: #fecaca; }
+.pill.result-other { border-color: rgba(148, 163, 184, 0.25); background: rgba(148, 163, 184, 0.08); color: #cbd5e1; }
+
+.client-details {
+    padding: 10px 12px 12px;
+    border-top: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+}
+
+.client-detail {
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 10px 10px;
+    background: rgba(255,255,255,0.02);
+}
+
+.client-k {
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    font-weight: 800;
+}
+
+.client-v {
+    color: var(--text-primary);
+    font-weight: 600;
+    line-height: 1.35;
+    word-break: break-word;
+}
+
+.admin-overview-more {
+    display: flex;
+    justify-content: center;
+    padding-top: 4px;
+}
+
 .overview-card {
     border: 1px solid var(--border);
     border-radius: 12px;
