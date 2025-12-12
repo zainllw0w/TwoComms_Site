@@ -1056,6 +1056,7 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+    overflow: hidden;
 }
 
 .admin-overview-toolbar {
@@ -1109,6 +1110,23 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 6px;
+}
+
+.admin-overview-list::-webkit-scrollbar {
+    width: 8px;
+}
+.admin-overview-list::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.04);
+    border-radius: 10px;
+}
+.admin-overview-list::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #ffb347, #ff7e29);
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(255,126,41,0.35);
 }
 
 .overview-group {
@@ -1353,6 +1371,7 @@
     animation: fadeIn 0.25s ease;
     display: flex;
     flex-direction: column;
+    max-height: calc(100vh - 40px);
 }
 
 .modal-header {
@@ -1383,6 +1402,7 @@
     padding: 18px 22px 10px;
     flex: 1 1 auto;
     overflow-y: auto;
+    min-height: 0;
 }
 
 .field-grid {
