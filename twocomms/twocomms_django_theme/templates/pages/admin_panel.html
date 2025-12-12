@@ -1462,6 +1462,12 @@
                           <span class="checkmark"></span>
                           <span class="label-text">Адміністратор</span>
                         </label>
+                        <label class="control-checkbox">
+                          <input type="checkbox" name="is_manager"
+                                 {% if user.is_manager %}checked{% endif %}>
+                          <span class="checkmark"></span>
+                          <span class="label-text">Менеджер (доступ до Management)</span>
+                        </label>
                         
                         {% if request.user.is_superuser %}
                           <label class="control-checkbox">
