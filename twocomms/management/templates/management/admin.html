@@ -56,11 +56,21 @@
             <div>
                 <p class="eyebrow">Список клієнтів</p>
                 <h3 id="admin-overview-title">Огляд користувача</h3>
+                <div id="admin-overview-subtitle" class="admin-overview-subtitle"></div>
             </div>
             <button type="button" class="modal-close" aria-label="Закрити">×</button>
         </div>
-        <div class="modal-body">
-            <div id="admin-overview-list" class="overview-list"></div>
+        <div class="modal-body admin-overview-body">
+            <div class="admin-overview-toolbar">
+                <div class="admin-overview-search">
+                    <input type="text" id="admin-overview-search" placeholder="Пошук: магазин, телефон, ПІБ…">
+                </div>
+                <div class="admin-overview-chips" id="admin-overview-chips"></div>
+            </div>
+            <div id="admin-overview-list" class="admin-overview-list"></div>
+            <div class="admin-overview-more">
+                <button type="button" class="btn-ghost small" id="admin-overview-load-more" style="display:none;">Показати ще</button>
+            </div>
         </div>
         <div class="modal-footer">
             <button type="button" class="btn-ghost modal-close">Закрити</button>
@@ -78,7 +88,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const adminDataEl = document.getElementById('admin-users-data');
     const adminModal = document.getElementById('admin-overview-modal');
     const adminModalTitle = document.getElementById('admin-overview-title');
+    const adminModalSubtitle = document.getElementById('admin-overview-subtitle');
     const adminModalList = document.getElementById('admin-overview-list');
+    const adminChips = document.getElementById('admin-overview-chips');
+    const adminSearch = document.getElementById('admin-overview-search');
+    const adminLoadMore = document.getElementById('admin-overview-load-more');
     let adminUsers = [];
     if (adminDataEl) {
         try { adminUsers = JSON.parse(adminDataEl.textContent); } catch (e) { adminUsers = []; }
@@ -101,6 +115,184 @@ document.addEventListener('DOMContentLoaded', () => {
         adminModal.querySelectorAll('.modal-close').forEach(btn => btn.addEventListener('click', adminCloseModal));
         adminModal.addEventListener('click', (e) => { if (e.target === adminModal) adminCloseModal(); });
     }
+    const clientsUrlTemplate = "{% url 'management_admin_user_clients' 0 %}";
+    const state = {
+        userId: null,
+        offset: 0,
+        limit: 80,
+        total: 0,
+        hasMore: false,
+        query: '',
+        loaded: [],
+    };
+
+    const setChips = (user) => {
+        if (!adminChips) return;
+        const chips = [];
+        const mk = (label, value, tone='') => {
+            const el = document.createElement('div');
+            el.className = `admin-chip ${tone}`.trim();
+            el.textContent = `${label}: ${value}`;
+            return el;
+        };
+        chips.push(mk('Сьогодні', `${user.today} клієнтів`, 'accent'));
+        chips.push(mk('Бали', `${user.points_today}`, 'accent'));
+        chips.push(mk('Всього', `${user.total} клієнтів`, ''));
+        chips.push(mk('Бали', `${user.points_total}`, ''));
+        adminChips.innerHTML = '';
+        chips.forEach(c => adminChips.appendChild(c));
+    };
+
+    const escapeText = (v) => (v === null || v === undefined) ? '' : String(v);
+
+    const pill = (text, cls) => {
+        const el = document.createElement('span');
+        el.className = `pill ${cls || ''}`.trim();
+        el.textContent = escapeText(text);
+        return el;
+    };
+
+    const renderOverview = () => {
+        if (!adminModalList) return;
+        adminModalList.innerHTML = '';
+        if (!state.loaded.length) {
+            const empty = document.createElement('div');
+            empty.className = 'table-empty';
+            empty.textContent = state.query ? 'Нічого не знайдено' : 'Немає клієнтів';
+            adminModalList.appendChild(empty);
+            return;
+        }
+        const groups = new Map();
+        for (const c of state.loaded) {
+            const key = c.created_date_label || '—';
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(c);
+        }
+        for (const [label, clients] of groups.entries()) {
+            const group = document.createElement('div');
+            group.className = 'overview-group';
+            const head = document.createElement('div');
+            head.className = 'overview-group-title';
+            head.textContent = `${label} • ${clients.length}`;
+            group.appendChild(head);
+
+            for (const c of clients) {
+                const details = document.createElement('details');
+                details.className = 'client-item';
+
+                const summary = document.createElement('summary');
+                summary.className = 'client-summary';
+
+                const left = document.createElement('div');
+                left.className = 'client-left';
+                const shop = document.createElement('div');
+                shop.className = 'client-shop';
+                shop.textContent = escapeText(c.shop);
+                const sub = document.createElement('div');
+                sub.className = 'client-sub';
+                const subParts = [];
+                if (c.phone) subParts.push(escapeText(c.phone));
+                if (c.full_name) subParts.push(escapeText(c.full_name));
+                sub.textContent = subParts.join(' • ') || '—';
+                left.appendChild(shop);
+                left.appendChild(sub);
+
+                const right = document.createElement('div');
+                right.className = 'client-right';
+                right.appendChild(pill(c.result, `result result-${escapeText(c.result_code)}`));
+                right.appendChild(pill(c.role, `role role-${escapeText(c.role_code)}`));
+                right.appendChild(pill(`+${c.points || 0}`, 'points'));
+                if (c.next_call && c.next_call !== '–') {
+                    right.appendChild(pill(c.next_call, `next next-${escapeText(c.next_call_status)}`));
+                }
+                const created = document.createElement('div');
+                created.className = 'client-created';
+                created.textContent = escapeText(c.created);
+                right.appendChild(created);
+
+                summary.appendChild(left);
+                summary.appendChild(right);
+                details.appendChild(summary);
+
+                const body = document.createElement('div');
+                body.className = 'client-details';
+
+                const rows = [
+                    ['ПІБ', c.full_name || '—'],
+                    ['Телефон', c.phone || '—'],
+                    ['Статус', c.role || '—'],
+                    ['Джерело', c.source || '—'],
+                    ['Підсумок', (c.result || '—') + (c.details ? ` • ${c.details}` : '')],
+                    ['Наступний дзвінок', c.next_call || '—'],
+                ];
+                rows.forEach(([k, v]) => {
+                    const row = document.createElement('div');
+                    row.className = 'client-detail';
+                    const kk = document.createElement('div');
+                    kk.className = 'client-k';
+                    kk.textContent = k;
+                    const vv = document.createElement('div');
+                    vv.className = 'client-v';
+                    vv.textContent = escapeText(v);
+                    row.appendChild(kk);
+                    row.appendChild(vv);
+                    body.appendChild(row);
+                });
+                details.appendChild(body);
+                group.appendChild(details);
+            }
+            adminModalList.appendChild(group);
+        }
+    };
+
+    const setLoading = () => {
+        if (!adminModalList) return;
+        adminModalList.innerHTML = '<div class="table-empty">Завантаження…</div>';
+    };
+
+    const fetchPage = (reset = false) => {
+        if (!state.userId) return;
+        if (reset) {
+            state.offset = 0;
+            state.loaded = [];
+        }
+        setLoading();
+        const url = new URL(clientsUrlTemplate.replace('/0/', `/${state.userId}/`), window.location.origin);
+        url.searchParams.set('offset', String(state.offset));
+        url.searchParams.set('limit', String(state.limit));
+        if (state.query) url.searchParams.set('q', state.query);
+        fetch(url.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' }})
+            .then(r => r.json())
+            .then(data => {
+                if (!data || !data.ok) throw new Error('bad');
+                state.total = data.total || 0;
+                state.hasMore = !!data.has_more;
+                state.loaded = state.loaded.concat(data.clients || []);
+                state.offset = state.loaded.length;
+                renderOverview();
+                if (adminLoadMore) adminLoadMore.style.display = state.hasMore ? 'inline-flex' : 'none';
+            })
+            .catch(() => {
+                if (!adminModalList) return;
+                adminModalList.innerHTML = '<div class="table-empty">Помилка завантаження</div>';
+                if (adminLoadMore) adminLoadMore.style.display = 'none';
+            });
+    };
+
+    if (adminLoadMore) {
+        adminLoadMore.addEventListener('click', () => fetchPage(false));
+    }
+    if (adminSearch) {
+        let t = null;
+        adminSearch.addEventListener('input', () => {
+            clearTimeout(t);
+            t = setTimeout(() => {
+                state.query = adminSearch.value.trim();
+                fetchPage(true);
+            }, 280);
+        });
+    }
+
     document.querySelectorAll('.admin-overview').forEach(btn => {
         btn.addEventListener('click', () => {
             if (!adminModal) return;
@@ -108,48 +300,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const user = adminUsers.find(u => u.id === uid);
             if (!user) return;
             adminModalTitle.textContent = `Огляд: ${user.name}`;
-            adminModalList.innerHTML = '';
-            if (!user.clients || user.clients.length === 0) {
-                const empty = document.createElement('div');
-                empty.className = 'table-empty';
-                empty.textContent = 'Немає клієнтів';
-                adminModalList.appendChild(empty);
-            } else {
-                const frag = document.createDocumentFragment();
-                user.clients.forEach(c => {
-                    const card = document.createElement('div');
-                    card.className = 'overview-card';
-                    card.innerHTML = `
-                        <div class="overview-head">
-                            <div class="overview-main">
-                                <div class="overview-shop">${c.shop}</div>
-                                <div class="overview-date">${c.created}</div>
-                            </div>
-                            <div class="overview-result result-${c.result_code}">${c.result}</div>
-                            <button type="button" class="icon-btn ghost toggle-details" aria-label="Деталі">
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
-                            </button>
-                        </div>
-                        <div class="overview-details">
-                            <div><span class="muted">ПІБ:</span> ${c.full_name || '—'}</div>
-                            <div><span class="muted">Телефон:</span> ${c.phone || '—'}</div>
-                            <div><span class="muted">Статус:</span> ${c.role || '—'}</div>
-                            <div><span class="muted">Джерело:</span> ${c.source || '—'}</div>
-                            <div><span class="muted">Підсумок:</span> ${c.result}${c.details ? ' • ' + c.details : ''}</div>
-                            <div><span class="muted">Наступний дзвінок:</span> ${c.next_call}</div>
-                        </div>
-                    `;
-                    frag.appendChild(card);
-                });
-                adminModalList.appendChild(frag);
-
-                adminModalList.querySelectorAll('.toggle-details').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        const details = btn.closest('.overview-card').querySelector('.overview-details');
-                        details.classList.toggle('show');
-                    });
-                });
+            if (adminModalSubtitle) {
+                adminModalSubtitle.textContent = `${user.role} • Останній вхід: ${user.last_login}`;
             }
+            if (adminSearch) adminSearch.value = '';
+            state.userId = uid;
+            state.query = '';
+            setChips(user);
+            fetchPage(true);
             adminModal.classList.add('show');
             body.classList.add('modal-open');
         });
