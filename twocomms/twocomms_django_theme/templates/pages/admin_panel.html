@@ -35,6 +35,29 @@
     flex-shrink: 0;
   }
 
+  .user-manager-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #ffb347;
+    background: rgba(255, 126, 41, 0.12);
+    border: 1px solid rgba(255, 126, 41, 0.45);
+    box-shadow: 0 0 12px rgba(255, 126, 41, 0.18);
+  }
+
+  .user-manager-pill.subtle {
+    color: #e2e8f0;
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.18);
+    box-shadow: none;
+  }
+
   .manager-toggle-btn {
     padding: 8px 12px;
     border-radius: 10px;
@@ -1090,6 +1113,11 @@
                           <span>Користувач</span>
                         {% endif %}
                       </div>
+                      {% if user.is_manager and not user.user.is_staff and not user.user.is_superuser %}
+                        <div class="user-manager-pill">Менеджер доступу</div>
+                      {% elif user.is_manager %}
+                        <div class="user-manager-pill subtle">Менеджер доступу</div>
+                      {% endif %}
                     </div>
                     
                     <div class="user-info-main">
