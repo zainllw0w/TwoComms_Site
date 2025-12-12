@@ -2404,6 +2404,7 @@ def admin_update_user(request):
     user_id = request.POST.get('user_id')
     is_staff = True if request.POST.get('is_staff') == 'on' else False
     is_superuser_req = True if request.POST.get('is_superuser') == 'on' else False
+    is_manager_req = True if request.POST.get('is_manager') == 'on' else False
     
     # Обработка баллов
     points_adjustment = request.POST.get('points_adjustment')
@@ -2420,6 +2421,13 @@ def admin_update_user(request):
     u.is_staff = is_staff
     u.is_superuser = is_superuser_req
     u.save()
+    # Обновляем профиль (роль менеджера)
+    try:
+        profile, _ = UserProfile.objects.get_or_create(user=u)
+        profile.is_manager = is_manager_req
+        profile.save(update_fields=['is_manager'])
+    except Exception:
+        pass
     
     # Обновляем баллы если указано
     if points_adjustment:
