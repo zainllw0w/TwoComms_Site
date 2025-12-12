@@ -111,6 +111,7 @@ urlpatterns=[
     path('admin-panel/promocode/<int:pk>/change-group/', views.admin_promocode_change_group, name='admin_promocode_change_group'),
     path('admin-panel/promo-group/<int:pk>/get-form/', views.admin_promo_group_get_form, name='admin_promo_group_get_form'),
     path('admin-panel/promo-group/<int:pk>/edit-ajax/', views.admin_promo_group_edit_ajax, name='admin_promo_group_edit_ajax'),
+    path('admin-panel/user/<int:user_id>/toggle-manager/', views.admin_toggle_manager, name='admin_toggle_manager'),
     # offline stores
     path('admin-panel/offline-stores/', views.admin_offline_stores, name='admin_offline_stores'),
     path('admin-panel/offline-store/create/', views.admin_offline_store_create, name='admin_offline_store_create'),
