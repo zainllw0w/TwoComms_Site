@@ -398,6 +398,7 @@ def _build_users_context():
             'points_spent': points_spent,
             'promocodes': promo_entries,
             'used_promocodes': used_promos,
+            'is_manager': getattr(profile, 'is_manager', False),
         })
 
     return {'user_data': user_data}
@@ -641,6 +642,25 @@ def admin_update_product_status(request):
         return JsonResponse({'success': False, 'error': 'Product not found'}, status=404)
 
     return JsonResponse({'success': True})
+
+
+@staff_member_required
+def admin_toggle_manager(request, user_id: int):
+    """Выдать/снять менеджерский доступ для пользователя (is_manager в UserProfile)."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+        is_manager = bool(payload.get('is_manager'))
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Invalid payload'}, status=400)
+
+    user = get_object_or_404(User, pk=user_id)
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    profile.is_manager = is_manager
+    profile.save(update_fields=['is_manager'])
+
+    return JsonResponse({'success': True, 'is_manager': profile.is_manager})
 
 
 @staff_member_required
