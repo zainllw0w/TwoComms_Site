@@ -198,6 +198,7 @@ from .admin import (
     admin_product_builder,
     admin_reorder_products,
     admin_update_product_status,
+    admin_toggle_manager,
     add_category,
     add_print,
     manage_print_proposals,
