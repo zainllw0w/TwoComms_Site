@@ -359,7 +359,10 @@ def home(request):
         elif next_call_type == 'no_follow':
             next_call_at = None
 
-        if shop_name and phone and full_name:
+        if not full_name:
+            full_name = 'ПІБ не вказано'
+
+        if shop_name and phone:
             details = "\n".join(call_result_details_parts)
             if client_id:
                 try:
