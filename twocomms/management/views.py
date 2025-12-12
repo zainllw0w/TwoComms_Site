@@ -380,9 +380,6 @@ def home(request):
             user_points_today = stats['points_today']
             user_points_total = stats['points_total']
             processed_today = stats['processed_today']
-            report_sent = has_report_today(request.user)
-            reminders = get_reminders(request.user, stats=stats, report_sent=report_sent)
-            _send_manager_bot_notifications(request.user, reminders)
             progress_clients_pct = min(100, int(processed_today / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
             progress_points_pct = min(100, int(user_points_today / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
 
