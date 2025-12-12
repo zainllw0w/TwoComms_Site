@@ -499,6 +499,7 @@ def admin_overview(request):
     user_points_today = stats['points_today']
     user_points_total = stats['points_total']
     processed_today = stats['processed_today']
+    report_sent_today = has_report_today(request.user)
     progress_clients_pct = min(100, int(processed_today / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
     progress_points_pct = min(100, int(user_points_today / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
 
