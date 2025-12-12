@@ -34,6 +34,29 @@
   .order-action-btn svg {
     flex-shrink: 0;
   }
+
+  .manager-toggle-btn {
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.06);
+    color: #e2e8f0;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .manager-toggle-btn:hover {
+    border-color: rgba(255,126,41,0.5);
+    color: #fff;
+    box-shadow: 0 0 10px rgba(255,126,41,0.25);
+  }
+
+  .manager-toggle-btn.active {
+    border-color: rgba(255,126,41,0.65);
+    background: rgba(255,126,41,0.12);
+    color: #ffb347;
+  }
 </style>
 {% endblock %}
 
@@ -1056,19 +1079,15 @@
                           </svg>
                         </div>
                       {% endif %}
-                      <div class="user-status-badge {% if user.user.is_superuser %}superuser{% elif user.user.is_staff %}staff{% else %}user{% endif %}">
+                      <div class="user-status-badge {% if user.user.is_superuser %}superuser{% elif user.user.is_staff %}staff{% elif user.is_manager %}manager{% else %}user{% endif %}">
                         {% if user.user.is_superuser %}
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                          </svg>
+                          <span>Супер</span>
                         {% elif user.user.is_staff %}
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
-                          </svg>
+                          <span>Адмін</span>
+                        {% elif user.is_manager %}
+                          <span>Менеджер</span>
                         {% else %}
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                          </svg>
+                          <span>Користувач</span>
                         {% endif %}
                       </div>
                     </div>
@@ -1126,6 +1145,14 @@
                         {% else %}
                           Не УБД
                         {% endif %}
+                      </div>
+                      <div class="user-role-toggle">
+                        <button type="button"
+                                class="manager-toggle-btn {% if user.is_manager %}active{% endif %}"
+                                data-user-id="{{ user.user.id }}"
+                                data-is-manager="{{ user.is_manager|yesno:'1,0' }}">
+                          {% if user.is_manager %}Зняти менеджера{% else %}Призначити менеджером{% endif %}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -3427,6 +3454,44 @@ function awardPromocode(proposalId) {
   }
 }
 
+const adminCsrf = (document.querySelector('input[name="csrfmiddlewaretoken"]') || {}).value || '';
+
+function initManagerToggles() {
+  document.querySelectorAll('.manager-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const userId = btn.dataset.userId;
+      const current = btn.dataset.isManager === '1';
+      fetch(`/admin-panel/user/${userId}/toggle-manager/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': adminCsrf,
+        },
+        body: JSON.stringify({ is_manager: !current })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          const isManager = !!data.is_manager;
+          btn.dataset.isManager = isManager ? '1' : '0';
+          btn.classList.toggle('active', isManager);
+          btn.textContent = isManager ? 'Зняти менеджера' : 'Призначити менеджером';
+          const card = btn.closest('.user-card');
+          const badge = card?.querySelector('.user-status-badge');
+          if (badge && !badge.classList.contains('superuser') && !badge.classList.contains('staff')) {
+            badge.classList.toggle('manager', isManager);
+            badge.textContent = isManager ? 'Менеджер' : 'Користувач';
+          }
+          showNotification(isManager ? 'Роль менеджера призначено' : 'Роль менеджера знято', 'success');
+        } else {
+          showNotification('Не вдалося оновити роль', 'error');
+        }
+      })
+      .catch(() => showNotification('Помилка оновлення ролі', 'error'));
+    });
+  });
+}
+
 /* Функция для принудительного обновления данных при переключении периодов */
 document.addEventListener('DOMContentLoaded', function() {
   // Находим все кнопки периодов
@@ -3464,6 +3529,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }, 2000);
     });
   });
+  initManagerToggles();
 });
 </script>
 
