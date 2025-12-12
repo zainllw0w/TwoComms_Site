@@ -25,6 +25,7 @@ class UserProfile(models.Model):
     tg_manager_username = models.CharField(max_length=255, blank=True, verbose_name='Telegram Management Username')
     tg_manager_bind_code = models.CharField(max_length=64, blank=True, verbose_name='Код привʼязки менеджмент-бота')
     tg_manager_bind_expires_at = models.DateTimeField(null=True, blank=True, verbose_name='Діє до')
+    is_manager = models.BooleanField(default=False, verbose_name='Менеджер (доступ до Management)')
     
     # Поля для оптовых заказов
     company_name = models.CharField(max_length=200, blank=True, verbose_name='Назва компанії/ФОП/ПІБ')
