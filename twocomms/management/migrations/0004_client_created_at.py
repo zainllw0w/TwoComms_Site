@@ -7,6 +7,21 @@ def set_created(apps, schema_editor):
     now = timezone.now()
     Client.objects.filter(created_at__isnull=True).update(created_at=now, updated_at=now)
 
+def add_columns_if_missing(apps, schema_editor):
+    """Add columns in a DB-compatible way (SQLite/MySQL/Postgres)."""
+    table = 'management_client'
+    with schema_editor.connection.cursor() as cursor:
+        existing = {c.name for c in schema_editor.connection.introspection.get_table_description(cursor, table)}
+
+    statements = []
+    if 'created_at' not in existing:
+        statements.append(f"ALTER TABLE {table} ADD COLUMN created_at datetime(6) NULL;")
+    if 'updated_at' not in existing:
+        statements.append(f"ALTER TABLE {table} ADD COLUMN updated_at datetime(6) NULL;")
+
+    for sql in statements:
+        schema_editor.execute(sql)
+
 
 class Migration(migrations.Migration):
 
@@ -17,20 +32,7 @@ class Migration(migrations.Migration):
     operations = [
         migrations.SeparateDatabaseAndState(
             database_operations=[
-                migrations.RunSQL(
-                    sql="""
-                    ALTER TABLE management_client
-                    ADD COLUMN IF NOT EXISTS created_at datetime(6) NULL;
-                    """,
-                    reverse_sql=migrations.RunSQL.noop,
-                ),
-                migrations.RunSQL(
-                    sql="""
-                    ALTER TABLE management_client
-                    ADD COLUMN IF NOT EXISTS updated_at datetime(6) NULL;
-                    """,
-                    reverse_sql=migrations.RunSQL.noop,
-                ),
+                migrations.RunPython(add_columns_if_missing, migrations.RunPython.noop),
             ],
             state_operations=[
                 migrations.AddField(

@@ -507,7 +507,7 @@ def admin_overview(request):
     today_start, today_end = get_today_range()
     admin_user_data = []
     users = User.objects.filter(is_active=True).filter(
-        Q(is_staff=True) | Q(management_clients__isnull=False)
+        Q(is_staff=True) | Q(userprofile__is_manager=True)
     ).annotate(
         total_clients=Count('management_clients', distinct=True),
         today_clients=Count('management_clients', filter=Q(management_clients__created_at__gte=today_start), distinct=True),
@@ -532,7 +532,6 @@ def admin_overview(request):
         user_clients_today = user_clients.filter(created_at__gte=today_start, created_at__lt=today_end)
         points_today = calc_points(user_clients_today)
         points_total = calc_points(user_clients)
-        user_clients_preview = user_clients[:50]
         admin_user_data.append({
             'id': u.id,
             'name': u.get_full_name() or u.username,
@@ -543,20 +542,6 @@ def admin_overview(request):
             'points_total': points_total,
             'online': online,
             'last_login': last_login_local.strftime('%d.%m.%Y %H:%M') if last_login_local else 'Немає даних',
-            'clients': [
-                {
-                    'shop': c.shop_name,
-                    'full_name': c.full_name,
-                    'phone': c.phone,
-                    'role': c.get_role_display(),
-                    'created': timezone.localtime(c.created_at).strftime('%d.%m.%Y %H:%M'),
-                    'source': c.source,
-                    'result': c.get_call_result_display(),
-                    'result_code': c.call_result,
-                    'details': c.call_result_details,
-                    'next_call': timezone.localtime(c.next_call_at).strftime('%d.%m.%Y %H:%M') if c.next_call_at else '–',
-                } for c in user_clients_preview
-            ]
         })
 
     bot_username = get_manager_bot_username()
@@ -576,6 +561,99 @@ def admin_overview(request):
         'progress_points_pct': progress_points_pct,
         'reminders': reminders,
         'manager_bot_username': bot_username,
+    })
+
+
+@login_required(login_url='management_login')
+def admin_user_clients(request, user_id):
+    """AJAX: список клієнтів обраного менеджера для модалки 'Огляд'."""
+    if not request.user.is_staff:
+        return JsonResponse({'ok': False}, status=403)
+
+    User = get_user_model()
+    try:
+        target = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return JsonResponse({'ok': False}, status=404)
+
+    try:
+        offset = int(request.GET.get('offset', '0'))
+    except ValueError:
+        offset = 0
+    try:
+        limit = int(request.GET.get('limit', '50'))
+    except ValueError:
+        limit = 50
+
+    offset = max(0, offset)
+    limit = max(1, min(200, limit))
+
+    query = (request.GET.get('q') or '').strip()
+
+    qs = Client.objects.filter(owner=target).order_by('-created_at')
+    if query:
+        qs = qs.filter(
+            Q(shop_name__icontains=query) |
+            Q(phone__icontains=query) |
+            Q(full_name__icontains=query)
+        )
+
+    total = qs.count()
+    page = list(qs[offset:offset + limit])
+
+    now = timezone.localtime(timezone.now())
+    today = now.date()
+    yesterday = today - timedelta(days=1)
+
+    clients = []
+    for c in page:
+        created_local = timezone.localtime(c.created_at) if c.created_at else now
+        if created_local.date() == today:
+            created_label = 'Сьогодні'
+        elif created_local.date() == yesterday:
+            created_label = 'Вчора'
+        else:
+            created_label = created_local.strftime('%d.%m.%Y')
+
+        next_call_label = '–'
+        next_call_status = 'none'
+        if c.next_call_at:
+            next_local = timezone.localtime(c.next_call_at)
+            next_call_label = next_local.strftime('%d.%m.%Y %H:%M')
+            delta = (next_local - now).total_seconds()
+            if delta <= 0:
+                next_call_status = 'due'
+            elif delta <= 300:
+                next_call_status = 'soon'
+            else:
+                next_call_status = 'scheduled'
+
+        clients.append({
+            'id': c.id,
+            'shop': c.shop_name,
+            'phone': c.phone,
+            'full_name': c.full_name,
+            'role_code': c.role,
+            'role': c.get_role_display(),
+            'source': c.source or '',
+            'result_code': c.call_result,
+            'result': c.get_call_result_display(),
+            'details': c.call_result_details or '',
+            'points': POINTS.get(c.call_result, 0),
+            'next_call': next_call_label,
+            'next_call_status': next_call_status,
+            'created': created_local.strftime('%d.%m.%Y %H:%M'),
+            'created_date_label': created_label,
+        })
+
+    has_more = offset + limit < total
+    return JsonResponse({
+        'ok': True,
+        'total': total,
+        'offset': offset,
+        'limit': limit,
+        'has_more': has_more,
+        'clients': clients,
     })
 
 
