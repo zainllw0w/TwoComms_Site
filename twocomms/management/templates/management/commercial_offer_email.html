@@ -1,0 +1,423 @@
+{% extends "management/base.html" %}
+
+{% block title %}КП на e-mail{% endblock %}
+
+{% block content %}
+<div class="clients-panel offer-panel">
+    <div class="panel-header">
+        <div>
+            <p class="eyebrow">Комерційна пропозиція</p>
+            <h2>КП на e-mail</h2>
+        </div>
+        <div class="panel-actions">
+            <a class="btn-ghost" href="{% url 'management_home' %}">← До панелі</a>
+        </div>
+    </div>
+
+    {% if sent_success %}
+        <div class="offer-alert offer-alert-success">КП успішно надіслано.</div>
+    {% endif %}
+
+    {% if send_error %}
+        <div class="offer-alert offer-alert-danger">{{ send_error }}</div>
+    {% endif %}
+
+    {% if form.non_field_errors %}
+        <div class="offer-alert offer-alert-danger">{{ form.non_field_errors.0 }}</div>
+    {% endif %}
+
+    <div class="offer-grid">
+        <form method="post" class="offer-form" id="offer-form" action="{% url 'management_commercial_offer_email' %}">
+            {% csrf_token %}
+            <input type="hidden" name="confirm_resend" id="confirm_resend" value="0">
+
+            <div class="offer-card">
+                <div class="offer-card-head">
+                    <div>
+                        <p class="eyebrow">Отримувач</p>
+                        <h3 class="offer-card-title">Куди відправляємо</h3>
+                    </div>
+                </div>
+                <div class="field-grid offer-fields">
+                    <div class="field field-span-2">
+                        <label for="recipient_email">Email</label>
+                        <input type="email"
+                               id="recipient_email"
+                               name="recipient_email"
+                               value="{{ form.recipient_email.value|default_if_none:'' }}"
+                               placeholder="brand@example.com"
+                               autocomplete="email"
+                               required>
+                        <div class="offer-dup-hint" id="offer-email-dup-hint" hidden></div>
+                        {% if form.recipient_email.errors %}
+                            <div class="offer-error">{{ form.recipient_email.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="field field-span-2">
+                        <label for="recipient_name">Імʼя або компанія (опційно)</label>
+                        <input type="text"
+                               id="recipient_name"
+                               name="recipient_name"
+                               value="{{ form.recipient_name.value|default_if_none:'' }}"
+                               placeholder="Наприклад: Brand / Олександр"
+                               autocomplete="organization">
+                        {% if form.recipient_name.errors %}
+                            <div class="offer-error">{{ form.recipient_name.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="offer-card">
+                <div class="offer-card-head">
+                    <div>
+                        <p class="eyebrow">Відправник</p>
+                        <h3 class="offer-card-title">Налаштування менеджера</h3>
+                    </div>
+                </div>
+
+                <div class="offer-toggle-row">
+                    <label class="offer-switch" aria-label="Показувати менеджера">
+                        <input type="checkbox" id="show_manager" name="show_manager" {% if form.show_manager.value %}checked{% endif %}>
+                        <span class="offer-switch-track"></span>
+                    </label>
+                    <div class="offer-toggle-meta">
+                        <div class="offer-toggle-title">Показувати менеджера у листі</div>
+                        <div class="offer-toggle-sub">Якщо вимкнути — лист буде без персональних контактів.</div>
+                    </div>
+                </div>
+
+                <div class="field-grid offer-fields">
+                    <div class="field">
+                        <label for="manager_name">Імʼя менеджера</label>
+                        <input type="text"
+                               id="manager_name"
+                               name="manager_name"
+                               value="{{ form.manager_name.value|default_if_none:'' }}"
+                               placeholder="Ваше імʼя"
+                               autocomplete="name">
+                        {% if form.manager_name.errors %}
+                            <div class="offer-error">{{ form.manager_name.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="field">
+                        <label for="phone">Телефон (опційно)</label>
+                        <input type="tel"
+                               id="phone"
+                               name="phone"
+                               value="{{ form.phone.value|default_if_none:'' }}"
+                               placeholder="+380..."
+                               autocomplete="tel">
+                        {% if form.phone.errors %}
+                            <div class="offer-error">{{ form.phone.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="offer-messengers">
+                    <div class="offer-messengers-head">
+                        <p class="eyebrow">Контакти</p>
+                        <h4 class="offer-messengers-title">Месенджери</h4>
+                    </div>
+
+                    <div class="offer-messenger-row">
+                        <label class="offer-check">
+                            <input type="checkbox" id="viber_enabled" name="viber_enabled" {% if form.viber_enabled.value %}checked{% endif %}>
+                            <span>Viber</span>
+                        </label>
+                        <input type="text"
+                               id="viber"
+                               name="viber"
+                               value="{{ form.viber.value|default_if_none:'' }}"
+                               placeholder="+380... (номер)"
+                               class="offer-messenger-input"
+                               autocomplete="tel">
+                    </div>
+                    {% if form.viber.errors %}
+                        <div class="offer-error">{{ form.viber.errors.0 }}</div>
+                    {% endif %}
+
+                    <div class="offer-messenger-row">
+                        <label class="offer-check">
+                            <input type="checkbox" id="whatsapp_enabled" name="whatsapp_enabled" {% if form.whatsapp_enabled.value %}checked{% endif %}>
+                            <span>WhatsApp</span>
+                        </label>
+                        <input type="text"
+                               id="whatsapp"
+                               name="whatsapp"
+                               value="{{ form.whatsapp.value|default_if_none:'' }}"
+                               placeholder="+380... (номер)"
+                               class="offer-messenger-input"
+                               autocomplete="tel">
+                    </div>
+                    {% if form.whatsapp.errors %}
+                        <div class="offer-error">{{ form.whatsapp.errors.0 }}</div>
+                    {% endif %}
+
+                    <div class="offer-messenger-row">
+                        <label class="offer-check">
+                            <input type="checkbox" id="telegram_enabled" name="telegram_enabled" {% if form.telegram_enabled.value %}checked{% endif %}>
+                            <span>Telegram</span>
+                        </label>
+                        <input type="text"
+                               id="telegram"
+                               name="telegram"
+                               value="{{ form.telegram.value|default_if_none:'' }}"
+                               placeholder="@username або +380..."
+                               class="offer-messenger-input"
+                               autocomplete="username">
+                    </div>
+                    {% if form.telegram.errors %}
+                        <div class="offer-error">{{ form.telegram.errors.0 }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="offer-actions">
+                <button type="submit" class="btn-primary" id="offer-submit">Відправити комерційну пропозицію</button>
+                <div class="offer-actions-sub">
+                    Відправлення піде з пошти <span class="offer-mono">cooperation@twocomms.shop</span>.
+                </div>
+            </div>
+        </form>
+
+        <div class="offer-preview">
+            <div class="offer-card offer-preview-card">
+                <div class="offer-card-head">
+                    <div>
+                        <p class="eyebrow">Превʼю</p>
+                        <h3 class="offer-card-title">Як виглядатиме лист</h3>
+                    </div>
+                </div>
+                <div class="offer-preview-surface" id="offer-preview-surface">{{ preview_html|safe }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="offer-history">
+        <div class="panel-header offer-history-head">
+            <div>
+                <p class="eyebrow">Історія</p>
+                <h3 class="offer-card-title">Останні відправлені КП</h3>
+            </div>
+        </div>
+        <div class="table-shell">
+            <table class="nexus-table">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Імʼя/компанія</th>
+                        <th>Статус</th>
+                        <th>Дата</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if logs %}
+                        {% for log in logs %}
+                            <tr>
+                                <td>{{ log.recipient_email }}</td>
+                                <td>{{ log.recipient_name|default:"—" }}</td>
+                                <td>
+                                    {% if log.status == "sent" %}
+                                        <span class="status-badge role-owner">Надіслано</span>
+                                    {% else %}
+                                        <span class="status-badge role-other">Помилка</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ log.created_at|date:"d.m.Y H:i" }}</td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td class="table-empty" colspan="4">Поки що немає відправлених КП</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="offer-confirm-modal" aria-hidden="true">
+    <div class="modal-card offer-confirm-card">
+        <div class="modal-header">
+            <div>
+                <p class="eyebrow">Підтвердження</p>
+                <h3>Повторна відправка</h3>
+            </div>
+            <button type="button" class="modal-close" id="offer-confirm-close" aria-label="Закрити">×</button>
+        </div>
+        <div class="modal-body">
+            <p class="offer-confirm-text" id="offer-confirm-text">
+                На цей email вже відправляли комерційну пропозицію. Відправити ще раз?
+            </p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-ghost" id="offer-confirm-cancel">Скасувати</button>
+            <button type="button" class="btn-primary" id="offer-confirm-ok">Так, відправити</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('offer-form');
+    const preview = document.getElementById('offer-preview-surface');
+    const confirmModal = document.getElementById('offer-confirm-modal');
+    const confirmOk = document.getElementById('offer-confirm-ok');
+    const confirmCancel = document.getElementById('offer-confirm-cancel');
+    const confirmClose = document.getElementById('offer-confirm-close');
+    const confirmText = document.getElementById('offer-confirm-text');
+    const confirmResend = document.getElementById('confirm_resend');
+
+    const recipientEmail = document.getElementById('recipient_email');
+    const recipientName = document.getElementById('recipient_name');
+    const showManager = document.getElementById('show_manager');
+    const managerName = document.getElementById('manager_name');
+    const phone = document.getElementById('phone');
+    const viberEnabled = document.getElementById('viber_enabled');
+    const viber = document.getElementById('viber');
+    const whatsappEnabled = document.getElementById('whatsapp_enabled');
+    const whatsapp = document.getElementById('whatsapp');
+    const telegramEnabled = document.getElementById('telegram_enabled');
+    const telegram = document.getElementById('telegram');
+
+    const dupHint = document.getElementById('offer-email-dup-hint');
+    let dupExists = false;
+    let dupCount = 0;
+    let dupLast = '';
+    let checkTimer = null;
+    let abortController = null;
+
+    function setPreviewText(key, value) {
+        preview.querySelectorAll(`[data-preview="${key}"]`).forEach((el) => {
+            el.textContent = value || '';
+        });
+    }
+
+    function setPreviewVisibleRow(row, visible) {
+        const el = preview.querySelector(`[data-preview-row="${row}"]`);
+        if (!el) return;
+        el.style.display = visible ? '' : 'none';
+    }
+
+    function setPreviewVisibleSection(section, visible) {
+        const el = preview.querySelector(`[data-preview-section="${section}"]`);
+        if (!el) return;
+        el.style.display = visible ? '' : 'none';
+    }
+
+    function buildGreeting() {
+        const name = (recipientName.value || '').trim();
+        if (name) return `Добрий день, ${name}!`;
+        return 'Добрий день!';
+    }
+
+    function syncPreview() {
+        setPreviewText('greeting', buildGreeting());
+        setPreviewText('manager_name', (managerName.value || '').trim());
+        setPreviewText('phone_value', (phone.value || '').trim());
+        setPreviewText('viber_value', (viber.value || '').trim());
+        setPreviewText('whatsapp_value', (whatsapp.value || '').trim());
+        setPreviewText('telegram_value', (telegram.value || '').trim());
+
+        const showMgr = !!showManager.checked;
+        setPreviewVisibleSection('manager', showMgr);
+
+        setPreviewVisibleRow('phone', showMgr && !!(phone.value || '').trim());
+        setPreviewVisibleRow('viber', showMgr && !!viberEnabled.checked);
+        setPreviewVisibleRow('whatsapp', showMgr && !!whatsappEnabled.checked);
+        setPreviewVisibleRow('telegram', showMgr && !!telegramEnabled.checked);
+    }
+
+    function setDupHint({ exists, count, lastSentAtDisplay }) {
+        dupExists = !!exists;
+        dupCount = Number.isFinite(count) ? count : 0;
+        dupLast = lastSentAtDisplay || '';
+        if (!dupExists) {
+            dupHint.hidden = true;
+            dupHint.textContent = '';
+            return;
+        }
+
+        const lastPart = dupLast ? ` Остання відправка: ${dupLast}.` : '';
+        dupHint.hidden = false;
+        dupHint.textContent = `На цей email вже надсилали КП (${dupCount}).${lastPart} Вона буде відправлена ще раз.`;
+    }
+
+    async function checkDuplicateEmail(value) {
+        const email = (value || '').trim();
+        confirmResend.value = '0';
+        if (!email || !email.includes('@')) {
+            setDupHint({ exists: false, count: 0, lastSentAtDisplay: '' });
+            return;
+        }
+
+        if (abortController) abortController.abort();
+        abortController = new AbortController();
+        try {
+            const url = `{% url 'management_commercial_offer_email_check_api' %}?email=${encodeURIComponent(email)}`;
+            const resp = await fetch(url, { signal: abortController.signal, headers: { 'Accept': 'application/json' } });
+            if (!resp.ok) return;
+            const data = await resp.json();
+            if (!data || !data.ok) return;
+            setDupHint(data);
+        } catch (e) {
+            // ignore
+        }
+    }
+
+    function scheduleDuplicateCheck() {
+        if (checkTimer) clearTimeout(checkTimer);
+        checkTimer = setTimeout(() => checkDuplicateEmail(recipientEmail.value), 350);
+    }
+
+    function openConfirmModal() {
+        const email = (recipientEmail.value || '').trim();
+        const lastPart = dupLast ? ` (останній раз: ${dupLast})` : '';
+        confirmText.textContent = `На email ${email}${lastPart} вже відправляли комерційну пропозицію. Відправити ще раз?`;
+        confirmModal.classList.add('show');
+        confirmModal.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeConfirmModal() {
+        confirmModal.classList.remove('show');
+        confirmModal.setAttribute('aria-hidden', 'true');
+    }
+
+    function bindPreviewEvents(el, eventName = 'input') {
+        el.addEventListener(eventName, () => syncPreview());
+    }
+
+    [recipientName, managerName, phone, viber, whatsapp, telegram].forEach((el) => bindPreviewEvents(el, 'input'));
+    [showManager, viberEnabled, whatsappEnabled, telegramEnabled].forEach((el) => bindPreviewEvents(el, 'change'));
+
+    recipientEmail.addEventListener('input', scheduleDuplicateCheck);
+    recipientEmail.addEventListener('change', scheduleDuplicateCheck);
+
+    confirmCancel.addEventListener('click', closeConfirmModal);
+    confirmClose.addEventListener('click', closeConfirmModal);
+    confirmModal.addEventListener('click', (e) => {
+        if (e.target === confirmModal) closeConfirmModal();
+    });
+    confirmOk.addEventListener('click', () => {
+        confirmResend.value = '1';
+        closeConfirmModal();
+        form.submit();
+    });
+
+    form.addEventListener('submit', (e) => {
+        if (dupExists && confirmResend.value !== '1') {
+            e.preventDefault();
+            openConfirmModal();
+        }
+    });
+
+    syncPreview();
+    scheduleDuplicateCheck();
+});
+</script>
+{% endblock %}
+

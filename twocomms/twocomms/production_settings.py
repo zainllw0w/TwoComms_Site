@@ -18,6 +18,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 _explicit_env_file = os.environ.get('DJANGO_ENV_FILE')
 if _explicit_env_file:
     load_dotenv(_explicit_env_file)
+else:
+    for candidate in (BASE_DIR / ".env.production", BASE_DIR / ".env"):
+        if candidate.exists():
+            load_dotenv(candidate)
+            break
 
 from .settings import *
 
