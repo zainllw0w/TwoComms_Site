@@ -1,0 +1,58 @@
+<tr>
+    <td>
+        <div class="offer-log-email">{{ log.recipient_email }}</div>
+        {% if log.recipient_name %}
+            <div class="offer-log-sub">{{ log.recipient_name }}</div>
+        {% endif %}
+        <div class="offer-log-sub">Тема: {{ log.subject }}</div>
+    </td>
+    <td>
+        {% if log.show_manager %}
+            <div class="offer-log-meta">
+                <div class="offer-log-meta-line">
+                    <span class="offer-log-chip">Менеджер</span>
+                    <span class="offer-log-value">{{ log.manager_name|default:"—" }}</span>
+                </div>
+                {% if log.phone %}
+                    <div class="offer-log-meta-line">
+                        <span class="offer-log-chip">Телефон</span>
+                        <span class="offer-log-value">{{ log.phone }}</span>
+                    </div>
+                {% endif %}
+                {% if log.viber %}
+                    <div class="offer-log-meta-line">
+                        <span class="offer-log-chip">Viber</span>
+                        <span class="offer-log-value">{{ log.viber }}</span>
+                    </div>
+                {% endif %}
+                {% if log.whatsapp %}
+                    <div class="offer-log-meta-line">
+                        <span class="offer-log-chip">WhatsApp</span>
+                        <span class="offer-log-value">{{ log.whatsapp }}</span>
+                    </div>
+                {% endif %}
+                {% if log.telegram %}
+                    <div class="offer-log-meta-line">
+                        <span class="offer-log-chip">Telegram</span>
+                        <span class="offer-log-value">{{ log.telegram }}</span>
+                    </div>
+                {% endif %}
+            </div>
+        {% else %}
+            <div class="offer-log-sub">Відправлено без контактів менеджера</div>
+        {% endif %}
+
+        {% if log.status == "failed" and log.error %}
+            <div class="offer-log-error">Помилка: {{ log.error }}</div>
+        {% endif %}
+    </td>
+    <td>
+        {% if log.status == "sent" %}
+            <span class="status-badge role-owner">Надіслано</span>
+        {% else %}
+            <span class="status-badge role-other">Помилка</span>
+        {% endif %}
+    </td>
+    <td>{{ log.created_at|date:"d.m.Y H:i" }}</td>
+</tr>
+

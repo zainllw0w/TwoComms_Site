@@ -2268,3 +2268,115 @@ def commercial_offer_email_check_api(request):
             "lastSentAtDisplay": last_display,
         }
     )
+
+
+@require_POST
+@login_required(login_url='management_login')
+def commercial_offer_email_send_api(request):
+    if not user_is_management(request.user):
+        return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+
+    form = CommercialOfferEmailForm(request.POST, user=request.user)
+    if not form.is_valid():
+        return JsonResponse({"ok": False, "errors": form.errors}, status=400)
+
+    cd = form.cleaned_data
+    recipient_email = (cd.get("recipient_email") or "").strip()
+
+    duplicate_qs = CommercialOfferEmailLog.objects.filter(
+        recipient_email__iexact=recipient_email,
+        status=CommercialOfferEmailLog.Status.SENT,
+    )
+    if duplicate_qs.exists() and cd.get("confirm_resend") != 1:
+        last = duplicate_qs.order_by("-created_at").first()
+        last_display = timezone.localtime(last.created_at).strftime("%d.%m.%Y %H:%M") if last else ""
+        return JsonResponse(
+            {
+                "ok": False,
+                "needs_confirmation": True,
+                "message": "На цей email вже відправляли комерційну пропозицію. Відправити ще раз?",
+                "duplicate": {"count": duplicate_qs.count(), "lastSentAtDisplay": last_display},
+            },
+            status=409,
+        )
+
+    settings_obj, _ = CommercialOfferEmailSettings.objects.get_or_create(owner=request.user)
+
+    default_name = (settings_obj.manager_name or "").strip() or _default_manager_name(request.user)
+    settings_obj.show_manager = bool(cd.get("show_manager"))
+    settings_obj.manager_name = (cd.get("manager_name") or "").strip() or default_name
+    settings_obj.phone = (cd.get("phone") or "").strip()
+    settings_obj.viber_enabled = bool(cd.get("viber_enabled"))
+    settings_obj.viber = (cd.get("viber") or "").strip()
+    settings_obj.whatsapp_enabled = bool(cd.get("whatsapp_enabled"))
+    settings_obj.whatsapp = (cd.get("whatsapp") or "").strip()
+    settings_obj.telegram_enabled = bool(cd.get("telegram_enabled"))
+    settings_obj.telegram = (cd.get("telegram") or "").strip()
+    settings_obj.save()
+
+    subject = "Комерційна пропозиція бренду TwoComms"
+    email_context = {
+        "preview": False,
+        "recipient_name": cd.get("recipient_name") or "",
+        "show_manager": settings_obj.show_manager,
+        "manager_name": settings_obj.manager_name,
+        "phone": settings_obj.phone,
+        "viber_enabled": settings_obj.viber_enabled,
+        "viber": settings_obj.viber,
+        "whatsapp_enabled": settings_obj.whatsapp_enabled,
+        "whatsapp": settings_obj.whatsapp,
+        "telegram_enabled": settings_obj.telegram_enabled,
+        "telegram": settings_obj.telegram,
+    }
+    html_body = render_to_string("management/emails/commercial_offer.html", email_context)
+    text_body = strip_tags(html_body)
+
+    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None) or "TwoComms <cooperation@twocomms.shop>"
+    reply_to = [settings.EMAIL_HOST_USER] if getattr(settings, "EMAIL_HOST_USER", "") else None
+
+    status = CommercialOfferEmailLog.Status.SENT
+    error_text = ""
+    try:
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=text_body,
+            from_email=from_email,
+            to=[recipient_email],
+            reply_to=reply_to,
+        )
+        msg.attach_alternative(html_body, "text/html")
+        msg.send(fail_silently=False)
+    except Exception as exc:
+        status = CommercialOfferEmailLog.Status.FAILED
+        error_text = str(exc)
+
+    log = CommercialOfferEmailLog.objects.create(
+        owner=request.user,
+        recipient_email=recipient_email,
+        recipient_name=(cd.get("recipient_name") or "").strip(),
+        subject=subject,
+        body_html=html_body,
+        body_text=text_body,
+        show_manager=settings_obj.show_manager,
+        manager_name=settings_obj.manager_name if settings_obj.show_manager else "",
+        phone=settings_obj.phone if settings_obj.show_manager else "",
+        viber=settings_obj.viber if (settings_obj.show_manager and settings_obj.viber_enabled) else "",
+        whatsapp=settings_obj.whatsapp if (settings_obj.show_manager and settings_obj.whatsapp_enabled) else "",
+        telegram=settings_obj.telegram if (settings_obj.show_manager and settings_obj.telegram_enabled) else "",
+        status=status,
+        error=error_text,
+    )
+
+    row_html = render_to_string("management/partials/commercial_offer_log_row.html", {"log": log})
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "status": status,
+            "sent": status == CommercialOfferEmailLog.Status.SENT,
+            "row_html": row_html,
+            "created_at_display": timezone.localtime(log.created_at).strftime("%d.%m.%Y %H:%M"),
+            "message": "КП успішно надіслано." if status == CommercialOfferEmailLog.Status.SENT else "Не вдалося відправити лист.",
+            "error": error_text,
+        }
+    )
