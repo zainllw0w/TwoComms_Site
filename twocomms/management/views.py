@@ -998,6 +998,67 @@ def _tg_send_message(bot_token, chat_id, text, *, reply_markup=None, parse_mode=
     return None
 
 
+def _tg_send_document(
+    bot_token,
+    chat_id,
+    *,
+    file_path=None,
+    file_bytes=None,
+    filename=None,
+    mime_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    caption='',
+    reply_markup=None,
+    parse_mode='HTML',
+    timeout=20,
+):
+    if not bot_token or not chat_id:
+        return None
+
+    try:
+        chat_id_int = int(chat_id)
+    except Exception:
+        chat_id_int = chat_id
+
+    url = f"https://api.telegram.org/bot{bot_token}/sendDocument"
+    data = {
+        'chat_id': chat_id_int,
+        'caption': caption or '',
+        'parse_mode': parse_mode,
+        'disable_web_page_preview': True,
+    }
+    if reply_markup is not None:
+        try:
+            data['reply_markup'] = json.dumps(reply_markup, ensure_ascii=False)
+        except Exception:
+            data['reply_markup'] = json.dumps(reply_markup)
+
+    if file_path:
+        try:
+            with open(file_path, 'rb') as f:
+                send_name = filename or os.path.basename(file_path) or 'invoice.xlsx'
+                files = {'document': (send_name, f, mime_type)}
+                resp = requests.post(url, data=data, files=files, timeout=timeout)
+        except Exception:
+            return None
+    elif file_bytes is not None:
+        send_name = filename or 'invoice.xlsx'
+        files = {'document': (send_name, file_bytes, mime_type)}
+        try:
+            resp = requests.post(url, data=data, files=files, timeout=timeout)
+        except Exception:
+            return None
+    else:
+        return None
+
+    try:
+        payload = resp.json()
+    except Exception:
+        return None
+    if payload and payload.get('ok'):
+        return payload.get('result')
+    return None
+
+
 def _tg_edit_message(bot_token, chat_id, message_id, text, *, reply_markup=None, parse_mode='HTML'):
     if not bot_token or not chat_id or not message_id:
         return None
@@ -1011,6 +1072,23 @@ def _tg_edit_message(bot_token, chat_id, message_id, text, *, reply_markup=None,
     if reply_markup is not None:
         payload['reply_markup'] = reply_markup
     data = _tg_api_post(bot_token, 'editMessageText', payload, as_json=True)
+    if data and data.get('ok'):
+        return data.get('result')
+    return None
+
+
+def _tg_edit_caption(bot_token, chat_id, message_id, caption, *, reply_markup=None, parse_mode='HTML'):
+    if not bot_token or not chat_id or not message_id:
+        return None
+    payload = {
+        'chat_id': chat_id,
+        'message_id': message_id,
+        'caption': caption,
+        'parse_mode': parse_mode,
+    }
+    if reply_markup is not None:
+        payload['reply_markup'] = reply_markup
+    data = _tg_api_post(bot_token, 'editMessageCaption', payload, as_json=True)
     if data and data.get('ok'):
         return data.get('result')
     return None
@@ -1036,7 +1114,7 @@ def _get_manager_bot_token():
     return os.environ.get("MANAGER_TG_BOT_TOKEN") or os.environ.get("MANAGEMENT_TG_BOT_TOKEN")
 
 
-def _format_admin_invoice_message(invoice, *, status_line=None, include_links=True):
+def _format_admin_invoice_message(invoice, *, status_line=None, include_links=True, include_excel_link=True):
     manager_name = ""
     if getattr(invoice, 'created_by', None):
         manager_name = invoice.created_by.get_full_name() or invoice.created_by.username
@@ -1067,8 +1145,11 @@ def _format_admin_invoice_message(invoice, *, status_line=None, include_links=Tr
         lines += [
             "",
             f"🌐 Адмін-панель: <a href=\"https://management.twocomms.shop/admin-panel/?tab=invoices\">відкрити</a>",
-            f"📥 Excel: <a href=\"https://management.twocomms.shop/invoices/{invoice.id}/download/\">скачати</a>",
         ]
+        if include_excel_link:
+            lines += [
+                f"📥 Excel: <a href=\"https://management.twocomms.shop/invoices/{invoice.id}/download/\">скачати</a>",
+            ]
 
     return "\n".join(lines)
 
@@ -1104,9 +1185,12 @@ def _try_update_admin_invoice_message(invoice, *, bot_token=None, final=False):
     else:
         status_line = None
 
-    text = _format_admin_invoice_message(invoice, status_line=status_line, include_links=True)
+    text = _format_admin_invoice_message(invoice, status_line=status_line, include_links=True, include_excel_link=False)
     reply_markup = {'inline_keyboard': []} if final else None
-    _tg_edit_message(token, invoice.admin_tg_chat_id, invoice.admin_tg_message_id, text, reply_markup=reply_markup, parse_mode='HTML')
+    updated = _tg_edit_caption(token, invoice.admin_tg_chat_id, invoice.admin_tg_message_id, text, reply_markup=reply_markup, parse_mode='HTML')
+    if not updated:
+        fallback_text = _format_admin_invoice_message(invoice, status_line=status_line, include_links=True, include_excel_link=True)
+        _tg_edit_message(token, invoice.admin_tg_chat_id, invoice.admin_tg_message_id, fallback_text, reply_markup=reply_markup, parse_mode='HTML')
 
 
 def _send_invoice_review_request_to_admin(invoice, *, request=None):
@@ -1118,14 +1202,30 @@ def _send_invoice_review_request_to_admin(invoice, *, request=None):
     except Exception:
         return
 
-    text = _format_admin_invoice_message(invoice, status_line="Оберіть дію нижче ⬇️", include_links=True)
+    caption = _format_admin_invoice_message(invoice, status_line="Оберіть дію нижче ⬇️", include_links=True, include_excel_link=False)
     keyboard = {
         'inline_keyboard': [[
             {'text': '✅ Підтвердити', 'callback_data': f'inv:approve:{invoice.id}'},
             {'text': '❌ Відхилити', 'callback_data': f'inv:reject:{invoice.id}'},
         ]]
     }
-    sent = _tg_send_message(token, chat_id_int, text, reply_markup=keyboard, parse_mode='HTML')
+    sent = None
+    try:
+        if invoice.file_path and os.path.exists(invoice.file_path):
+            sent = _tg_send_document(
+                token,
+                chat_id_int,
+                file_path=invoice.file_path,
+                filename=os.path.basename(invoice.file_path),
+                caption=caption,
+                reply_markup=keyboard,
+                parse_mode='HTML',
+            )
+    except Exception:
+        sent = None
+    if not sent:
+        fallback_text = _format_admin_invoice_message(invoice, status_line="Оберіть дію нижче ⬇️", include_links=True, include_excel_link=True)
+        sent = _tg_send_message(token, chat_id_int, fallback_text, reply_markup=keyboard, parse_mode='HTML')
     if sent and sent.get('message_id'):
         invoice.admin_tg_chat_id = chat_id_int
         invoice.admin_tg_message_id = sent.get('message_id')
@@ -1256,8 +1356,10 @@ def management_bot_webhook(request, token):
             req = InvoiceRejectionReasonRequest.objects.create(invoice=invoice, admin_chat_id=chat_id, is_active=True)
 
             # Update original message: remove buttons and mark waiting reason
-            waiting_text = _format_admin_invoice_message(invoice, status_line="✍️ <b>Очікую причину відхилення</b>", include_links=True)
-            _tg_edit_message(bot_token, chat_id, message_id, waiting_text, reply_markup={'inline_keyboard': []}, parse_mode='HTML')
+            waiting_text = _format_admin_invoice_message(invoice, status_line="✍️ <b>Очікую причину відхилення</b>", include_links=True, include_excel_link=False)
+            updated = _tg_edit_caption(bot_token, chat_id, message_id, waiting_text, reply_markup={'inline_keyboard': []}, parse_mode='HTML')
+            if not updated:
+                _tg_edit_message(bot_token, chat_id, message_id, waiting_text, reply_markup={'inline_keyboard': []}, parse_mode='HTML')
 
             prompt = _tg_send_message(
                 bot_token,
@@ -1469,6 +1571,11 @@ def invoices_list_api(request):
     invoices = WholesaleInvoice.objects.filter(created_by=request.user).order_by('-created_at')[:200]
     data = []
     for inv in invoices:
+        download_filename = ''
+        try:
+            download_filename = os.path.basename(inv.file_path) if inv.file_path else ''
+        except Exception:
+            download_filename = ''
         data.append({
             'id': inv.id,
             'invoice_number': inv.invoice_number,
@@ -1489,6 +1596,7 @@ def invoices_list_api(request):
             'is_approved': inv.is_approved,
             'payment_status': inv.payment_status,
             'payment_url': inv.payment_url,
+            'download_filename': download_filename,
         })
     return JsonResponse({'ok': True, 'invoices': data})
 
@@ -1503,6 +1611,7 @@ def invoices_generate_api(request):
     import os
     import pytz
     import secrets
+    import re
     from openpyxl import Workbook
     from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
     from openpyxl.utils import get_column_letter
@@ -1528,11 +1637,14 @@ def invoices_generate_api(request):
 
     kiev_tz = pytz.timezone('Europe/Kiev')
     now = timezone.now().astimezone(kiev_tz)
-    timestamp = now.strftime('%Y%m%d_%H%M%S')
+    timestamp = now.strftime('%Y%m%d-%H%M%S')
     nonce = secrets.token_hex(2).upper()
-    invoice_number = f"МЕН_{timestamp}_{nonce}"
+    invoice_number = f"МЕН-{timestamp}-{nonce}"
 
-    safe_company = company_name or 'Company'
+    safe_company = (company_name or 'Company').strip()
+    safe_company = re.sub(r'[\\\\/:*?"<>|]+', '_', safe_company)
+    safe_company = re.sub(r'\\s+', ' ', safe_company).strip().strip('._-')
+    safe_company = (safe_company[:80] or 'Company').strip()
     beautiful_date = now.strftime('%d.%m.%Y_%H-%M')
     file_name = f"{safe_company}_накладнаОПТ_{beautiful_date}.xlsx"
 
@@ -1756,6 +1868,7 @@ def invoices_generate_api(request):
             'review_status_display': invoice.get_review_status_display(),
             'payment_status': invoice.payment_status,
             'payment_url': invoice.payment_url,
+            'download_filename': file_name,
         }
     })
 
