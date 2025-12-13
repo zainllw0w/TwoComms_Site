@@ -5,9 +5,52 @@
     <div class="panel-header">
         <div>
             <p class="eyebrow">Адміністрування</p>
-            <h2>Менеджери та прогрес</h2>
+            <h2>{% if admin_tab == 'invoices' %}Накладні{% else %}Менеджери та прогрес{% endif %}</h2>
+            <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <a href="?tab=managers" class="btn-ghost small{% if admin_tab != 'invoices' %} active{% endif %}">Менеджери та прогрес</a>
+                <a href="?tab=invoices" class="btn-ghost small{% if admin_tab == 'invoices' %} active{% endif %}">Накладні</a>
+            </div>
         </div>
     </div>
+    {% if admin_tab == 'invoices' %}
+    <div class="table-shell">
+        <table class="nexus-table">
+            <thead>
+                <tr>
+                    <th>Накладна</th>
+                    <th>Менеджер</th>
+                    <th>Компанія</th>
+                    <th>Сума</th>
+                    <th>Створено</th>
+                    <th>Excel</th>
+                    <th>Дії</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inv in invoices_for_review %}
+                <tr data-invoice-id="{{ inv.id }}">
+                    <td>#{{ inv.invoice_number }}</td>
+                    <td>{{ inv.created_by.get_full_name|default:inv.created_by.username }}</td>
+                    <td>{{ inv.company_name }}</td>
+                    <td>{{ inv.total_amount }} грн</td>
+                    <td>{{ inv.created_at|date:"d.m.Y H:i" }}</td>
+                    <td>
+                        <a class="btn-ghost small" href="{% url 'management_invoices_download' inv.id %}" target="_blank" rel="noopener">Скачати</a>
+                    </td>
+                    <td style="white-space: nowrap;">
+                        <button type="button" class="btn-ghost small" data-action="approve" data-invoice-id="{{ inv.id }}" style="border-color: rgba(16,185,129,0.4); color: #d1fae5; background: rgba(16,185,129,0.12);">Підтвердити</button>
+                        <button type="button" class="btn-ghost small" data-action="reject" data-invoice-id="{{ inv.id }}" style="border-color: rgba(239,68,68,0.35); color: #fee2e2; background: rgba(239,68,68,0.12);">Відхилити</button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="table-empty">Немає накладних на перевірці</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
     <div class="table-shell">
         <table class="nexus-table">
             <thead>
@@ -49,7 +92,9 @@
         </table>
     </div>
 </section>
+    {% endif %}
 
+{% if admin_tab != 'invoices' %}
 <div id="admin-overview-modal" class="modal-overlay">
     <div class="modal-card">
         <div class="modal-header">
@@ -79,9 +124,66 @@
 </div>
 
 {{ admin_user_data|json_script:"admin-users-data" }}
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
+{% if admin_tab == 'invoices' %}
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-action][data-invoice-id]');
+    if (!btn) return;
+    const invoiceId = btn.dataset.invoiceId;
+    const action = btn.dataset.action;
+    if (!invoiceId || !action) return;
+
+    btn.disabled = true;
+    try {
+        if (action === 'approve') {
+            const res = await fetch(`/admin-panel/invoices/${invoiceId}/approve/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify({})
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!data.ok) throw new Error(data.error || 'Помилка підтвердження');
+            const row = document.querySelector(`tr[data-invoice-id="${invoiceId}"]`);
+            if (row) row.remove();
+        } else if (action === 'reject') {
+            const reason = prompt('Вкажіть причину відхилення:');
+            if (!reason) { btn.disabled = false; return; }
+            const res = await fetch(`/admin-panel/invoices/${invoiceId}/reject/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify({ reason })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!data.ok) throw new Error(data.error || 'Помилка відхилення');
+            const row = document.querySelector(`tr[data-invoice-id="${invoiceId}"]`);
+            if (row) row.remove();
+        }
+    } catch (err) {
+        alert(err.message || 'Помилка');
+        btn.disabled = false;
+    }
+});
+</script>
+{% else %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const body = document.body;
@@ -314,4 +416,5 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 </script>
+{% endif %}
 {% endblock %}
