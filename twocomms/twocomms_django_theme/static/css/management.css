@@ -1752,6 +1752,11 @@
     grid-template-columns: 160px 1fr;
     gap: 10px;
     align-items: center;
+    padding: 12px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
 
 @media (max-width: 520px) {
@@ -1777,8 +1782,90 @@
     accent-color: var(--accent);
 }
 
+.offer-check-messenger {
+    width: 100%;
+    justify-content: space-between;
+}
+
+.offer-messenger-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.offer-messenger-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    font-family: 'Orbitron', 'Inter', sans-serif;
+}
+
+.offer-messenger-icon-viber {
+    background: rgba(111, 149, 255, 0.12);
+    border: 1px solid rgba(111, 149, 255, 0.28);
+    color: #c7d5ff;
+}
+
+.offer-messenger-icon-whatsapp {
+    background: rgba(34, 197, 94, 0.12);
+    border: 1px solid rgba(34, 197, 94, 0.26);
+    color: #8ef2b8;
+}
+
+.offer-messenger-icon-telegram {
+    background: rgba(59, 130, 246, 0.12);
+    border: 1px solid rgba(59, 130, 246, 0.26);
+    color: #9bc4ff;
+}
+
+.offer-messenger-input-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
 .offer-messenger-input {
     width: 100%;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, opacity 0.18s ease;
+}
+
+.offer-messenger-input:focus {
+    border-color: rgba(255, 126, 41, 0.55);
+    box-shadow: 0 0 0 4px rgba(255, 126, 41, 0.12);
+    background: rgba(255, 126, 41, 0.06);
+}
+
+.offer-messenger-help {
+    color: var(--muted);
+    font-size: 0.86rem;
+    line-height: 1.25;
+}
+
+.offer-messenger-row.is-enabled {
+    border-color: rgba(255, 126, 41, 0.35);
+    background: rgba(255, 126, 41, 0.04);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+}
+
+.offer-messenger-row.is-disabled .offer-messenger-input {
+    opacity: 0.72;
+    cursor: not-allowed;
+}
+
+.offer-messenger-row.is-disabled .offer-messenger-help {
+    opacity: 0.72;
 }
 
 .offer-preview-card {

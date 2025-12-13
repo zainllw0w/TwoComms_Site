@@ -122,52 +122,70 @@
                         <h4 class="offer-messengers-title">Месенджери</h4>
                     </div>
 
-                    <div class="offer-messenger-row">
-                        <label class="offer-check">
+                    <div class="offer-messenger-row" data-messenger="viber">
+                        <label class="offer-check offer-check-messenger">
                             <input type="checkbox" id="viber_enabled" name="viber_enabled" {% if form.viber_enabled.value %}checked{% endif %}>
-                            <span>Viber</span>
+                            <span class="offer-messenger-label">
+                                <span class="offer-messenger-icon offer-messenger-icon-viber" aria-hidden="true">V</span>
+                                <span>Viber</span>
+                            </span>
                         </label>
-                        <input type="text"
-                               id="viber"
-                               name="viber"
-                               value="{{ form.viber.value|default_if_none:'' }}"
-                               placeholder="+380... (номер)"
-                               class="offer-messenger-input"
-                               autocomplete="tel">
+                        <div class="offer-messenger-input-wrap">
+                            <input type="text"
+                                   id="viber"
+                                   name="viber"
+                                   value="{{ form.viber.value|default_if_none:'' }}"
+                                   placeholder="+380... (номер)"
+                                   class="offer-messenger-input"
+                                   autocomplete="tel">
+                            <div class="offer-messenger-help">Вкажіть номер телефону для Viber</div>
+                        </div>
                     </div>
                     {% if form.viber.errors %}
                         <div class="offer-error">{{ form.viber.errors.0 }}</div>
                     {% endif %}
 
-                    <div class="offer-messenger-row">
-                        <label class="offer-check">
+                    <div class="offer-messenger-row" data-messenger="whatsapp">
+                        <label class="offer-check offer-check-messenger">
                             <input type="checkbox" id="whatsapp_enabled" name="whatsapp_enabled" {% if form.whatsapp_enabled.value %}checked{% endif %}>
-                            <span>WhatsApp</span>
+                            <span class="offer-messenger-label">
+                                <span class="offer-messenger-icon offer-messenger-icon-whatsapp" aria-hidden="true">W</span>
+                                <span>WhatsApp</span>
+                            </span>
                         </label>
-                        <input type="text"
-                               id="whatsapp"
-                               name="whatsapp"
-                               value="{{ form.whatsapp.value|default_if_none:'' }}"
-                               placeholder="+380... (номер)"
-                               class="offer-messenger-input"
-                               autocomplete="tel">
+                        <div class="offer-messenger-input-wrap">
+                            <input type="text"
+                                   id="whatsapp"
+                                   name="whatsapp"
+                                   value="{{ form.whatsapp.value|default_if_none:'' }}"
+                                   placeholder="+380... (номер)"
+                                   class="offer-messenger-input"
+                                   autocomplete="tel">
+                            <div class="offer-messenger-help">Вкажіть номер телефону для WhatsApp</div>
+                        </div>
                     </div>
                     {% if form.whatsapp.errors %}
                         <div class="offer-error">{{ form.whatsapp.errors.0 }}</div>
                     {% endif %}
 
-                    <div class="offer-messenger-row">
-                        <label class="offer-check">
+                    <div class="offer-messenger-row" data-messenger="telegram">
+                        <label class="offer-check offer-check-messenger">
                             <input type="checkbox" id="telegram_enabled" name="telegram_enabled" {% if form.telegram_enabled.value %}checked{% endif %}>
-                            <span>Telegram</span>
+                            <span class="offer-messenger-label">
+                                <span class="offer-messenger-icon offer-messenger-icon-telegram" aria-hidden="true">T</span>
+                                <span>Telegram</span>
+                            </span>
                         </label>
-                        <input type="text"
-                               id="telegram"
-                               name="telegram"
-                               value="{{ form.telegram.value|default_if_none:'' }}"
-                               placeholder="@username або +380..."
-                               class="offer-messenger-input"
-                               autocomplete="username">
+                        <div class="offer-messenger-input-wrap">
+                            <input type="text"
+                                   id="telegram"
+                                   name="telegram"
+                                   value="{{ form.telegram.value|default_if_none:'' }}"
+                                   placeholder="@username або +380..."
+                                   class="offer-messenger-input"
+                                   autocomplete="username">
+                            <div class="offer-messenger-help">Логін @username або номер телефону для Telegram</div>
+                        </div>
                     </div>
                     {% if form.telegram.errors %}
                         <div class="offer-error">{{ form.telegram.errors.0 }}</div>
@@ -314,6 +332,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return 'Добрий день!';
     }
 
+    const messengerRows = [
+        { row: document.querySelector('[data-messenger="viber"]'), toggle: viberEnabled, input: viber },
+        { row: document.querySelector('[data-messenger="whatsapp"]'), toggle: whatsappEnabled, input: whatsapp },
+        { row: document.querySelector('[data-messenger="telegram"]'), toggle: telegramEnabled, input: telegram },
+    ].filter((x) => x.row && x.toggle && x.input);
+
+    function syncMessengerUI() {
+        messengerRows.forEach(({ row, toggle, input }) => {
+            const enabled = !!toggle.checked;
+            row.classList.toggle('is-enabled', enabled);
+            row.classList.toggle('is-disabled', !enabled);
+            input.readOnly = !enabled;
+            input.setAttribute('aria-disabled', String(!enabled));
+        });
+    }
+
     function syncPreview() {
         setPreviewText('greeting', buildGreeting());
         setPreviewText('manager_name', (managerName.value || '').trim());
@@ -329,6 +363,8 @@ document.addEventListener('DOMContentLoaded', () => {
         setPreviewVisibleRow('viber', showMgr && !!viberEnabled.checked);
         setPreviewVisibleRow('whatsapp', showMgr && !!whatsappEnabled.checked);
         setPreviewVisibleRow('telegram', showMgr && !!telegramEnabled.checked);
+
+        syncMessengerUI();
     }
 
     function setDupHint({ exists, count, lastSentAtDisplay }) {
