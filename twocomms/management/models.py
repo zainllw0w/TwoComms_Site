@@ -99,3 +99,21 @@ class ReminderRead(models.Model):
         unique_together = ('user', 'key')
         verbose_name = _("Прочитане нагадування")
         verbose_name_plural = _("Прочитані нагадування")
+
+
+class InvoiceRejectionReasonRequest(models.Model):
+    invoice = models.ForeignKey(
+        'orders.WholesaleInvoice',
+        on_delete=models.CASCADE,
+        related_name='management_rejection_reason_requests',
+        verbose_name=_("Накладна"),
+    )
+    admin_chat_id = models.BigIntegerField(db_index=True, verbose_name=_("Telegram chat id (адмін)"))
+    prompt_message_id = models.BigIntegerField(null=True, blank=True, verbose_name=_("Message id запиту"))
+    is_active = models.BooleanField(default=True, db_index=True, verbose_name=_("Активний запит"))
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Запит причини відхилення накладної")
+        verbose_name_plural = _("Запити причин відхилення накладних")
+        ordering = ['-created_at']
