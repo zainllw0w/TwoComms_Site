@@ -14,6 +14,8 @@
         </div>
     </div>
 
+    <div id="offer-alert-stack"></div>
+
     {% if sent_success %}
         <div class="offer-alert offer-alert-success">КП успішно надіслано.</div>
     {% endif %}
@@ -174,7 +176,10 @@
             </div>
 
             <div class="offer-actions">
-                <button type="submit" class="btn-primary" id="offer-submit">Відправити комерційну пропозицію</button>
+                <button type="submit" class="btn-primary offer-submit" id="offer-submit">
+                    <span class="offer-btn-spinner" aria-hidden="true"></span>
+                    <span class="offer-btn-text">Відправити комерційну пропозицію</span>
+                </button>
                 <div class="offer-actions-sub">
                     Відправлення піде з пошти <span class="offer-mono">cooperation@twocomms.shop</span>.
                 </div>
@@ -205,27 +210,16 @@
             <table class="nexus-table">
                 <thead>
                     <tr>
-                        <th>Email</th>
-                        <th>Імʼя/компанія</th>
+                        <th>Отримувач</th>
+                        <th>Дані в листі</th>
                         <th>Статус</th>
                         <th>Дата</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="offer-history-body">
                     {% if logs %}
                         {% for log in logs %}
-                            <tr>
-                                <td>{{ log.recipient_email }}</td>
-                                <td>{{ log.recipient_name|default:"—" }}</td>
-                                <td>
-                                    {% if log.status == "sent" %}
-                                        <span class="status-badge role-owner">Надіслано</span>
-                                    {% else %}
-                                        <span class="status-badge role-other">Помилка</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ log.created_at|date:"d.m.Y H:i" }}</td>
-                            </tr>
+                            {% include "management/partials/commercial_offer_log_row.html" with log=log %}
                         {% endfor %}
                     {% else %}
                         <tr>
@@ -265,12 +259,17 @@
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('offer-form');
     const preview = document.getElementById('offer-preview-surface');
+    const alertStack = document.getElementById('offer-alert-stack');
+    const historyBody = document.getElementById('offer-history-body');
     const confirmModal = document.getElementById('offer-confirm-modal');
     const confirmOk = document.getElementById('offer-confirm-ok');
     const confirmCancel = document.getElementById('offer-confirm-cancel');
     const confirmClose = document.getElementById('offer-confirm-close');
     const confirmText = document.getElementById('offer-confirm-text');
     const confirmResend = document.getElementById('confirm_resend');
+
+    const submitBtn = document.getElementById('offer-submit');
+    const submitText = submitBtn.querySelector('.offer-btn-text');
 
     const recipientEmail = document.getElementById('recipient_email');
     const recipientName = document.getElementById('recipient_name');
@@ -387,6 +386,126 @@ document.addEventListener('DOMContentLoaded', () => {
         confirmModal.setAttribute('aria-hidden', 'true');
     }
 
+    function setAlert(kind, text) {
+        const el = document.createElement('div');
+        el.className = `offer-alert offer-alert-${kind}`;
+        el.textContent = text;
+        alertStack.innerHTML = '';
+        alertStack.appendChild(el);
+        window.setTimeout(() => {
+            if (el.parentNode === alertStack) {
+                el.style.opacity = '0.0';
+                el.style.transform = 'translateY(-4px)';
+                el.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+                window.setTimeout(() => { if (el.parentNode === alertStack) alertStack.innerHTML = ''; }, 240);
+            }
+        }, 5500);
+    }
+
+    function setButtonState(state) {
+        if (state === 'loading') {
+            submitBtn.classList.add('is-loading');
+            submitBtn.disabled = true;
+            submitText.textContent = 'Відправляємо…';
+            return;
+        }
+        if (state === 'success') {
+            submitBtn.classList.remove('is-loading');
+            submitBtn.classList.add('is-success');
+            submitBtn.disabled = true;
+            submitText.textContent = 'КП надіслано';
+            return;
+        }
+        submitBtn.classList.remove('is-loading');
+        submitBtn.classList.remove('is-success');
+        submitBtn.disabled = false;
+        submitText.textContent = 'Відправити комерційну пропозицію';
+    }
+
+    function clearRecipientFields() {
+        recipientEmail.value = '';
+        recipientName.value = '';
+        confirmResend.value = '0';
+        setDupHint({ exists: false, count: 0, lastSentAtDisplay: '' });
+        syncPreview();
+    }
+
+    function prependHistoryRow(rowHtml) {
+        const emptyRow = historyBody.querySelector('tr .table-empty')?.closest('tr');
+        if (emptyRow) emptyRow.remove();
+
+        const tmp = document.createElement('tbody');
+        tmp.innerHTML = rowHtml.trim();
+        const row = tmp.querySelector('tr');
+        if (row) {
+            historyBody.prepend(row);
+        }
+    }
+
+    async function sendOffer() {
+        const email = (recipientEmail.value || '').trim();
+        if (!email) {
+            setAlert('danger', 'Вкажіть email отримувача.');
+            return;
+        }
+
+        setButtonState('loading');
+        alertStack.innerHTML = '';
+
+        const formData = new FormData(form);
+        try {
+            const resp = await fetch('{% url "management_commercial_offer_email_send_api" %}', {
+                method: 'POST',
+                body: formData,
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin',
+            });
+
+            if (resp.status === 409) {
+                const data = await resp.json();
+                if (data && data.needs_confirmation) {
+                    if (data.duplicate) {
+                        setDupHint({
+                            exists: true,
+                            count: data.duplicate.count || 0,
+                            lastSentAtDisplay: data.duplicate.lastSentAtDisplay || ''
+                        });
+                    }
+                    setButtonState('idle');
+                    openConfirmModal();
+                    return;
+                }
+            }
+
+            const data = await resp.json();
+            if (!resp.ok || !data || !data.ok) {
+                setButtonState('idle');
+                if (data && data.errors) {
+                    const firstKey = Object.keys(data.errors)[0];
+                    const firstMsg = firstKey ? (data.errors[firstKey][0] || '') : '';
+                    setAlert('danger', firstMsg || 'Перевірте дані форми.');
+                } else {
+                    setAlert('danger', (data && data.message) ? data.message : 'Не вдалося відправити лист.');
+                }
+                return;
+            }
+
+            if (data.sent) {
+                prependHistoryRow(data.row_html || '');
+                setAlert('success', data.message || 'КП успішно надіслано.');
+                setButtonState('success');
+                clearRecipientFields();
+                window.setTimeout(() => setButtonState('idle'), 2400);
+            } else {
+                setButtonState('idle');
+                setAlert('danger', data.message || 'Не вдалося відправити лист.');
+            }
+        } catch (e) {
+            setButtonState('idle');
+            setAlert('danger', 'Помилка мережі. Спробуйте ще раз.');
+        }
+    }
+
     function bindPreviewEvents(el, eventName = 'input') {
         el.addEventListener(eventName, () => syncPreview());
     }
@@ -405,14 +524,16 @@ document.addEventListener('DOMContentLoaded', () => {
     confirmOk.addEventListener('click', () => {
         confirmResend.value = '1';
         closeConfirmModal();
-        form.submit();
+        sendOffer();
     });
 
     form.addEventListener('submit', (e) => {
+        e.preventDefault();
         if (dupExists && confirmResend.value !== '1') {
-            e.preventDefault();
             openConfirmModal();
+            return;
         }
+        sendOffer();
     });
 
     syncPreview();
@@ -420,4 +541,3 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 {% endblock %}
-
