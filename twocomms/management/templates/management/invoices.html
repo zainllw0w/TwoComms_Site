@@ -13,7 +13,7 @@
 .order-form-container {
     max-width: 1400px;
     margin: 0 auto;
-    padding: 0;
+    padding: 0 0 56px;
     background: transparent;
     min-height: 0;
     position: relative;
@@ -351,6 +351,126 @@
     max-height: 0;
     opacity: 0;
     transform: translateY(-6px);
+}
+
+.company-form-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: 14px;
+}
+
+.company-card {
+    position: relative;
+    background: linear-gradient(145deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015));
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 14px;
+    overflow: hidden;
+}
+
+.company-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, rgba(255,126,41,0.65), rgba(255,183,77,0.55), rgba(255,126,41,0.65));
+    opacity: 0.9;
+}
+
+.company-card-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.company-card-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 126, 41, 0.12);
+    border: 1px solid rgba(255, 126, 41, 0.25);
+    color: rgba(255, 183, 77, 0.95);
+    box-shadow: 0 10px 25px rgba(255, 126, 41, 0.18);
+}
+
+.company-card-title {
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.9);
+}
+
+.company-card-sub {
+    margin-top: 2px;
+    font-size: 0.88rem;
+    color: rgba(232, 237, 247, 0.68);
+}
+
+.company-card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.company-card-grid .field-span-2 {
+    grid-column: span 2;
+}
+
+.company-card .field input:focus,
+.company-card .field textarea:focus {
+    outline: none;
+    border-color: rgba(255, 126, 41, 0.55);
+    box-shadow: 0 0 0 3px rgba(255, 126, 41, 0.16);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.company-helper {
+    margin-top: 10px;
+    color: rgba(232, 237, 247, 0.65);
+    font-size: 0.86rem;
+    line-height: 1.35;
+}
+
+.req {
+    color: #ff7e29;
+    font-weight: 900;
+    margin-left: 4px;
+}
+
+.company-actions {
+    margin-top: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.company-actions .company-hint {
+    color: rgba(232, 237, 247, 0.68);
+    font-size: 0.86rem;
+}
+
+.company-actions .company-hint b {
+    color: rgba(255, 183, 77, 0.95);
+}
+
+.field-hint {
+    color: rgba(232, 237, 247, 0.6);
+    font-size: 0.84rem;
+    line-height: 1.35;
+}
+
+@media (max-width: 1100px) {
+    .company-form-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .compact-form-container::before {
@@ -1984,7 +2104,8 @@
         0 25px 50px rgba(0, 0, 0, 0.35),
         inset 0 1px 0 rgba(255, 255, 255, 0.08);
     position: relative;
-    overflow: hidden;
+    overflow: visible;
+    margin-bottom: 26px;
 }
 
 .generated-invoices-section::before {
@@ -2021,6 +2142,7 @@
     flex-direction: column;
     gap: 1rem;
     margin-top: 1rem;
+    padding-bottom: 8px;
 }
 
 .invoice-item {
@@ -2071,6 +2193,24 @@
     color: #10b981;
     font-weight: 600;
     font-size: 0.9rem;
+}
+
+.invoice-reject-reason {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.28);
+    font-size: 0.88rem;
+    color: rgba(255,255,255,0.85);
+    line-height: 1.35;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+.invoice-reject-reason .label {
+    color: #f87171;
+    font-weight: 800;
 }
 
 .invoice-actions {
@@ -2343,39 +2483,72 @@
                     <span class="toggle-text">Згорнути</span>
                 </button>
             </div>
-        </div>
+	        </div>
 
-        <form id="company-form">
-            <div class="field-grid company-section-body" id="companySectionBody">
-                <div class="field">
-                    <label for="company-name">Назва компанії/ФОП/ПІБ *</label>
-                    <input type="text" id="company-name" name="company_name" placeholder="Введіть назву компанії або ФОП" value="{{ company_data.company_name|default:'' }}" required>
-                </div>
-                <div class="field">
-                    <label for="company-number">ЄДРПОУ/ІПН</label>
-                    <input type="text" id="company-number" name="company_number" placeholder="ЄДРПОУ/ІПН (за потреби)" value="{{ company_data.company_number|default:'' }}">
-                </div>
-                <div class="field">
-                    <label for="phone-number">Телефон *</label>
-                    <input type="tel" id="phone-number" name="phone_number" placeholder="+380…" value="{{ company_data.phone_number|default:'' }}" required>
-                </div>
-                <div class="field">
-                    <label for="store-link">Посилання на магазин</label>
-                    <input type="url" id="store-link" name="store_link" placeholder="https://…" value="{{ company_data.store_link|default:'' }}">
-                </div>
-                <div class="field field-span-2">
-                    <label for="delivery-address">Адреса доставки *</label>
-                    <textarea id="delivery-address" name="delivery_address" placeholder="Місто, адреса/відділення, ПІБ отримувача та інше" required>{{ company_data.delivery_address|default:'' }}</textarea>
-                </div>
-            </div>
+	        <form id="company-form">
+	            <div class="company-form-grid company-section-body" id="companySectionBody">
+	                <div class="company-card">
+	                    <div class="company-card-head">
+	                        <div class="company-card-icon" aria-hidden="true">
+	                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+	                                <path d="M12 2a4 4 0 014 4v1h2a2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h2V6a4 4 0 014-4zm2 5V6a2 2 0 00-4 0v1h4zm-8 4v9h12v-9H6z"/>
+	                            </svg>
+	                        </div>
+	                        <div>
+	                            <div class="company-card-title">Реквізити</div>
+	                            <div class="company-card-sub">Дані компанії/ФОП для накладної</div>
+	                        </div>
+	                    </div>
+	                    <div class="company-card-grid">
+	                        <div class="field field-span-2">
+	                            <label for="company-name">Назва компанії/ФОП/ПІБ<span class="req">*</span></label>
+	                            <input type="text" id="company-name" name="company_name" placeholder="Напр.: ФОП Іваненко / ТОВ «...»" value="{{ company_data.company_name|default:'' }}" required>
+	                        </div>
+	                        <div class="field">
+	                            <label for="company-number">ЄДРПОУ/ІПН</label>
+	                            <input type="text" id="company-number" name="company_number" placeholder="За потреби" value="{{ company_data.company_number|default:'' }}">
+	                        </div>
+	                        <div class="field">
+	                            <label for="store-link">Посилання на магазин</label>
+	                            <input type="url" id="store-link" name="store_link" placeholder="https://…" value="{{ company_data.store_link|default:'' }}">
+	                        </div>
+	                    </div>
+	                    <div class="company-helper">Порада: якщо є кілька магазинів — вставте посилання на той, що стосується цієї накладної.</div>
+	                </div>
 
-            <div class="panel-actions" style="margin-top: 14px; justify-content: flex-start;">
-                <button type="submit" class="btn-ghost" style="border-color: rgba(255, 126, 41, 0.4); color: var(--text-primary); background: rgba(255, 126, 41, 0.12);">
-                    Зберегти дані компанії
-                </button>
-            </div>
-        </form>
-    </section>
+	                <div class="company-card">
+	                    <div class="company-card-head">
+	                        <div class="company-card-icon" aria-hidden="true">
+	                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+	                                <path d="M20 8h-3V4H3v13a3 3 0 003 3h11a3 3 0 003-3v-3h3v-4l-3-2zM6 18a1 1 0 110-2 1 1 0 010 2zm10 0a1 1 0 110-2 1 1 0 010 2zm1-6V9h2.5L21 10v2h-4z"/>
+	                            </svg>
+	                        </div>
+	                        <div>
+	                            <div class="company-card-title">Контакти та доставка</div>
+	                            <div class="company-card-sub">Телефон і адреса отримання</div>
+	                        </div>
+	                    </div>
+	                    <div class="company-card-grid">
+	                        <div class="field">
+	                            <label for="phone-number">Телефон<span class="req">*</span></label>
+	                            <input type="tel" id="phone-number" name="phone_number" placeholder="+380…" value="{{ company_data.phone_number|default:'' }}" required>
+	                            <div class="field-hint">Номер для звʼязку з отримувачем / компанією.</div>
+	                        </div>
+	                        <div class="field field-span-2">
+	                            <label for="delivery-address">Адреса доставки<span class="req">*</span></label>
+	                            <textarea id="delivery-address" name="delivery_address" placeholder="Місто, відділення/адреса, ПІБ отримувача, коментарі…" required>{{ company_data.delivery_address|default:'' }}</textarea>
+	                            <div class="field-hint">Додайте максимум деталей — це зменшує помилки при відправці.</div>
+	                        </div>
+	                    </div>
+	                </div>
+	            </div>
+
+	            <div class="company-actions">
+	                <div class="company-hint"><b>*</b> — обовʼязкові поля</div>
+	                <button type="submit" class="btn-primary">Зберегти дані компанії</button>
+	            </div>
+	        </form>
+	    </section>
 
     <!-- Statistics Section -->
     <div class="stats-section">
@@ -3846,9 +4019,7 @@ function renderInvoiceItem(inv) {
     const state = mainActionState(inv);
     const canDelete = !(inv.review_status === 'pending' || inv.payment_status === 'paid');
     const rejectReasonHtml = (inv.review_status === 'rejected' && (inv.review_reject_reason || '').trim())
-        ? `<div style="margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.28); font-size: 0.88rem; color: rgba(255,255,255,0.85);">
-                <span style="color:#f87171; font-weight:800;">Причина:</span> ${escapeHtml(inv.review_reject_reason)}
-           </div>`
+        ? `<div class="invoice-reject-reason"><span class="label">Причина:</span> ${escapeHtml(inv.review_reject_reason)}</div>`
         : '';
 
     const item = document.createElement('div');
