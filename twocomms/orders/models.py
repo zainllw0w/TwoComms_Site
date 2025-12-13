@@ -354,6 +354,13 @@ class WholesaleInvoice(models.Model):
         ('delivered', 'Товари відправлені'),
         ('cancelled', 'Скасовано'),
     ]
+
+    REVIEW_STATUS_CHOICES = [
+        ('draft', 'Чернетка'),
+        ('pending', 'На перевірці'),
+        ('approved', 'Підтверджено'),
+        ('rejected', 'Відхилено'),
+    ]
     
     invoice_number = models.CharField(max_length=100, unique=True, verbose_name="Номер накладної")
     company_name = models.CharField(max_length=200, verbose_name="Назва компанії/ФОП/ПІБ")
@@ -375,7 +382,35 @@ class WholesaleInvoice(models.Model):
     
     # Путь к файлу накладной
     file_path = models.CharField(max_length=500, blank=True, null=True, verbose_name="Шлях до файлу")
-    
+
+    # Management workflow (перевірка накладних)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='created_wholesale_invoices',
+        verbose_name="Створив (менеджер)",
+    )
+    review_status = models.CharField(
+        max_length=20,
+        choices=REVIEW_STATUS_CHOICES,
+        default='draft',
+        verbose_name="Статус перевірки",
+    )
+    review_reject_reason = models.TextField(blank=True, verbose_name="Причина відхилення")
+    reviewed_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата перевірки")
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='reviewed_wholesale_invoices',
+        verbose_name="Перевірив (адмін)",
+    )
+    admin_tg_chat_id = models.BigIntegerField(null=True, blank=True, verbose_name="Telegram admin chat id")
+    admin_tg_message_id = models.BigIntegerField(null=True, blank=True, verbose_name="Telegram admin message id")
+
     # Поле для одобрения накладной (доступна для оплаты)
     is_approved = models.BooleanField(default=False, verbose_name="Одобрена для оплаты")
     payment_status = models.CharField(
@@ -389,6 +424,8 @@ class WholesaleInvoice(models.Model):
         default='not_paid',
         verbose_name="Статус оплаты"
     )
+    payment_url = models.URLField(blank=True, null=True, verbose_name="Посилання на оплату")
+    monobank_invoice_id = models.CharField(max_length=128, blank=True, null=True, verbose_name="Monobank invoiceId")
     
     class Meta:
         verbose_name = "Оптова накладна"

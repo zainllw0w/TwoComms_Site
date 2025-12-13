@@ -1,0 +1,4082 @@
+{% extends "management/base.html" %}
+{% load static %}
+{% load math_filters %}
+{% load responsive_images %}
+
+{% block title %}Сформувати накладну - TwoComms Management{% endblock %}
+
+{% block extra_css %}
+<style>
+:root {
+    --tc-text: rgba(255, 255, 255, 0.95);
+}
+.order-form-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0;
+    background: transparent;
+    min-height: 0;
+    position: relative;
+}
+
+.order-form-container::before {
+    content: '';
+    display: none;
+}
+
+.order-form-container::after {
+    content: '';
+    display: none;
+}
+
+@keyframes gradientShift {
+    0%, 100% { 
+        opacity: 1; 
+        transform: scale(1) rotate(0deg);
+    }
+    33% { 
+        opacity: 0.8; 
+        transform: scale(1.05) rotate(1deg);
+    }
+    66% { 
+        opacity: 0.9; 
+        transform: scale(0.95) rotate(-1deg);
+    }
+}
+
+@keyframes shimmer {
+    0%, 100% { 
+        opacity: 0.3; 
+        transform: translateX(-100%) translateY(-100%);
+    }
+    50% { 
+        opacity: 0.6; 
+        transform: translateX(100%) translateY(100%);
+    }
+}
+
+/* Header Section - Dark like hero */
+.order-form-header {
+    position: relative;
+    background: linear-gradient(135deg, rgba(0,0,0,0.8), rgba(0,0,0,0.6));
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 2.5rem;
+    margin-bottom: 2rem;
+    backdrop-filter: blur(20px);
+    overflow: hidden;
+}
+
+/* Floating logos container */
+.order-form-header .floating-logos {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Floating logo styles */
+.order-form-header .floating-logo {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: linear-gradient(135deg, 
+        rgba(139, 92, 246, 0.08) 0%,
+        rgba(99, 102, 241, 0.05) 50%,
+        rgba(59, 130, 246, 0.03) 100%
+    );
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    box-shadow: 
+        0 4px 15px rgba(139, 92, 246, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    opacity: 0.6;
+    transition: all 0.3s ease;
+}
+
+.order-form-header .floating-logo img {
+    filter: drop-shadow(0 2px 4px rgba(139, 92, 246, 0.3));
+    transition: all 0.3s ease;
+}
+
+.order-form-header .floating-logo.logo-1 {
+    width: 32px;
+    height: 32px;
+    top: 15%;
+    left: 15%;
+    animation: logoFloat1 25s ease-in-out infinite;
+}
+
+.order-form-header .floating-logo.logo-2 {
+    width: 28px;
+    height: 28px;
+    top: 65%;
+    right: 20%;
+    animation: logoFloat2 30s ease-in-out infinite;
+}
+
+.order-form-header .floating-logo.logo-3 {
+    width: 36px;
+    height: 36px;
+    bottom: 25%;
+    left: 25%;
+    animation: logoFloat3 35s ease-in-out infinite;
+}
+
+.order-form-header .floating-logo.logo-4 {
+    width: 24px;
+    height: 24px;
+    top: 35%;
+    right: 35%;
+    animation: logoFloat4 28s ease-in-out infinite;
+}
+
+.order-form-header .floating-logo.logo-5 {
+    width: 30px;
+    height: 30px;
+    bottom: 45%;
+    right: 15%;
+    animation: logoFloat5 32s ease-in-out infinite;
+}
+
+/* Logo float animations */
+@keyframes logoFloat1 {
+    0%, 100% { 
+        transform: translateY(0) translateX(0) rotate(0deg) scale(1);
+        opacity: 0.6;
+    }
+    25% { 
+        transform: translateY(-15px) translateX(10px) rotate(90deg) scale(1.1);
+        opacity: 0.8;
+    }
+    50% { 
+        transform: translateY(-25px) translateX(-5px) rotate(180deg) scale(0.9);
+        opacity: 0.4;
+    }
+    75% { 
+        transform: translateY(-10px) translateX(-15px) rotate(270deg) scale(1.05);
+        opacity: 0.7;
+    }
+}
+
+@keyframes logoFloat2 {
+    0%, 100% { 
+        transform: translateY(0) translateX(0) rotate(0deg) scale(1);
+        opacity: 0.5;
+    }
+    30% { 
+        transform: translateY(-20px) translateX(-10px) rotate(120deg) scale(1.15);
+        opacity: 0.8;
+    }
+    60% { 
+        transform: translateY(-30px) translateX(15px) rotate(240deg) scale(0.85);
+        opacity: 0.3;
+    }
+    90% { 
+        transform: translateY(-5px) translateX(20px) rotate(360deg) scale(1.1);
+        opacity: 0.6;
+    }
+}
+
+@keyframes logoFloat3 {
+    0%, 100% { 
+        transform: translateY(0) translateX(0) rotate(0deg) scale(1);
+        opacity: 0.7;
+    }
+    20% { 
+        transform: translateY(-18px) translateX(12px) rotate(72deg) scale(1.2);
+        opacity: 0.9;
+    }
+    40% { 
+        transform: translateY(-35px) translateX(-8px) rotate(144deg) scale(0.8);
+        opacity: 0.4;
+    }
+    60% { 
+        transform: translateY(-22px) translateX(-18px) rotate(216deg) scale(1.1);
+        opacity: 0.6;
+    }
+    80% { 
+        transform: translateY(-8px) translateX(25px) rotate(288deg) scale(0.95);
+        opacity: 0.8;
+    }
+}
+
+@keyframes logoFloat4 {
+    0%, 100% { 
+        transform: translateY(0) translateX(0) rotate(0deg) scale(1);
+        opacity: 0.4;
+    }
+    35% { 
+        transform: translateY(-12px) translateX(-15px) rotate(126deg) scale(1.25);
+        opacity: 0.7;
+    }
+    70% { 
+        transform: translateY(-28px) translateX(18px) rotate(252deg) scale(0.75);
+        opacity: 0.3;
+    }
+}
+
+@keyframes logoFloat5 {
+    0%, 100% { 
+        transform: translateY(0) translateX(0) rotate(0deg) scale(1);
+        opacity: 0.6;
+    }
+    40% { 
+        transform: translateY(-16px) translateX(14px) rotate(144deg) scale(1.3);
+        opacity: 0.9;
+    }
+    80% { 
+        transform: translateY(-24px) translateX(-12px) rotate(288deg) scale(0.8);
+        opacity: 0.4;
+    }
+}
+
+.order-form-title {
+    font-size: 2.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6, #ec4899);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 1rem;
+    text-align: center;
+    position: relative;
+    z-index: 3;
+    text-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+.order-form-subtitle {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 1.1rem;
+    text-align: center;
+    margin-bottom: 0;
+}
+
+/* Company Form Section */
+.company-form-section {
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.08) 0%,
+        rgba(255, 255, 255, 0.04) 50%,
+        rgba(255, 255, 255, 0.02) 100%
+    );
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    backdrop-filter: blur(20px);
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.1),
+        0 4px 16px rgba(139, 92, 246, 0.05);
+}
+
+.section-subtitle {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 1rem;
+    margin-top: 0.5rem;
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+/* Compact Form Layout */
+.compact-form-container {
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.08) 0%,
+        rgba(255, 255, 255, 0.04) 50%,
+        rgba(255, 255, 255, 0.02) 100%
+    );
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    border-radius: 20px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    backdrop-filter: blur(20px);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+/* Company section header with toggle */
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.collapse-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.collapse-toggle:hover {
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(139, 92, 246, 0.35);
+    box-shadow: 0 6px 18px rgba(139, 92, 246, 0.18);
+}
+
+.collapse-toggle svg { transition: transform 0.25s ease; }
+.collapse-toggle.is-collapsed svg { transform: rotate(180deg); }
+
+.company-section-body {
+    overflow: hidden;
+    transition: max-height 0.35s ease, opacity 0.25s ease, transform 0.25s ease;
+    max-height: 2000px;
+    opacity: 1;
+}
+
+.company-section-body.is-collapsed {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-6px);
+}
+
+.compact-form-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, 
+        rgba(139, 92, 246, 0.6) 0%, 
+        rgba(59, 130, 246, 0.6) 50%, 
+        rgba(236, 72, 153, 0.6) 100%);
+    border-radius: 20px 20px 0 0;
+}
+
+.compact-form-container:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 35px rgba(139, 92, 246, 0.15);
+    border-color: rgba(139, 92, 246, 0.25);
+}
+
+/* Top Row - Main Info */
+.compact-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+    animation: slideInFromTop 0.6s ease-out;
+}
+
+@keyframes slideInFromTop {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Bottom Row - Delivery Address */
+.delivery-address-row {
+    animation: slideInFromBottom 0.8s ease-out;
+}
+
+@keyframes slideInFromBottom {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Compact Field Cards */
+.compact-field-card {
+    position: relative;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(139, 92, 246, 0.1);
+    border-radius: 12px;
+    padding: 1rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+}
+
+.compact-field-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(139, 92, 246, 0.1), 
+        transparent);
+    transition: left 0.6s ease;
+}
+
+.compact-field-card:hover {
+    transform: translateY(-2px) scale(1.02);
+    border-color: rgba(139, 92, 246, 0.3);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 25px rgba(139, 92, 246, 0.15);
+}
+
+.compact-field-card:hover::before {
+    left: 100%;
+}
+
+.compact-field-card:focus-within {
+    border-color: rgba(139, 92, 246, 0.5);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+/* Compact Field Icon */
+.compact-field-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.1));
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    margin-bottom: 0.75rem;
+    transition: all 0.3s ease;
+}
+
+.compact-field-card:hover .compact-field-icon {
+    transform: scale(1.1) rotate(5deg);
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(59, 130, 246, 0.2));
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.2);
+}
+
+.compact-field-icon svg {
+    width: 16px;
+    height: 16px;
+    color: rgba(255, 255, 255, 0.9);
+    transition: all 0.3s ease;
+}
+
+.compact-field-card:hover .compact-field-icon svg {
+    color: #8b5cf6;
+    filter: drop-shadow(0 2px 4px rgba(139, 92, 246, 0.3));
+}
+
+/* Compact Field Labels */
+.compact-field-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+}
+
+.compact-field-card:hover .compact-field-label {
+    color: rgba(255, 255, 255, 0.95);
+}
+
+/* Compact Field Inputs */
+.compact-field-input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 0.75rem;
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(5px);
+}
+
+.compact-field-input:focus {
+    outline: none;
+    border-color: rgba(139, 92, 246, 0.5);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.1);
+}
+
+.compact-field-input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.85rem;
+}
+
+/* Required Indicator */
+.compact-required {
+    color: #ef4444;
+    margin-left: 0.25rem;
+    font-weight: bold;
+}
+
+/* Delivery Address - Special Styling */
+.delivery-address-card {
+    background: linear-gradient(135deg, 
+        rgba(139, 92, 246, 0.1) 0%,
+        rgba(59, 130, 246, 0.05) 50%,
+        rgba(236, 72, 153, 0.05) 100%
+    );
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-radius: 16px;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(15px);
+}
+
+.delivery-address-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, 
+        rgba(139, 92, 246, 0.8) 0%, 
+        rgba(59, 130, 246, 0.8) 50%, 
+        rgba(236, 72, 153, 0.8) 100%);
+}
+
+.delivery-address-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 30px rgba(139, 92, 246, 0.2);
+    border-color: rgba(139, 92, 246, 0.4);
+}
+
+.delivery-address-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(59, 130, 246, 0.2));
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+}
+
+.delivery-address-card:hover .delivery-address-icon {
+    transform: scale(1.15) rotate(-5deg);
+    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.3);
+}
+
+.delivery-address-icon svg {
+    width: 20px;
+    height: 20px;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.delivery-address-label {
+    font-size: 1rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.95);
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.delivery-address-textarea {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 1rem;
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 1rem;
+    min-height: 80px;
+    resize: vertical;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(5px);
+    font-family: inherit;
+}
+
+.delivery-address-textarea:focus {
+    outline: none;
+    border-color: rgba(139, 92, 246, 0.5);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.delivery-address-textarea::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .compact-form-row {
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .compact-form-row {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .compact-form-container {
+        padding: 1.5rem;
+    }
+    
+    .compact-field-card {
+        padding: 0.75rem;
+    }
+}
+
+/* Pricing Cards Grid - Imported from wholesale.html (kept for compatibility) */
+.pricing-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.pricing-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.25rem;
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.06) 0%,
+        rgba(255, 255, 255, 0.03) 50%,
+        rgba(255, 255, 255, 0.01) 100%
+    );
+    border: 1px solid rgba(139, 92, 246, 0.12);
+    border-radius: 16px;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(20px);
+    box-shadow: 
+        0 4px 20px rgba(0, 0, 0, 0.2),
+        0 2px 10px rgba(139, 92, 246, 0.03),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.pricing-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.6), transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.pricing-card:hover {
+    transform: translateY(-6px) scale(1.08);
+    box-shadow: 
+        0 20px 60px rgba(0, 0, 0, 0.4),
+        0 8px 30px rgba(139, 92, 246, 0.15),
+        0 4px 15px rgba(99, 102, 241, 0.1);
+    border-color: rgba(139, 92, 246, 0.3);
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.1) 0%,
+        rgba(255, 255, 255, 0.05) 50%,
+        rgba(255, 255, 255, 0.03) 100%
+    );
+    text-decoration: none;
+    color: inherit;
+}
+
+.pricing-card:hover::before {
+    opacity: 1;
+}
+
+.pricing-card-wide {
+    grid-column: 1 / -1;
+}
+
+/* Card Background Effects */
+.card-bg-dark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.card-glow-dark {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100px;
+    height: 100px;
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%);
+    border-radius: 50%;
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.pricing-card:hover .card-glow-dark {
+    width: 120px;
+    height: 120px;
+    opacity: 1;
+    animation: cardGlowDarkPulse 2s ease-in-out infinite;
+}
+
+@keyframes cardGlowDarkPulse {
+    0%, 100% { 
+        opacity: 0.2;
+        transform: translate(-50%, -50%) scale(1);
+    }
+    50% { 
+        opacity: 0.4;
+        transform: translate(-50%, -50%) scale(1.1);
+    }
+}
+
+.card-ripple-dark {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.3) 0%, transparent 70%);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: all 0.4s ease;
+    pointer-events: none;
+}
+
+.pricing-card:active .card-ripple-dark {
+    width: 150px;
+    height: 150px;
+    opacity: 0;
+}
+
+/* Pricing Icon */
+.pricing-icon {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 55px;
+    height: 55px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, 
+        rgba(139, 92, 246, 0.12) 0%,
+        rgba(99, 102, 241, 0.08) 50%,
+        rgba(59, 130, 246, 0.05) 100%
+    );
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    box-shadow: 
+        0 4px 15px rgba(139, 92, 246, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    margin: 0 auto 1rem;
+    z-index: 2;
+}
+
+.pricing-card:hover .pricing-icon {
+    background: linear-gradient(135deg, 
+        rgba(139, 92, 246, 0.2) 0%,
+        rgba(99, 102, 241, 0.15) 50%,
+        rgba(59, 130, 246, 0.1) 100%
+    );
+    border-color: rgba(139, 92, 246, 0.4);
+    transform: scale(1.15) rotate(8deg);
+    box-shadow: 
+        0 8px 25px rgba(139, 92, 246, 0.25),
+        0 4px 15px rgba(99, 102, 241, 0.2);
+}
+
+.pricing-icon svg {
+    transition: all 0.3s ease;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+.pricing-card:hover .pricing-icon svg {
+    filter: 
+        drop-shadow(0 6px 12px rgba(139, 92, 246, 0.5))
+        drop-shadow(0 2px 6px rgba(99, 102, 241, 0.3))
+        brightness(1.1);
+    transform: scale(1.1);
+}
+
+/* Pricing Title */
+.pricing-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, 
+        #ffffff 0%,
+        #e0e7ff 50%,
+        #8b5cf6 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-align: center;
+    margin-bottom: 0.5rem;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    z-index: 2;
+    position: relative;
+}
+
+.pricing-card:hover .pricing-title {
+    background: linear-gradient(135deg, 
+        #8b5cf6 0%,
+        #a855f7 50%,
+        #6366f1 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    transform: translateY(-2px) scale(1.05);
+    text-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+/* Pricing Description */
+.pricing-description {
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 1.5rem;
+    text-align: center;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    z-index: 2;
+    position: relative;
+}
+
+/* Form Input Container */
+.form-input-container {
+    position: relative;
+    width: 100%;
+    z-index: 2;
+}
+
+/* Pricing Inputs */
+.pricing-input,
+.pricing-textarea {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: #ffffff;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    box-sizing: border-box;
+}
+
+.pricing-input:focus,
+.pricing-textarea:focus {
+    outline: none;
+    border-color: rgba(139, 92, 246, 0.5);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 
+        0 0 0 3px rgba(139, 92, 246, 0.1),
+        0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.pricing-input::placeholder,
+.pricing-textarea::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.pricing-textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+/* Required Indicator */
+.required-indicator {
+    position: absolute;
+    top: 0.75rem;
+    right: 1rem;
+    color: #ef4444;
+    font-weight: bold;
+    z-index: 3;
+}
+
+/* Form Submit Container */
+.form-submit-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 2rem;
+}
+
+.pricing-submit-button {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 2rem;
+    background: linear-gradient(135deg, 
+        rgba(139, 92, 246, 0.8) 0%,
+        rgba(99, 102, 241, 0.7) 50%,
+        rgba(59, 130, 246, 0.6) 100%
+    );
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    border-radius: 16px;
+    color: #ffffff;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+    box-shadow: 
+        0 4px 16px rgba(139, 92, 246, 0.2),
+        0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.pricing-submit-button:hover {
+    transform: translateY(-2px);
+    background: linear-gradient(135deg, 
+        rgba(139, 92, 246, 0.9) 0%,
+        rgba(99, 102, 241, 0.8) 50%,
+        rgba(59, 130, 246, 0.7) 100%
+    );
+    border-color: rgba(139, 92, 246, 0.5);
+    box-shadow: 
+        0 8px 24px rgba(139, 92, 246, 0.3),
+        0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.pricing-submit-button:active {
+    transform: translateY(0);
+}
+
+.pricing-submit-button svg {
+    transition: transform 0.3s ease;
+}
+
+.pricing-submit-button:hover svg {
+    transform: scale(1.1);
+}
+
+.section-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.95);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.section-title::before {
+    content: '';
+    width: 4px;
+    height: 24px;
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    border-radius: 2px;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-label {
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.form-label .required {
+    color: #ef4444;
+    margin-left: 0.25rem;
+}
+
+.form-input {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: rgba(139, 92, 246, 0.5);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.form-input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.form-textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.save-button {
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    border: none;
+    border-radius: 12px;
+    padding: 0.875rem 2rem;
+    color: white;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 auto;
+}
+
+.save-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
+}
+
+.save-button:active {
+    transform: translateY(0);
+}
+
+/* Statistics Section */
+.stats-section {
+    position: relative;
+    background: linear-gradient(135deg, rgba(0,0,0,0.8), rgba(0,0,0,0.6));
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 2rem;
+    backdrop-filter: blur(16px);
+    overflow: hidden;
+}
+
+.stats-section::before {
+    content: '';
+    position: absolute;
+    top: -30%;
+    left: -10%;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%);
+    filter: blur(2px);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(140px, 1fr));
+    gap: 0.75rem;
+    align-items: stretch;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    transition: all 0.25s ease;
+    min-height: 64px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+    border-color: rgba(139, 92, 246, 0.3);
+}
+
+/* Ensure stat icons (tshirt/hoodie) have identical rendering */
+.stat-icon img {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    display: block;
+    opacity: 0.9;
+}
+
+.stat-value {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #fff;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.35);
+}
+
+.stat-label {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+/* Management Grid Layout (exactly like admin store management) */
+.management-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    margin-bottom: 30px;
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0 20px;
+}
+
+.management-column {
+    background: rgba(20, 22, 27, 0.85);
+    backdrop-filter: blur(25px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 24px;
+    padding: 10px;
+    box-shadow: 
+        0 25px 50px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(139, 92, 246, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    height: 800px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.management-column::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, 
+        rgba(139, 92, 246, 0.6) 0%, 
+        rgba(59, 130, 246, 0.6) 50%, 
+        rgba(236, 72, 153, 0.6) 100%);
+    border-radius: 24px 24px 0 0;
+}
+
+.column-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.column-icon {
+    width: 24px;
+    height: 24px;
+    color: #667eea;
+}
+
+.column-title {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--tc-text);
+    margin: 0;
+}
+
+.order-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* Category Filter */
+.category-filter {
+    margin-bottom: 5px;
+}
+
+.filter-select {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    background: rgba(20, 22, 27, 0.6);
+    color: var(--tc-text);
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+    background: rgba(20, 22, 27, 0.8);
+}
+
+/* Products Scroll Container */
+.products-scroll-container {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 8px;
+    margin-right: -8px;
+    padding: 0 8px 0 0;
+    min-height: 0;
+}
+
+.products-scroll-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.products-scroll-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.products-scroll-container::-webkit-scrollbar-thumb {
+    background: rgba(139, 92, 246, 0.6);
+    border-radius: 3px;
+}
+
+.products-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 92, 246, 0.8);
+}
+
+/* Product Cards */
+.product-card {
+    background: rgba(20, 22, 27, 0.7);
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 8px;
+    margin-bottom: 4px;
+    box-shadow: 
+        0 2px 8px rgba(0, 0, 0, 0.2),
+        0 0 0 1px rgba(139, 92, 246, 0.05);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    height: 80px;
+}
+
+.product-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(139, 92, 246, 0.1), 
+        transparent);
+    transition: left 0.6s ease;
+}
+
+.product-card:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 
+        0 12px 30px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(139, 92, 246, 0.3),
+        0 0 20px rgba(139, 92, 246, 0.2);
+    border-color: rgba(139, 92, 246, 0.4);
+    background: rgba(20, 22, 27, 0.85);
+}
+
+.product-card:hover::before {
+    left: 100%;
+}
+
+.product-card.dragging {
+    opacity: 0.7;
+    transform: rotate(3deg) scale(1.05);
+    z-index: 1000;
+    cursor: grabbing;
+    box-shadow: 
+        0 20px 40px rgba(0, 0, 0, 0.5),
+        0 0 0 2px rgba(139, 92, 246, 0.6);
+}
+
+.product-card-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 64px;
+    width: 100%;
+}
+
+.product-image-container {
+    flex-shrink: 0;
+    width: 64px;
+    height: 64px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(24, 26, 32, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.product-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.product-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    min-width: 0;
+    height: 64px;
+}
+
+
+.product-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+}
+
+.product-category {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.65rem;
+    font-weight: 500;
+}
+
+.product-name {
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.2;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    max-width: 100%;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.product-colors {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+}
+
+.color-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.color-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    display: inline-block;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+
+.color-name {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.6rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.color-more {
+    font-size: 0.55rem;
+    color: rgba(232, 233, 236, 0.6);
+    margin-left: 2px;
+}
+
+.product-price {
+    color: #8b5cf6;
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-shadow: 0 0 10px rgba(139, 92, 246, 0.3);
+}
+
+/* Order Form */
+.order-form {
+    background: rgba(20, 22, 27, 0.6);
+    backdrop-filter: blur(10px);
+    border: 2px dashed rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-label {
+    display: block;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 5px;
+    font-size: 0.9rem;
+}
+
+.form-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    background: rgba(20, 22, 27, 0.6);
+    color: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+    background: rgba(20, 22, 27, 0.8);
+}
+
+.form-select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    background: rgba(20, 22, 27, 0.6);
+    color: rgba(255, 255, 255, 0.95);
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.form-select:focus {
+    outline: none;
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+    background: rgba(20, 22, 27, 0.8);
+}
+
+.add-to-order-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    color: white;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    padding: 12px;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.add-to-order-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(139, 92, 246, 0.4);
+    background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+}
+
+.add-to-order-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Drop Zone */
+.drop-zone {
+    background: rgba(20, 22, 27, 0.6);
+    backdrop-filter: blur(10px);
+    border: 2px dashed rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    padding: 30px;
+    text-align: center;
+    color: #718096;
+    transition: all 0.3s ease;
+    margin-bottom: 15px;
+}
+
+.drop-zone.drag-over {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.05);
+    color: #667eea;
+}
+
+.drop-zone-text {
+    font-size: 1rem;
+    margin-bottom: 8px;
+}
+
+.drop-zone-subtext {
+    font-size: 0.8rem;
+    opacity: 0.7;
+}
+
+/* Order Items Scroll Container */
+.order-items-scroll-container {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 8px;
+    margin-right: -8px;
+    min-height: 0;
+}
+
+.order-items-scroll-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.order-items-scroll-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.order-items-scroll-container::-webkit-scrollbar-thumb {
+    background: rgba(139, 92, 246, 0.6);
+    border-radius: 3px;
+}
+
+.order-items-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 92, 246, 0.8);
+}
+
+/* Order Items */
+.order-item {
+    background: rgba(20, 22, 27, 0.7);
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 10px;
+    margin-bottom: 10px;
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.25),
+        0 0 0 1px rgba(139, 92, 246, 0.1);
+    border-left: 3px solid #8b5cf6;
+    position: relative;
+    transition: all 0.3s ease;
+    height: 75px;
+    display: flex;
+    align-items: center;
+}
+
+.order-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+        0 10px 30px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(139, 92, 246, 0.2);
+    border-left-color: #7c3aed;
+}
+
+.order-item-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    height: 100%;
+}
+
+.order-item-image {
+    flex-shrink: 0;
+    width: 50px;
+    height: 50px;
+    align-self: center;
+}
+
+.order-product-image {
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
+    object-fit: cover;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.order-item-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    min-width: 0;
+    height: 50px;
+}
+
+.order-item-title {
+    font-weight: 600;
+    color: var(--tc-text);
+    font-size: 0.6rem;
+    line-height: 1.1;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.order-item-specs-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.5rem;
+    color: rgba(255, 255, 255, 0.6);
+    flex-wrap: wrap;
+}
+
+.order-item-color-section {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.order-item-color-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    display: inline-block;
+}
+
+.order-item-size {
+    background: rgba(139, 92, 246, 0.2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.5rem;
+    white-space: nowrap;
+    margin: 1px 0;
+}
+
+.order-item-quantity {
+    background: rgba(16, 185, 129, 0.2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.5rem;
+    white-space: nowrap;
+    margin: 1px 0;
+}
+
+.order-item-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    height: 55px;
+    justify-content: space-between;
+}
+
+.remove-item-btn {
+    background: rgba(239, 68, 68, 0.2);
+    border: none;
+    border-radius: 4px;
+    padding: 4px;
+    color: #ef4444;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.remove-item-btn:hover {
+    background: rgba(239, 68, 68, 0.3);
+    transform: scale(1.1);
+}
+
+.order-item-prices {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
+
+.order-item-cost {
+    font-size: 0.55rem;
+    color: #ef4444;
+    font-weight: 600;
+    background: rgba(239, 68, 68, 0.1);
+    padding: 1px 2px;
+    border-radius: 2px;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.order-item-selling {
+    font-size: 0.55rem;
+    color: #10b981;
+    font-weight: 600;
+    background: rgba(16, 185, 129, 0.1);
+    padding: 1px 2px;
+    border-radius: 2px;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Order Actions */
+.order-actions {
+    margin-top: 15px;
+    display: flex;
+    gap: 8px;
+    padding: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.action-btn {
+    flex: 1;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.8rem;
+}
+
+.generate-invoice-btn {
+    background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+    color: white;
+}
+
+.generate-invoice-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(237, 137, 54, 0.3);
+}
+
+.generate-invoice-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Order Statistics */
+.order-statistics {
+    margin-top: 15px;
+    padding: 15px;
+    background: rgba(20, 22, 27, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+}
+
+.statistics-header h4 {
+    color: var(--tc-text);
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin: 0 0 10px 0;
+}
+
+.statistics-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.total-sum {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: rgba(139, 92, 246, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.total-sum.highlight {
+    background: rgba(139, 92, 246, 0.2);
+    border-color: rgba(139, 92, 246, 0.4);
+    box-shadow: 0 0 15px rgba(139, 92, 246, 0.3);
+    transform: scale(1.02);
+}
+
+.total-sum.highlight::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.2), transparent);
+    animation: highlight-slide 1.5s ease-in-out;
+}
+
+@keyframes highlight-slide {
+    0% { left: -100%; }
+    50% { left: 0%; }
+    100% { left: 100%; }
+}
+
+.sum-label {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.sum-value {
+    color: #8b5cf6;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.progress-info {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.4;
+}
+
+.progress-info .warning {
+    color: #f59e0b;
+}
+
+.progress-info .success {
+    color: #10b981;
+}
+
+/* Discount Scales */
+.discount-scales {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.scale-container {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.scale-label {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.scale-bar {
+    display: flex;
+    height: 20px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.scale-segment {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.scale-segment.active {
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+    transform: scale(1.05);
+}
+
+.scale-segment.progress {
+    background: linear-gradient(90deg, currentColor 0%, rgba(255, 255, 255, 0.3) 100%) !important;
+}
+
+.scale-segment.completed {
+    background: #10b981;
+    opacity: 0.8;
+}
+
+.scale-segment .progress-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: #10b981;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+    z-index: 1;
+}
+
+/* Price Separators - Vertical Gold Lines */
+.price-separator-left,
+.price-separator-right {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, transparent 0%, #fbbf24 20%, #fbbf24 80%, transparent 100%);
+    z-index: 2;
+    pointer-events: none;
+}
+
+.price-separator-left {
+    left: 0;
+}
+
+.price-separator-right {
+    right: 0;
+}
+
+.segment-label {
+    color: white;
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    z-index: 1;
+}
+
+.scale-prices {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+}
+
+.price-item {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.6rem;
+    font-weight: 500;
+    text-align: center;
+    flex: 1;
+}
+
+/* Generated Invoices Section */
+.generated-invoices-section {
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.08) 0%,
+        rgba(255, 255, 255, 0.04) 50%,
+        rgba(255, 255, 255, 0.02) 100%
+    );
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    border-radius: 16px;
+    padding: 2rem;
+    backdrop-filter: blur(20px);
+}
+
+/* Telegram CTA button with subtle waves */
+.tg-cta { position: relative; display:inline-flex; align-items:center; gap:8px; padding:10px 14px; background: linear-gradient(135deg, #0f172a, #0b1220); border:1px solid rgba(99,102,241,.35); color:#e5e7eb; border-radius:10px; text-decoration:none; font-weight:700; transition: transform .2s ease, box-shadow .3s ease, border-color .3s ease; overflow:hidden; }
+.tg-cta:hover { transform: translateY(-2px); border-color: rgba(99,102,241,.6); box-shadow: 0 10px 30px rgba(99,102,241,.25); }
+.tg-cta .waves { position:absolute; inset:0; pointer-events:none; opacity:.18; background: radial-gradient(220px 60px at 0% 120%, rgba(99,102,241,.8), transparent 70%), radial-gradient(180px 60px at 100% -20%, rgba(59,130,246,.8), transparent 70%); animation: tgWaves 6s ease-in-out infinite; }
+@keyframes tgWaves { 0%,100%{ transform: translateX(0);} 50%{ transform: translateX(-12px);} }
+.tg-cta svg { width:16px; height:16px; filter: drop-shadow(0 2px 6px rgba(59,130,246,.35)); }
+
+/* Gold animated hint */
+.gold-hint { font-weight:800; background: linear-gradient(135deg,#fbbf24,#f59e0b,#fbbf24); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; text-shadow:0 0 12px rgba(251,191,36,.25); animation: goldPulse 2.5s ease-in-out infinite; font-size:.9rem; }
+@keyframes goldPulse { 0%,100%{ filter:brightness(1);} 50%{ filter:brightness(1.25);} }
+
+/* Company validation summary */
+.company-validate { margin:.5rem 0 .75rem; font-weight:700; font-size:.9rem; }
+.company-validate.error { color:#f87171; text-shadow:0 0 10px rgba(248,113,113,.25); }
+.company-validate.ok { color:#34d399; text-shadow:0 0 10px rgba(52,211,153,.25); }
+
+/* Section header layout tweaks */
+.section-header-left { display:flex; align-items:center; gap:12px; }
+
+.invoices-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.invoice-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(139, 92, 246, 0.1);
+    border-radius: 12px;
+    padding: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.3s ease;
+    margin-bottom: 0.5rem;
+}
+
+.invoice-item:hover {
+    background: rgba(139, 92, 246, 0.1);
+    border-color: rgba(139, 92, 246, 0.3);
+}
+
+.invoice-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1;
+    margin-right: 1rem;
+}
+
+.invoice-name {
+    color: rgba(255, 255, 255, 0.95);
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.invoice-date {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.85rem;
+}
+
+.invoice-stats {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.8rem;
+}
+
+.invoice-total {
+    color: #10b981;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.invoice-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.action-btn:hover {
+    background: #2563eb;
+    transform: translateY(-1px);
+}
+
+.action-btn svg {
+    flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+    .invoice-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+    
+    .invoice-info {
+        margin-right: 0;
+    }
+    
+    .invoice-actions {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .action-btn {
+        flex: 1;
+        min-width: 0;
+        justify-content: center;
+    }
+}
+
+.download-button {
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    color: white;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.download-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+    text-decoration: none;
+    color: white;
+}
+
+/* Modal styles - Clean Bootstrap implementation */
+.send-modal {
+    z-index: 1055 !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Force modal to be positioned relative to viewport, not document */
+.send-modal .modal-dialog {
+    position: fixed !important;
+    top: 50vh !important;
+    left: 50vw !important;
+    transform: translate(-50%, -50%) !important;
+    margin: 0 !important;
+    max-width: 500px !important;
+    width: 90vw !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+    z-index: 1056 !important;
+    pointer-events: auto !important;
+}
+
+.send-modal .modal-content {
+    background: linear-gradient(135deg, rgba(20,22,27,.95), rgba(14,16,22,.95));
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 14px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+}
+
+.send-modal .modal-header {
+    border-bottom: 1px solid rgba(255,255,255,.1);
+}
+
+.send-modal .modal-title {
+    color: #e5e7eb;
+    font-weight: 800;
+    font-size: 1.1rem;
+}
+
+.send-modal .modal-body {
+    color: rgba(229,231,235,.8);
+}
+
+.send-modal .btn-close {
+    filter: invert(1);
+}
+
+/* Fallback styles for manual modal display */
+.send-modal.show {
+    display: block !important;
+    z-index: 1055 !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+}
+
+.send-modal .modal-dialog {
+    position: fixed !important;
+    top: 50vh !important;
+    left: 50vw !important;
+    transform: translate(-50%, -50%) !important;
+    margin: 0 !important;
+    max-width: 500px !important;
+    width: 90vw !important;
+    z-index: 1056 !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+}
+
+.send-modal-backdrop {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(0,0,0,.6) !important;
+    z-index: 1050 !important;
+    cursor: pointer !important;
+}
+
+.modal-backdrop {
+    cursor: pointer !important;
+}
+
+.modal-open {
+    overflow: hidden !important;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .order-form-container {
+        padding: 1rem;
+    }
+    
+    .order-form-title {
+        font-size: 2rem;
+    }
+    
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .two-column-layout {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .order-form-header,
+    .company-form-section,
+    .stats-section,
+    .column,
+    .generated-invoices-section {
+        padding: 1.5rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="order-form-container">
+    <!-- Header Section -->
+    <div class="order-form-header">
+        <!-- Floating logos -->
+        <div class="floating-logos">
+            <div class="floating-logo logo-1">
+                <img src="{% static 'img/logo.svg' %}" alt="TwoComms" width="20" height="20">
+            </div>
+            <div class="floating-logo logo-2">
+                <img src="{% static 'img/logo.svg' %}" alt="TwoComms" width="16" height="16">
+            </div>
+            <div class="floating-logo logo-3">
+                <img src="{% static 'img/logo.svg' %}" alt="TwoComms" width="24" height="24">
+            </div>
+            <div class="floating-logo logo-4">
+                <img src="{% static 'img/logo.svg' %}" alt="TwoComms" width="14" height="14">
+            </div>
+            <div class="floating-logo logo-5">
+                <img src="{% static 'img/logo.svg' %}" alt="TwoComms" width="18" height="18">
+            </div>
+        </div>
+        
+        <h1 class="order-form-title">Сформувати накладну</h1>
+    </div>
+
+    <!-- Company information (для менеджера: дані компанії клієнта) -->
+    <section class="clients-panel" style="margin-bottom: 18px;">
+        <div class="panel-header" style="margin-bottom: 14px;">
+            <div>
+                <p class="eyebrow">Накладна</p>
+                <h2 style="margin: 0;">Дані компанії клієнта</h2>
+                <div id="companyValidateInline" class="company-validate" style="margin-top: 10px;"></div>
+                <div style="color: rgba(232, 237, 247, 0.7); font-size: 0.92rem; margin-top: 6px;">
+                    Заповніть реквізити компанії, які вам надали для формування цієї накладної.
+                </div>
+            </div>
+            <div class="panel-actions">
+                <button type="button" id="toggleCompanySection" class="btn-ghost" style="white-space: nowrap;">
+                    <span class="toggle-text">Згорнути</span>
+                </button>
+            </div>
+        </div>
+
+        <form id="company-form">
+            <div class="field-grid company-section-body" id="companySectionBody">
+                <div class="field">
+                    <label for="company-name">Назва компанії/ФОП/ПІБ *</label>
+                    <input type="text" id="company-name" name="company_name" placeholder="Введіть назву компанії або ФОП" value="{{ company_data.company_name|default:'' }}" required>
+                </div>
+                <div class="field">
+                    <label for="company-number">ЄДРПОУ/ІПН</label>
+                    <input type="text" id="company-number" name="company_number" placeholder="ЄДРПОУ/ІПН (за потреби)" value="{{ company_data.company_number|default:'' }}">
+                </div>
+                <div class="field">
+                    <label for="phone-number">Телефон *</label>
+                    <input type="tel" id="phone-number" name="phone_number" placeholder="+380…" value="{{ company_data.phone_number|default:'' }}" required>
+                </div>
+                <div class="field">
+                    <label for="store-link">Посилання на магазин</label>
+                    <input type="url" id="store-link" name="store_link" placeholder="https://…" value="{{ company_data.store_link|default:'' }}">
+                </div>
+                <div class="field field-span-2">
+                    <label for="delivery-address">Адреса доставки *</label>
+                    <textarea id="delivery-address" name="delivery_address" placeholder="Місто, адреса/відділення, ПІБ отримувача та інше" required>{{ company_data.delivery_address|default:'' }}</textarea>
+                </div>
+            </div>
+
+            <div class="panel-actions" style="margin-top: 14px; justify-content: flex-start;">
+                <button type="submit" class="btn-ghost" style="border-color: rgba(255, 126, 41, 0.4); color: var(--text-primary); background: rgba(255, 126, 41, 0.12);">
+                    Зберегти дані компанії
+                </button>
+            </div>
+        </form>
+    </section>
+
+    <!-- Statistics Section -->
+    <div class="stats-section">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="#8b5cf6">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                <div class="stat-value">{{ user_invoice_stats.total_invoices|default:0 }}</div>
+                <div class="stat-label">Накладних</div>
+            </div>
+            <div class="stat-card">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="#3b82f6">
+                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14H7v-2h5v2zm5-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                </svg>
+                <div class="stat-value">{{ user_invoice_stats.last_invoice_date|default:"Немає" }}</div>
+                <div class="stat-label">Остання</div>
+            </div>
+            <div class="stat-card">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="#10b981">
+                    <path d="M3 13h2v-2H3v2zm4 0h14v-2H7v2zM3 17h2v-2H3v2zm4 0h14v-2H7v2zM3 9h2V7H3v2zm4 0h14V7H7v2z"/>
+                </svg>
+                <div class="stat-value">{{ user_invoice_stats.total_products_available|default:0 }}</div>
+                <div class="stat-label">Товарів</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-icon" style="width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;">
+                    <img src="/media/category_icons/optimized/free-icon-clothes-1720753_24x24.png" alt="tshirt" width="18" height="18">
+                </span>
+                <div class="stat-value">{{ user_invoice_stats.tshirt_count|default:0 }}</div>
+                <div class="stat-label">Футболок</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-icon" style="width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <!-- Hood outline -->
+                        <path d="M12 3c3.5 0 6 2.2 6 4.8v1.2c0 1.2-1 2.2-2.2 2.2H8.2C7 11.2 6 10.2 6 9V7.8C6 5.2 8.5 3 12 3z" fill="#0B0B0B"/>
+                        <!-- Hood opening -->
+                        <path d="M9.5 7.2c0-1.1 1.6-2 2.5-2s2.5.9 2.5 2v1c0 .6-.5 1-1.1 1H10.6c-.6 0-1.1-.4-1.1-1v-1z" fill="#2B2B2B"/>
+                        <!-- Body with shoulders and sleeves -->
+                        <path d="M7.2 10.5c-.9 0-1.7.5-2.1 1.3l-1.1 2.2c-.3.7.1 1.5.8 1.8l1.1.4V20c0 .6.4 1 1 1h9.2c.6 0 1-.4 1-1v-3.8l1.1-.4c.7-.3 1.1-1.1.8-1.8l-1.1-2.2c-.4-.8-1.2-1.3-2.1-1.3H7.2z" fill="#0B0B0B"/>
+                        <!-- Kangaroo pocket -->
+                        <path d="M8.5 15.2c0-.4.3-.7.7-.7h5.6c.4 0 .7.3.7.7 0 1.3-1.1 2.3-2.4 2.3h-2.2c-1.3 0-2.4-1-2.4-2.3z" fill="#1A1A1A"/>
+                        <!-- Cuffs (subtle) -->
+                        <rect x="6.2" y="19.2" width="2" height="0.8" rx="0.4" fill="#1F1F1F"/>
+                        <rect x="15.8" y="19.2" width="2" height="0.8" rx="0.4" fill="#1F1F1F"/>
+                    </svg>
+                </span>
+                <div class="stat-value">{{ user_invoice_stats.hoodie_count|default:0 }}</div>
+                <div class="stat-label">Худі</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Management Grid Layout (exactly like admin store management) -->
+    <div class="management-grid">
+        <!-- Колонка 1: Все товары -->
+        <div class="management-column">
+            <div class="column-header">
+                <svg class="column-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                <h3 class="column-title">Всі товари</h3>
+            </div>
+            
+            <!-- Фильтр по категориям -->
+            <div class="category-filter">
+                <select class="filter-select" id="categoryFilter">
+                    <option value="">Всі категорії</option>
+                    <option value="tshirts">Футболки</option>
+                    <option value="hoodies">Худі</option>
+                </select>
+            </div>
+            
+            <!-- Список товаров -->
+            <div id="productsList" class="products-scroll-container">
+                {% for product in tshirt_products %}
+                    <div class="product-card" 
+                         data-product-id="{{ product.id }}" 
+                         data-category-id="tshirts"
+                         data-product-type="tshirt"
+                         data-main-image="{{ product.main_image.url|default:'' }}"
+                         draggable="true">
+                        <div class="product-card-content">
+                            <div class="product-image-container">
+                                {% if product.main_image %}
+                                    {% optimized_image product.main_image.url product.title "product-image" product.main_image.width|default:1080 product.main_image.height|default:1350 loading='lazy' fetchpriority='low' sizes='(max-width: 768px) 45vw, (max-width: 1200px) 30vw, 20vw' %}
+                                {% else %}
+                                    <div class="product-image" style="background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #718096;">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                                        </svg>
+                                    </div>
+                                {% endif %}
+                            </div>
+                                <div class="product-info">
+                                <div class="product-title-row">
+                                    <span class="product-category">Футболки</span>
+                                    <span class="product-name">{{ product.title }}</span>
+                                </div>
+                                <div class="product-colors">
+                                    {% for color_variant in product.color_variants.all|slice:":3" %}
+                                        <span class="color-item" data-color-name="{{ color_variant.color.name|default:'Чорний' }}" data-color-hex="{{ color_variant.color.primary_hex }}" data-color-image="{% if color_variant.images.first %}{{ color_variant.images.first.image.url }}{% else %}{{ product.main_image.url|default:'' }}{% endif %}">
+                                            <span class="color-dot" data-color="{{ color_variant.color.primary_hex|default:'#000000' }}"></span>
+                                            <span class="color-name">{{ color_variant.color.name|default:"Чорний" }}</span>
+                                        </span>
+                                    {% empty %}
+                                        <span class="color-item" data-color-name="Чорний" data-color-hex="#000000" data-color-image="{{ product.main_image.url|default:'' }}">
+                                            <span class="color-dot" data-color="#000000" style="background-color: #000000;"></span>
+                                            <span class="color-name">Чорний</span>
+                                        </span>
+                                    {% endfor %}
+                                    {% if product.color_variants.count > 3 %}
+                                        <span class="color-more">+{{ product.color_variants.count|add:"-3" }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="product-price">Опт: {{ tshirt_prices.wholesale.4 }}₴ - {{ tshirt_prices.wholesale.0 }}₴</div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+                
+                {% for product in hoodie_products %}
+                    <div class="product-card" 
+                         data-product-id="{{ product.id }}" 
+                         data-category-id="hoodies"
+                         data-product-type="hoodie"
+                         data-main-image="{{ product.main_image.url|default:'' }}"
+                         draggable="true">
+                        <div class="product-card-content">
+                            <div class="product-image-container">
+                                {% if product.main_image %}
+                                    {% optimized_image product.main_image.url product.title "product-image" product.main_image.width|default:1080 product.main_image.height|default:1350 loading='lazy' fetchpriority='low' sizes='(max-width: 768px) 45vw, (max-width: 1200px) 30vw, 20vw' %}
+                                {% else %}
+                                    <div class="product-image" style="background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #718096;">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                                        </svg>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="product-info">
+                                <div class="product-title-row">
+                                    <span class="product-category">Худі</span>
+                                    <span class="product-name">{{ product.title }} [фліс]</span>
+                                </div>
+                                <div class="product-colors">
+                                    <span class="color-item" data-color-name="Чорний" data-color-hex="#000000" data-color-image="{{ product.main_image.url|default:'' }}">
+                                        <span class="color-dot" data-color="#000000"></span>
+                                        <span class="color-name">Чорний</span>
+                                    </span>
+                                </div>
+                                <div class="product-price">Опт: {{ hoodie_prices.wholesale.4 }}₴ - {{ hoodie_prices.wholesale.0 }}₴</div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Колонка 2: Формирование накладной -->
+        <div class="management-column order-column">
+            <div class="column-header">
+                <svg class="column-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+                <h3 class="column-title">Формування накладної</h3>
+            </div>
+            
+            <div class="order-content">
+                <!-- Форма добавления товара -->
+                <div class="order-form" id="orderForm" style="display: none;">
+                    
+                    <div class="form-group">
+                        <label class="form-label">Розмір</label>
+                        <select class="form-select" id="productSize" required>
+                            <option value="">Оберіть розмір</option>
+                            <option value="all">Всі ростовки (S-XL)</option>
+                            <option value="S">S</option>
+                            <option value="M">M</option>
+                            <option value="L">L</option>
+                            <option value="XL">XL</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Колір</label>
+                        <select class="form-select" id="productColor">
+                            <option value="default">Чорний (дефолт)</option>
+                        </select>
+                        <!-- Скрытое поле для хранения изображения выбранного цвета -->
+                        <input type="hidden" id="selectedColorImage" value="">
+                    </div>
+                    
+                    
+                    <div class="form-group">
+                        <label class="form-label">Кількість</label>
+                        <input type="number" class="form-input" id="quantity" min="1" value="1">
+                    </div>
+                    
+                    <button class="add-to-order-btn" id="addToOrderBtn">Додати в накладну</button>
+                </div>
+                
+                <!-- Зона для перетаскивания -->
+                <div class="drop-zone" id="orderDropZone">
+                    <div class="drop-zone-text">Перетягніть товар</div>
+                    <div class="drop-zone-subtext">або клікніть на товар</div>
+                </div>
+                
+                <!-- Список товаров в заказе -->
+                <div id="orderItems" class="order-items-scroll-container" style="margin-top: 15px;">
+                    <!-- Items will be added here dynamically -->
+                </div>
+            </div>
+            
+            <!-- Кнопка формирования накладной -->
+            <div class="order-actions">
+                <button class="action-btn generate-invoice-btn" id="generateInvoiceBtn">
+                    Сформувати накладну
+                </button>
+                <button class="action-btn" id="clearOrderBtn" style="background: #ef4444; margin-left: 10px;">
+                    Очистити замовлення
+                </button>
+            </div>
+            
+            <!-- Статистика заказа -->
+            <div class="order-statistics" id="orderStatistics">
+                <div class="statistics-header">
+                    <h4>Статистика замовлення</h4>
+                </div>
+                
+                <div class="statistics-content">
+                    <div class="total-sum">
+                        <span class="sum-label">Сума накладної:</span>
+                        <span class="sum-value" id="totalSum">0₴</span>
+                    </div>
+                    
+                    <div class="progress-info" id="progressInfo">
+                        <!-- Динамически заполняется -->
+                    </div>
+                    
+                    <!-- Шкалы скидок -->
+                    <div class="discount-scales">
+                        <div class="scale-container">
+                            <div class="scale-label">Футболки</div>
+                            <div class="scale-bar" id="tshirtScale">
+                                <div class="scale-segment" data-range="1-7" data-price="0" style="background: #ef4444;">
+                                    <span class="segment-label">1-7</span>
+                                </div>
+                                <div class="scale-segment" data-range="8-15" data-price="{{ tshirt_prices.wholesale.0 }}" style="background: #6b7280;">
+                                    <span class="segment-label">8-15</span>
+                                    <div class="price-separator-left"></div>
+                                </div>
+                                <div class="scale-segment" data-range="16-31" data-price="{{ tshirt_prices.wholesale.1 }}" style="background: #6b7280;">
+                                    <span class="segment-label">16-31</span>
+                                    <div class="price-separator-left"></div>
+                                    <div class="price-separator-right"></div>
+                                </div>
+                                <div class="scale-segment" data-range="32-63" data-price="{{ tshirt_prices.wholesale.2 }}" style="background: #6b7280;">
+                                    <span class="segment-label">32-63</span>
+                                    <div class="price-separator-left"></div>
+                                    <div class="price-separator-right"></div>
+                                </div>
+                                <div class="scale-segment" data-range="64-99" data-price="{{ tshirt_prices.wholesale.3 }}" style="background: #6b7280;">
+                                    <span class="segment-label">64-99</span>
+                                    <div class="price-separator-left"></div>
+                                    <div class="price-separator-right"></div>
+                                </div>
+                                <div class="scale-segment" data-range="100+" data-price="{{ tshirt_prices.wholesale.4 }}" style="background: #6b7280;">
+                                    <span class="segment-label">100+</span>
+                                    <div class="price-separator-left"></div>
+                                </div>
+                            </div>
+                            <div class="scale-prices">
+                                <span class="price-item">Не опт</span>
+                                <span class="price-item">{{ tshirt_prices.wholesale.0 }}₴</span>
+                                <span class="price-item">{{ tshirt_prices.wholesale.1 }}₴</span>
+                                <span class="price-item">{{ tshirt_prices.wholesale.2 }}₴</span>
+                                <span class="price-item">{{ tshirt_prices.wholesale.3 }}₴</span>
+                                <span class="price-item">{{ tshirt_prices.wholesale.4 }}₴</span>
+                            </div>
+                        </div>
+                        
+                        <div class="scale-container">
+                            <div class="scale-label">Худі</div>
+                            <div class="scale-bar" id="hoodieScale">
+                                <div class="scale-segment" data-range="1-7" data-price="0" style="background: #ef4444;">
+                                    <span class="segment-label">1-7</span>
+                                </div>
+                                <div class="scale-segment" data-range="8-15" data-price="{{ hoodie_prices.wholesale.0 }}" style="background: #6b7280;">
+                                    <span class="segment-label">8-15</span>
+                                    <div class="price-separator-left"></div>
+                                </div>
+                                <div class="scale-segment" data-range="16-31" data-price="{{ hoodie_prices.wholesale.1 }}" style="background: #6b7280;">
+                                    <span class="segment-label">16-31</span>
+                                    <div class="price-separator-left"></div>
+                                    <div class="price-separator-right"></div>
+                                </div>
+                                <div class="scale-segment" data-range="32-63" data-price="{{ hoodie_prices.wholesale.2 }}" style="background: #6b7280;">
+                                    <span class="segment-label">32-63</span>
+                                    <div class="price-separator-left"></div>
+                                    <div class="price-separator-right"></div>
+                                </div>
+                                <div class="scale-segment" data-range="64-99" data-price="{{ hoodie_prices.wholesale.3 }}" style="background: #6b7280;">
+                                    <span class="segment-label">64-99</span>
+                                    <div class="price-separator-left"></div>
+                                    <div class="price-separator-right"></div>
+                                </div>
+                                <div class="scale-segment" data-range="100+" data-price="{{ hoodie_prices.wholesale.4 }}" style="background: #6b7280;">
+                                    <span class="segment-label">100+</span>
+                                    <div class="price-separator-left"></div>
+                                </div>
+                            </div>
+                            <div class="scale-prices">
+                                <span class="price-item">Не опт</span>
+                                <span class="price-item">{{ hoodie_prices.wholesale.0 }}₴</span>
+                                <span class="price-item">{{ hoodie_prices.wholesale.1 }}₴</span>
+                                <span class="price-item">{{ hoodie_prices.wholesale.2 }}₴</span>
+                                <span class="price-item">{{ hoodie_prices.wholesale.3 }}₴</span>
+                                <span class="price-item">{{ hoodie_prices.wholesale.4 }}₴</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generated Invoices Section -->
+    <div class="generated-invoices-section">
+        <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:1rem; gap:1rem; flex-wrap:wrap;">
+            <h2 class="section-title" style="margin:0;">Сформовані накладні</h2>
+            <div style="display:flex; align-items:center; gap:12px;">
+                <button type="button" class="btn-ghost" id="refreshInvoicesBtn" style="white-space: nowrap;">Оновити</button>
+            </div>
+        </div>
+        <div class="invoices-list" id="invoices-list">
+            <!-- Invoices will be dynamically added here -->
+            <div style="color: rgba(255, 255, 255, 0.6); text-align: center; padding: 2rem;">
+                Завантаження…
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ tshirt_prices|json_script:"tshirt-prices-data" }}
+{{ hoodie_prices|json_script:"hoodie-prices-data" }}
+<script>
+// Global variables for wholesale order management
+let currentProduct = null;
+let currentOrderId = null;
+let orderItems = [];
+const tshirtPrices = JSON.parse(document.getElementById('tshirt-prices-data').textContent);
+const hoodiePrices = JSON.parse(document.getElementById('hoodie-prices-data').textContent);
+
+// Initialize color dots with proper colors
+function initializeColorDots() {
+    const colorDots = document.querySelectorAll('.color-dot');
+    colorDots.forEach(dot => {
+        const color = dot.getAttribute('data-color') || '#000000';
+        dot.style.backgroundColor = color;
+        dot.style.display = 'inline-block';
+        dot.style.width = '10px';
+        dot.style.height = '10px';
+        dot.style.borderRadius = '50%';
+        dot.style.border = '1px solid rgba(255, 255, 255, 0.3)';
+        dot.style.boxShadow = '0 0 0 1px rgba(0, 0, 0, 0.2)';
+    });
+}
+
+// Initialize the page
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        loadOrderData(); // Load saved data before wiring validations
+        initializeCompanyForm();
+        initializeDragAndDrop();
+        initializeColorDots();
+        initializeCategoryFilter();
+        initializeProductClick();
+        initializeOrderForm();
+        loadInvoicesFromServer(false); // Load invoices from server
+        updateOrderStatistics(); // Initialize statistics on page load
+
+        const refreshBtn = document.getElementById('refreshInvoicesBtn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => loadInvoicesFromServer(false));
+        }
+        // Periodically refresh statuses (approved/rejected/payment)
+        setInterval(() => loadInvoicesFromServer(true), 20000);
+    } catch (error) {
+        console.error('Error during initialization:', error);
+    }
+});
+
+// Company form handling
+function initializeCompanyForm() {
+    const companyForm = document.getElementById('company-form');
+    const generateInvoiceBtn = document.getElementById('generateInvoiceBtn');
+    const clearOrderBtn = document.getElementById('clearOrderBtn');
+    const invoicesList = document.getElementById('invoices-list');
+    
+    // Validation summary
+    const validateSummary = () => {
+        const name = (document.getElementById('company-name')?.value || '').trim();
+        const phone = (document.getElementById('phone-number')?.value || '').trim();
+        const address = (document.getElementById('delivery-address')?.value || '').trim();
+        const elInline = document.getElementById('companyValidateInline');
+        if (!elInline) return;
+        const requiredMissing = [];
+        if (!name) requiredMissing.push('назва компанії/ФОП');
+        if (!phone) requiredMissing.push('номер телефону');
+        if (!address) requiredMissing.push('адреса доставки');
+        if (requiredMissing.length) {
+            elInline.className = 'company-validate error';
+            elInline.textContent = `Потрібно заповнити: ${requiredMissing.join(', ')}`;
+        } else {
+            elInline.className = 'company-validate ok';
+            elInline.textContent = 'Інформація про компанію заповнена успішно';
+        }
+    };
+    ['company-name','phone-number','delivery-address'].forEach(id => {
+        const f = document.getElementById(id);
+        if (f) f.addEventListener('input', validateSummary);
+    });
+    setTimeout(validateSummary, 0);
+
+    // Handle company form submission
+    companyForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(companyForm);
+        const rawData = Object.fromEntries(formData.entries());
+        
+        // Convert form field names to expected API format
+        const companyData = {
+            companyName: rawData.company_name || '',
+            companyNumber: rawData.company_number || '',
+            deliveryAddress: rawData.delivery_address || '',
+            contactPhone: rawData.phone_number || '',
+            storeLink: rawData.store_link || ''
+        };
+        
+        
+        // Store company data in localStorage
+        localStorage.setItem('managementInvoiceCompanyData', JSON.stringify(companyData));
+        saveOrderData(); // Save complete order data
+        
+        // Enable invoice generation button
+        generateInvoiceBtn.disabled = false;
+        
+        // Show success message and update summary
+        showNotification('Інформація про компанію збережена!', 'success');
+        validateSummary();
+    });
+    
+    // Handle clear order button
+    clearOrderBtn.addEventListener('click', function() {
+        if (confirm('Ви впевнені, що хочете очистити замовлення? Цю дію неможливо скасувати.')) {
+            clearOrderData();
+            showNotification('Замовлення очищено', 'success');
+        }
+    });
+    
+    // Handle invoice generation
+    generateInvoiceBtn.addEventListener('click', async function() {
+        const companyData = localStorage.getItem('managementInvoiceCompanyData');
+        
+        if (!companyData) {
+            showNotification('Спочатку заповніть інформацію про компанію', 'error');
+            return;
+        }
+        
+        if (orderItems.length === 0) {
+            showNotification('Додайте товари до накладної', 'error');
+            return;
+        }
+        
+        // Disable button during generation
+        generateInvoiceBtn.disabled = true;
+        generateInvoiceBtn.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="animate-spin">
+                <path d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z"/>
+            </svg>
+            Формування накладної...
+        `;
+        
+        try {
+            // Prepare data for invoice generation
+            const parsedCompanyData = JSON.parse(companyData);
+            
+            const invoiceData = {
+                companyData: parsedCompanyData,
+                orderItems: orderItems
+            };
+            
+            // Send request to generate invoice (management)
+            const response = await fetch('/invoices/api/generate/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(invoiceData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.ok && result.invoice) {
+                // Clear order and localStorage
+                clearOrderData();
+
+                // Reload invoices list from server
+                await loadInvoicesFromServer(true);
+
+                showNotification('Накладна успішно сформована!', 'success');
+            } else {
+                showNotification(result.error || 'Помилка при створенні накладної', 'error');
+            }
+        } catch (error) {
+            console.error('Error generating invoice:', error);
+            showNotification('Помилка при створенні накладної', 'error');
+        } finally {
+            // Reset button
+            generateInvoiceBtn.disabled = false;
+            generateInvoiceBtn.innerHTML = 'Сформувати накладну';
+        }
+    });
+    
+    // Check if company data exists on page load
+    const existingCompanyData = localStorage.getItem('managementInvoiceCompanyData');
+    if (existingCompanyData) {
+        let data = JSON.parse(existingCompanyData);
+        // Check if data is in old format (snake_case) and convert to new format (camelCase)
+        if (data.company_name && !data.companyName) {
+            const convertedData = {
+                companyName: data.company_name || '',
+                companyNumber: data.company_number || '',
+                deliveryAddress: data.delivery_address || '',
+                contactPhone: data.phone_number || '',
+                storeLink: data.store_link || ''
+            };
+            localStorage.setItem('managementInvoiceCompanyData', JSON.stringify(convertedData));
+            data = convertedData;
+        }
+        
+        // Fill form with existing data (using correct API field names)
+        document.getElementById('company-name').value = data.companyName || '';
+        document.getElementById('company-number').value = data.companyNumber || '';
+        document.getElementById('delivery-address').value = data.deliveryAddress || '';
+        document.getElementById('phone-number').value = data.contactPhone || '';
+        document.getElementById('store-link').value = data.storeLink || '';
+        
+        // Enable invoice generation
+        generateInvoiceBtn.disabled = false;
+    } else {
+        // If no localStorage data, check if form has pre-filled data from Django
+        const companyNameEl = document.getElementById('company-name');
+        const companyNumberEl = document.getElementById('company-number');
+        const deliveryAddressEl = document.getElementById('delivery-address');
+        const phoneNumberEl = document.getElementById('phone-number');
+        const storeLinkEl = document.getElementById('store-link');
+        
+        // Check if any form field has data (from Django context)
+        if (companyNameEl && companyNameEl.value.trim()) {
+            // Convert form data to API format and save to localStorage
+            const companyData = {
+                companyName: companyNameEl.value.trim(),
+                companyNumber: companyNumberEl ? companyNumberEl.value.trim() : '',
+                deliveryAddress: deliveryAddressEl ? deliveryAddressEl.value.trim() : '',
+                contactPhone: phoneNumberEl ? phoneNumberEl.value.trim() : '',
+                storeLink: storeLinkEl ? storeLinkEl.value.trim() : ''
+            };
+            
+            localStorage.setItem('managementInvoiceCompanyData', JSON.stringify(companyData));
+            
+            // Enable invoice generation
+            generateInvoiceBtn.disabled = false;
+        }
+    }
+}
+
+// Drag and Drop functionality (exactly like admin store management)
+function initializeDragAndDrop() {
+    const productCards = document.querySelectorAll('.product-card');
+    const dropZone = document.getElementById('orderDropZone');
+    
+    productCards.forEach((card, index) => {
+        card.addEventListener('dragstart', handleDragStart);
+        card.addEventListener('dragend', handleDragEnd);
+    });
+    
+    if (dropZone) {
+        dropZone.addEventListener('dragover', handleDragOver);
+        dropZone.addEventListener('drop', handleDrop);
+        dropZone.addEventListener('dragleave', handleDragLeave);
+    }
+}
+
+
+function handleDragStart(e) {
+    e.target.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', e.target.dataset.productId);
+}
+
+function handleDragEnd(e) {
+    e.target.classList.remove('dragging');
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.currentTarget.classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+    e.currentTarget.classList.remove('drag-over');
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drag-over');
+    
+    const productId = e.dataTransfer.getData('text/plain');
+    const productCard = document.querySelector(`[data-product-id="${productId}"]`);
+    
+    if (productCard) {
+        selectProduct(productId);
+    }
+}
+
+// Category filter functionality
+function initializeCategoryFilter() {
+    const categoryFilter = document.getElementById('categoryFilter');
+    const productCards = document.querySelectorAll('.product-card');
+    
+    categoryFilter.addEventListener('change', function() {
+        const selectedCategory = this.value;
+        
+        productCards.forEach(card => {
+            if (selectedCategory === '' || card.dataset.categoryId === selectedCategory) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    });
+}
+
+// Инициализация клика по карточкам товаров
+function initializeProductClick() {
+    const productCards = document.querySelectorAll('.product-card');
+    
+    productCards.forEach((card, index) => {
+        card.addEventListener('click', function(e) {
+            // Предотвращаем клик при drag and drop
+            if (e.target.closest('.remove-item-btn')) {
+                return;
+            }
+            
+            const productId = this.dataset.productId;
+            
+            if (productId) {
+                selectProduct(productId);
+            }
+        });
+        
+        // Добавляем визуальную обратную связь при клике
+        card.style.cursor = 'pointer';
+    });
+}
+
+// Выбор товара
+function selectProduct(productId) {
+    const productCard = document.querySelector(`[data-product-id="${productId}"]`);
+    
+    if (!productCard) {
+        return;
+    }
+    
+    // Получаем главное изображение товара
+    const productImage = productCard.querySelector('.product-image');
+    const mainImage = productImage ? productImage.src : '';
+    
+    // Получаем все доступные цвета с их изображениями
+    const colorVariants = [];
+    const colorItems = productCard.querySelectorAll('.color-item');
+    
+    colorItems.forEach((colorItem, index) => {
+        const colorName = colorItem.querySelector('.color-name').textContent;
+        const colorHex = colorItem.dataset.colorHex || '#000000';
+        
+        // Берем изображение цвета из data-color-image, если есть, иначе основное изображение
+        const colorImageUrl = colorItem.dataset.colorImage || mainImage;
+        
+        colorVariants.push({
+            name: colorName,
+            hex: colorHex,
+            image: colorImageUrl
+        });
+    });
+    
+    currentProduct = {
+        id: productId,
+        type: productCard.dataset.productType,
+        title: productCard.querySelector('.product-name').textContent,
+        main_image: mainImage,
+        image: mainImage, // Для обратной совместимости
+        category: productCard.querySelector('.product-category').textContent,
+        color_variants: colorVariants
+    };
+    
+    showOrderForm();
+}
+
+
+// Order form functionality
+function initializeOrderForm() {
+    const addToOrderBtn = document.getElementById('addToOrderBtn');
+    
+    if (addToOrderBtn) {
+        addToOrderBtn.addEventListener('click', function() {
+            addToOrder();
+        });
+    }
+    
+    // Handle size change
+    const sizeSelect = document.getElementById('productSize');
+    sizeSelect.addEventListener('change', function() {
+        const quantityInput = document.getElementById('quantity');
+        if (this.value === 'all') {
+            quantityInput.value = '4';
+            quantityInput.disabled = true;
+            quantityInput.style.opacity = '0.6';
+        } else {
+            quantityInput.disabled = false;
+            quantityInput.style.opacity = '1';
+            if (quantityInput.value === '4') {
+                quantityInput.value = '1';
+            }
+        }
+        updatePriceDisplay();
+    });
+    
+    // Handle quantity change
+    const quantityInput = document.getElementById('quantity');
+    quantityInput.addEventListener('input', function() {
+        updatePriceDisplay();
+    });
+}
+
+function showOrderForm() {
+    const orderForm = document.getElementById('orderForm');
+    const dropZone = document.getElementById('orderDropZone');
+    
+    if (currentProduct) {
+        if (orderForm) {
+            orderForm.style.display = 'block';
+        }
+        
+        if (dropZone) {
+            dropZone.style.display = 'none';
+        }
+        
+        // Populate form with product data
+        const colorSelect = document.getElementById('productColor');
+        
+        if (colorSelect) {
+            colorSelect.innerHTML = '';
+            
+            if (currentProduct.type === 'tshirt' && currentProduct.color_variants && currentProduct.color_variants.length > 0) {
+                // Add available colors for t-shirts
+                currentProduct.color_variants.forEach((colorVariant, index) => {
+                    const option = document.createElement('option');
+                    option.value = colorVariant.name;
+                    option.dataset.colorHex = colorVariant.hex;
+                    option.dataset.colorImage = colorVariant.image;
+                    option.textContent = colorVariant.name;
+                    if (index === 0) option.selected = true;
+                    colorSelect.appendChild(option);
+                });
+            } else {
+                // Default to black if no colors available
+                colorSelect.innerHTML = '<option value="Чорний" data-color-hex="#000000" data-color-image="">Чорний</option>';
+            }
+        }
+        
+        // Set default values
+        const sizeSelect = document.getElementById('productSize');
+        const quantityInput = document.getElementById('quantity');
+        const selectedColorImage = document.getElementById('selectedColorImage');
+        
+        if (sizeSelect) sizeSelect.value = '';
+        if (quantityInput) {
+            quantityInput.value = '1';
+            quantityInput.disabled = false;
+            quantityInput.style.opacity = '1';
+        }
+        
+        // Set initial color image
+        if (colorSelect && selectedColorImage) {
+            const selectedOption = colorSelect.options[colorSelect.selectedIndex];
+            if (selectedOption && selectedOption.dataset.colorImage) {
+                selectedColorImage.value = selectedOption.dataset.colorImage;
+            }
+        }
+        
+        // Add color change handler
+        if (colorSelect) {
+            colorSelect.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                const colorImage = selectedOption ? selectedOption.dataset.colorImage : '';
+                
+                // Store selected color image in hidden field
+                if (selectedColorImage) {
+                    selectedColorImage.value = colorImage;
+                }
+                
+                // Update currentProduct for later use
+                if (currentProduct) {
+                    currentProduct.image = colorImage || currentProduct.main_image;
+                }
+            });
+        }
+        
+        updatePriceDisplay();
+    }
+}
+
+function getTotalQuantityForProductType(productType) {
+    return orderItems
+        .filter(item => item.product.type === productType)
+        .reduce((total, item) => total + item.quantity, 0);
+}
+
+function getWholesalePrice(productType, quantity) {
+    const prices = productType === 'tshirt' ? tshirtPrices.wholesale : hoodiePrices.wholesale;
+
+    if (quantity >= 100) return prices[4];
+    if (quantity >= 64) return prices[3];
+    if (quantity >= 32) return prices[2];
+    if (quantity >= 16) return prices[1];
+    if (quantity >= 8) return prices[0];
+    
+    // For 1-7 items, return the appropriate wholesale price based on total quantity
+    // This will be used for individual item pricing in the order
+    return prices[0]; // Use minimum wholesale price for individual items
+}
+
+function updatePriceDisplay() {
+    if (!currentProduct) {
+        return;
+    }
+    
+    const quantityInput = document.getElementById('quantity');
+    const quantity = parseInt(quantityInput ? quantityInput.value : '1') || 1;
+    
+    // Calculate total quantity for this product type after adding this item
+    const currentTotalQuantity = getTotalQuantityForProductType(currentProduct.type);
+    const newTotalQuantity = currentTotalQuantity + quantity;
+    
+    // Calculate price based on total quantity for this product type
+    const price = getWholesalePrice(currentProduct.type, newTotalQuantity);
+    const total = price * quantity;
+    
+    const addBtn = document.getElementById('addToOrderBtn');
+
+    if (addBtn) {
+        addBtn.textContent = `Додати ${quantity} шт. (${total}₴)`;
+    }
+}
+
+function addToOrder() {
+    if (!currentProduct) {
+        return;
+    }
+    
+    const sizeSelect = document.getElementById('productSize');
+    const colorSelectElement = document.getElementById('productColor');
+    const quantityInput = document.getElementById('quantity');
+    
+    const size = sizeSelect ? sizeSelect.value : '';
+    const color = colorSelectElement ? colorSelectElement.value : '';
+    const quantity = parseInt(quantityInput ? quantityInput.value : '1') || 1;
+    
+    if (!size) {
+        showNotification('Оберіть розмір', 'error');
+        return;
+    }
+    
+    // Calculate total quantity for this product type after adding this item
+    const currentTotalQuantity = getTotalQuantityForProductType(currentProduct.type);
+    const newTotalQuantity = currentTotalQuantity + quantity;
+    
+    // Calculate price based on total quantity for this product type
+    const price = getWholesalePrice(currentProduct.type, newTotalQuantity);
+    
+    // Get color name and image from select option
+    const colorSelectForImage = document.getElementById('productColor');
+    const selectedOption = colorSelectForImage.options[colorSelectForImage.selectedIndex];
+    const colorName = selectedOption ? selectedOption.textContent : 'Чорний';
+    const colorImage = selectedOption ? selectedOption.dataset.colorImage : currentProduct.main_image;
+    
+    // Check if we already have this exact item (same product, size, color)
+    const existingItemIndex = orderItems.findIndex(item => 
+        item.product.id === currentProduct.id && 
+        item.size === (size === 'all' ? 'Всі ростовки (S-XL)' : size) &&
+        item.color === colorName
+    );
+    
+    if (existingItemIndex !== -1) {
+        // Update existing item quantity
+        const existingItem = orderItems[existingItemIndex];
+        existingItem.quantity += quantity;
+        existingItem.total = existingItem.price * existingItem.quantity;
+        
+        // Update UI
+        const itemElement = document.querySelector(`[data-item-id="${existingItem.id}"]`);
+        if (itemElement) {
+            const quantityElement = itemElement.querySelector('.order-item-quantity');
+            const totalElement = itemElement.querySelector('.order-item-selling');
+            if (quantityElement) quantityElement.textContent = `${existingItem.quantity} шт.`;
+            if (totalElement) totalElement.textContent = `${existingItem.total}₴`;
+        }
+        
+        showNotification('Кількість товару оновлено', 'success');
+    } else {
+        // Create new order item
+        const orderItem = {
+            id: Date.now(),
+            product: {
+                ...currentProduct,
+                image: colorImage // Use color-specific image
+            },
+            size: size === 'all' ? 'Всі ростовки (S-XL)' : size,
+            color: colorName,
+            quantity: quantity,
+            price: price,
+            total: price * quantity
+        };
+        
+        orderItems.push(orderItem);
+        addOrderItemToUI(orderItem);
+    }
+    
+    // Update statistics
+    updateOrderStatistics();
+    saveOrderData(); // Save to localStorage
+    
+    // Hide form after adding item
+    hideOrderForm();
+    
+    showNotification('Товар додано до накладної', 'success');
+}
+
+function addOrderItemToUI(orderItem) {
+    const orderItemsContainer = document.getElementById('orderItems');
+    
+    const orderItemElement = document.createElement('div');
+    orderItemElement.className = 'order-item';
+    orderItemElement.dataset.itemId = orderItem.id;
+    
+    orderItemElement.innerHTML = `
+        <div class="order-item-content">
+            <div class="order-item-image">
+                ${orderItem.product.image ? 
+                    `<img src="${orderItem.product.image}" alt="${orderItem.product.title}" class="order-product-image">` :
+                    `<div class="order-product-image" style="background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #718096;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                        </svg>
+                    </div>`
+                }
+            </div>
+            
+            <div class="order-item-info">
+                <div class="order-item-title">${orderItem.product.title}</div>
+                
+                <div class="order-item-specs-row">
+                    <div class="order-item-color-section">
+                        <span class="order-item-color-text">${orderItem.color}</span>
+                        <span class="order-item-color-dot" data-color="#000000" style="background-color: #000000; width: 8px; height: 8px; border-radius: 50%; display: inline-block; border: 1px solid rgba(255, 255, 255, 0.2);"></span>
+                    </div>
+                    
+                    <div class="order-item-size">${orderItem.size}</div>
+                    
+                    <div class="order-item-quantity">${orderItem.quantity} шт.</div>
+                </div>
+            </div>
+            
+            <div class="order-item-actions">
+                <button class="remove-item-btn" onclick="removeOrderItem(${orderItem.id})">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                    </svg>
+                </button>
+                
+                <div class="order-item-prices">
+                    <div class="order-item-cost">${orderItem.price}₴</div>
+                    <div class="order-item-selling">${orderItem.total}₴</div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    orderItemsContainer.appendChild(orderItemElement);
+}
+
+function removeOrderItem(itemId) {
+    orderItems = orderItems.filter(item => item.id !== itemId);
+    
+    const orderItemElement = document.querySelector(`[data-item-id="${itemId}"]`);
+    if (orderItemElement) {
+        orderItemElement.remove();
+    }
+    
+    // Update statistics
+    updateOrderStatistics();
+    saveOrderData(); // Save to localStorage
+    
+    showNotification('Товар видалено з накладної', 'success');
+}
+
+function hideOrderForm() {
+    const orderForm = document.getElementById('orderForm');
+    const dropZone = document.getElementById('orderDropZone');
+    
+    orderForm.style.display = 'none';
+    dropZone.style.display = 'block';
+    
+    currentProduct = null;
+}
+
+function updateOrderStatistics() {
+    const statisticsDiv = document.getElementById('orderStatistics');
+    const totalSumSpan = document.getElementById('totalSum');
+    const progressInfoDiv = document.getElementById('progressInfo');
+    
+    // Statistics always visible
+    statisticsDiv.style.display = 'block';
+    
+    // Calculate total sum
+    const totalSum = orderItems.reduce((sum, item) => sum + item.total, 0);
+    
+    // Check if we have wholesale quantities
+    const tshirtQuantity = orderItems
+        .filter(item => item.product.type === 'tshirt')
+        .reduce((sum, item) => sum + item.quantity, 0);
+    const hoodieQuantity = orderItems
+        .filter(item => item.product.type === 'hoodie')
+        .reduce((sum, item) => sum + item.quantity, 0);
+    
+    if (tshirtQuantity > 0 && tshirtQuantity < 8) {
+        totalSumSpan.textContent = 'Не опт';
+    } else if (hoodieQuantity > 0 && hoodieQuantity < 8) {
+        totalSumSpan.textContent = 'Не опт';
+    } else if (totalSum === 0) {
+        totalSumSpan.textContent = '0₴';
+    } else {
+        totalSumSpan.textContent = `${totalSum}₴`;
+    }
+    
+    // Add highlight animation to total sum
+    const totalSumDiv = totalSumSpan.closest('.total-sum');
+    totalSumDiv.classList.add('highlight');
+    setTimeout(() => {
+        totalSumDiv.classList.remove('highlight');
+    }, 1500);
+    
+    // Calculate quantities by type (variables already declared above)
+    
+    // Generate progress info
+    let progressInfo = '';
+    
+    if (orderItems.length === 0) {
+        progressInfo = '<div style="color: rgba(255, 255, 255, 0.5); font-style: italic;">Додайте товари до накладної</div>';
+    } else {
+        // T-shirt progress
+        if (tshirtQuantity > 0) {
+            if (tshirtQuantity < 8) {
+                const needed = 8 - tshirtQuantity;
+                progressInfo += `<div class="warning">Опт недоступний: додайте ще ${needed} футболок (мін. 8 шт.)</div>`;
+            } else {
+                progressInfo += `<div class="success">Футболки: ${tshirtQuantity} шт. (оптова ціна)</div>`;
+            }
+            
+            // Next discount level
+            const nextLevel = getNextDiscountLevel(tshirtQuantity, 'tshirt');
+            if (nextLevel) {
+                progressInfo += `<div>До наступної скидки потрібно ще ${nextLevel.needed} футболок (${nextLevel.price}₴)</div>`;
+            }
+        }
+        
+        // Hoodie progress
+        if (hoodieQuantity > 0) {
+            if (hoodieQuantity < 8) {
+                const needed = 8 - hoodieQuantity;
+                progressInfo += `<div class="warning">Опт недоступний: додайте ще ${needed} худі (мін. 8 шт.)</div>`;
+            } else {
+                progressInfo += `<div class="success">Худі: ${hoodieQuantity} шт. (оптова ціна)</div>`;
+            }
+            
+            // Next discount level
+            const nextLevel = getNextDiscountLevel(hoodieQuantity, 'hoodie');
+            if (nextLevel) {
+                progressInfo += `<div>До наступної скидки потрібно ще ${nextLevel.needed} худі (${nextLevel.price}₴)</div>`;
+            }
+        }
+    }
+    
+    progressInfoDiv.innerHTML = progressInfo;
+    
+    // Update discount scales
+    updateDiscountScales(tshirtQuantity, hoodieQuantity);
+    
+    // Update prices in existing order items
+    updateOrderItemPrices(tshirtQuantity, hoodieQuantity);
+}
+
+function getNextDiscountLevel(currentQuantity, type) {
+    const prices = type === 'tshirt' ? tshirtPrices.wholesale : hoodiePrices.wholesale;
+    
+    if (currentQuantity < 8) {
+        return { needed: 8 - currentQuantity, price: prices[0] };
+    } else if (currentQuantity < 16) {
+        return { needed: 16 - currentQuantity, price: prices[1] };
+    } else if (currentQuantity < 32) {
+        return { needed: 32 - currentQuantity, price: prices[2] };
+    } else if (currentQuantity < 64) {
+        return { needed: 64 - currentQuantity, price: prices[3] };
+    } else if (currentQuantity < 100) {
+        return { needed: 100 - currentQuantity, price: prices[4] };
+    }
+    
+    return null; // Already at maximum discount
+}
+
+function updateDiscountScales(tshirtQuantity, hoodieQuantity) {
+    updateScale('tshirtScale', tshirtQuantity);
+    updateScale('hoodieScale', hoodieQuantity);
+}
+
+function updateOrderItemPrices(tshirtQuantity, hoodieQuantity) {
+    // Update prices for all existing order items based on current total quantities
+    orderItems.forEach(item => {
+        const newPrice = getWholesalePrice(item.product.type, 
+            item.product.type === 'tshirt' ? tshirtQuantity : hoodieQuantity);
+        
+        // Update the item's price and total
+        item.price = newPrice;
+        item.total = newPrice * item.quantity;
+        
+        // Update the UI element
+        const itemElement = document.querySelector(`[data-item-id="${item.id}"]`);
+        if (itemElement) {
+            const costElement = itemElement.querySelector('.order-item-cost');
+            const sellingElement = itemElement.querySelector('.order-item-selling');
+            
+            if (costElement) {
+                costElement.textContent = `${newPrice}₴`;
+            }
+            if (sellingElement) {
+                sellingElement.textContent = `${item.total}₴`;
+            }
+        }
+    });
+}
+
+function updateScale(scaleId, quantity) {
+    const scale = document.getElementById(scaleId);
+    if (!scale) return;
+    
+    const segments = scale.querySelectorAll('.scale-segment');
+    const priceItems = scale.parentElement.querySelectorAll('.price-item');
+    
+    segments.forEach((segment, index) => {
+        // Reset all classes and styles
+        segment.classList.remove('active', 'progress', 'completed');
+        
+        // Remove existing progress fill
+        const existingFill = segment.querySelector('.progress-fill');
+        if (existingFill) {
+            existingFill.remove();
+        }
+        
+        // Reset price text color
+        if (priceItems[index]) {
+            priceItems[index].style.color = '';
+            priceItems[index].style.textShadow = '';
+        }
+        
+        const range = segment.dataset.range;
+        const [min, max] = parseRange(range);
+        
+        if (quantity >= min && quantity <= max) {
+            // Current tier - highlight and show progress
+            segment.classList.add('active');
+            
+            if (min === 1 && max === 7) {
+                // Red tier for 1-7 (non-wholesale)
+                segment.style.backgroundColor = '#ef4444';
+                
+                // Calculate progress within red tier
+                const tierSize = max - min + 1;
+                const currentProgress = quantity - min + 1;
+                const progressPercent = (currentProgress / tierSize) * 100;
+                
+                // Create progress fill with burgundy color
+                const progressFill = document.createElement('div');
+                progressFill.className = 'progress-fill';
+                progressFill.style.cssText = `
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    height: 100%;
+                    width: ${progressPercent}%;
+                    background: #7f1d1d;
+                    border-radius: 3px;
+                    transition: width 0.3s ease;
+                    z-index: 1;
+                `;
+                
+                segment.style.position = 'relative';
+                segment.appendChild(progressFill);
+                
+            } else {
+                // Gray tier for wholesale (8+) with green progress fill
+                segment.style.backgroundColor = '#6b7280';
+                
+                // Calculate progress within gray tier
+                const tierSize = max - min + 1;
+                const currentProgress = quantity - min + 1;
+                const progressPercent = (currentProgress / tierSize) * 100;
+                
+                // Create progress fill with green color
+                const progressFill = document.createElement('div');
+                progressFill.className = 'progress-fill';
+                progressFill.style.cssText = `
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    height: 100%;
+                    width: ${progressPercent}%;
+                    background: #10b981;
+                    border-radius: 3px;
+                    transition: width 0.3s ease;
+                    z-index: 1;
+                `;
+                
+                segment.style.position = 'relative';
+                segment.appendChild(progressFill);
+            }
+            
+            // Make current price text golden
+            if (priceItems[index]) {
+                priceItems[index].style.color = '#fbbf24';
+                priceItems[index].style.textShadow = '0 0 10px #fbbf24, 0 0 20px #fbbf24';
+            }
+            
+        } else if (quantity > max) {
+            // Completed tier - full green
+            segment.classList.add('completed');
+            segment.style.backgroundColor = '#10b981';
+            
+        } else {
+            // Future tier - gray
+            segment.style.backgroundColor = '#374151';
+        }
+    });
+}
+
+function parseRange(range) {
+    if (range.includes('+')) {
+        return [parseInt(range.replace('+', '')), null];
+    }
+    const [min, max] = range.split('-').map(Number);
+    return [min, max];
+}
+
+// Helper functions
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// LocalStorage functions
+function saveOrderData() {
+    const companyNameEl = document.getElementById('company-name');
+    const deliveryAddressEl = document.getElementById('delivery-address');
+    const contactPhoneEl = document.getElementById('phone-number');
+    const storeLinkEl = document.getElementById('store-link');
+    
+    const companyNumberEl = document.getElementById('company-number');
+    
+    const orderData = {
+        orderItems: orderItems,
+        companyData: {
+            companyName: companyNameEl ? companyNameEl.value : '',
+            companyNumber: companyNumberEl ? companyNumberEl.value : '',
+            deliveryAddress: deliveryAddressEl ? deliveryAddressEl.value : '',
+            contactPhone: contactPhoneEl ? contactPhoneEl.value : '',
+            storeLink: storeLinkEl ? storeLinkEl.value : ''
+        },
+        timestamp: Date.now()
+    };
+    localStorage.setItem('managementInvoiceOrderData', JSON.stringify(orderData));
+}
+
+function loadOrderData() {
+    const savedData = localStorage.getItem('managementInvoiceOrderData');
+    if (savedData) {
+        try {
+            const orderData = JSON.parse(savedData);
+            
+            // Load company data
+            if (orderData.companyData) {
+                const companyNameEl = document.getElementById('company-name');
+                const companyNumberEl = document.getElementById('company-number');
+                const deliveryAddressEl = document.getElementById('delivery-address');
+                const contactPhoneEl = document.getElementById('phone-number');
+                const storeLinkEl = document.getElementById('store-link');
+                
+                if (companyNameEl) companyNameEl.value = orderData.companyData.companyName || '';
+                if (companyNumberEl) companyNumberEl.value = orderData.companyData.companyNumber || '';
+                if (deliveryAddressEl) deliveryAddressEl.value = orderData.companyData.deliveryAddress || '';
+                if (contactPhoneEl) contactPhoneEl.value = orderData.companyData.contactPhone || '';
+                if (storeLinkEl) storeLinkEl.value = orderData.companyData.storeLink || '';
+            }
+            
+            // Load order items
+            if (orderData.orderItems && orderData.orderItems.length > 0) {
+                orderItems = orderData.orderItems;
+                
+                // Clear existing items
+                const orderItemsContainer = document.getElementById('orderItems');
+                orderItemsContainer.innerHTML = '';
+                
+                // Rebuild order items UI
+                orderItems.forEach(item => {
+                    addOrderItemToUI(item);
+                });
+                
+                // Show notification that data was restored
+                showNotification(`Відновлено ${orderItems.length} товарів з попередньої сесії`, 'info');
+            }
+        } catch (e) {
+            console.error('Error loading saved order data:', e);
+        }
+    }
+}
+
+function clearOrderData() {
+    // Clear localStorage
+    localStorage.removeItem('managementInvoiceOrderData');
+    
+    // Clear order items array
+    orderItems = [];
+    
+    // Clear UI
+    document.getElementById('orderItems').innerHTML = '';
+    
+    // Reset statistics
+    updateOrderStatistics();
+    
+    // Hide order form if it's open
+    hideOrderForm();
+    
+    // Reset current product
+    currentProduct = null;
+}
+
+// Color dots initialization
+function initializeColorDots() {
+    const colorDots = document.querySelectorAll('.color-dot[data-color]');
+    colorDots.forEach(dot => {
+        const color = dot.getAttribute('data-color');
+        if (color) {
+            dot.style.backgroundColor = color;
+            dot.style.display = 'inline-block';
+            dot.style.width = '10px';
+            dot.style.height = '10px';
+            dot.style.borderRadius = '50%';
+            dot.style.border = '1px solid rgba(255, 255, 255, 0.3)';
+            dot.style.boxShadow = '0 0 0 1px rgba(0, 0, 0, 0.2)';
+        }
+    });
+}
+
+// ==================== MANAGEMENT INVOICES ====================
+const invoiceCache = new Map();
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function mainActionState(inv) {
+    if (inv.payment_status === 'paid') {
+        return { label: 'Оплачено', disabled: true, bg: '#10b981', icon: 'check' };
+    }
+    if (inv.review_status === 'pending') {
+        return { label: 'На перевірці', disabled: true, bg: '#f59e0b', icon: 'clock' };
+    }
+    if (inv.review_status === 'rejected') {
+        return { label: 'Відхилено', disabled: true, bg: '#ef4444', icon: 'x' };
+    }
+    if (inv.review_status === 'approved') {
+        if (inv.payment_url) {
+            return { label: 'Копіювати посилання на оплату', disabled: false, bg: '#3b82f6', icon: 'link' };
+        }
+        return { label: 'Сформувати посилання на оплату', disabled: false, bg: '#f59e0b', icon: 'pay' };
+    }
+    return { label: 'Відправити на перевірку', disabled: false, bg: '#10b981', icon: 'send' };
+}
+
+function iconSvg(kind) {
+    const icons = {
+        send: '<path d="M2,21L23,12L2,3V10L17,12L2,14V21Z"/>',
+        clock: '<path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,7V12L15,15L16.5,13.5L13.5,10.5V7H12Z"/>',
+        check: '<path d="M9,20.42L2.79,14.21L5.62,11.38L9,14.77L18.88,4.88L21.71,7.71L9,20.42Z"/>',
+        x: '<path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>',
+        link: '<path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>',
+        pay: '<path d="M7,15H9C9,16.08 10.37,17 12,17C13.63,17 15,16.08 15,15C15,13.9 13.96,13.5 11.76,12.97C9.64,12.44 7,11.78 7,9C7,7.21 8.47,5.69 10.5,5.18V3H13.5V5.18C15.53,5.69 17,7.21 17,9H15C15,7.92 13.63,7 12,7C10.37,7 9,7.92 9,9C9,10.1 10.04,10.5 12.24,11.03C14.36,11.56 17,12.22 17,15C17,16.79 15.53,18.31 13.5,18.82V21H10.5V18.82C8.47,18.31 7,16.79 7,15Z"/>',
+    };
+    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">${icons[kind] || icons.send}</svg>`;
+}
+
+function invoiceHint(inv) {
+    if (inv.payment_status === 'paid') return 'Накладна оплачена';
+    if (inv.review_status === 'pending') return 'Накладна на перевірці адміністратора';
+    if (inv.review_status === 'approved') {
+        return inv.payment_url ? 'Посилання на оплату готове' : 'Підтверджено. Сформуйте посилання на оплату';
+    }
+    if (inv.review_status === 'rejected') return 'Накладну відхилено (див. причину)';
+    return 'Відправте накладну на перевірку, щоб отримати посилання на оплату';
+}
+
+function renderInvoiceItem(inv) {
+    const invoicesList = document.getElementById('invoices-list');
+    if (!invoicesList) return;
+
+    const invoiceId = String(inv.id);
+    invoiceCache.set(invoiceId, inv);
+
+    const totalAmount = inv.total_amount ? `${inv.total_amount}₴` : '';
+    const tshirts = inv.total_tshirts || 0;
+    const hoodies = inv.total_hoodies || 0;
+    const statsText = (tshirts || hoodies) ? `Футболки: ${tshirts}шт, Худі: ${hoodies}шт` : '';
+
+    const state = mainActionState(inv);
+    const canDelete = !(inv.review_status === 'pending' || inv.payment_status === 'paid');
+    const rejectReasonHtml = (inv.review_status === 'rejected' && (inv.review_reject_reason || '').trim())
+        ? `<div style="margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.28); font-size: 0.88rem; color: rgba(255,255,255,0.85);">
+                <span style="color:#f87171; font-weight:800;">Причина:</span> ${escapeHtml(inv.review_reject_reason)}
+           </div>`
+        : '';
+
+    const item = document.createElement('div');
+    item.className = 'invoice-item';
+    item.dataset.invoiceId = invoiceId;
+    item.innerHTML = `
+        <div class="invoice-info">
+            <div class="invoice-name">#${escapeHtml(inv.invoice_number || invoiceId)}</div>
+            <div class="invoice-date">${escapeHtml(inv.created_at || '')} • ${escapeHtml(inv.company_name || '')}</div>
+            <div class="invoice-stats">${escapeHtml(statsText)}</div>
+            <div class="invoice-total">${escapeHtml(totalAmount)}</div>
+            ${rejectReasonHtml}
+        </div>
+        <div class="invoice-actions">
+            <div class="payment-info" style="margin-bottom: 8px; padding: 8px 12px; background: rgba(255, 126, 41, 0.08); border: 1px solid rgba(255, 126, 41, 0.25); border-radius: 10px; font-size: 0.85rem; color: rgba(255,255,255,0.82);">
+                ${escapeHtml(invoiceHint(inv))}
+            </div>
+            <button class="action-btn" onclick="downloadInvoice('${invoiceId}')" title="Скачати">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z"/>
+                </svg>
+                Скачати
+            </button>
+            <button class="action-btn" onclick="deleteInvoice('${invoiceId}')" title="Видалити" style="background: #ef4444;" ${canDelete ? '' : 'disabled'}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/>
+                </svg>
+                Видалити
+            </button>
+            <button class="action-btn main-action-btn" onclick="handleMainAction('${invoiceId}')" title="Основна дія" style="background: ${state.bg}; min-width: 180px; max-width: 260px;" data-invoice-id="${invoiceId}" ${state.disabled ? 'disabled' : ''}>
+                ${iconSvg(state.icon)}
+                ${escapeHtml(state.label)}
+            </button>
+        </div>
+    `;
+    invoicesList.appendChild(item);
+}
+
+async function loadInvoicesFromServer(silent = true) {
+    const invoicesList = document.getElementById('invoices-list');
+    if (!invoicesList) return;
+
+    try {
+        const res = await fetch('/invoices/api/list/', { headers: { 'Accept': 'application/json' } });
+        const data = await res.json();
+        if (!data.ok) {
+            if (!silent) showNotification('Не вдалося завантажити накладні', 'error');
+            return;
+        }
+
+        invoiceCache.clear();
+        invoicesList.innerHTML = '';
+        const invoices = Array.isArray(data.invoices) ? data.invoices : [];
+        if (!invoices.length) {
+            invoicesList.innerHTML = '<div style="color: rgba(255, 255, 255, 0.6); text-align: center; padding: 2rem;">Поки що немає сформованих накладних</div>';
+            return;
+        }
+
+        invoices.forEach(inv => renderInvoiceItem(inv));
+    } catch (e) {
+        console.error('loadInvoicesFromServer error', e);
+        if (!silent) showNotification('Помилка завантаження накладних', 'error');
+    }
+}
+
+function downloadInvoice(invoiceId) {
+    const link = document.createElement('a');
+    link.href = `/invoices/${invoiceId}/download/`;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showNotification('Накладна завантажується...', 'success');
+}
+
+async function deleteInvoice(invoiceId) {
+    if (!confirm('Ви впевнені, що хочете видалити цю накладну?')) return;
+    try {
+        const res = await fetch(`/invoices/api/${invoiceId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({})
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!data.ok) {
+            showNotification(data.error || 'Помилка при видаленні накладної', 'error');
+            return;
+        }
+        showNotification('Накладна видалена', 'success');
+        await loadInvoicesFromServer(true);
+    } catch (e) {
+        console.error('deleteInvoice error', e);
+        showNotification('Помилка при видаленні накладної', 'error');
+    }
+}
+
+async function submitInvoiceForReview(invoiceId) {
+    if (!confirm('Відправити накладну на перевірку?')) return;
+    try {
+        const res = await fetch(`/invoices/api/${invoiceId}/submit/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({})
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!data.ok) {
+            showNotification(data.error || 'Не вдалося відправити накладну', 'error');
+            return;
+        }
+        showNotification('Накладна відправлена на перевірку', 'success');
+        await loadInvoicesFromServer(true);
+    } catch (e) {
+        console.error('submitInvoiceForReview error', e);
+        showNotification('Не вдалося відправити накладну', 'error');
+    }
+}
+
+async function copyText(text) {
+    try {
+        await navigator.clipboard.writeText(text);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+async function createPaymentLink(invoiceId) {
+    try {
+        const res = await fetch(`/invoices/api/${invoiceId}/create-payment/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({})
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!data.ok) {
+            showNotification(data.error || 'Помилка створення посилання', 'error');
+            return;
+        }
+        if (data.payment_url) {
+            const copied = await copyText(data.payment_url);
+            showNotification(copied ? 'Посилання на оплату скопійовано' : 'Посилання створено', 'success');
+        } else {
+            showNotification('Посилання створено', 'success');
+        }
+        await loadInvoicesFromServer(true);
+    } catch (e) {
+        console.error('createPaymentLink error', e);
+        showNotification('Помилка створення посилання', 'error');
+    }
+}
+
+async function handleMainAction(invoiceId) {
+    const inv = invoiceCache.get(String(invoiceId));
+    if (!inv) {
+        await loadInvoicesFromServer(true);
+        return;
+    }
+
+    if (inv.payment_status === 'paid') return;
+    if (inv.review_status === 'draft') return submitInvoiceForReview(invoiceId);
+    if (inv.review_status === 'approved') {
+        if (inv.payment_url) {
+            const copied = await copyText(inv.payment_url);
+            showNotification(copied ? 'Посилання скопійовано' : 'Не вдалося скопіювати посилання', copied ? 'success' : 'error');
+            return;
+        }
+        return createPaymentLink(invoiceId);
+    }
+}
+
+// Notification system
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 100px;
+        right: 20px;
+        background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
+        font-weight: 600;
+        z-index: 10000;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        animation: slideIn 0.3s ease;
+        pointer-events: none;
+    `;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => {
+            if (document.body.contains(notification)) {
+                document.body.removeChild(notification);
+            }
+        }, 300);
+    }, 3000);
+}
+
+// Add CSS animations
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    
+    @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+    }
+    
+    .animate-spin {
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+`;
+document.head.appendChild(style);
+</script>
+
+<script>
+// Toggle company section collapse
+document.addEventListener('DOMContentLoaded', function() {
+    const toggleBtn = document.getElementById('toggleCompanySection');
+    const body = document.getElementById('companySectionBody');
+    if (toggleBtn && body) {
+        // Apply saved state on load
+        try {
+            const saved = localStorage.getItem('companySectionCollapsed');
+            const shouldCollapse = saved === '1';
+            if (shouldCollapse) {
+                body.classList.add('is-collapsed');
+                toggleBtn.classList.add('is-collapsed');
+                const text = toggleBtn.querySelector('.toggle-text');
+                if (text) text.textContent = 'Розгорнути';
+            }
+        } catch (e) {
+            // ignore storage errors
+        }
+
+        toggleBtn.addEventListener('click', function() {
+            const collapsed = body.classList.toggle('is-collapsed');
+            toggleBtn.classList.toggle('is-collapsed', collapsed);
+            const text = toggleBtn.querySelector('.toggle-text');
+            if (text) {
+                text.textContent = collapsed ? 'Розгорнути' : 'Згорнути';
+            }
+            // Persist state
+            try {
+                localStorage.setItem('companySectionCollapsed', collapsed ? '1' : '0');
+            } catch (e) {}
+        });
+    }
+});
+</script>
+{% endblock %}
