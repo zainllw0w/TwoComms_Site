@@ -117,3 +117,70 @@ class InvoiceRejectionReasonRequest(models.Model):
         verbose_name = _("Запит причини відхилення накладної")
         verbose_name_plural = _("Запити причин відхилення накладних")
         ordering = ['-created_at']
+
+
+class CommercialOfferEmailSettings(models.Model):
+    owner = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        verbose_name=_("Менеджер"),
+        on_delete=models.CASCADE,
+        related_name="commercial_offer_email_settings",
+    )
+    show_manager = models.BooleanField(default=True, verbose_name=_("Показувати менеджера"))
+    manager_name = models.CharField(max_length=255, blank=True, verbose_name=_("Імʼя менеджера"))
+    phone = models.CharField(max_length=50, blank=True, verbose_name=_("Телефон"))
+
+    viber_enabled = models.BooleanField(default=False, verbose_name=_("Viber увімкнено"))
+    viber = models.CharField(max_length=100, blank=True, verbose_name=_("Viber (номер)"))
+
+    whatsapp_enabled = models.BooleanField(default=False, verbose_name=_("WhatsApp увімкнено"))
+    whatsapp = models.CharField(max_length=100, blank=True, verbose_name=_("WhatsApp (номер)"))
+
+    telegram_enabled = models.BooleanField(default=False, verbose_name=_("Telegram увімкнено"))
+    telegram = models.CharField(max_length=100, blank=True, verbose_name=_("Telegram (@username або номер)"))
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Налаштування КП на e-mail")
+        verbose_name_plural = _("Налаштування КП на e-mail")
+
+    def __str__(self):
+        return f"КП на e-mail: {self.owner}"
+
+
+class CommercialOfferEmailLog(models.Model):
+    class Status(models.TextChoices):
+        SENT = "sent", _("Надіслано")
+        FAILED = "failed", _("Помилка")
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name=_("Менеджер"),
+        on_delete=models.CASCADE,
+        related_name="commercial_offer_email_logs",
+    )
+    recipient_email = models.EmailField(verbose_name=_("Email отримувача"), db_index=True)
+    recipient_name = models.CharField(max_length=255, blank=True, verbose_name=_("Імʼя/компанія отримувача"))
+    subject = models.CharField(max_length=255, verbose_name=_("Тема листа"))
+    body_html = models.TextField(blank=True, verbose_name=_("HTML листа"))
+    body_text = models.TextField(blank=True, verbose_name=_("Текст листа"))
+
+    show_manager = models.BooleanField(default=True, verbose_name=_("Показувати менеджера"))
+    manager_name = models.CharField(max_length=255, blank=True, verbose_name=_("Імʼя менеджера"))
+    phone = models.CharField(max_length=50, blank=True, verbose_name=_("Телефон"))
+    viber = models.CharField(max_length=100, blank=True, verbose_name=_("Viber"))
+    whatsapp = models.CharField(max_length=100, blank=True, verbose_name=_("WhatsApp"))
+    telegram = models.CharField(max_length=100, blank=True, verbose_name=_("Telegram"))
+
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.SENT, db_index=True)
+    error = models.TextField(blank=True, verbose_name=_("Помилка"))
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("Відправлена КП (лог)")
+        verbose_name_plural = _("Відправлені КП (лог)")
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"КП → {self.recipient_email} ({self.created_at:%Y-%m-%d %H:%M})"

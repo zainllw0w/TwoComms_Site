@@ -1,0 +1,95 @@
+{# Body-only HTML (можно использовать и для превью, и для отправки) #}
+<div style="background:#0b0e14;padding:26px 18px;">
+  <div style="max-width:640px;margin:0 auto;background:#111621;border:1px solid rgba(255,255,255,0.08);border-radius:18px;overflow:hidden;">
+    <div style="padding:22px 24px 18px;background:linear-gradient(135deg,#ffb347,#ff7e29);color:#0b0e14;">
+      <div style="font-size:12px;letter-spacing:0.18em;text-transform:uppercase;font-weight:900;">TwoComms</div>
+      <div style="font-size:22px;font-weight:900;letter-spacing:0.02em;margin-top:6px;">Комерційна пропозиція</div>
+      <div style="margin-top:8px;font-size:13px;opacity:0.86;">Оптова співпраця • худі та футболки</div>
+    </div>
+
+    <div style="padding:22px 24px;color:#e8edf7;font-family:Inter,Arial,sans-serif;line-height:1.55;">
+      <div style="font-size:16px;font-weight:800;margin-bottom:10px;">
+        {% if preview %}
+          <span data-preview="greeting">Добрий день!</span>
+        {% else %}
+          Добрий день{% if recipient_name %}, {{ recipient_name }}{% endif %}!
+        {% endif %}
+      </div>
+
+      <div style="color:#9aa4b8;font-size:14px;margin-bottom:14px;">
+        Ми — бренд <b style="color:#e8edf7;">TwoComms</b>. Пишемо з короткою комерційною пропозицією щодо оптової співпраці.
+      </div>
+
+      <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:16px 16px 12px;margin:16px 0;">
+        <div style="font-weight:900;letter-spacing:0.04em;margin-bottom:10px;">Що пропонуємо</div>
+        <ul style="margin:0;padding-left:18px;color:#e8edf7;">
+          <li style="margin:0 0 8px;">Оптові ціни на худі та футболки</li>
+          <li style="margin:0 0 8px;">Стабільні відвантаження та підтримка менеджера</li>
+          <li style="margin:0 0 8px;">Фото/матеріали для вашого магазину</li>
+        </ul>
+        <div style="margin-top:12px;color:#9aa4b8;font-size:13px;">
+          Прайс-лист та деталі умов — у наступному листі (поки що робимо технічний запуск).
+        </div>
+      </div>
+
+      <div style="margin-top:12px;color:#9aa4b8;font-size:14px;">
+        Якщо вам цікаво — просто відповідайте на цей лист, і ми швидко надішлемо умови/прайс.
+      </div>
+
+      {% if preview or show_manager %}
+      <div{% if preview %} data-preview-section="manager"{% endif %} style="margin-top:18px;border-top:1px solid rgba(255,255,255,0.08);padding-top:16px;{% if preview and not show_manager %}display:none;{% endif %}">
+        <div style="font-size:13px;color:#9aa4b8;letter-spacing:0.08em;text-transform:uppercase;font-weight:800;margin-bottom:10px;">Контакти менеджера</div>
+
+        {% if preview or phone %}
+        <div{% if preview %} data-preview-row="phone"{% endif %} style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;{% if preview and not phone %}display:none;{% endif %}">
+          <div style="width:28px;height:28px;border-radius:10px;background:rgba(255,126,41,0.18);border:1px solid rgba(255,126,41,0.35);display:grid;place-items:center;color:#ffb347;font-weight:900;">☎</div>
+          <div>
+            <div style="font-weight:900;">Телефон</div>
+            <div{% if preview %} data-preview="phone_value"{% endif %} style="color:#e8edf7;">{{ phone }}</div>
+          </div>
+        </div>
+        {% endif %}
+
+        {% if preview or viber_enabled %}
+        <div{% if preview %} data-preview-row="viber"{% endif %} style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;{% if preview and not viber_enabled %}display:none;{% endif %}">
+          <div style="width:28px;height:28px;border-radius:10px;background:rgba(111,149,255,0.12);border:1px solid rgba(111,149,255,0.25);display:grid;place-items:center;color:#c7d5ff;font-weight:900;">V</div>
+          <div>
+            <div style="font-weight:900;">Viber</div>
+            <div{% if preview %} data-preview="viber_value"{% endif %} style="color:#e8edf7;">{{ viber }}</div>
+          </div>
+        </div>
+        {% endif %}
+
+        {% if preview or whatsapp_enabled %}
+        <div{% if preview %} data-preview-row="whatsapp"{% endif %} style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;{% if preview and not whatsapp_enabled %}display:none;{% endif %}">
+          <div style="width:28px;height:28px;border-radius:10px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.25);display:grid;place-items:center;color:#8ef2b8;font-weight:900;">W</div>
+          <div>
+            <div style="font-weight:900;">WhatsApp</div>
+            <div{% if preview %} data-preview="whatsapp_value"{% endif %} style="color:#e8edf7;">{{ whatsapp }}</div>
+          </div>
+        </div>
+        {% endif %}
+
+        {% if preview or telegram_enabled %}
+        <div{% if preview %} data-preview-row="telegram"{% endif %} style="display:flex;gap:10px;align-items:flex-start;{% if preview and not telegram_enabled %}display:none;{% endif %}">
+          <div style="width:28px;height:28px;border-radius:10px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.25);display:grid;place-items:center;color:#9bc4ff;font-weight:900;">T</div>
+          <div>
+            <div style="font-weight:900;">Telegram</div>
+            <div{% if preview %} data-preview="telegram_value"{% endif %} style="color:#e8edf7;">{{ telegram }}</div>
+          </div>
+        </div>
+        {% endif %}
+
+        <div style="margin-top:14px;color:#e8edf7;">
+          З повагою, <span{% if preview %} data-preview="manager_name"{% endif %} style="font-weight:900;">{{ manager_name }}</span>
+        </div>
+      </div>
+      {% endif %}
+
+      <div style="margin-top:18px;font-size:12px;color:#6c7382;">
+        TwoComms © {% now "Y" %}
+      </div>
+    </div>
+  </div>
+</div>
+

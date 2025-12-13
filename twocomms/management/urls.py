@@ -27,5 +27,7 @@ urlpatterns = [
     path('invoices/api/<int:invoice_id>/delete/', views.invoices_delete_api, name='management_invoices_delete_api'),
     path('invoices/api/<int:invoice_id>/submit/', views.invoices_submit_for_review_api, name='management_invoices_submit_for_review_api'),
     path('invoices/api/<int:invoice_id>/create-payment/', views.invoices_create_payment_api, name='management_invoices_create_payment_api'),
+    path('commercial-offer/email/', views.commercial_offer_email, name='management_commercial_offer_email'),
+    path('commercial-offer/email/check/', views.commercial_offer_email_check_api, name='management_commercial_offer_email_check_api'),
     path('', views.home, name='management_home'),
 ]

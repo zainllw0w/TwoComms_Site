@@ -4,14 +4,20 @@ import json
 import time
 from pathlib import Path
 
+from django.conf import settings
 from django.shortcuts import render, redirect
 from django.utils import timezone
-from django.utils.html import escape
+from django.utils.html import escape, strip_tags
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
 from django.db.models import Count, Q
 from django.http import JsonResponse, FileResponse, HttpResponse
+from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
+from django.core.mail import EmailMultiAlternatives
+from django.core.validators import validate_email
+from django.template.loader import render_to_string
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 import requests
@@ -20,7 +26,16 @@ import datetime as dt
 import os
 import secrets
 
-from .models import Client, Report, ReminderRead, ReminderSent, InvoiceRejectionReasonRequest
+from .forms import CommercialOfferEmailForm
+from .models import (
+    Client,
+    CommercialOfferEmailLog,
+    CommercialOfferEmailSettings,
+    InvoiceRejectionReasonRequest,
+    ReminderRead,
+    ReminderSent,
+    Report,
+)
 from accounts.models import UserProfile
 from django.views.decorators.csrf import csrf_exempt
 
@@ -2043,3 +2058,213 @@ def invoices_create_payment_api(request, invoice_id):
     invoice.save(update_fields=['payment_status', 'payment_url', 'monobank_invoice_id'])
 
     return JsonResponse({'ok': True, 'payment_url': payment_url, 'monobank_invoice_id': monobank_invoice_id})
+
+
+def _default_manager_name(user):
+    try:
+        prof = user.userprofile
+        name = (getattr(prof, "full_name", "") or "").strip()
+        if name:
+            return name
+    except Exception:
+        pass
+    name = (user.get_full_name() or "").strip()
+    if name:
+        return name
+    return (getattr(user, "username", "") or "").strip()
+
+
+def _get_profile_phone(user):
+    try:
+        prof = user.userprofile
+        return (getattr(prof, "phone", "") or "").strip()
+    except Exception:
+        return ""
+
+
+def _preview_context_from_form(form, default_name, initial):
+    def str_val(key: str) -> str:
+        if form.is_bound:
+            return (form.data.get(key) or "").strip()
+        return (initial.get(key) or "").strip()
+
+    def bool_val(key: str) -> bool:
+        if form.is_bound:
+            return key in form.data
+        return bool(initial.get(key))
+
+    show_manager = bool_val("show_manager")
+    manager_name = str_val("manager_name") or default_name
+
+    return {
+        "preview": True,
+        "recipient_name": str_val("recipient_name"),
+        "show_manager": show_manager,
+        "manager_name": manager_name,
+        "phone": str_val("phone"),
+        "viber_enabled": bool_val("viber_enabled"),
+        "viber": str_val("viber"),
+        "whatsapp_enabled": bool_val("whatsapp_enabled"),
+        "whatsapp": str_val("whatsapp"),
+        "telegram_enabled": bool_val("telegram_enabled"),
+        "telegram": str_val("telegram"),
+    }
+
+
+@login_required(login_url='management_login')
+def commercial_offer_email(request):
+    if not user_is_management(request.user):
+        return redirect('management_login')
+
+    settings_obj, _ = CommercialOfferEmailSettings.objects.get_or_create(owner=request.user)
+    default_name = (settings_obj.manager_name or "").strip() or _default_manager_name(request.user)
+    default_phone = (settings_obj.phone or "").strip() or _get_profile_phone(request.user)
+
+    initial = {
+        "show_manager": settings_obj.show_manager,
+        "manager_name": default_name,
+        "phone": default_phone,
+        "viber_enabled": settings_obj.viber_enabled,
+        "viber": (settings_obj.viber or "").strip(),
+        "whatsapp_enabled": settings_obj.whatsapp_enabled,
+        "whatsapp": (settings_obj.whatsapp or "").strip(),
+        "telegram_enabled": settings_obj.telegram_enabled,
+        "telegram": (settings_obj.telegram or "").strip(),
+    }
+
+    sent_success = request.GET.get("sent") == "1"
+    send_error = ""
+
+    if request.method == "POST":
+        form = CommercialOfferEmailForm(request.POST, user=request.user)
+        if form.is_valid():
+            cd = form.cleaned_data
+            recipient_email = (cd.get("recipient_email") or "").strip()
+
+            duplicate_qs = CommercialOfferEmailLog.objects.filter(
+                recipient_email__iexact=recipient_email,
+                status=CommercialOfferEmailLog.Status.SENT,
+            )
+            if duplicate_qs.exists() and cd.get("confirm_resend") != 1:
+                form.add_error(
+                    "recipient_email",
+                    "На цей email вже надсилали КП. Підтвердіть повторну відправку.",
+                )
+            else:
+                settings_obj.show_manager = bool(cd.get("show_manager"))
+                settings_obj.manager_name = (cd.get("manager_name") or "").strip()
+                settings_obj.phone = (cd.get("phone") or "").strip()
+                settings_obj.viber_enabled = bool(cd.get("viber_enabled"))
+                settings_obj.viber = (cd.get("viber") or "").strip()
+                settings_obj.whatsapp_enabled = bool(cd.get("whatsapp_enabled"))
+                settings_obj.whatsapp = (cd.get("whatsapp") or "").strip()
+                settings_obj.telegram_enabled = bool(cd.get("telegram_enabled"))
+                settings_obj.telegram = (cd.get("telegram") or "").strip()
+                settings_obj.save()
+
+                subject = "Комерційна пропозиція бренду TwoComms"
+                email_context = {
+                    "preview": False,
+                    "recipient_name": cd.get("recipient_name") or "",
+                    "show_manager": settings_obj.show_manager,
+                    "manager_name": settings_obj.manager_name or default_name,
+                    "phone": settings_obj.phone,
+                    "viber_enabled": settings_obj.viber_enabled,
+                    "viber": settings_obj.viber,
+                    "whatsapp_enabled": settings_obj.whatsapp_enabled,
+                    "whatsapp": settings_obj.whatsapp,
+                    "telegram_enabled": settings_obj.telegram_enabled,
+                    "telegram": settings_obj.telegram,
+                }
+                html_body = render_to_string("management/emails/commercial_offer.html", email_context)
+                text_body = strip_tags(html_body)
+
+                from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None) or "TwoComms <cooperation@twocomms.shop>"
+
+                status = CommercialOfferEmailLog.Status.SENT
+                error_text = ""
+                try:
+                    msg = EmailMultiAlternatives(
+                        subject=subject,
+                        body=text_body,
+                        from_email=from_email,
+                        to=[recipient_email],
+                    )
+                    msg.attach_alternative(html_body, "text/html")
+                    msg.send(fail_silently=False)
+                except Exception as exc:
+                    status = CommercialOfferEmailLog.Status.FAILED
+                    error_text = str(exc)
+                    send_error = "Не вдалося відправити лист. Перевірте SMTP налаштування та спробуйте ще раз."
+
+                CommercialOfferEmailLog.objects.create(
+                    owner=request.user,
+                    recipient_email=recipient_email,
+                    recipient_name=(cd.get("recipient_name") or "").strip(),
+                    subject=subject,
+                    body_html=html_body,
+                    body_text=text_body,
+                    show_manager=settings_obj.show_manager,
+                    manager_name=(settings_obj.manager_name or default_name) if settings_obj.show_manager else "",
+                    phone=settings_obj.phone if settings_obj.show_manager else "",
+                    viber=settings_obj.viber if (settings_obj.show_manager and settings_obj.viber_enabled) else "",
+                    whatsapp=settings_obj.whatsapp if (settings_obj.show_manager and settings_obj.whatsapp_enabled) else "",
+                    telegram=settings_obj.telegram if (settings_obj.show_manager and settings_obj.telegram_enabled) else "",
+                    status=status,
+                    error=error_text,
+                )
+
+                if status == CommercialOfferEmailLog.Status.SENT:
+                    return redirect(f"{reverse('management_commercial_offer_email')}?sent=1")
+    else:
+        form = CommercialOfferEmailForm(initial=initial, user=request.user)
+
+    preview_html = render_to_string(
+        "management/emails/commercial_offer.html",
+        _preview_context_from_form(form, default_name, initial),
+    )
+
+    logs = CommercialOfferEmailLog.objects.filter(owner=request.user).order_by("-created_at")[:30]
+
+    return render(
+        request,
+        "management/commercial_offer_email.html",
+        {
+            "form": form,
+            "preview_html": preview_html,
+            "logs": logs,
+            "sent_success": sent_success,
+            "send_error": send_error,
+        },
+    )
+
+
+@login_required(login_url='management_login')
+def commercial_offer_email_check_api(request):
+    if not user_is_management(request.user):
+        return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+
+    email = (request.GET.get("email") or "").strip()
+    if not email:
+        return JsonResponse({"ok": True, "exists": False, "count": 0, "lastSentAtDisplay": ""})
+
+    try:
+        validate_email(email)
+    except ValidationError:
+        return JsonResponse({"ok": True, "exists": False, "count": 0, "lastSentAtDisplay": ""})
+
+    qs = CommercialOfferEmailLog.objects.filter(
+        recipient_email__iexact=email,
+        status=CommercialOfferEmailLog.Status.SENT,
+    )
+    last = qs.order_by("-created_at").first()
+    last_display = timezone.localtime(last.created_at).strftime("%d.%m.%Y %H:%M") if last else ""
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "exists": qs.exists(),
+            "count": qs.count(),
+            "lastSentAtDisplay": last_display,
+        }
+    )
