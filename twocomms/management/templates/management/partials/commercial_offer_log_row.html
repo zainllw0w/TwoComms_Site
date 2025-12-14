@@ -7,40 +7,62 @@
         <div class="offer-log-sub">Тема: {{ log.subject }}</div>
     </td>
     <td>
-        {% if log.show_manager %}
-            <div class="offer-log-meta">
+        <div class="offer-log-meta">
+            <div class="offer-log-meta-line">
+                <span class="offer-log-chip">Mode</span>
+                <span class="offer-log-value">
+                    {% if log.mode == "LIGHT" %}Light{% else %}Visual{% endif %}
+                </span>
+                <span class="offer-log-chip">Segment</span>
+                <span class="offer-log-value">
+                    {% if log.segment_mode == "EDGY" %}Edgy{% else %}Neutral{% endif %}
+                </span>
+            </div>
+
+            {% if log.tee_entry or log.tee_retail_example or log.hoodie_entry or log.hoodie_retail_example %}
+                <div class="offer-log-meta-line">
+                    <span class="offer-log-chip">Юніт-економіка*</span>
+                    <span class="offer-log-value">
+                        {% if log.tee_entry and log.tee_retail_example %}
+                            Футболка {{ log.tee_entry }}→{{ log.tee_retail_example }} ({{ log.tee_profit|default:"—" }})
+                        {% endif %}
+                        {% if log.hoodie_entry and log.hoodie_retail_example %}
+                            {% if log.tee_entry and log.tee_retail_example %} · {% endif %}
+                            Худі {{ log.hoodie_entry }}→{{ log.hoodie_retail_example }} ({{ log.hoodie_profit|default:"—" }})
+                        {% endif %}
+                    </span>
+                </div>
+            {% endif %}
+
+            {% if log.show_manager %}
                 <div class="offer-log-meta-line">
                     <span class="offer-log-chip">Менеджер</span>
                     <span class="offer-log-value">{{ log.manager_name|default:"—" }}</span>
-                </div>
-                {% if log.phone %}
-                    <div class="offer-log-meta-line">
+                    {% if log.phone %}
                         <span class="offer-log-chip">Телефон</span>
                         <span class="offer-log-value">{{ log.phone }}</span>
-                    </div>
-                {% endif %}
-                {% if log.viber %}
+                    {% endif %}
+                </div>
+                {% if log.viber or log.whatsapp or log.telegram %}
                     <div class="offer-log-meta-line">
-                        <span class="offer-log-chip">Viber</span>
-                        <span class="offer-log-value">{{ log.viber }}</span>
+                        {% if log.viber %}
+                            <span class="offer-log-chip">Viber</span>
+                            <span class="offer-log-value">{{ log.viber }}</span>
+                        {% endif %}
+                        {% if log.whatsapp %}
+                            <span class="offer-log-chip">WhatsApp</span>
+                            <span class="offer-log-value">{{ log.whatsapp }}</span>
+                        {% endif %}
+                        {% if log.telegram %}
+                            <span class="offer-log-chip">Telegram</span>
+                            <span class="offer-log-value">{{ log.telegram }}</span>
+                        {% endif %}
                     </div>
                 {% endif %}
-                {% if log.whatsapp %}
-                    <div class="offer-log-meta-line">
-                        <span class="offer-log-chip">WhatsApp</span>
-                        <span class="offer-log-value">{{ log.whatsapp }}</span>
-                    </div>
-                {% endif %}
-                {% if log.telegram %}
-                    <div class="offer-log-meta-line">
-                        <span class="offer-log-chip">Telegram</span>
-                        <span class="offer-log-value">{{ log.telegram }}</span>
-                    </div>
-                {% endif %}
-            </div>
-        {% else %}
-            <div class="offer-log-sub">Відправлено без контактів менеджера</div>
-        {% endif %}
+            {% else %}
+                <div class="offer-log-sub">Відправлено без контактів менеджера</div>
+            {% endif %}
+        </div>
 
         {% if log.status == "failed" and log.error %}
             <div class="offer-log-error">Помилка: {{ log.error }}</div>
@@ -54,5 +76,18 @@
         {% endif %}
     </td>
     <td>{{ log.created_at|date:"d.m.Y H:i" }}</td>
+    <td class="offer-log-actions">
+        <button type="button"
+                class="btn-ghost small offer-log-action"
+                data-offer-log-action="view"
+                data-url="{% url 'management_commercial_offer_email_log_detail_api' log.id %}">
+            Переглянути
+        </button>
+        <button type="button"
+                class="btn-ghost small offer-log-action"
+                data-offer-log-action="duplicate"
+                data-url="{% url 'management_commercial_offer_email_log_detail_api' log.id %}">
+            Дублювати
+        </button>
+    </td>
 </tr>
-
