@@ -7,7 +7,7 @@
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#121212" style="background:#121212;">
       <tr>
         <td align="center" style="padding:24px 12px;">
-          <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
             <tr>
               <td style="padding:0;">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #2A2A2A;border-radius:16px;overflow:hidden;background:#1E1E1E;">
@@ -45,17 +45,27 @@
 
                       <div style="height:16px;line-height:16px;">&nbsp;</div>
 
+                      {% if cta_url %}
                       {# CTA button (bulletproof-ish) #}
                       <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                         <tr>
                           <td bgcolor="#8B5CF6" style="border-radius:12px;">
-                            <a href="{{ links.cooperation }}" target="_blank" rel="noopener"
+                            <a href="{{ cta_url }}" target="_blank" rel="noopener"
                                style="display:inline-block;padding:12px 18px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:800;color:#121212;text-decoration:none;border-radius:12px;">
-                              Запросити тест-ростовку
+                              {{ cta_button_text }}
                             </a>
                           </td>
                         </tr>
                       </table>
+                      {% else %}
+                      <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#E0E0E0;font-weight:900;">
+                        Відповідайте на цей лист
+                      </div>
+                      {% endif %}
+
+                      <div style="margin-top:10px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.45;color:#BDBDBD;">
+                        {{ cta_microtext }}
+                      </div>
                     </td>
                   </tr>
 
@@ -149,15 +159,29 @@
                         </tr>
                       </table>
 
+                      {% if include_catalog_link or include_wholesale_link or include_dropship_link %}
                       <div style="height:12px;line-height:12px;">&nbsp;</div>
                       <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#BDBDBD;">
-                        Прайс та умови: <a href="{{ links.wholesale }}" style="color:#8B5CF6;text-decoration:underline;">отримати повний прайс</a>
+                        {% if include_catalog_link %}
+                          <a href="{{ links.catalog }}" style="color:#8B5CF6;text-decoration:underline;">Каталог</a>
+                        {% endif %}
+                        {% if include_wholesale_link %}
+                          {% if include_catalog_link %}&nbsp;·&nbsp;{% endif %}
+                          <a href="{{ links.wholesale }}" style="color:#8B5CF6;text-decoration:underline;">Опт</a>
+                        {% endif %}
+                        {% if include_dropship_link %}
+                          {% if include_catalog_link or include_wholesale_link %}&nbsp;·&nbsp;{% endif %}
+                          <a href="{{ links.dropship }}" style="color:#8B5CF6;text-decoration:underline;">Дроп</a>
+                        {% endif %}
                       </div>
+                      {% endif %}
                     </td>
                   </tr>
 
+                  {% if gallery or include_catalog_link %}
                   <tr>
                     <td style="padding:0 22px 18px;">
+                      {% if gallery %}
                       <div style="font-family:Arial,Helvetica,sans-serif;color:#BDBDBD;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;font-weight:800;">
                         Підбірка ({{ segment_mode }})
                       </div>
@@ -187,11 +211,15 @@
                       </table>
 
                       <div style="height:12px;line-height:12px;">&nbsp;</div>
+                      {% endif %}
+                      {% if include_catalog_link %}
                       <a href="{{ links.catalog }}" target="_blank" rel="noopener" style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#8B5CF6;text-decoration:underline;font-weight:800;">
                         Дивитись каталог
                       </a>
+                      {% endif %}
                     </td>
                   </tr>
+                  {% endif %}
 
                   {% if show_manager %}
                   <tr>
@@ -234,9 +262,15 @@
                     <td style="padding:14px 22px 18px;border-top:1px solid #2A2A2A;font-family:Arial,Helvetica,sans-serif;color:#8A8A8A;font-size:12px;line-height:1.45;">
                       <div style="color:#BDBDBD;font-weight:800;">TwoComms — дві коми: пауза і продовження руху.</div>
                       <div style="margin-top:8px;">
+                        {% if include_instagram_link %}
                         <a href="{{ links.instagram }}" target="_blank" rel="noopener" style="color:#8B5CF6;text-decoration:underline;">Instagram</a>
+                        {% endif %}
+                        {% if include_instagram_link and include_site_link %}
                         &nbsp;·&nbsp;
+                        {% endif %}
+                        {% if include_site_link %}
                         <a href="{{ links.site }}" target="_blank" rel="noopener" style="color:#8B5CF6;text-decoration:underline;">Сайт</a>
+                        {% endif %}
                       </div>
                     </td>
                   </tr>

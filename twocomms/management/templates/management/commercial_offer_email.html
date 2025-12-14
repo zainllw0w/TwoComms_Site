@@ -32,6 +32,8 @@
         <form method="post" class="offer-form" id="offer-form" action="{% url 'management_commercial_offer_email' %}">
             {% csrf_token %}
             <input type="hidden" name="confirm_resend" id="confirm_resend" value="0">
+            <input type="hidden" name="gallery_neutral" id="gallery_neutral" value="{{ gallery_neutral_json|default:'[]' }}">
+            <input type="hidden" name="gallery_edgy" id="gallery_edgy" value="{{ gallery_edgy_json|default:'[]' }}">
 
             <div class="offer-card">
                 <div class="offer-card-head">
@@ -137,8 +139,14 @@
 
                 <div class="offer-unit">
                     <div class="offer-unit-head">
-                        <div class="offer-unit-title">Приклад юніт-економіки</div>
-                        <div class="offer-unit-sub">Це приклад розрахунку. Роздрібну ціну встановлюєте ви.</div>
+                        <div class="offer-unit-head-row">
+                            <div>
+                                <div class="offer-unit-title">Приклад юніт-економіки</div>
+                                <div class="offer-unit-sub">Це приклад розрахунку. Роздрібну ціну встановлюєте ви.</div>
+                            </div>
+                            <button type="button" class="btn-ghost small" id="offer-unit-fill-defaults">Заповнити дефолтами</button>
+                        </div>
+                        <div class="offer-unit-note" id="offer-unit-note" hidden></div>
                     </div>
                     <div class="field-grid offer-unit-grid">
                         <div class="field">
@@ -162,6 +170,7 @@
                                    placeholder="Напр. 690"
                                    inputmode="numeric">
                             <div class="offer-profit-line">Різниця*: <span class="offer-profit" id="tee_profit_display">—</span> грн</div>
+                            <div class="offer-field-warn" id="tee_profit_warn" hidden></div>
                             {% if form.tee_retail_example.errors %}
                                 <div class="offer-error">{{ form.tee_retail_example.errors.0 }}</div>
                             {% endif %}
@@ -187,11 +196,132 @@
                                    placeholder="Напр. 1490"
                                    inputmode="numeric">
                             <div class="offer-profit-line">Різниця*: <span class="offer-profit" id="hoodie_profit_display">—</span> грн</div>
+                            <div class="offer-field-warn" id="hoodie_profit_warn" hidden></div>
                             {% if form.hoodie_retail_example.errors %}
                                 <div class="offer-error">{{ form.hoodie_retail_example.errors.0 }}</div>
                             {% endif %}
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <div class="offer-card">
+                <div class="offer-card-head">
+                    <div>
+                        <p class="eyebrow">Оффер</p>
+                        <h3 class="offer-card-title">CTA і мікротекст</h3>
+                    </div>
+                </div>
+
+                <div class="field-grid offer-fields">
+                    <div class="field">
+                        <label for="cta_type">Куди веде кнопка</label>
+                        <select id="cta_type" name="cta_type">
+                            {% with cta_val=form.cta_type.value|default:"" %}
+                                <option value="" {% if cta_val == "" %}selected{% endif %}>Авто (рекомендовано)</option>
+                                <option value="TELEGRAM_MANAGER" {% if cta_val == "TELEGRAM_MANAGER" %}selected{% endif %}>Telegram менеджера</option>
+                                <option value="TELEGRAM_GENERAL" {% if cta_val == "TELEGRAM_GENERAL" %}selected{% endif %}>Telegram загальний</option>
+                                <option value="MAILTO_COOPERATION" {% if cta_val == "MAILTO_COOPERATION" %}selected{% endif %}>Email cooperation@</option>
+                                <option value="REPLY_HINT_ONLY" {% if cta_val == "REPLY_HINT_ONLY" %}selected{% endif %}>Відповідь на лист (без лінка)</option>
+                                <option value="CUSTOM_URL" {% if cta_val == "CUSTOM_URL" %}selected{% endif %}>Свій URL</option>
+                            {% endwith %}
+                        </select>
+                        <div class="offer-field-hint">Авто: Telegram менеджера → резервний Telegram → email.</div>
+                        {% if form.cta_type.errors %}
+                            <div class="offer-error">{{ form.cta_type.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="field">
+                        <label for="cta_button_text">Текст кнопки</label>
+                        <input type="text"
+                               id="cta_button_text"
+                               name="cta_button_text"
+                               value="{{ form.cta_button_text.value|default_if_none:'' }}"
+                               placeholder="Запросити тест-ростовку">
+                        {% if form.cta_button_text.errors %}
+                            <div class="offer-error">{{ form.cta_button_text.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="field field-span-2" id="cta_custom_url_wrap" {% if form.cta_type.value != "CUSTOM_URL" %}hidden{% endif %}>
+                        <label for="cta_custom_url">Custom URL</label>
+                        <input type="url"
+                               id="cta_custom_url"
+                               name="cta_custom_url"
+                               value="{{ form.cta_custom_url.value|default_if_none:'' }}"
+                               placeholder="https://...">
+                        {% if form.cta_custom_url.errors %}
+                            <div class="offer-error">{{ form.cta_custom_url.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="field field-span-2">
+                        <label for="cta_microtext">Мікротекст під CTA</label>
+                        <input type="text"
+                               id="cta_microtext"
+                               name="cta_microtext"
+                               value="{{ form.cta_microtext.value|default_if_none:'' }}"
+                               placeholder="Без зобов’язань. Якщо не зайде — повертаєте залишки. Сплачуєте лише доставку.">
+                        {% if form.cta_microtext.errors %}
+                            <div class="offer-error">{{ form.cta_microtext.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="offer-card">
+                <div class="offer-card-head">
+                    <div>
+                        <p class="eyebrow">Посилання</p>
+                        <h3 class="offer-card-title">Що додати в лист</h3>
+                    </div>
+                </div>
+
+                <div class="offer-links-grid">
+                    <label class="offer-check offer-check-link">
+                        <input type="checkbox" id="include_catalog_link" name="include_catalog_link" {% if form.include_catalog_link.value %}checked{% endif %}>
+                        <span>Каталог</span>
+                    </label>
+                    <label class="offer-check offer-check-link">
+                        <input type="checkbox" id="include_wholesale_link" name="include_wholesale_link" {% if form.include_wholesale_link.value %}checked{% endif %}>
+                        <span>Опт</span>
+                    </label>
+                    <label class="offer-check offer-check-link">
+                        <input type="checkbox" id="include_dropship_link" name="include_dropship_link" {% if form.include_dropship_link.value %}checked{% endif %}>
+                        <span>Дроп</span>
+                    </label>
+                    <label class="offer-check offer-check-link">
+                        <input type="checkbox" id="include_instagram_link" name="include_instagram_link" {% if form.include_instagram_link.value %}checked{% endif %}>
+                        <span>Instagram</span>
+                    </label>
+                    <label class="offer-check offer-check-link">
+                        <input type="checkbox" id="include_site_link" name="include_site_link" {% if form.include_site_link.value %}checked{% endif %}>
+                        <span>Сайт</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="offer-card">
+                <div class="offer-card-head">
+                    <div>
+                        <p class="eyebrow">Товари</p>
+                        <h3 class="offer-card-title">Товари в листі (галерея)</h3>
+                    </div>
+                    <div class="offer-card-actions">
+                        <button type="button" class="btn-ghost small" id="offer-gallery-default">Дефолт для сегмента</button>
+                        <button type="button" class="btn-ghost small" id="offer-gallery-add">+ Слот</button>
+                        <button type="button" class="btn-ghost small" id="offer-gallery-remove">− Слот</button>
+                    </div>
+                </div>
+
+                <div class="offer-field-hint">
+                    Вставте URL товару з сайту (<span class="offer-mono">/product/...</span>). Порожні слоти в лист не потраплять.
+                </div>
+
+                <div class="offer-gallery" id="offer-gallery">
+                    <div class="offer-gallery-list" id="offer-gallery-list"></div>
+                    <div class="offer-gallery-note" id="offer-gallery-note" hidden></div>
                 </div>
             </div>
 
@@ -228,15 +358,15 @@
                         {% endif %}
                     </div>
                     <div class="field">
-                        <label for="phone">Телефон (опційно)</label>
-                        <input type="tel"
-                               id="phone"
-                               name="phone"
-                               value="{{ form.phone.value|default_if_none:'' }}"
-                               placeholder="+380..."
-                               autocomplete="tel">
-                        {% if form.phone.errors %}
-                            <div class="offer-error">{{ form.phone.errors.0 }}</div>
+                        <label for="general_tg">Резервний Telegram (опційно)</label>
+                        <input type="text"
+                               id="general_tg"
+                               name="general_tg"
+                               value="{{ form.general_tg.value|default_if_none:'' }}"
+                               placeholder="https://t.me/twocomms або @username"
+                               autocomplete="url">
+                        {% if form.general_tg.errors %}
+                            <div class="offer-error">{{ form.general_tg.errors.0 }}</div>
                         {% endif %}
                     </div>
                 </div>
@@ -244,8 +374,31 @@
                 <div class="offer-messengers">
                     <div class="offer-messengers-head">
                         <p class="eyebrow">Контакти</p>
-                        <h4 class="offer-messengers-title">Месенджери</h4>
+                        <h4 class="offer-messengers-title">Контакти менеджера</h4>
                     </div>
+
+                    <div class="offer-messenger-row" data-messenger="phone">
+                        <label class="offer-check offer-check-messenger">
+                            <input type="checkbox" id="phone_enabled" name="phone_enabled" {% if form.phone_enabled.value %}checked{% endif %}>
+                            <span class="offer-messenger-label">
+                                <span class="offer-messenger-icon offer-messenger-icon-phone" aria-hidden="true">☎</span>
+                                <span>Телефон</span>
+                            </span>
+                        </label>
+                        <div class="offer-messenger-input-wrap">
+                            <input type="tel"
+                                   id="phone"
+                                   name="phone"
+                                   value="{{ form.phone.value|default_if_none:'' }}"
+                                   placeholder="+380XXXXXXXXX"
+                                   class="offer-messenger-input"
+                                   autocomplete="tel">
+                            <div class="offer-messenger-help">Формат: +380XXXXXXXXX</div>
+                        </div>
+                    </div>
+                    {% if form.phone.errors %}
+                        <div class="offer-error">{{ form.phone.errors.0 }}</div>
+                    {% endif %}
 
                     <div class="offer-messenger-row" data-messenger="viber">
                         <label class="offer-check offer-check-messenger">
@@ -336,9 +489,15 @@
                         <p class="eyebrow">Превʼю</p>
                         <h3 class="offer-card-title">Як виглядатиме лист</h3>
                     </div>
-                    <div class="offer-preview-tabs" id="offer-preview-tabs" data-default-tab="{{ preview_mode|default:'VISUAL' }}">
-                        <button type="button" class="offer-preview-tab" data-offer-preview-tab="VISUAL">VISUAL</button>
-                        <button type="button" class="offer-preview-tab" data-offer-preview-tab="LIGHT">LIGHT</button>
+                    <div class="offer-preview-actions">
+                        <div class="offer-preview-tabs" id="offer-preview-tabs" data-default-tab="{{ preview_mode|default:'VISUAL' }}">
+                            <button type="button" class="offer-preview-tab" data-offer-preview-tab="VISUAL">VISUAL</button>
+                            <button type="button" class="offer-preview-tab" data-offer-preview-tab="LIGHT">LIGHT</button>
+                        </div>
+                        <div class="offer-preview-sizes" id="offer-preview-sizes">
+                            <button type="button" class="offer-preview-size" data-offer-preview-size="DESKTOP">600px</button>
+                            <button type="button" class="offer-preview-size" data-offer-preview-size="MOBILE">360px</button>
+                        </div>
                     </div>
                 </div>
                 <div class="offer-preview-meta">
@@ -349,8 +508,10 @@
                     <div class="offer-preview-meta-sub" id="offer-preview-preheader">{{ preview_preheader }}</div>
                 </div>
                 <div class="offer-preview-surface" id="offer-preview-surface">
-                    <div class="offer-preview-pane" id="offer-preview-visual">{{ preview_visual_html|safe }}</div>
-                    <pre class="offer-preview-pane offer-preview-pane-light" id="offer-preview-light">{{ preview_light_text }}</pre>
+                    <div class="offer-preview-viewport" id="offer-preview-viewport">
+                        <div class="offer-preview-pane" id="offer-preview-visual">{{ preview_visual_html|safe }}</div>
+                        <pre class="offer-preview-pane offer-preview-pane-light" id="offer-preview-light">{{ preview_light_text }}</pre>
+                    </div>
                 </div>
             </div>
         </div>
@@ -434,6 +595,8 @@
             <pre class="offer-log-pane offer-log-pane-light" id="offer-log-pane-light"></pre>
         </div>
         <div class="modal-footer">
+            <button type="button" class="btn-ghost small" id="offer-log-copy-text">Скопіювати текст</button>
+            <button type="button" class="btn-ghost small" id="offer-log-copy-html">Скопіювати HTML</button>
             <button type="button" class="btn-ghost" id="offer-log-close-2">Закрити</button>
         </div>
     </div>
@@ -465,6 +628,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const logModal = document.getElementById('offer-log-modal');
     const logClose = document.getElementById('offer-log-close');
     const logClose2 = document.getElementById('offer-log-close-2');
+    const logCopyText = document.getElementById('offer-log-copy-text');
+    const logCopyHtml = document.getElementById('offer-log-copy-html');
     const logTitle = document.getElementById('offer-log-modal-title');
     const logMeta = document.getElementById('offer-log-modal-meta');
     const logIframe = document.getElementById('offer-log-iframe');
@@ -483,15 +648,33 @@ document.addEventListener('DOMContentLoaded', () => {
     const subjectCustomWrap = document.getElementById('subject_custom_wrap');
     const subjectCustom = document.getElementById('subject_custom');
 
+    const ctaType = document.getElementById('cta_type');
+    const ctaButtonText = document.getElementById('cta_button_text');
+    const ctaCustomUrlWrap = document.getElementById('cta_custom_url_wrap');
+    const ctaCustomUrl = document.getElementById('cta_custom_url');
+    const ctaMicrotext = document.getElementById('cta_microtext');
+
+    const includeCatalogLink = document.getElementById('include_catalog_link');
+    const includeWholesaleLink = document.getElementById('include_wholesale_link');
+    const includeDropshipLink = document.getElementById('include_dropship_link');
+    const includeInstagramLink = document.getElementById('include_instagram_link');
+    const includeSiteLink = document.getElementById('include_site_link');
+
     const teeEntry = document.getElementById('tee_entry');
     const teeRetailExample = document.getElementById('tee_retail_example');
     const hoodieEntry = document.getElementById('hoodie_entry');
     const hoodieRetailExample = document.getElementById('hoodie_retail_example');
     const teeProfitDisplay = document.getElementById('tee_profit_display');
     const hoodieProfitDisplay = document.getElementById('hoodie_profit_display');
+    const teeProfitWarn = document.getElementById('tee_profit_warn');
+    const hoodieProfitWarn = document.getElementById('hoodie_profit_warn');
+    const unitFillDefaultsBtn = document.getElementById('offer-unit-fill-defaults');
+    const unitNote = document.getElementById('offer-unit-note');
 
     const showManager = document.getElementById('show_manager');
     const managerName = document.getElementById('manager_name');
+    const generalTg = document.getElementById('general_tg');
+    const phoneEnabled = document.getElementById('phone_enabled');
     const phone = document.getElementById('phone');
     const viberEnabled = document.getElementById('viber_enabled');
     const viber = document.getElementById('viber');
@@ -499,6 +682,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const whatsapp = document.getElementById('whatsapp');
     const telegramEnabled = document.getElementById('telegram_enabled');
     const telegram = document.getElementById('telegram');
+
+    const galleryNeutral = document.getElementById('gallery_neutral');
+    const galleryEdgy = document.getElementById('gallery_edgy');
+    const galleryList = document.getElementById('offer-gallery-list');
+    const galleryNote = document.getElementById('offer-gallery-note');
+    const galleryBtnDefault = document.getElementById('offer-gallery-default');
+    const galleryBtnAdd = document.getElementById('offer-gallery-add');
+    const galleryBtnRemove = document.getElementById('offer-gallery-remove');
+
+    const previewViewport = document.getElementById('offer-preview-viewport');
+    const previewSizeButtons = Array.from(document.querySelectorAll('[data-offer-preview-size]'));
 
     const dupHint = document.getElementById('offer-email-dup-hint');
     let dupExists = false;
@@ -511,6 +705,21 @@ document.addEventListener('DOMContentLoaded', () => {
     let previewAbortController = null;
     let activePreviewTab = 'VISUAL';
     let activeLogTab = 'VISUAL';
+    let activePreviewSize = 'DESKTOP';
+    let currentLogHtml = '';
+    let currentLogText = '';
+
+    let unitDefaults = null;
+
+    const galleryState = {
+        NEUTRAL: [],
+        EDGY: [],
+    };
+    const gallerySlots = {
+        NEUTRAL: 3,
+        EDGY: 3,
+    };
+    const galleryResolveTimers = new Map();
 
     function parseIntSafe(value) {
         const raw = String(value || '').replace(/\s+/g, '').trim();
@@ -530,15 +739,49 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function syncUnitProfits() {
-        const teeEntryVal = parseIntSafe(teeEntry?.value);
-        const teeRetailVal = parseIntSafe(teeRetailExample?.value);
-        const teeProfit = (teeEntryVal !== null && teeRetailVal !== null) ? (teeRetailVal - teeEntryVal) : null;
-        if (teeProfitDisplay) teeProfitDisplay.textContent = teeProfit === null ? '—' : fmtNumber(teeProfit);
+        const defaultVal = (key) => {
+            if (!unitDefaults) return null;
+            const v = unitDefaults[key];
+            return Number.isFinite(v) ? Math.trunc(v) : null;
+        };
 
-        const hoodieEntryVal = parseIntSafe(hoodieEntry?.value);
-        const hoodieRetailVal = parseIntSafe(hoodieRetailExample?.value);
-        const hoodieProfit = (hoodieEntryVal !== null && hoodieRetailVal !== null) ? (hoodieRetailVal - hoodieEntryVal) : null;
-        if (hoodieProfitDisplay) hoodieProfitDisplay.textContent = hoodieProfit === null ? '—' : fmtNumber(hoodieProfit);
+        const effective = (el, key) => {
+            const v = parseIntSafe(el?.value);
+            if (v !== null) return v;
+            return defaultVal(key);
+        };
+
+        const setWarn = (warnEl, inputEl, text) => {
+            if (warnEl) {
+                warnEl.hidden = !text;
+                warnEl.textContent = text || '';
+            }
+            if (inputEl) inputEl.classList.toggle('offer-input-warn', !!text);
+        };
+
+        const teeEntryVal = effective(teeEntry, 'tee_entry_default');
+        const teeRetailVal = effective(teeRetailExample, 'tee_retail_default');
+        if (teeEntryVal !== null && teeRetailVal !== null) {
+            const raw = teeRetailVal - teeEntryVal;
+            const profit = Math.max(0, raw);
+            if (teeProfitDisplay) teeProfitDisplay.textContent = fmtNumber(profit);
+            setWarn(teeProfitWarn, teeRetailExample, raw < 0 ? 'Роздріб менше за вхід — перевірте цифри.' : '');
+        } else {
+            if (teeProfitDisplay) teeProfitDisplay.textContent = '—';
+            setWarn(teeProfitWarn, teeRetailExample, '');
+        }
+
+        const hoodieEntryVal = effective(hoodieEntry, 'hoodie_entry_default');
+        const hoodieRetailVal = effective(hoodieRetailExample, 'hoodie_retail_default');
+        if (hoodieEntryVal !== null && hoodieRetailVal !== null) {
+            const raw = hoodieRetailVal - hoodieEntryVal;
+            const profit = Math.max(0, raw);
+            if (hoodieProfitDisplay) hoodieProfitDisplay.textContent = fmtNumber(profit);
+            setWarn(hoodieProfitWarn, hoodieRetailExample, raw < 0 ? 'Роздріб менше за вхід — перевірте цифри.' : '');
+        } else {
+            if (hoodieProfitDisplay) hoodieProfitDisplay.textContent = '—';
+            setWarn(hoodieProfitWarn, hoodieRetailExample, '');
+        }
     }
 
     function syncSubjectCustom() {
@@ -547,7 +790,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!isCustom && subjectCustom) subjectCustom.value = '';
     }
 
+    function syncCtaCustomUrl() {
+        const isCustom = ctaType && ctaType.value === 'CUSTOM_URL';
+        if (ctaCustomUrlWrap) ctaCustomUrlWrap.hidden = !isCustom;
+        if (!isCustom && ctaCustomUrl) ctaCustomUrl.value = '';
+    }
+
     const messengerRows = [
+        { row: document.querySelector('[data-messenger="phone"]'), toggle: phoneEnabled, input: phone },
         { row: document.querySelector('[data-messenger="viber"]'), toggle: viberEnabled, input: viber },
         { row: document.querySelector('[data-messenger="whatsapp"]'), toggle: whatsappEnabled, input: whatsapp },
         { row: document.querySelector('[data-messenger="telegram"]'), toggle: telegramEnabled, input: telegram },
@@ -559,10 +809,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (managerName) {
             managerName.readOnly = !showMgr;
             managerName.classList.toggle('is-readonly', !showMgr);
-        }
-        if (phone) {
-            phone.readOnly = !showMgr;
-            phone.classList.toggle('is-readonly', !showMgr);
         }
 
         messengerRows.forEach(({ row, toggle, input }) => {
@@ -584,6 +830,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (previewVisual) previewVisual.style.display = tab === 'VISUAL' ? '' : 'none';
         if (previewLight) previewLight.style.display = tab === 'LIGHT' ? '' : 'none';
+    }
+
+    function setPreviewSize(size) {
+        activePreviewSize = size;
+        previewSizeButtons.forEach((btn) => {
+            const isActive = btn.getAttribute('data-offer-preview-size') === size;
+            btn.classList.toggle('is-active', isActive);
+            btn.setAttribute('aria-selected', String(isActive));
+        });
+        if (!previewViewport) return;
+        previewViewport.classList.toggle('is-mobile', size === 'MOBILE');
     }
 
     function setActiveLog(tab) {
@@ -626,6 +883,249 @@ document.addEventListener('DOMContentLoaded', () => {
     function schedulePreviewUpdate() {
         if (previewTimer) clearTimeout(previewTimer);
         previewTimer = setTimeout(updatePreviewNow, 320);
+    }
+
+    function setUnitNoteText(text) {
+        if (!unitNote) return;
+        unitNote.hidden = !text;
+        unitNote.textContent = text || '';
+    }
+
+    async function loadUnitDefaults() {
+        try {
+            const resp = await fetch('{% url "management_commercial_offer_email_unit_defaults_api" %}', {
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin',
+            });
+            if (!resp.ok) return;
+            const data = await resp.json();
+            if (!data || !data.ok || !data.defaults) return;
+            unitDefaults = data.defaults;
+            if (unitDefaults && unitDefaults.source === 'fallback') {
+                setUnitNoteText('Застосовані fallback-ціни (не вдалося підтягнути з сайту).');
+            } else {
+                setUnitNoteText('');
+            }
+            syncUnitProfits();
+        } catch (e) {
+            // ignore
+        }
+    }
+
+    async function fillUnitDefaults() {
+        if (!unitDefaults) await loadUnitDefaults();
+        if (!unitDefaults) return;
+        if (teeEntry) teeEntry.value = unitDefaults.tee_entry_default ?? '';
+        if (teeRetailExample) teeRetailExample.value = unitDefaults.tee_retail_default ?? '';
+        if (hoodieEntry) hoodieEntry.value = unitDefaults.hoodie_entry_default ?? '';
+        if (hoodieRetailExample) hoodieRetailExample.value = unitDefaults.hoodie_retail_default ?? '';
+        syncUnitProfits();
+        schedulePreviewUpdate();
+    }
+
+    function parseJsonList(value) {
+        try {
+            const data = JSON.parse(String(value || '[]'));
+            if (!Array.isArray(data)) return [];
+            return data.map((x) => String(x || '').trim()).filter(Boolean).slice(0, 6);
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function syncGalleryHidden() {
+        if (galleryNeutral) galleryNeutral.value = JSON.stringify(galleryState.NEUTRAL.slice(0, 6));
+        if (galleryEdgy) galleryEdgy.value = JSON.stringify(galleryState.EDGY.slice(0, 6));
+    }
+
+    function escapeAttr(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function getActiveSegment() {
+        const seg = (segmentMode?.value || 'NEUTRAL').toUpperCase();
+        return seg === 'EDGY' ? 'EDGY' : 'NEUTRAL';
+    }
+
+    function renderGallery() {
+        if (!galleryList) return;
+        const seg = getActiveSegment();
+        const urls = galleryState[seg] || [];
+        const slots = Math.max(0, Math.min(6, gallerySlots[seg] || 0));
+
+        const html = Array.from({ length: slots }).map((_, idx) => {
+            const url = urls[idx] || '';
+            return `
+                <div class="offer-gallery-slot" data-slot-index="${idx}">
+                    <div class="offer-gallery-slot-main">
+                        <input type="url" class="offer-gallery-url" value="${escapeAttr(url)}" placeholder="https://twocomms.shop/product/...">
+                        <button type="button" class="offer-gallery-clear" aria-label="Очистити" ${url ? '' : 'disabled'}>×</button>
+                    </div>
+                    <div class="offer-gallery-preview" hidden>
+                        <div class="offer-gallery-thumb"><img alt="" /></div>
+                        <div class="offer-gallery-preview-meta">
+                            <div class="offer-gallery-title"></div>
+                            <a class="offer-gallery-open" href="#" target="_blank" rel="noopener">Відкрити</a>
+                        </div>
+                    </div>
+                    <div class="offer-gallery-error" hidden></div>
+                </div>
+            `;
+        }).join('');
+        galleryList.innerHTML = html;
+
+        galleryList.querySelectorAll('.offer-gallery-url').forEach((input) => {
+            input.addEventListener('input', () => scheduleGallerySync());
+            input.addEventListener('change', () => scheduleGallerySync());
+        });
+        galleryList.querySelectorAll('.offer-gallery-clear').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                const slot = e.target.closest('.offer-gallery-slot');
+                if (!slot) return;
+                const input = slot.querySelector('.offer-gallery-url');
+                if (!input) return;
+                input.value = '';
+                scheduleGallerySync();
+            });
+        });
+
+        scheduleGallerySync();
+    }
+
+    function setGalleryNote(text) {
+        if (!galleryNote) return;
+        galleryNote.hidden = !text;
+        galleryNote.textContent = text || '';
+    }
+
+    let gallerySyncTimer = null;
+    function scheduleGallerySync() {
+        if (gallerySyncTimer) clearTimeout(gallerySyncTimer);
+        gallerySyncTimer = setTimeout(syncGalleryFromUI, 220);
+    }
+
+    function syncGalleryFromUI() {
+        const seg = getActiveSegment();
+        if (!galleryList) return;
+        const inputs = Array.from(galleryList.querySelectorAll('.offer-gallery-url'));
+        const urls = inputs.map((el) => String(el.value || '').trim()).filter(Boolean).slice(0, 6);
+        galleryState[seg] = urls;
+        gallerySlots[seg] = Math.max(gallerySlots[seg] || 0, urls.length);
+        syncGalleryHidden();
+        resolveGallerySlots();
+        schedulePreviewUpdate();
+    }
+
+    function updateSlotUI(slotEl, data, errorText) {
+        if (!slotEl) return;
+        const preview = slotEl.querySelector('.offer-gallery-preview');
+        const img = slotEl.querySelector('.offer-gallery-thumb img');
+        const titleEl = slotEl.querySelector('.offer-gallery-title');
+        const openEl = slotEl.querySelector('.offer-gallery-open');
+        const errEl = slotEl.querySelector('.offer-gallery-error');
+        const clearBtn = slotEl.querySelector('.offer-gallery-clear');
+
+        const hasUrl = !!slotEl.querySelector('.offer-gallery-url')?.value?.trim();
+        if (clearBtn) clearBtn.disabled = !hasUrl;
+
+        if (errorText) {
+            if (errEl) {
+                errEl.hidden = false;
+                errEl.textContent = errorText;
+            }
+            if (preview) preview.hidden = true;
+            return;
+        }
+
+        if (!data) {
+            if (errEl) {
+                errEl.hidden = true;
+                errEl.textContent = '';
+            }
+            if (preview) preview.hidden = true;
+            return;
+        }
+
+        if (img) img.src = data.img_url || '';
+        if (img) img.alt = data.title || '';
+        if (titleEl) titleEl.textContent = data.title || '';
+        if (openEl) openEl.href = data.link_url || data.url || '#';
+        if (errEl) {
+            errEl.hidden = true;
+            errEl.textContent = '';
+        }
+        if (preview) preview.hidden = false;
+    }
+
+    async function resolveProductUrl(url) {
+        const clean = String(url || '').trim();
+        if (!clean) return null;
+        if (!clean.includes('/product/')) return null;
+        const resp = await fetch(`{% url "management_commercial_offer_email_resolve_product_api" %}?url=${encodeURIComponent(clean)}`, {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin',
+        });
+        if (!resp.ok) return null;
+        const data = await resp.json();
+        if (!data || !data.ok || !data.item) return null;
+        return data.item;
+    }
+
+    function resolveGallerySlots() {
+        const seg = getActiveSegment();
+        const urls = galleryState[seg] || [];
+        const slotEls = Array.from(galleryList?.querySelectorAll('.offer-gallery-slot') || []);
+
+        slotEls.forEach((slotEl) => {
+            const idx = Number(slotEl.getAttribute('data-slot-index') || '0');
+            const url = urls[idx] || '';
+
+            const timerKey = `${seg}:${idx}`;
+            if (galleryResolveTimers.has(timerKey)) {
+                clearTimeout(galleryResolveTimers.get(timerKey));
+                galleryResolveTimers.delete(timerKey);
+            }
+
+            if (!url) {
+                updateSlotUI(slotEl, null, '');
+                return;
+            }
+
+            const t = setTimeout(async () => {
+                try {
+                    updateSlotUI(slotEl, null, '');
+                    const item = await resolveProductUrl(url);
+                    if (!item) {
+                        updateSlotUI(slotEl, null, 'Не вдалося знайти товар за цим URL.');
+                        return;
+                    }
+                    updateSlotUI(slotEl, item, '');
+                } catch (e) {
+                    updateSlotUI(slotEl, null, 'Помилка при завантаженні товару.');
+                }
+            }, 320);
+            galleryResolveTimers.set(timerKey, t);
+        });
+    }
+
+    async function setGalleryDefaultsForSegment(seg) {
+        try {
+            const resp = await fetch(`{% url "management_commercial_offer_email_gallery_defaults_api" %}?segment=${encodeURIComponent(seg)}`, {
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin',
+            });
+            if (!resp.ok) return null;
+            const data = await resp.json();
+            if (!data || !data.ok || !Array.isArray(data.urls)) return null;
+            return data;
+        } catch (e) {
+            return null;
+        }
     }
 
     function setDupHint(data) {
@@ -697,6 +1197,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.setTimeout(() => { if (el.parentNode === alertStack) alertStack.innerHTML = ''; }, 240);
             }
         }, 5500);
+    }
+
+    async function copyToClipboard(text) {
+        const value = String(text || '');
+        if (!value) {
+            setAlert('danger', 'Немає даних для копіювання.');
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(value);
+            setAlert('success', 'Скопійовано в буфер обміну.');
+        } catch (e) {
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = value;
+                ta.setAttribute('readonly', '');
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                setAlert('success', 'Скопійовано в буфер обміну.');
+            } catch (e2) {
+                setAlert('danger', 'Не вдалося скопіювати.');
+            }
+        }
     }
 
     function setButtonState(state) {
@@ -785,8 +1312,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            if (data.sent) {
+            if (data.row_html) {
                 prependHistoryRow(data.row_html || '');
+            }
+            if (data.sent) {
                 setAlert('success', data.message || 'КП успішно надіслано.');
                 setButtonState('success');
                 clearRecipientFields();
@@ -809,6 +1338,29 @@ document.addEventListener('DOMContentLoaded', () => {
         return data.log;
     }
 
+    async function resendLog(url) {
+        const csrf = form.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+        const fd = new FormData();
+        if (csrf) fd.append('csrfmiddlewaretoken', csrf);
+
+        const resp = await fetch(url, {
+            method: 'POST',
+            body: fd,
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin',
+        });
+        let data = null;
+        try {
+            data = await resp.json();
+        } catch (e) {
+            data = null;
+        }
+        if (!resp.ok || !data || !data.ok) {
+            return { ok: false, message: (data && data.message) ? data.message : 'Не вдалося відправити лист.', error: data && data.error ? data.error : '' };
+        }
+        return data;
+    }
+
     function openLogModal(log) {
         if (!logModal) return;
         if (logTitle) logTitle.textContent = log.subject || 'Лист';
@@ -824,7 +1376,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const html = log.body_html || '<div style="font-family:Arial,Helvetica,sans-serif;padding:18px;">HTML відсутній.</div>';
             logIframe.srcdoc = html;
         }
-        if (logPaneLight) logPaneLight.textContent = log.body_text || '';
+        currentLogHtml = log.body_html || '';
+        currentLogText = log.body_text || '';
+        if (logPaneLight) logPaneLight.textContent = currentLogText || '';
 
         setActiveLog((log.mode || '').toUpperCase() === 'LIGHT' ? 'LIGHT' : 'VISUAL');
 
@@ -848,6 +1402,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (subjectCustom) subjectCustom.value = log.subject_custom || '';
         syncSubjectCustom();
 
+        if (ctaType) ctaType.value = (log.cta_type || '').toUpperCase();
+        if (ctaButtonText) ctaButtonText.value = log.cta_button_text || '';
+        if (ctaCustomUrl) ctaCustomUrl.value = log.cta_custom_url || '';
+        if (ctaMicrotext) ctaMicrotext.value = log.cta_microtext || '';
+        syncCtaCustomUrl();
+
         if (teeEntry) teeEntry.value = log.tee_entry ?? '';
         if (teeRetailExample) teeRetailExample.value = log.tee_retail_example ?? '';
         if (hoodieEntry) hoodieEntry.value = log.hoodie_entry ?? '';
@@ -856,6 +1416,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (showManager) showManager.checked = !!log.show_manager;
         if (managerName) managerName.value = log.manager_name || '';
+        if (generalTg) generalTg.value = log.general_tg || '';
+        if (phoneEnabled) phoneEnabled.checked = !!(log.phone_enabled ?? ((log.phone || '').trim()));
         if (phone) phone.value = log.phone || '';
         if (viberEnabled) viberEnabled.checked = !!(log.viber || '').trim();
         if (viber) viber.value = log.viber || '';
@@ -863,6 +1425,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (whatsapp) whatsapp.value = log.whatsapp || '';
         if (telegramEnabled) telegramEnabled.checked = !!(log.telegram || '').trim();
         if (telegram) telegram.value = log.telegram || '';
+
+        if (includeCatalogLink) includeCatalogLink.checked = log.include_catalog_link ?? true;
+        if (includeWholesaleLink) includeWholesaleLink.checked = log.include_wholesale_link ?? true;
+        if (includeDropshipLink) includeDropshipLink.checked = log.include_dropship_link ?? true;
+        if (includeInstagramLink) includeInstagramLink.checked = log.include_instagram_link ?? true;
+        if (includeSiteLink) includeSiteLink.checked = log.include_site_link ?? true;
+
+        const seg = (log.segment_mode || 'NEUTRAL').toUpperCase() === 'EDGY' ? 'EDGY' : 'NEUTRAL';
+        const galleryUrls = Array.isArray(log.gallery_urls) ? log.gallery_urls.map((x) => String(x || '').trim()).filter(Boolean).slice(0, 6) : [];
+        if (seg === 'EDGY') {
+            galleryState.EDGY = galleryUrls;
+            gallerySlots.EDGY = Math.max(3, galleryUrls.length || 0);
+        } else {
+            galleryState.NEUTRAL = galleryUrls;
+            gallerySlots.NEUTRAL = Math.max(3, galleryUrls.length || 0);
+        }
+        syncGalleryHidden();
+        renderGallery();
+
         confirmResend.value = '0';
 
         syncMessengerUI();
@@ -880,6 +1461,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!action || !url) return;
 
         actionBtn.disabled = true;
+        if (action === 'resend') {
+            resendLog(url).then((res) => {
+                if (!res || !res.ok) {
+                    setAlert('danger', (res && res.message) ? res.message : 'Не вдалося відправити лист.');
+                    return;
+                }
+                if (res.row_html) prependHistoryRow(res.row_html || '');
+                setAlert(res.sent ? 'success' : 'danger', res.message || (res.sent ? 'КП успішно надіслано.' : 'Не вдалося відправити лист.'));
+            }).finally(() => {
+                actionBtn.disabled = false;
+            });
+            return;
+        }
+
         fetchLog(url).then((log) => {
             if (!log) return;
             if (action === 'view') openLogModal(log);
@@ -894,9 +1489,9 @@ document.addEventListener('DOMContentLoaded', () => {
         el.addEventListener(eventName, () => schedulePreviewUpdate());
     }
 
-    [recipientName, managerName, phone, viber, whatsapp, telegram, teeEntry, teeRetailExample, hoodieEntry, hoodieRetailExample, subjectCustom].forEach((el) => bindPreviewChange(el, 'input'));
-    [mode, segmentMode, subjectPreset, subjectCustom].forEach((el) => bindPreviewChange(el, 'change'));
-    [showManager, viberEnabled, whatsappEnabled, telegramEnabled].forEach((el) => bindPreviewChange(el, 'change'));
+    [recipientName, managerName, generalTg, phone, viber, whatsapp, telegram, teeEntry, teeRetailExample, hoodieEntry, hoodieRetailExample, subjectCustom, ctaButtonText, ctaCustomUrl, ctaMicrotext].forEach((el) => bindPreviewChange(el, 'input'));
+    [mode, segmentMode, subjectPreset, ctaType].forEach((el) => bindPreviewChange(el, 'change'));
+    [showManager, phoneEnabled, viberEnabled, whatsappEnabled, telegramEnabled, includeCatalogLink, includeWholesaleLink, includeDropshipLink, includeInstagramLink, includeSiteLink].forEach((el) => bindPreviewChange(el, 'change'));
 
     [teeEntry, teeRetailExample, hoodieEntry, hoodieRetailExample].forEach((el) => {
         if (!el) return;
@@ -904,6 +1499,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (subjectPreset) subjectPreset.addEventListener('change', syncSubjectCustom);
+    if (ctaType) ctaType.addEventListener('change', syncCtaCustomUrl);
     if (showManager) showManager.addEventListener('change', syncMessengerUI);
     messengerRows.forEach(({ toggle, input }) => {
         toggle.addEventListener('change', syncMessengerUI);
@@ -918,11 +1514,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    previewSizeButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const size = btn.getAttribute('data-offer-preview-size');
+            if (!size) return;
+            setPreviewSize(size);
+        });
+    });
+
     if (mode) {
         mode.addEventListener('change', () => {
             const m = (mode.value || '').toUpperCase();
             if (m === 'LIGHT') setActivePreview('LIGHT');
             if (m === 'VISUAL') setActivePreview('VISUAL');
+        });
+    }
+
+    if (segmentMode) {
+        segmentMode.addEventListener('change', () => {
+            renderGallery();
         });
     }
 
@@ -936,6 +1546,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (logClose) logClose.addEventListener('click', closeLogModal);
     if (logClose2) logClose2.addEventListener('click', closeLogModal);
+    if (logCopyText) logCopyText.addEventListener('click', () => copyToClipboard(currentLogText));
+    if (logCopyHtml) logCopyHtml.addEventListener('click', () => copyToClipboard(currentLogHtml || logIframe?.srcdoc || ''));
     if (logModal) logModal.addEventListener('click', (e) => { if (e.target === logModal) closeLogModal(); });
 
     recipientEmail.addEventListener('input', scheduleDuplicateCheck);
@@ -952,6 +1564,38 @@ document.addEventListener('DOMContentLoaded', () => {
         sendOffer();
     });
 
+    if (unitFillDefaultsBtn) unitFillDefaultsBtn.addEventListener('click', fillUnitDefaults);
+
+    if (galleryBtnAdd) galleryBtnAdd.addEventListener('click', () => {
+        const seg = getActiveSegment();
+        gallerySlots[seg] = Math.min(6, (gallerySlots[seg] || 0) + 1);
+        renderGallery();
+    });
+    if (galleryBtnRemove) galleryBtnRemove.addEventListener('click', () => {
+        const seg = getActiveSegment();
+        gallerySlots[seg] = Math.max(0, (gallerySlots[seg] || 0) - 1);
+        renderGallery();
+    });
+    if (galleryBtnDefault) galleryBtnDefault.addEventListener('click', async () => {
+        const seg = getActiveSegment();
+        const res = await setGalleryDefaultsForSegment(seg);
+        if (!res) {
+            setGalleryNote('Не вдалося підтягнути дефолтний набір.');
+            return;
+        }
+        const urls = (res.urls || []).map((x) => String(x || '').trim()).filter(Boolean).slice(0, 6);
+        galleryState[seg] = urls;
+        gallerySlots[seg] = Math.max(3, urls.length);
+        syncGalleryHidden();
+        renderGallery();
+        if (res.source === 'fallback') {
+            setGalleryNote('Використано fallback-набір (без даних сайту).');
+        } else {
+            setGalleryNote('Поставили дефолтний набір для сегмента.');
+        }
+        schedulePreviewUpdate();
+    });
+
     form.addEventListener('submit', (e) => {
         e.preventDefault();
         if (dupExists && confirmResend.value !== '1') {
@@ -964,9 +1608,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (historyBody) historyBody.addEventListener('click', handleHistoryClick);
 
     setActivePreview((mode && (mode.value || '').toUpperCase() === 'LIGHT') ? 'LIGHT' : 'VISUAL');
+    setPreviewSize('DESKTOP');
     syncSubjectCustom();
+    syncCtaCustomUrl();
     syncMessengerUI();
-    syncUnitProfits();
+    galleryState.NEUTRAL = parseJsonList(galleryNeutral?.value);
+    galleryState.EDGY = parseJsonList(galleryEdgy?.value);
+    gallerySlots.NEUTRAL = Math.max(3, galleryState.NEUTRAL.length || 0);
+    gallerySlots.EDGY = Math.max(3, galleryState.EDGY.length || 0);
+    renderGallery();
+    loadUnitDefaults().finally(() => syncUnitProfits());
     schedulePreviewUpdate();
     scheduleDuplicateCheck();
 });

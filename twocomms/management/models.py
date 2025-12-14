@@ -134,6 +134,13 @@ class CommercialOfferEmailSettings(models.Model):
         PRESET_3 = "PRESET_3", _("Preset 3")
         CUSTOM = "CUSTOM", _("Custom")
 
+    class CpCtaType(models.TextChoices):
+        TELEGRAM_MANAGER = "TELEGRAM_MANAGER", _("Telegram менеджера")
+        TELEGRAM_GENERAL = "TELEGRAM_GENERAL", _("Telegram загальний")
+        MAILTO_COOPERATION = "MAILTO_COOPERATION", _("Email cooperation@")
+        REPLY_HINT_ONLY = "REPLY_HINT_ONLY", _("Відповідь на лист (без лінка)")
+        CUSTOM_URL = "CUSTOM_URL", _("Custom URL")
+
     owner = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         verbose_name=_("Менеджер"),
@@ -142,6 +149,7 @@ class CommercialOfferEmailSettings(models.Model):
     )
     show_manager = models.BooleanField(default=True, verbose_name=_("Показувати менеджера"))
     manager_name = models.CharField(max_length=255, blank=True, verbose_name=_("Імʼя менеджера"))
+    phone_enabled = models.BooleanField(default=False, verbose_name=_("Телефон увімкнено"))
     phone = models.CharField(max_length=50, blank=True, verbose_name=_("Телефон"))
 
     viber_enabled = models.BooleanField(default=False, verbose_name=_("Viber увімкнено"))
@@ -152,6 +160,28 @@ class CommercialOfferEmailSettings(models.Model):
 
     telegram_enabled = models.BooleanField(default=False, verbose_name=_("Telegram увімкнено"))
     telegram = models.CharField(max_length=100, blank=True, verbose_name=_("Telegram (@username або номер)"))
+
+    general_tg = models.CharField(max_length=255, blank=True, verbose_name=_("Резервний Telegram (канал/чат)"))
+
+    include_catalog_link = models.BooleanField(default=True, verbose_name=_("Додавати лінк на каталог"))
+    include_wholesale_link = models.BooleanField(default=True, verbose_name=_("Додавати лінк на опт"))
+    include_dropship_link = models.BooleanField(default=True, verbose_name=_("Додавати лінк на дроп"))
+    include_instagram_link = models.BooleanField(default=True, verbose_name=_("Додавати Instagram"))
+    include_site_link = models.BooleanField(default=True, verbose_name=_("Додавати сайт"))
+
+    cta_type = models.CharField(
+        max_length=32,
+        blank=True,
+        choices=CpCtaType.choices,
+        verbose_name=_("CTA тип"),
+    )
+    cta_custom_url = models.CharField(max_length=500, blank=True, verbose_name=_("CTA custom URL"))
+    cta_button_text = models.CharField(max_length=120, blank=True, verbose_name=_("Текст CTA кнопки"))
+    cta_microtext = models.CharField(max_length=255, blank=True, verbose_name=_("Мікротекст під CTA"))
+
+    gallery_initialized = models.BooleanField(default=False, verbose_name=_("Галерея налаштована"))
+    gallery_neutral = models.JSONField(default=list, blank=True, verbose_name=_("Галерея (Neutral)"))
+    gallery_edgy = models.JSONField(default=list, blank=True, verbose_name=_("Галерея (Edgy)"))
 
     mode = models.CharField(
         max_length=10,
@@ -207,6 +237,13 @@ class CommercialOfferEmailLog(models.Model):
         PRESET_3 = "PRESET_3", _("Preset 3")
         CUSTOM = "CUSTOM", _("Custom")
 
+    class CpCtaType(models.TextChoices):
+        TELEGRAM_MANAGER = "TELEGRAM_MANAGER", _("Telegram менеджера")
+        TELEGRAM_GENERAL = "TELEGRAM_GENERAL", _("Telegram загальний")
+        MAILTO_COOPERATION = "MAILTO_COOPERATION", _("Email cooperation@")
+        REPLY_HINT_ONLY = "REPLY_HINT_ONLY", _("Відповідь на лист (без лінка)")
+        CUSTOM_URL = "CUSTOM_URL", _("Custom URL")
+
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         verbose_name=_("Менеджер"),
@@ -242,6 +279,27 @@ class CommercialOfferEmailLog(models.Model):
     )
     subject_custom = models.CharField(max_length=255, blank=True, verbose_name=_("Кастомна тема"))
 
+    cta_type = models.CharField(
+        max_length=32,
+        blank=True,
+        choices=CpCtaType.choices,
+        verbose_name=_("CTA тип"),
+    )
+    cta_url = models.CharField(max_length=500, blank=True, verbose_name=_("CTA URL"))
+    cta_custom_url = models.CharField(max_length=500, blank=True, verbose_name=_("CTA custom URL"))
+    cta_button_text = models.CharField(max_length=120, blank=True, verbose_name=_("Текст CTA кнопки"))
+    cta_microtext = models.CharField(max_length=255, blank=True, verbose_name=_("Мікротекст під CTA"))
+
+    general_tg = models.CharField(max_length=255, blank=True, verbose_name=_("Резервний Telegram"))
+    include_catalog_link = models.BooleanField(default=True, verbose_name=_("Каталог (лінк)"))
+    include_wholesale_link = models.BooleanField(default=True, verbose_name=_("Опт (лінк)"))
+    include_dropship_link = models.BooleanField(default=True, verbose_name=_("Дроп (лінк)"))
+    include_instagram_link = models.BooleanField(default=True, verbose_name=_("Instagram (лінк)"))
+    include_site_link = models.BooleanField(default=True, verbose_name=_("Сайт (лінк)"))
+
+    gallery_urls = models.JSONField(default=list, blank=True, verbose_name=_("Галерея URL (ввід)"))
+    gallery_items = models.JSONField(default=list, blank=True, verbose_name=_("Галерея (використано)"))
+
     tee_entry = models.PositiveIntegerField(null=True, blank=True, verbose_name=_("Вхід футболка (грн)"))
     tee_retail_example = models.PositiveIntegerField(null=True, blank=True, verbose_name=_("Роздріб футболка (приклад, грн)"))
     tee_profit = models.IntegerField(null=True, blank=True, verbose_name=_("Прибуток футболка (приклад, грн)"))
@@ -251,6 +309,7 @@ class CommercialOfferEmailLog(models.Model):
 
     show_manager = models.BooleanField(default=True, verbose_name=_("Показувати менеджера"))
     manager_name = models.CharField(max_length=255, blank=True, verbose_name=_("Імʼя менеджера"))
+    phone_enabled = models.BooleanField(default=False, verbose_name=_("Телефон увімкнено"))
     phone = models.CharField(max_length=50, blank=True, verbose_name=_("Телефон"))
     viber = models.CharField(max_length=100, blank=True, verbose_name=_("Viber"))
     whatsapp = models.CharField(max_length=100, blank=True, verbose_name=_("WhatsApp"))
