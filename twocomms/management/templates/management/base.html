@@ -11,6 +11,24 @@
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@500&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/management.css' %}">
+
+    <!-- PWA / Favicons (Management) -->
+    <link rel="manifest" href="{% static 'faviconMNG/site.webmanifest' %}">
+    <meta name="theme-color" content="#0b0e14">
+    <meta name="application-name" content="TwoComms Management">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="TwoComms Management">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="msapplication-TileColor" content="#0b0e14">
+    <meta name="msapplication-TileImage" content="{% static 'faviconMNG/faviconMNG-192x192.png' %}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'faviconMNG/faviconMNG-180x180.png' %}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'faviconMNG/faviconMNG-32x32.png' %}">
+    <link rel="icon" type="image/png" sizes="192x192" href="{% static 'faviconMNG/faviconMNG-192x192.png' %}">
+    <link rel="icon" type="image/png" sizes="512x512" href="{% static 'faviconMNG/faviconMNG-512x512.png' %}">
+    <link rel="icon" href="{% static 'faviconMNG/faviconMNG.ico' %}" sizes="any" type="image/x-icon">
+    <link rel="shortcut icon" href="{% static 'faviconMNG/faviconMNG.ico' %}">
+    <link rel="mask-icon" href="{% static 'img/logo.svg' %}" color="#ff7e29">
     {% block extra_css %}{% endblock %}
 </head>
 
