@@ -31,6 +31,10 @@ urlpatterns = [
     path('commercial-offer/email/preview/', views.commercial_offer_email_preview_api, name='management_commercial_offer_email_preview_api'),
     path('commercial-offer/email/send/', views.commercial_offer_email_send_api, name='management_commercial_offer_email_send_api'),
     path('commercial-offer/email/check/', views.commercial_offer_email_check_api, name='management_commercial_offer_email_check_api'),
+    path('commercial-offer/email/unit-defaults/', views.commercial_offer_email_unit_defaults_api, name='management_commercial_offer_email_unit_defaults_api'),
+    path('commercial-offer/email/gallery-defaults/', views.commercial_offer_email_gallery_defaults_api, name='management_commercial_offer_email_gallery_defaults_api'),
+    path('commercial-offer/email/resolve-product/', views.commercial_offer_email_resolve_product_api, name='management_commercial_offer_email_resolve_product_api'),
     path('commercial-offer/email/log/<int:log_id>/', views.commercial_offer_email_log_detail_api, name='management_commercial_offer_email_log_detail_api'),
+    path('commercial-offer/email/resend/<int:log_id>/', views.commercial_offer_email_resend_api, name='management_commercial_offer_email_resend_api'),
     path('', views.home, name='management_home'),
 ]

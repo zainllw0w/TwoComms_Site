@@ -39,7 +39,7 @@ from .models import (
 from accounts.models import UserProfile
 from django.views.decorators.csrf import csrf_exempt
 
-from .email_templates.twocomms_cp import build_twocomms_cp_email
+from .email_templates.twocomms_cp import build_twocomms_cp_email, get_twocomms_cp_unit_defaults
 
 POINTS = {
     'order': 45,
@@ -2115,36 +2115,75 @@ def _offer_payload_from_form(form, default_name, initial, request):
             return key in form.data
         return bool(initial.get(key))
 
+    def json_list_val(key: str) -> list[str]:
+        raw = form.data.get(key) if form.is_bound else initial.get(key)
+        if raw is None:
+            return []
+        if isinstance(raw, list):
+            items = [str(x or "").strip() for x in raw]
+            return [x for x in items if x][:6]
+        s = str(raw).strip()
+        if not s:
+            return []
+        try:
+            data = json.loads(s)
+        except Exception:
+            return []
+        if not isinstance(data, list):
+            return []
+        items = [str(x or "").strip() for x in data]
+        return [x for x in items if x][:6]
+
     show_manager = bool_val("show_manager")
     manager_name = str_val("manager_name") or default_name
+
+    phone_enabled = bool_val("phone_enabled")
 
     viber_enabled = bool_val("viber_enabled")
     whatsapp_enabled = bool_val("whatsapp_enabled")
     telegram_enabled = bool_val("telegram_enabled")
 
+    phone = str_val("phone") if (show_manager and phone_enabled) else ""
     viber = str_val("viber") if (show_manager and viber_enabled) else ""
     whatsapp = str_val("whatsapp") if (show_manager and whatsapp_enabled) else ""
     telegram = str_val("telegram") if (show_manager and telegram_enabled) else ""
 
+    segment_mode = str_val("segment_mode") or "NEUTRAL"
+    gallery_neutral = json_list_val("gallery_neutral")
+    gallery_edgy = json_list_val("gallery_edgy")
+    gallery_urls = gallery_edgy if segment_mode.upper() == "EDGY" else gallery_neutral
+
     return {
         "shop_name": str_val("recipient_name"),
         "mode": str_val("mode") or "VISUAL",
-        "segment_mode": str_val("segment_mode") or "NEUTRAL",
+        "segment_mode": segment_mode,
         "subject_preset": str_val("subject_preset") or "PRESET_1",
         "subject_custom": str_val("subject_custom"),
+        "cta_type": str_val("cta_type"),
+        "cta_button_text": str_val("cta_button_text"),
+        "cta_custom_url": str_val("cta_custom_url"),
+        "cta_microtext": str_val("cta_microtext"),
         "tee_entry": str_val("tee_entry"),
         "tee_retail_example": str_val("tee_retail_example"),
         "hoodie_entry": str_val("hoodie_entry"),
         "hoodie_retail_example": str_val("hoodie_retail_example"),
         "show_manager": show_manager,
         "manager_name": manager_name,
-        "phone": str_val("phone") if show_manager else "",
+        "phone_enabled": phone_enabled,
+        "phone": phone,
         "viber_enabled": viber_enabled,
         "viber": viber,
         "whatsapp_enabled": whatsapp_enabled,
         "whatsapp": whatsapp,
         "telegram_enabled": telegram_enabled,
         "telegram": telegram,
+        "general_tg": str_val("general_tg"),
+        "include_catalog_link": bool_val("include_catalog_link"),
+        "include_wholesale_link": bool_val("include_wholesale_link"),
+        "include_dropship_link": bool_val("include_dropship_link"),
+        "include_instagram_link": bool_val("include_instagram_link"),
+        "include_site_link": bool_val("include_site_link"),
+        "gallery_urls": gallery_urls,
         "manager_photo_url": _manager_photo_url(request.user, request) if show_manager else "",
     }
 
@@ -2161,6 +2200,7 @@ def commercial_offer_email(request):
     initial = {
         "show_manager": settings_obj.show_manager,
         "manager_name": default_name,
+        "phone_enabled": getattr(settings_obj, "phone_enabled", False) or bool(default_phone),
         "phone": default_phone,
         "viber_enabled": settings_obj.viber_enabled,
         "viber": (settings_obj.viber or "").strip(),
@@ -2168,6 +2208,18 @@ def commercial_offer_email(request):
         "whatsapp": (settings_obj.whatsapp or "").strip(),
         "telegram_enabled": settings_obj.telegram_enabled,
         "telegram": (settings_obj.telegram or "").strip(),
+        "general_tg": (getattr(settings_obj, "general_tg", "") or "").strip(),
+        "include_catalog_link": getattr(settings_obj, "include_catalog_link", True),
+        "include_wholesale_link": getattr(settings_obj, "include_wholesale_link", True),
+        "include_dropship_link": getattr(settings_obj, "include_dropship_link", True),
+        "include_instagram_link": getattr(settings_obj, "include_instagram_link", True),
+        "include_site_link": getattr(settings_obj, "include_site_link", True),
+        "cta_type": (getattr(settings_obj, "cta_type", "") or "").strip(),
+        "cta_custom_url": (getattr(settings_obj, "cta_custom_url", "") or "").strip(),
+        "cta_button_text": (getattr(settings_obj, "cta_button_text", "") or "").strip(),
+        "cta_microtext": (getattr(settings_obj, "cta_microtext", "") or "").strip(),
+        "gallery_neutral": list(getattr(settings_obj, "gallery_neutral", []) or []),
+        "gallery_edgy": list(getattr(settings_obj, "gallery_edgy", []) or []),
         "mode": getattr(settings_obj, "mode", "VISUAL") or "VISUAL",
         "segment_mode": getattr(settings_obj, "segment_mode", "NEUTRAL") or "NEUTRAL",
         "subject_preset": getattr(settings_obj, "subject_preset", "PRESET_1") or "PRESET_1",
@@ -2177,6 +2229,15 @@ def commercial_offer_email(request):
         "hoodie_entry": getattr(settings_obj, "hoodie_entry", None),
         "hoodie_retail_example": getattr(settings_obj, "hoodie_retail_example", None),
     }
+
+    if not getattr(settings_obj, "gallery_initialized", False):
+        try:
+            if not initial.get("gallery_neutral"):
+                initial["gallery_neutral"] = build_twocomms_cp_email({"segment_mode": "NEUTRAL"}).get("gallery_urls") or []
+            if not initial.get("gallery_edgy"):
+                initial["gallery_edgy"] = build_twocomms_cp_email({"segment_mode": "EDGY"}).get("gallery_urls") or []
+        except Exception:
+            pass
 
     sent_success = request.GET.get("sent") == "1"
     send_error = ""
@@ -2199,6 +2260,7 @@ def commercial_offer_email(request):
             else:
                 settings_obj.show_manager = bool(cd.get("show_manager"))
                 settings_obj.manager_name = (cd.get("manager_name") or "").strip()
+                settings_obj.phone_enabled = bool(cd.get("phone_enabled"))
                 settings_obj.phone = (cd.get("phone") or "").strip()
                 settings_obj.viber_enabled = bool(cd.get("viber_enabled"))
                 settings_obj.viber = (cd.get("viber") or "").strip()
@@ -2206,6 +2268,22 @@ def commercial_offer_email(request):
                 settings_obj.whatsapp = (cd.get("whatsapp") or "").strip()
                 settings_obj.telegram_enabled = bool(cd.get("telegram_enabled"))
                 settings_obj.telegram = (cd.get("telegram") or "").strip()
+
+                settings_obj.general_tg = (cd.get("general_tg") or "").strip()
+                settings_obj.include_catalog_link = bool(cd.get("include_catalog_link"))
+                settings_obj.include_wholesale_link = bool(cd.get("include_wholesale_link"))
+                settings_obj.include_dropship_link = bool(cd.get("include_dropship_link"))
+                settings_obj.include_instagram_link = bool(cd.get("include_instagram_link"))
+                settings_obj.include_site_link = bool(cd.get("include_site_link"))
+
+                settings_obj.cta_type = (cd.get("cta_type") or "").strip().upper()
+                settings_obj.cta_custom_url = (cd.get("cta_custom_url") or "").strip()
+                settings_obj.cta_button_text = (cd.get("cta_button_text") or "").strip()
+                settings_obj.cta_microtext = (cd.get("cta_microtext") or "").strip()
+
+                settings_obj.gallery_neutral = cd.get("gallery_neutral") or []
+                settings_obj.gallery_edgy = cd.get("gallery_edgy") or []
+                settings_obj.gallery_initialized = True
 
                 settings_obj.mode = (cd.get("mode") or "VISUAL").strip().upper()
                 settings_obj.segment_mode = (cd.get("segment_mode") or "NEUTRAL").strip().upper()
@@ -2223,16 +2301,28 @@ def commercial_offer_email(request):
                     "segment_mode": settings_obj.segment_mode,
                     "subject_preset": settings_obj.subject_preset,
                     "subject_custom": settings_obj.subject_custom,
+                    "cta_type": settings_obj.cta_type,
+                    "cta_custom_url": settings_obj.cta_custom_url,
+                    "cta_button_text": settings_obj.cta_button_text,
+                    "cta_microtext": settings_obj.cta_microtext,
                     "tee_entry": settings_obj.tee_entry,
                     "tee_retail_example": settings_obj.tee_retail_example,
                     "hoodie_entry": settings_obj.hoodie_entry,
                     "hoodie_retail_example": settings_obj.hoodie_retail_example,
                     "show_manager": settings_obj.show_manager,
                     "manager_name": settings_obj.manager_name or default_name,
-                    "phone": settings_obj.phone if settings_obj.show_manager else "",
+                    "phone_enabled": settings_obj.phone_enabled,
+                    "phone": settings_obj.phone if (settings_obj.show_manager and settings_obj.phone_enabled) else "",
                     "viber": settings_obj.viber if (settings_obj.show_manager and settings_obj.viber_enabled) else "",
                     "whatsapp": settings_obj.whatsapp if (settings_obj.show_manager and settings_obj.whatsapp_enabled) else "",
                     "telegram": settings_obj.telegram if (settings_obj.show_manager and settings_obj.telegram_enabled) else "",
+                    "general_tg": settings_obj.general_tg,
+                    "include_catalog_link": settings_obj.include_catalog_link,
+                    "include_wholesale_link": settings_obj.include_wholesale_link,
+                    "include_dropship_link": settings_obj.include_dropship_link,
+                    "include_instagram_link": settings_obj.include_instagram_link,
+                    "include_site_link": settings_obj.include_site_link,
+                    "gallery_urls": settings_obj.gallery_edgy if settings_obj.segment_mode == "EDGY" else settings_obj.gallery_neutral,
                     "manager_photo_url": _manager_photo_url(request.user, request) if settings_obj.show_manager else "",
                 }
                 email_build = build_twocomms_cp_email(payload)
@@ -2273,6 +2363,19 @@ def commercial_offer_email(request):
                     segment_mode=settings_obj.segment_mode,
                     subject_preset=settings_obj.subject_preset,
                     subject_custom=settings_obj.subject_custom,
+                    cta_type=email_build.get("cta_type") or settings_obj.cta_type,
+                    cta_url=email_build.get("cta_url") or "",
+                    cta_custom_url=settings_obj.cta_custom_url,
+                    cta_button_text=email_build.get("cta_button_text") or settings_obj.cta_button_text,
+                    cta_microtext=email_build.get("cta_microtext") or settings_obj.cta_microtext,
+                    general_tg=settings_obj.general_tg,
+                    include_catalog_link=settings_obj.include_catalog_link,
+                    include_wholesale_link=settings_obj.include_wholesale_link,
+                    include_dropship_link=settings_obj.include_dropship_link,
+                    include_instagram_link=settings_obj.include_instagram_link,
+                    include_site_link=settings_obj.include_site_link,
+                    gallery_urls=email_build.get("gallery_urls") or [],
+                    gallery_items=email_build.get("gallery_items") or [],
                     tee_entry=email_build.get("tee_entry"),
                     tee_retail_example=email_build.get("tee_retail_example"),
                     tee_profit=email_build.get("tee_profit"),
@@ -2281,7 +2384,8 @@ def commercial_offer_email(request):
                     hoodie_profit=email_build.get("hoodie_profit"),
                     show_manager=settings_obj.show_manager,
                     manager_name=(settings_obj.manager_name or default_name) if settings_obj.show_manager else "",
-                    phone=settings_obj.phone if settings_obj.show_manager else "",
+                    phone_enabled=settings_obj.phone_enabled,
+                    phone=settings_obj.phone if (settings_obj.show_manager and settings_obj.phone_enabled) else "",
                     viber=settings_obj.viber if (settings_obj.show_manager and settings_obj.viber_enabled) else "",
                     whatsapp=settings_obj.whatsapp if (settings_obj.show_manager and settings_obj.whatsapp_enabled) else "",
                     telegram=settings_obj.telegram if (settings_obj.show_manager and settings_obj.telegram_enabled) else "",
@@ -2303,6 +2407,19 @@ def commercial_offer_email(request):
 
     logs = CommercialOfferEmailLog.objects.filter(owner=request.user).order_by("-created_at")[:30]
 
+    gallery_neutral_json = "[]"
+    gallery_edgy_json = "[]"
+    try:
+        if form.is_bound:
+            gallery_neutral_json = (form.data.get("gallery_neutral") or "[]").strip() or "[]"
+            gallery_edgy_json = (form.data.get("gallery_edgy") or "[]").strip() or "[]"
+        else:
+            gallery_neutral_json = json.dumps(initial.get("gallery_neutral") or [])
+            gallery_edgy_json = json.dumps(initial.get("gallery_edgy") or [])
+    except Exception:
+        gallery_neutral_json = "[]"
+        gallery_edgy_json = "[]"
+
     return render(
         request,
         "management/commercial_offer_email.html",
@@ -2316,6 +2433,8 @@ def commercial_offer_email(request):
             "logs": logs,
             "sent_success": sent_success,
             "send_error": send_error,
+            "gallery_neutral_json": gallery_neutral_json,
+            "gallery_edgy_json": gallery_edgy_json,
         },
     )
 
@@ -2351,6 +2470,181 @@ def commercial_offer_email_check_api(request):
     )
 
 
+@login_required(login_url="management_login")
+def commercial_offer_email_unit_defaults_api(request):
+    if not user_is_management(request.user):
+        return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+
+    defaults = get_twocomms_cp_unit_defaults()
+    return JsonResponse({"ok": True, "defaults": defaults})
+
+
+@login_required(login_url="management_login")
+def commercial_offer_email_gallery_defaults_api(request):
+    if not user_is_management(request.user):
+        return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+
+    seg = (request.GET.get("segment") or "NEUTRAL").strip().upper()
+    if seg not in {"NEUTRAL", "EDGY"}:
+        seg = "NEUTRAL"
+
+    email_build = build_twocomms_cp_email({"segment_mode": seg})
+    urls = email_build.get("gallery_urls") or []
+    return JsonResponse({"ok": True, "segment_mode": seg, "urls": urls, "source": "site" if urls else "fallback"})
+
+
+@login_required(login_url="management_login")
+def commercial_offer_email_resolve_product_api(request):
+    if not user_is_management(request.user):
+        return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+
+    raw_url = (request.GET.get("url") or "").strip()
+    if not raw_url:
+        return JsonResponse({"ok": False, "error": "no_url"}, status=400)
+
+    def site_base_url() -> str:
+        base = (getattr(settings, "SITE_BASE_URL", "") or "").strip() or "https://twocomms.shop"
+        if not base.endswith("/"):
+            base += "/"
+        return base
+
+    def abs_url(path_or_url: str) -> str:
+        if not path_or_url:
+            return site_base_url()
+        if path_or_url.startswith(("http://", "https://")):
+            return path_or_url
+        from urllib.parse import urljoin
+
+        return urljoin(site_base_url(), path_or_url.lstrip("/"))
+
+    try:
+        import re
+        from urllib.parse import urlparse
+
+        path = urlparse(raw_url).path if raw_url.startswith(("http://", "https://")) else raw_url
+        match = re.search(r"/product/(?P<slug>[-a-zA-Z0-9_]+)/?", path)
+        slug = match.group("slug") if match else ""
+    except Exception:
+        slug = ""
+
+    if not slug:
+        return JsonResponse({"ok": False, "error": "bad_url"}, status=400)
+
+    try:
+        from storefront.models import Product, ProductStatus
+
+        product = Product.objects.select_related("category").filter(status=ProductStatus.PUBLISHED, slug=slug).first()
+    except Exception:
+        product = None
+
+    if not product:
+        return JsonResponse({"ok": False, "error": "not_found"}, status=404)
+
+    img = getattr(product, "display_image", None)
+    img_url = ""
+    try:
+        img_url = abs_url(img.url) if img and getattr(img, "url", None) else ""
+    except Exception:
+        img_url = ""
+
+    if not img_url:
+        return JsonResponse({"ok": False, "error": "no_image"}, status=404)
+
+    item = {
+        "title": (product.title or "").strip(),
+        "img_url": img_url,
+        "link_url": abs_url(f"/product/{product.slug}/"),
+        "retail": getattr(product, "final_price", None),
+    }
+    return JsonResponse({"ok": True, "item": item})
+
+
+@require_POST
+@login_required(login_url="management_login")
+def commercial_offer_email_resend_api(request, log_id: int):
+    if not user_is_management(request.user):
+        return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+
+    try:
+        original = CommercialOfferEmailLog.objects.get(id=log_id, owner=request.user)
+    except CommercialOfferEmailLog.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "not_found"}, status=404)
+
+    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None) or "TwoComms <cooperation@twocomms.shop>"
+    reply_to = [settings.EMAIL_HOST_USER] if getattr(settings, "EMAIL_HOST_USER", "") else None
+
+    status = CommercialOfferEmailLog.Status.SENT
+    error_text = ""
+    try:
+        msg = EmailMultiAlternatives(
+            subject=original.subject,
+            body=original.body_text or "",
+            from_email=from_email,
+            to=[original.recipient_email],
+            reply_to=reply_to,
+        )
+        if original.body_html:
+            msg.attach_alternative(original.body_html, "text/html")
+        msg.send(fail_silently=False)
+    except Exception as exc:
+        status = CommercialOfferEmailLog.Status.FAILED
+        error_text = str(exc)
+
+    new_log = CommercialOfferEmailLog.objects.create(
+        owner=request.user,
+        recipient_email=original.recipient_email,
+        recipient_name=original.recipient_name,
+        subject=original.subject,
+        preheader=getattr(original, "preheader", "") or "",
+        body_html=original.body_html,
+        body_text=original.body_text,
+        mode=original.mode,
+        segment_mode=original.segment_mode,
+        subject_preset=original.subject_preset,
+        subject_custom=original.subject_custom,
+        cta_type=getattr(original, "cta_type", "") or "",
+        cta_url=getattr(original, "cta_url", "") or "",
+        cta_custom_url=getattr(original, "cta_custom_url", "") or "",
+        cta_button_text=getattr(original, "cta_button_text", "") or "",
+        cta_microtext=getattr(original, "cta_microtext", "") or "",
+        general_tg=getattr(original, "general_tg", "") or "",
+        include_catalog_link=bool(getattr(original, "include_catalog_link", True)),
+        include_wholesale_link=bool(getattr(original, "include_wholesale_link", True)),
+        include_dropship_link=bool(getattr(original, "include_dropship_link", True)),
+        include_instagram_link=bool(getattr(original, "include_instagram_link", True)),
+        include_site_link=bool(getattr(original, "include_site_link", True)),
+        gallery_urls=getattr(original, "gallery_urls", []) or [],
+        gallery_items=getattr(original, "gallery_items", []) or [],
+        tee_entry=original.tee_entry,
+        tee_retail_example=original.tee_retail_example,
+        tee_profit=original.tee_profit,
+        hoodie_entry=original.hoodie_entry,
+        hoodie_retail_example=original.hoodie_retail_example,
+        hoodie_profit=original.hoodie_profit,
+        show_manager=original.show_manager,
+        manager_name=original.manager_name,
+        phone_enabled=bool(getattr(original, "phone_enabled", False)),
+        phone=original.phone,
+        viber=original.viber,
+        whatsapp=original.whatsapp,
+        telegram=original.telegram,
+        status=status,
+        error=error_text,
+    )
+
+    row_html = render_to_string("management/partials/commercial_offer_log_row.html", {"log": new_log})
+    return JsonResponse(
+        {
+            "ok": True,
+            "sent": status == CommercialOfferEmailLog.Status.SENT,
+            "status": status,
+            "row_html": row_html,
+            "message": "КП успішно надіслано." if status == CommercialOfferEmailLog.Status.SENT else "Не вдалося відправити лист.",
+            "error": error_text,
+        }
+    )
+
+
 @require_POST
 @login_required(login_url="management_login")
 def commercial_offer_email_preview_api(request):
@@ -2372,26 +2666,57 @@ def commercial_offer_email_preview_api(request):
     show_manager = bool_val("show_manager")
     manager_name = str_val("manager_name") or default_name
 
+    phone_enabled = bool_val("phone_enabled")
     viber_enabled = bool_val("viber_enabled")
     whatsapp_enabled = bool_val("whatsapp_enabled")
     telegram_enabled = bool_val("telegram_enabled")
 
+    def json_list_val(key: str) -> list[str]:
+        raw = (data.get(key) or "").strip()
+        if not raw:
+            return []
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            return []
+        if not isinstance(parsed, list):
+            return []
+        items = [str(x or "").strip() for x in parsed]
+        return [x for x in items if x][:6]
+
+    segment_mode_val = (str_val("segment_mode") or getattr(settings_obj, "segment_mode", "NEUTRAL") or "NEUTRAL").upper()
+    gallery_neutral = json_list_val("gallery_neutral")
+    gallery_edgy = json_list_val("gallery_edgy")
+    gallery_urls = gallery_edgy if segment_mode_val == "EDGY" else gallery_neutral
+
     payload = {
         "shop_name": str_val("recipient_name"),
         "mode": (str_val("mode") or getattr(settings_obj, "mode", "VISUAL") or "VISUAL").upper(),
-        "segment_mode": (str_val("segment_mode") or getattr(settings_obj, "segment_mode", "NEUTRAL") or "NEUTRAL").upper(),
+        "segment_mode": segment_mode_val,
         "subject_preset": (str_val("subject_preset") or getattr(settings_obj, "subject_preset", "PRESET_1") or "PRESET_1").upper(),
         "subject_custom": str_val("subject_custom"),
+        "cta_type": str_val("cta_type"),
+        "cta_custom_url": str_val("cta_custom_url"),
+        "cta_button_text": str_val("cta_button_text"),
+        "cta_microtext": str_val("cta_microtext"),
         "tee_entry": str_val("tee_entry"),
         "tee_retail_example": str_val("tee_retail_example"),
         "hoodie_entry": str_val("hoodie_entry"),
         "hoodie_retail_example": str_val("hoodie_retail_example"),
         "show_manager": show_manager,
         "manager_name": manager_name if show_manager else "",
-        "phone": (str_val("phone") or default_phone) if show_manager else "",
+        "phone_enabled": phone_enabled,
+        "phone": (str_val("phone") or default_phone) if (show_manager and phone_enabled) else "",
         "viber": str_val("viber") if (show_manager and viber_enabled) else "",
         "whatsapp": str_val("whatsapp") if (show_manager and whatsapp_enabled) else "",
         "telegram": str_val("telegram") if (show_manager and telegram_enabled) else "",
+        "general_tg": str_val("general_tg"),
+        "include_catalog_link": bool_val("include_catalog_link"),
+        "include_wholesale_link": bool_val("include_wholesale_link"),
+        "include_dropship_link": bool_val("include_dropship_link"),
+        "include_instagram_link": bool_val("include_instagram_link"),
+        "include_site_link": bool_val("include_site_link"),
+        "gallery_urls": gallery_urls,
         "manager_photo_url": _manager_photo_url(request.user, request) if show_manager else "",
     }
 
@@ -2434,6 +2759,19 @@ def commercial_offer_email_log_detail_api(request, log_id: int):
                 "segment_mode": log.segment_mode,
                 "subject_preset": log.subject_preset,
                 "subject_custom": log.subject_custom,
+                "cta_type": getattr(log, "cta_type", ""),
+                "cta_url": getattr(log, "cta_url", ""),
+                "cta_custom_url": getattr(log, "cta_custom_url", ""),
+                "cta_button_text": getattr(log, "cta_button_text", ""),
+                "cta_microtext": getattr(log, "cta_microtext", ""),
+                "general_tg": getattr(log, "general_tg", ""),
+                "include_catalog_link": bool(getattr(log, "include_catalog_link", True)),
+                "include_wholesale_link": bool(getattr(log, "include_wholesale_link", True)),
+                "include_dropship_link": bool(getattr(log, "include_dropship_link", True)),
+                "include_instagram_link": bool(getattr(log, "include_instagram_link", True)),
+                "include_site_link": bool(getattr(log, "include_site_link", True)),
+                "gallery_urls": getattr(log, "gallery_urls", []) or [],
+                "gallery_items": getattr(log, "gallery_items", []) or [],
                 "tee_entry": log.tee_entry,
                 "tee_retail_example": log.tee_retail_example,
                 "tee_profit": log.tee_profit,
@@ -2442,6 +2780,7 @@ def commercial_offer_email_log_detail_api(request, log_id: int):
                 "hoodie_profit": log.hoodie_profit,
                 "show_manager": log.show_manager,
                 "manager_name": log.manager_name,
+                "phone_enabled": bool(getattr(log, "phone_enabled", False)),
                 "phone": log.phone,
                 "viber": log.viber,
                 "whatsapp": log.whatsapp,
@@ -2491,6 +2830,7 @@ def commercial_offer_email_send_api(request):
     default_name = (settings_obj.manager_name or "").strip() or _default_manager_name(request.user)
     settings_obj.show_manager = bool(cd.get("show_manager"))
     settings_obj.manager_name = (cd.get("manager_name") or "").strip() or default_name
+    settings_obj.phone_enabled = bool(cd.get("phone_enabled"))
     settings_obj.phone = (cd.get("phone") or "").strip()
     settings_obj.viber_enabled = bool(cd.get("viber_enabled"))
     settings_obj.viber = (cd.get("viber") or "").strip()
@@ -2498,6 +2838,22 @@ def commercial_offer_email_send_api(request):
     settings_obj.whatsapp = (cd.get("whatsapp") or "").strip()
     settings_obj.telegram_enabled = bool(cd.get("telegram_enabled"))
     settings_obj.telegram = (cd.get("telegram") or "").strip()
+
+    settings_obj.general_tg = (cd.get("general_tg") or "").strip()
+    settings_obj.include_catalog_link = bool(cd.get("include_catalog_link"))
+    settings_obj.include_wholesale_link = bool(cd.get("include_wholesale_link"))
+    settings_obj.include_dropship_link = bool(cd.get("include_dropship_link"))
+    settings_obj.include_instagram_link = bool(cd.get("include_instagram_link"))
+    settings_obj.include_site_link = bool(cd.get("include_site_link"))
+
+    settings_obj.cta_type = (cd.get("cta_type") or "").strip().upper()
+    settings_obj.cta_custom_url = (cd.get("cta_custom_url") or "").strip()
+    settings_obj.cta_button_text = (cd.get("cta_button_text") or "").strip()
+    settings_obj.cta_microtext = (cd.get("cta_microtext") or "").strip()
+
+    settings_obj.gallery_neutral = cd.get("gallery_neutral") or []
+    settings_obj.gallery_edgy = cd.get("gallery_edgy") or []
+    settings_obj.gallery_initialized = True
 
     settings_obj.mode = (cd.get("mode") or "VISUAL").strip().upper()
     settings_obj.segment_mode = (cd.get("segment_mode") or "NEUTRAL").strip().upper()
@@ -2515,16 +2871,28 @@ def commercial_offer_email_send_api(request):
         "segment_mode": settings_obj.segment_mode,
         "subject_preset": settings_obj.subject_preset,
         "subject_custom": settings_obj.subject_custom,
+        "cta_type": settings_obj.cta_type,
+        "cta_custom_url": settings_obj.cta_custom_url,
+        "cta_button_text": settings_obj.cta_button_text,
+        "cta_microtext": settings_obj.cta_microtext,
         "tee_entry": settings_obj.tee_entry,
         "tee_retail_example": settings_obj.tee_retail_example,
         "hoodie_entry": settings_obj.hoodie_entry,
         "hoodie_retail_example": settings_obj.hoodie_retail_example,
         "show_manager": settings_obj.show_manager,
         "manager_name": settings_obj.manager_name,
-        "phone": settings_obj.phone if settings_obj.show_manager else "",
+        "phone_enabled": settings_obj.phone_enabled,
+        "phone": settings_obj.phone if (settings_obj.show_manager and settings_obj.phone_enabled) else "",
         "viber": settings_obj.viber if (settings_obj.show_manager and settings_obj.viber_enabled) else "",
         "whatsapp": settings_obj.whatsapp if (settings_obj.show_manager and settings_obj.whatsapp_enabled) else "",
         "telegram": settings_obj.telegram if (settings_obj.show_manager and settings_obj.telegram_enabled) else "",
+        "general_tg": settings_obj.general_tg,
+        "include_catalog_link": settings_obj.include_catalog_link,
+        "include_wholesale_link": settings_obj.include_wholesale_link,
+        "include_dropship_link": settings_obj.include_dropship_link,
+        "include_instagram_link": settings_obj.include_instagram_link,
+        "include_site_link": settings_obj.include_site_link,
+        "gallery_urls": settings_obj.gallery_edgy if settings_obj.segment_mode == "EDGY" else settings_obj.gallery_neutral,
         "manager_photo_url": _manager_photo_url(request.user, request) if settings_obj.show_manager else "",
     }
     email_build = build_twocomms_cp_email(payload)
@@ -2564,6 +2932,19 @@ def commercial_offer_email_send_api(request):
         segment_mode=settings_obj.segment_mode,
         subject_preset=settings_obj.subject_preset,
         subject_custom=settings_obj.subject_custom,
+        cta_type=email_build.get("cta_type") or settings_obj.cta_type,
+        cta_url=email_build.get("cta_url") or "",
+        cta_custom_url=settings_obj.cta_custom_url,
+        cta_button_text=email_build.get("cta_button_text") or settings_obj.cta_button_text,
+        cta_microtext=email_build.get("cta_microtext") or settings_obj.cta_microtext,
+        general_tg=settings_obj.general_tg,
+        include_catalog_link=settings_obj.include_catalog_link,
+        include_wholesale_link=settings_obj.include_wholesale_link,
+        include_dropship_link=settings_obj.include_dropship_link,
+        include_instagram_link=settings_obj.include_instagram_link,
+        include_site_link=settings_obj.include_site_link,
+        gallery_urls=email_build.get("gallery_urls") or [],
+        gallery_items=email_build.get("gallery_items") or [],
         tee_entry=email_build.get("tee_entry"),
         tee_retail_example=email_build.get("tee_retail_example"),
         tee_profit=email_build.get("tee_profit"),
@@ -2572,7 +2953,8 @@ def commercial_offer_email_send_api(request):
         hoodie_profit=email_build.get("hoodie_profit"),
         show_manager=settings_obj.show_manager,
         manager_name=settings_obj.manager_name if settings_obj.show_manager else "",
-        phone=settings_obj.phone if settings_obj.show_manager else "",
+        phone_enabled=settings_obj.phone_enabled,
+        phone=settings_obj.phone if (settings_obj.show_manager and settings_obj.phone_enabled) else "",
         viber=settings_obj.viber if (settings_obj.show_manager and settings_obj.viber_enabled) else "",
         whatsapp=settings_obj.whatsapp if (settings_obj.show_manager and settings_obj.whatsapp_enabled) else "",
         telegram=settings_obj.telegram if (settings_obj.show_manager and settings_obj.telegram_enabled) else "",
