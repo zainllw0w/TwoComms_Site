@@ -1749,7 +1749,7 @@
 
 .offer-messenger-row {
     display: grid;
-    grid-template-columns: 160px 1fr;
+    grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
     gap: 10px;
     align-items: center;
     padding: 12px;
@@ -1762,6 +1762,10 @@
 @media (max-width: 520px) {
     .offer-messenger-row {
         grid-template-columns: 1fr;
+    }
+
+    .offer-messenger-input-wrap {
+        grid-column: 1;
     }
 }
 
@@ -1785,12 +1789,22 @@
 .offer-check-messenger {
     width: 100%;
     justify-content: space-between;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .offer-messenger-label {
     display: inline-flex;
     align-items: center;
     gap: 10px;
+    min-width: 0;
+}
+
+.offer-messenger-label span:last-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .offer-messenger-icon {
@@ -1823,6 +1837,7 @@
 }
 
 .offer-messenger-input-wrap {
+    grid-column: 2;
     display: flex;
     flex-direction: column;
     gap: 6px;
