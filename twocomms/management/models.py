@@ -120,6 +120,20 @@ class InvoiceRejectionReasonRequest(models.Model):
 
 
 class CommercialOfferEmailSettings(models.Model):
+    class CpMode(models.TextChoices):
+        LIGHT = "LIGHT", _("Light")
+        VISUAL = "VISUAL", _("Visual")
+
+    class CpSegmentMode(models.TextChoices):
+        NEUTRAL = "NEUTRAL", _("Neutral")
+        EDGY = "EDGY", _("Edgy")
+
+    class CpSubjectPreset(models.TextChoices):
+        PRESET_1 = "PRESET_1", _("Preset 1")
+        PRESET_2 = "PRESET_2", _("Preset 2")
+        PRESET_3 = "PRESET_3", _("Preset 3")
+        CUSTOM = "CUSTOM", _("Custom")
+
     owner = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         verbose_name=_("Менеджер"),
@@ -139,6 +153,31 @@ class CommercialOfferEmailSettings(models.Model):
     telegram_enabled = models.BooleanField(default=False, verbose_name=_("Telegram увімкнено"))
     telegram = models.CharField(max_length=100, blank=True, verbose_name=_("Telegram (@username або номер)"))
 
+    mode = models.CharField(
+        max_length=10,
+        choices=CpMode.choices,
+        default=CpMode.VISUAL,
+        verbose_name=_("Режим шаблону"),
+    )
+    segment_mode = models.CharField(
+        max_length=10,
+        choices=CpSegmentMode.choices,
+        default=CpSegmentMode.NEUTRAL,
+        verbose_name=_("Сегмент контенту"),
+    )
+    subject_preset = models.CharField(
+        max_length=20,
+        choices=CpSubjectPreset.choices,
+        default=CpSubjectPreset.PRESET_1,
+        verbose_name=_("Пресет теми"),
+    )
+    subject_custom = models.CharField(max_length=255, blank=True, verbose_name=_("Кастомна тема"))
+
+    tee_entry = models.PositiveIntegerField(null=True, blank=True, verbose_name=_("Вхід футболка (грн)"))
+    tee_retail_example = models.PositiveIntegerField(null=True, blank=True, verbose_name=_("Роздріб футболка (приклад, грн)"))
+    hoodie_entry = models.PositiveIntegerField(null=True, blank=True, verbose_name=_("Вхід худі (грн)"))
+    hoodie_retail_example = models.PositiveIntegerField(null=True, blank=True, verbose_name=_("Роздріб худі (приклад, грн)"))
+
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -154,6 +193,20 @@ class CommercialOfferEmailLog(models.Model):
         SENT = "sent", _("Надіслано")
         FAILED = "failed", _("Помилка")
 
+    class CpMode(models.TextChoices):
+        LIGHT = "LIGHT", _("Light")
+        VISUAL = "VISUAL", _("Visual")
+
+    class CpSegmentMode(models.TextChoices):
+        NEUTRAL = "NEUTRAL", _("Neutral")
+        EDGY = "EDGY", _("Edgy")
+
+    class CpSubjectPreset(models.TextChoices):
+        PRESET_1 = "PRESET_1", _("Preset 1")
+        PRESET_2 = "PRESET_2", _("Preset 2")
+        PRESET_3 = "PRESET_3", _("Preset 3")
+        CUSTOM = "CUSTOM", _("Custom")
+
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         verbose_name=_("Менеджер"),
@@ -163,8 +216,38 @@ class CommercialOfferEmailLog(models.Model):
     recipient_email = models.EmailField(verbose_name=_("Email отримувача"), db_index=True)
     recipient_name = models.CharField(max_length=255, blank=True, verbose_name=_("Імʼя/компанія отримувача"))
     subject = models.CharField(max_length=255, verbose_name=_("Тема листа"))
+    preheader = models.CharField(max_length=255, blank=True, verbose_name=_("Preheader"))
     body_html = models.TextField(blank=True, verbose_name=_("HTML листа"))
     body_text = models.TextField(blank=True, verbose_name=_("Текст листа"))
+
+    mode = models.CharField(
+        max_length=10,
+        choices=CpMode.choices,
+        default=CpMode.VISUAL,
+        verbose_name=_("Режим шаблону"),
+        db_index=True,
+    )
+    segment_mode = models.CharField(
+        max_length=10,
+        choices=CpSegmentMode.choices,
+        default=CpSegmentMode.NEUTRAL,
+        verbose_name=_("Сегмент контенту"),
+        db_index=True,
+    )
+    subject_preset = models.CharField(
+        max_length=20,
+        choices=CpSubjectPreset.choices,
+        default=CpSubjectPreset.PRESET_1,
+        verbose_name=_("Пресет теми"),
+    )
+    subject_custom = models.CharField(max_length=255, blank=True, verbose_name=_("Кастомна тема"))
+
+    tee_entry = models.PositiveIntegerField(null=True, blank=True, verbose_name=_("Вхід футболка (грн)"))
+    tee_retail_example = models.PositiveIntegerField(null=True, blank=True, verbose_name=_("Роздріб футболка (приклад, грн)"))
+    tee_profit = models.IntegerField(null=True, blank=True, verbose_name=_("Прибуток футболка (приклад, грн)"))
+    hoodie_entry = models.PositiveIntegerField(null=True, blank=True, verbose_name=_("Вхід худі (грн)"))
+    hoodie_retail_example = models.PositiveIntegerField(null=True, blank=True, verbose_name=_("Роздріб худі (приклад, грн)"))
+    hoodie_profit = models.IntegerField(null=True, blank=True, verbose_name=_("Прибуток худі (приклад, грн)"))
 
     show_manager = models.BooleanField(default=True, verbose_name=_("Показувати менеджера"))
     manager_name = models.CharField(max_length=255, blank=True, verbose_name=_("Імʼя менеджера"))

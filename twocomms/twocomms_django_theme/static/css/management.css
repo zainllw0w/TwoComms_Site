@@ -1664,6 +1664,13 @@
     letter-spacing: 0.04em;
 }
 
+.offer-field-hint {
+    margin-top: -2px;
+    color: var(--muted);
+    font-size: 0.86rem;
+    line-height: 1.3;
+}
+
 .offer-toggle-row {
     display: flex;
     gap: 14px;
@@ -1684,6 +1691,43 @@
     color: var(--muted);
     font-size: 0.9rem;
     margin-top: 2px;
+}
+
+.offer-unit {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    display: grid;
+    gap: 12px;
+}
+
+.offer-unit-head {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.offer-unit-title {
+    font-weight: 900;
+    letter-spacing: 0.02em;
+}
+
+.offer-unit-sub {
+    color: var(--muted);
+    font-size: 0.86rem;
+    line-height: 1.25;
+}
+
+.offer-profit-line {
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 0.86rem;
+}
+
+.offer-profit {
+    color: #a78bfa;
+    font-weight: 900;
+    letter-spacing: 0.02em;
 }
 
 .offer-switch {
@@ -1892,12 +1936,101 @@
     padding: 16px 16px 0;
 }
 
+.offer-preview-head {
+    align-items: flex-start;
+}
+
+.offer-preview-tabs {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    padding: 6px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.offer-preview-tab {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--text-secondary);
+    padding: 8px 12px;
+    border-radius: 999px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.offer-preview-tab.is-active {
+    background: rgba(139, 92, 246, 0.22);
+    color: #c4b5fd;
+    box-shadow: 0 0 16px rgba(139, 92, 246, 0.22);
+}
+
+.offer-preview-meta {
+    margin: 10px 16px 0;
+    padding: 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.03);
+    display: grid;
+    gap: 6px;
+}
+
+.offer-preview-meta-line {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    flex-wrap: wrap;
+}
+
+.offer-preview-meta-label {
+    color: var(--muted);
+    font-size: 0.84rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 800;
+}
+
+.offer-preview-meta-value {
+    color: var(--text-primary);
+    font-weight: 900;
+}
+
+.offer-preview-meta-sub {
+    color: var(--muted);
+    font-size: 0.88rem;
+    line-height: 1.3;
+}
+
 .offer-preview-surface {
     margin: 14px 16px 16px;
     border-radius: 14px;
     overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.06);
     background: rgba(0, 0, 0, 0.25);
+}
+
+.offer-preview-pane {
+    margin: 0;
+}
+
+.offer-preview-pane-light {
+    padding: 16px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    line-height: 1.55;
+    background: rgba(0, 0, 0, 0.22);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.field input.is-readonly {
+    opacity: 0.72;
+    cursor: not-allowed;
 }
 
 .offer-actions {
@@ -2004,7 +2137,7 @@
 }
 
 .offer-panel {
-    padding-bottom: 34px;
+    padding-bottom: 96px;
 }
 
 .offer-history {
@@ -2059,4 +2192,60 @@
     color: #fca5a5;
     font-size: 0.9rem;
     line-height: 1.35;
+}
+
+.offer-log-actions {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.offer-log-action {
+    margin-left: 8px;
+}
+
+.offer-log-card {
+    width: min(980px, 94vw);
+    height: min(86vh, 860px);
+    display: flex;
+    flex-direction: column;
+}
+
+.offer-log-modal-meta {
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.35;
+}
+
+.offer-log-modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.offer-log-pane {
+    margin: 0;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.25);
+}
+
+.offer-log-iframe {
+    width: 100%;
+    height: 62vh;
+    min-height: 420px;
+    border: 0;
+    display: block;
+    background: #121212;
+}
+
+.offer-log-pane-light {
+    padding: 16px;
+    white-space: pre-wrap;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    line-height: 1.55;
+    background: rgba(0, 0, 0, 0.22);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
