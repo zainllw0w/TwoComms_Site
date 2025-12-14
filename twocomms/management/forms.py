@@ -1,3 +1,5 @@
+import re
+
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
@@ -26,6 +28,20 @@ class CommercialOfferEmailForm(forms.Form):
     subject_preset = forms.ChoiceField(label=_("Тема листа"), choices=SUBJECT_PRESET_CHOICES, required=False, initial="PRESET_1")
     subject_custom = forms.CharField(label=_("Кастомна тема"), max_length=255, required=False)
 
+    CTA_TYPE_CHOICES = (
+        ("", "Авто (рекомендовано)"),
+        ("TELEGRAM_MANAGER", "TELEGRAM_MANAGER — Telegram менеджера"),
+        ("TELEGRAM_GENERAL", "TELEGRAM_GENERAL — Telegram загальний"),
+        ("MAILTO_COOPERATION", "MAILTO_COOPERATION — на email cooperation@"),
+        ("REPLY_HINT_ONLY", "REPLY_HINT_ONLY — відповісти на лист (без лінка)"),
+        ("CUSTOM_URL", "CUSTOM_URL — свій URL"),
+    )
+
+    cta_type = forms.ChoiceField(label=_("CTA тип"), choices=CTA_TYPE_CHOICES, required=False)
+    cta_button_text = forms.CharField(label=_("Текст CTA"), max_length=120, required=False)
+    cta_custom_url = forms.CharField(label=_("CTA URL"), max_length=500, required=False)
+    cta_microtext = forms.CharField(label=_("Мікротекст під CTA"), max_length=255, required=False)
+
     tee_entry = forms.IntegerField(label=_("Вхід футболка (грн)"), required=False, min_value=0)
     tee_retail_example = forms.IntegerField(label=_("Роздріб футболка (приклад, грн)"), required=False, min_value=0)
     hoodie_entry = forms.IntegerField(label=_("Вхід худі (грн)"), required=False, min_value=0)
@@ -33,6 +49,7 @@ class CommercialOfferEmailForm(forms.Form):
 
     show_manager = forms.BooleanField(label=_("Показувати менеджера"), required=False, initial=True)
     manager_name = forms.CharField(label=_("Імʼя менеджера"), max_length=255, required=False)
+    phone_enabled = forms.BooleanField(label=_("Телефон"), required=False)
     phone = forms.CharField(label=_("Телефон"), max_length=50, required=False)
 
     viber_enabled = forms.BooleanField(label=_("Viber"), required=False)
@@ -43,6 +60,17 @@ class CommercialOfferEmailForm(forms.Form):
 
     telegram_enabled = forms.BooleanField(label=_("Telegram"), required=False)
     telegram = forms.CharField(label=_("Telegram"), max_length=100, required=False)
+
+    general_tg = forms.CharField(label=_("Резервний Telegram"), max_length=255, required=False)
+
+    include_catalog_link = forms.BooleanField(label=_("Каталог"), required=False, initial=True)
+    include_wholesale_link = forms.BooleanField(label=_("Опт"), required=False, initial=True)
+    include_dropship_link = forms.BooleanField(label=_("Дроп"), required=False, initial=True)
+    include_instagram_link = forms.BooleanField(label=_("Instagram"), required=False, initial=True)
+    include_site_link = forms.BooleanField(label=_("Сайт"), required=False, initial=True)
+
+    gallery_neutral = forms.JSONField(label=_("Галерея Neutral"), required=False)
+    gallery_edgy = forms.JSONField(label=_("Галерея Edgy"), required=False)
 
     confirm_resend = forms.IntegerField(required=False, min_value=0, max_value=1)
 
@@ -68,6 +96,29 @@ class CommercialOfferEmailForm(forms.Form):
     def clean_telegram(self):
         return (self.cleaned_data.get("telegram") or "").strip()
 
+    def clean_general_tg(self):
+        return (self.cleaned_data.get("general_tg") or "").strip()
+
+    def clean_gallery_neutral(self):
+        value = self.cleaned_data.get("gallery_neutral")
+        if not value:
+            return []
+        if not isinstance(value, list):
+            return []
+        items = [str(x or "").strip() for x in value]
+        items = [x for x in items if x]
+        return items[:6]
+
+    def clean_gallery_edgy(self):
+        value = self.cleaned_data.get("gallery_edgy")
+        if not value:
+            return []
+        if not isinstance(value, list):
+            return []
+        items = [str(x or "").strip() for x in value]
+        items = [x for x in items if x]
+        return items[:6]
+
     def clean(self):
         cleaned = super().clean()
 
@@ -91,6 +142,40 @@ class CommercialOfferEmailForm(forms.Form):
         if subject_preset == "CUSTOM" and not subject_custom:
             self.add_error("subject_custom", _("Вкажіть кастомну тему листа."))
 
+        cta_type = (cleaned.get("cta_type") or "").strip().upper()
+        cleaned["cta_type"] = cta_type
+        cleaned["cta_button_text"] = (cleaned.get("cta_button_text") or "").strip()
+        cleaned["cta_custom_url"] = (cleaned.get("cta_custom_url") or "").strip()
+        cleaned["cta_microtext"] = (cleaned.get("cta_microtext") or "").strip()
+        if cta_type == "CUSTOM_URL" and not cleaned["cta_custom_url"]:
+            self.add_error("cta_custom_url", _("Вкажіть URL для CTA."))
+
+        def normalize_ua_phone(raw: str) -> str:
+            s = (raw or "").strip()
+            if not s:
+                return ""
+            digits = re.sub(r"\D+", "", s)
+            if not digits:
+                return s
+            if digits.startswith("380") and len(digits) == 12:
+                return f"+{digits}"
+            if digits.startswith("0") and len(digits) == 10:
+                return f"+38{digits}"
+            if len(digits) == 9:
+                return f"+380{digits}"
+            if s.startswith("+") and digits:
+                return f"+{digits}"
+            return s
+
+        phone_enabled = bool(cleaned.get("phone_enabled"))
+        cleaned["phone_enabled"] = phone_enabled
+        cleaned["phone"] = normalize_ua_phone(cleaned.get("phone") or "")
+        if show_manager and phone_enabled:
+            if not cleaned["phone"]:
+                self.add_error("phone", _("Вкажіть телефон менеджера або вимкніть цей контакт."))
+            elif not re.match(r"^\+380\d{9}$", cleaned["phone"]):
+                self.add_error("phone", _("Телефон має бути у форматі +380XXXXXXXXX."))
+
         def require_if_enabled(enabled_key: str, value_key: str, label: str):
             enabled = bool(cleaned.get(enabled_key))
             value = (cleaned.get(value_key) or "").strip()
@@ -101,6 +186,10 @@ class CommercialOfferEmailForm(forms.Form):
         require_if_enabled("viber_enabled", "viber", "Viber")
         require_if_enabled("whatsapp_enabled", "whatsapp", "WhatsApp")
         require_if_enabled("telegram_enabled", "telegram", "Telegram")
+
+        if show_manager:
+            cleaned["viber"] = normalize_ua_phone(cleaned.get("viber") or "") if bool(cleaned.get("viber_enabled")) else (cleaned.get("viber") or "")
+            cleaned["whatsapp"] = normalize_ua_phone(cleaned.get("whatsapp") or "") if bool(cleaned.get("whatsapp_enabled")) else (cleaned.get("whatsapp") or "")
 
         return cleaned
 

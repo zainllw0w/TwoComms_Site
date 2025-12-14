@@ -89,5 +89,13 @@
                 data-url="{% url 'management_commercial_offer_email_log_detail_api' log.id %}">
             Дублювати
         </button>
+        {% if log.status != "sent" %}
+        <button type="button"
+                class="btn-ghost small offer-log-action"
+                data-offer-log-action="resend"
+                data-url="{% url 'management_commercial_offer_email_resend_api' log.id %}">
+            Спробувати ще раз
+        </button>
+        {% endif %}
     </td>
 </tr>
