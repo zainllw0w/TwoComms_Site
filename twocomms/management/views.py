@@ -26,7 +26,7 @@ import datetime as dt
 import os
 import secrets
 
-from .forms import CommercialOfferEmailForm
+from .forms import CommercialOfferEmailForm, CommercialOfferEmailPreviewForm
 from .models import (
     Client,
     CommercialOfferEmailLog,
@@ -38,6 +38,8 @@ from .models import (
 )
 from accounts.models import UserProfile
 from django.views.decorators.csrf import csrf_exempt
+
+from .email_templates.twocomms_cp import build_twocomms_cp_email
 
 POINTS = {
     'order': 45,
@@ -2081,12 +2083,32 @@ def _get_profile_phone(user):
     except Exception:
         return ""
 
+def _manager_photo_url(user, request) -> str:
+    try:
+        prof = user.userprofile
+        avatar = getattr(prof, "avatar", None)
+        if not avatar:
+            return ""
+        try:
+            url = avatar.url
+        except Exception:
+            return ""
+        try:
+            return request.build_absolute_uri(url)
+        except Exception:
+            return url
+    except Exception:
+        return ""
 
-def _preview_context_from_form(form, default_name, initial):
+
+def _offer_payload_from_form(form, default_name, initial, request):
     def str_val(key: str) -> str:
         if form.is_bound:
             return (form.data.get(key) or "").strip()
-        return (initial.get(key) or "").strip()
+        val = initial.get(key)
+        if val is None:
+            return ""
+        return str(val).strip()
 
     def bool_val(key: str) -> bool:
         if form.is_bound:
@@ -2096,18 +2118,34 @@ def _preview_context_from_form(form, default_name, initial):
     show_manager = bool_val("show_manager")
     manager_name = str_val("manager_name") or default_name
 
+    viber_enabled = bool_val("viber_enabled")
+    whatsapp_enabled = bool_val("whatsapp_enabled")
+    telegram_enabled = bool_val("telegram_enabled")
+
+    viber = str_val("viber") if (show_manager and viber_enabled) else ""
+    whatsapp = str_val("whatsapp") if (show_manager and whatsapp_enabled) else ""
+    telegram = str_val("telegram") if (show_manager and telegram_enabled) else ""
+
     return {
-        "preview": True,
-        "recipient_name": str_val("recipient_name"),
+        "shop_name": str_val("recipient_name"),
+        "mode": str_val("mode") or "VISUAL",
+        "segment_mode": str_val("segment_mode") or "NEUTRAL",
+        "subject_preset": str_val("subject_preset") or "PRESET_1",
+        "subject_custom": str_val("subject_custom"),
+        "tee_entry": str_val("tee_entry"),
+        "tee_retail_example": str_val("tee_retail_example"),
+        "hoodie_entry": str_val("hoodie_entry"),
+        "hoodie_retail_example": str_val("hoodie_retail_example"),
         "show_manager": show_manager,
         "manager_name": manager_name,
-        "phone": str_val("phone"),
-        "viber_enabled": bool_val("viber_enabled"),
-        "viber": str_val("viber"),
-        "whatsapp_enabled": bool_val("whatsapp_enabled"),
-        "whatsapp": str_val("whatsapp"),
-        "telegram_enabled": bool_val("telegram_enabled"),
-        "telegram": str_val("telegram"),
+        "phone": str_val("phone") if show_manager else "",
+        "viber_enabled": viber_enabled,
+        "viber": viber,
+        "whatsapp_enabled": whatsapp_enabled,
+        "whatsapp": whatsapp,
+        "telegram_enabled": telegram_enabled,
+        "telegram": telegram,
+        "manager_photo_url": _manager_photo_url(request.user, request) if show_manager else "",
     }
 
 
@@ -2130,6 +2168,14 @@ def commercial_offer_email(request):
         "whatsapp": (settings_obj.whatsapp or "").strip(),
         "telegram_enabled": settings_obj.telegram_enabled,
         "telegram": (settings_obj.telegram or "").strip(),
+        "mode": getattr(settings_obj, "mode", "VISUAL") or "VISUAL",
+        "segment_mode": getattr(settings_obj, "segment_mode", "NEUTRAL") or "NEUTRAL",
+        "subject_preset": getattr(settings_obj, "subject_preset", "PRESET_1") or "PRESET_1",
+        "subject_custom": (getattr(settings_obj, "subject_custom", "") or "").strip(),
+        "tee_entry": getattr(settings_obj, "tee_entry", None),
+        "tee_retail_example": getattr(settings_obj, "tee_retail_example", None),
+        "hoodie_entry": getattr(settings_obj, "hoodie_entry", None),
+        "hoodie_retail_example": getattr(settings_obj, "hoodie_retail_example", None),
     }
 
     sent_success = request.GET.get("sent") == "1"
@@ -2160,26 +2206,43 @@ def commercial_offer_email(request):
                 settings_obj.whatsapp = (cd.get("whatsapp") or "").strip()
                 settings_obj.telegram_enabled = bool(cd.get("telegram_enabled"))
                 settings_obj.telegram = (cd.get("telegram") or "").strip()
+
+                settings_obj.mode = (cd.get("mode") or "VISUAL").strip().upper()
+                settings_obj.segment_mode = (cd.get("segment_mode") or "NEUTRAL").strip().upper()
+                settings_obj.subject_preset = (cd.get("subject_preset") or "PRESET_1").strip().upper()
+                settings_obj.subject_custom = (cd.get("subject_custom") or "").strip()
+                settings_obj.tee_entry = cd.get("tee_entry") or None
+                settings_obj.tee_retail_example = cd.get("tee_retail_example") or None
+                settings_obj.hoodie_entry = cd.get("hoodie_entry") or None
+                settings_obj.hoodie_retail_example = cd.get("hoodie_retail_example") or None
                 settings_obj.save()
 
-                subject = "Комерційна пропозиція бренду TwoComms"
-                email_context = {
-                    "preview": False,
-                    "recipient_name": cd.get("recipient_name") or "",
+                payload = {
+                    "shop_name": (cd.get("recipient_name") or "").strip(),
+                    "mode": settings_obj.mode,
+                    "segment_mode": settings_obj.segment_mode,
+                    "subject_preset": settings_obj.subject_preset,
+                    "subject_custom": settings_obj.subject_custom,
+                    "tee_entry": settings_obj.tee_entry,
+                    "tee_retail_example": settings_obj.tee_retail_example,
+                    "hoodie_entry": settings_obj.hoodie_entry,
+                    "hoodie_retail_example": settings_obj.hoodie_retail_example,
                     "show_manager": settings_obj.show_manager,
                     "manager_name": settings_obj.manager_name or default_name,
-                    "phone": settings_obj.phone,
-                    "viber_enabled": settings_obj.viber_enabled,
-                    "viber": settings_obj.viber,
-                    "whatsapp_enabled": settings_obj.whatsapp_enabled,
-                    "whatsapp": settings_obj.whatsapp,
-                    "telegram_enabled": settings_obj.telegram_enabled,
-                    "telegram": settings_obj.telegram,
+                    "phone": settings_obj.phone if settings_obj.show_manager else "",
+                    "viber": settings_obj.viber if (settings_obj.show_manager and settings_obj.viber_enabled) else "",
+                    "whatsapp": settings_obj.whatsapp if (settings_obj.show_manager and settings_obj.whatsapp_enabled) else "",
+                    "telegram": settings_obj.telegram if (settings_obj.show_manager and settings_obj.telegram_enabled) else "",
+                    "manager_photo_url": _manager_photo_url(request.user, request) if settings_obj.show_manager else "",
                 }
-                html_body = render_to_string("management/emails/commercial_offer.html", email_context)
-                text_body = strip_tags(html_body)
+                email_build = build_twocomms_cp_email(payload)
+                subject = email_build["subject"]
+                preheader = email_build["preheader"]
+                text_body = email_build["text"]
+                html_body_to_send = email_build["html"] if settings_obj.mode == "VISUAL" else email_build["html_light"]
 
                 from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None) or "TwoComms <cooperation@twocomms.shop>"
+                reply_to = [settings.EMAIL_HOST_USER] if getattr(settings, "EMAIL_HOST_USER", "") else None
 
                 status = CommercialOfferEmailLog.Status.SENT
                 error_text = ""
@@ -2189,8 +2252,9 @@ def commercial_offer_email(request):
                         body=text_body,
                         from_email=from_email,
                         to=[recipient_email],
+                        reply_to=reply_to,
                     )
-                    msg.attach_alternative(html_body, "text/html")
+                    msg.attach_alternative(html_body_to_send, "text/html")
                     msg.send(fail_silently=False)
                 except Exception as exc:
                     status = CommercialOfferEmailLog.Status.FAILED
@@ -2202,8 +2266,19 @@ def commercial_offer_email(request):
                     recipient_email=recipient_email,
                     recipient_name=(cd.get("recipient_name") or "").strip(),
                     subject=subject,
-                    body_html=html_body,
+                    preheader=preheader,
+                    body_html=html_body_to_send,
                     body_text=text_body,
+                    mode=settings_obj.mode,
+                    segment_mode=settings_obj.segment_mode,
+                    subject_preset=settings_obj.subject_preset,
+                    subject_custom=settings_obj.subject_custom,
+                    tee_entry=email_build.get("tee_entry"),
+                    tee_retail_example=email_build.get("tee_retail_example"),
+                    tee_profit=email_build.get("tee_profit"),
+                    hoodie_entry=email_build.get("hoodie_entry"),
+                    hoodie_retail_example=email_build.get("hoodie_retail_example"),
+                    hoodie_profit=email_build.get("hoodie_profit"),
                     show_manager=settings_obj.show_manager,
                     manager_name=(settings_obj.manager_name or default_name) if settings_obj.show_manager else "",
                     phone=settings_obj.phone if settings_obj.show_manager else "",
@@ -2219,10 +2294,12 @@ def commercial_offer_email(request):
     else:
         form = CommercialOfferEmailForm(initial=initial, user=request.user)
 
-    preview_html = render_to_string(
-        "management/emails/commercial_offer.html",
-        _preview_context_from_form(form, default_name, initial),
-    )
+    preview_payload = _offer_payload_from_form(form, default_name, initial, request)
+    preview_build = build_twocomms_cp_email(preview_payload)
+    preview_visual_html = preview_build["html"]
+    preview_light_text = preview_build["text"]
+    preview_subject = preview_build["subject"]
+    preview_preheader = preview_build["preheader"]
 
     logs = CommercialOfferEmailLog.objects.filter(owner=request.user).order_by("-created_at")[:30]
 
@@ -2231,7 +2308,11 @@ def commercial_offer_email(request):
         "management/commercial_offer_email.html",
         {
             "form": form,
-            "preview_html": preview_html,
+            "preview_visual_html": preview_visual_html,
+            "preview_light_text": preview_light_text,
+            "preview_subject": preview_subject,
+            "preview_preheader": preview_preheader,
+            "preview_mode": preview_payload.get("mode", "VISUAL"),
             "logs": logs,
             "sent_success": sent_success,
             "send_error": send_error,
@@ -2266,6 +2347,111 @@ def commercial_offer_email_check_api(request):
             "exists": qs.exists(),
             "count": qs.count(),
             "lastSentAtDisplay": last_display,
+        }
+    )
+
+
+@require_POST
+@login_required(login_url="management_login")
+def commercial_offer_email_preview_api(request):
+    if not user_is_management(request.user):
+        return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+
+    settings_obj, _ = CommercialOfferEmailSettings.objects.get_or_create(owner=request.user)
+    default_name = (settings_obj.manager_name or "").strip() or _default_manager_name(request.user)
+    default_phone = (settings_obj.phone or "").strip() or _get_profile_phone(request.user)
+
+    data = request.POST
+
+    def str_val(key: str) -> str:
+        return (data.get(key) or "").strip()
+
+    def bool_val(key: str) -> bool:
+        return key in data
+
+    show_manager = bool_val("show_manager")
+    manager_name = str_val("manager_name") or default_name
+
+    viber_enabled = bool_val("viber_enabled")
+    whatsapp_enabled = bool_val("whatsapp_enabled")
+    telegram_enabled = bool_val("telegram_enabled")
+
+    payload = {
+        "shop_name": str_val("recipient_name"),
+        "mode": (str_val("mode") or getattr(settings_obj, "mode", "VISUAL") or "VISUAL").upper(),
+        "segment_mode": (str_val("segment_mode") or getattr(settings_obj, "segment_mode", "NEUTRAL") or "NEUTRAL").upper(),
+        "subject_preset": (str_val("subject_preset") or getattr(settings_obj, "subject_preset", "PRESET_1") or "PRESET_1").upper(),
+        "subject_custom": str_val("subject_custom"),
+        "tee_entry": str_val("tee_entry"),
+        "tee_retail_example": str_val("tee_retail_example"),
+        "hoodie_entry": str_val("hoodie_entry"),
+        "hoodie_retail_example": str_val("hoodie_retail_example"),
+        "show_manager": show_manager,
+        "manager_name": manager_name if show_manager else "",
+        "phone": (str_val("phone") or default_phone) if show_manager else "",
+        "viber": str_val("viber") if (show_manager and viber_enabled) else "",
+        "whatsapp": str_val("whatsapp") if (show_manager and whatsapp_enabled) else "",
+        "telegram": str_val("telegram") if (show_manager and telegram_enabled) else "",
+        "manager_photo_url": _manager_photo_url(request.user, request) if show_manager else "",
+    }
+
+    email_build = build_twocomms_cp_email(payload)
+    return JsonResponse(
+        {
+            "ok": True,
+            "subject": email_build["subject"],
+            "preheader": email_build["preheader"],
+            "html": email_build["html"],
+            "text": email_build["text"],
+            "mode": email_build.get("mode", payload.get("mode")),
+            "segment_mode": email_build.get("segment_mode", payload.get("segment_mode")),
+            "tee_profit": email_build.get("tee_profit"),
+            "hoodie_profit": email_build.get("hoodie_profit"),
+        }
+    )
+
+
+@login_required(login_url="management_login")
+def commercial_offer_email_log_detail_api(request, log_id: int):
+    if not user_is_management(request.user):
+        return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+
+    try:
+        log = CommercialOfferEmailLog.objects.get(id=log_id, owner=request.user)
+    except CommercialOfferEmailLog.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "not_found"}, status=404)
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "log": {
+                "id": log.id,
+                "recipient_email": log.recipient_email,
+                "recipient_name": log.recipient_name,
+                "subject": log.subject,
+                "preheader": log.preheader,
+                "mode": log.mode,
+                "segment_mode": log.segment_mode,
+                "subject_preset": log.subject_preset,
+                "subject_custom": log.subject_custom,
+                "tee_entry": log.tee_entry,
+                "tee_retail_example": log.tee_retail_example,
+                "tee_profit": log.tee_profit,
+                "hoodie_entry": log.hoodie_entry,
+                "hoodie_retail_example": log.hoodie_retail_example,
+                "hoodie_profit": log.hoodie_profit,
+                "show_manager": log.show_manager,
+                "manager_name": log.manager_name,
+                "phone": log.phone,
+                "viber": log.viber,
+                "whatsapp": log.whatsapp,
+                "telegram": log.telegram,
+                "status": log.status,
+                "error": log.error,
+                "created_at_display": timezone.localtime(log.created_at).strftime("%d.%m.%Y %H:%M"),
+                "body_html": log.body_html,
+                "body_text": log.body_text,
+            },
         }
     )
 
@@ -2312,24 +2498,40 @@ def commercial_offer_email_send_api(request):
     settings_obj.whatsapp = (cd.get("whatsapp") or "").strip()
     settings_obj.telegram_enabled = bool(cd.get("telegram_enabled"))
     settings_obj.telegram = (cd.get("telegram") or "").strip()
+
+    settings_obj.mode = (cd.get("mode") or "VISUAL").strip().upper()
+    settings_obj.segment_mode = (cd.get("segment_mode") or "NEUTRAL").strip().upper()
+    settings_obj.subject_preset = (cd.get("subject_preset") or "PRESET_1").strip().upper()
+    settings_obj.subject_custom = (cd.get("subject_custom") or "").strip()
+    settings_obj.tee_entry = cd.get("tee_entry") or None
+    settings_obj.tee_retail_example = cd.get("tee_retail_example") or None
+    settings_obj.hoodie_entry = cd.get("hoodie_entry") or None
+    settings_obj.hoodie_retail_example = cd.get("hoodie_retail_example") or None
     settings_obj.save()
 
-    subject = "Комерційна пропозиція бренду TwoComms"
-    email_context = {
-        "preview": False,
-        "recipient_name": cd.get("recipient_name") or "",
+    payload = {
+        "shop_name": (cd.get("recipient_name") or "").strip(),
+        "mode": settings_obj.mode,
+        "segment_mode": settings_obj.segment_mode,
+        "subject_preset": settings_obj.subject_preset,
+        "subject_custom": settings_obj.subject_custom,
+        "tee_entry": settings_obj.tee_entry,
+        "tee_retail_example": settings_obj.tee_retail_example,
+        "hoodie_entry": settings_obj.hoodie_entry,
+        "hoodie_retail_example": settings_obj.hoodie_retail_example,
         "show_manager": settings_obj.show_manager,
         "manager_name": settings_obj.manager_name,
-        "phone": settings_obj.phone,
-        "viber_enabled": settings_obj.viber_enabled,
-        "viber": settings_obj.viber,
-        "whatsapp_enabled": settings_obj.whatsapp_enabled,
-        "whatsapp": settings_obj.whatsapp,
-        "telegram_enabled": settings_obj.telegram_enabled,
-        "telegram": settings_obj.telegram,
+        "phone": settings_obj.phone if settings_obj.show_manager else "",
+        "viber": settings_obj.viber if (settings_obj.show_manager and settings_obj.viber_enabled) else "",
+        "whatsapp": settings_obj.whatsapp if (settings_obj.show_manager and settings_obj.whatsapp_enabled) else "",
+        "telegram": settings_obj.telegram if (settings_obj.show_manager and settings_obj.telegram_enabled) else "",
+        "manager_photo_url": _manager_photo_url(request.user, request) if settings_obj.show_manager else "",
     }
-    html_body = render_to_string("management/emails/commercial_offer.html", email_context)
-    text_body = strip_tags(html_body)
+    email_build = build_twocomms_cp_email(payload)
+    subject = email_build["subject"]
+    preheader = email_build["preheader"]
+    text_body = email_build["text"]
+    html_body_to_send = email_build["html"] if settings_obj.mode == "VISUAL" else email_build["html_light"]
 
     from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None) or "TwoComms <cooperation@twocomms.shop>"
     reply_to = [settings.EMAIL_HOST_USER] if getattr(settings, "EMAIL_HOST_USER", "") else None
@@ -2344,7 +2546,7 @@ def commercial_offer_email_send_api(request):
             to=[recipient_email],
             reply_to=reply_to,
         )
-        msg.attach_alternative(html_body, "text/html")
+        msg.attach_alternative(html_body_to_send, "text/html")
         msg.send(fail_silently=False)
     except Exception as exc:
         status = CommercialOfferEmailLog.Status.FAILED
@@ -2355,8 +2557,19 @@ def commercial_offer_email_send_api(request):
         recipient_email=recipient_email,
         recipient_name=(cd.get("recipient_name") or "").strip(),
         subject=subject,
-        body_html=html_body,
+        preheader=preheader,
+        body_html=html_body_to_send,
         body_text=text_body,
+        mode=settings_obj.mode,
+        segment_mode=settings_obj.segment_mode,
+        subject_preset=settings_obj.subject_preset,
+        subject_custom=settings_obj.subject_custom,
+        tee_entry=email_build.get("tee_entry"),
+        tee_retail_example=email_build.get("tee_retail_example"),
+        tee_profit=email_build.get("tee_profit"),
+        hoodie_entry=email_build.get("hoodie_entry"),
+        hoodie_retail_example=email_build.get("hoodie_retail_example"),
+        hoodie_profit=email_build.get("hoodie_profit"),
         show_manager=settings_obj.show_manager,
         manager_name=settings_obj.manager_name if settings_obj.show_manager else "",
         phone=settings_obj.phone if settings_obj.show_manager else "",

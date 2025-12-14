@@ -73,6 +73,131 @@
             <div class="offer-card">
                 <div class="offer-card-head">
                     <div>
+                        <p class="eyebrow">Шаблон</p>
+                        <h3 class="offer-card-title">Режим, контент і тема</h3>
+                    </div>
+                </div>
+
+                <div class="field-grid offer-fields">
+                    <div class="field">
+                        <label for="mode">Режим</label>
+                        <select id="mode" name="mode">
+                            {% with mode_val=form.mode.value|default:"VISUAL" %}
+                                <option value="LIGHT" {% if mode_val == "LIGHT" %}selected{% endif %}>LIGHT — максимальна доставлюваність</option>
+                                <option value="VISUAL" {% if mode_val == "VISUAL" %}selected{% endif %}>VISUAL — красивий HTML (Safe Dark)</option>
+                            {% endwith %}
+                        </select>
+                        <div class="offer-field-hint">Light — майже plain-text. Visual — компактний брендований лист.</div>
+                        {% if form.mode.errors %}
+                            <div class="offer-error">{{ form.mode.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="field">
+                        <label for="segment_mode">Сегмент</label>
+                        <select id="segment_mode" name="segment_mode">
+                            {% with seg_val=form.segment_mode.value|default:"NEUTRAL" %}
+                                <option value="NEUTRAL" {% if seg_val == "NEUTRAL" %}selected{% endif %}>NEUTRAL — спокійні хіти</option>
+                                <option value="EDGY" {% if seg_val == "EDGY" %}selected{% endif %}>EDGY — дерзкі хіти</option>
+                            {% endwith %}
+                        </select>
+                        <div class="offer-field-hint">Впливає на підбірку товарів у листі.</div>
+                        {% if form.segment_mode.errors %}
+                            <div class="offer-error">{{ form.segment_mode.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="field field-span-2">
+                        <label for="subject_preset">Тема листа</label>
+                        <select id="subject_preset" name="subject_preset">
+                            {% with subject_val=form.subject_preset.value|default:"PRESET_1" %}
+                                <option value="PRESET_1" {% if subject_val == "PRESET_1" %}selected{% endif %}>TwoComms: Тест-ростовка 14 днів…</option>
+                                <option value="PRESET_2" {% if subject_val == "PRESET_2" %}selected{% endif %}>Опт від 8 шт / Дропшип…</option>
+                                <option value="PRESET_3" {% if subject_val == "PRESET_3" %}selected{% endif %}>📦 Тест-драйв 14 днів…</option>
+                                <option value="CUSTOM" {% if subject_val == "CUSTOM" %}selected{% endif %}>Custom</option>
+                            {% endwith %}
+                        </select>
+                        {% if form.subject_preset.errors %}
+                            <div class="offer-error">{{ form.subject_preset.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="field field-span-2" id="subject_custom_wrap" {% if form.subject_preset.value != "CUSTOM" %}hidden{% endif %}>
+                        <label for="subject_custom">Custom тема</label>
+                        <input type="text"
+                               id="subject_custom"
+                               name="subject_custom"
+                               value="{{ form.subject_custom.value|default_if_none:'' }}"
+                               placeholder="Напишіть свою тему листа">
+                        {% if form.subject_custom.errors %}
+                            <div class="offer-error">{{ form.subject_custom.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="offer-unit">
+                    <div class="offer-unit-head">
+                        <div class="offer-unit-title">Приклад юніт-економіки</div>
+                        <div class="offer-unit-sub">Це приклад розрахунку. Роздрібну ціну встановлюєте ви.</div>
+                    </div>
+                    <div class="field-grid offer-unit-grid">
+                        <div class="field">
+                            <label for="tee_entry">Футболка — вхід (грн)</label>
+                            <input type="number"
+                                   id="tee_entry"
+                                   name="tee_entry"
+                                   value="{{ form.tee_entry.value|default_if_none:'' }}"
+                                   placeholder="Напр. 250"
+                                   inputmode="numeric">
+                            {% if form.tee_entry.errors %}
+                                <div class="offer-error">{{ form.tee_entry.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="field">
+                            <label for="tee_retail_example">Футболка — роздріб (приклад, грн)</label>
+                            <input type="number"
+                                   id="tee_retail_example"
+                                   name="tee_retail_example"
+                                   value="{{ form.tee_retail_example.value|default_if_none:'' }}"
+                                   placeholder="Напр. 690"
+                                   inputmode="numeric">
+                            <div class="offer-profit-line">Різниця*: <span class="offer-profit" id="tee_profit_display">—</span> грн</div>
+                            {% if form.tee_retail_example.errors %}
+                                <div class="offer-error">{{ form.tee_retail_example.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="field">
+                            <label for="hoodie_entry">Худі — вхід (грн)</label>
+                            <input type="number"
+                                   id="hoodie_entry"
+                                   name="hoodie_entry"
+                                   value="{{ form.hoodie_entry.value|default_if_none:'' }}"
+                                   placeholder="Напр. 520"
+                                   inputmode="numeric">
+                            {% if form.hoodie_entry.errors %}
+                                <div class="offer-error">{{ form.hoodie_entry.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="field">
+                            <label for="hoodie_retail_example">Худі — роздріб (приклад, грн)</label>
+                            <input type="number"
+                                   id="hoodie_retail_example"
+                                   name="hoodie_retail_example"
+                                   value="{{ form.hoodie_retail_example.value|default_if_none:'' }}"
+                                   placeholder="Напр. 1490"
+                                   inputmode="numeric">
+                            <div class="offer-profit-line">Різниця*: <span class="offer-profit" id="hoodie_profit_display">—</span> грн</div>
+                            {% if form.hoodie_retail_example.errors %}
+                                <div class="offer-error">{{ form.hoodie_retail_example.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="offer-card">
+                <div class="offer-card-head">
+                    <div>
                         <p class="eyebrow">Відправник</p>
                         <h3 class="offer-card-title">Налаштування менеджера</h3>
                     </div>
@@ -206,13 +331,27 @@
 
         <div class="offer-preview">
             <div class="offer-card offer-preview-card">
-                <div class="offer-card-head">
+                <div class="offer-card-head offer-preview-head">
                     <div>
                         <p class="eyebrow">Превʼю</p>
                         <h3 class="offer-card-title">Як виглядатиме лист</h3>
                     </div>
+                    <div class="offer-preview-tabs" id="offer-preview-tabs" data-default-tab="{{ preview_mode|default:'VISUAL' }}">
+                        <button type="button" class="offer-preview-tab" data-offer-preview-tab="VISUAL">VISUAL</button>
+                        <button type="button" class="offer-preview-tab" data-offer-preview-tab="LIGHT">LIGHT</button>
+                    </div>
                 </div>
-                <div class="offer-preview-surface" id="offer-preview-surface">{{ preview_html|safe }}</div>
+                <div class="offer-preview-meta">
+                    <div class="offer-preview-meta-line">
+                        <span class="offer-preview-meta-label">Тема</span>
+                        <span class="offer-preview-meta-value" id="offer-preview-subject">{{ preview_subject }}</span>
+                    </div>
+                    <div class="offer-preview-meta-sub" id="offer-preview-preheader">{{ preview_preheader }}</div>
+                </div>
+                <div class="offer-preview-surface" id="offer-preview-surface">
+                    <div class="offer-preview-pane" id="offer-preview-visual">{{ preview_visual_html|safe }}</div>
+                    <pre class="offer-preview-pane offer-preview-pane-light" id="offer-preview-light">{{ preview_light_text }}</pre>
+                </div>
             </div>
         </div>
     </div>
@@ -232,6 +371,7 @@
                         <th>Дані в листі</th>
                         <th>Статус</th>
                         <th>Дата</th>
+                        <th>Дії</th>
                     </tr>
                 </thead>
                 <tbody id="offer-history-body">
@@ -241,7 +381,7 @@
                         {% endfor %}
                     {% else %}
                         <tr>
-                            <td class="table-empty" colspan="4">Поки що немає відправлених КП</td>
+                            <td class="table-empty" colspan="5">Поки що немає відправлених КП</td>
                         </tr>
                     {% endif %}
                 </tbody>
@@ -270,15 +410,51 @@
         </div>
     </div>
 </div>
+
+<div class="modal-overlay" id="offer-log-modal" aria-hidden="true">
+    <div class="modal-card offer-log-card">
+        <div class="modal-header">
+            <div>
+                <p class="eyebrow">Перегляд</p>
+                <h3 id="offer-log-modal-title">Лист</h3>
+                <div class="offer-log-modal-meta" id="offer-log-modal-meta"></div>
+            </div>
+            <button type="button" class="modal-close" id="offer-log-close" aria-label="Закрити">×</button>
+        </div>
+        <div class="modal-body offer-log-modal-body">
+            <div class="offer-preview-tabs offer-log-tabs" id="offer-log-tabs">
+                <button type="button" class="offer-preview-tab" data-offer-log-tab="VISUAL">VISUAL</button>
+                <button type="button" class="offer-preview-tab" data-offer-log-tab="LIGHT">LIGHT</button>
+            </div>
+
+            <div class="offer-log-pane offer-log-pane-visual" id="offer-log-pane-visual">
+                <iframe class="offer-log-iframe" id="offer-log-iframe" title="Email preview" sandbox=""></iframe>
+            </div>
+
+            <pre class="offer-log-pane offer-log-pane-light" id="offer-log-pane-light"></pre>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-ghost" id="offer-log-close-2">Закрити</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('offer-form');
-    const preview = document.getElementById('offer-preview-surface');
+    if (!form) return;
+
+    const previewVisual = document.getElementById('offer-preview-visual');
+    const previewLight = document.getElementById('offer-preview-light');
+    const previewSubject = document.getElementById('offer-preview-subject');
+    const previewPreheader = document.getElementById('offer-preview-preheader');
+    const previewTabButtons = Array.from(document.querySelectorAll('[data-offer-preview-tab]'));
+
     const alertStack = document.getElementById('offer-alert-stack');
     const historyBody = document.getElementById('offer-history-body');
+
     const confirmModal = document.getElementById('offer-confirm-modal');
     const confirmOk = document.getElementById('offer-confirm-ok');
     const confirmCancel = document.getElementById('offer-confirm-cancel');
@@ -286,11 +462,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const confirmText = document.getElementById('offer-confirm-text');
     const confirmResend = document.getElementById('confirm_resend');
 
+    const logModal = document.getElementById('offer-log-modal');
+    const logClose = document.getElementById('offer-log-close');
+    const logClose2 = document.getElementById('offer-log-close-2');
+    const logTitle = document.getElementById('offer-log-modal-title');
+    const logMeta = document.getElementById('offer-log-modal-meta');
+    const logIframe = document.getElementById('offer-log-iframe');
+    const logPaneVisual = document.getElementById('offer-log-pane-visual');
+    const logPaneLight = document.getElementById('offer-log-pane-light');
+    const logTabButtons = Array.from(document.querySelectorAll('[data-offer-log-tab]'));
+
     const submitBtn = document.getElementById('offer-submit');
-    const submitText = submitBtn.querySelector('.offer-btn-text');
+    const submitText = submitBtn?.querySelector('.offer-btn-text');
 
     const recipientEmail = document.getElementById('recipient_email');
     const recipientName = document.getElementById('recipient_name');
+    const mode = document.getElementById('mode');
+    const segmentMode = document.getElementById('segment_mode');
+    const subjectPreset = document.getElementById('subject_preset');
+    const subjectCustomWrap = document.getElementById('subject_custom_wrap');
+    const subjectCustom = document.getElementById('subject_custom');
+
+    const teeEntry = document.getElementById('tee_entry');
+    const teeRetailExample = document.getElementById('tee_retail_example');
+    const hoodieEntry = document.getElementById('hoodie_entry');
+    const hoodieRetailExample = document.getElementById('hoodie_retail_example');
+    const teeProfitDisplay = document.getElementById('tee_profit_display');
+    const hoodieProfitDisplay = document.getElementById('hoodie_profit_display');
+
     const showManager = document.getElementById('show_manager');
     const managerName = document.getElementById('manager_name');
     const phone = document.getElementById('phone');
@@ -308,28 +507,44 @@ document.addEventListener('DOMContentLoaded', () => {
     let checkTimer = null;
     let abortController = null;
 
-    function setPreviewText(key, value) {
-        preview.querySelectorAll(`[data-preview="${key}"]`).forEach((el) => {
-            el.textContent = value || '';
-        });
+    let previewTimer = null;
+    let previewAbortController = null;
+    let activePreviewTab = 'VISUAL';
+    let activeLogTab = 'VISUAL';
+
+    function parseIntSafe(value) {
+        const raw = String(value || '').replace(/\s+/g, '').trim();
+        if (!raw) return null;
+        const num = Number(raw);
+        if (!Number.isFinite(num)) return null;
+        return Math.trunc(num);
     }
 
-    function setPreviewVisibleRow(row, visible) {
-        const el = preview.querySelector(`[data-preview-row="${row}"]`);
-        if (!el) return;
-        el.style.display = visible ? '' : 'none';
+    function fmtNumber(value) {
+        if (value === null || value === undefined) return '—';
+        try {
+            return Number(value).toLocaleString('uk-UA');
+        } catch (e) {
+            return String(value);
+        }
     }
 
-    function setPreviewVisibleSection(section, visible) {
-        const el = preview.querySelector(`[data-preview-section="${section}"]`);
-        if (!el) return;
-        el.style.display = visible ? '' : 'none';
+    function syncUnitProfits() {
+        const teeEntryVal = parseIntSafe(teeEntry?.value);
+        const teeRetailVal = parseIntSafe(teeRetailExample?.value);
+        const teeProfit = (teeEntryVal !== null && teeRetailVal !== null) ? (teeRetailVal - teeEntryVal) : null;
+        if (teeProfitDisplay) teeProfitDisplay.textContent = teeProfit === null ? '—' : fmtNumber(teeProfit);
+
+        const hoodieEntryVal = parseIntSafe(hoodieEntry?.value);
+        const hoodieRetailVal = parseIntSafe(hoodieRetailExample?.value);
+        const hoodieProfit = (hoodieEntryVal !== null && hoodieRetailVal !== null) ? (hoodieRetailVal - hoodieEntryVal) : null;
+        if (hoodieProfitDisplay) hoodieProfitDisplay.textContent = hoodieProfit === null ? '—' : fmtNumber(hoodieProfit);
     }
 
-    function buildGreeting() {
-        const name = (recipientName.value || '').trim();
-        if (name) return `Добрий день, ${name}!`;
-        return 'Добрий день!';
+    function syncSubjectCustom() {
+        const isCustom = subjectPreset && subjectPreset.value === 'CUSTOM';
+        if (subjectCustomWrap) subjectCustomWrap.hidden = !isCustom;
+        if (!isCustom && subjectCustom) subjectCustom.value = '';
     }
 
     const messengerRows = [
@@ -339,8 +554,20 @@ document.addEventListener('DOMContentLoaded', () => {
     ].filter((x) => x.row && x.toggle && x.input);
 
     function syncMessengerUI() {
+        const showMgr = !!showManager?.checked;
+
+        if (managerName) {
+            managerName.readOnly = !showMgr;
+            managerName.classList.toggle('is-readonly', !showMgr);
+        }
+        if (phone) {
+            phone.readOnly = !showMgr;
+            phone.classList.toggle('is-readonly', !showMgr);
+        }
+
         messengerRows.forEach(({ row, toggle, input }) => {
-            const enabled = !!toggle.checked;
+            toggle.disabled = !showMgr;
+            const enabled = showMgr && !!toggle.checked;
             row.classList.toggle('is-enabled', enabled);
             row.classList.toggle('is-disabled', !enabled);
             input.readOnly = !enabled;
@@ -348,29 +575,63 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function syncPreview() {
-        setPreviewText('greeting', buildGreeting());
-        setPreviewText('manager_name', (managerName.value || '').trim());
-        setPreviewText('phone_value', (phone.value || '').trim());
-        setPreviewText('viber_value', (viber.value || '').trim());
-        setPreviewText('whatsapp_value', (whatsapp.value || '').trim());
-        setPreviewText('telegram_value', (telegram.value || '').trim());
-
-        const showMgr = !!showManager.checked;
-        setPreviewVisibleSection('manager', showMgr);
-
-        setPreviewVisibleRow('phone', showMgr && !!(phone.value || '').trim());
-        setPreviewVisibleRow('viber', showMgr && !!viberEnabled.checked);
-        setPreviewVisibleRow('whatsapp', showMgr && !!whatsappEnabled.checked);
-        setPreviewVisibleRow('telegram', showMgr && !!telegramEnabled.checked);
-
-        syncMessengerUI();
+    function setActivePreview(tab) {
+        activePreviewTab = tab;
+        previewTabButtons.forEach((btn) => {
+            const isActive = btn.getAttribute('data-offer-preview-tab') === tab;
+            btn.classList.toggle('is-active', isActive);
+            btn.setAttribute('aria-selected', String(isActive));
+        });
+        if (previewVisual) previewVisual.style.display = tab === 'VISUAL' ? '' : 'none';
+        if (previewLight) previewLight.style.display = tab === 'LIGHT' ? '' : 'none';
     }
 
-    function setDupHint({ exists, count, lastSentAtDisplay }) {
-        dupExists = !!exists;
-        dupCount = Number.isFinite(count) ? count : 0;
-        dupLast = lastSentAtDisplay || '';
+    function setActiveLog(tab) {
+        activeLogTab = tab;
+        logTabButtons.forEach((btn) => {
+            const isActive = btn.getAttribute('data-offer-log-tab') === tab;
+            btn.classList.toggle('is-active', isActive);
+            btn.setAttribute('aria-selected', String(isActive));
+        });
+        if (logPaneVisual) logPaneVisual.style.display = tab === 'VISUAL' ? '' : 'none';
+        if (logPaneLight) logPaneLight.style.display = tab === 'LIGHT' ? '' : 'none';
+    }
+
+    async function updatePreviewNow() {
+        if (previewAbortController) previewAbortController.abort();
+        previewAbortController = new AbortController();
+
+        try {
+            const formData = new FormData(form);
+            const resp = await fetch('{% url "management_commercial_offer_email_preview_api" %}', {
+                method: 'POST',
+                body: formData,
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin',
+                signal: previewAbortController.signal,
+            });
+            if (!resp.ok) return;
+            const data = await resp.json();
+            if (!data || !data.ok) return;
+
+            if (previewVisual) previewVisual.innerHTML = data.html || '';
+            if (previewLight) previewLight.textContent = data.text || '';
+            if (previewSubject) previewSubject.textContent = data.subject || '';
+            if (previewPreheader) previewPreheader.textContent = data.preheader || '';
+        } catch (e) {
+            if (e && e.name === 'AbortError') return;
+        }
+    }
+
+    function schedulePreviewUpdate() {
+        if (previewTimer) clearTimeout(previewTimer);
+        previewTimer = setTimeout(updatePreviewNow, 320);
+    }
+
+    function setDupHint(data) {
+        dupExists = !!data.exists;
+        dupCount = Number.isFinite(data.count) ? data.count : 0;
+        dupLast = data.lastSentAtDisplay || '';
         if (!dupExists) {
             dupHint.hidden = true;
             dupHint.textContent = '';
@@ -379,7 +640,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const lastPart = dupLast ? ` Остання відправка: ${dupLast}.` : '';
         dupHint.hidden = false;
-        dupHint.textContent = `На цей email вже надсилали КП (${dupCount}).${lastPart} Вона буде відправлена ще раз.`;
+        dupHint.textContent = `Цей email вже отримував КП (${dupCount}).${lastPart} Вона буде відправлена ще раз.`;
     }
 
     async function checkDuplicateEmail(value) {
@@ -442,20 +703,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state === 'loading') {
             submitBtn.classList.add('is-loading');
             submitBtn.disabled = true;
-            submitText.textContent = 'Відправляємо…';
+            if (submitText) submitText.textContent = 'Відправляємо…';
             return;
         }
         if (state === 'success') {
             submitBtn.classList.remove('is-loading');
             submitBtn.classList.add('is-success');
             submitBtn.disabled = true;
-            submitText.textContent = 'КП надіслано';
+            if (submitText) submitText.textContent = 'КП надіслано';
             return;
         }
         submitBtn.classList.remove('is-loading');
         submitBtn.classList.remove('is-success');
         submitBtn.disabled = false;
-        submitText.textContent = 'Відправити комерційну пропозицію';
+        if (submitText) submitText.textContent = 'Відправити комерційну пропозицію';
     }
 
     function clearRecipientFields() {
@@ -463,7 +724,7 @@ document.addEventListener('DOMContentLoaded', () => {
         recipientName.value = '';
         confirmResend.value = '0';
         setDupHint({ exists: false, count: 0, lastSentAtDisplay: '' });
-        syncPreview();
+        schedulePreviewUpdate();
     }
 
     function prependHistoryRow(rowHtml) {
@@ -473,9 +734,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tmp = document.createElement('tbody');
         tmp.innerHTML = rowHtml.trim();
         const row = tmp.querySelector('tr');
-        if (row) {
-            historyBody.prepend(row);
-        }
+        if (row) historyBody.prepend(row);
     }
 
     async function sendOffer() {
@@ -542,12 +801,142 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function bindPreviewEvents(el, eventName = 'input') {
-        el.addEventListener(eventName, () => syncPreview());
+    async function fetchLog(url) {
+        const resp = await fetch(url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' });
+        if (!resp.ok) return null;
+        const data = await resp.json();
+        if (!data || !data.ok || !data.log) return null;
+        return data.log;
     }
 
-    [recipientName, managerName, phone, viber, whatsapp, telegram].forEach((el) => bindPreviewEvents(el, 'input'));
-    [showManager, viberEnabled, whatsappEnabled, telegramEnabled].forEach((el) => bindPreviewEvents(el, 'change'));
+    function openLogModal(log) {
+        if (!logModal) return;
+        if (logTitle) logTitle.textContent = log.subject || 'Лист';
+        if (logMeta) {
+            const metaParts = [
+                log.recipient_email || '',
+                log.created_at_display || '',
+                `${(log.mode || '').toUpperCase()}${log.segment_mode ? ' / ' + (log.segment_mode || '').toUpperCase() : ''}`,
+            ].filter(Boolean);
+            logMeta.textContent = metaParts.join(' • ');
+        }
+        if (logIframe) {
+            const html = log.body_html || '<div style="font-family:Arial,Helvetica,sans-serif;padding:18px;">HTML відсутній.</div>';
+            logIframe.srcdoc = html;
+        }
+        if (logPaneLight) logPaneLight.textContent = log.body_text || '';
+
+        setActiveLog((log.mode || '').toUpperCase() === 'LIGHT' ? 'LIGHT' : 'VISUAL');
+
+        logModal.classList.add('show');
+        logModal.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeLogModal() {
+        if (!logModal) return;
+        logModal.classList.remove('show');
+        logModal.setAttribute('aria-hidden', 'true');
+    }
+
+    function fillFormFromLog(log) {
+        recipientEmail.value = log.recipient_email || '';
+        recipientName.value = log.recipient_name || '';
+
+        if (mode) mode.value = (log.mode || 'VISUAL').toUpperCase();
+        if (segmentMode) segmentMode.value = (log.segment_mode || 'NEUTRAL').toUpperCase();
+        if (subjectPreset) subjectPreset.value = (log.subject_preset || 'PRESET_1').toUpperCase();
+        if (subjectCustom) subjectCustom.value = log.subject_custom || '';
+        syncSubjectCustom();
+
+        if (teeEntry) teeEntry.value = log.tee_entry ?? '';
+        if (teeRetailExample) teeRetailExample.value = log.tee_retail_example ?? '';
+        if (hoodieEntry) hoodieEntry.value = log.hoodie_entry ?? '';
+        if (hoodieRetailExample) hoodieRetailExample.value = log.hoodie_retail_example ?? '';
+        syncUnitProfits();
+
+        if (showManager) showManager.checked = !!log.show_manager;
+        if (managerName) managerName.value = log.manager_name || '';
+        if (phone) phone.value = log.phone || '';
+        if (viberEnabled) viberEnabled.checked = !!(log.viber || '').trim();
+        if (viber) viber.value = log.viber || '';
+        if (whatsappEnabled) whatsappEnabled.checked = !!(log.whatsapp || '').trim();
+        if (whatsapp) whatsapp.value = log.whatsapp || '';
+        if (telegramEnabled) telegramEnabled.checked = !!(log.telegram || '').trim();
+        if (telegram) telegram.value = log.telegram || '';
+        confirmResend.value = '0';
+
+        syncMessengerUI();
+        scheduleDuplicateCheck();
+        schedulePreviewUpdate();
+
+        form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function handleHistoryClick(e) {
+        const actionBtn = e.target.closest('[data-offer-log-action]');
+        if (!actionBtn) return;
+        const action = actionBtn.getAttribute('data-offer-log-action');
+        const url = actionBtn.getAttribute('data-url');
+        if (!action || !url) return;
+
+        actionBtn.disabled = true;
+        fetchLog(url).then((log) => {
+            if (!log) return;
+            if (action === 'view') openLogModal(log);
+            if (action === 'duplicate') fillFormFromLog(log);
+        }).finally(() => {
+            actionBtn.disabled = false;
+        });
+    }
+
+    function bindPreviewChange(el, eventName = 'input') {
+        if (!el) return;
+        el.addEventListener(eventName, () => schedulePreviewUpdate());
+    }
+
+    [recipientName, managerName, phone, viber, whatsapp, telegram, teeEntry, teeRetailExample, hoodieEntry, hoodieRetailExample, subjectCustom].forEach((el) => bindPreviewChange(el, 'input'));
+    [mode, segmentMode, subjectPreset, subjectCustom].forEach((el) => bindPreviewChange(el, 'change'));
+    [showManager, viberEnabled, whatsappEnabled, telegramEnabled].forEach((el) => bindPreviewChange(el, 'change'));
+
+    [teeEntry, teeRetailExample, hoodieEntry, hoodieRetailExample].forEach((el) => {
+        if (!el) return;
+        el.addEventListener('input', syncUnitProfits);
+    });
+
+    if (subjectPreset) subjectPreset.addEventListener('change', syncSubjectCustom);
+    if (showManager) showManager.addEventListener('change', syncMessengerUI);
+    messengerRows.forEach(({ toggle, input }) => {
+        toggle.addEventListener('change', syncMessengerUI);
+        input.addEventListener('input', syncMessengerUI);
+    });
+
+    previewTabButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const tab = btn.getAttribute('data-offer-preview-tab');
+            if (!tab) return;
+            setActivePreview(tab);
+        });
+    });
+
+    if (mode) {
+        mode.addEventListener('change', () => {
+            const m = (mode.value || '').toUpperCase();
+            if (m === 'LIGHT') setActivePreview('LIGHT');
+            if (m === 'VISUAL') setActivePreview('VISUAL');
+        });
+    }
+
+    logTabButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const tab = btn.getAttribute('data-offer-log-tab');
+            if (!tab) return;
+            setActiveLog(tab);
+        });
+    });
+
+    if (logClose) logClose.addEventListener('click', closeLogModal);
+    if (logClose2) logClose2.addEventListener('click', closeLogModal);
+    if (logModal) logModal.addEventListener('click', (e) => { if (e.target === logModal) closeLogModal(); });
 
     recipientEmail.addEventListener('input', scheduleDuplicateCheck);
     recipientEmail.addEventListener('change', scheduleDuplicateCheck);
@@ -572,7 +961,13 @@ document.addEventListener('DOMContentLoaded', () => {
         sendOffer();
     });
 
-    syncPreview();
+    if (historyBody) historyBody.addEventListener('click', handleHistoryClick);
+
+    setActivePreview((mode && (mode.value || '').toUpperCase() === 'LIGHT') ? 'LIGHT' : 'VISUAL');
+    syncSubjectCustom();
+    syncMessengerUI();
+    syncUnitProfits();
+    schedulePreviewUpdate();
     scheduleDuplicateCheck();
 });
 </script>
