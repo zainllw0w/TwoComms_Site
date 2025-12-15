@@ -19,6 +19,28 @@
                 </span>
             </div>
 
+            <div class="offer-log-meta-line">
+                {% if log.pricing_mode == "DROP" %}
+                    <span class="offer-log-chip">Drop</span>
+                    <span class="offer-log-value">fixed</span>
+                {% else %}
+                    <span class="offer-log-chip">Tier</span>
+                    <span class="offer-log-value">
+                        {% if log.opt_tier == "16_31" %}16–31{% elif log.opt_tier == "32_63" %}32–63{% elif log.opt_tier == "64_99" %}64–99{% elif log.opt_tier == "100_PLUS" %}100+{% else %}8–15{% endif %}
+                    </span>
+                {% endif %}
+
+                {% if log.dropship_loyalty_bonus %}
+                    <span class="offer-log-chip">Loyalty</span>
+                    <span class="offer-log-value">-10</span>
+                {% endif %}
+
+                {% if log.gallery_urls %}
+                    <span class="offer-log-chip">Images</span>
+                    <span class="offer-log-value">{{ log.gallery_items|length }}/{{ log.gallery_urls|length }}</span>
+                {% endif %}
+            </div>
+
             {% if log.tee_entry or log.tee_retail_example or log.hoodie_entry or log.hoodie_retail_example %}
                 <div class="offer-log-meta-line">
                     <span class="offer-log-chip">Юніт-економіка*</span>

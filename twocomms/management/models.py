@@ -136,10 +136,22 @@ class CommercialOfferEmailSettings(models.Model):
 
     class CpCtaType(models.TextChoices):
         TELEGRAM_MANAGER = "TELEGRAM_MANAGER", _("Telegram менеджера")
+        WHATSAPP_MANAGER = "WHATSAPP_MANAGER", _("WhatsApp менеджера")
         TELEGRAM_GENERAL = "TELEGRAM_GENERAL", _("Telegram загальний")
         MAILTO_COOPERATION = "MAILTO_COOPERATION", _("Email cooperation@")
         REPLY_HINT_ONLY = "REPLY_HINT_ONLY", _("Відповідь на лист (без лінка)")
         CUSTOM_URL = "CUSTOM_URL", _("Custom URL")
+
+    class PricingMode(models.TextChoices):
+        OPT = "OPT", _("Опт")
+        DROP = "DROP", _("Дроп")
+
+    class OptTier(models.TextChoices):
+        TIER_8_15 = "8_15", _("8–15")
+        TIER_16_31 = "16_31", _("16–31")
+        TIER_32_63 = "32_63", _("32–63")
+        TIER_64_99 = "64_99", _("64–99")
+        TIER_100_PLUS = "100_PLUS", _("100+")
 
     owner = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -162,6 +174,22 @@ class CommercialOfferEmailSettings(models.Model):
     telegram = models.CharField(max_length=100, blank=True, verbose_name=_("Telegram (@username або номер)"))
 
     general_tg = models.CharField(max_length=255, blank=True, verbose_name=_("Резервний Telegram (канал/чат)"))
+
+    pricing_mode = models.CharField(
+        max_length=10,
+        choices=PricingMode.choices,
+        default=PricingMode.OPT,
+        verbose_name=_("База входу (опт/дроп)"),
+    )
+    opt_tier = models.CharField(
+        max_length=10,
+        choices=OptTier.choices,
+        default=OptTier.TIER_8_15,
+        verbose_name=_("Опт: обсяг (tier)"),
+    )
+    drop_tee_price = models.PositiveIntegerField(null=True, blank=True, verbose_name=_("Дроп ціна футболка (грн)"))
+    drop_hoodie_price = models.PositiveIntegerField(null=True, blank=True, verbose_name=_("Дроп ціна худі (грн)"))
+    dropship_loyalty_bonus = models.BooleanField(default=False, verbose_name=_("Дроп бонус (-10 грн)"))
 
     include_catalog_link = models.BooleanField(default=True, verbose_name=_("Додавати лінк на каталог"))
     include_wholesale_link = models.BooleanField(default=True, verbose_name=_("Додавати лінк на опт"))
@@ -239,10 +267,22 @@ class CommercialOfferEmailLog(models.Model):
 
     class CpCtaType(models.TextChoices):
         TELEGRAM_MANAGER = "TELEGRAM_MANAGER", _("Telegram менеджера")
+        WHATSAPP_MANAGER = "WHATSAPP_MANAGER", _("WhatsApp менеджера")
         TELEGRAM_GENERAL = "TELEGRAM_GENERAL", _("Telegram загальний")
         MAILTO_COOPERATION = "MAILTO_COOPERATION", _("Email cooperation@")
         REPLY_HINT_ONLY = "REPLY_HINT_ONLY", _("Відповідь на лист (без лінка)")
         CUSTOM_URL = "CUSTOM_URL", _("Custom URL")
+
+    class PricingMode(models.TextChoices):
+        OPT = "OPT", _("Опт")
+        DROP = "DROP", _("Дроп")
+
+    class OptTier(models.TextChoices):
+        TIER_8_15 = "8_15", _("8–15")
+        TIER_16_31 = "16_31", _("16–31")
+        TIER_32_63 = "32_63", _("32–63")
+        TIER_64_99 = "64_99", _("64–99")
+        TIER_100_PLUS = "100_PLUS", _("100+")
 
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -291,6 +331,21 @@ class CommercialOfferEmailLog(models.Model):
     cta_microtext = models.CharField(max_length=255, blank=True, verbose_name=_("Мікротекст під CTA"))
 
     general_tg = models.CharField(max_length=255, blank=True, verbose_name=_("Резервний Telegram"))
+    pricing_mode = models.CharField(
+        max_length=10,
+        choices=PricingMode.choices,
+        default=PricingMode.OPT,
+        verbose_name=_("База входу (опт/дроп)"),
+    )
+    opt_tier = models.CharField(
+        max_length=10,
+        choices=OptTier.choices,
+        default=OptTier.TIER_8_15,
+        verbose_name=_("Опт: обсяг (tier)"),
+    )
+    drop_tee_price = models.PositiveIntegerField(null=True, blank=True, verbose_name=_("Дроп ціна футболка (грн)"))
+    drop_hoodie_price = models.PositiveIntegerField(null=True, blank=True, verbose_name=_("Дроп ціна худі (грн)"))
+    dropship_loyalty_bonus = models.BooleanField(default=False, verbose_name=_("Дроп бонус (-10 грн)"))
     include_catalog_link = models.BooleanField(default=True, verbose_name=_("Каталог (лінк)"))
     include_wholesale_link = models.BooleanField(default=True, verbose_name=_("Опт (лінк)"))
     include_dropship_link = models.BooleanField(default=True, verbose_name=_("Дроп (лінк)"))
