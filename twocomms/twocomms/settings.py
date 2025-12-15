@@ -666,6 +666,7 @@ _CSP_DEFAULT = (
     "https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
     # Images: GTM, Google Ads, Analytics, Facebook, TikTok Pixel, Clarity
     "img-src 'self' data: blob: "
+    "https://twocomms.shop https://www.twocomms.shop https://*.twocomms.shop https://*.amazonaws.com "
     "https://www.googletagmanager.com https://ssl.gstatic.com https://www.gstatic.com "
     "https://www.google-analytics.com https://ssl.google-analytics.com https://www.google.com "
     "https://googleads.g.doubleclick.net https://*.doubleclick.net https://stats.g.doubleclick.net "
