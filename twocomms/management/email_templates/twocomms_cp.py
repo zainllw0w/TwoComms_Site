@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import re
 import time
 from typing import Any, Literal
-from urllib.parse import urljoin, urlparse
+from urllib.parse import quote, urljoin, urlparse
 
 from django.conf import settings
 from django.db.models import Q
@@ -16,22 +16,51 @@ CpSegmentMode = Literal["NEUTRAL", "EDGY"]
 CpSubjectPreset = Literal["PRESET_1", "PRESET_2", "PRESET_3", "CUSTOM"]
 CpCtaType = Literal[
     "TELEGRAM_MANAGER",
+    "WHATSAPP_MANAGER",
     "TELEGRAM_GENERAL",
     "MAILTO_COOPERATION",
     "REPLY_HINT_ONLY",
     "CUSTOM_URL",
 ]
+CpPricingMode = Literal["OPT", "DROP"]
+CpOptTier = Literal["8_15", "16_31", "32_63", "64_99", "100_PLUS"]
 
-_UNIT_DEFAULTS_CACHE: dict[str, Any] = {"ts": 0.0, "data": None}
+_RETAIL_DEFAULTS_CACHE: dict[str, Any] = {"ts": 0.0, "data": None}
 _GALLERY_DEFAULTS_CACHE: dict[str, Any] = {"ts": 0.0, "data": None}
 
-# Fallback defaults if we can't fetch from DB (must be realistic)
-FALLBACK_TEE_ENTRY = 250
-FALLBACK_TEE_RETAIL = 690
-FALLBACK_HOODIE_ENTRY = 520
-FALLBACK_HOODIE_RETAIL = 1490
+# Pricing config (fallback, must match your real price policy)
+OPT_TIER_LABELS: dict[CpOptTier, str] = {
+    "8_15": "8–15",
+    "16_31": "16–31",
+    "32_63": "32–63",
+    "64_99": "64–99",
+    "100_PLUS": "100+",
+}
+
+OPT_TIER_WHOLESALE_TEE: dict[CpOptTier, int] = {
+    "8_15": 540,
+    "16_31": 520,
+    "32_63": 500,
+    "64_99": 490,
+    "100_PLUS": 480,
+}
+OPT_TIER_WHOLESALE_HOODIE: dict[CpOptTier, int] = {
+    "8_15": 1300,
+    "16_31": 1250,
+    "32_63": 1200,
+    "64_99": 1175,
+    "100_PLUS": 1150,
+}
+
+DROP_FIXED_TEE_PRICE = 570
+DROP_FIXED_HOODIE_PRICE = 1350
+
+# Retail example defaults if we can't fetch from DB (must be realistic)
+FALLBACK_TEE_RETAIL = 750
+FALLBACK_HOODIE_RETAIL = 1790
 
 _PRODUCT_SLUG_RE = re.compile(r"/product/(?P<slug>[-a-zA-Z0-9_]+)/?")
+_IMAGE_EXT_RE = re.compile(r"\.(png|jpe?g|webp|gif)(?:\\?|$)", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -102,6 +131,7 @@ def _normalize_cta_type(value: Any) -> CpCtaType | None:
     v = (str(value or "").strip().upper() or "")
     allowed = {
         "TELEGRAM_MANAGER",
+        "WHATSAPP_MANAGER",
         "TELEGRAM_GENERAL",
         "MAILTO_COOPERATION",
         "REPLY_HINT_ONLY",
@@ -110,6 +140,18 @@ def _normalize_cta_type(value: Any) -> CpCtaType | None:
     if v in allowed:
         return v  # type: ignore[return-value]
     return None
+
+
+def _normalize_pricing_mode(value: Any) -> CpPricingMode:
+    v = (str(value or "").strip().upper() or "OPT")
+    return "DROP" if v == "DROP" else "OPT"
+
+
+def _normalize_opt_tier(value: Any) -> CpOptTier:
+    v = (str(value or "").strip().upper() or "8_15")
+    if v in {"8_15", "16_31", "32_63", "64_99", "100_PLUS"}:
+        return v  # type: ignore[return-value]
+    return "8_15"
 
 
 def _to_bool(value: Any) -> bool:
@@ -140,73 +182,106 @@ def _normalize_tg(value: str) -> str:
     return f"https://t.me/{v}"
 
 
+def _normalize_wa_phone(value: str) -> str:
+    digits = re.sub(r"\D+", "", (value or "").strip())
+    if not digits:
+        return ""
+    if digits.startswith("380") and len(digits) == 12:
+        return digits
+    if digits.startswith("0") and len(digits) == 10:
+        return f"38{digits}"
+    if len(digits) == 9:
+        return f"380{digits}"
+    return digits
+
+
+def _whatsapp_url(value: str) -> str:
+    digits = _normalize_wa_phone(value)
+    return f"https://wa.me/{digits}" if digits else ""
+
+
 def _build_cta(
     *,
     requested_type: CpCtaType | None,
     manager_tg: str,
+    manager_whatsapp: str,
     general_tg: str,
     custom_url: str,
     cooperation_email: str,
+    mailto_subject: str = "",
 ) -> tuple[CpCtaType, str]:
     manager_tg_url = _normalize_tg(manager_tg)
+    manager_wa_url = _whatsapp_url(manager_whatsapp)
     general_tg_url = _normalize_tg(general_tg)
     custom_url_val = (custom_url or "").strip()
+    mailto = (
+        f"mailto:{cooperation_email}?subject={quote(mailto_subject)}"
+        if (mailto_subject or "").strip()
+        else f"mailto:{cooperation_email}"
+    )
 
-    # Auto default: manager TG → general TG → mailto
+    # Auto default (primary CTA): manager TG → WhatsApp → mailto
     resolved_type = requested_type
     if not resolved_type:
         if manager_tg_url:
             resolved_type = "TELEGRAM_MANAGER"
-        elif general_tg_url:
-            resolved_type = "TELEGRAM_GENERAL"
+        elif manager_wa_url:
+            resolved_type = "WHATSAPP_MANAGER"
         else:
             resolved_type = "MAILTO_COOPERATION"
 
     if resolved_type == "TELEGRAM_MANAGER":
         if manager_tg_url:
             return resolved_type, manager_tg_url
-        if general_tg_url:
-            return "TELEGRAM_GENERAL", general_tg_url
-        return "MAILTO_COOPERATION", f"mailto:{cooperation_email}"
+        if manager_wa_url:
+            return "WHATSAPP_MANAGER", manager_wa_url
+        return "MAILTO_COOPERATION", mailto
+
+    if resolved_type == "WHATSAPP_MANAGER":
+        if manager_wa_url:
+            return resolved_type, manager_wa_url
+        if manager_tg_url:
+            return "TELEGRAM_MANAGER", manager_tg_url
+        return "MAILTO_COOPERATION", mailto
 
     if resolved_type == "TELEGRAM_GENERAL":
         if general_tg_url:
             return resolved_type, general_tg_url
         if manager_tg_url:
             return "TELEGRAM_MANAGER", manager_tg_url
-        return "MAILTO_COOPERATION", f"mailto:{cooperation_email}"
+        if manager_wa_url:
+            return "WHATSAPP_MANAGER", manager_wa_url
+        return "MAILTO_COOPERATION", mailto
 
     if resolved_type == "CUSTOM_URL":
         if custom_url_val:
             return resolved_type, custom_url_val
         if manager_tg_url:
             return "TELEGRAM_MANAGER", manager_tg_url
-        if general_tg_url:
-            return "TELEGRAM_GENERAL", general_tg_url
-        return "MAILTO_COOPERATION", f"mailto:{cooperation_email}"
+        if manager_wa_url:
+            return "WHATSAPP_MANAGER", manager_wa_url
+        return "MAILTO_COOPERATION", mailto
 
     if resolved_type == "REPLY_HINT_ONLY":
         return resolved_type, ""
 
     # MAILTO_COOPERATION
-    return resolved_type, f"mailto:{cooperation_email}"
+    return resolved_type, mailto
 
 
-def _get_unit_defaults() -> dict[str, Any]:
+def _get_retail_defaults() -> dict[str, Any]:
     """
-    Try to get defaults from DB (real site data). Falls back to constants.
+    Try to get retail defaults from DB (real site data). Falls back to constants.
     Returns:
-      tee_entry_default, tee_retail_default, hoodie_entry_default, hoodie_retail_default,
+      tee_retail_default, hoodie_retail_default,
       source: 'site' | 'fallback'
     """
     now = time.time()
-    if _UNIT_DEFAULTS_CACHE["data"] and now - float(_UNIT_DEFAULTS_CACHE["ts"]) < 300:
-        return _UNIT_DEFAULTS_CACHE["data"]
+    if _RETAIL_DEFAULTS_CACHE["data"] and now - float(_RETAIL_DEFAULTS_CACHE["ts"]) < 300:
+        return _RETAIL_DEFAULTS_CACHE["data"]
 
     data: dict[str, Any] = {
-        "tee_entry_default": FALLBACK_TEE_ENTRY,
         "tee_retail_default": FALLBACK_TEE_RETAIL,
-        "hoodie_entry_default": FALLBACK_HOODIE_ENTRY,
         "hoodie_retail_default": FALLBACK_HOODIE_RETAIL,
         "source": "fallback",
     }
@@ -238,19 +313,6 @@ def _get_unit_defaults() -> dict[str, Any]:
             .first()
         )
 
-        def pick_entry(p) -> int | None:
-            if not p:
-                return None
-            if getattr(p, "wholesale_price", 0) and int(p.wholesale_price) > 0:
-                return int(p.wholesale_price)
-            if getattr(p, "drop_price", 0) and int(p.drop_price) > 0:
-                return int(p.drop_price)
-            try:
-                drop = int(p.get_drop_price() or 0)
-                return drop if drop > 0 else None
-            except Exception:
-                return None
-
         def pick_retail(p) -> int | None:
             if not p:
                 return None
@@ -263,29 +325,64 @@ def _get_unit_defaults() -> dict[str, Any]:
                 except Exception:
                     return None
 
-        tee_entry = pick_entry(tee)
         tee_retail = pick_retail(tee)
-        hoodie_entry = pick_entry(hoodie)
         hoodie_retail = pick_retail(hoodie)
 
-        if tee_entry and tee_retail:
-            data["tee_entry_default"] = tee_entry
+        if tee_retail:
             data["tee_retail_default"] = tee_retail
-        if hoodie_entry and hoodie_retail:
-            data["hoodie_entry_default"] = hoodie_entry
+        if hoodie_retail:
             data["hoodie_retail_default"] = hoodie_retail
-
-        if (tee_entry and tee_retail) or (hoodie_entry and hoodie_retail):
+        if tee_retail or hoodie_retail:
             data["source"] = "site"
     except Exception:
         pass
 
-    _UNIT_DEFAULTS_CACHE.update({"ts": now, "data": data})
+    _RETAIL_DEFAULTS_CACHE.update({"ts": now, "data": data})
     return data
 
 
-def get_twocomms_cp_unit_defaults() -> dict[str, Any]:
-    return _get_unit_defaults()
+def get_twocomms_cp_unit_defaults(
+    *,
+    pricing_mode: CpPricingMode = "OPT",
+    opt_tier: CpOptTier = "8_15",
+    drop_tee_price: int | None = None,
+    drop_hoodie_price: int | None = None,
+) -> dict[str, Any]:
+    retail = _get_retail_defaults()
+    tier = _normalize_opt_tier(opt_tier)
+    mode = _normalize_pricing_mode(pricing_mode)
+
+    drop_tee_val = int(drop_tee_price) if (drop_tee_price is not None and int(drop_tee_price) > 0) else DROP_FIXED_TEE_PRICE
+    drop_hoodie_val = (
+        int(drop_hoodie_price) if (drop_hoodie_price is not None and int(drop_hoodie_price) > 0) else DROP_FIXED_HOODIE_PRICE
+    )
+
+    if mode == "DROP":
+        tee_entry_default = drop_tee_val
+        hoodie_entry_default = drop_hoodie_val
+    else:
+        tee_entry_default = int(OPT_TIER_WHOLESALE_TEE[tier])
+        hoodie_entry_default = int(OPT_TIER_WHOLESALE_HOODIE[tier])
+
+    tee_min = int(OPT_TIER_WHOLESALE_TEE["100_PLUS"])
+    tee_max = int(OPT_TIER_WHOLESALE_TEE["8_15"])
+    hoodie_min = int(OPT_TIER_WHOLESALE_HOODIE["100_PLUS"])
+    hoodie_max = int(OPT_TIER_WHOLESALE_HOODIE["8_15"])
+
+    return {
+        "pricing_mode": mode,
+        "opt_tier": tier,
+        "opt_tier_label": OPT_TIER_LABELS.get(tier, "8–15"),
+        "tee_entry_default": tee_entry_default,
+        "hoodie_entry_default": hoodie_entry_default,
+        "drop_tee_price_default": drop_tee_val,
+        "drop_hoodie_price_default": drop_hoodie_val,
+        "tee_retail_default": int(retail["tee_retail_default"]),
+        "hoodie_retail_default": int(retail["hoodie_retail_default"]),
+        "retail_source": retail.get("source", "fallback"),
+        "opt_tee_range": f"{_fmt_uah(tee_max)} → {_fmt_uah(tee_min)}",
+        "opt_hoodie_range": f"{_fmt_uah(hoodie_max)} → {_fmt_uah(hoodie_min)}",
+    }
 
 
 def _extract_product_slug(url_or_path: str) -> str:
@@ -298,6 +395,51 @@ def _extract_product_slug(url_or_path: str) -> str:
         path = s
     match = _PRODUCT_SLUG_RE.search(path)
     return match.group("slug") if match else ""
+
+
+def _looks_like_image_url(url_or_path: str) -> bool:
+    s = (url_or_path or "").strip()
+    if not s:
+        return False
+    try:
+        path = urlparse(s).path if s.startswith(("http://", "https://")) else s
+    except Exception:
+        path = s
+    return bool(_IMAGE_EXT_RE.search(path or ""))
+
+
+def _normalize_gallery_input(raw: Any) -> list[dict[str, str]]:
+    """
+    Backward-compatible gallery input.
+    Accepts:
+      - list[str] (old)
+      - list[dict] with keys: url, caption/title
+      - str (single url)
+    Returns list[{url, caption}] up to 6.
+    """
+    if raw is None:
+        return []
+    if isinstance(raw, str):
+        s = raw.strip()
+        return [{"url": s, "caption": ""}] if s else []
+    if not isinstance(raw, list):
+        return []
+
+    slots: list[dict[str, str]] = []
+    for item in raw:
+        if isinstance(item, str):
+            u = item.strip()
+            if u:
+                slots.append({"url": u, "caption": ""})
+            continue
+        if isinstance(item, dict):
+            u = str(item.get("url") or item.get("link") or item.get("href") or "").strip()
+            if not u:
+                continue
+            caption = str(item.get("caption") or item.get("title") or "").strip()
+            slots.append({"url": u, "caption": caption})
+            continue
+    return slots[:6]
 
 
 def _get_gallery_default_urls(segment_mode: CpSegmentMode) -> list[str]:
@@ -344,72 +486,95 @@ def _get_gallery_default_urls(segment_mode: CpSegmentMode) -> list[str]:
     return list(data.get(segment_mode, []))
 
 
-def _resolve_gallery_urls(urls: list[str]) -> tuple[list[CpGalleryItem], list[str], list[dict[str, Any]]]:
+def _resolve_gallery_urls(
+    urls_or_slots: Any,
+) -> tuple[list[CpGalleryItem], list[dict[str, str]], list[dict[str, Any]]]:
     """
     Returns:
       - items: list[CpGalleryItem] (ready for template)
-      - normalized_urls: list[str] (cleaned urls)
+      - normalized_slots: list[{url, caption}] (cleaned input)
       - snapshot: list[dict] (for logging / history)
     """
-    cleaned = [str(u or "").strip() for u in (urls or [])]
-    cleaned = [u for u in cleaned if u][:6]
-    if not cleaned:
+    slots = _normalize_gallery_input(urls_or_slots)
+    if not slots:
         return [], [], []
 
-    slugs: list[str] = []
-    normalized_urls: list[str] = []
-    for raw in cleaned:
-        slug = _extract_product_slug(raw)
-        if not slug:
-            continue
-        slugs.append(slug)
-        normalized_urls.append(_abs_url(f"/product/{slug}/"))
-
-    if not slugs:
-        return [], [], []
+    slugs_needed: list[str] = []
+    for slot in slots:
+        slug = _extract_product_slug(slot.get("url") or "")
+        if slug:
+            slugs_needed.append(slug)
 
     by_slug: dict[str, Any] = {}
-    try:
-        from storefront.models import Product, ProductStatus  # lazy import
+    if slugs_needed:
+        try:
+            from storefront.models import Product, ProductStatus  # lazy import
 
-        products = (
-            Product.objects.select_related("category")
-            .filter(status=ProductStatus.PUBLISHED, slug__in=slugs)
-            .order_by("-priority", "-id")
-        )
-        by_slug = {p.slug: p for p in products}
-    except Exception:
-        by_slug = {}
+            products = (
+                Product.objects.select_related("category")
+                .filter(status=ProductStatus.PUBLISHED, slug__in=slugs_needed)
+                .order_by("-priority", "-id")
+            )
+            by_slug = {p.slug: p for p in products}
+        except Exception:
+            by_slug = {}
 
     items: list[CpGalleryItem] = []
+    normalized_slots: list[dict[str, str]] = []
     snapshot: list[dict[str, Any]] = []
-    for slug in slugs:
-        p = by_slug.get(slug)
-        if not p:
-            continue
-        img = getattr(p, "display_image", None)
-        img_url = ""
-        try:
-            img_url = _abs_url(img.url) if img and getattr(img, "url", None) else ""
-        except Exception:
+
+    for slot in slots:
+        raw_url = (slot.get("url") or "").strip()
+        caption = (slot.get("caption") or "").strip()
+
+        slug = _extract_product_slug(raw_url)
+        if slug:
+            p = by_slug.get(slug)
+            if not p:
+                continue
+            img = getattr(p, "display_image", None)
             img_url = ""
-        if not img_url:
+            try:
+                img_url = _abs_url(img.url) if img and getattr(img, "url", None) else ""
+            except Exception:
+                img_url = ""
+            if not img_url:
+                continue
+
+            title = caption or (getattr(p, "title", "") or "").strip() or slug
+            link_url = _abs_url(f"/product/{p.slug}/")
+            items.append(CpGalleryItem(title=title[:90], img_url=img_url, link_url=link_url))
+            normalized_slots.append({"url": _abs_url(f"/product/{p.slug}/"), "caption": caption[:120]})
+            snapshot.append(
+                {
+                    "source": "product",
+                    "slug": p.slug,
+                    "title": title,
+                    "caption": caption,
+                    "img_url": img_url,
+                    "link_url": link_url,
+                    "retail": getattr(p, "final_price", None),
+                }
+            )
             continue
 
-        title = (getattr(p, "title", "") or "").strip() or slug
-        link_url = _abs_url(f"/product/{p.slug}/")
-        items.append(CpGalleryItem(title=title[:90], img_url=img_url, link_url=link_url))
-        snapshot.append(
-            {
-                "slug": p.slug,
-                "title": title,
-                "img_url": img_url,
-                "link_url": link_url,
-                "retail": getattr(p, "final_price", None),
-            }
-        )
+        if _looks_like_image_url(raw_url):
+            img_url = _abs_url(raw_url)
+            title = caption or "Фото"
+            link_url = _abs_url(raw_url)
+            items.append(CpGalleryItem(title=title[:90], img_url=img_url, link_url=link_url))
+            normalized_slots.append({"url": img_url, "caption": caption[:120]})
+            snapshot.append(
+                {
+                    "source": "image",
+                    "title": title,
+                    "caption": caption,
+                    "img_url": img_url,
+                    "link_url": link_url,
+                }
+            )
 
-    return items[:6], normalized_urls[:6], snapshot[:6]
+    return items[:6], normalized_slots[:6], snapshot[:6]
 
 
 def _build_subject(*, preset: CpSubjectPreset, shop_name: str, tee_entry: int | None, hoodie_entry: int | None, custom: str) -> str:
@@ -497,15 +662,23 @@ def _build_light_text(context: dict[str, Any]) -> str:
         who_line,
         "",
         "Можемо відправити тест-ростовку S–XL на 14 днів. Якщо не зайде — повертаєте залишки. Сплачуєте лише доставку.",
-        "",
-        *unit_lines,
-        "*Це приклад розрахунку. Роздрібну ціну встановлюєте ви.",
-        "",
-        "Запросити тест-ростовку?",
-        (context.get("cta_url") or "").strip() or "Відповідайте на цей лист",
-        str((context.get("cta_microtext") or "")).strip(),
-        "",
+        "Опт від 8 шт — ціна залежить від обсягу (можу під ваш обсяг підтвердити рівень).",
     ]
+    if bool(context.get("dropship_loyalty_bonus")):
+        lines.append("Бонус (дроп): після кожного замовлення — -10 грн до наступного.")
+
+    lines.extend(
+        [
+            "",
+            *unit_lines,
+            "*Це приклад розрахунку. Роздрібну ціну встановлюєте ви.",
+            "",
+            "Запросити тест-ростовку?",
+            (context.get("cta_url") or "").strip() or "Відповідайте на цей лист",
+            str((context.get("cta_microtext") or "")).strip(),
+            "",
+        ]
+    )
 
     if links_line_main:
         lines.append(links_line_main)
@@ -542,6 +715,7 @@ def _build_light_text(context: dict[str, Any]) -> str:
         if contact_lines:
             lines.extend(["З повагою,", *contact_lines, ""])
 
+    lines.append("TwoComms — одяг для свідомих.")
     lines.append(f"Запасний канал зв’язку: {context['links']['general_tg']}")
     if include_instagram:
         lines.append(f"Instagram: {context['links']['instagram']}")
@@ -597,23 +771,35 @@ def build_twocomms_cp_email(payload: dict[str, Any]) -> dict[str, Any]:
     cta_button_text = (payload.get("cta_button_text") or "").strip() or "Запросити тест-ростовку"
     cta_microtext = (
         (payload.get("cta_microtext") or "").strip()
-        or "Без зобов’язань. Якщо не зайде — повертаєте залишки. Сплачуєте лише доставку."
+        or "Менеджер підтвердить умови під ваш обсяг."
     )
 
-    defaults = _get_unit_defaults()
+    pricing_mode = _normalize_pricing_mode(payload.get("pricing_mode"))
+    opt_tier = _normalize_opt_tier(payload.get("opt_tier"))
+    drop_tee_price = _to_int(payload.get("drop_tee_price"))
+    drop_hoodie_price = _to_int(payload.get("drop_hoodie_price"))
+    dropship_loyalty_bonus = _to_bool(payload.get("dropship_loyalty_bonus"))
+
+    unit_defaults = get_twocomms_cp_unit_defaults(
+        pricing_mode=pricing_mode,
+        opt_tier=opt_tier,
+        drop_tee_price=drop_tee_price,
+        drop_hoodie_price=drop_hoodie_price,
+    )
+
     tee_entry = _to_int(payload.get("tee_entry"))
     tee_retail_example = _to_int(payload.get("tee_retail_example"))
     hoodie_entry = _to_int(payload.get("hoodie_entry"))
     hoodie_retail_example = _to_int(payload.get("hoodie_retail_example"))
 
     if tee_entry is None:
-        tee_entry = int(defaults["tee_entry_default"])
+        tee_entry = int(unit_defaults["tee_entry_default"])
     if tee_retail_example is None:
-        tee_retail_example = int(defaults["tee_retail_default"])
+        tee_retail_example = int(unit_defaults["tee_retail_default"])
     if hoodie_entry is None:
-        hoodie_entry = int(defaults["hoodie_entry_default"])
+        hoodie_entry = int(unit_defaults["hoodie_entry_default"])
     if hoodie_retail_example is None:
-        hoodie_retail_example = int(defaults["hoodie_retail_default"])
+        hoodie_retail_example = int(unit_defaults["hoodie_retail_default"])
 
     tee_profit_raw = int(tee_retail_example) - int(tee_entry)
     hoodie_profit_raw = int(hoodie_retail_example) - int(hoodie_entry)
@@ -650,12 +836,15 @@ def build_twocomms_cp_email(payload: dict[str, Any]) -> dict[str, Any]:
         "general_tg": _normalize_tg((payload.get("general_tg") or "").strip()) or "https://t.me/twocomms",
     }
 
+    mailto_subject = f"Запит тест-ростовки TwoComms{(' — ' + shop_name) if shop_name else ''}"
     resolved_cta_type, cta_url = _build_cta(
         requested_type=cta_type,
         manager_tg=manager_tg,
+        manager_whatsapp=manager_whatsapp,
         general_tg=links["general_tg"],
         custom_url=cta_custom_url,
         cooperation_email="cooperation@twocomms.shop",
+        mailto_subject=mailto_subject,
     )
 
     entry_hint = ""
@@ -667,18 +856,11 @@ def build_twocomms_cp_email(payload: dict[str, Any]) -> dict[str, Any]:
         entry_hint = "Вхідні ціни від —, деталі скину."
 
     gallery_urls_provided = "gallery_urls" in payload
-    gallery_urls_raw = payload.get("gallery_urls")
-    if isinstance(gallery_urls_raw, list):
-        gallery_urls = [str(x or "").strip() for x in gallery_urls_raw if str(x or "").strip()]
-    elif isinstance(gallery_urls_raw, str):
-        gallery_urls = [gallery_urls_raw.strip()] if gallery_urls_raw.strip() else []
-    else:
-        gallery_urls = []
+    gallery_slots = _normalize_gallery_input(payload.get("gallery_urls"))
+    if (not gallery_slots) and (not gallery_urls_provided):
+        gallery_slots = [{"url": u, "caption": ""} for u in _get_gallery_default_urls(segment_mode)]
 
-    if (not gallery_urls) and (not gallery_urls_provided):
-        gallery_urls = _get_gallery_default_urls(segment_mode)
-
-    gallery, gallery_urls_norm, gallery_snapshot = _resolve_gallery_urls(gallery_urls)
+    gallery, gallery_urls_norm, gallery_snapshot = _resolve_gallery_urls(gallery_slots)
     logo_url = _abs_url("/static/img/favicon-192x192.png")
 
     template_context: dict[str, Any] = {
@@ -691,6 +873,14 @@ def build_twocomms_cp_email(payload: dict[str, Any]) -> dict[str, Any]:
         "manager_tg": manager_tg,
         "manager_photo_url": manager_photo_url,
         "general_tg": links["general_tg"],
+        "pricing_mode": pricing_mode,
+        "opt_tier": opt_tier,
+        "opt_tier_label": unit_defaults.get("opt_tier_label", ""),
+        "opt_tee_range": unit_defaults.get("opt_tee_range", ""),
+        "opt_hoodie_range": unit_defaults.get("opt_hoodie_range", ""),
+        "drop_tee_price": int(unit_defaults.get("drop_tee_price_default") or DROP_FIXED_TEE_PRICE),
+        "drop_hoodie_price": int(unit_defaults.get("drop_hoodie_price_default") or DROP_FIXED_HOODIE_PRICE),
+        "dropship_loyalty_bonus": dropship_loyalty_bonus,
         "mode": mode,
         "segment_mode": segment_mode,
         "subject": subject,
@@ -721,7 +911,7 @@ def build_twocomms_cp_email(payload: dict[str, Any]) -> dict[str, Any]:
         "gallery": gallery,
         "gallery_urls": gallery_urls_norm,
         "entry_hint": entry_hint,
-        "defaults_source": defaults.get("source", "fallback"),
+        "defaults_source": unit_defaults.get("retail_source", "fallback"),
         "profit_warnings": profit_warnings,
     }
 
@@ -751,6 +941,12 @@ def build_twocomms_cp_email(payload: dict[str, Any]) -> dict[str, Any]:
         "cta_url": cta_url,
         "cta_button_text": cta_button_text,
         "cta_microtext": cta_microtext,
+        "pricing_mode": pricing_mode,
+        "opt_tier": opt_tier,
+        "opt_tier_label": unit_defaults.get("opt_tier_label", ""),
+        "drop_tee_price": int(unit_defaults.get("drop_tee_price_default") or DROP_FIXED_TEE_PRICE),
+        "drop_hoodie_price": int(unit_defaults.get("drop_hoodie_price_default") or DROP_FIXED_HOODIE_PRICE),
+        "dropship_loyalty_bonus": dropship_loyalty_bonus,
         "include_catalog_link": include_catalog_link,
         "include_wholesale_link": include_wholesale_link,
         "include_dropship_link": include_dropship_link,
@@ -764,6 +960,6 @@ def build_twocomms_cp_email(payload: dict[str, Any]) -> dict[str, Any]:
         "hoodie_entry": hoodie_entry,
         "hoodie_retail_example": hoodie_retail_example,
         "hoodie_profit": hoodie_profit,
-        "defaults_source": defaults.get("source", "fallback"),
+        "defaults_source": unit_defaults.get("retail_source", "fallback"),
         "profit_warnings": profit_warnings,
     }

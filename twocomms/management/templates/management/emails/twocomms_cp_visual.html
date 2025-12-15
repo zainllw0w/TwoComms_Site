@@ -66,6 +66,12 @@
                       <div style="margin-top:10px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.45;color:#BDBDBD;">
                         {{ cta_microtext }}
                       </div>
+
+                      <div style="margin-top:10px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.4;color:#BDBDBD;">
+                        <a href="{{ links.cooperation }}" target="_blank" rel="noopener" style="color:#8B5CF6;text-decoration:underline;font-weight:800;">
+                          Отримати прайс та умови
+                        </a>
+                      </div>
                     </td>
                   </tr>
 
@@ -138,6 +144,12 @@
                                     <div>• від 8 шт</div>
                                     <div style="margin-top:4px;">• договір / КЕП</div>
                                   </div>
+                                  <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#8A8A8A;">
+                                    Опт: ціна залежить від обсягу (від 8 шт). У прикладі — рівень <span style="color:#BDBDBD;font-weight:800;">{{ opt_tier_label }}</span>.
+                                  </div>
+                                  <div style="margin-top:6px;font-size:12px;line-height:1.5;color:#8A8A8A;">
+                                    Футболка: <span style="color:#BDBDBD;font-weight:800;">{{ opt_tee_range }}</span> грн/шт, Худі: <span style="color:#BDBDBD;font-weight:800;">{{ opt_hoodie_range }}</span> грн/шт (залежить від обсягу).
+                                  </div>
                                 </td>
                               </tr>
                             </table>
@@ -151,6 +163,9 @@
                                     <div>• без складу</div>
                                     <div style="margin-top:4px;">• XML</div>
                                     <div style="margin-top:4px;">• Кабінет партнерів (ТТН/трекінг)</div>
+                                    {% if dropship_loyalty_bonus %}
+                                    <div style="margin-top:4px;">• Бонус: після кожного замовлення — -10 грн до наступного.</div>
+                                    {% endif %}
                                   </div>
                                 </td>
                               </tr>
@@ -174,6 +189,13 @@
                           <a href="{{ links.dropship }}" style="color:#8B5CF6;text-decoration:underline;">Дроп</a>
                         {% endif %}
                       </div>
+                      {% if include_wholesale_link %}
+                      <div style="margin-top:10px;">
+                        <a href="{{ links.wholesale }}" target="_blank" rel="noopener" style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#8B5CF6;text-decoration:underline;font-weight:900;">
+                          Отримати повний прайс
+                        </a>
+                      </div>
+                      {% endif %}
                       {% endif %}
                     </td>
                   </tr>
@@ -260,7 +282,7 @@
 
                   <tr>
                     <td style="padding:14px 22px 18px;border-top:1px solid #2A2A2A;font-family:Arial,Helvetica,sans-serif;color:#8A8A8A;font-size:12px;line-height:1.45;">
-                      <div style="color:#BDBDBD;font-weight:800;">TwoComms — дві коми: пауза і продовження руху.</div>
+                      <div style="color:#BDBDBD;font-weight:800;">TwoComms — одяг для свідомих.</div>
                       <div style="margin-top:8px;">
                         {% if include_instagram_link %}
                         <a href="{{ links.instagram }}" target="_blank" rel="noopener" style="color:#8B5CF6;text-decoration:underline;">Instagram</a>

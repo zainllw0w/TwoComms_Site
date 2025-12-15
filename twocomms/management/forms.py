@@ -28,9 +28,28 @@ class CommercialOfferEmailForm(forms.Form):
     subject_preset = forms.ChoiceField(label=_("Тема листа"), choices=SUBJECT_PRESET_CHOICES, required=False, initial="PRESET_1")
     subject_custom = forms.CharField(label=_("Кастомна тема"), max_length=255, required=False)
 
+    PRICING_MODE_CHOICES = (
+        ("OPT", "OPT — опт"),
+        ("DROP", "DROP — дроп"),
+    )
+    OPT_TIER_CHOICES = (
+        ("8_15", "8–15 (мінімальне)"),
+        ("16_31", "16–31"),
+        ("32_63", "32–63"),
+        ("64_99", "64–99"),
+        ("100_PLUS", "100+ (макс вигода)"),
+    )
+
+    pricing_mode = forms.ChoiceField(label=_("База входу"), choices=PRICING_MODE_CHOICES, required=False, initial="OPT")
+    opt_tier = forms.ChoiceField(label=_("Опт: обсяг"), choices=OPT_TIER_CHOICES, required=False, initial="8_15")
+    drop_tee_price = forms.IntegerField(label=_("Дроп: футболка (грн)"), required=False, min_value=0)
+    drop_hoodie_price = forms.IntegerField(label=_("Дроп: худі (грн)"), required=False, min_value=0)
+    dropship_loyalty_bonus = forms.BooleanField(label=_("Бонус дроп -10"), required=False)
+
     CTA_TYPE_CHOICES = (
         ("", "Авто (рекомендовано)"),
         ("TELEGRAM_MANAGER", "TELEGRAM_MANAGER — Telegram менеджера"),
+        ("WHATSAPP_MANAGER", "WHATSAPP_MANAGER — WhatsApp менеджера"),
         ("TELEGRAM_GENERAL", "TELEGRAM_GENERAL — Telegram загальний"),
         ("MAILTO_COOPERATION", "MAILTO_COOPERATION — на email cooperation@"),
         ("REPLY_HINT_ONLY", "REPLY_HINT_ONLY — відповісти на лист (без лінка)"),
@@ -105,9 +124,19 @@ class CommercialOfferEmailForm(forms.Form):
             return []
         if not isinstance(value, list):
             return []
-        items = [str(x or "").strip() for x in value]
-        items = [x for x in items if x]
-        return items[:6]
+        slots = []
+        for item in value:
+            if isinstance(item, str):
+                url = item.strip()
+                caption = ""
+            elif isinstance(item, dict):
+                url = str(item.get("url") or item.get("link") or item.get("href") or "").strip()
+                caption = str(item.get("caption") or item.get("title") or "").strip()
+            else:
+                continue
+            if url:
+                slots.append({"url": url, "caption": caption})
+        return slots[:6]
 
     def clean_gallery_edgy(self):
         value = self.cleaned_data.get("gallery_edgy")
@@ -115,9 +144,19 @@ class CommercialOfferEmailForm(forms.Form):
             return []
         if not isinstance(value, list):
             return []
-        items = [str(x or "").strip() for x in value]
-        items = [x for x in items if x]
-        return items[:6]
+        slots = []
+        for item in value:
+            if isinstance(item, str):
+                url = item.strip()
+                caption = ""
+            elif isinstance(item, dict):
+                url = str(item.get("url") or item.get("link") or item.get("href") or "").strip()
+                caption = str(item.get("caption") or item.get("title") or "").strip()
+            else:
+                continue
+            if url:
+                slots.append({"url": url, "caption": caption})
+        return slots[:6]
 
     def clean(self):
         cleaned = super().clean()
@@ -149,6 +188,16 @@ class CommercialOfferEmailForm(forms.Form):
         cleaned["cta_microtext"] = (cleaned.get("cta_microtext") or "").strip()
         if cta_type == "CUSTOM_URL" and not cleaned["cta_custom_url"]:
             self.add_error("cta_custom_url", _("Вкажіть URL для CTA."))
+
+        pricing_mode = (cleaned.get("pricing_mode") or "OPT").strip().upper()
+        if pricing_mode not in {"OPT", "DROP"}:
+            pricing_mode = "OPT"
+        cleaned["pricing_mode"] = pricing_mode
+
+        opt_tier = (cleaned.get("opt_tier") or "8_15").strip().upper()
+        if opt_tier not in {"8_15", "16_31", "32_63", "64_99", "100_PLUS"}:
+            opt_tier = "8_15"
+        cleaned["opt_tier"] = opt_tier
 
         def normalize_ua_phone(raw: str) -> str:
             s = (raw or "").strip()

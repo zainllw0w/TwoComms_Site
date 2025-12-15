@@ -2115,24 +2115,36 @@ def _offer_payload_from_form(form, default_name, initial, request):
             return key in form.data
         return bool(initial.get(key))
 
-    def json_list_val(key: str) -> list[str]:
+    def json_gallery_val(key: str) -> list[dict]:
         raw = form.data.get(key) if form.is_bound else initial.get(key)
         if raw is None:
             return []
         if isinstance(raw, list):
-            items = [str(x or "").strip() for x in raw]
-            return [x for x in items if x][:6]
-        s = str(raw).strip()
-        if not s:
-            return []
-        try:
-            data = json.loads(s)
-        except Exception:
-            return []
+            data = raw
+        else:
+            s = str(raw).strip()
+            if not s:
+                return []
+            try:
+                data = json.loads(s)
+            except Exception:
+                return []
         if not isinstance(data, list):
             return []
-        items = [str(x or "").strip() for x in data]
-        return [x for x in items if x][:6]
+
+        slots: list[dict] = []
+        for item in data:
+            if isinstance(item, str):
+                url = item.strip()
+                caption = ""
+            elif isinstance(item, dict):
+                url = str(item.get("url") or item.get("link") or item.get("href") or "").strip()
+                caption = str(item.get("caption") or item.get("title") or "").strip()
+            else:
+                continue
+            if url:
+                slots.append({"url": url, "caption": caption})
+        return slots[:6]
 
     show_manager = bool_val("show_manager")
     manager_name = str_val("manager_name") or default_name
@@ -2149,8 +2161,8 @@ def _offer_payload_from_form(form, default_name, initial, request):
     telegram = str_val("telegram") if (show_manager and telegram_enabled) else ""
 
     segment_mode = str_val("segment_mode") or "NEUTRAL"
-    gallery_neutral = json_list_val("gallery_neutral")
-    gallery_edgy = json_list_val("gallery_edgy")
+    gallery_neutral = json_gallery_val("gallery_neutral")
+    gallery_edgy = json_gallery_val("gallery_edgy")
     gallery_urls = gallery_edgy if segment_mode.upper() == "EDGY" else gallery_neutral
 
     return {
@@ -2163,6 +2175,11 @@ def _offer_payload_from_form(form, default_name, initial, request):
         "cta_button_text": str_val("cta_button_text"),
         "cta_custom_url": str_val("cta_custom_url"),
         "cta_microtext": str_val("cta_microtext"),
+        "pricing_mode": str_val("pricing_mode") or "OPT",
+        "opt_tier": str_val("opt_tier") or "8_15",
+        "drop_tee_price": str_val("drop_tee_price"),
+        "drop_hoodie_price": str_val("drop_hoodie_price"),
+        "dropship_loyalty_bonus": bool_val("dropship_loyalty_bonus"),
         "tee_entry": str_val("tee_entry"),
         "tee_retail_example": str_val("tee_retail_example"),
         "hoodie_entry": str_val("hoodie_entry"),
@@ -2209,6 +2226,11 @@ def commercial_offer_email(request):
         "telegram_enabled": settings_obj.telegram_enabled,
         "telegram": (settings_obj.telegram or "").strip(),
         "general_tg": (getattr(settings_obj, "general_tg", "") or "").strip(),
+        "pricing_mode": getattr(settings_obj, "pricing_mode", "OPT") or "OPT",
+        "opt_tier": getattr(settings_obj, "opt_tier", "8_15") or "8_15",
+        "drop_tee_price": getattr(settings_obj, "drop_tee_price", None),
+        "drop_hoodie_price": getattr(settings_obj, "drop_hoodie_price", None),
+        "dropship_loyalty_bonus": bool(getattr(settings_obj, "dropship_loyalty_bonus", False)),
         "include_catalog_link": getattr(settings_obj, "include_catalog_link", True),
         "include_wholesale_link": getattr(settings_obj, "include_wholesale_link", True),
         "include_dropship_link": getattr(settings_obj, "include_dropship_link", True),
@@ -2270,6 +2292,11 @@ def commercial_offer_email(request):
                 settings_obj.telegram = (cd.get("telegram") or "").strip()
 
                 settings_obj.general_tg = (cd.get("general_tg") or "").strip()
+                settings_obj.pricing_mode = (cd.get("pricing_mode") or "OPT").strip().upper()
+                settings_obj.opt_tier = (cd.get("opt_tier") or "8_15").strip().upper()
+                settings_obj.drop_tee_price = cd.get("drop_tee_price") or None
+                settings_obj.drop_hoodie_price = cd.get("drop_hoodie_price") or None
+                settings_obj.dropship_loyalty_bonus = bool(cd.get("dropship_loyalty_bonus"))
                 settings_obj.include_catalog_link = bool(cd.get("include_catalog_link"))
                 settings_obj.include_wholesale_link = bool(cd.get("include_wholesale_link"))
                 settings_obj.include_dropship_link = bool(cd.get("include_dropship_link"))
@@ -2305,6 +2332,11 @@ def commercial_offer_email(request):
                     "cta_custom_url": settings_obj.cta_custom_url,
                     "cta_button_text": settings_obj.cta_button_text,
                     "cta_microtext": settings_obj.cta_microtext,
+                    "pricing_mode": getattr(settings_obj, "pricing_mode", "OPT") or "OPT",
+                    "opt_tier": getattr(settings_obj, "opt_tier", "8_15") or "8_15",
+                    "drop_tee_price": getattr(settings_obj, "drop_tee_price", None),
+                    "drop_hoodie_price": getattr(settings_obj, "drop_hoodie_price", None),
+                    "dropship_loyalty_bonus": bool(getattr(settings_obj, "dropship_loyalty_bonus", False)),
                     "tee_entry": settings_obj.tee_entry,
                     "tee_retail_example": settings_obj.tee_retail_example,
                     "hoodie_entry": settings_obj.hoodie_entry,
@@ -2369,6 +2401,15 @@ def commercial_offer_email(request):
                     cta_button_text=email_build.get("cta_button_text") or settings_obj.cta_button_text,
                     cta_microtext=email_build.get("cta_microtext") or settings_obj.cta_microtext,
                     general_tg=settings_obj.general_tg,
+                    pricing_mode=email_build.get("pricing_mode") or getattr(settings_obj, "pricing_mode", "OPT") or "OPT",
+                    opt_tier=email_build.get("opt_tier") or getattr(settings_obj, "opt_tier", "8_15") or "8_15",
+                    drop_tee_price=email_build.get("drop_tee_price") or getattr(settings_obj, "drop_tee_price", None),
+                    drop_hoodie_price=email_build.get("drop_hoodie_price") or getattr(settings_obj, "drop_hoodie_price", None),
+                    dropship_loyalty_bonus=bool(
+                        email_build.get("dropship_loyalty_bonus")
+                        if ("dropship_loyalty_bonus" in email_build)
+                        else getattr(settings_obj, "dropship_loyalty_bonus", False)
+                    ),
                     include_catalog_link=settings_obj.include_catalog_link,
                     include_wholesale_link=settings_obj.include_wholesale_link,
                     include_dropship_link=settings_obj.include_dropship_link,
@@ -2475,7 +2516,25 @@ def commercial_offer_email_unit_defaults_api(request):
     if not user_is_management(request.user):
         return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
 
-    defaults = get_twocomms_cp_unit_defaults()
+    pricing_mode = (request.GET.get("pricing_mode") or "OPT").strip().upper()
+    opt_tier = (request.GET.get("opt_tier") or "8_15").strip().upper()
+    drop_tee_price = request.GET.get("drop_tee_price")
+    drop_hoodie_price = request.GET.get("drop_hoodie_price")
+    try:
+        drop_tee_val = int(drop_tee_price) if (drop_tee_price is not None and str(drop_tee_price).strip()) else None
+    except Exception:
+        drop_tee_val = None
+    try:
+        drop_hoodie_val = int(drop_hoodie_price) if (drop_hoodie_price is not None and str(drop_hoodie_price).strip()) else None
+    except Exception:
+        drop_hoodie_val = None
+
+    defaults = get_twocomms_cp_unit_defaults(
+        pricing_mode="DROP" if pricing_mode == "DROP" else "OPT",
+        opt_tier=opt_tier if opt_tier in {"8_15", "16_31", "32_63", "64_99", "100_PLUS"} else "8_15",
+        drop_tee_price=drop_tee_val,
+        drop_hoodie_price=drop_hoodie_val,
+    )
     return JsonResponse({"ok": True, "defaults": defaults})
 
 
@@ -2528,7 +2587,25 @@ def commercial_offer_email_resolve_product_api(request):
         slug = ""
 
     if not slug:
-        return JsonResponse({"ok": False, "error": "bad_url"}, status=400)
+        try:
+            import re as _re
+            from urllib.parse import urlparse as _urlparse
+
+            path = _urlparse(raw_url).path if raw_url.startswith(("http://", "https://")) else raw_url
+            is_image = bool(_re.search(r"\.(png|jpe?g|webp|gif)(?:\\?|$)", path or "", _re.IGNORECASE))
+        except Exception:
+            is_image = False
+        if not is_image:
+            return JsonResponse({"ok": False, "error": "bad_url"}, status=400)
+
+        img_url = abs_url(raw_url)
+        item = {
+            "title": "",
+            "img_url": img_url,
+            "link_url": img_url,
+            "retail": None,
+        }
+        return JsonResponse({"ok": True, "item": item})
 
     try:
         from storefront.models import Product, ProductStatus
@@ -2608,6 +2685,11 @@ def commercial_offer_email_resend_api(request, log_id: int):
         cta_button_text=getattr(original, "cta_button_text", "") or "",
         cta_microtext=getattr(original, "cta_microtext", "") or "",
         general_tg=getattr(original, "general_tg", "") or "",
+        pricing_mode=getattr(original, "pricing_mode", "OPT") or "OPT",
+        opt_tier=getattr(original, "opt_tier", "8_15") or "8_15",
+        drop_tee_price=getattr(original, "drop_tee_price", None),
+        drop_hoodie_price=getattr(original, "drop_hoodie_price", None),
+        dropship_loyalty_bonus=bool(getattr(original, "dropship_loyalty_bonus", False)),
         include_catalog_link=bool(getattr(original, "include_catalog_link", True)),
         include_wholesale_link=bool(getattr(original, "include_wholesale_link", True)),
         include_dropship_link=bool(getattr(original, "include_dropship_link", True)),
@@ -2671,7 +2753,7 @@ def commercial_offer_email_preview_api(request):
     whatsapp_enabled = bool_val("whatsapp_enabled")
     telegram_enabled = bool_val("telegram_enabled")
 
-    def json_list_val(key: str) -> list[str]:
+    def json_gallery_val(key: str) -> list[dict]:
         raw = (data.get(key) or "").strip()
         if not raw:
             return []
@@ -2681,13 +2763,27 @@ def commercial_offer_email_preview_api(request):
             return []
         if not isinstance(parsed, list):
             return []
-        items = [str(x or "").strip() for x in parsed]
-        return [x for x in items if x][:6]
+        slots: list[dict] = []
+        for item in parsed:
+            if isinstance(item, str):
+                url = item.strip()
+                caption = ""
+            elif isinstance(item, dict):
+                url = str(item.get("url") or item.get("link") or item.get("href") or "").strip()
+                caption = str(item.get("caption") or item.get("title") or "").strip()
+            else:
+                continue
+            if url:
+                slots.append({"url": url, "caption": caption})
+        return slots[:6]
 
     segment_mode_val = (str_val("segment_mode") or getattr(settings_obj, "segment_mode", "NEUTRAL") or "NEUTRAL").upper()
-    gallery_neutral = json_list_val("gallery_neutral")
-    gallery_edgy = json_list_val("gallery_edgy")
+    gallery_neutral = json_gallery_val("gallery_neutral")
+    gallery_edgy = json_gallery_val("gallery_edgy")
     gallery_urls = gallery_edgy if segment_mode_val == "EDGY" else gallery_neutral
+
+    pricing_mode_val = (str_val("pricing_mode") or getattr(settings_obj, "pricing_mode", "OPT") or "OPT").upper()
+    opt_tier_val = (str_val("opt_tier") or getattr(settings_obj, "opt_tier", "8_15") or "8_15").upper()
 
     payload = {
         "shop_name": str_val("recipient_name"),
@@ -2699,6 +2795,11 @@ def commercial_offer_email_preview_api(request):
         "cta_custom_url": str_val("cta_custom_url"),
         "cta_button_text": str_val("cta_button_text"),
         "cta_microtext": str_val("cta_microtext"),
+        "pricing_mode": pricing_mode_val,
+        "opt_tier": opt_tier_val,
+        "drop_tee_price": str_val("drop_tee_price"),
+        "drop_hoodie_price": str_val("drop_hoodie_price"),
+        "dropship_loyalty_bonus": bool_val("dropship_loyalty_bonus"),
         "tee_entry": str_val("tee_entry"),
         "tee_retail_example": str_val("tee_retail_example"),
         "hoodie_entry": str_val("hoodie_entry"),
@@ -2765,6 +2866,11 @@ def commercial_offer_email_log_detail_api(request, log_id: int):
                 "cta_button_text": getattr(log, "cta_button_text", ""),
                 "cta_microtext": getattr(log, "cta_microtext", ""),
                 "general_tg": getattr(log, "general_tg", ""),
+                "pricing_mode": getattr(log, "pricing_mode", "OPT") or "OPT",
+                "opt_tier": getattr(log, "opt_tier", "8_15") or "8_15",
+                "drop_tee_price": getattr(log, "drop_tee_price", None),
+                "drop_hoodie_price": getattr(log, "drop_hoodie_price", None),
+                "dropship_loyalty_bonus": bool(getattr(log, "dropship_loyalty_bonus", False)),
                 "include_catalog_link": bool(getattr(log, "include_catalog_link", True)),
                 "include_wholesale_link": bool(getattr(log, "include_wholesale_link", True)),
                 "include_dropship_link": bool(getattr(log, "include_dropship_link", True)),
@@ -2840,6 +2946,11 @@ def commercial_offer_email_send_api(request):
     settings_obj.telegram = (cd.get("telegram") or "").strip()
 
     settings_obj.general_tg = (cd.get("general_tg") or "").strip()
+    settings_obj.pricing_mode = (cd.get("pricing_mode") or "OPT").strip().upper()
+    settings_obj.opt_tier = (cd.get("opt_tier") or "8_15").strip().upper()
+    settings_obj.drop_tee_price = cd.get("drop_tee_price") or None
+    settings_obj.drop_hoodie_price = cd.get("drop_hoodie_price") or None
+    settings_obj.dropship_loyalty_bonus = bool(cd.get("dropship_loyalty_bonus"))
     settings_obj.include_catalog_link = bool(cd.get("include_catalog_link"))
     settings_obj.include_wholesale_link = bool(cd.get("include_wholesale_link"))
     settings_obj.include_dropship_link = bool(cd.get("include_dropship_link"))
@@ -2887,6 +2998,11 @@ def commercial_offer_email_send_api(request):
         "whatsapp": settings_obj.whatsapp if (settings_obj.show_manager and settings_obj.whatsapp_enabled) else "",
         "telegram": settings_obj.telegram if (settings_obj.show_manager and settings_obj.telegram_enabled) else "",
         "general_tg": settings_obj.general_tg,
+        "pricing_mode": getattr(settings_obj, "pricing_mode", "OPT") or "OPT",
+        "opt_tier": getattr(settings_obj, "opt_tier", "8_15") or "8_15",
+        "drop_tee_price": getattr(settings_obj, "drop_tee_price", None),
+        "drop_hoodie_price": getattr(settings_obj, "drop_hoodie_price", None),
+        "dropship_loyalty_bonus": bool(getattr(settings_obj, "dropship_loyalty_bonus", False)),
         "include_catalog_link": settings_obj.include_catalog_link,
         "include_wholesale_link": settings_obj.include_wholesale_link,
         "include_dropship_link": settings_obj.include_dropship_link,
@@ -2938,6 +3054,15 @@ def commercial_offer_email_send_api(request):
         cta_button_text=email_build.get("cta_button_text") or settings_obj.cta_button_text,
         cta_microtext=email_build.get("cta_microtext") or settings_obj.cta_microtext,
         general_tg=settings_obj.general_tg,
+        pricing_mode=email_build.get("pricing_mode") or getattr(settings_obj, "pricing_mode", "OPT") or "OPT",
+        opt_tier=email_build.get("opt_tier") or getattr(settings_obj, "opt_tier", "8_15") or "8_15",
+        drop_tee_price=email_build.get("drop_tee_price") or getattr(settings_obj, "drop_tee_price", None),
+        drop_hoodie_price=email_build.get("drop_hoodie_price") or getattr(settings_obj, "drop_hoodie_price", None),
+        dropship_loyalty_bonus=bool(
+            email_build.get("dropship_loyalty_bonus")
+            if ("dropship_loyalty_bonus" in email_build)
+            else getattr(settings_obj, "dropship_loyalty_bonus", False)
+        ),
         include_catalog_link=settings_obj.include_catalog_link,
         include_wholesale_link=settings_obj.include_wholesale_link,
         include_dropship_link=settings_obj.include_dropship_link,

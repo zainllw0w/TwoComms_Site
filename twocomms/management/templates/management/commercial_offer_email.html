@@ -148,6 +148,67 @@
                         </div>
                         <div class="offer-unit-note" id="offer-unit-note" hidden></div>
                     </div>
+
+                    <div class="offer-unit-controls">
+                        <div class="field">
+                            <label for="pricing_mode">Приклад: база “вхід”</label>
+                            <select id="pricing_mode" name="pricing_mode">
+                                {% with pval=form.pricing_mode.value|default:"OPT" %}
+                                    <option value="OPT" {% if pval == "OPT" %}selected{% endif %}>OPT — опт (tier)</option>
+                                    <option value="DROP" {% if pval == "DROP" %}selected{% endif %}>DROP — дроп (фікс)</option>
+                                {% endwith %}
+                            </select>
+                        </div>
+                        <div class="field" id="opt_tier_wrap">
+                            <label for="opt_tier">Опт: обсяг (tier)</label>
+                            <select id="opt_tier" name="opt_tier">
+                                {% with tval=form.opt_tier.value|default:"8_15" %}
+                                    <option value="8_15" {% if tval == "8_15" %}selected{% endif %}>8–15 (мінімальне)</option>
+                                    <option value="16_31" {% if tval == "16_31" %}selected{% endif %}>16–31</option>
+                                    <option value="32_63" {% if tval == "32_63" %}selected{% endif %}>32–63</option>
+                                    <option value="64_99" {% if tval == "64_99" %}selected{% endif %}>64–99</option>
+                                    <option value="100_PLUS" {% if tval == "100_PLUS" %}selected{% endif %}>100+ (макс вигода)</option>
+                                {% endwith %}
+                            </select>
+                            <div class="offer-field-hint">Впливає на вхідні ціни в листі (опт).</div>
+                        </div>
+                    </div>
+
+                    <details class="offer-unit-advanced" id="offer-drop-advanced">
+                        <summary>Дроп ціни (advanced)</summary>
+                        <div class="field-grid offer-unit-advanced-grid">
+                            <div class="field">
+                                <label for="drop_tee_price">Футболка — дроп (грн)</label>
+                                <input type="number"
+                                       id="drop_tee_price"
+                                       name="drop_tee_price"
+                                       value="{{ form.drop_tee_price.value|default_if_none:'' }}"
+                                       placeholder="Напр. 570"
+                                       inputmode="numeric">
+                                {% if form.drop_tee_price.errors %}
+                                    <div class="offer-error">{{ form.drop_tee_price.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="field">
+                                <label for="drop_hoodie_price">Худі — дроп (грн)</label>
+                                <input type="number"
+                                       id="drop_hoodie_price"
+                                       name="drop_hoodie_price"
+                                       value="{{ form.drop_hoodie_price.value|default_if_none:'' }}"
+                                       placeholder="Напр. 1350"
+                                       inputmode="numeric">
+                                {% if form.drop_hoodie_price.errors %}
+                                    <div class="offer-error">{{ form.drop_hoodie_price.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </details>
+
+                    <label class="offer-check offer-check-link offer-unit-loyalty">
+                        <input type="checkbox" id="dropship_loyalty_bonus" name="dropship_loyalty_bonus" {% if form.dropship_loyalty_bonus.value %}checked{% endif %}>
+                        <span>Показувати бонус дроп-лояльності (-10 грн до наступного замовлення)</span>
+                    </label>
+
                     <div class="field-grid offer-unit-grid">
                         <div class="field">
                             <label for="tee_entry">Футболка — вхід (грн)</label>
@@ -155,7 +216,7 @@
                                    id="tee_entry"
                                    name="tee_entry"
                                    value="{{ form.tee_entry.value|default_if_none:'' }}"
-                                   placeholder="Напр. 250"
+                                   placeholder="Напр. 540"
                                    inputmode="numeric">
                             {% if form.tee_entry.errors %}
                                 <div class="offer-error">{{ form.tee_entry.errors.0 }}</div>
@@ -167,7 +228,7 @@
                                    id="tee_retail_example"
                                    name="tee_retail_example"
                                    value="{{ form.tee_retail_example.value|default_if_none:'' }}"
-                                   placeholder="Напр. 690"
+                                   placeholder="Напр. 750"
                                    inputmode="numeric">
                             <div class="offer-profit-line">Різниця*: <span class="offer-profit" id="tee_profit_display">—</span> грн</div>
                             <div class="offer-field-warn" id="tee_profit_warn" hidden></div>
@@ -181,7 +242,7 @@
                                    id="hoodie_entry"
                                    name="hoodie_entry"
                                    value="{{ form.hoodie_entry.value|default_if_none:'' }}"
-                                   placeholder="Напр. 520"
+                                   placeholder="Напр. 1300"
                                    inputmode="numeric">
                             {% if form.hoodie_entry.errors %}
                                 <div class="offer-error">{{ form.hoodie_entry.errors.0 }}</div>
@@ -193,7 +254,7 @@
                                    id="hoodie_retail_example"
                                    name="hoodie_retail_example"
                                    value="{{ form.hoodie_retail_example.value|default_if_none:'' }}"
-                                   placeholder="Напр. 1490"
+                                   placeholder="Напр. 1790"
                                    inputmode="numeric">
                             <div class="offer-profit-line">Різниця*: <span class="offer-profit" id="hoodie_profit_display">—</span> грн</div>
                             <div class="offer-field-warn" id="hoodie_profit_warn" hidden></div>
@@ -220,13 +281,14 @@
                             {% with cta_val=form.cta_type.value|default:"" %}
                                 <option value="" {% if cta_val == "" %}selected{% endif %}>Авто (рекомендовано)</option>
                                 <option value="TELEGRAM_MANAGER" {% if cta_val == "TELEGRAM_MANAGER" %}selected{% endif %}>Telegram менеджера</option>
+                                <option value="WHATSAPP_MANAGER" {% if cta_val == "WHATSAPP_MANAGER" %}selected{% endif %}>WhatsApp менеджера</option>
                                 <option value="TELEGRAM_GENERAL" {% if cta_val == "TELEGRAM_GENERAL" %}selected{% endif %}>Telegram загальний</option>
                                 <option value="MAILTO_COOPERATION" {% if cta_val == "MAILTO_COOPERATION" %}selected{% endif %}>Email cooperation@</option>
                                 <option value="REPLY_HINT_ONLY" {% if cta_val == "REPLY_HINT_ONLY" %}selected{% endif %}>Відповідь на лист (без лінка)</option>
                                 <option value="CUSTOM_URL" {% if cta_val == "CUSTOM_URL" %}selected{% endif %}>Свій URL</option>
                             {% endwith %}
                         </select>
-                        <div class="offer-field-hint">Авто: Telegram менеджера → резервний Telegram → email.</div>
+                        <div class="offer-field-hint">Авто: Telegram менеджера → WhatsApp менеджера → email.</div>
                         {% if form.cta_type.errors %}
                             <div class="offer-error">{{ form.cta_type.errors.0 }}</div>
                         {% endif %}
@@ -262,7 +324,7 @@
                                id="cta_microtext"
                                name="cta_microtext"
                                value="{{ form.cta_microtext.value|default_if_none:'' }}"
-                               placeholder="Без зобов’язань. Якщо не зайде — повертаєте залишки. Сплачуєте лише доставку.">
+                               placeholder="Менеджер підтвердить умови під ваш обсяг.">
                         {% if form.cta_microtext.errors %}
                             <div class="offer-error">{{ form.cta_microtext.errors.0 }}</div>
                         {% endif %}
@@ -316,7 +378,7 @@
                 </div>
 
                 <div class="offer-field-hint">
-                    Вставте URL товару з сайту (<span class="offer-mono">/product/...</span>). Порожні слоти в лист не потраплять.
+                    Вставте URL товару (<span class="offer-mono">/product/...</span>) або URL картинки. Порожні слоти в лист не потраплять.
                 </div>
 
                 <div class="offer-gallery" id="offer-gallery">
@@ -498,6 +560,10 @@
                             <button type="button" class="offer-preview-size" data-offer-preview-size="DESKTOP">600px</button>
                             <button type="button" class="offer-preview-size" data-offer-preview-size="MOBILE">360px</button>
                         </div>
+                        <label class="offer-check offer-check-link offer-preview-images">
+                            <input type="checkbox" id="offer-preview-images-toggle" checked>
+                            <span>Показувати картинки</span>
+                        </label>
                     </div>
                 </div>
                 <div class="offer-preview-meta">
@@ -509,7 +575,11 @@
                 </div>
                 <div class="offer-preview-surface" id="offer-preview-surface">
                     <div class="offer-preview-viewport" id="offer-preview-viewport">
-                        <div class="offer-preview-pane" id="offer-preview-visual">{{ preview_visual_html|safe }}</div>
+                        <template id="offer-preview-initial-visual">{{ preview_visual_html|safe }}</template>
+                        <iframe class="offer-preview-pane offer-preview-iframe"
+                                id="offer-preview-visual"
+                                title="VISUAL preview"
+                                sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>
                         <pre class="offer-preview-pane offer-preview-pane-light" id="offer-preview-light">{{ preview_light_text }}</pre>
                     </div>
                 </div>
@@ -609,11 +679,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('offer-form');
     if (!form) return;
 
-    const previewVisual = document.getElementById('offer-preview-visual');
-    const previewLight = document.getElementById('offer-preview-light');
-    const previewSubject = document.getElementById('offer-preview-subject');
-    const previewPreheader = document.getElementById('offer-preview-preheader');
-    const previewTabButtons = Array.from(document.querySelectorAll('[data-offer-preview-tab]'));
+	    const previewVisual = document.getElementById('offer-preview-visual');
+	    const previewInitialVisual = document.getElementById('offer-preview-initial-visual');
+	    const previewImagesToggle = document.getElementById('offer-preview-images-toggle');
+	    const previewLight = document.getElementById('offer-preview-light');
+	    const previewSubject = document.getElementById('offer-preview-subject');
+	    const previewPreheader = document.getElementById('offer-preview-preheader');
+	    const previewTabButtons = Array.from(document.querySelectorAll('[data-offer-preview-tab]'));
 
     const alertStack = document.getElementById('offer-alert-stack');
     const historyBody = document.getElementById('offer-history-body');
@@ -668,8 +740,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const hoodieProfitDisplay = document.getElementById('hoodie_profit_display');
     const teeProfitWarn = document.getElementById('tee_profit_warn');
     const hoodieProfitWarn = document.getElementById('hoodie_profit_warn');
-    const unitFillDefaultsBtn = document.getElementById('offer-unit-fill-defaults');
-    const unitNote = document.getElementById('offer-unit-note');
+	    const unitFillDefaultsBtn = document.getElementById('offer-unit-fill-defaults');
+	    const unitNote = document.getElementById('offer-unit-note');
+	    const pricingMode = document.getElementById('pricing_mode');
+	    const optTierWrap = document.getElementById('opt_tier_wrap');
+	    const optTier = document.getElementById('opt_tier');
+	    const dropTeePrice = document.getElementById('drop_tee_price');
+	    const dropHoodiePrice = document.getElementById('drop_hoodie_price');
+	    const dropshipLoyaltyBonus = document.getElementById('dropship_loyalty_bonus');
 
     const showManager = document.getElementById('show_manager');
     const managerName = document.getElementById('manager_name');
@@ -784,6 +862,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function syncPricingUI() {
+        const isDrop = (pricingMode?.value || 'OPT').toUpperCase() === 'DROP';
+        if (optTierWrap) optTierWrap.hidden = isDrop;
+        if (optTier) optTier.disabled = isDrop;
+    }
+
     function syncSubjectCustom() {
         const isCustom = subjectPreset && subjectPreset.value === 'CUSTOM';
         if (subjectCustomWrap) subjectCustomWrap.hidden = !isCustom;
@@ -854,6 +938,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if (logPaneLight) logPaneLight.style.display = tab === 'LIGHT' ? '' : 'none';
     }
 
+    let lastPreviewVisualHtml = (previewInitialVisual && previewInitialVisual.innerHTML) ? previewInitialVisual.innerHTML.trim() : '';
+
+    function buildPreviewDoc(bodyHtml) {
+        const showImages = !previewImagesToggle || !!previewImagesToggle.checked;
+        const imagesCss = showImages ? '' : 'img{display:none !important;}';
+        const safeBody = String(bodyHtml || '');
+        return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
+            `<base target="_blank">` +
+            `<style>html,body{margin:0;padding:0;background:#121212;}${imagesCss}</style>` +
+            `</head><body>${safeBody}</body></html>`;
+    }
+
+    function renderVisualPreview(html) {
+        lastPreviewVisualHtml = String(html || '');
+        if (!previewVisual) return;
+        previewVisual.srcdoc = buildPreviewDoc(lastPreviewVisualHtml);
+    }
+
+    function refreshVisualPreview() {
+        renderVisualPreview(lastPreviewVisualHtml);
+    }
+
     async function updatePreviewNow() {
         if (previewAbortController) previewAbortController.abort();
         previewAbortController = new AbortController();
@@ -871,7 +977,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await resp.json();
             if (!data || !data.ok) return;
 
-            if (previewVisual) previewVisual.innerHTML = data.html || '';
+            renderVisualPreview(data.html || '');
             if (previewLight) previewLight.textContent = data.text || '';
             if (previewSubject) previewSubject.textContent = data.subject || '';
             if (previewPreheader) previewPreheader.textContent = data.preheader || '';
@@ -893,7 +999,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadUnitDefaults() {
         try {
-            const resp = await fetch('{% url "management_commercial_offer_email_unit_defaults_api" %}', {
+            const params = new URLSearchParams();
+            if (pricingMode && pricingMode.value) params.set('pricing_mode', pricingMode.value);
+            if (optTier && optTier.value) params.set('opt_tier', optTier.value);
+            const dropTeeVal = parseIntSafe(dropTeePrice?.value);
+            const dropHoodieVal = parseIntSafe(dropHoodiePrice?.value);
+            if (dropTeeVal !== null) params.set('drop_tee_price', String(dropTeeVal));
+            if (dropHoodieVal !== null) params.set('drop_hoodie_price', String(dropHoodieVal));
+
+            const url = `{% url "management_commercial_offer_email_unit_defaults_api" %}?${params.toString()}`;
+            const resp = await fetch(url, {
                 headers: { 'Accept': 'application/json' },
                 credentials: 'same-origin',
             });
@@ -901,8 +1016,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await resp.json();
             if (!data || !data.ok || !data.defaults) return;
             unitDefaults = data.defaults;
-            if (unitDefaults && unitDefaults.source === 'fallback') {
-                setUnitNoteText('Застосовані fallback-ціни (не вдалося підтягнути з сайту).');
+            if (unitDefaults && unitDefaults.retail_source === 'fallback') {
+                setUnitNoteText('Застосовані fallback-ціни для роздробу (не вдалося підтягнути з сайту).');
             } else {
                 setUnitNoteText('');
             }
@@ -923,19 +1038,38 @@ document.addEventListener('DOMContentLoaded', () => {
         schedulePreviewUpdate();
     }
 
-    function parseJsonList(value) {
+    function parseJsonGallery(value) {
         try {
             const data = JSON.parse(String(value || '[]'));
             if (!Array.isArray(data)) return [];
-            return data.map((x) => String(x || '').trim()).filter(Boolean).slice(0, 6);
+            return data.slice(0, 6).map((item) => {
+                if (typeof item === 'string') {
+                    const url = String(item || '').trim();
+                    return url ? { url, caption: '' } : null;
+                }
+                if (item && typeof item === 'object') {
+                    const url = String(item.url || item.link || item.href || '').trim();
+                    const caption = String(item.caption || item.title || '').trim();
+                    return url ? { url, caption } : null;
+                }
+                return null;
+            }).filter(Boolean);
         } catch (e) {
             return [];
         }
     }
 
+    function normalizeGallerySlots(slots) {
+        const list = Array.isArray(slots) ? slots : [];
+        return list.slice(0, 6).map((slot) => ({
+            url: String(slot?.url || '').trim(),
+            caption: String(slot?.caption || '').trim(),
+        }));
+    }
+
     function syncGalleryHidden() {
-        if (galleryNeutral) galleryNeutral.value = JSON.stringify(galleryState.NEUTRAL.slice(0, 6));
-        if (galleryEdgy) galleryEdgy.value = JSON.stringify(galleryState.EDGY.slice(0, 6));
+        if (galleryNeutral) galleryNeutral.value = JSON.stringify(normalizeGallerySlots(galleryState.NEUTRAL));
+        if (galleryEdgy) galleryEdgy.value = JSON.stringify(normalizeGallerySlots(galleryState.EDGY));
     }
 
     function escapeAttr(value) {
@@ -955,16 +1089,21 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderGallery() {
         if (!galleryList) return;
         const seg = getActiveSegment();
-        const urls = galleryState[seg] || [];
+        const slotsData = galleryState[seg] || [];
         const slots = Math.max(0, Math.min(6, gallerySlots[seg] || 0));
 
         const html = Array.from({ length: slots }).map((_, idx) => {
-            const url = urls[idx] || '';
+            const slot = slotsData[idx] || { url: '', caption: '' };
+            const url = String(slot.url || '').trim();
+            const caption = String(slot.caption || '').trim();
             return `
                 <div class="offer-gallery-slot" data-slot-index="${idx}">
                     <div class="offer-gallery-slot-main">
-                        <input type="url" class="offer-gallery-url" value="${escapeAttr(url)}" placeholder="https://twocomms.shop/product/...">
+                        <input type="url" class="offer-gallery-url" value="${escapeAttr(url)}" placeholder="https://twocomms.shop/product/... або https://...jpg">
                         <button type="button" class="offer-gallery-clear" aria-label="Очистити" ${url ? '' : 'disabled'}>×</button>
+                    </div>
+                    <div class="offer-gallery-slot-sub">
+                        <input type="text" class="offer-gallery-caption" value="${escapeAttr(caption)}" placeholder="Підпис (коротко)">
                     </div>
                     <div class="offer-gallery-preview" hidden>
                         <div class="offer-gallery-thumb"><img alt="" /></div>
@@ -983,13 +1122,19 @@ document.addEventListener('DOMContentLoaded', () => {
             input.addEventListener('input', () => scheduleGallerySync());
             input.addEventListener('change', () => scheduleGallerySync());
         });
+        galleryList.querySelectorAll('.offer-gallery-caption').forEach((input) => {
+            input.addEventListener('input', () => scheduleGallerySync());
+            input.addEventListener('change', () => scheduleGallerySync());
+        });
         galleryList.querySelectorAll('.offer-gallery-clear').forEach((btn) => {
             btn.addEventListener('click', (e) => {
                 const slot = e.target.closest('.offer-gallery-slot');
                 if (!slot) return;
                 const input = slot.querySelector('.offer-gallery-url');
+                const caption = slot.querySelector('.offer-gallery-caption');
                 if (!input) return;
                 input.value = '';
+                if (caption) caption.value = '';
                 scheduleGallerySync();
             });
         });
@@ -1012,10 +1157,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function syncGalleryFromUI() {
         const seg = getActiveSegment();
         if (!galleryList) return;
-        const inputs = Array.from(galleryList.querySelectorAll('.offer-gallery-url'));
-        const urls = inputs.map((el) => String(el.value || '').trim()).filter(Boolean).slice(0, 6);
-        galleryState[seg] = urls;
-        gallerySlots[seg] = Math.max(gallerySlots[seg] || 0, urls.length);
+        const slotEls = Array.from(galleryList.querySelectorAll('.offer-gallery-slot'));
+        const slots = slotEls.slice(0, 6).map((slotEl) => {
+            const url = String(slotEl.querySelector('.offer-gallery-url')?.value || '').trim();
+            const caption = String(slotEl.querySelector('.offer-gallery-caption')?.value || '').trim();
+            return { url, caption };
+        });
+        galleryState[seg] = slots;
+        gallerySlots[seg] = Math.max(gallerySlots[seg] || 0, slots.length);
         syncGalleryHidden();
         resolveGallerySlots();
         schedulePreviewUpdate();
@@ -1029,6 +1178,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const openEl = slotEl.querySelector('.offer-gallery-open');
         const errEl = slotEl.querySelector('.offer-gallery-error');
         const clearBtn = slotEl.querySelector('.offer-gallery-clear');
+        const captionInput = slotEl.querySelector('.offer-gallery-caption');
 
         const hasUrl = !!slotEl.querySelector('.offer-gallery-url')?.value?.trim();
         if (clearBtn) clearBtn.disabled = !hasUrl;
@@ -1051,9 +1201,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const caption = String(captionInput?.value || '').trim();
+        const title = caption || data.title || '';
         if (img) img.src = data.img_url || '';
-        if (img) img.alt = data.title || '';
-        if (titleEl) titleEl.textContent = data.title || '';
+        if (img) img.alt = title;
+        if (titleEl) titleEl.textContent = title;
         if (openEl) openEl.href = data.link_url || data.url || '#';
         if (errEl) {
             errEl.hidden = true;
@@ -1065,7 +1217,6 @@ document.addEventListener('DOMContentLoaded', () => {
     async function resolveProductUrl(url) {
         const clean = String(url || '').trim();
         if (!clean) return null;
-        if (!clean.includes('/product/')) return null;
         const resp = await fetch(`{% url "management_commercial_offer_email_resolve_product_api" %}?url=${encodeURIComponent(clean)}`, {
             headers: { 'Accept': 'application/json' },
             credentials: 'same-origin',
@@ -1078,12 +1229,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function resolveGallerySlots() {
         const seg = getActiveSegment();
-        const urls = galleryState[seg] || [];
+        const slots = galleryState[seg] || [];
         const slotEls = Array.from(galleryList?.querySelectorAll('.offer-gallery-slot') || []);
 
         slotEls.forEach((slotEl) => {
             const idx = Number(slotEl.getAttribute('data-slot-index') || '0');
-            const url = urls[idx] || '';
+            const url = String(slots[idx]?.url || '').trim();
 
             const timerKey = `${seg}:${idx}`;
             if (galleryResolveTimers.has(timerKey)) {
@@ -1101,7 +1252,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     updateSlotUI(slotEl, null, '');
                     const item = await resolveProductUrl(url);
                     if (!item) {
-                        updateSlotUI(slotEl, null, 'Не вдалося знайти товар за цим URL.');
+                        updateSlotUI(slotEl, null, 'Не вдалося обробити URL (перевірте товар або картинку).');
                         return;
                     }
                     updateSlotUI(slotEl, item, '');
@@ -1392,7 +1543,7 @@ document.addEventListener('DOMContentLoaded', () => {
         logModal.setAttribute('aria-hidden', 'true');
     }
 
-    function fillFormFromLog(log) {
+	    function fillFormFromLog(log) {
         recipientEmail.value = log.recipient_email || '';
         recipientName.value = log.recipient_name || '';
 
@@ -1402,17 +1553,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (subjectCustom) subjectCustom.value = log.subject_custom || '';
         syncSubjectCustom();
 
-        if (ctaType) ctaType.value = (log.cta_type || '').toUpperCase();
-        if (ctaButtonText) ctaButtonText.value = log.cta_button_text || '';
-        if (ctaCustomUrl) ctaCustomUrl.value = log.cta_custom_url || '';
-        if (ctaMicrotext) ctaMicrotext.value = log.cta_microtext || '';
-        syncCtaCustomUrl();
+	        if (ctaType) ctaType.value = (log.cta_type || '').toUpperCase();
+	        if (ctaButtonText) ctaButtonText.value = log.cta_button_text || '';
+	        if (ctaCustomUrl) ctaCustomUrl.value = log.cta_custom_url || '';
+	        if (ctaMicrotext) ctaMicrotext.value = log.cta_microtext || '';
+	        syncCtaCustomUrl();
 
-        if (teeEntry) teeEntry.value = log.tee_entry ?? '';
-        if (teeRetailExample) teeRetailExample.value = log.tee_retail_example ?? '';
-        if (hoodieEntry) hoodieEntry.value = log.hoodie_entry ?? '';
-        if (hoodieRetailExample) hoodieRetailExample.value = log.hoodie_retail_example ?? '';
-        syncUnitProfits();
+	        if (pricingMode) pricingMode.value = (log.pricing_mode || 'OPT').toUpperCase();
+	        if (optTier) optTier.value = (log.opt_tier || '8_15').toUpperCase();
+	        if (dropTeePrice) dropTeePrice.value = log.drop_tee_price ?? '';
+	        if (dropHoodiePrice) dropHoodiePrice.value = log.drop_hoodie_price ?? '';
+	        if (dropshipLoyaltyBonus) dropshipLoyaltyBonus.checked = !!log.dropship_loyalty_bonus;
+	        syncPricingUI();
+
+	        if (teeEntry) teeEntry.value = log.tee_entry ?? '';
+	        if (teeRetailExample) teeRetailExample.value = log.tee_retail_example ?? '';
+	        if (hoodieEntry) hoodieEntry.value = log.hoodie_entry ?? '';
+	        if (hoodieRetailExample) hoodieRetailExample.value = log.hoodie_retail_example ?? '';
+	        loadUnitDefaults().finally(() => syncUnitProfits());
 
         if (showManager) showManager.checked = !!log.show_manager;
         if (managerName) managerName.value = log.manager_name || '';
@@ -1432,17 +1590,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if (includeInstagramLink) includeInstagramLink.checked = log.include_instagram_link ?? true;
         if (includeSiteLink) includeSiteLink.checked = log.include_site_link ?? true;
 
-        const seg = (log.segment_mode || 'NEUTRAL').toUpperCase() === 'EDGY' ? 'EDGY' : 'NEUTRAL';
-        const galleryUrls = Array.isArray(log.gallery_urls) ? log.gallery_urls.map((x) => String(x || '').trim()).filter(Boolean).slice(0, 6) : [];
-        if (seg === 'EDGY') {
-            galleryState.EDGY = galleryUrls;
-            gallerySlots.EDGY = Math.max(3, galleryUrls.length || 0);
-        } else {
-            galleryState.NEUTRAL = galleryUrls;
-            gallerySlots.NEUTRAL = Math.max(3, galleryUrls.length || 0);
-        }
-        syncGalleryHidden();
-        renderGallery();
+	        const seg = (log.segment_mode || 'NEUTRAL').toUpperCase() === 'EDGY' ? 'EDGY' : 'NEUTRAL';
+	        const galleryItems = Array.isArray(log.gallery_urls) ? log.gallery_urls.slice(0, 6).map((item) => {
+	            if (typeof item === 'string') {
+	                const url = String(item || '').trim();
+	                return url ? { url, caption: '' } : null;
+	            }
+	            if (item && typeof item === 'object') {
+	                const url = String(item.url || item.link || item.href || '').trim();
+	                const caption = String(item.caption || item.title || '').trim();
+	                return url ? { url, caption } : null;
+	            }
+	            return null;
+	        }).filter(Boolean) : [];
+	        if (seg === 'EDGY') {
+	            galleryState.EDGY = galleryItems;
+	            gallerySlots.EDGY = Math.max(3, galleryItems.length || 0);
+	        } else {
+	            galleryState.NEUTRAL = galleryItems;
+	            gallerySlots.NEUTRAL = Math.max(3, galleryItems.length || 0);
+	        }
+	        syncGalleryHidden();
+	        renderGallery();
 
         confirmResend.value = '0';
 
@@ -1489,30 +1658,48 @@ document.addEventListener('DOMContentLoaded', () => {
         el.addEventListener(eventName, () => schedulePreviewUpdate());
     }
 
-    [recipientName, managerName, generalTg, phone, viber, whatsapp, telegram, teeEntry, teeRetailExample, hoodieEntry, hoodieRetailExample, subjectCustom, ctaButtonText, ctaCustomUrl, ctaMicrotext].forEach((el) => bindPreviewChange(el, 'input'));
-    [mode, segmentMode, subjectPreset, ctaType].forEach((el) => bindPreviewChange(el, 'change'));
-    [showManager, phoneEnabled, viberEnabled, whatsappEnabled, telegramEnabled, includeCatalogLink, includeWholesaleLink, includeDropshipLink, includeInstagramLink, includeSiteLink].forEach((el) => bindPreviewChange(el, 'change'));
+	    [recipientName, managerName, generalTg, phone, viber, whatsapp, telegram, dropTeePrice, dropHoodiePrice, teeEntry, teeRetailExample, hoodieEntry, hoodieRetailExample, subjectCustom, ctaButtonText, ctaCustomUrl, ctaMicrotext].forEach((el) => bindPreviewChange(el, 'input'));
+	    [mode, segmentMode, subjectPreset, ctaType, pricingMode, optTier].forEach((el) => bindPreviewChange(el, 'change'));
+	    [showManager, phoneEnabled, viberEnabled, whatsappEnabled, telegramEnabled, dropshipLoyaltyBonus, includeCatalogLink, includeWholesaleLink, includeDropshipLink, includeInstagramLink, includeSiteLink].forEach((el) => bindPreviewChange(el, 'change'));
 
     [teeEntry, teeRetailExample, hoodieEntry, hoodieRetailExample].forEach((el) => {
         if (!el) return;
         el.addEventListener('input', syncUnitProfits);
     });
 
-    if (subjectPreset) subjectPreset.addEventListener('change', syncSubjectCustom);
-    if (ctaType) ctaType.addEventListener('change', syncCtaCustomUrl);
-    if (showManager) showManager.addEventListener('change', syncMessengerUI);
-    messengerRows.forEach(({ toggle, input }) => {
-        toggle.addEventListener('change', syncMessengerUI);
-        input.addEventListener('input', syncMessengerUI);
-    });
+	    if (subjectPreset) subjectPreset.addEventListener('change', syncSubjectCustom);
+	    if (ctaType) ctaType.addEventListener('change', syncCtaCustomUrl);
+	    if (pricingMode) pricingMode.addEventListener('change', () => {
+	        syncPricingUI();
+	        loadUnitDefaults().finally(() => syncUnitProfits());
+	    });
+	    if (optTier) optTier.addEventListener('change', () => {
+	        loadUnitDefaults().finally(() => syncUnitProfits());
+	    });
+	    [dropTeePrice, dropHoodiePrice].forEach((el) => {
+	        if (!el) return;
+	        el.addEventListener('input', () => loadUnitDefaults().finally(() => syncUnitProfits()));
+	        el.addEventListener('change', () => loadUnitDefaults().finally(() => syncUnitProfits()));
+	    });
+	    if (showManager) showManager.addEventListener('change', syncMessengerUI);
+	    messengerRows.forEach(({ toggle, input }) => {
+	        toggle.addEventListener('change', syncMessengerUI);
+	        input.addEventListener('input', syncMessengerUI);
+	    });
 
-    previewTabButtons.forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const tab = btn.getAttribute('data-offer-preview-tab');
-            if (!tab) return;
-            setActivePreview(tab);
-        });
-    });
+	    previewTabButtons.forEach((btn) => {
+	        btn.addEventListener('click', () => {
+	            const tab = btn.getAttribute('data-offer-preview-tab');
+	            if (!tab) return;
+	            setActivePreview(tab);
+	        });
+	    });
+
+	    if (previewImagesToggle) {
+	        previewImagesToggle.addEventListener('change', () => {
+	            refreshVisualPreview();
+	        });
+	    }
 
     previewSizeButtons.forEach((btn) => {
         btn.addEventListener('click', () => {
@@ -1576,21 +1763,33 @@ document.addEventListener('DOMContentLoaded', () => {
         gallerySlots[seg] = Math.max(0, (gallerySlots[seg] || 0) - 1);
         renderGallery();
     });
-    if (galleryBtnDefault) galleryBtnDefault.addEventListener('click', async () => {
-        const seg = getActiveSegment();
-        const res = await setGalleryDefaultsForSegment(seg);
-        if (!res) {
-            setGalleryNote('Не вдалося підтягнути дефолтний набір.');
-            return;
-        }
-        const urls = (res.urls || []).map((x) => String(x || '').trim()).filter(Boolean).slice(0, 6);
-        galleryState[seg] = urls;
-        gallerySlots[seg] = Math.max(3, urls.length);
-        syncGalleryHidden();
-        renderGallery();
-        if (res.source === 'fallback') {
-            setGalleryNote('Використано fallback-набір (без даних сайту).');
-        } else {
+	    if (galleryBtnDefault) galleryBtnDefault.addEventListener('click', async () => {
+	        const seg = getActiveSegment();
+	        const res = await setGalleryDefaultsForSegment(seg);
+	        if (!res) {
+	            setGalleryNote('Не вдалося підтягнути дефолтний набір.');
+	            return;
+	        }
+	        const raw = Array.isArray(res.urls) ? res.urls : [];
+	        const slots = raw.slice(0, 6).map((item) => {
+	            if (typeof item === 'string') {
+	                const url = String(item || '').trim();
+	                return url ? { url, caption: '' } : null;
+	            }
+	            if (item && typeof item === 'object') {
+	                const url = String(item.url || item.link || item.href || '').trim();
+	                const caption = String(item.caption || item.title || '').trim();
+	                return url ? { url, caption } : null;
+	            }
+	            return null;
+	        }).filter(Boolean);
+	        galleryState[seg] = slots;
+	        gallerySlots[seg] = Math.max(3, slots.length);
+	        syncGalleryHidden();
+	        renderGallery();
+	        if (res.source === 'fallback') {
+	            setGalleryNote('Використано fallback-набір (без даних сайту).');
+	        } else {
             setGalleryNote('Поставили дефолтний набір для сегмента.');
         }
         schedulePreviewUpdate();
@@ -1607,19 +1806,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (historyBody) historyBody.addEventListener('click', handleHistoryClick);
 
-    setActivePreview((mode && (mode.value || '').toUpperCase() === 'LIGHT') ? 'LIGHT' : 'VISUAL');
-    setPreviewSize('DESKTOP');
-    syncSubjectCustom();
-    syncCtaCustomUrl();
-    syncMessengerUI();
-    galleryState.NEUTRAL = parseJsonList(galleryNeutral?.value);
-    galleryState.EDGY = parseJsonList(galleryEdgy?.value);
-    gallerySlots.NEUTRAL = Math.max(3, galleryState.NEUTRAL.length || 0);
-    gallerySlots.EDGY = Math.max(3, galleryState.EDGY.length || 0);
-    renderGallery();
-    loadUnitDefaults().finally(() => syncUnitProfits());
-    schedulePreviewUpdate();
-    scheduleDuplicateCheck();
+	    setActivePreview((mode && (mode.value || '').toUpperCase() === 'LIGHT') ? 'LIGHT' : 'VISUAL');
+	    setPreviewSize('DESKTOP');
+	    syncSubjectCustom();
+	    syncCtaCustomUrl();
+	    syncMessengerUI();
+	    syncPricingUI();
+	    galleryState.NEUTRAL = parseJsonGallery(galleryNeutral?.value);
+	    galleryState.EDGY = parseJsonGallery(galleryEdgy?.value);
+	    gallerySlots.NEUTRAL = Math.max(3, galleryState.NEUTRAL.length || 0);
+	    gallerySlots.EDGY = Math.max(3, galleryState.EDGY.length || 0);
+	    renderGallery();
+	    renderVisualPreview(lastPreviewVisualHtml);
+	    loadUnitDefaults().finally(() => syncUnitProfits());
+	    schedulePreviewUpdate();
+	    scheduleDuplicateCheck();
 });
 </script>
 {% endblock %}
