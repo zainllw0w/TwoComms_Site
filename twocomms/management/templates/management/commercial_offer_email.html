@@ -675,9 +675,11 @@
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+function initManagementCommercialOfferEmailPage() {
     const form = document.getElementById('offer-form');
     if (!form) return;
+    if (form.dataset.mgmtInitialized === '1') return;
+    form.dataset.mgmtInitialized = '1';
 
 	    const previewVisual = document.getElementById('offer-preview-visual');
 	    const previewInitialVisual = document.getElementById('offer-preview-initial-visual');
@@ -1821,6 +1823,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	    loadUnitDefaults().finally(() => syncUnitProfits());
 	    schedulePreviewUpdate();
 	    scheduleDuplicateCheck();
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initManagementCommercialOfferEmailPage);
+} else {
+    initManagementCommercialOfferEmailPage();
+}
 </script>
 {% endblock %}

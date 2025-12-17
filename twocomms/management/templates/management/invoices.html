@@ -2922,7 +2922,7 @@ function initializeColorDots() {
 }
 
 // Initialize the page
-document.addEventListener('DOMContentLoaded', function() {
+function initManagementInvoicesPage() {
     try {
         loadOrderData(); // Load saved data before wiring validations
         initializeCompanyForm();
@@ -2943,7 +2943,13 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch (error) {
         console.error('Error during initialization:', error);
     }
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initManagementInvoicesPage);
+} else {
+    initManagementInvoicesPage();
+}
 
 // Company form handling
 function initializeCompanyForm() {
@@ -4251,7 +4257,7 @@ document.head.appendChild(style);
 
 <script>
 // Toggle company section collapse
-document.addEventListener('DOMContentLoaded', function() {
+function initManagementInvoicesCompanySectionToggle() {
     const toggleBtn = document.getElementById('toggleCompanySection');
     const body = document.getElementById('companySectionBody');
     if (toggleBtn && body) {
@@ -4282,6 +4288,12 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (e) {}
         });
     }
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initManagementInvoicesCompanySectionToggle);
+} else {
+    initManagementInvoicesCompanySectionToggle();
+}
 </script>
 {% endblock %}

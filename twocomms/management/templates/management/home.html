@@ -199,8 +199,11 @@
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+function initManagementHomePage() {
     const modal = document.getElementById('client-modal');
+    if (!modal) return;
+    if (modal.dataset.mgmtInitialized === '1') return;
+    modal.dataset.mgmtInitialized = '1';
     const body = document.body;
     const openButtons = document.querySelectorAll('.open-add-client');
     const closeButtons = modal.querySelectorAll('.modal-close');
@@ -530,6 +533,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initManagementHomePage);
+} else {
+    initManagementHomePage();
+}
 </script>
 {% endblock %}
