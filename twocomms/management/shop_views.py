@@ -224,7 +224,7 @@ def _parse_uploaded_invoice_xlsx(uploaded_file) -> dict[str, Any]:
 def _shop_accessible_to_user(shop: Shop, user) -> bool:
     if user.is_staff or user.is_superuser:
         return True
-    return shop.managed_by_id == user.id or shop.created_by_id == user.id
+    return shop.created_by_id == user.id
 
 
 def _rebuild_receipts_for_shipment(shipment: ShopShipment) -> None:
@@ -269,7 +269,7 @@ def shops(request):
     if not user_is_management(request.user):
         return redirect("management_login")
 
-    qs = Shop.objects.all() if request.user.is_staff else Shop.objects.filter(managed_by=request.user)
+    qs = Shop.objects.all() if request.user.is_staff else Shop.objects.filter(created_by=request.user)
     qs = qs.annotate(
         total_amount=Coalesce(
             Sum("shipments__invoice_total_amount"),
@@ -331,7 +331,6 @@ def shops(request):
                     "id": s.id,
                     "ttn_number": s.ttn_number,
                     "shipped_at": s.shipped_at.isoformat() if s.shipped_at else "",
-                    "is_test_batch": bool(s.is_test_batch),
                     "invoice_kind": invoice_kind,
                     "wholesale_invoice_id": s.wholesale_invoice_id,
                     "invoice_title": invoice_title,
@@ -372,6 +371,8 @@ def shops(request):
                 "other_sales_channel": shop.other_sales_channel,
                 "test_product_id": shop.test_product_id,
                 "test_package": shop.test_package or {},
+                "test_contract_name": shop.test_contract_file.name.split("/")[-1] if shop.test_contract_file else "",
+                "test_contract_download_url": reverse("management_shop_contract_download", args=[shop.id]) if shop.test_contract_file else "",
                 "test_connected_at": shop.test_connected_at.isoformat() if shop.test_connected_at else "",
                 "test_period_days": int(shop.test_period_days or 14),
                 "next_contact_at": timezone.localtime(shop.next_contact_at).isoformat() if shop.next_contact_at else "",
@@ -503,6 +504,9 @@ def shops_save_api(request):
     if request.FILES.get("photo"):
         shop.photo = request.FILES["photo"]
 
+    if shop.shop_type == Shop.ShopType.TEST and request.FILES.get("test_contract_file"):
+        shop.test_contract_file = request.FILES["test_contract_file"]
+
     shop.save()
 
     # Phones (replace)
@@ -558,9 +562,8 @@ def shops_save_api(request):
 
         shipment.ttn_number = ttn_number
         shipment.shipped_at = shipped_at
-        shipment.is_test_batch = bool(s.get("is_test_batch")) or (shop.shop_type == Shop.ShopType.TEST and idx == 0)
 
-        invoice_kind = str(s.get("invoice_kind") or "none").strip()
+        invoice_kind = "none" if shop.shop_type == Shop.ShopType.TEST else str(s.get("invoice_kind") or "none").strip()
         if invoice_kind == "system":
             wid = s.get("wholesale_invoice_id")
             shipment.uploaded_invoice_file = None
@@ -600,12 +603,14 @@ def shops_save_api(request):
 
         shipment.save()
 
-        if shop.shop_type == Shop.ShopType.TEST and shipment.is_test_batch and not shop.test_connected_at:
-            shop.test_connected_at = shipment.shipped_at
-            shop.save(update_fields=["test_connected_at"])
-
         if shipment.invoice_summary:
             _rebuild_receipts_for_shipment(shipment)
+
+    if shop.shop_type == Shop.ShopType.TEST and not shop.test_connected_at:
+        shipped_dates = [d for d in shop.shipments.values_list("shipped_at", flat=True) if d]
+        if shipped_dates:
+            shop.test_connected_at = min(shipped_dates)
+            shop.save(update_fields=["test_connected_at"])
 
     # NOTE: deletions are not applied implicitly to avoid accidental data loss.
 
@@ -685,7 +690,6 @@ def shops_detail_api(request, shop_id: int):
                 "id": s.id,
                 "ttn_number": s.ttn_number,
                 "shipped_at": s.shipped_at.isoformat() if s.shipped_at else "",
-                "is_test_batch": bool(s.is_test_batch),
                 "invoice_kind": invoice_kind,
                 "invoice_title": invoice_title,
                 "invoice_total_amount": str(s.invoice_total_amount) if s.invoice_total_amount is not None else "",
@@ -702,6 +706,8 @@ def shops_detail_api(request, shop_id: int):
                 "name": shop.name,
                 "shop_type": shop.shop_type,
                 "owner_full_name": shop.owner_full_name,
+                "test_contract_name": shop.test_contract_file.name.split("/")[-1] if shop.test_contract_file else "",
+                "test_contract_download_url": reverse("management_shop_contract_download", args=[shop.id]) if shop.test_contract_file else "",
                 "phones": list(shop.phones.order_by("sort_order", "id").values("id", "role", "role_other", "phone", "is_primary")),
                 "next_contact_at": timezone.localtime(shop.next_contact_at).isoformat() if shop.next_contact_at else "",
             },
@@ -812,6 +818,56 @@ def shops_inventory_move_api(request):
     if not product_name:
         return JsonResponse({"ok": False, "error": "Вкажіть товар"}, status=400)
 
+    lines = payload.get("lines")
+    if isinstance(lines, list):
+        moves = []
+        note = str(payload.get("note") or "").strip()
+        category = str(payload.get("category") or "").strip()
+        color = str(payload.get("color") or "").strip()
+        for line in lines:
+            if not isinstance(line, dict):
+                continue
+            line_product_name = str(line.get("product_name") or product_name).strip()
+            if not line_product_name:
+                continue
+            line_category = str(line.get("category") or category).strip()
+            line_color = str(line.get("color") or color).strip()
+            line_size = str(line.get("size") or "").strip()
+
+            delta = 0
+            if kind == ShopInventoryMovement.Kind.SALE:
+                qty = _int_or_zero(line.get("qty"))
+                if qty <= 0:
+                    continue
+                delta = -qty
+            elif kind == ShopInventoryMovement.Kind.ADJUST:
+                delta = _int_or_zero(line.get("delta_qty"))
+                if delta == 0:
+                    continue
+            else:
+                qty = _int_or_zero(line.get("qty"))
+                if qty <= 0:
+                    continue
+                delta = qty
+
+            moves.append(
+                ShopInventoryMovement(
+                    shop=shop,
+                    kind=kind,
+                    product_name=line_product_name,
+                    category=line_category,
+                    size=line_size,
+                    color=line_color,
+                    delta_qty=delta,
+                    note=note,
+                    created_by=request.user,
+                )
+            )
+        if not moves:
+            return JsonResponse({"ok": False, "error": "Немає позицій для збереження"}, status=400)
+        ShopInventoryMovement.objects.bulk_create(moves)
+        return JsonResponse({"ok": True, "count": len(moves)})
+
     delta = 0
     if kind == ShopInventoryMovement.Kind.SALE:
         qty = _int_or_zero(payload.get("qty"))
@@ -866,3 +922,16 @@ def shop_shipment_invoice_download(request, shipment_id: int):
         return HttpResponse("Файл не знайдено", status=404)
     filename = shipment.uploaded_invoice_file.name.split("/")[-1]
     return FileResponse(shipment.uploaded_invoice_file.open("rb"), as_attachment=True, filename=filename)
+
+
+@login_required(login_url="management_login")
+def shop_contract_download(request, shop_id: int):
+    if not user_is_management(request.user):
+        return redirect("management_login")
+    shop = get_object_or_404(Shop, id=shop_id)
+    if not _shop_accessible_to_user(shop, request.user):
+        return HttpResponse("Доступ заборонено", status=403)
+    if not shop.test_contract_file:
+        return HttpResponse("Файл не знайдено", status=404)
+    filename = shop.test_contract_file.name.split("/")[-1]
+    return FileResponse(shop.test_contract_file.open("rb"), as_attachment=True, filename=filename)

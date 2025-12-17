@@ -43,16 +43,21 @@ function createUID(prefix) {
   return `${prefix}_${Date.now()}_${rand}`;
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+function initManagementShopsPage() {
   const body = document.body;
   const shopsDataEl = document.getElementById('shops-data');
-  const shops = shopsDataEl ? JSON.parse(shopsDataEl.textContent || '[]') : [];
+  const shopsGridRoot = document.getElementById('shops-grid');
+  const shopForm = document.getElementById('shop-form');
+  if (!shopsDataEl || !shopsGridRoot || !shopForm) return;
+  if (shopsGridRoot.dataset.mgmtInitialized === '1') return;
+  shopsGridRoot.dataset.mgmtInitialized = '1';
+
+  const shops = JSON.parse(shopsDataEl.textContent || '[]');
 
   const testProductsDataEl = document.getElementById('test-products-data');
   const testProducts = testProductsDataEl ? JSON.parse(testProductsDataEl.textContent || '[]') : [];
 
   const shopModal = document.getElementById('shop-modal');
-  const shopForm = document.getElementById('shop-form');
   const shopModalTitle = document.getElementById('shop-modal-title');
 
   const invoicesModal = document.getElementById('shop-invoices-modal');
@@ -124,7 +129,12 @@ document.addEventListener('DOMContentLoaded', () => {
       testPackageMode.value = 'rostovka';
       testPackageValue.value = '';
       testPackageJson.value = '';
+      const contractInput = document.getElementById('test_contract_file');
+      if (contractInput) contractInput.value = '';
+      const contractCurrent = document.getElementById('test-contract-current');
+      if (contractCurrent) { contractCurrent.style.display = 'none'; contractCurrent.innerHTML = ''; }
     }
+    applyShipmentsForShopType();
   }
 
   shopForm.querySelectorAll('input[name="shop_type"]').forEach((r) => {
@@ -249,7 +259,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const shipmentId = (s && s.id) ? String(s.id) : '';
     const ttn = (s && s.ttn_number) ? s.ttn_number : '';
     const shippedAt = (s && s.shipped_at) ? s.shipped_at : '';
-    const isTest = !!(s && s.is_test_batch);
     const invoiceKind = (s && s.invoice_kind) ? s.invoice_kind : 'none';
     const wholesaleInvoiceId = (s && s.wholesale_invoice_id) ? String(s.wholesale_invoice_id) : '';
     const invoiceTitle = (s && s.invoice_title) ? s.invoice_title : '';
@@ -271,13 +280,17 @@ document.addEventListener('DOMContentLoaded', () => {
           <label>Дата відправки</label>
           <input type="date" class="shipment-date" />
         </div>
-        <div class="field">
+        <div class="field shipment-invoice-kind-wrap">
           <label>Накладна</label>
           <select class="shipment-invoice-kind">
             <option value="none">—</option>
             <option value="system">Вибрати з накладних</option>
             <option value="upload">Завантажити Excel</option>
           </select>
+        </div>
+        <div class="field shipment-test-hint" style="display:none;">
+          <label>Накладна</label>
+          <div class="shop-muted">Для тестового магазину накладна не потрібна — прикріпіть договір у блоці «Тестовий магазин».</div>
         </div>
         <div class="field shipment-invoice-system" style="display:none;">
           <label>Накладна (система)</label>
@@ -286,12 +299,6 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="field shipment-invoice-upload" style="display:none;">
           <label>Excel</label>
           <input type="file" class="shipment-invoice-file" name="${fileField}" accept=".xlsx,.xlsm,.xls" />
-        </div>
-        <div class="field checkbox-field">
-          <label class="checkline">
-            <input type="checkbox" class="shipment-is-test" />
-            <span>Тестова партія</span>
-          </label>
         </div>
       </div>
       <div class="row-actions">
@@ -302,9 +309,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     el.querySelector('.shipment-ttn').value = ttn;
     el.querySelector('.shipment-date').value = shippedAt ? shippedAt.slice(0, 10) : '';
-    el.querySelector('.shipment-is-test').checked = isTest;
 
     const kindSel = el.querySelector('.shipment-invoice-kind');
+    const kindWrap = el.querySelector('.shipment-invoice-kind-wrap');
+    const testHint = el.querySelector('.shipment-test-hint');
     const sysWrap = el.querySelector('.shipment-invoice-system');
     const upWrap = el.querySelector('.shipment-invoice-upload');
     const invSel = el.querySelector('.shipment-invoice-select');
@@ -331,6 +339,20 @@ document.addEventListener('DOMContentLoaded', () => {
     kindSel.addEventListener('change', refreshKind);
     refreshKind();
 
+    el.applyShopType = (shopType) => {
+      const isTestShop = shopType === 'test';
+      if (testHint) testHint.style.display = isTestShop ? '' : 'none';
+      if (kindWrap) kindWrap.style.display = isTestShop ? 'none' : '';
+      kindSel.disabled = isTestShop;
+      if (isTestShop) {
+        kindSel.value = 'none';
+        sysWrap.style.display = 'none';
+        upWrap.style.display = 'none';
+        invSel.value = '';
+        el.querySelector('.shipment-invoice-file').value = '';
+      }
+    };
+
     el.querySelector('.shipment-remove').addEventListener('click', () => {
       el.remove();
       ensureAtLeastOneShipment();
@@ -342,6 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function ensureAtLeastOneShipment() {
     if (!shipmentsWrap.querySelector('.shipment-row')) {
       shipmentsWrap.appendChild(renderShipmentRow({ invoice_kind: 'none' }));
+      applyShipmentsForShopType();
     }
   }
 
@@ -357,6 +380,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // ignore; user may still add upload invoice
     }
     shipmentsWrap.appendChild(renderShipmentRow({ invoice_kind: 'none' }));
+    applyShipmentsForShopType();
   });
 
   function resetShopForm() {
@@ -376,6 +400,10 @@ document.addEventListener('DOMContentLoaded', () => {
     testPackageMode.value = 'rostovka';
     testPackageValue.value = '';
     testPackageJson.value = '';
+    const contractInput = document.getElementById('test_contract_file');
+    if (contractInput) contractInput.value = '';
+    const contractCurrent = document.getElementById('test-contract-current');
+    if (contractCurrent) { contractCurrent.style.display = 'none'; contractCurrent.innerHTML = ''; }
     ensureAtLeastOnePhone();
     ensureAtLeastOneShipment();
   }
@@ -433,6 +461,13 @@ document.addEventListener('DOMContentLoaded', () => {
       testPackageMode.value = tp.mode || 'rostovka';
       testPackageValue.value = tp.value || '';
       syncTestPackageJson();
+      const contractCurrent = document.getElementById('test-contract-current');
+      if (contractCurrent) {
+        const dl = shop.test_contract_download_url ? `<a href="${escapeHtml(shop.test_contract_download_url)}" target="_blank" rel="noopener">скачати</a>` : '';
+        const name = shop.test_contract_name ? escapeHtml(shop.test_contract_name) : 'немає';
+        contractCurrent.style.display = '';
+        contractCurrent.innerHTML = `Поточний договір: <b>${name}</b>${dl ? ` • ${dl}` : ''}`;
+      }
     }
 
     phonesWrap.innerHTML = '';
@@ -444,11 +479,13 @@ document.addEventListener('DOMContentLoaded', () => {
     shipmentsWrap.innerHTML = '';
     (shop.shipments || []).forEach((s) => shipmentsWrap.appendChild(renderShipmentRow(s)));
     ensureAtLeastOneShipment();
+    applyShipmentsForShopType();
 
     openModal(shopModal);
   }
 
-  document.getElementById('shop-add-card').addEventListener('click', openCreateShop);
+  const addCard = document.getElementById('shop-add-card');
+  if (addCard) addCard.addEventListener('click', openCreateShop);
 
   document.getElementById('shops-grid').addEventListener('click', async (e) => {
     const card = e.target.closest('.shop-card[data-shop-id]');
@@ -492,40 +529,36 @@ document.addEventListener('DOMContentLoaded', () => {
   function collectShipments() {
     const rows = Array.from(shipmentsWrap.querySelectorAll('.shipment-row'));
     const data = [];
+    const isTestShop = shopForm.querySelector('input[name="shop_type"]:checked')?.value === 'test';
     rows.forEach((row, idx) => {
       const ttn = row.querySelector('.shipment-ttn').value || '';
       const date = row.querySelector('.shipment-date').value || '';
       if (!ttn.trim() || !date.trim()) return;
-      const kind = row.querySelector('.shipment-invoice-kind').value || 'none';
+      const kind = isTestShop ? 'none' : (row.querySelector('.shipment-invoice-kind').value || 'none');
       const invSel = row.querySelector('.shipment-invoice-select');
       const fileInput = row.querySelector('.shipment-invoice-file');
-      const isTest = row.querySelector('.shipment-is-test').checked;
 
       const payload = {
         id: row.dataset.shipmentId ? parseInt(row.dataset.shipmentId, 10) : undefined,
         ttn_number: ttn.trim(),
         shipped_at: date,
-        is_test_batch: !!isTest,
         invoice_kind: kind,
       };
 
-      if (kind === 'system') {
-        payload.wholesale_invoice_id = invSel.value ? parseInt(invSel.value, 10) : null;
-      } else if (kind === 'upload') {
-        if (fileInput.files && fileInput.files[0]) {
-          payload.file_field = row.dataset.fileField;
-        } else {
-          payload.file_field = '';
+      if (!isTestShop) {
+        if (kind === 'system') {
+          payload.wholesale_invoice_id = invSel.value ? parseInt(invSel.value, 10) : null;
+        } else if (kind === 'upload') {
+          if (fileInput.files && fileInput.files[0]) {
+            payload.file_field = row.dataset.fileField;
+          } else {
+            payload.file_field = '';
+          }
         }
       }
 
-      // For test shops: make first shipment test batch if none selected
       data.push(payload);
     });
-
-    if (data.length && shopForm.querySelector('input[name="shop_type"]:checked')?.value === 'test') {
-      if (!data.some((x) => x.is_test_batch)) data[0].is_test_batch = true;
-    }
 
     return data;
   }
@@ -591,7 +624,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const download = s.invoice_download_url ? `<a class="btn-ghost small" href="${escapeHtml(s.invoice_download_url)}" target="_blank" rel="noopener">Скачати Excel</a>` : '';
 
     const lines = [];
-    if (items.length) {
+    if (s.invoice_kind === 'none' && !items.length) {
+      lines.push(`<div class="shop-muted">Накладної немає</div>`);
+    } else if (items.length) {
       items.slice(0, 10).forEach((it) => {
         const title = it.title || '';
         const size = it.size ? ` • ${it.size}` : '';
@@ -620,22 +655,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function openInvoicesModal(shopId) {
     currentShopId = shopId;
-    invoicesTitle.textContent = 'Накладні магазину';
+    invoicesTitle.textContent = 'Документи магазину';
     invoicesBody.innerHTML = '<div class="shop-muted">Завантаження…</div>';
     openModal(invoicesModal);
     try {
       const detail = await fetchShopDetail(shopId);
       const shop = detail.shop || {};
-      invoicesTitle.textContent = `Накладні: ${shop.name || ''}`;
+      invoicesTitle.textContent = `Документи: ${shop.name || ''}`;
       const shipments = detail.shipments || [];
-      if (!shipments.length) {
-        invoicesBody.innerHTML = '<div class="shop-muted">Немає ТТН/накладних</div>';
-        return;
+      const blocks = [];
+      if (shop.shop_type === 'test') {
+        const contract = shop.test_contract_download_url
+          ? `<a class="btn-ghost small" href="${escapeHtml(shop.test_contract_download_url)}" target="_blank" rel="noopener">Скачати договір</a>`
+          : '';
+        const contractName = shop.test_contract_name ? escapeHtml(shop.test_contract_name) : '—';
+        blocks.push(`
+          <div class="shipment-card">
+            <div class="shipment-head">
+              <div>
+                <div class="shipment-title">Договір</div>
+                <div class="shipment-meta">${contractName}</div>
+              </div>
+              <div>${contract}</div>
+            </div>
+            ${contract ? '' : '<div class="shipment-items"><div class="shop-muted">Договір не прикріплено</div></div>'}
+          </div>
+        `);
       }
-      invoicesBody.innerHTML = shipments.map(renderShipmentSummaryCard).join('');
+      if (!shipments.length) {
+        blocks.push('<div class="shop-muted">Немає ТТН</div>');
+      } else {
+        blocks.push(shipments.map(renderShipmentSummaryCard).join(''));
+      }
+      invoicesBody.innerHTML = blocks.join('');
     } catch (err) {
       invoicesBody.innerHTML = `<div class="shop-muted">${escapeHtml(err.message || 'Помилка')}</div>`;
     }
+  }
+
+  function applyShipmentsForShopType() {
+    const shopType = shopForm.querySelector('input[name="shop_type"]:checked')?.value || 'full';
+    shipmentsWrap.querySelectorAll('.shipment-row').forEach((row) => {
+      if (typeof row.applyShopType === 'function') row.applyShopType(shopType);
+    });
   }
 
   function renderCommItem(c) {
@@ -654,19 +716,154 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
   }
 
-  function renderInventoryRow(r) {
-    const title = r.product_name || '';
-    const tail = [r.size, r.color].filter(Boolean).join(' • ');
-    const stats = `Наявно: ${r.available} • Продано: ${r.sold} • Отримано: ${r.received}`;
-    return `
-      <div class="inv-row" data-product="${escapeHtml(title)}" data-size="${escapeHtml(r.size || '')}" data-color="${escapeHtml(r.color || '')}" data-category="${escapeHtml(r.category || '')}">
-        <div class="inv-row-head">
-          <div class="inv-name">${escapeHtml(title)}${tail ? ` <span class="shop-muted">• ${escapeHtml(tail)}</span>` : ''}</div>
-          <div class="inv-stats">${escapeHtml(stats)}</div>
+  let inventoryGroups = [];
+
+  const SIZE_ORDER = ['XXXS','XXS','XS','S','M','L','XL','XXL','XXXL','4XL','5XL','6XL'];
+  function sizeRank(sizeRaw) {
+    const s = String(sizeRaw || '').trim().toUpperCase();
+    if (!s) return 10_000;
+    const idx = SIZE_ORDER.indexOf(s);
+    if (idx >= 0) return idx;
+    const num = parseFloat(s.replace(',', '.'));
+    if (!Number.isNaN(num)) return 5000 + num;
+    return 9000 + s.charCodeAt(0);
+  }
+
+  function buildInventoryGroups(rows) {
+    const map = new Map();
+    (rows || []).forEach((r) => {
+      const productName = String(r.product_name || '').trim();
+      const category = String(r.category || '').trim();
+      const color = String(r.color || '').trim();
+      const key = `${category}||${productName}||${color}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          id: 0,
+          key,
+          product_name: productName,
+          category,
+          color,
+          sizes: [],
+          totals: { available: 0, sold: 0, received: 0 },
+          search: '',
+        });
+      }
+      const g = map.get(key);
+      g.sizes.push({
+        size: String(r.size || '').trim(),
+        available: Number(r.available || 0),
+        sold: Number(r.sold || 0),
+        received: Number(r.received || 0),
+      });
+    });
+
+    const groups = Array.from(map.values());
+    groups.forEach((g, idx) => {
+      g.id = idx;
+      g.sizes.sort((a, b) => sizeRank(a.size) - sizeRank(b.size));
+      g.totals = g.sizes.reduce((acc, s) => {
+        acc.available += s.available || 0;
+        acc.sold += s.sold || 0;
+        acc.received += s.received || 0;
+        return acc;
+      }, { available: 0, sold: 0, received: 0 });
+      g.search = `${g.product_name} ${g.category} ${g.color}`.toLowerCase();
+    });
+    groups.sort((a, b) => (a.category + a.product_name).localeCompare(b.category + b.product_name));
+    return groups;
+  }
+
+  function renderInventory(groups) {
+    const toolbar = `
+      <div class="inv-toolbar">
+        <input type="search" id="inv-search" placeholder="Пошук товару / категорії / кольору…" />
+      </div>
+    `;
+    const cards = (groups || []).map((g) => {
+      const meta = [g.category, g.color].filter(Boolean).join(' • ');
+      const totals = `Наявно: ${g.totals.available} • Продано: ${g.totals.sold} • Отримано: ${g.totals.received}`;
+      const sizePills = (g.sizes || []).map((s) => {
+        const label = s.size || '—';
+        return `<span class="inv-size-pill"><span>${escapeHtml(label)}</span><span class="count">${escapeHtml(String(s.available || 0))}</span></span>`;
+      }).join('');
+      return `
+        <div class="inv-group" data-inv-group-id="${g.id}" data-inv-search="${escapeHtml(g.search)}">
+          <div class="inv-group-head">
+            <div>
+              <div class="inv-group-name">${escapeHtml(g.product_name || '—')}</div>
+              ${meta ? `<div class="inv-group-meta">${escapeHtml(meta)}</div>` : ''}
+            </div>
+            <div class="inv-group-totals">${escapeHtml(totals)}</div>
+          </div>
+          <div class="inv-size-grid">${sizePills || '<div class="shop-muted">Немає розмірів</div>'}</div>
+          <div class="inv-group-actions">
+            <button type="button" class="btn-ghost small" data-inv-group-action="sale">Продати</button>
+            <button type="button" class="btn-ghost small" data-inv-group-action="adjust">Коригувати</button>
+          </div>
+          <div class="inv-editor" style="display:none;"></div>
         </div>
-        <div class="inv-actions">
-          <button type="button" class="btn-ghost small" data-inv-action="sale">Продано</button>
-          <button type="button" class="btn-ghost small" data-inv-action="adjust">Коригувати</button>
+      `;
+    }).join('');
+    return toolbar + (cards || '<div class="shop-muted">Немає позицій</div>');
+  }
+
+  function renderSaleEditor(group) {
+    const rows = (group.sizes || []).map((s) => {
+      const label = s.size || '—';
+      const max = Math.max(0, Number(s.available || 0));
+      const sold = Math.max(0, Number(s.sold || 0));
+      const received = Math.max(0, Number(s.received || 0));
+      return `
+        <div class="inv-sale-row">
+          <div class="inv-sale-size">${escapeHtml(label)}</div>
+          <div class="inv-sale-available">Наявно: ${escapeHtml(String(max))} • Продано: ${escapeHtml(String(sold))} • Отримано: ${escapeHtml(String(received))}</div>
+          <input type="number" class="inv-sale-qty" data-size="${escapeHtml(s.size || '')}" min="0" max="${escapeHtml(String(max))}" value="0" />
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="inv-editor-card" data-inv-editor="sale">
+        <div class="inv-editor-head">
+          <div class="inv-editor-title">Продаж (вкажіть розміри)</div>
+          <button type="button" class="btn-ghost small" data-inv-editor-cancel>Скасувати</button>
+        </div>
+        <div class="inv-sale-grid">${rows || '<div class="shop-muted">Немає розмірів для продажу</div>'}</div>
+        <div class="inv-sale-total" data-inv-sale-total>Разом: 0</div>
+        <div class="inv-editor-actions">
+          <button type="button" class="btn-primary" data-inv-editor-submit="sale">Зберегти продаж</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderAdjustEditor(group) {
+    const opts = (group.sizes || []).map((s) => {
+      const label = s.size || '—';
+      return `<option value="${escapeHtml(s.size || '')}">${escapeHtml(label)}</option>`;
+    }).join('');
+    return `
+      <div class="inv-editor-card" data-inv-editor="adjust">
+        <div class="inv-editor-head">
+          <div class="inv-editor-title">Коригування залишків</div>
+          <button type="button" class="btn-ghost small" data-inv-editor-cancel>Скасувати</button>
+        </div>
+        <div class="field-grid">
+          <div class="field">
+            <label>Розмір</label>
+            <select class="inv-adjust-size">${opts || '<option value="">—</option>'}</select>
+          </div>
+          <div class="field">
+            <label>Коригування (+/-)</label>
+            <input type="number" class="inv-adjust-delta" value="1" />
+          </div>
+          <div class="field field-span-2">
+            <label>Нотатка</label>
+            <input type="text" class="inv-adjust-note" placeholder="Напр.: повернення, пересорт…" />
+          </div>
+        </div>
+        <div class="inv-editor-actions">
+          <button type="button" class="btn-primary" data-inv-editor-submit="adjust">Зберегти коригування</button>
         </div>
       </div>
     `;
@@ -689,7 +886,18 @@ document.addEventListener('DOMContentLoaded', () => {
       manageCommList.innerHTML = comms.length ? comms.map(renderCommItem).join('') : '<div class="shop-muted">Немає записів</div>';
 
       const inv = detail.inventory || [];
-      manageInventory.innerHTML = inv.length ? inv.map(renderInventoryRow).join('') : '<div class="shop-muted">Немає позицій (додайте накладні або коригування)</div>';
+      inventoryGroups = buildInventoryGroups(inv);
+      manageInventory.innerHTML = inventoryGroups.length ? renderInventory(inventoryGroups) : '<div class="shop-muted">Немає позицій (додайте накладні або коригування)</div>';
+      const search = manageInventory.querySelector('#inv-search');
+      if (search) {
+        search.addEventListener('input', () => {
+          const q = (search.value || '').trim().toLowerCase();
+          manageInventory.querySelectorAll('.inv-group').forEach((el) => {
+            const text = (el.dataset.invSearch || '').toLowerCase();
+            el.style.display = !q || text.includes(q) ? '' : 'none';
+          });
+        });
+      }
 
       // set defaults for comm form
       document.getElementById('comm_contacted_at').value = isoToDateTimeLocal(new Date().toISOString());
@@ -754,53 +962,125 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  function getInvGroupFromEl(el) {
+    const groupEl = el.closest('.inv-group');
+    if (!groupEl) return { groupEl: null, group: null };
+    const id = parseInt(groupEl.dataset.invGroupId || '', 10);
+    const group = inventoryGroups.find((g) => g.id === id) || null;
+    return { groupEl, group };
+  }
+
+  function closeAllInvEditors(exceptGroupEl) {
+    manageInventory.querySelectorAll('.inv-group .inv-editor').forEach((ed) => {
+      const host = ed.closest('.inv-group');
+      if (exceptGroupEl && host === exceptGroupEl) return;
+      ed.style.display = 'none';
+      ed.innerHTML = '';
+    });
+  }
+
+  manageInventory.addEventListener('input', (e) => {
+    const qtyInput = e.target.closest('.inv-sale-qty');
+    if (!qtyInput) return;
+    const editor = qtyInput.closest('[data-inv-editor="sale"]');
+    if (!editor) return;
+    const totalEl = editor.querySelector('[data-inv-sale-total]');
+    if (!totalEl) return;
+    let total = 0;
+    editor.querySelectorAll('.inv-sale-qty').forEach((inp) => {
+      const v = parseInt(inp.value || '0', 10);
+      if (v > 0) total += v;
+    });
+    totalEl.textContent = `Разом: ${total}`;
+  });
+
   manageInventory.addEventListener('click', async (e) => {
-    const btn = e.target.closest('button[data-inv-action]');
-    if (!btn) return;
-    const row = btn.closest('.inv-row');
-    if (!row || !currentShopId) return;
-    const action = btn.dataset.invAction;
-    const productName = row.dataset.product || '';
-    const size = row.dataset.size || '';
-    const color = row.dataset.color || '';
-    const category = row.dataset.category || '';
+    const cancelBtn = e.target.closest('[data-inv-editor-cancel]');
+    if (cancelBtn) {
+      const editor = cancelBtn.closest('.inv-editor');
+      if (editor) { editor.style.display = 'none'; editor.innerHTML = ''; }
+      return;
+    }
+
+    const groupActionBtn = e.target.closest('button[data-inv-group-action]');
+    if (groupActionBtn) {
+      const { groupEl, group } = getInvGroupFromEl(groupActionBtn);
+      if (!groupEl || !group || !currentShopId) return;
+      const action = groupActionBtn.dataset.invGroupAction;
+      const editor = groupEl.querySelector('.inv-editor');
+      if (!editor) return;
+      closeAllInvEditors(groupEl);
+      editor.style.display = '';
+      if (action === 'sale') {
+        editor.innerHTML = renderSaleEditor(group);
+      } else if (action === 'adjust') {
+        editor.innerHTML = renderAdjustEditor(group);
+      }
+      return;
+    }
+
+    const submitBtn = e.target.closest('button[data-inv-editor-submit]');
+    if (!submitBtn) return;
+    const { groupEl, group } = getInvGroupFromEl(submitBtn);
+    if (!groupEl || !group || !currentShopId) return;
+    const mode = submitBtn.dataset.invEditorSubmit;
+    const editor = groupEl.querySelector('.inv-editor');
+    if (!editor) return;
 
     try {
-      if (action === 'sale') {
-        const qty = parseInt(prompt('Скільки продано? (число)', '1') || '0', 10);
-        if (!qty || qty <= 0) return;
+      if (mode === 'sale') {
+        const lines = [];
+        editor.querySelectorAll('.inv-sale-qty').forEach((inp) => {
+          const qty = parseInt(inp.value || '0', 10);
+          if (!qty || qty <= 0) return;
+          lines.push({ size: inp.dataset.size || '', qty });
+        });
+        if (!lines.length) return;
+        submitBtn.disabled = true;
         await postJson('/shops/api/inventory/move/', {
           shop_id: currentShopId,
           kind: 'sale',
-          product_name: productName,
-          size,
-          color,
-          category,
-          qty,
+          product_name: group.product_name,
+          category: group.category,
+          color: group.color,
           note: 'Продано',
+          lines,
         });
-      } else if (action === 'adjust') {
-        const delta = parseInt(prompt('Коригування кількості (можна зі знаком +/-)', '1') || '0', 10);
+      } else if (mode === 'adjust') {
+        const size = editor.querySelector('.inv-adjust-size')?.value || '';
+        const delta = parseInt(editor.querySelector('.inv-adjust-delta')?.value || '0', 10);
+        const note = editor.querySelector('.inv-adjust-note')?.value || '';
         if (!delta) return;
+        submitBtn.disabled = true;
         await postJson('/shops/api/inventory/move/', {
           shop_id: currentShopId,
           kind: 'adjust',
-          product_name: productName,
+          product_name: group.product_name,
+          category: group.category,
+          color: group.color,
           size,
-          color,
-          category,
           delta_qty: delta,
-          note: 'Коригування',
+          note: note.trim() || 'Коригування',
         });
       }
+
       await openManageModal(currentShopId);
     } catch (err) {
       alert(err.message || 'Помилка');
+      submitBtn.disabled = false;
     }
   });
 
   async function deleteShop(shopId) {
-    if (!confirm('Видалити магазин? Це може зробити лише адміністратор.')) return;
+    const shop = shops.find((x) => String(x.id) === String(shopId));
+    const canDelete = !!(shop && shop.can_delete);
+    if (!canDelete) {
+      const ok = confirm('У вас недостатньо прав для видалення магазину. Зверніться до адміністратора.\n\nНатисніть OK, щоб перейти в Telegram.');
+      if (ok) window.location.href = 'https://telegram.com';
+      return;
+    }
+
+    if (!confirm('Видалити магазин?')) return;
     try {
       const res = await fetch(`/shops/api/${shopId}/delete/`, {
         method: 'POST',
@@ -813,5 +1093,10 @@ document.addEventListener('DOMContentLoaded', () => {
       alert(err.message || 'Помилка');
     }
   }
-});
+}
 
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initManagementShopsPage);
+} else {
+  initManagementShopsPage();
+}

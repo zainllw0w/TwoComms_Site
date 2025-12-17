@@ -56,8 +56,13 @@
                     {% if shop.primary_phone %}
                         <span class="shop-muted">☎</span> {{ shop.primary_phone }}
                     {% endif %}
-                    {% if request.user.is_staff and shop.managed_by %}
-                        <span class="shop-muted">•</span> Веде: {{ shop.managed_by }}
+                    {% if request.user.is_staff %}
+                        {% if shop.created_by %}
+                            <span class="shop-muted">•</span> Додав: {{ shop.created_by }}
+                        {% endif %}
+                        {% if shop.managed_by %}
+                            <span class="shop-muted">•</span> Веде: {{ shop.managed_by }}
+                        {% endif %}
                     {% endif %}
                 </div>
             </div>
@@ -66,9 +71,7 @@
                 <button type="button" class="btn-ghost small" data-action="edit">Редагувати</button>
                 <button type="button" class="btn-ghost small" data-action="manage">Менеджмент товарів</button>
                 <button type="button" class="btn-ghost small" data-action="invoices">Дивитись накладну</button>
-                {% if shop.can_delete %}
-                    <button type="button" class="btn-ghost small danger" data-action="delete">Видалити</button>
-                {% endif %}
+                <button type="button" class="btn-ghost small danger" data-action="delete">Видалити</button>
             </div>
         </div>
         {% endfor %}
@@ -133,21 +136,21 @@
                             <input type="checkbox" id="ch_website" data-toggle="website_url">
                             <span>Сайт</span>
                         </label>
-                        <input type="url" id="website_url" name="website_url" placeholder="https://..." style="display:none;">
+                        <input type="text" id="website_url" name="website_url" placeholder="twoComms.shop або https://..." style="display:none;">
                     </div>
                     <div class="field checkbox-field">
                         <label class="checkline">
                             <input type="checkbox" id="ch_instagram" data-toggle="instagram_url">
                             <span>Instagram / Instashop</span>
                         </label>
-                        <input type="url" id="instagram_url" name="instagram_url" placeholder="https://instagram.com/..." style="display:none;">
+                        <input type="text" id="instagram_url" name="instagram_url" placeholder="instagram.com/... або https://instagram.com/..." style="display:none;">
                     </div>
                     <div class="field checkbox-field">
                         <label class="checkline">
                             <input type="checkbox" id="ch_prom" data-toggle="prom_url">
                             <span>Prom.ua</span>
                         </label>
-                        <input type="url" id="prom_url" name="prom_url" placeholder="https://prom.ua/..." style="display:none;">
+                        <input type="text" id="prom_url" name="prom_url" placeholder="prom.ua/... або https://prom.ua/..." style="display:none;">
                     </div>
                     <div class="field checkbox-field field-span-2">
                         <label class="checkline">
@@ -221,6 +224,11 @@
                         <div class="field">
                             <label for="test_package_value">Деталі комплектації</label>
                             <input type="text" id="test_package_value" placeholder="Напр.: S, M, L, XL">
+                        </div>
+                        <div class="field field-span-2">
+                            <label for="test_contract_file">Договір (файл)</label>
+                            <input type="file" id="test_contract_file" name="test_contract_file">
+                            <div id="test-contract-current" class="shop-muted" style="display:none; margin-top:-2px;"></div>
                         </div>
                     </div>
                     <input type="hidden" id="test_package_json" name="test_package_json">
@@ -332,4 +340,3 @@
 {% block extra_js %}
 <script src="{% static 'js/management-shops.js' %}"></script>
 {% endblock %}
-

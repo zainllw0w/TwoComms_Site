@@ -420,9 +420,10 @@ class Shop(models.Model):
     city = models.CharField(_("Місто"), max_length=120, blank=True)
     address = models.TextField(_("Адреса"), blank=True)
 
-    website_url = models.URLField(_("Сайт"), blank=True)
-    instagram_url = models.URLField(_("Instagram / Instashop"), blank=True)
-    prom_url = models.URLField(_("Prom.ua"), blank=True)
+    # URLs can be stored without scheme (http/https); we'll normalize for clickable links in UI.
+    website_url = models.CharField(_("Сайт"), max_length=500, blank=True)
+    instagram_url = models.CharField(_("Instagram / Instashop"), max_length=500, blank=True)
+    prom_url = models.CharField(_("Prom.ua"), max_length=500, blank=True)
     other_sales_channel = models.CharField(_("Інше (де ще продають)"), max_length=500, blank=True)
 
     # Test shop fields
@@ -435,6 +436,7 @@ class Shop(models.Model):
         related_name="management_test_shops",
     )
     test_package = models.JSONField(_("Тестова партія: комплектація"), default=dict, blank=True)
+    test_contract_file = models.FileField(_("Договір (тест)"), upload_to="shops/contracts/", blank=True, null=True)
     test_connected_at = models.DateField(_("Дата підключення (старт 14 днів)"), null=True, blank=True)
     test_period_days = models.PositiveIntegerField(_("Тривалість тесту (днів)"), default=14)
 
@@ -487,7 +489,6 @@ class ShopShipment(models.Model):
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name="shipments", verbose_name=_("Магазин"))
     ttn_number = models.CharField(_("ТТН"), max_length=64, db_index=True)
     shipped_at = models.DateField(_("Дата відправки"), db_index=True)
-    is_test_batch = models.BooleanField(_("Тестова партія"), default=False, db_index=True)
 
     wholesale_invoice = models.ForeignKey(
         "orders.WholesaleInvoice",

@@ -31,10 +31,11 @@
     <link rel="icon" href="{% static 'faviconMNG/faviconMNG.ico' %}" sizes="any" type="image/x-icon">
     <link rel="shortcut icon" href="{% static 'faviconMNG/faviconMNG.ico' %}">
     <link rel="mask-icon" href="{% static 'img/logo.svg' %}" color="#ff7e29">
-    {% block extra_css %}{% endblock %}
 </head>
 
-<body class="management-body">
+<body class="management-body"
+      data-mgmt-shell="{% if request.resolver_match.url_name == 'management_home' or request.resolver_match.url_name == 'management_invoices' or request.resolver_match.url_name == 'management_commercial_offer_email' or request.resolver_match.url_name == 'management_shops' %}1{% else %}0{% endif %}"
+      data-url-name="{{ request.resolver_match.url_name }}">
     <!-- Глобальный верхний хедер -->
     <header class="global-header">
         <div class="header-left">
@@ -47,7 +48,7 @@
             </div>
         </div>
         <nav class="header-tabs">
-            <a href="{% url 'management_home' %}" class="tab{% if request.resolver_match.url_name == 'management_home' %} active{% endif %}">Менеджмент</a>
+            <a href="{% url 'management_home' %}" class="tab{% if request.resolver_match.url_name == 'management_home' or request.resolver_match.url_name == 'management_invoices' or request.resolver_match.url_name == 'management_commercial_offer_email' or request.resolver_match.url_name == 'management_shops' %} active{% endif %}">Менеджмент</a>
             <a href="{% url 'management_reports' %}" class="tab{% if request.resolver_match.url_name == 'management_reports' %} active{% endif %}">Звітність</a>
             <a href="#" class="tab">Статистика</a>
             <a href="#" class="tab">Виплати</a>
@@ -117,6 +118,7 @@
 
     <div class="workspace">
         <!-- Left Sidebar -->
+        {% if request.resolver_match.url_name == 'management_home' or request.resolver_match.url_name == 'management_invoices' or request.resolver_match.url_name == 'management_commercial_offer_email' or request.resolver_match.url_name == 'management_shops' %}
         <aside class="sidebar">
             <div class="user-profile">
                 {% if request.user.userprofile.avatar %}
@@ -211,16 +213,23 @@
                 </a>
             </nav>
         </aside>
+        {% endif %}
 
         <!-- Main Content (Right) -->
         <main class="main-content">
             <div class="content-area">
-                {% block content %}{% endblock %}
+                <div id="mgmt-page-root" data-page="{{ request.resolver_match.url_name }}">
+                    <div id="mgmt-page-css">
+                        {% block extra_css %}{% endblock %}
+                    </div>
+                    {% block content %}{% endblock %}
+                    <div id="mgmt-page-js">
+                        {% block extra_js %}{% endblock %}
+                    </div>
+                </div>
             </div>
         </main>
     </div>
-
-    {% block extra_js %}{% endblock %}
 
     <!-- Profile Modal -->
     <div class="modal-overlay" id="profile-modal">
@@ -641,6 +650,8 @@
         }
     });
     </script>
+
+    <script src="{% static 'js/management-shell.js' %}"></script>
 </body>
 
 </html>
