@@ -84,9 +84,12 @@
 
     // Detach current root
     const currentRoot = cache.get(currentUrl);
+    // Ensure we don't keep "loading dim" when this page is cached and later revisited
+    if (currentRoot) currentRoot.style.opacity = '';
     if (currentRoot && currentRoot.isConnected) currentRoot.remove();
 
     // Attach next
+    if (nextRoot) nextRoot.style.opacity = '';
     contentArea.appendChild(nextRoot);
     currentUrl = nextUrlKey;
 
@@ -138,6 +141,7 @@
 
     const built = await fetchAndBuild(targetUrl);
     if (!built) {
+      if (currentRoot) currentRoot.style.opacity = '';
       window.location.href = urlKey;
       return;
     }
@@ -169,4 +173,3 @@
     navigate(urlKey, false);
   });
 })();
-
