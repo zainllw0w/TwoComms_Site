@@ -56,6 +56,7 @@ class Client(models.Model):
 
 
 class Report(models.Model):
+    id = models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         verbose_name=_("Менеджер"),
@@ -77,6 +78,7 @@ class Report(models.Model):
 
 
 class ReminderSent(models.Model):
+    id = models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")
     key = models.CharField(max_length=255, db_index=True)
     chat_id = models.BigIntegerField()
     sent_at = models.DateTimeField(auto_now_add=True)
@@ -86,6 +88,7 @@ class ReminderSent(models.Model):
 
 
 class ReminderRead(models.Model):
+    id = models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -381,3 +384,221 @@ class CommercialOfferEmailLog(models.Model):
 
     def __str__(self):
         return f"КП → {self.recipient_email} ({self.created_at:%Y-%m-%d %H:%M})"
+
+
+class Shop(models.Model):
+    class ShopType(models.TextChoices):
+        FULL = "full", _("Опт / повний магазин")
+        TEST = "test", _("Тестова партія")
+
+    name = models.CharField(_("Назва магазину"), max_length=255)
+    photo = models.ImageField(_("Фото магазину"), upload_to="shops/photos/", blank=True, null=True)
+
+    owner_full_name = models.CharField(_("ПІБ власника"), max_length=255, blank=True)
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name=_("Додав (менеджер)"),
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="management_shops_created",
+    )
+    managed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name=_("Веде (менеджер)"),
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="management_shops_managed",
+    )
+
+    shop_type = models.CharField(_("Тип магазину"), max_length=10, choices=ShopType.choices, default=ShopType.FULL)
+
+    registration_place = models.CharField(_("Місце реєстрації"), max_length=255, blank=True)
+    is_physical = models.BooleanField(_("Фізичний магазин"), default=False)
+    city = models.CharField(_("Місто"), max_length=120, blank=True)
+    address = models.TextField(_("Адреса"), blank=True)
+
+    website_url = models.URLField(_("Сайт"), blank=True)
+    instagram_url = models.URLField(_("Instagram / Instashop"), blank=True)
+    prom_url = models.URLField(_("Prom.ua"), blank=True)
+    other_sales_channel = models.CharField(_("Інше (де ще продають)"), max_length=500, blank=True)
+
+    # Test shop fields
+    test_product = models.ForeignKey(
+        "storefront.Product",
+        verbose_name=_("Тестова партія: товар"),
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="management_test_shops",
+    )
+    test_package = models.JSONField(_("Тестова партія: комплектація"), default=dict, blank=True)
+    test_connected_at = models.DateField(_("Дата підключення (старт 14 днів)"), null=True, blank=True)
+    test_period_days = models.PositiveIntegerField(_("Тривалість тесту (днів)"), default=14)
+
+    next_contact_at = models.DateTimeField(_("Наступний контакт"), null=True, blank=True)
+    notes = models.TextField(_("Нотатки"), blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Магазин")
+        verbose_name_plural = _("Магазини")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["shop_type", "-created_at"], name="mgmt_shop_type_dt"),
+            models.Index(fields=["managed_by", "-created_at"], name="mgmt_shop_mgr_dt"),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class ShopPhone(models.Model):
+    class Role(models.TextChoices):
+        OWNER = "owner", _("Власник")
+        MANAGER = "manager", _("Менеджер")
+        ADMIN = "admin", _("Адміністратор")
+        OTHER = "other", _("Інший")
+
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name="phones", verbose_name=_("Магазин"))
+    role = models.CharField(_("Роль"), max_length=20, choices=Role.choices, default=Role.OWNER)
+    role_other = models.CharField(_("Хто це (якщо інший)"), max_length=120, blank=True)
+    phone = models.CharField(_("Телефон"), max_length=50)
+    is_primary = models.BooleanField(_("Основний"), default=False)
+    sort_order = models.PositiveIntegerField(_("Порядок"), default=0)
+
+    class Meta:
+        verbose_name = _("Контакт магазину")
+        verbose_name_plural = _("Контакти магазину")
+        ordering = ["sort_order", "id"]
+        indexes = [
+            models.Index(fields=["shop", "is_primary"], name="mgmt_shop_phone_primary"),
+        ]
+
+    def __str__(self):
+        return f"{self.shop_id}: {self.phone}"
+
+
+class ShopShipment(models.Model):
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name="shipments", verbose_name=_("Магазин"))
+    ttn_number = models.CharField(_("ТТН"), max_length=64, db_index=True)
+    shipped_at = models.DateField(_("Дата відправки"), db_index=True)
+    is_test_batch = models.BooleanField(_("Тестова партія"), default=False, db_index=True)
+
+    wholesale_invoice = models.ForeignKey(
+        "orders.WholesaleInvoice",
+        verbose_name=_("Накладна (система)"),
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="management_shop_shipments",
+    )
+    uploaded_invoice_file = models.FileField(
+        _("Накладна (Excel файл)"),
+        upload_to="shops/invoices/",
+        blank=True,
+        null=True,
+    )
+    invoice_summary = models.JSONField(_("Сводка накладной"), default=dict, blank=True)
+    invoice_total_amount = models.DecimalField(_("Сума накладної"), max_digits=12, decimal_places=2, null=True, blank=True)
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name=_("Створив"),
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="management_shop_shipments_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Відправка (ТТН)")
+        verbose_name_plural = _("Відправки (ТТН)")
+        ordering = ["-shipped_at", "-created_at"]
+        indexes = [
+            models.Index(fields=["shop", "-shipped_at"], name="mgmt_ship_shop_dt"),
+        ]
+
+    def __str__(self):
+        return f"{self.shop_id}: {self.ttn_number}"
+
+
+class ShopCommunication(models.Model):
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name="communications", verbose_name=_("Магазин"))
+    contacted_at = models.DateTimeField(_("Коли звʼязувались"), auto_now_add=False)
+    contact_person = models.CharField(_("З ким"), max_length=255, blank=True)
+    phone = models.CharField(_("Номер"), max_length=50, blank=True)
+    note = models.TextField(_("Нотатка"), blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name=_("Створив"),
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="management_shop_comms_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("Комунікація (магазин)")
+        verbose_name_plural = _("Комунікації (магазин)")
+        ordering = ["-contacted_at", "-created_at"]
+        indexes = [
+            models.Index(fields=["shop", "-contacted_at"], name="mgmt_shop_comm_dt"),
+        ]
+
+    def __str__(self):
+        return f"{self.shop_id}: {self.contacted_at:%Y-%m-%d %H:%M}"
+
+
+class ShopInventoryMovement(models.Model):
+    class Kind(models.TextChoices):
+        RECEIPT = "receipt", _("Надходження")
+        SALE = "sale", _("Продаж")
+        ADJUST = "adjust", _("Коригування")
+
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name="inventory_moves", verbose_name=_("Магазин"))
+    shipment = models.ForeignKey(
+        ShopShipment,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="inventory_moves",
+        verbose_name=_("ТТН"),
+    )
+    kind = models.CharField(_("Тип"), max_length=20, choices=Kind.choices, db_index=True)
+
+    product_name = models.CharField(_("Товар"), max_length=255)
+    category = models.CharField(_("Категорія"), max_length=120, blank=True)
+    size = models.CharField(_("Розмір"), max_length=40, blank=True)
+    color = models.CharField(_("Колір"), max_length=80, blank=True)
+
+    delta_qty = models.IntegerField(_("Зміна кількості (±)"))
+    note = models.CharField(_("Коментар"), max_length=255, blank=True)
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name=_("Створив"),
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="management_shop_inventory_moves_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("Рух товару (магазин)")
+        verbose_name_plural = _("Рух товару (магазин)")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["shop", "kind", "-created_at"], name="mgmt_inv_shop_kind"),
+        ]
+
+    def __str__(self):
+        return f"{self.shop_id}: {self.kind} {self.delta_qty}"

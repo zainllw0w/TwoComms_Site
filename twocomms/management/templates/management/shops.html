@@ -1,0 +1,335 @@
+{% extends "management/base.html" %}
+{% load static %}
+
+{% block content %}
+<section class="shops-panel">
+    <div class="panel-header">
+        <div>
+            <p class="eyebrow">Магазини</p>
+            <h2>Список магазинів</h2>
+        </div>
+    </div>
+
+    <div class="shops-grid" id="shops-grid">
+        <button type="button" class="shop-card shop-add-card" id="shop-add-card" aria-label="Додати новий магазин">
+            <div class="shop-media shop-media-add">
+                <div class="shop-add-icon">+</div>
+            </div>
+            <div class="shop-body">
+                <div class="shop-title">Додати новий магазин</div>
+                <div class="shop-meta">Створити картку та додати ТТН/накладні</div>
+            </div>
+        </button>
+
+        {% for shop in shops_payload %}
+        <div class="shop-card" data-shop-id="{{ shop.id }}">
+            <div class="shop-media">
+                {% if shop.photo_url %}
+                    <img class="shop-img" src="{{ shop.photo_url }}" alt="{{ shop.name|escape }}">
+                {% else %}
+                    <img class="shop-img" src="{% static 'img/placeholder.jpg' %}" alt="placeholder">
+                {% endif %}
+
+                <div class="shop-badges">
+                    {% if shop.shop_type == 'test' %}
+                        <span class="shop-badge badge-test">Тестова партія</span>
+                    {% else %}
+                        <span class="shop-badge badge-full">Опт / повний</span>
+                    {% endif %}
+
+                    {% if shop.timer %}
+                        <span class="shop-badge badge-timer badge-timer-{{ shop.timer.status }}">{{ shop.timer.label }}</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="shop-body">
+                <div class="shop-title">{{ shop.name }}</div>
+                <div class="shop-meta">
+                    {% if shop.total_amount and shop.total_amount != '0' and shop.total_amount != '0.00' %}
+                        Підсумок: <span class="shop-amount">{{ shop.total_amount }} грн</span>
+                    {% else %}
+                        <span class="shop-muted">Немає суми по накладних</span>
+                    {% endif %}
+                </div>
+                <div class="shop-meta">
+                    {% if shop.primary_phone %}
+                        <span class="shop-muted">☎</span> {{ shop.primary_phone }}
+                    {% endif %}
+                    {% if request.user.is_staff and shop.managed_by %}
+                        <span class="shop-muted">•</span> Веде: {{ shop.managed_by }}
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="shop-actions">
+                <button type="button" class="btn-ghost small" data-action="edit">Редагувати</button>
+                <button type="button" class="btn-ghost small" data-action="manage">Менеджмент товарів</button>
+                <button type="button" class="btn-ghost small" data-action="invoices">Дивитись накладну</button>
+                {% if shop.can_delete %}
+                    <button type="button" class="btn-ghost small danger" data-action="delete">Видалити</button>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="shops-pagination">
+        <div class="shops-page-info">Сторінка {{ page_obj.number }} з {{ page_obj.paginator.num_pages }}</div>
+        <div class="shops-page-actions">
+            {% if page_obj.has_previous %}
+                <a class="btn-ghost small" href="?page={{ page_obj.previous_page_number }}">← Назад</a>
+            {% endif %}
+            {% if page_obj.has_next %}
+                <a class="btn-ghost small" href="?page={{ page_obj.next_page_number }}">Далі →</a>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<!-- Shop Create/Edit Modal -->
+<div class="modal-overlay" id="shop-modal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div>
+                <p class="eyebrow" id="shop-modal-eyebrow">Магазин</p>
+                <h3 id="shop-modal-title">Додати магазин</h3>
+            </div>
+            <button type="button" class="modal-close" aria-label="Закрити">×</button>
+        </div>
+        <form id="shop-form" class="modal-body" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" id="shop_id" name="shop_id">
+
+            <div class="shop-form-section">
+                <div class="section-title">Базові дані</div>
+                <div class="field-grid">
+                    <div class="field">
+                        <label for="shop_photo">Фото (опціонально)</label>
+                        <input type="file" id="shop_photo" name="photo" accept="image/*">
+                    </div>
+                    <div class="field">
+                        <label for="shop_name">Назва магазину</label>
+                        <input type="text" id="shop_name" name="name" required>
+                    </div>
+                    <div class="field">
+                        <label for="owner_full_name">ПІБ власника</label>
+                        <input type="text" id="owner_full_name" name="owner_full_name">
+                    </div>
+                </div>
+            </div>
+
+            <div class="shop-form-section">
+                <div class="section-title">Контакти</div>
+                <div id="phones-wrap" class="repeater"></div>
+                <button type="button" class="btn-ghost small" id="add-phone-btn">+ Додати номер</button>
+            </div>
+
+            <div class="shop-form-section">
+                <div class="section-title">Канали / посилання</div>
+                <div class="field-grid">
+                    <div class="field checkbox-field">
+                        <label class="checkline">
+                            <input type="checkbox" id="ch_website" data-toggle="website_url">
+                            <span>Сайт</span>
+                        </label>
+                        <input type="url" id="website_url" name="website_url" placeholder="https://..." style="display:none;">
+                    </div>
+                    <div class="field checkbox-field">
+                        <label class="checkline">
+                            <input type="checkbox" id="ch_instagram" data-toggle="instagram_url">
+                            <span>Instagram / Instashop</span>
+                        </label>
+                        <input type="url" id="instagram_url" name="instagram_url" placeholder="https://instagram.com/..." style="display:none;">
+                    </div>
+                    <div class="field checkbox-field">
+                        <label class="checkline">
+                            <input type="checkbox" id="ch_prom" data-toggle="prom_url">
+                            <span>Prom.ua</span>
+                        </label>
+                        <input type="url" id="prom_url" name="prom_url" placeholder="https://prom.ua/..." style="display:none;">
+                    </div>
+                    <div class="field checkbox-field field-span-2">
+                        <label class="checkline">
+                            <input type="checkbox" id="ch_other" data-toggle="other_sales_channel">
+                            <span>Інше</span>
+                        </label>
+                        <input type="text" id="other_sales_channel" name="other_sales_channel" placeholder="Лінк або опис" style="display:none;">
+                    </div>
+                </div>
+            </div>
+
+            <div class="shop-form-section">
+                <div class="section-title">Локація / реєстрація</div>
+                <div class="field-grid">
+                    <div class="field field-span-2">
+                        <label for="registration_place">Де зареєстровано магазин</label>
+                        <input type="text" id="registration_place" name="registration_place">
+                    </div>
+                    <div class="field checkbox-field">
+                        <label class="checkline">
+                            <input type="checkbox" id="is_physical" name="is_physical">
+                            <span>Фізичний магазин (потрібна адреса)</span>
+                        </label>
+                    </div>
+                    <div class="field">
+                        <label for="city">Місто</label>
+                        <input type="text" id="city" name="city">
+                    </div>
+                    <div class="field field-span-2">
+                        <label for="address">Адреса (детально)</label>
+                        <textarea id="address" name="address"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="shop-form-section">
+                <div class="section-title">Тип магазину</div>
+                <div class="type-switch">
+                    <label class="pill-radio">
+                        <input type="radio" name="shop_type" value="full" checked>
+                        <span>Повний магазин</span>
+                    </label>
+                    <label class="pill-radio">
+                        <input type="radio" name="shop_type" value="test">
+                        <span>Тестовий магазин (14 днів)</span>
+                    </label>
+                </div>
+
+                <div id="test-fields" class="test-fields" style="display:none;">
+                    <div class="field-grid">
+                        <div class="field">
+                            <label for="test_product_id">Який товар вигружено</label>
+                            <select id="test_product_id" name="test_product_id">
+                                <option value="">—</option>
+                                {% for p in test_products %}
+                                    <option value="{{ p.id }}">{{ p.category__name }} — {{ p.title }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="test_connected_at">Дата підключення (старт таймера)</label>
+                            <input type="date" id="test_connected_at" name="test_connected_at">
+                        </div>
+                        <div class="field">
+                            <label for="test_package_mode">Комплектація</label>
+                            <select id="test_package_mode">
+                                <option value="rostovka">Ростовка (S → XL)</option>
+                                <option value="custom">Інше</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="test_package_value">Деталі комплектації</label>
+                            <input type="text" id="test_package_value" placeholder="Напр.: S, M, L, XL">
+                        </div>
+                    </div>
+                    <input type="hidden" id="test_package_json" name="test_package_json">
+                </div>
+            </div>
+
+            <div class="shop-form-section">
+                <div class="section-title">Відправки (ТТН) та накладні</div>
+                <div id="shipments-wrap" class="repeater"></div>
+                <button type="button" class="btn-ghost small" id="add-shipment-btn">+ Додати ТТН</button>
+            </div>
+
+            <div class="shop-form-section">
+                <div class="section-title">Нотатки</div>
+                <div class="field">
+                    <textarea id="notes" name="notes" placeholder="Коротко: статус, домовленості, нюанси…"></textarea>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-ghost modal-close">Відмінити</button>
+                <button type="submit" class="btn-primary" id="shop-save-btn">Зберегти</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Invoices Modal -->
+<div class="modal-overlay" id="shop-invoices-modal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div>
+                <p class="eyebrow">Накладні</p>
+                <h3 id="shop-invoices-title">Накладні магазину</h3>
+            </div>
+            <button type="button" class="modal-close" aria-label="Закрити">×</button>
+        </div>
+        <div class="modal-body">
+            <div id="shop-invoices-body" class="shop-modal-content"></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-ghost modal-close">Закрити</button>
+        </div>
+    </div>
+</div>
+
+<!-- Management Modal -->
+<div class="modal-overlay" id="shop-manage-modal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div>
+                <p class="eyebrow">Менеджмент</p>
+                <h3 id="shop-manage-title">Менеджмент магазину</h3>
+            </div>
+            <button type="button" class="modal-close" aria-label="Закрити">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="shop-manage-grid">
+                <div class="shop-manage-block">
+                    <div class="block-title">Контакти / історія</div>
+                    <div class="shop-next-contact">
+                        <div class="shop-next-row">
+                            <div class="shop-next-label">Наступний контакт</div>
+                            <input type="datetime-local" id="shop-next-contact-at">
+                            <button type="button" class="btn-ghost small" id="shop-next-contact-save">Зберегти</button>
+                            <button type="button" class="btn-ghost small" id="shop-next-contact-clear">Очистити</button>
+                        </div>
+                    </div>
+                    <div class="shop-comm-form">
+                        <div class="field-grid">
+                            <div class="field">
+                                <label for="comm_contacted_at">Коли</label>
+                                <input type="datetime-local" id="comm_contacted_at">
+                            </div>
+                            <div class="field">
+                                <label for="comm_person">З ким</label>
+                                <input type="text" id="comm_person">
+                            </div>
+                            <div class="field">
+                                <label for="comm_phone">Номер</label>
+                                <input type="text" id="comm_phone">
+                            </div>
+                            <div class="field field-span-2">
+                                <label for="comm_note">Нотатка</label>
+                                <textarea id="comm_note"></textarea>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-primary" id="comm_add_btn">Додати запис</button>
+                    </div>
+                    <div id="shop-comm-list" class="shop-comm-list"></div>
+                </div>
+
+                <div class="shop-manage-block">
+                    <div class="block-title">Товари / залишки</div>
+                    <div id="shop-inventory" class="shop-inventory"></div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-ghost modal-close">Закрити</button>
+        </div>
+    </div>
+</div>
+
+{{ shops_payload|json_script:"shops-data" }}
+{{ test_products|json_script:"test-products-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/management-shops.js' %}"></script>
+{% endblock %}
+

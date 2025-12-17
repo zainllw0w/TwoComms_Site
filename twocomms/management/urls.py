@@ -1,6 +1,7 @@
 from django.urls import path
 from django.contrib.auth import views as auth_views
 from . import views
+from . import shop_views
 
 urlpatterns = [
     path('login/', auth_views.LoginView.as_view(
@@ -36,5 +37,13 @@ urlpatterns = [
     path('commercial-offer/email/resolve-product/', views.commercial_offer_email_resolve_product_api, name='management_commercial_offer_email_resolve_product_api'),
     path('commercial-offer/email/log/<int:log_id>/', views.commercial_offer_email_log_detail_api, name='management_commercial_offer_email_log_detail_api'),
     path('commercial-offer/email/resend/<int:log_id>/', views.commercial_offer_email_resend_api, name='management_commercial_offer_email_resend_api'),
+    path('shops/', shop_views.shops, name='management_shops'),
+    path('shops/api/save/', shop_views.shops_save_api, name='management_shops_save_api'),
+    path('shops/api/detail/<int:shop_id>/', shop_views.shops_detail_api, name='management_shops_detail_api'),
+    path('shops/api/contact/add/', shop_views.shops_add_contact_api, name='management_shops_add_contact_api'),
+    path('shops/api/next-contact/', shop_views.shops_set_next_contact_api, name='management_shops_set_next_contact_api'),
+    path('shops/api/inventory/move/', shop_views.shops_inventory_move_api, name='management_shops_inventory_move_api'),
+    path('shops/api/<int:shop_id>/delete/', shop_views.shops_delete_api, name='management_shops_delete_api'),
+    path('shops/shipments/<int:shipment_id>/invoice/download/', shop_views.shop_shipment_invoice_download, name='management_shop_shipment_invoice_download'),
     path('', views.home, name='management_home'),
 ]
