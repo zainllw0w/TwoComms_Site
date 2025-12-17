@@ -203,7 +203,7 @@
                     </span>
                     <span>Дропшипери</span>
                 </a>
-                <a href="#" class="nav-item">
+                <a href="{% url 'management_shops' %}" class="nav-item{% if request.resolver_match.url_name == 'management_shops' %} active{% endif %}">
                     <span class="nav-icon">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9l1-4h14l1 4v10a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1V9z"/></svg>
                     </span>
