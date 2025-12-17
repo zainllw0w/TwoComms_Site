@@ -45,5 +45,6 @@ urlpatterns = [
     path('shops/api/inventory/move/', shop_views.shops_inventory_move_api, name='management_shops_inventory_move_api'),
     path('shops/api/<int:shop_id>/delete/', shop_views.shops_delete_api, name='management_shops_delete_api'),
     path('shops/shipments/<int:shipment_id>/invoice/download/', shop_views.shop_shipment_invoice_download, name='management_shop_shipment_invoice_download'),
+    path('shops/<int:shop_id>/contract/download/', shop_views.shop_contract_download, name='management_shop_contract_download'),
     path('', views.home, name='management_home'),
 ]

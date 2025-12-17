@@ -209,7 +209,7 @@ def get_reminders(user, stats=None, report_sent=False):
 
     # Нагадування по магазинах (наступний контакт)
     shop_qs = Shop.objects.filter(
-        managed_by=user,
+        created_by=user,
         next_contact_at__isnull=False,
     ).prefetch_related("phones").order_by("-next_contact_at")
     for s in shop_qs:
@@ -562,7 +562,7 @@ def admin_overview(request):
         return redirect('management_home')
 
     tab = (request.GET.get('tab') or 'managers').strip().lower()
-    if tab not in ('managers', 'invoices'):
+    if tab not in ('managers', 'invoices', 'shops'):
         tab = 'managers'
 
     User = get_user_model()
@@ -634,6 +634,145 @@ def admin_overview(request):
             review_status='pending',
         ).select_related('created_by', 'created_by__userprofile').order_by('-created_at')[:200]
         ctx['invoices_for_review'] = invoices_for_review
+
+    if tab == 'shops':
+        from decimal import Decimal
+        from datetime import time as dt_time, timedelta as dt_timedelta
+
+        from django.core.paginator import Paginator
+        from django.db import models
+        from django.db.models import Sum
+        from django.db.models.functions import Coalesce
+
+        qs = Shop.objects.all().annotate(
+            total_amount=Coalesce(
+                Sum("shipments__invoice_total_amount"),
+                Decimal("0"),
+                output_field=models.DecimalField(max_digits=12, decimal_places=2),
+            )
+        )
+        qs = qs.prefetch_related("phones", "shipments__wholesale_invoice").order_by("-created_at")
+        paginator = Paginator(qs, 12)
+        page_obj = paginator.get_page(request.GET.get("page") or 1)
+
+        now_dt = timezone.localtime(timezone.now())
+        shops_payload = []
+        for shop in page_obj.object_list:
+            primary_phone = None
+            phones = []
+            for p in shop.phones.all():
+                phones.append(
+                    {
+                        "id": p.id,
+                        "role": p.role,
+                        "role_other": p.role_other,
+                        "phone": p.phone,
+                        "is_primary": bool(p.is_primary),
+                        "sort_order": p.sort_order,
+                    }
+                )
+                if p.is_primary and not primary_phone:
+                    primary_phone = p.phone
+            if not primary_phone and phones:
+                primary_phone = phones[0]["phone"]
+
+            shipments = []
+            for s in shop.shipments.all():
+                invoice_kind = "none"
+                invoice_title = ""
+                invoice_download_url = ""
+                invoice_total = s.invoice_total_amount
+                if s.wholesale_invoice_id:
+                    invoice_kind = "system"
+                    inv_num = ""
+                    try:
+                        inv_num = s.wholesale_invoice.invoice_number if s.wholesale_invoice else ""
+                    except Exception:
+                        inv_num = ""
+                    invoice_title = f"#{inv_num}" if inv_num else "Накладна"
+                    invoice_download_url = reverse("management_invoices_download", args=[s.wholesale_invoice_id])
+                elif s.uploaded_invoice_file:
+                    invoice_kind = "upload"
+                    invoice_title = s.uploaded_invoice_file.name.split("/")[-1]
+                    invoice_download_url = reverse("management_shop_shipment_invoice_download", args=[s.id])
+
+                shipments.append(
+                    {
+                        "id": s.id,
+                        "ttn_number": s.ttn_number,
+                        "shipped_at": s.shipped_at.isoformat() if s.shipped_at else "",
+                        "invoice_kind": invoice_kind,
+                        "wholesale_invoice_id": s.wholesale_invoice_id,
+                        "invoice_title": invoice_title,
+                        "invoice_total_amount": str(invoice_total) if invoice_total is not None else "",
+                        "invoice_download_url": invoice_download_url,
+                    }
+                )
+
+            timer = None
+            if shop.shop_type == Shop.ShopType.TEST and shop.test_connected_at:
+                end_date = shop.test_connected_at + dt_timedelta(days=int(shop.test_period_days or 14))
+                end_dt = timezone.make_aware(datetime.combine(end_date, dt_time.min), timezone.get_current_timezone())
+                remaining = end_dt - now_dt
+                remaining_seconds = int(remaining.total_seconds())
+                if remaining_seconds <= 0:
+                    timer = {"status": "expired", "label": "Тест завершено", "seconds": remaining_seconds}
+                elif remaining_seconds <= 86400:
+                    hours = max(1, remaining_seconds // 3600)
+                    timer = {"status": "urgent", "label": f"Залишилось {hours} год", "seconds": remaining_seconds}
+                else:
+                    days = remaining_seconds // 86400
+                    timer = {"status": "active", "label": f"Залишилось {days} дн", "seconds": remaining_seconds}
+
+            shops_payload.append(
+                {
+                    "id": shop.id,
+                    "name": shop.name,
+                    "photo_url": shop.photo.url if shop.photo else "",
+                    "owner_full_name": shop.owner_full_name,
+                    "shop_type": shop.shop_type,
+                    "registration_place": shop.registration_place,
+                    "is_physical": bool(shop.is_physical),
+                    "city": shop.city,
+                    "address": shop.address,
+                    "website_url": shop.website_url,
+                    "instagram_url": shop.instagram_url,
+                    "prom_url": shop.prom_url,
+                    "other_sales_channel": shop.other_sales_channel,
+                    "test_product_id": shop.test_product_id,
+                    "test_package": shop.test_package or {},
+                    "test_contract_name": shop.test_contract_file.name.split("/")[-1] if shop.test_contract_file else "",
+                    "test_contract_download_url": reverse("management_shop_contract_download", args=[shop.id]) if shop.test_contract_file else "",
+                    "test_connected_at": shop.test_connected_at.isoformat() if shop.test_connected_at else "",
+                    "test_period_days": int(shop.test_period_days or 14),
+                    "next_contact_at": timezone.localtime(shop.next_contact_at).isoformat() if shop.next_contact_at else "",
+                    "notes": shop.notes,
+                    "primary_phone": primary_phone or "",
+                    "phones": phones,
+                    "shipments": shipments,
+                    "total_amount": str(getattr(shop, "total_amount", "") or ""),
+                    "timer": timer,
+                    "created_by": (shop.created_by.get_full_name() or shop.created_by.username) if shop.created_by else "",
+                    "managed_by": (shop.managed_by.get_full_name() or shop.managed_by.username) if shop.managed_by else "",
+                    "can_delete": True,
+                }
+            )
+
+        try:
+            from storefront.models import Product
+
+            test_products = list(
+                Product.objects.all()
+                .select_related("category")
+                .order_by("category__name", "title")
+                .values("id", "title", "category__name")[:600]
+            )
+        except Exception:
+            test_products = []
+
+        ctx["page_obj"] = page_obj
+        ctx["shops_payload"] = shops_payload
+        ctx["test_products"] = test_products
 
     return render(request, 'management/admin.html', ctx)
 
