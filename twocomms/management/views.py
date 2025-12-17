@@ -35,6 +35,7 @@ from .models import (
     ReminderRead,
     ReminderSent,
     Report,
+    Shop,
 )
 from accounts.models import UserProfile
 from django.views.decorators.csrf import csrf_exempt
@@ -204,6 +205,45 @@ def get_reminders(user, stats=None, report_sent=False):
         # Таймерные (soon) всегда считаем непрочитанными, чтобы не блекли
         reminder['read'] = False if status == 'soon' else reminder['key'] in read_keys
         # "soon" таймер и due показываем всегда, read влияет только на прозрачность у due
+        reminders.append(reminder)
+
+    # Нагадування по магазинах (наступний контакт)
+    shop_qs = Shop.objects.filter(
+        managed_by=user,
+        next_contact_at__isnull=False,
+    ).prefetch_related("phones").order_by("-next_contact_at")
+    for s in shop_qs:
+        dt_local = timezone.localtime(s.next_contact_at)
+        status = 'due' if dt_local <= now else 'soon'
+        status_key = 'due' if status == 'due' else 'soon'
+        eta_raw = max(0, int((dt_local - now).total_seconds()))
+        if status == 'soon' and eta_raw > 300:
+            continue
+        is_timer = status == 'soon' and eta_raw > 0
+        phone = ""
+        try:
+            primary = next((p for p in s.phones.all() if getattr(p, "is_primary", False)), None)
+            if primary:
+                phone = getattr(primary, "phone", "") or ""
+            elif s.phones.all():
+                phone = getattr(s.phones.all()[0], "phone", "") or ""
+        except Exception:
+            phone = ""
+        reminder = {
+            'shop': s.name,
+            'name': s.owner_full_name or '',
+            'phone': phone,
+            'when': dt_local.strftime('%d.%m %H:%M'),
+            'time_label': _time_label(dt_local, now),
+            'status': status,
+            'kind': 'shop',
+            'dt': dt_local,
+            'dt_iso': dt_local.isoformat(),
+            'eta_seconds': eta_raw,
+            'key': f"shop-{s.id}-{int(dt_local.timestamp())}-{status_key}",
+            'is_timer': is_timer,
+        }
+        reminder['read'] = False if status == 'soon' else reminder['key'] in read_keys
         reminders.append(reminder)
     # Додаємо нагадування про звіт після 19:00 у будні, якщо є клієнти і звіт не відправлений
     weekday = now.weekday()  # 0 Mon ... 6 Sun
@@ -1274,10 +1314,12 @@ def _send_manager_bot_notifications(user, reminders):
         if ReminderSent.objects.filter(key=key, chat_id=chat_id).exists():
             continue
         when = 'зараз' if eta == 0 else (f"через {eta//60} хв {eta%60:02d} с" if eta >= 60 else f"через {eta} с")
+        kind = r.get('kind')
+        contact_label = "Контакт" if kind == 'shop' else "Клієнт"
         text = (
             "Нагадування\n"
             f"Магазин: {r.get('shop','')}\n"
-            f"Клієнт: {r.get('name','')}\n"
+            f"{contact_label}: {r.get('name','')}\n"
             f"Телефон: {r.get('phone','')}\n"
             f"Коли: {when}\n"
         )
