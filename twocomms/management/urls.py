@@ -2,6 +2,7 @@ from django.urls import path
 from django.contrib.auth import views as auth_views
 from . import views
 from . import shop_views
+from . import stats_views
 
 urlpatterns = [
     path('login/', auth_views.LoginView.as_view(
@@ -46,5 +47,10 @@ urlpatterns = [
     path('shops/api/<int:shop_id>/delete/', shop_views.shops_delete_api, name='management_shops_delete_api'),
     path('shops/shipments/<int:shipment_id>/invoice/download/', shop_views.shop_shipment_invoice_download, name='management_shop_shipment_invoice_download'),
     path('shops/<int:shop_id>/contract/download/', shop_views.shop_contract_download, name='management_shop_contract_download'),
+    path('stats/', stats_views.stats, name='management_stats'),
+    path('stats/admin/', stats_views.stats_admin_list, name='management_stats_admin'),
+    path('stats/admin/<int:user_id>/', stats_views.stats_admin_user, name='management_stats_admin_user'),
+    path('stats/advice/dismiss/', stats_views.advice_dismiss, name='management_stats_advice_dismiss'),
+    path('activity/pulse/', stats_views.activity_pulse, name='management_activity_pulse'),
     path('', views.home, name='management_home'),
 ]

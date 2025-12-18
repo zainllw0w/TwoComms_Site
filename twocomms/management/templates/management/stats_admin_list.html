@@ -1,0 +1,41 @@
+{% extends "management/base.html" %}
+{% load static %}
+
+{% block title %}Статистика (адмін) — TwoComms Management{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/management-stats.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="stats-admin-page">
+  <div class="panel-header">
+    <div>
+      <p class="eyebrow">Статистика</p>
+      <h2>Виберіть менеджера</h2>
+      <div class="muted" style="margin-top: 6px;">Адмін-перегляд відкриває ту ж структуру, що бачить менеджер.</div>
+    </div>
+  </div>
+
+  <div class="admin-users-grid">
+    {% for u in admin_users %}
+      <a class="admin-user-card" href="{% url 'management_stats_admin_user' u.id %}?period=today">
+        <div class="admin-user-top">
+          <div class="admin-user-name">{{ u.name }}</div>
+          <div class="admin-user-role">{{ u.role }}</div>
+        </div>
+        <div class="admin-user-meta">
+          <div class="meta-line">
+            <span class="dot{% if u.online %} online{% endif %}">●</span>
+            <span class="muted">{% if u.online %}онлайн{% else %}офлайн{% endif %}</span>
+          </div>
+          <div class="meta-line muted">Останній вхід: {{ u.last_login }}</div>
+        </div>
+      </a>
+    {% empty %}
+      <div class="table-empty">Немає користувачів для перегляду.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
+
