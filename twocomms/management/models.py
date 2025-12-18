@@ -603,3 +603,127 @@ class ShopInventoryMovement(models.Model):
 
     def __str__(self):
         return f"{self.shop_id}: {self.kind} {self.delta_qty}"
+
+
+class ManagementDailyActivity(models.Model):
+    """
+    Aggregated manager activity per local day (Europe/Kiev).
+    Active time counts only when the Management tab is visible + focused and user is not idle.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="management_daily_activity",
+        verbose_name=_("Користувач"),
+    )
+    date = models.DateField(db_index=True, verbose_name=_("Дата (локальна)"))
+    active_seconds = models.PositiveIntegerField(default=0, verbose_name=_("Активний час (сек)"))
+    last_seen_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Остання активність"))
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Активність менеджера (доба)")
+        verbose_name_plural = _("Активність менеджера (доба)")
+        unique_together = ("user", "date")
+        ordering = ["-date"]
+        indexes = [
+            models.Index(fields=["user", "-date"], name="mgmt_act_user_dt"),
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} {self.date} ({self.active_seconds}s)"
+
+
+class ClientFollowUp(models.Model):
+    class Status(models.TextChoices):
+        OPEN = "open", _("Відкрито")
+        DONE = "done", _("Виконано")
+        RESCHEDULED = "rescheduled", _("Перенесено")
+        CANCELLED = "cancelled", _("Скасовано")
+        MISSED = "missed", _("Пропущено")
+
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name="followups",
+        verbose_name=_("Клієнт"),
+    )
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="management_client_followups",
+        verbose_name=_("Менеджер"),
+    )
+
+    scheduled_at = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name=_("Створено"))
+    due_at = models.DateTimeField(db_index=True, verbose_name=_("Коли передзвонити"))
+    due_date = models.DateField(db_index=True, verbose_name=_("Дата (локальна)"))
+
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN, db_index=True)
+    closed_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Закрито"))
+    closed_by_report = models.ForeignKey(
+        Report,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="closed_followups",
+        verbose_name=_("Закрито звітом"),
+    )
+    meta = models.JSONField(default=dict, blank=True, verbose_name=_("Мета"))
+
+    class Meta:
+        verbose_name = _("Передзвон (клієнт)")
+        verbose_name_plural = _("Передзвони (клієнти)")
+        ordering = ["-due_at", "-id"]
+        indexes = [
+            models.Index(fields=["owner", "due_date", "status"], name="mgmt_fu_owner_dt_st"),
+            models.Index(fields=["client", "status"], name="mgmt_fu_client_st"),
+        ]
+
+    def __str__(self):
+        return f"FollowUp({self.owner_id} → {self.client_id}) {self.due_at} {self.status}"
+
+
+class ManagementStatsAdviceDismissal(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="management_stats_advice_dismissals",
+        verbose_name=_("Користувач"),
+    )
+    key = models.CharField(max_length=255, db_index=True, verbose_name=_("Ключ"))
+    dismissed_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Коли приховано"))
+    expires_at = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name=_("Діє до"))
+    meta = models.JSONField(default=dict, blank=True, verbose_name=_("Мета"))
+
+    class Meta:
+        verbose_name = _("Прихована порада (статистика)")
+        verbose_name_plural = _("Приховані поради (статистика)")
+        unique_together = ("user", "key")
+        indexes = [
+            models.Index(fields=["user", "expires_at"], name="mgmt_adv_user_exp"),
+        ]
+
+    def __str__(self):
+        return f"{self.user_id}:{self.key}"
+
+
+class ManagementStatsConfig(models.Model):
+    """
+    Singleton-like config holder for KPI/Advice tuning (admin-editable via Django admin).
+    """
+
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    kpd_weights = models.JSONField(default=dict, blank=True, verbose_name=_("Ваги КПД"))
+    advice_thresholds = models.JSONField(default=dict, blank=True, verbose_name=_("Пороги порад"))
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Налаштування статистики")
+        verbose_name_plural = _("Налаштування статистики")
+
+    def __str__(self):
+        return "ManagementStatsConfig"

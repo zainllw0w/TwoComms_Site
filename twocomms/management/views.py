@@ -29,6 +29,7 @@ import secrets
 from .forms import CommercialOfferEmailForm, CommercialOfferEmailPreviewForm
 from .models import (
     Client,
+    ClientFollowUp,
     CommercialOfferEmailLog,
     CommercialOfferEmailSettings,
     InvoiceRejectionReasonRequest,
@@ -42,25 +43,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from .email_templates.twocomms_cp import build_twocomms_cp_email, get_twocomms_cp_unit_defaults
 
-POINTS = {
-    'order': 45,
-    'test_batch': 25,
-    'waiting_payment': 20,
-    'waiting_prepayment': 18,
-    'xml_connected': 15,
-    'sent_email': 15,
-    'sent_messenger': 15,
-    'wrote_ig': 15,
-    'thinking': 10,
-    'other': 8,
-    'no_answer': 5,
-    'invalid_number': 5,
-    'not_interested': 5,
-    'expensive': 5,
-}
-TARGET_CLIENTS_DAY = 20
-TARGET_POINTS_DAY = 100
-REMINDER_WINDOW_MINUTES = 15
+from .constants import POINTS, REMINDER_WINDOW_MINUTES, TARGET_CLIENTS_DAY, TARGET_POINTS_DAY
 
 _BOT_USERNAME_CACHE = {"username": "", "ts": 0, "token": ""}
 
@@ -141,6 +124,64 @@ def get_today_range():
 def has_report_today(user):
     start, end = get_today_range()
     return Report.objects.filter(owner=user, created_at__gte=start, created_at__lt=end).exists()
+
+
+def _local_date_from_dt(dt_value):
+    try:
+        return timezone.localtime(dt_value).date()
+    except Exception:
+        try:
+            return timezone.localdate(dt_value)
+        except Exception:
+            return timezone.localdate()
+
+
+def _sync_client_followup(client: Client, prev_next_call_at, new_next_call_at, now_dt):
+    """
+    Keep ClientFollowUp in sync with Client.next_call_at.
+    - Creates a follow-up when next_call_at is set.
+    - Closes open follow-ups when next_call_at changes/clears.
+    """
+    owner = client.owner
+    if not owner:
+        return
+
+    if prev_next_call_at:
+        if not new_next_call_at:
+            ClientFollowUp.objects.filter(client=client, owner=owner, status=ClientFollowUp.Status.OPEN).update(
+                status=ClientFollowUp.Status.CANCELLED,
+                closed_at=now_dt,
+            )
+        elif new_next_call_at != prev_next_call_at:
+            status = ClientFollowUp.Status.RESCHEDULED if now_dt < prev_next_call_at else ClientFollowUp.Status.DONE
+            ClientFollowUp.objects.filter(client=client, owner=owner, status=ClientFollowUp.Status.OPEN).update(
+                status=status,
+                closed_at=now_dt,
+            )
+
+    if new_next_call_at and (not prev_next_call_at or new_next_call_at != prev_next_call_at):
+        ClientFollowUp.objects.create(
+            client=client,
+            owner=owner,
+            due_at=new_next_call_at,
+            due_date=_local_date_from_dt(new_next_call_at),
+            status=ClientFollowUp.Status.OPEN,
+            meta={"source": "client.next_call_at"},
+        )
+
+
+def _close_followups_for_report(report: Report):
+    """Freeze today's follow-ups when daily report is sent."""
+    report_day = _local_date_from_dt(report.created_at)
+    ClientFollowUp.objects.filter(
+        owner=report.owner,
+        due_date=report_day,
+        status=ClientFollowUp.Status.OPEN,
+    ).update(
+        status=ClientFollowUp.Status.MISSED,
+        closed_at=report.created_at,
+        closed_by_report=report,
+    )
 
 
 def _time_label(dt_local, now):
@@ -426,6 +467,7 @@ def home(request):
                 try:
                     client = Client.objects.get(id=client_id)
                     if request.user.is_staff or client.owner == request.user:
+                        prev_next_call_at = client.next_call_at
                         client.shop_name = shop_name
                         client.phone = phone
                         client.full_name = full_name
@@ -436,10 +478,11 @@ def home(request):
                         client.next_call_at = next_call_at
                         client.owner = client.owner or request.user
                         client.save()
+                        _sync_client_followup(client, prev_next_call_at, client.next_call_at, timezone.now())
                 except Client.DoesNotExist:
                     pass
             else:
-                Client.objects.create(
+                client = Client.objects.create(
                     shop_name=shop_name,
                     phone=phone,
                     full_name=full_name,
@@ -450,6 +493,7 @@ def home(request):
                     next_call_at=next_call_at,
                     owner=request.user,
                 )
+                _sync_client_followup(client, None, client.next_call_at, timezone.now())
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             # Сформируем актуальные данные после операции
             stats = get_user_stats(request.user)
@@ -1063,6 +1107,8 @@ def send_report(request):
         processed=stats['processed_today'],
     )
     report.file.save(filename, ContentFile(file_bytes), save=True)
+
+    _close_followups_for_report(report)
 
     send_telegram_report(request.user, stats, clients_today, file_bytes, filename)
 
