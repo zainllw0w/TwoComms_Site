@@ -22,12 +22,15 @@ DATABASES = {
 }
 
 # Отключаем миграции для ускорения тестов (не обязательно)
-# class DisableMigrations:
-#     def __contains__(self, item):
-#         return True
-#     def __getitem__(self, item):
-#         return None
-# MIGRATION_MODULES = DisableMigrations()
+class DisableMigrations:
+    def __contains__(self, item):
+        return True
+
+    def __getitem__(self, item):
+        return None
+
+
+MIGRATION_MODULES = DisableMigrations()
 
 # Отключаем DEBUG в тестах
 DEBUG = False
@@ -61,4 +64,3 @@ LOGGING = {
 
 # Отключаем CSRF для тестов
 CSRF_USE_SESSIONS = False
-

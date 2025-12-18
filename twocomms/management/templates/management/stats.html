@@ -1,0 +1,532 @@
+{% extends "management/base.html" %}
+{% load static %}
+
+{% block title %}Статистика — TwoComms Management{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/management-stats.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="stats-page"
+         id="stats-page"
+         data-dismiss-url="{% url 'management_stats_advice_dismiss' %}"
+         data-admin-view="{% if is_admin_view %}1{% else %}0{% endif %}">
+  <div class="panel-header stats-header">
+    <div class="stats-head-left">
+      <p class="eyebrow">Статистика</p>
+      <h2 class="stats-title">
+        Огляд за період: <span class="stats-range">{{ range.label }}</span>
+      </h2>
+      {% if is_admin_view %}
+        <div class="stats-admin-line">
+          <span class="stats-admin-chip">Перегляд: {{ stats_owner.get_full_name|default:stats_owner.username }}</span>
+          <a class="btn-ghost small" href="{% url 'management_stats_admin' %}">← До списку</a>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="stats-filters">
+      <div class="stats-quick">
+        <a class="pill{% if range.period == 'today' %} active{% endif %}" href="?period=today">Сьогодні</a>
+        <a class="pill{% if range.period == 'yesterday' %} active{% endif %}" href="?period=yesterday">Вчора</a>
+        <a class="pill{% if range.period == 'week' %} active{% endif %}" href="?period=week">Тиждень</a>
+        <a class="pill{% if range.period == 'month' %} active{% endif %}" href="?period=month">Місяць</a>
+      </div>
+      <form class="stats-range-form" method="get" action="">
+        <input type="hidden" name="period" value="range">
+        <div class="range-inputs">
+          <input type="date" name="from" value="{{ range.from }}">
+          <span class="range-sep">—</span>
+          <input type="date" name="to" value="{{ range.to }}">
+          <button class="btn-ghost small" type="submit">Показати</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="stats-layout">
+    <div class="stats-hero">
+      <div class="stats-hero-card">
+        <div class="hero-top">
+          <div class="hero-kicker">Ваші дії → результат</div>
+          <div class="hero-sub muted">Наведіть на сегмент, щоб побачити деталі.</div>
+        </div>
+
+        <div class="spiral-shell" id="spiral-shell">
+          <div class="spiral-backdrop"></div>
+          <svg class="spiral-svg" id="spiral-svg" viewBox="0 0 240 240" aria-label="Спіральна статистика" role="img">
+            <defs>
+              <filter id="segGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="3" result="blur"></feGaussianBlur>
+                <feMerge>
+                  <feMergeNode in="blur"></feMergeNode>
+                  <feMergeNode in="SourceGraphic"></feMergeNode>
+                </feMerge>
+              </filter>
+            </defs>
+            <g id="spiral-segments"></g>
+            <circle cx="120" cy="120" r="70" class="spiral-core"></circle>
+          </svg>
+
+          <div class="spiral-center">
+            <div class="kpd-label">КПД</div>
+            <div class="kpd-value" id="kpd-value">{{ stats_payload.summary.kpd.value }}</div>
+            <div class="kpd-delta{% if stats_payload.summary.kpd_delta < 0 %} neg{% elif stats_payload.summary.kpd_delta > 0 %} pos{% endif %}">
+              {% if stats_payload.summary.kpd_delta > 0 %}+{% endif %}{{ stats_payload.summary.kpd_delta }}
+              <span class="muted">до попереднього періоду</span>
+            </div>
+            <div class="kpd-mini muted" id="kpd-mini">{{ stats_payload.summary.kpd_insight }}</div>
+          </div>
+
+          <div class="spiral-tooltip" id="spiral-tooltip" hidden>
+            <div class="tip-title" id="tip-title"></div>
+            <div class="tip-metrics">
+              <div><span class="muted">Кількість:</span> <b id="tip-count"></b></div>
+              <div><span class="muted">Частка:</span> <b id="tip-pct"></b></div>
+            </div>
+            <div class="tip-note muted" id="tip-note"></div>
+          </div>
+        </div>
+
+        <div class="spiral-legend" id="spiral-legend"></div>
+
+        <details class="kpd-details">
+          <summary>Розшифрування КПД (як рахується)</summary>
+          <div class="kpd-detail-grid">
+            <div class="bd">
+              <div class="bd-label muted">Зусилля</div>
+              <div class="bd-val">{{ stats_payload.summary.kpd.effort }}</div>
+            </div>
+            <div class="bd">
+              <div class="bd-label muted">Якість</div>
+              <div class="bd-val">{{ stats_payload.summary.kpd.quality }}</div>
+            </div>
+            <div class="bd">
+              <div class="bd-label muted">Операції</div>
+              <div class="bd-val">{{ stats_payload.summary.kpd.ops }}</div>
+            </div>
+            <div class="bd">
+              <div class="bd-label muted">Дисципліна (штраф)</div>
+              <div class="bd-val">{{ stats_payload.summary.kpd.penalty }}</div>
+            </div>
+          </div>
+          <div class="muted" style="margin-top: 10px; font-size: 12px;">
+            Формула: <b>КПД = (Зусилля + Якість + Операції) × (1 - Штраф)</b>. Це індекс, не %.
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <div class="stats-side">
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Бали</div>
+            <div class="kpi-value">{{ stats_payload.summary.points }}</div>
+            <div class="kpi-sub muted">За період • {{ stats_payload.summary.points_per_client }} бал/клієнт</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Клієнти</div>
+            <div class="kpi-value">{{ stats_payload.summary.processed }}</div>
+            <div class="kpi-sub muted" title="Індекс ≈ (успішні переходи+1) / (клієнти+5). Порівнюйте обережно.">
+              Додано / оброблено • Індекс результату: {{ stats_payload.summary.success_rate_pct }}%
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Активний час</div>
+            <div class="kpi-value">{{ stats_payload.summary.active_hhmm }}</div>
+            <div class="kpi-sub muted">Тільки активність у вкладці • {{ stats_payload.summary.points_per_active_hour }} бал/год</div>
+          </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Передзвони</div>
+          <div class="kpi-value">{{ stats_payload.summary.followups.missed_effective }}/{{ stats_payload.summary.followups.total }}</div>
+          <div class="kpi-sub muted">Пропущено (з урахуванням прострочень)</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">КП на e-mail</div>
+          <div class="kpi-value">{{ stats_payload.summary.cp.sent }}</div>
+          <div class="kpi-sub muted">Успішно надіслано</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Накладні</div>
+          <div class="kpi-value">{{ stats_payload.summary.invoices.created }}</div>
+          <div class="kpi-sub muted">Створено (опт)</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Перший клієнт</div>
+          <div class="kpi-value" style="font-size: 18px;">{{ stats_payload.summary.first_activity_label|default:"—" }}</div>
+          <div class="kpi-sub muted">Днів у роботі: {{ stats_payload.summary.days_working }}</div>
+        </div>
+      </div>
+
+      <div class="advice-card">
+        <div class="advice-head">
+          <div>
+            <div class="advice-title">Поради</div>
+            <div class="advice-sub muted">Це <b>припущення</b> на основі ваших даних. Не є інструкцією.</div>
+          </div>
+        </div>
+
+        <div class="advice-list" id="advice-list">
+          {% if stats_payload.advice %}
+            {% for a in stats_payload.advice %}
+              <div class="advice-item tone-{{ a.tone }}" data-advice-key="{{ a.key }}" data-expires-at="{{ a.expires_at|default:'' }}">
+                <div class="advice-row">
+                  <div class="advice-main">
+                    <div class="advice-item-title">{{ a.title }}</div>
+                    <div class="advice-item-text">{{ a.text }}</div>
+                    {% if a.evidence %}
+                      <div class="advice-evidence muted">{{ a.evidence }}</div>
+                    {% endif %}
+                  </div>
+                  <div class="advice-actions">
+                    <button type="button" class="icon-btn ghost dismiss-advice" aria-label="Приховати">×</button>
+                  </div>
+                </div>
+                {% if a.cta %}
+                  <div class="advice-cta">
+                    <button type="button" class="btn-primary small advice-cta-btn" data-action="{{ a.cta.action }}">{{ a.cta.label }}</button>
+                  </div>
+                {% endif %}
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="advice-empty muted">Поки немає порад для цього періоду.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats-sections">
+    <div class="stats-section">
+      <div class="section-head">
+        <div>
+          <div class="section-title">Передзвони</div>
+          <div class="muted">Підрахунок фіксується після відправки звіту (закриття дня).</div>
+        </div>
+        <div class="section-meta">
+          <div class="badge{% if stats_payload.summary.followups.missed_rate > 8 %} badge-warn{% else %} badge-ok{% endif %}">
+            {{ stats_payload.summary.followups.missed_rate }}%
+          </div>
+        </div>
+      </div>
+
+      <div class="followups-grid">
+        <div class="followup-gauge" id="followup-gauge" data-missed-rate="{{ stats_payload.summary.followups.missed_rate|default:0 }}">
+          <svg viewBox="0 0 220 140" aria-hidden="true">
+            <path d="M 20 110 A 90 90 0 0 1 200 110" class="g-arc-bg"></path>
+            <path d="M 20 110 A 90 90 0 0 1 200 110" class="g-arc" id="fu-arc"></path>
+          </svg>
+          <div class="gauge-center">
+            <div class="gauge-caption">Пропуски</div>
+            <div class="gauge-value">{{ stats_payload.summary.followups.missed_effective }}/{{ stats_payload.summary.followups.total }}</div>
+          </div>
+        </div>
+        <div class="followup-cards">
+          <div class="mini">
+            <div class="mini-label">Виконано</div>
+            <div class="mini-value">{{ stats_payload.summary.followups.done }}</div>
+          </div>
+          <div class="mini">
+            <div class="mini-label">Перенесено</div>
+            <div class="mini-value">{{ stats_payload.summary.followups.rescheduled }}</div>
+          </div>
+          <div class="mini">
+            <div class="mini-label">Скасовано</div>
+            <div class="mini-value">{{ stats_payload.summary.followups.cancelled }}</div>
+          </div>
+          <div class="mini">
+            <div class="mini-label">Відкрито</div>
+            <div class="mini-value">{{ stats_payload.summary.followups.open }}</div>
+          </div>
+        </div>
+      </div>
+
+      {% if stats_payload.summary.followups.missed_rate > 8 %}
+        <div class="notice-warn">
+          <div class="notice-title">Увага</div>
+          <div class="notice-text">
+            Ви часто пропускаєте передзвони. Рекомендуємо підключити Telegram-нагадування, щоб не втрачати конверсію.
+          </div>
+          <div class="notice-actions">
+            <button type="button" class="btn-primary small" data-action="open_profile_bot">Підключити бот</button>
+          </div>
+        </div>
+      {% endif %}
+
+      <details class="kpd-details" style="margin-top: 12px;">
+        <summary>Деталі передзвонів і планування</summary>
+        <div class="detail-split">
+          <div class="detail-block">
+            <div class="detail-title">Проблемні передзвони</div>
+            {% if stats_payload.summary.followups.problem_list %}
+              <div class="detail-list">
+                {% for fu in stats_payload.summary.followups.problem_list %}
+                  <div class="detail-row">
+                    <div class="detail-main">{{ fu.due_label }} • {{ fu.shop|default:"—" }}</div>
+                    <div class="detail-side muted">{{ fu.phone|default:"" }}</div>
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="muted">Немає проблемних передзвонів у цьому періоді.</div>
+            {% endif %}
+          </div>
+
+          <div class="detail-block">
+            <div class="detail-title">Клієнти без плану передзвону</div>
+            <div class="muted" style="font-size: 12px; margin-top: 4px;">
+              Етапи типу «КП / подумає / оплата» зазвичай потребують наступного контакту. Це лише припущення.
+            </div>
+            <div class="detail-metric">
+              <span class="badge">{% if stats_payload.summary.pipeline.followup_plan_missing %}{{ stats_payload.summary.pipeline.followup_plan_missing }}{% else %}0{% endif %}</span>
+            </div>
+
+            {% if stats_payload.summary.pipeline.followup_plan_missing_by %}
+              <div style="margin-top: 10px; display:flex; gap:8px; flex-wrap:wrap;">
+                {% for r in stats_payload.summary.pipeline.followup_plan_missing_by %}
+                  <span class="badge">{{ r.label }}: {{ r.count }}</span>
+                {% endfor %}
+              </div>
+            {% endif %}
+
+            {% if stats_payload.summary.pipeline.followup_plan_missing_examples %}
+              <div class="detail-list" style="margin-top: 10px;">
+                {% for c in stats_payload.summary.pipeline.followup_plan_missing_examples %}
+                  <div class="detail-row">
+                    <div class="detail-main">{{ c.shop|default:"—" }} <span class="muted">• {{ c.stage }}</span></div>
+                    <div class="detail-side muted">{{ c.phone|default:"" }}</div>
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <div class="stats-section">
+      <div class="section-head">
+        <div>
+          <div class="section-title">Тренди</div>
+          <div class="muted">Бали, КПД та активність по днях.</div>
+        </div>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-title">Бали</div>
+          <div class="chart" id="chart-points"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">КПД</div>
+          <div class="chart" id="chart-kpd"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Активний час</div>
+          <div class="chart" id="chart-active"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats-section">
+      <div class="section-head">
+        <div>
+          <div class="section-title">Джерела лідів</div>
+          <div class="muted">Порівняння робимо обережно — потрібна достатня вибірка.</div>
+        </div>
+      </div>
+      <div class="sources-list" id="sources-list"></div>
+    </div>
+
+    <div class="stats-section">
+      <div class="section-head">
+        <div>
+          <div class="section-title">Звітність</div>
+          <div class="muted">Запізнення: пізніше дедлайну більше ніж на 1 годину.</div>
+        </div>
+        <div class="section-meta">
+          <div class="badge badge-ok">Вчасно: {{ stats_payload.summary.reports.on_time }}</div>
+          <div class="badge badge-warn">Запізнення: {{ stats_payload.summary.reports.late }}</div>
+          <div class="badge badge-bad">Пропущено: {{ stats_payload.summary.reports.missing }}</div>
+        </div>
+      </div>
+      <div class="report-timeline" id="report-timeline"></div>
+    </div>
+
+    <div class="stats-section">
+      <div class="section-head">
+        <div>
+          <div class="section-title">Магазини / тестові партії</div>
+          <div class="muted">Включає ТТН, продажі та комунікації (якщо внесено).</div>
+        </div>
+      </div>
+      <div class="shops-grid">
+        <div class="mini">
+          <div class="mini-label">Додано магазинів</div>
+          <div class="mini-value">{{ stats_payload.summary.shops.created }}</div>
+        </div>
+        <div class="mini">
+          <div class="mini-label">Тестові</div>
+          <div class="mini-value">{{ stats_payload.summary.shops.test }}</div>
+        </div>
+        <div class="mini">
+          <div class="mini-label">Прострочені тести</div>
+          <div class="mini-value">{{ stats_payload.summary.shops.test_overdue_total }}</div>
+        </div>
+        <div class="mini">
+          <div class="mini-label">Без контакту давно</div>
+          <div class="mini-value">{{ stats_payload.summary.shops.stale_shops_count }}</div>
+        </div>
+        <div class="mini">
+          <div class="mini-label">Контакт прострочено</div>
+          <div class="mini-value">{{ stats_payload.summary.shops.next_contact_due_count }}</div>
+        </div>
+        <div class="mini">
+          <div class="mini-label">ТТН (за період)</div>
+          <div class="mini-value">{{ stats_payload.summary.shops.shipments_count }}</div>
+        </div>
+        <div class="mini">
+          <div class="mini-label">Продажі (шт)</div>
+          <div class="mini-value">{{ stats_payload.summary.shops.inventory_sales_delta }}</div>
+        </div>
+        <div class="mini">
+          <div class="mini-label">Комунікації</div>
+          <div class="mini-value">{{ stats_payload.summary.shops.communications_count }}</div>
+        </div>
+        <div class="mini">
+          <div class="mini-label">Перейшли з тесту</div>
+          <div class="mini-value">{{ stats_payload.summary.shops.tests_converted_total }}</div>
+        </div>
+      </div>
+
+      <details class="kpd-details" style="margin-top: 12px;">
+        <summary>Деталі по магазинах і тестах</summary>
+        <div class="detail-split">
+          <div class="detail-block">
+            <div class="detail-title">Магазини без контакту давно</div>
+            {% if stats_payload.summary.shops.stale_shops_list %}
+              <div class="detail-list">
+                {% for s in stats_payload.summary.shops.stale_shops_list %}
+                  <div class="detail-row">
+                    <div class="detail-main">{{ s.name }} <span class="muted">• {{ s.days_since }} дн</span></div>
+                    <div class="detail-side muted">{{ s.next_contact_label|default:"" }}</div>
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="muted">Немає.</div>
+            {% endif %}
+          </div>
+
+          <div class="detail-block">
+            <div class="detail-title">Прострочений наступний контакт</div>
+            {% if stats_payload.summary.shops.next_contact_due_list %}
+              <div class="detail-list">
+                {% for s in stats_payload.summary.shops.next_contact_due_list %}
+                  <div class="detail-row">
+                    <div class="detail-main">{{ s.name }}</div>
+                    <div class="detail-side muted">{{ s.next_contact_label }}</div>
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="muted">Немає.</div>
+            {% endif %}
+          </div>
+
+          <div class="detail-block">
+            <div class="detail-title">Прострочені тести</div>
+            {% if stats_payload.summary.shops.test_overdue_list %}
+              <div class="detail-list">
+                {% for t in stats_payload.summary.shops.test_overdue_list %}
+                  <div class="detail-row">
+                    <div class="detail-main">{{ t.name }} <span class="muted">• {{ t.overdue_days }} дн</span></div>
+                    <div class="detail-side muted">{{ t.next_contact_label|default:"" }}</div>
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="muted">Немає прострочених тестів.</div>
+            {% endif %}
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <div class="stats-section">
+      <div class="section-head">
+        <div>
+          <div class="section-title">Накладні (опт)</div>
+          <div class="muted">Створення → підтвердження → оплата.</div>
+        </div>
+      </div>
+      <div class="invoices-grid">
+        <div class="mini">
+          <div class="mini-label">Створено</div>
+          <div class="mini-value">{{ stats_payload.summary.invoices.created }}</div>
+        </div>
+        <div class="mini">
+          <div class="mini-label">Підтверджено</div>
+          <div class="mini-value">{{ stats_payload.summary.invoices.approved }}</div>
+        </div>
+        <div class="mini">
+          <div class="mini-label">Оплачено</div>
+          <div class="mini-value">{{ stats_payload.summary.invoices.paid }}</div>
+        </div>
+        <div class="mini">
+          <div class="mini-label">Сума</div>
+          <div class="mini-value">{{ stats_payload.summary.invoices.amount }} грн</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats-section">
+      <div class="section-head">
+        <div>
+          <div class="section-title">КП на e-mail</div>
+          <div class="muted">Аналітика за логами відправки (статус, формат).</div>
+        </div>
+      </div>
+      <div class="invoices-grid">
+        <div class="mini">
+          <div class="mini-label">Надіслано</div>
+          <div class="mini-value">{{ stats_payload.summary.cp.sent }}</div>
+        </div>
+        <div class="mini">
+          <div class="mini-label">Помилки</div>
+          <div class="mini-value">{{ stats_payload.summary.cp.failed }}</div>
+        </div>
+        <div class="mini">
+          <div class="mini-label">Всього</div>
+          <div class="mini-value">{{ stats_payload.summary.cp.total }}</div>
+        </div>
+      </div>
+
+      <div class="muted" style="margin-top: 10px; font-size: 12px;">Формат:</div>
+      <div style="margin-top: 6px; display:flex; gap:8px; flex-wrap:wrap;">
+        {% for m in stats_payload.summary.cp.modes %}
+          <span class="badge">{{ m.mode }}: {{ m.count }}</span>
+        {% empty %}
+          <span class="muted">—</span>
+        {% endfor %}
+      </div>
+
+      <div class="muted" style="margin-top: 10px; font-size: 12px;">Сегмент:</div>
+      <div style="margin-top: 6px; display:flex; gap:8px; flex-wrap:wrap;">
+        {% for s in stats_payload.summary.cp.segments %}
+          <span class="badge">{{ s.segment_mode }}: {{ s.count }}</span>
+        {% empty %}
+          <span class="muted">—</span>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {{ stats_payload|json_script:"mgmt-stats-data" }}
+</section>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/management-stats.js' %}"></script>
+{% endblock %}

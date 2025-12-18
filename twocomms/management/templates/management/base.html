@@ -35,7 +35,8 @@
 
 <body class="management-body"
       data-mgmt-shell="{% if request.resolver_match.url_name == 'management_home' or request.resolver_match.url_name == 'management_invoices' or request.resolver_match.url_name == 'management_commercial_offer_email' or request.resolver_match.url_name == 'management_shops' %}1{% else %}0{% endif %}"
-      data-url-name="{{ request.resolver_match.url_name }}">
+      data-url-name="{{ request.resolver_match.url_name }}"
+      data-activity-pulse-url="{% url 'management_activity_pulse' %}">
     <!-- Глобальный верхний хедер -->
     <header class="global-header">
         <div class="header-left">
@@ -50,7 +51,7 @@
         <nav class="header-tabs">
             <a href="{% url 'management_home' %}" class="tab{% if request.resolver_match.url_name == 'management_home' or request.resolver_match.url_name == 'management_invoices' or request.resolver_match.url_name == 'management_commercial_offer_email' or request.resolver_match.url_name == 'management_shops' %} active{% endif %}">Менеджмент</a>
             <a href="{% url 'management_reports' %}" class="tab{% if request.resolver_match.url_name == 'management_reports' %} active{% endif %}">Звітність</a>
-            <a href="#" class="tab">Статистика</a>
+            <a href="{% url 'management_stats' %}" class="tab{% if request.resolver_match.url_name == 'management_stats' or request.resolver_match.url_name == 'management_stats_admin' or request.resolver_match.url_name == 'management_stats_admin_user' %} active{% endif %}">Статистика</a>
             <a href="#" class="tab">Виплати</a>
             <a href="#" class="tab">Профіль</a>
             <a href="#" class="tab">Інформація</a>
@@ -651,6 +652,7 @@
     });
     </script>
 
+    <script src="{% static 'js/management-activity.js' %}"></script>
     <script src="{% static 'js/management-shell.js' %}"></script>
 </body>
 

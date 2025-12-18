@@ -19,6 +19,7 @@
                 <a href="?tab=managers" class="btn-ghost small{% if admin_tab == 'managers' %} active{% endif %}">Менеджери та прогрес</a>
                 <a href="?tab=invoices" class="btn-ghost small{% if admin_tab == 'invoices' %} active{% endif %}">Накладні</a>
                 <a href="?tab=shops" class="btn-ghost small{% if admin_tab == 'shops' %} active{% endif %}">Магазини</a>
+                <a href="{% url 'management_stats_admin' %}" class="btn-ghost small">Статистика менеджерів</a>
             </div>
         </div>
     </div>
