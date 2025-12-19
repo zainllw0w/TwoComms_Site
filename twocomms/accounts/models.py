@@ -18,6 +18,9 @@ class UserProfile(models.Model):
     telegram = models.CharField(max_length=100, blank=True, verbose_name='Telegram')
     telegram_id = models.BigIntegerField(null=True, blank=True, verbose_name='Telegram ID')
     instagram = models.CharField(max_length=100, blank=True, verbose_name='Instagram')
+    whatsapp = models.CharField(max_length=100, blank=True, verbose_name='WhatsApp')
+    viber = models.CharField(max_length=100, blank=True, verbose_name='Viber')
+    birth_date = models.DateField(null=True, blank=True, verbose_name='Дата рождения')
     is_ubd = models.BooleanField(default=False, verbose_name='УБД')
     ubd_doc = models.ImageField(upload_to='ubd_docs/', blank=True, null=True, verbose_name='Фото посвідчення УБД')
     # Менеджмент-бот
@@ -26,7 +29,13 @@ class UserProfile(models.Model):
     tg_manager_bind_code = models.CharField(max_length=64, blank=True, verbose_name='Код привʼязки менеджмент-бота')
     tg_manager_bind_expires_at = models.DateTimeField(null=True, blank=True, verbose_name='Діє до')
     is_manager = models.BooleanField(default=False, verbose_name='Менеджер (доступ до Management)')
-    
+
+    # Налаштування менеджера (виплати)
+    manager_position = models.CharField(max_length=120, blank=True, verbose_name='Посада/статус')
+    manager_base_salary_uah = models.PositiveIntegerField(default=0, verbose_name='Ставка (грн)')
+    manager_commission_percent = models.DecimalField(max_digits=6, decimal_places=2, default=0, verbose_name='Відсоток з продажів')
+    manager_started_at = models.DateField(null=True, blank=True, verbose_name='Дата початку роботи')
+
     # Поля для оптовых заказов
     company_name = models.CharField(max_length=200, blank=True, verbose_name='Назва компанії/ФОП/ПІБ')
     company_number = models.CharField(max_length=50, blank=True, verbose_name='Номер компанії/ЄДРПОУ/ІПН')

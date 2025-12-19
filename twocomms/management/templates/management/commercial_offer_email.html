@@ -1,19 +1,153 @@
 {% extends "management/base.html" %}
 
-{% block title %}КП на e-mail{% endblock %}
+{% block title %}Коммерческие предложения{% endblock %}
 
 {% block content %}
 <div class="clients-panel offer-panel">
     <div class="panel-header">
         <div>
-            <p class="eyebrow">Комерційна пропозиція</p>
-            <h2>КП на e-mail</h2>
+            <p class="eyebrow">Коммерческие предложения</p>
+            <h2>Коммерческие предложения</h2>
         </div>
         <div class="panel-actions">
             <a class="btn-ghost" href="{% url 'management_home' %}">← До панелі</a>
         </div>
     </div>
 
+    <div class="cp-top-tabs" role="tablist" aria-label="Категории КП">
+        <a href="?tab=email" class="cp-top-tab{% if cp_tab == 'email' %} active{% endif %}" role="tab" aria-selected="{% if cp_tab == 'email' %}true{% else %}false{% endif %}">КП на email</a>
+        <a href="?tab=messengers" class="cp-top-tab{% if cp_tab == 'messengers' %} active{% endif %}" role="tab" aria-selected="{% if cp_tab == 'messengers' %}true{% else %}false{% endif %}">КП на мессенджеры</a>
+    </div>
+
+    <div class="cp-pane cp-pane-messengers" {% if cp_tab != 'messengers' %}style="display:none"{% endif %}>
+        <div class="offer-grid offer-grid-single">
+            <div class="offer-card">
+                <div class="offer-card-head">
+                    <div>
+                        <p class="eyebrow">КП на мессенджеры</p>
+                        <h3 class="offer-card-title">Только копирование — без отправки из системы</h3>
+                        <div class="offer-help">Выберите вариант, нажмите «Скопировать» и отправьте вручную в мессенджер.</div>
+                    </div>
+                </div>
+
+                <div class="cp-messenger-toolbar">
+                    <div class="cp-subtabs" role="tablist" aria-label="Канал">
+                        <button type="button" class="cp-subtab active" data-channel="telegram">Telegram</button>
+                        <button type="button" class="cp-subtab" data-channel="generic">Другие мессенджеры</button>
+                    </div>
+                    <div class="cp-template-pills" id="cp-template-pills" aria-label="Шаблон">
+                        {% for tpl in messenger_templates %}
+                            <button type="button" class="cp-pill{% if forloop.first %} active{% endif %}" data-template="{{ tpl.key }}">{{ tpl.title }}</button>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="cp-preview-shell">
+                    <pre class="cp-preview" id="cp-preview" aria-label="Предпросмотр"></pre>
+                </div>
+
+                <div class="cp-messenger-actions">
+                    <button type="button" class="btn-primary" id="cp-copy-btn">Скопировать</button>
+                    <div class="cp-copy-status" id="cp-copy-status" role="status" aria-live="polite"></div>
+                </div>
+
+                {{ messenger_templates|json_script:"cp-messenger-templates" }}
+                <script>
+                (function() {
+                    const dataEl = document.getElementById('cp-messenger-templates');
+                    if (!dataEl) return;
+                    let templates = [];
+                    try { templates = JSON.parse(dataEl.textContent || '[]'); } catch (e) { templates = []; }
+                    if (!Array.isArray(templates) || !templates.length) return;
+
+                    const preview = document.getElementById('cp-preview');
+                    const copyBtn = document.getElementById('cp-copy-btn');
+                    const statusEl = document.getElementById('cp-copy-status');
+                    const pillsWrap = document.getElementById('cp-template-pills');
+                    const subTabs = Array.from(document.querySelectorAll('.cp-subtab'));
+
+                    let activeChannel = 'telegram';
+                    let activeKey = (templates[0] || {}).key;
+
+                    const getActiveTpl = () => templates.find(t => t.key === activeKey) || templates[0];
+                    const buildText = () => {
+                        const tpl = getActiveTpl();
+                        if (!tpl) return '';
+                        return String(tpl[activeChannel] || tpl.telegram || tpl.generic || '').trim();
+                    };
+                    const render = () => {
+                        const txt = buildText();
+                        if (preview) preview.textContent = txt;
+                    };
+
+                    const setStatus = (msg, kind) => {
+                        if (!statusEl) return;
+                        statusEl.textContent = msg || '';
+                        statusEl.dataset.kind = kind || '';
+                        if (msg) {
+                            clearTimeout(setStatus._t);
+                            setStatus._t = setTimeout(() => { statusEl.textContent = ''; statusEl.dataset.kind = ''; }, 1800);
+                        }
+                    };
+
+                    const copyText = async (txt) => {
+                        try {
+                            if (navigator.clipboard && navigator.clipboard.writeText) {
+                                await navigator.clipboard.writeText(txt);
+                                return true;
+                            }
+                        } catch (e) {}
+                        try {
+                            const ta = document.createElement('textarea');
+                            ta.value = txt;
+                            ta.setAttribute('readonly', '');
+                            ta.style.position = 'fixed';
+                            ta.style.left = '-9999px';
+                            document.body.appendChild(ta);
+                            ta.select();
+                            const ok = document.execCommand('copy');
+                            document.body.removeChild(ta);
+                            return ok;
+                        } catch (e) {
+                            return false;
+                        }
+                    };
+
+                    if (pillsWrap) {
+                        pillsWrap.addEventListener('click', (e) => {
+                            const btn = e.target.closest('button[data-template]');
+                            if (!btn) return;
+                            activeKey = btn.dataset.template;
+                            pillsWrap.querySelectorAll('button[data-template]').forEach(b => b.classList.toggle('active', b === btn));
+                            render();
+                        });
+                    }
+
+                    subTabs.forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            activeChannel = btn.dataset.channel || 'telegram';
+                            subTabs.forEach(b => b.classList.toggle('active', b === btn));
+                            render();
+                        });
+                    });
+
+                    if (copyBtn) {
+                        copyBtn.addEventListener('click', async () => {
+                            const txt = buildText();
+                            if (!txt) return;
+                            const ok = await copyText(txt);
+                            setStatus(ok ? 'Скопировано' : 'Не удалось скопировать', ok ? 'ok' : 'err');
+                        });
+                    }
+
+                    render();
+                })();
+                </script>
+            </div>
+        </div>
+    </div>
+
+    <div class="cp-pane cp-pane-email" {% if cp_tab != 'email' %}style="display:none"{% endif %}>
     <div id="offer-alert-stack"></div>
 
     {% if sent_success %}
@@ -670,6 +804,7 @@
             <button type="button" class="btn-ghost" id="offer-log-close-2">Закрити</button>
         </div>
     </div>
+</div>
 </div>
 {% endblock %}
 
