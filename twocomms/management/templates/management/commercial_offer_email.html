@@ -1,22 +1,22 @@
 {% extends "management/base.html" %}
 
-{% block title %}Коммерческие предложения{% endblock %}
+{% block title %}Комерційні пропозиції{% endblock %}
 
 {% block content %}
 <div class="clients-panel offer-panel">
     <div class="panel-header">
         <div>
-            <p class="eyebrow">Коммерческие предложения</p>
-            <h2>Коммерческие предложения</h2>
+            <p class="eyebrow">Комерційні пропозиції</p>
+            <h2>Комерційні пропозиції</h2>
         </div>
         <div class="panel-actions">
             <a class="btn-ghost" href="{% url 'management_home' %}">← До панелі</a>
         </div>
     </div>
 
-    <div class="cp-top-tabs" role="tablist" aria-label="Категории КП">
-        <a href="?tab=email" class="cp-top-tab{% if cp_tab == 'email' %} active{% endif %}" role="tab" aria-selected="{% if cp_tab == 'email' %}true{% else %}false{% endif %}">КП на email</a>
-        <a href="?tab=messengers" class="cp-top-tab{% if cp_tab == 'messengers' %} active{% endif %}" role="tab" aria-selected="{% if cp_tab == 'messengers' %}true{% else %}false{% endif %}">КП на мессенджеры</a>
+    <div class="cp-top-tabs" role="tablist" aria-label="Категорії КП">
+        <a href="?tab=email" class="cp-top-tab{% if cp_tab == 'email' %} active{% endif %}" role="tab" aria-selected="{% if cp_tab == 'email' %}true{% else %}false{% endif %}">КП на e-mail</a>
+        <a href="?tab=messengers" class="cp-top-tab{% if cp_tab == 'messengers' %} active{% endif %}" role="tab" aria-selected="{% if cp_tab == 'messengers' %}true{% else %}false{% endif %}">КП у месенджери</a>
     </div>
 
     <div class="cp-pane cp-pane-messengers" {% if cp_tab != 'messengers' %}style="display:none"{% endif %}>
@@ -24,16 +24,16 @@
             <div class="offer-card">
                 <div class="offer-card-head">
                     <div>
-                        <p class="eyebrow">КП на мессенджеры</p>
-                        <h3 class="offer-card-title">Только копирование — без отправки из системы</h3>
-                        <div class="offer-help">Выберите вариант, нажмите «Скопировать» и отправьте вручную в мессенджер.</div>
+                        <p class="eyebrow">КП у месенджери</p>
+                        <h3 class="offer-card-title">Тільки копіювання — без відправлення із системи</h3>
+                        <div class="offer-help">Оберіть варіант, натисніть «Скопіювати» і надішліть вручну в месенджер.</div>
                     </div>
                 </div>
 
                 <div class="cp-messenger-toolbar">
                     <div class="cp-subtabs" role="tablist" aria-label="Канал">
                         <button type="button" class="cp-subtab active" data-channel="telegram">Telegram</button>
-                        <button type="button" class="cp-subtab" data-channel="generic">Другие мессенджеры</button>
+                        <button type="button" class="cp-subtab" data-channel="generic">Інші месенджери</button>
                     </div>
                     <div class="cp-template-pills" id="cp-template-pills" aria-label="Шаблон">
                         {% for tpl in messenger_templates %}
@@ -43,11 +43,11 @@
                 </div>
 
                 <div class="cp-preview-shell">
-                    <pre class="cp-preview" id="cp-preview" aria-label="Предпросмотр"></pre>
+                    <pre class="cp-preview" id="cp-preview" aria-label="Попередній перегляд"></pre>
                 </div>
 
                 <div class="cp-messenger-actions">
-                    <button type="button" class="btn-primary" id="cp-copy-btn">Скопировать</button>
+                    <button type="button" class="btn-primary" id="cp-copy-btn">Скопіювати</button>
                     <div class="cp-copy-status" id="cp-copy-status" role="status" aria-live="polite"></div>
                 </div>
 
@@ -136,7 +136,7 @@
                             const txt = buildText();
                             if (!txt) return;
                             const ok = await copyText(txt);
-                            setStatus(ok ? 'Скопировано' : 'Не удалось скопировать', ok ? 'ok' : 'err');
+                            setStatus(ok ? 'Скопійовано' : 'Не вдалося скопіювати', ok ? 'ok' : 'err');
                         });
                     }
 

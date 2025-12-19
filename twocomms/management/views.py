@@ -1260,7 +1260,7 @@ def profile_update(request):
             return
         val = (raw or '').strip()
         if max_len is not None and len(val) > max_len:
-            errors[attr] = 'Слишком длинное значение.'
+            errors[attr] = 'Занадто довге значення.'
             return
         setattr(profile, attr, val)
 
@@ -1275,7 +1275,7 @@ def profile_update(request):
             try:
                 validate_email(email)
             except ValidationError:
-                errors['email'] = 'Некорректный email.'
+                errors['email'] = 'Некоректний email.'
             else:
                 profile.email = email
         else:
@@ -1285,7 +1285,7 @@ def profile_update(request):
     if phone is not None:
         phone = (phone or '').strip()
         if len(phone) > 32:
-            errors['phone'] = 'Слишком длинный телефон.'
+            errors['phone'] = 'Занадто довгий телефон.'
         else:
             profile.phone = phone
 
@@ -1311,9 +1311,9 @@ def profile_update(request):
         if not raw:
             return ''
         if len(raw) > 30:
-            raise ValueError('Instagram: слишком длинный логин.')
+            raise ValueError('Instagram: занадто довгий логін.')
         if not re.fullmatch(r'[A-Za-z0-9._]+', raw):
-            raise ValueError('Instagram: допустимы только буквы, цифры, точка и подчёркивание.')
+            raise ValueError('Instagram: дозволені лише літери, цифри, крапка та підкреслення.')
         return raw
 
     instagram = request.POST.get('instagram')
@@ -1332,9 +1332,9 @@ def profile_update(request):
         if not v:
             return ''
         if len(v) > 100:
-            raise ValueError('Слишком длинное значение.')
+            raise ValueError('Занадто довге значення.')
         if not re.fullmatch(r'[0-9+()\-\s@._]+', v):
-            raise ValueError('Недопустимые символы.')
+            raise ValueError('Недопустимі символи.')
         return v
 
     whatsapp_has = bool(request.POST.get('whatsapp_has'))
@@ -1363,16 +1363,16 @@ def profile_update(request):
 
     if day_raw or month_raw or year_raw:
         if not (day_raw and month_raw and year_raw):
-            errors['birth_day'] = 'Укажите дату полностью.'
-            errors['birth_month'] = 'Укажите дату полностью.'
-            errors['birth_year'] = 'Укажите дату полностью.'
+            errors['birth_day'] = 'Вкажіть дату повністю.'
+            errors['birth_month'] = 'Вкажіть дату повністю.'
+            errors['birth_year'] = 'Вкажіть дату повністю.'
         else:
             try:
                 profile.birth_date = date(int(year_raw), int(month_raw), int(day_raw))
             except Exception:
-                errors['birth_day'] = 'Некорректная дата.'
-                errors['birth_month'] = 'Некорректная дата.'
-                errors['birth_year'] = 'Некорректная дата.'
+                errors['birth_day'] = 'Некоректна дата.'
+                errors['birth_month'] = 'Некоректна дата.'
+                errors['birth_year'] = 'Некоректна дата.'
     else:
         profile.birth_date = None
 
@@ -1397,15 +1397,15 @@ def profile_update(request):
                 return total % 10 == 0
 
             if len(digits) < 12 or len(digits) > 19:
-                errors['payment_card'] = 'Номер карты выглядит некорректно.'
+                errors['payment_card'] = 'Номер картки виглядає некоректно.'
             elif not luhn_ok(digits):
-                errors['payment_card'] = 'Номер карты выглядит некорректно.'
+                errors['payment_card'] = 'Номер картки виглядає некоректно.'
             else:
                 profile.payment_method = 'card'
                 profile.payment_details = ' '.join(digits[i:i+4] for i in range(0, len(digits), 4))
 
     if errors:
-        return JsonResponse({'ok': False, 'error': 'Проверьте поля формы.', 'errors': errors}, status=400)
+        return JsonResponse({'ok': False, 'error': 'Перевірте поля форми.', 'errors': errors}, status=400)
 
     profile.save()
     return JsonResponse({'ok': True})
@@ -1739,15 +1739,15 @@ def _format_admin_payout_message(payout_req, *, status_line=None, include_links=
         created_label = ''
 
     lines = [
-        '💸 <b>Запрос на выплату</b>',
+        '💸 <b>Запит на виплату</b>',
         '',
         f"<b>ID</b>: <code>{escape(str(getattr(payout_req, 'id', '')))}</code>",
         f"<b>Менеджер</b>: {escape(manager_name) if manager_name else '—'}",
-        f"<b>Сумма</b>: {escape(str(getattr(payout_req, 'amount', '0')))} грн",
-        f"<b>Карта</b>: {escape(mask_card(card_raw))}",
+        f"<b>Сума</b>: {escape(str(getattr(payout_req, 'amount', '0')))} грн",
+        f"<b>Картка</b>: {escape(mask_card(card_raw))}",
     ]
     if created_label:
-        lines.append(f"<b>Создан</b>: {escape(created_label)}")
+        lines.append(f"<b>Створено</b>: {escape(created_label)}")
 
     if status_line:
         lines += ['', status_line]
@@ -1771,16 +1771,16 @@ def _admin_payout_keyboard(payout_req):
     if status == ManagerPayoutRequest.Status.PROCESSING:
         return {
             'inline_keyboard': [[
-                {'text': '✅ Одобрить', 'callback_data': f'pay:approve:{payout_req.id}'},
-                {'text': '❌ Отклонить', 'callback_data': f'pay:reject:{payout_req.id}'},
+                {'text': '✅ Схвалити', 'callback_data': f'pay:approve:{payout_req.id}'},
+                {'text': '❌ Відхилити', 'callback_data': f'pay:reject:{payout_req.id}'},
             ]]
         }
 
     if status == ManagerPayoutRequest.Status.APPROVED:
         return {
             'inline_keyboard': [[
-                {'text': '💳 Выплачено', 'callback_data': f'pay:paid:{payout_req.id}'},
-                {'text': '❌ Отклонить', 'callback_data': f'pay:reject:{payout_req.id}'},
+                {'text': '💳 Виплачено', 'callback_data': f'pay:paid:{payout_req.id}'},
+                {'text': '❌ Відхилити', 'callback_data': f'pay:reject:{payout_req.id}'},
             ]]
         }
 
@@ -1816,14 +1816,14 @@ def _try_update_admin_payout_message(payout_req, *, bot_token=None, final=False)
     try:
         from management.models import ManagerPayoutRequest
         if status == ManagerPayoutRequest.Status.PROCESSING:
-            status_line = '⏳ <b>В ОБРАБОТКЕ</b>'
+            status_line = '⏳ <b>В ОБРОБЦІ</b>'
         elif status == ManagerPayoutRequest.Status.APPROVED:
-            status_line = '✅ <b>ОДОБРЕНО</b>'
+            status_line = '✅ <b>СХВАЛЕНО</b>'
         elif status == ManagerPayoutRequest.Status.REJECTED:
             reason = escape((getattr(payout_req, 'rejection_reason', '') or '').strip() or '—')
-            status_line = f"❌ <b>ОТКЛОНЕНО</b>\n<b>Причина</b>: {reason}"
+            status_line = f"❌ <b>ВІДХИЛЕНО</b>\n<b>Причина</b>: {reason}"
         elif status == ManagerPayoutRequest.Status.PAID:
-            status_line = '💳 <b>ВЫПЛАЧЕНО</b>'
+            status_line = '💳 <b>ВИПЛАЧЕНО</b>'
     except Exception:
         status_line = None
 
@@ -1959,7 +1959,7 @@ def management_bot_webhook(request, token):
                         _tg_answer_callback(bot_token, cb_id, 'Вже відхилено')
                         return JsonResponse({'ok': True})
                     if req.status == ManagerPayoutRequest.Status.APPROVED:
-                        _tg_answer_callback(bot_token, cb_id, 'Вже одобрено')
+                        _tg_answer_callback(bot_token, cb_id, 'Вже схвалено')
                         return JsonResponse({'ok': True})
 
                     req.status = ManagerPayoutRequest.Status.APPROVED
@@ -1986,7 +1986,7 @@ def management_bot_webhook(request, token):
                         _tg_answer_callback(bot_token, cb_id, 'Запит відхилено')
                         return JsonResponse({'ok': True})
                     if req.status != ManagerPayoutRequest.Status.APPROVED:
-                        _tg_answer_callback(bot_token, cb_id, 'Спочатку одобріть')
+                        _tg_answer_callback(bot_token, cb_id, 'Спочатку схваліть')
                         return JsonResponse({'ok': True})
 
                     req.status = ManagerPayoutRequest.Status.PAID
@@ -2014,14 +2014,14 @@ def management_bot_webhook(request, token):
 
                 _notify_manager_payout(
                     req,
-                    title='✅ <b>Выплата одобрена</b>',
+                    title='✅ <b>Виплату схвалено</b>',
                     body_lines=[
-                        f"Сумма: <b>{escape(str(req.amount))} грн</b>.",
-                        f"В течение 3 часов сумма будет зачислена на карту <code>{escape(card_mask)}</code>.",
+                        f"Сума: <b>{escape(str(req.amount))} грн</b>.",
+                        f"Протягом 3 годин сума буде зарахована на картку <code>{escape(card_mask)}</code>.",
                     ],
                 )
 
-                _tg_answer_callback(bot_token, cb_id, 'Одобрено')
+                _tg_answer_callback(bot_token, cb_id, 'Схвалено')
                 return JsonResponse({'ok': True})
 
             if action == 'reject' and req and prompt_req:
@@ -2031,7 +2031,7 @@ def management_bot_webhook(request, token):
                 prompt = _tg_send_message(
                     bot_token,
                     chat_id,
-                    f"❌ <b>Отклонение выплаты</b> <code>{escape(str(req.id))}</code>\n\nНапишите причину одним сообщением.",
+                    f"❌ <b>Відхилення виплати</b> <code>{escape(str(req.id))}</code>\n\nНапишіть причину одним повідомленням.",
                     reply_markup={'force_reply': True, 'input_field_placeholder': 'Причина…'},
                     parse_mode='HTML',
                 )
@@ -2039,7 +2039,7 @@ def management_bot_webhook(request, token):
                     prompt_req.prompt_message_id = prompt.get('message_id')
                     prompt_req.save(update_fields=['prompt_message_id'])
 
-                _tg_answer_callback(bot_token, cb_id, 'Укажите причину')
+                _tg_answer_callback(bot_token, cb_id, 'Вкажіть причину')
                 return JsonResponse({'ok': True})
 
             if action == 'paid' and req:
@@ -2056,9 +2056,9 @@ def management_bot_webhook(request, token):
 
                 _notify_manager_payout(
                     req,
-                    title='💳 <b>Выплата выполнена</b>',
+                    title='💳 <b>Виплату здійснено</b>',
                     body_lines=[
-                        f"Сумма: <b>{escape(str(req.amount))} грн</b>.",
+                        f"Сума: <b>{escape(str(req.amount))} грн</b>.",
                         f"Зачислено на карту <code>{escape(card_mask)}</code>.",
                     ],
                 )
@@ -2239,15 +2239,15 @@ def management_bot_webhook(request, token):
                     _try_update_admin_payout_message(req, bot_token=bot_token, final=True)
                     _notify_manager_payout(
                         req,
-                        title='❌ <b>Выплата отклонена</b>',
+                        title='❌ <b>Виплату відхилено</b>',
                         body_lines=[
-                            f"Сумма: <b>{escape(str(req.amount))} грн</b>.",
+                            f"Сума: <b>{escape(str(req.amount))} грн</b>.",
                             f"Причина: {escape(reason)}",
                         ],
                     )
-                    _tg_send_message(bot_token, chat_id, 'Готово ✅ Запрос отклонён.', parse_mode='HTML')
+                    _tg_send_message(bot_token, chat_id, 'Готово ✅ Запит відхилено.', parse_mode='HTML')
                 else:
-                    _tg_send_message(bot_token, chat_id, 'Запрос уже обработан или недоступен.', parse_mode='HTML')
+                    _tg_send_message(bot_token, chat_id, 'Запит вже оброблено або недоступний.', parse_mode='HTML')
 
                 return JsonResponse({'ok': True})
     # Manager bot binding
@@ -3009,146 +3009,160 @@ def _offer_payload_from_form(form, default_name, initial, request):
 
 
 def _build_cp_messenger_templates(*, user, settings_obj, default_name, default_phone):
-    # CP message templates for manual copy into messengers (plain text)
+    # Шаблони повідомлень КП для ручного копіювання у месенджери (plain text)
     try:
         prof = user.userprofile
     except Exception:
         prof = None
 
     manager_name = (
-        (getattr(prof, 'full_name', '') or '').strip()
-        or (default_name or '').strip()
-        or (user.get_full_name() or '').strip()
-        or (getattr(user, 'username', '') or '').strip()
+        (getattr(prof, "full_name", "") or "").strip()
+        or (default_name or "").strip()
+        or (user.get_full_name() or "").strip()
+        or (getattr(user, "username", "") or "").strip()
     )
 
-    phone = ((getattr(prof, 'phone', '') or '').strip() or (default_phone or '').strip()).strip()
+    phone = ((getattr(prof, "phone", "") or "").strip() or (default_phone or "").strip()).strip()
 
-    telegram_raw = ''
+    telegram_raw = ""
     try:
-        if getattr(settings_obj, 'show_manager', True) and getattr(settings_obj, 'telegram_enabled', False):
-            telegram_raw = (getattr(settings_obj, 'telegram', '') or '').strip()
+        if getattr(settings_obj, "show_manager", True) and getattr(settings_obj, "telegram_enabled", False):
+            telegram_raw = (getattr(settings_obj, "telegram", "") or "").strip()
     except Exception:
-        telegram_raw = ''
+        telegram_raw = ""
 
     if not telegram_raw:
-        telegram_raw = (getattr(prof, 'telegram', '') or '').strip() if prof else ''
+        telegram_raw = (getattr(prof, "telegram", "") or "").strip() if prof else ""
 
     telegram = telegram_raw
-    if telegram and not telegram.startswith('@'):
-        if '/' not in telegram and ':' not in telegram and not telegram.startswith('+'):
+    if telegram and not telegram.startswith("@"):
+        if "/" not in telegram and ":" not in telegram and not telegram.startswith("+"):
             telegram = f"@{telegram}"
 
-    whatsapp = ''
-    viber = ''
+    whatsapp = ""
+    viber = ""
     try:
-        if getattr(settings_obj, 'show_manager', True) and getattr(settings_obj, 'whatsapp_enabled', False):
-            whatsapp = (getattr(settings_obj, 'whatsapp', '') or '').strip()
-        if getattr(settings_obj, 'show_manager', True) and getattr(settings_obj, 'viber_enabled', False):
-            viber = (getattr(settings_obj, 'viber', '') or '').strip()
+        if getattr(settings_obj, "show_manager", True) and getattr(settings_obj, "whatsapp_enabled", False):
+            whatsapp = (getattr(settings_obj, "whatsapp", "") or "").strip()
+        if getattr(settings_obj, "show_manager", True) and getattr(settings_obj, "viber_enabled", False):
+            viber = (getattr(settings_obj, "viber", "") or "").strip()
     except Exception:
         pass
 
-    site_url = 'https://twocomms.shop'
-    instagram_url = 'https://instagram.com/twocomms'
+    site_url = "https://twocomms.shop"
+    instagram_url = "https://instagram.com/twocomms"
 
-    contacts = []
+    contact_lines = []
     if telegram:
-        contacts.append(f"Telegram: {telegram}")
+        contact_lines.append(f"Telegram: {telegram}")
     if whatsapp:
-        contacts.append(f"WhatsApp: {whatsapp}")
+        contact_lines.append(f"WhatsApp: {whatsapp}")
     if viber:
-        contacts.append(f"Viber: {viber}")
+        contact_lines.append(f"Viber: {viber}")
     if phone:
-        contacts.append(f"Телефон: {phone}")
+        contact_lines.append(f"Телефон: {phone}")
 
-    contact_block = "\n".join(contacts)
-    if contact_block:
-        contact_block = f"\n\nКонтакты менеджера:\n{contact_block}"
+    contact_block_lines = []
+    if contact_lines:
+        contact_block_lines = ["", "Контакти менеджера:", *contact_lines]
 
-    base_intro = (
-        "Здравствуйте! 👋\n\n"
-        + f"Меня зовут {manager_name or 'менеджер TwoComms'}.\n"
-        + "TwoComms — опт от 8 шт и дропшип по Украине."
-    )
+    base_intro_lines = [
+        "Вітаю! 👋",
+        "",
+        f"Мене звати {manager_name or 'менеджер TwoComms'}.",
+        "TwoComms — опт від 8 шт та дропшип по Україні.",
+    ]
+
+    def build_message(*lines):
+        return "\n".join(lines).rstrip()
 
     templates = [
         {
-            'key': 'trial_14',
-            'title': '14-дневный вариант',
-            'subtitle': 'Акцент на тест-драйв и возврат 14 дней',
-            'telegram': (
-                base_intro
-                + "\n\n"
-                + "⏳ Тест-драйв 14 дней: можно взять пробную ростовку и спокойно проверить качество.\n"
-                + "✅ Быстрые отгрузки\n"
-                + "✅ Ходовые модели и размеры\n"
-                + "✅ Помогаем с подбором ассортимента\n\n"
-                + f"Каталог/сайт: {site_url}\n"
-                + f"Instagram: {instagram_url}"
-                + contact_block
-                + "\n\nЕсли удобно — напишите, и я подберу вариант под ваш формат продаж."
+            "key": "trial_14",
+            "title": "14-денний варіант",
+            "subtitle": "Акцент на тест-драйв і повернення 14 днів",
+            "telegram": build_message(
+                *base_intro_lines,
+                "",
+                "⏳ Тест-драйв 14 днів: можна взяти тестову ростовку й спокійно перевірити якість.",
+                "✅ Швидкі відвантаження",
+                "✅ Ходові моделі та розміри",
+                "✅ Допомагаємо з підбором асортименту",
+                "",
+                f"Каталог/сайт: {site_url}",
+                f"Instagram: {instagram_url}",
+                *contact_block_lines,
+                "",
+                "Якщо зручно — напишіть, і я підберу варіант під ваш формат продажів.",
             ),
-            'generic': (
-                base_intro
-                + "\n\n"
-                + "Тест-драйв 14 дней: можно взять пробную ростовку и проверить качество.\n\n"
-                + f"Сайт: {site_url}\n"
-                + f"Instagram: {instagram_url}"
-                + contact_block
-                + "\n\nПодскажите, куда удобнее отправить условия/прайс?"
-            ),
-        },
-        {
-            'key': 'standard',
-            'title': 'Стандартный',
-            'subtitle': 'Коротко и универсально',
-            'telegram': (
-                base_intro
-                + "\n\n"
-                + "Могу прислать прайс, условия и примеры ассортимента.\n"
-                + "Что для вас актуальнее: опт или дропшип?\n\n"
-                + f"Каталог/сайт: {site_url}\n"
-                + f"Instagram: {instagram_url}"
-                + contact_block
-            ),
-            'generic': (
-                base_intro
-                + "\n\n"
-                + "Могу прислать прайс и условия. Что интереснее — опт или дропшип?\n\n"
-                + f"Сайт: {site_url}\n"
-                + f"Instagram: {instagram_url}"
-                + contact_block
+            "generic": build_message(
+                *base_intro_lines,
+                "",
+                "Тест-драйв 14 днів: можна взяти тестову ростовку й перевірити якість.",
+                "",
+                f"Сайт: {site_url}",
+                f"Instagram: {instagram_url}",
+                *contact_block_lines,
+                "",
+                "Підкажіть, куди зручно надіслати умови/прайс?",
             ),
         },
         {
-            'key': 'bonus',
-            'title': 'Акцент на условия/бонус',
-            'subtitle': 'Больше конкретики и выгод',
-            'telegram': (
-                base_intro
-                + "\n\n"
-                + "Выгоды для магазина:\n"
-                + "• стабильные поставки и быстрые отгрузки\n"
-                + "• популярные базовые модели\n"
-                + "• поддержка менеджера по ассортименту\n\n"
-                + "Если скажете ваш формат (офлайн/онлайн, город, объёмы) — предложу лучший сценарий.\n\n"
-                + f"Каталог/сайт: {site_url}\n"
-                + f"Instagram: {instagram_url}"
-                + contact_block
+            "key": "standard",
+            "title": "Стандартний",
+            "subtitle": "Коротко й універсально",
+            "telegram": build_message(
+                *base_intro_lines,
+                "",
+                "Можу надіслати прайс, умови та приклади асортименту.",
+                "Що для вас актуальніше: опт чи дропшип?",
+                "",
+                f"Каталог/сайт: {site_url}",
+                f"Instagram: {instagram_url}",
+                *contact_block_lines,
             ),
-            'generic': (
-                base_intro
-                + "\n\n"
-                + "Выгоды: быстрые отгрузки, ходовой ассортимент, поддержка менеджера.\n\n"
-                + f"Сайт: {site_url}\n"
-                + f"Instagram: {instagram_url}"
-                + contact_block
+            "generic": build_message(
+                *base_intro_lines,
+                "",
+                "Можу надіслати прайс та умови. Що цікавіше — опт чи дропшип?",
+                "",
+                f"Сайт: {site_url}",
+                f"Instagram: {instagram_url}",
+                *contact_block_lines,
+            ),
+        },
+        {
+            "key": "bonus",
+            "title": "Акцент на умови/бонус",
+            "subtitle": "Більше конкретики та вигод",
+            "telegram": build_message(
+                *base_intro_lines,
+                "",
+                "Вигоди для магазину:",
+                "• стабільні поставки та швидкі відвантаження",
+                "• популярні базові моделі",
+                "• підтримка менеджера з асортименту",
+                "",
+                "Якщо підкажете ваш формат (офлайн/онлайн, місто, обсяги) — запропоную найкращий сценарій.",
+                "",
+                f"Каталог/сайт: {site_url}",
+                f"Instagram: {instagram_url}",
+                *contact_block_lines,
+            ),
+            "generic": build_message(
+                *base_intro_lines,
+                "",
+                "Вигоди: швидкі відвантаження, ходовий асортимент, підтримка менеджера.",
+                "",
+                f"Сайт: {site_url}",
+                f"Instagram: {instagram_url}",
+                *contact_block_lines,
             ),
         },
     ]
 
     return templates
+
 
 
 @login_required(login_url='management_login')
@@ -4078,28 +4092,28 @@ def info(request):
 
     faq_items = [
         {
-            'q': 'Когда можно вывести начисления?',
-            'a': 'Скоро появится.',
+            'q': 'Коли можна вивести нарахування?',
+            'a': 'Незабаром з’явиться.',
         },
         {
-            'q': 'Почему часть баланса заморожена на 14 дней?',
-            'a': 'Скоро появится.',
+            'q': 'Чому частина балансу заморожена на 14 днів?',
+            'a': 'Незабаром з’явиться.',
         },
         {
-            'q': 'Когда выплачивается ставка и как формируется комиссия?',
-            'a': 'Скоро появится.',
+            'q': 'Коли виплачується ставка і як формується комісія?',
+            'a': 'Незабаром з’явиться.',
         },
         {
-            'q': 'Как обновить карту для выплат?',
-            'a': 'Скоро появится.',
+            'q': 'Як оновити картку для виплат?',
+            'a': 'Незабаром з’явиться.',
         },
         {
-            'q': 'Как привязать Telegram-бота менеджмента?',
-            'a': 'Скоро появится.',
+            'q': 'Як прив’язати Telegram-бота менеджменту?',
+            'a': 'Незабаром з’явиться.',
         },
         {
-            'q': 'Куда писать, если есть вопрос по выплатам?',
-            'a': 'Скоро появится.',
+            'q': 'Куди писати, якщо є питання щодо виплат?',
+            'a': 'Незабаром з’явиться.',
         },
     ]
 
@@ -4283,7 +4297,7 @@ def payouts_request_api(request):
 
     card_details = (getattr(prof, 'payment_details', '') or '').strip() if prof else ''
     if not card_details:
-        return JsonResponse({'ok': False, 'error': 'Укажите карту в профиле перед запросом выплаты.'}, status=400)
+        return JsonResponse({'ok': False, 'error': 'Вкажіть картку в профілі перед запитом на виплату.'}, status=400)
 
     try:
         payload = json.loads(request.body.decode('utf-8') or '{}')
@@ -4332,16 +4346,16 @@ def payouts_request_api(request):
             status__in=[ManagerPayoutRequest.Status.PROCESSING, ManagerPayoutRequest.Status.APPROVED],
         ).first()
         if existing:
-            return JsonResponse({'ok': False, 'error': 'У вас уже есть активный запрос на выплату.'}, status=400)
+            return JsonResponse({'ok': False, 'error': 'У вас вже є активний запит на виплату.'}, status=400)
 
         available = calc_available()
         if amount is None:
             amount = available
 
         if amount <= 0:
-            return JsonResponse({'ok': False, 'error': 'Недостаточно средств для выплаты.'}, status=400)
+            return JsonResponse({'ok': False, 'error': 'Недостатньо коштів для виплати.'}, status=400)
         if amount > available:
-            return JsonResponse({'ok': False, 'error': 'Сумма превышает доступный баланс.'}, status=400)
+            return JsonResponse({'ok': False, 'error': 'Сума перевищує доступний баланс.'}, status=400)
 
         req = ManagerPayoutRequest.objects.create(
             owner=request.user,
@@ -4359,11 +4373,11 @@ def payouts_request_api(request):
 
         _notify_manager_payout(
             req,
-            title='💸 <b>Выплата запрошена</b>',
+            title='💸 <b>Запит на виплату створено</b>',
             body_lines=[
-                f"Вы запросили выплату на сумму <b>{escape(str(req.amount))} грн</b>.",
-                f"Карта: <code>{escape(card_mask)}</code>",
-                'Статус: ⏳ <b>в обработке</b>.',
+                f"Ви запросили виплату на суму <b>{escape(str(req.amount))} грн</b>.",
+                f"Картка: <code>{escape(card_mask)}</code>",
+                'Статус: ⏳ <b>в обробці</b>.',
             ],
         )
         _send_payout_request_to_admin(req)
@@ -4487,10 +4501,10 @@ def admin_payout_approve_api(request, request_id):
 
             _notify_manager_payout(
                 req_full,
-                title='✅ <b>Выплата одобрена</b>',
+                title='✅ <b>Виплату схвалено</b>',
                 body_lines=[
-                    f"Сумма: <b>{escape(str(req_full.amount))} грн</b>.",
-                    f"В течение 3 часов сумма будет зачислена на карту <code>{escape(card_mask)}</code>.",
+                    f"Сума: <b>{escape(str(req_full.amount))} грн</b>.",
+                    f"Протягом 3 годин сума буде зарахована на картку <code>{escape(card_mask)}</code>.",
                 ],
             )
     except Exception:
@@ -4542,9 +4556,9 @@ def admin_payout_reject_api(request, request_id):
             _try_update_admin_payout_message(req_full, final=True)
             _notify_manager_payout(
                 req_full,
-                title='❌ <b>Выплата отклонена</b>',
+                title='❌ <b>Виплату відхилено</b>',
                 body_lines=[
-                    f"Сумма: <b>{escape(str(req_full.amount))} грн</b>.",
+                    f"Сума: <b>{escape(str(req_full.amount))} грн</b>.",
                     f"Причина: {escape(reason)}",
                 ],
             )
@@ -4597,9 +4611,9 @@ def admin_payout_paid_api(request, request_id):
 
             _notify_manager_payout(
                 req_full,
-                title='💳 <b>Выплата выполнена</b>',
+                title='💳 <b>Виплату здійснено</b>',
                 body_lines=[
-                    f"Сумма: <b>{escape(str(req_full.amount))} грн</b>.",
+                    f"Сума: <b>{escape(str(req_full.amount))} грн</b>.",
                     f"Зачислено на карту <code>{escape(card_mask)}</code>.",
                 ],
             )

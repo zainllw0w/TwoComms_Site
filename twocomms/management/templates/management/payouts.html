@@ -1,13 +1,13 @@
 {% extends "management/base.html" %}
 
-{% block title %}Выплаты{% endblock %}
+{% block title %}Виплати{% endblock %}
 
 {% block content %}
 <div class="clients-panel payouts-panel">
     <div class="panel-header">
         <div>
-            <p class="eyebrow">Финансы</p>
-            <h2>Выплаты</h2>
+            <p class="eyebrow">Фінанси</p>
+            <h2>Виплати</h2>
         </div>
         <div class="panel-actions">
             <a class="btn-ghost" href="{% url 'management_home' %}">← До панелі</a>
@@ -26,14 +26,14 @@
                     {% if active_request %}
                         <span class="status-chip status-{{ active_request.status }}">{{ active_request.get_status_display }}</span>
                     {% else %}
-                        <span class="status-chip status-none">Нет активных запросов</span>
+                        <span class="status-chip status-none">Немає активних запитів</span>
                     {% endif %}
                 </div>
             </div>
 
             <div class="balance-card__meta">
                 <div class="balance-metric">
-                    <div class="balance-metric__label">Доступно к выводу</div>
+                    <div class="balance-metric__label">Доступно до виведення</div>
                     <div class="balance-metric__value">{{ available|floatformat:2 }} грн</div>
                 </div>
                 <div class="balance-metric">
@@ -41,7 +41,7 @@
                     <div class="balance-metric__value">{{ frozen_amount|floatformat:2 }} грн</div>
                 </div>
                 <div class="balance-metric">
-                    <div class="balance-metric__label">В обработке</div>
+                    <div class="balance-metric__label">В обробці</div>
                     <div class="balance-metric__value">{{ reserved_amount|floatformat:2 }} грн</div>
                 </div>
             </div>
@@ -50,24 +50,24 @@
                 <button type="button" class="btn-primary" id="payout-request-btn"
                         data-url="{% url 'management_payouts_request_api' %}"
                         {% if not available or available <= 0 or active_request %}disabled{% endif %}>
-                    Запросить выплату
+                    Запросити виплату
                 </button>
                 <div class="balance-card__hint" id="payout-request-hint" role="status" aria-live="polite"></div>
             </div>
         </section>
 
-        <aside class="payouts-side" aria-label="Информация">
+        <aside class="payouts-side" aria-label="Інформація">
             <div class="payout-note payout-note--attention">
-                <div class="payout-note__title">Важно</div>
-                <div class="payout-note__text">Средства замораживаются на 14 дней, потому что покупатель имеет право вернуть товар в течение 14 дней по условиям законодательства Украины (защита прав потребителей).</div>
+                <div class="payout-note__title">Важливо</div>
+                <div class="payout-note__text">Кошти заморожуються на 14 днів, тому що покупець має право повернути товар протягом 14 днів за умовами законодавства України (захист прав споживачів).</div>
             </div>
             <div class="payout-note">
-                <div class="payout-note__title">График</div>
-                <div class="payout-note__text">Выплата ставки производится с 1 по 5 число каждого месяца.</div>
+                <div class="payout-note__title">Графік</div>
+                <div class="payout-note__text">Виплата ставки здійснюється з 1 по 5 число кожного місяця.</div>
             </div>
             <div class="payout-note">
-                <div class="payout-note__title">Карта</div>
-                <div class="payout-note__text">В профиле указана карта {{ card_mask }}, на неё будут зачисляться выплаты. Если хотите изменить — измените до запроса.</div>
+                <div class="payout-note__title">Картка</div>
+                <div class="payout-note__text">У профілі вказана картка {{ card_mask }}, на неї будуть зараховуватися виплати. Якщо хочете змінити — змініть до запиту.</div>
             </div>
         </aside>
     </div>
@@ -79,11 +79,11 @@
                 <div class="stat-card__value">{{ position }}</div>
             </div>
             <div class="stat-card">
-                <div class="stat-card__label">Дней работает</div>
+                <div class="stat-card__label">Днів працює</div>
                 <div class="stat-card__value">{% if days_worked is not None %}{{ days_worked }}{% else %}—{% endif %}</div>
             </div>
             <div class="stat-card">
-                <div class="stat-card__label">Сделок (оплаченных)</div>
+                <div class="stat-card__label">Угод (оплачених)</div>
                 <div class="stat-card__value">{{ deals_count|default:0 }}</div>
             </div>
             <div class="stat-card">
@@ -95,25 +95,25 @@
                 <div class="stat-card__value">{{ commission_percent|default:0 }}%</div>
             </div>
             <div class="stat-card">
-                <div class="stat-card__label">Дата первой сделки</div>
+                <div class="stat-card__label">Дата першої угоди</div>
                 <div class="stat-card__value">{% if first_deal_at %}{{ first_deal_at|date:"d.m.Y" }}{% else %}—{% endif %}</div>
             </div>
             <div class="stat-card">
-                <div class="stat-card__label">Дата последней выплаты</div>
+                <div class="stat-card__label">Дата останньої виплати</div>
                 <div class="stat-card__value">{% if last_payout_at %}{{ last_payout_at|date:"d.m.Y" }}{% else %}—{% endif %}</div>
             </div>
             <div class="stat-card">
-                <div class="stat-card__label">Всего получено выплат</div>
+                <div class="stat-card__label">Всього отримано виплат</div>
                 <div class="stat-card__value">{{ total_received|floatformat:2 }} грн</div>
             </div>
         </div>
     </section>
 
-    <section class="payouts-history" aria-label="История выплат">
+    <section class="payouts-history" aria-label="Історія виплат">
         <div class="panel-subhead">
             <div>
-                <p class="eyebrow">История</p>
-                <h3>Заявки и выплаты</h3>
+                <p class="eyebrow">Історія</p>
+                <h3>Запити та виплати</h3>
             </div>
         </div>
 
@@ -122,7 +122,7 @@
                 <thead>
                     <tr>
                         <th>Дата</th>
-                        <th>Сумма</th>
+                        <th>Сума</th>
                         <th>Статус</th>
                         <th>Причина</th>
                     </tr>
@@ -137,7 +137,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="4" class="table-empty">Пока нет заявок</td>
+                        <td colspan="4" class="table-empty">Поки немає запитів</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -172,7 +172,7 @@
 
         btn.disabled = true;
         btn.dataset.loading = '1';
-        setHint('Отправляем запрос…', 'info');
+        setHint('Надсилаємо запит…', 'info');
 
         try {
             const resp = await fetch(url, {
@@ -187,16 +187,16 @@
 
             const data = await resp.json().catch(() => ({}));
             if (!resp.ok || !data.ok) {
-                setHint((data && data.error) ? data.error : 'Не удалось отправить запрос.', 'err');
+                setHint((data && data.error) ? data.error : 'Не вдалося надіслати запит.', 'err');
                 btn.disabled = false;
                 btn.dataset.loading = '';
                 return;
             }
 
-            setHint('Запрос создан. Обновляем…', 'ok');
+            setHint('Запит створено. Оновлюємо…', 'ok');
             setTimeout(() => window.location.reload(), 650);
         } catch (e) {
-            setHint('Сеть недоступна. Попробуйте позже.', 'err');
+            setHint('Мережа недоступна. Спробуйте пізніше.', 'err');
             btn.disabled = false;
             btn.dataset.loading = '';
         }
