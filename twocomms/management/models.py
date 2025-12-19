@@ -769,7 +769,7 @@ class ManagerCommissionAccrual(models.Model):
 class ManagerPayoutRequest(models.Model):
     class Status(models.TextChoices):
         PROCESSING = 'processing', _('В обробці')
-        APPROVED = 'approved', _('Одобрено')
+        APPROVED = 'approved', _('Схвалено')
         REJECTED = 'rejected', _('Відхилено')
         PAID = 'paid', _('Виплачено')
 
