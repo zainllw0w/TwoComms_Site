@@ -1,0 +1,40 @@
+{% extends "management/base.html" %}
+
+{% block title %}Информация{% endblock %}
+
+{% block content %}
+<div class="clients-panel info-panel">
+    <div class="panel-header">
+        <div>
+            <p class="eyebrow">FAQ</p>
+            <h2>Информация</h2>
+        </div>
+    </div>
+
+    <div class="info-hero" role="note" aria-label="Справка">
+        <div class="info-hero__content">
+            <div class="info-hero__title">Справка для менеджера</div>
+            <div class="info-hero__text">Раздел уже оформлен и готов к наполнению. Сейчас ответы — аккуратные заглушки «Скоро появится», чтобы потом заменить тексты без переделки интерфейса.</div>
+        </div>
+        <div class="info-hero__badge">Обновляется</div>
+    </div>
+
+    <div class="faq-accordion" role="region" aria-label="Вопросы и ответы">
+        {% for item in faq_items %}
+        <details class="faq-item"{% if forloop.first %} open{% endif %}>
+            <summary class="faq-question">
+                <span class="faq-question__text">{{ item.q }}</span>
+            </summary>
+            <div class="faq-answer">
+                <div class="faq-answer__inner">
+                    <div class="soon-card">
+                        <div class="soon-card__title">Скоро появится</div>
+                        <div class="soon-card__text">{{ item.a }}</div>
+                    </div>
+                </div>
+            </div>
+        </details>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

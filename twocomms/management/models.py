@@ -727,3 +727,118 @@ class ManagementStatsConfig(models.Model):
 
     def __str__(self):
         return "ManagementStatsConfig"
+
+
+
+class ManagerCommissionAccrual(models.Model):
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='management_commission_accruals',
+        verbose_name=_('Менеджер'),
+    )
+    invoice = models.OneToOneField(
+        'orders.WholesaleInvoice',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='management_commission_accrual',
+        verbose_name=_('Накладна'),
+    )
+
+    base_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name=_('База (грн)'))
+    percent = models.DecimalField(max_digits=6, decimal_places=2, default=0, verbose_name=_('Відсоток'))
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name=_('Нараховано (грн)'))
+
+    frozen_until = models.DateTimeField(db_index=True, verbose_name=_('Заморожено до'))
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _('Нарахування менеджера')
+        verbose_name_plural = _('Нарахування менеджера')
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['owner', '-created_at'], name='mgmt_comm_owner_dt'),
+            models.Index(fields=['owner', 'frozen_until'], name='mgmt_comm_owner_frz'),
+        ]
+
+    def __str__(self):
+        return f"{self.owner_id}: +{self.amount}"
+
+
+class ManagerPayoutRequest(models.Model):
+    class Status(models.TextChoices):
+        PROCESSING = 'processing', _('В обробці')
+        APPROVED = 'approved', _('Одобрено')
+        REJECTED = 'rejected', _('Відхилено')
+        PAID = 'paid', _('Виплачено')
+
+    class Kind(models.TextChoices):
+        REQUEST = 'request', _('Запит менеджера')
+        MANUAL = 'manual', _('Ручний запис')
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='management_payout_requests',
+        verbose_name=_('Менеджер'),
+    )
+
+    kind = models.CharField(max_length=20, choices=Kind.choices, default=Kind.REQUEST, db_index=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2, verbose_name=_('Сума (грн)'))
+
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PROCESSING, db_index=True)
+    rejection_reason = models.TextField(blank=True, verbose_name=_('Причина (якщо відхилено)'))
+
+    processed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='processed_management_payout_requests',
+        verbose_name=_('Обробив (адмін)'),
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    approved_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    rejected_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    paid_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    admin_tg_chat_id = models.BigIntegerField(null=True, blank=True)
+    admin_tg_message_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = _('Запит на виплату')
+        verbose_name_plural = _('Запити на виплату')
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['owner', 'status', '-created_at'], name='mgmt_pay_owner_st'),
+            models.Index(fields=['status', '-created_at'], name='mgmt_pay_st_dt'),
+        ]
+
+    def __str__(self):
+        return f"{self.owner_id}: {self.status} {self.amount}"
+
+
+class PayoutRejectionReasonRequest(models.Model):
+    payout_request = models.ForeignKey(
+        ManagerPayoutRequest,
+        on_delete=models.CASCADE,
+        related_name='rejection_reason_requests',
+    )
+    admin_chat_id = models.BigIntegerField(db_index=True)
+    prompt_message_id = models.BigIntegerField(null=True, blank=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _('Причина відхилення виплати (запит)')
+        verbose_name_plural = _('Причини відхилення виплати (запити)')
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['admin_chat_id', 'is_active'], name='mgmt_payrej_chat_act'),
+        ]
+
+    def __str__(self):
+        return f"{self.payout_request_id} ({'active' if self.is_active else 'closed'})"

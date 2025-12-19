@@ -2,9 +2,13 @@
 Сигналы для уведомлений о заказах
 """
 import logging
+from datetime import timedelta
+from decimal import Decimal, ROUND_HALF_UP
+
+from django.utils import timezone
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
-from .models import Order
+from .models import Order, WholesaleInvoice
 from .tasks import send_telegram_notification_task
 from .telegram_notifications import telegram_notifier
 
@@ -86,3 +90,78 @@ def track_order_changes(sender, instance, **kwargs):
                 
         except Order.DoesNotExist:
             pass
+
+
+
+@receiver(pre_save, sender=WholesaleInvoice)
+def track_wholesale_invoice_payment(sender, instance, **kwargs):
+    if not getattr(instance, 'pk', None):
+        return
+    try:
+        old_instance = WholesaleInvoice.objects.only('payment_status').get(pk=instance.pk)
+    except WholesaleInvoice.DoesNotExist:
+        return
+
+    instance._mgmt_just_paid = (old_instance.payment_status != 'paid' and instance.payment_status == 'paid')
+
+
+@receiver(post_save, sender=WholesaleInvoice)
+def award_manager_commission_for_paid_wholesale_invoice(sender, instance, created, **kwargs):
+    just_paid = bool(getattr(instance, '_mgmt_just_paid', False) or (created and instance.payment_status == 'paid'))
+    if not just_paid:
+        return
+
+    manager = getattr(instance, 'created_by', None)
+    if not manager:
+        return
+
+    try:
+        from management.models import ManagerCommissionAccrual
+    except Exception:
+        return
+
+    try:
+        prof = manager.userprofile
+        percent_val = getattr(prof, 'manager_commission_percent', None) or 0
+    except Exception:
+        percent_val = 0
+
+    try:
+        percent = Decimal(str(percent_val))
+    except Exception:
+        percent = Decimal('0')
+
+    try:
+        base_amount = Decimal(str(getattr(instance, 'total_amount', 0) or 0))
+    except Exception:
+        base_amount = Decimal('0')
+
+    if percent < 0:
+        percent = Decimal('0')
+    if base_amount < 0:
+        base_amount = Decimal('0')
+
+    amount = (base_amount * percent / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    if amount < 0:
+        amount = Decimal('0')
+
+    frozen_until = timezone.now() + timedelta(days=14)
+
+    try:
+        ManagerCommissionAccrual.objects.get_or_create(
+            invoice=instance,
+            defaults={
+                'owner': manager,
+                'base_amount': base_amount,
+                'percent': percent,
+                'amount': amount,
+                'frozen_until': frozen_until,
+            },
+        )
+    except Exception as exc:
+        logger.warning(
+            'Failed to create commission accrual for WholesaleInvoice %s: %s',
+            getattr(instance, 'pk', None),
+            exc,
+            exc_info=True,
+        )
