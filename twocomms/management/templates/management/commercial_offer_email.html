@@ -26,7 +26,7 @@
                     <div>
                         <p class="eyebrow">КП у месенджери</p>
                         <h3 class="offer-card-title">Тільки копіювання — без відправлення із системи</h3>
-                        <div class="offer-help">Оберіть варіант, натисніть «Скопіювати» і надішліть вручну в месенджер.</div>
+                        <div class="offer-help">Оберіть варіант, натисніть «Скопіювати повідомлення» і надішліть вручну в месенджер.</div>
                     </div>
                 </div>
 
@@ -35,49 +35,413 @@
                         <button type="button" class="cp-subtab active" data-channel="telegram">Telegram</button>
                         <button type="button" class="cp-subtab" data-channel="generic">Інші месенджери</button>
                     </div>
-                    <div class="cp-template-pills" id="cp-template-pills" aria-label="Шаблон">
-                        {% for tpl in messenger_templates %}
-                            <button type="button" class="cp-pill{% if forloop.first %} active{% endif %}" data-template="{{ tpl.key }}">{{ tpl.title }}</button>
-                        {% endfor %}
+                </div>
+
+                <div class="field-grid offer-fields cp-messenger-controls">
+                    <div class="field">
+                        <label for="cp-template-type">Шаблон повідомлення</label>
+                        <select id="cp-template-type">
+                            <option value="FIRST_CONTACT" selected>FIRST_CONTACT — перше повідомлення</option>
+                            <option value="FOLLOW_UP">FOLLOW_UP — нагадування</option>
+                            <option value="PRICING_REPLY">PRICING_REPLY — відповідь про ціни</option>
+                            <option value="DROP_REPLY">DROP_REPLY — відповідь для дропу</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="cp-message-length">Довжина</label>
+                        <select id="cp-message-length">
+                            <option value="SHORT">SHORT — коротко</option>
+                            <option value="STANDARD" selected>STANDARD — стандарт</option>
+                            <option value="LONG">LONG — детальніше</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="cp-opt-tier">Обсяг опту (для розрахунку входу)</label>
+                        <select id="cp-opt-tier">
+                            <option value="">Не обрано (100+)</option>
+                            <option value="8_15">8–15</option>
+                            <option value="16_31">16–31</option>
+                            <option value="32_63">32–63</option>
+                            <option value="64_99">64–99</option>
+                            <option value="100_PLUS">100+</option>
+                        </select>
+                    </div>
+                    <div class="field field-span-2">
+                        <label>Опції повідомлення</label>
+                        <div class="cp-toggle-grid">
+                            <label class="offer-check">
+                                <input type="checkbox" id="cp-show-receipt" checked>
+                                <span>Блок “квитанція/чек”</span>
+                            </label>
+                            <label class="offer-check">
+                                <input type="checkbox" id="cp-show-opt-tiers">
+                                <span>Показати ступені опту</span>
+                            </label>
+                            <label class="offer-check">
+                                <input type="checkbox" id="cp-show-dropship-loyalty">
+                                <span>Показати лояльність -10 грн/замовлення</span>
+                            </label>
+                            <label class="offer-check">
+                                <input type="checkbox" id="cp-use-spoiler-hint">
+                                <span>Підказка про спойлер (EDGY)</span>
+                            </label>
+                            <label class="offer-check">
+                                <input type="checkbox" id="cp-include-general-tg" checked>
+                                <span>Додати “запасний канал”</span>
+                            </label>
+                        </div>
+                        <div class="cp-inline-hint" id="cp-spoiler-hint" hidden>
+                            Якщо сегмент EDGY — назви можна приховати: виділи слово в Telegram → Формат → Спойлер.
+                        </div>
                     </div>
                 </div>
 
-                <div class="cp-preview-shell">
-                    <pre class="cp-preview" id="cp-preview" aria-label="Попередній перегляд"></pre>
+                <div class="cp-preview-hint" id="cp-mono-hint">
+                    Щоб було як на скріні: після вставки виділи блок між лініями ━━━ і обери Формат → Моноширинний (або Code).
                 </div>
+                <div class="cp-preview-shell">
+                    <div class="cp-preview" id="cp-preview" aria-label="Попередній перегляд"></div>
+                </div>
+                <div class="cp-validation" id="cp-validation"></div>
 
                 <div class="cp-messenger-actions">
-                    <button type="button" class="btn-primary" id="cp-copy-btn">Скопіювати</button>
+                    <button type="button" class="btn-primary" id="cp-copy-btn">Скопіювати повідомлення</button>
                     <div class="cp-copy-status" id="cp-copy-status" role="status" aria-live="polite"></div>
                 </div>
 
-                {{ messenger_templates|json_script:"cp-messenger-templates" }}
+                {{ messenger_context|json_script:"cp-messenger-context" }}
                 <script>
                 (function() {
-                    const dataEl = document.getElementById('cp-messenger-templates');
+                    const dataEl = document.getElementById('cp-messenger-context');
                     if (!dataEl) return;
-                    let templates = [];
-                    try { templates = JSON.parse(dataEl.textContent || '[]'); } catch (e) { templates = []; }
-                    if (!Array.isArray(templates) || !templates.length) return;
+                    let context = {};
+                    try { context = JSON.parse(dataEl.textContent || '{}'); } catch (e) { context = {}; }
 
                     const preview = document.getElementById('cp-preview');
                     const copyBtn = document.getElementById('cp-copy-btn');
                     const statusEl = document.getElementById('cp-copy-status');
-                    const pillsWrap = document.getElementById('cp-template-pills');
+                    const validationEl = document.getElementById('cp-validation');
+                    const monoHint = document.getElementById('cp-mono-hint');
+                    const spoilerHint = document.getElementById('cp-spoiler-hint');
                     const subTabs = Array.from(document.querySelectorAll('.cp-subtab'));
 
-                    let activeChannel = 'telegram';
-                    let activeKey = (templates[0] || {}).key;
+                    const templateTypeEl = document.getElementById('cp-template-type');
+                    const messageLengthEl = document.getElementById('cp-message-length');
+                    const optTierEl = document.getElementById('cp-opt-tier');
+                    const showReceiptEl = document.getElementById('cp-show-receipt');
+                    const showOptTiersEl = document.getElementById('cp-show-opt-tiers');
+                    const showDropshipEl = document.getElementById('cp-show-dropship-loyalty');
+                    const useSpoilerHintEl = document.getElementById('cp-use-spoiler-hint');
+                    const includeGeneralTgEl = document.getElementById('cp-include-general-tg');
+                    const shopNameEl = document.getElementById('recipient_name');
 
-                    const getActiveTpl = () => templates.find(t => t.key === activeKey) || templates[0];
-                    const buildText = () => {
-                        const tpl = getActiveTpl();
-                        if (!tpl) return '';
-                        return String(tpl[activeChannel] || tpl.telegram || tpl.generic || '').trim();
+                    const pricing = context.pricing || {};
+                    const optTiers = pricing.optTiers || {};
+                    const manager = context.manager || {};
+                    const links = context.links || {};
+
+                    const separator = '━━━━━━━━━━━━━━━━━━━━';
+                    const forbiddenPatterns = [
+                        { pattern: /нуль\\s+ризик/i, label: 'нуль ризиків' },
+                        { pattern: /гарантован.*прибут/i, label: 'гарантований прибуток' },
+                        { pattern: /маржа\\s*40%/i, label: 'маржа 40% як факт' },
+                        { pattern: /\\bcrm\\b/i, label: 'CRM' },
+                    ];
+
+                    let activeChannel = 'telegram';
+
+                    const escapeHtml = (value) => String(value || '')
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/\"/g, '&quot;')
+                        .replace(/'/g, '&#39;');
+
+                    const formatUah = (value) => {
+                        if (!value && value !== 0) return '—';
+                        return `${value} грн`;
                     };
-                    const render = () => {
-                        const txt = buildText();
-                        if (preview) preview.textContent = txt;
+
+                    const getOptTierEntry = () => {
+                        const key = (optTierEl && optTierEl.value) || '';
+                        if (key && optTiers[key]) return optTiers[key].hoodie || 0;
+                        const fallback = optTiers['100_PLUS'] || {};
+                        return fallback.hoodie || 0;
+                    };
+
+                    const getOptTierLabel = () => {
+                        const key = (optTierEl && optTierEl.value) || '';
+                        if (key && optTiers[key]) return optTiers[key].label || key;
+                        return (optTiers['100_PLUS'] || {}).label || '100+';
+                    };
+
+                    const buildEntryText = () => {
+                        const key = (optTierEl && optTierEl.value) || '';
+                        if (key && optTiers[key]) {
+                            return `(для обсягу ${getOptTierLabel()}) ${formatUah(getOptTierEntry())}`;
+                        }
+                        return `від ${formatUah(getOptTierEntry())}`;
+                    };
+
+                    const buildReceiptBlock = () => {
+                        const hoodieRetail = (pricing.retailExamples || {}).hoodie || 0;
+                        const hoodieEntry = getOptTierEntry();
+                        const hoodieProfit = Math.max(0, hoodieRetail - hoodieEntry);
+                        return [
+                            separator,
+                            'ЧЕК (попросіть менеджера зробити “Моноширинним”)',
+                            separator,
+                            'ТЕСТ 14 ДНІВ  | S–XL',
+                            'Оплата: лише доставка',
+                            'Формат: Опт або Дроп',
+                            '',
+                            'ЮНІТ-ЕКОНОМІКА (ПРИКЛАД)*',
+                            'Худі (фліс):',
+                            `вхід ${buildEntryText()}`,
+                            `роздріб (приклад) ${formatUah(hoodieRetail)}`,
+                            `прибуток ~${formatUah(hoodieProfit)}`,
+                            '',
+                            '*Це приклад розрахунку. Роздрібну ціну встановлюєте ви.',
+                            separator,
+                        ];
+                    };
+
+                    const buildDropshipLoyalty = () => {
+                        if (!showDropshipEl || !showDropshipEl.checked) return [];
+                        const step = pricing.dropshipLoyaltyStep || 10;
+                        const maxDiscount = pricing.maxDropDiscount || 0;
+                        const maxPart = maxDiscount ? ` до -${maxDiscount} грн/шт` : '';
+                        return [`   + лояльність: кожне наступне замовлення -${step} грн (накопичується)${maxPart}`];
+                    };
+
+                    const buildOptTiersBlock = (forceShow) => {
+                        if (!forceShow && (!showOptTiersEl || !showOptTiersEl.checked)) return [];
+                        return [
+                            '',
+                            'Опт-ступені: 8–15 / 16–31 / 32–63 / 64–99 / 100+',
+                            '(скажіться обсяг — підберу точний “вхід”)',
+                        ];
+                    };
+
+                    const buildFooter = (options) => {
+                        const lines = [];
+                        const includeContacts = options && options.includeContacts;
+                        const includeManager = options && options.includeManager;
+                        const includeBrand = options && options.includeBrand;
+                        const includeGeneral = options && options.includeGeneral;
+
+                        if (includeManager) lines.push(`— ${manager.name || 'менеджер TwoComms'}`);
+                        if (includeContacts) {
+                            if (manager.phone) lines.push(`Тел: ${manager.phone}`);
+                            if (manager.telegram) lines.push(`TG: ${manager.telegram}`);
+                        }
+                        if (includeGeneral && links.general_tg) lines.push(`Запасний канал: ${links.general_tg}`);
+                        if (includeBrand) lines.push('TwoComms — одяг для свідомих.');
+                        return lines;
+                    };
+
+                    const buildFirstContact = (length) => {
+                        const shopName = (shopNameEl && shopNameEl.value || '').trim();
+                        const greetingName = shopName ? `, ${shopName}` : '';
+                        const hoodieRetail = (pricing.retailExamples || {}).hoodie || 0;
+                        const hoodieEntry = getOptTierEntry();
+                        const hoodieProfit = Math.max(0, hoodieRetail - hoodieEntry);
+
+                        if (length === 'SHORT') {
+                            const lines = [
+                                `Вітаю${greetingName}! Я ${manager.name || 'менеджер TwoComms'} з TwoComms.`,
+                                '',
+                                'Тест-ростовка S–XL на 14 днів:',
+                                'повернення залишків, сплачуєте лише доставку.',
+                                '',
+                                'Опт (кратно 8) або Дроп (фікс).',
+                            ];
+                            if (showReceiptEl && showReceiptEl.checked) {
+                                lines.push('');
+                                lines.push(...buildReceiptBlock());
+                            } else {
+                                lines.push(`Приклад по худі: вхід ${buildEntryText()} → роздріб (приклад) ${formatUah(hoodieRetail)} → ~${formatUah(hoodieProfit)}*`);
+                                lines.push('*Це приклад. Роздрібну ціну встановлюєте ви.');
+                            }
+                            lines.push('');
+                            lines.push(`Каталог: ${links.catalog || ''}`.trim());
+                            lines.push('Якщо ок — напишіть “ТЕСТ”.');
+                            lines.push('TwoComms — одяг для свідомих.');
+                            return lines;
+                        }
+
+                        const lines = [
+                            'TWOCOMMS • КП / ТЕСТ-РОСТОВКА (14 ДНІВ)',
+                            '',
+                            `Вітаю${greetingName}! Я ${manager.name || 'менеджер TwoComms'} з TwoComms (Street & Military).`,
+                            '',
+                            'Можемо відправити тест-ростовку S–XL на 14 днів:',
+                            '• не зайшло — повертаєте залишки',
+                            '• сплачуєте лише доставку',
+                        ];
+
+                        if (showReceiptEl && showReceiptEl.checked) {
+                            lines.push('');
+                            lines.push(...buildReceiptBlock());
+                        } else {
+                            lines.push('');
+                            lines.push(`Юніт-економіка (приклад): худі — вхід ${buildEntryText()}, роздріб (приклад) ${formatUah(hoodieRetail)}, ~${formatUah(hoodieProfit)}.`);
+                            lines.push('Це приклад розрахунку. Роздрібну ціну встановлюєте ви.');
+                        }
+
+                        lines.push('');
+                        lines.push('Формати:');
+                        lines.push('1) ОПТ — від 8 шт, договір/КЕП, ціна нижча при більшому обсягу (кратно 8)');
+                        lines.push('2) ДРОП — без складу, XML, кабінет партнера (ТТН/трекінг)');
+                        lines.push(...buildDropshipLoyalty());
+
+                        lines.push(...buildOptTiersBlock(false));
+
+                        if (length === 'LONG') {
+                            lines.push('');
+                            lines.push('Якщо підкажете обсяг і канал продажів — підкажу, що вигідніше: опт чи дроп.');
+                        }
+
+                        lines.push('');
+                        lines.push('Каталог/умови:');
+                        if (links.catalog) lines.push(`• ${links.catalog}`);
+                        if (links.wholesale) lines.push(`• Опт: ${links.wholesale}`);
+                        if (links.dropship) lines.push(`• Дроп: ${links.dropship}`);
+                        lines.push('');
+                        lines.push('Якщо цікаво — напишіть: ТЕСТ ✅');
+                        lines.push('');
+                        lines.push(...buildFooter({
+                            includeContacts: true,
+                            includeManager: true,
+                            includeBrand: true,
+                            includeGeneral: includeGeneralTgEl && includeGeneralTgEl.checked,
+                        }));
+
+                        return lines;
+                    };
+
+                    const buildFollowUp = (length) => {
+                        const shopName = (shopNameEl && shopNameEl.value || '').trim();
+                        const prefix = shopName ? `${shopName}, ` : '';
+                        const lines = [
+                            `${prefix}піднімусь коротко ⤴️`,
+                            'Можу дати тест-ростовку S–XL на 14 днів (повернення залишків, оплата лише доставки).',
+                            'Якщо цікаво — напишіть “ТЕСТ”.',
+                            `— ${manager.name || 'менеджер TwoComms'}`,
+                        ];
+                        if (length === 'LONG') {
+                            lines.splice(2, 0, 'Опт або дроп — підкажу найкращий варіант під ваш формат.');
+                        }
+                        if (includeGeneralTgEl && includeGeneralTgEl.checked && links.general_tg) {
+                            lines.push(`Запасний канал: ${links.general_tg}`);
+                        }
+                        lines.push('TwoComms — одяг для свідомих.');
+                        return lines;
+                    };
+
+                    const buildPricingReply = () => {
+                        const lines = [
+                            'Коротко по цінах:',
+                            '• ДРОП — фікс (не залежить від кількості)',
+                            '• ОПТ — залежить від обсягу (кратно 8)',
+                            '',
+                            'Опт-ступені: 8–15 / 16–31 / 32–63 / 64–99 / 100+',
+                            '',
+                            'Напишіть ваш плановий обсяг — і дам точний “вхід” під нього + підкажу що вигідніше (опт чи дроп).',
+                            '',
+                            'TwoComms — одяг для свідомих.',
+                        ];
+                        if (showDropshipEl && showDropshipEl.checked) {
+                            lines.splice(4, 0, ...buildDropshipLoyalty());
+                        }
+                        return lines;
+                    };
+
+                    const buildDropReply = () => {
+                        const hoodieRetail = (pricing.retailExamples || {}).hoodie || 0;
+                        const dropHoodie = (pricing.dropFixed || {}).hoodie || 0;
+                        const profit = Math.max(0, hoodieRetail - dropHoodie);
+
+                        const lines = [
+                            'Коротко по дропу:',
+                            '• фікс ціна (не залежить від кількості)',
+                            '• без складу, XML, кабінет партнера (ТТН/трекінг)',
+                            ...buildDropshipLoyalty(),
+                            '',
+                            `Приклад по худі: вхід ${formatUah(dropHoodie)} → роздріб (приклад) ${formatUah(hoodieRetail)} → ~${formatUah(profit)}*`,
+                            '*Це приклад. Роздрібну ціну встановлюєте ви.',
+                            '',
+                            'Якщо цікаво — напишіть: ТАК.',
+                            'TwoComms — одяг для свідомих.',
+                        ];
+                        return lines;
+                    };
+
+                    const buildMessage = () => {
+                        const templateType = (templateTypeEl && templateTypeEl.value) || 'FIRST_CONTACT';
+                        const length = (messageLengthEl && messageLengthEl.value) || 'STANDARD';
+
+                        if (templateType === 'FOLLOW_UP') return buildFollowUp(length);
+                        if (templateType === 'PRICING_REPLY') return buildPricingReply();
+                        if (templateType === 'DROP_REPLY') return buildDropReply();
+                        return buildFirstContact(length);
+                    };
+
+                    const renderPreview = (txt) => {
+                        if (!preview) return;
+                        if (!txt) {
+                            preview.textContent = '';
+                            return;
+                        }
+                        const lines = String(txt).split('\\n');
+                        const separatorIndexes = [];
+                        lines.forEach((line, idx) => {
+                            const trimmed = line.trim();
+                            if (trimmed && /^[━]+$/.test(trimmed)) {
+                                separatorIndexes.push(idx);
+                            }
+                        });
+                        if (separatorIndexes.length >= 2) {
+                            const start = separatorIndexes[0];
+                            const end = separatorIndexes[separatorIndexes.length - 1];
+                            const before = lines.slice(0, start).join('\\n');
+                            const receipt = lines.slice(start, end + 1).join('\\n');
+                            const after = lines.slice(end + 1).join('\\n');
+                            const parts = [];
+                            if (before) parts.push(escapeHtml(before));
+                            parts.push(`<span class="cp-preview-receipt">${escapeHtml(receipt)}</span>`);
+                            if (after) parts.push(escapeHtml(after));
+                            preview.innerHTML = parts.join('\\n');
+                            return;
+                        }
+                        preview.textContent = txt;
+                    };
+
+                    const validateMessage = (txt) => {
+                        const warnings = [];
+                        forbiddenPatterns.forEach((item) => {
+                            if (item.pattern.test(txt)) {
+                                warnings.push({ kind: 'danger', text: `Знайдено заборонену фразу: ${item.label}` });
+                            }
+                        });
+                        if (!String(txt).toUpperCase().includes('ПРИКЛАД')) {
+                            warnings.push({ kind: 'warning', text: 'Немає позначки “ПРИКЛАД” у юніт-економіці.' });
+                        }
+                        if (String(txt).length > 4096) {
+                            warnings.push({ kind: 'danger', text: `Довжина повідомлення ${String(txt).length} символів — ліміт Telegram 4096.` });
+                        }
+                        return warnings;
+                    };
+
+                    const renderValidation = (warnings) => {
+                        if (!validationEl) return;
+                        if (!warnings.length) {
+                            validationEl.innerHTML = '';
+                            return;
+                        }
+                        validationEl.innerHTML = warnings.map((item) => (
+                            `<div class="cp-validation-item ${item.kind === 'danger' ? 'is-danger' : ''}">${escapeHtml(item.text)}</div>`
+                        )).join('');
                     };
 
                     const setStatus = (msg, kind) => {
@@ -113,17 +477,18 @@
                         }
                     };
 
-                    if (pillsWrap) {
-                        pillsWrap.addEventListener('click', (e) => {
-                            const btn = e.target.closest('button[data-template]');
-                            if (!btn) return;
-                            activeKey = btn.dataset.template;
-                            pillsWrap.querySelectorAll('button[data-template]').forEach(b => b.classList.toggle('active', b === btn));
-                            render();
-                        });
-                    }
+                    const render = () => {
+                        const txt = buildMessage().join('\\n').trim();
+                        renderPreview(txt);
+                        renderValidation(validateMessage(txt));
+                        if (monoHint) monoHint.style.display = activeChannel === 'telegram' ? 'block' : 'none';
+                        if (spoilerHint && useSpoilerHintEl) {
+                            spoilerHint.hidden = !useSpoilerHintEl.checked;
+                        }
+                        return txt;
+                    };
 
-                    subTabs.forEach(btn => {
+                    subTabs.forEach((btn) => {
                         btn.addEventListener('click', () => {
                             activeChannel = btn.dataset.channel || 'telegram';
                             subTabs.forEach(b => b.classList.toggle('active', b === btn));
@@ -131,9 +496,27 @@
                         });
                     });
 
+                    if (templateTypeEl) {
+                        templateTypeEl.addEventListener('change', () => {
+                            if (templateTypeEl.value === 'DROP_REPLY' && showDropshipEl) {
+                                showDropshipEl.checked = true;
+                            }
+                            render();
+                        });
+                    }
+
+                    [messageLengthEl, optTierEl, showReceiptEl, showOptTiersEl, showDropshipEl, useSpoilerHintEl, includeGeneralTgEl].forEach((el) => {
+                        if (!el) return;
+                        el.addEventListener('change', render);
+                    });
+
+                    if (shopNameEl) {
+                        shopNameEl.addEventListener('input', render);
+                    }
+
                     if (copyBtn) {
                         copyBtn.addEventListener('click', async () => {
-                            const txt = buildText();
+                            const txt = buildMessage().join('\\n').trim();
                             if (!txt) return;
                             const ok = await copyText(txt);
                             setStatus(ok ? 'Скопійовано' : 'Не вдалося скопіювати', ok ? 'ok' : 'err');

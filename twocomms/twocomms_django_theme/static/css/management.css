@@ -3257,15 +3257,80 @@ button.shop-card {
     overflow: hidden;
 }
 
+.cp-preview-hint {
+    margin-top: 14px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
 .cp-preview {
     margin: 0;
     padding: 16px;
     color: #eaf0ff;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    font-size: 13px;
+    font-family: var(--font-main);
+    font-size: 0.95rem;
     line-height: 1.55;
     white-space: pre-wrap;
     word-break: break-word;
+}
+
+.cp-preview-receipt {
+    display: block;
+    margin: 10px 0;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px dashed rgba(255, 255, 255, 0.16);
+    background: rgba(0, 0, 0, 0.28);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    white-space: pre-wrap;
+}
+
+.cp-messenger-controls {
+    margin-top: 14px;
+}
+
+.cp-toggle-grid {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.cp-inline-hint {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    line-height: 1.45;
+}
+
+.cp-validation {
+    margin-top: 10px;
+    display: grid;
+    gap: 8px;
+}
+
+.cp-validation-item {
+    padding: 8px 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(252, 211, 77, 0.32);
+    background: rgba(252, 211, 77, 0.14);
+    color: #ffd166;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.cp-validation-item.is-danger {
+    border-color: rgba(239, 68, 68, 0.35);
+    background: rgba(239, 68, 68, 0.12);
+    color: #fca5a5;
 }
 
 .cp-messenger-actions {
