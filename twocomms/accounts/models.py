@@ -20,7 +20,7 @@ class UserProfile(models.Model):
     instagram = models.CharField(max_length=100, blank=True, verbose_name='Instagram')
     whatsapp = models.CharField(max_length=100, blank=True, verbose_name='WhatsApp')
     viber = models.CharField(max_length=100, blank=True, verbose_name='Viber')
-    birth_date = models.DateField(null=True, blank=True, verbose_name='Дата рождения')
+    birth_date = models.DateField(null=True, blank=True, verbose_name='Дата народження')
     is_ubd = models.BooleanField(default=False, verbose_name='УБД')
     ubd_doc = models.ImageField(upload_to='ubd_docs/', blank=True, null=True, verbose_name='Фото посвідчення УБД')
     # Менеджмент-бот
