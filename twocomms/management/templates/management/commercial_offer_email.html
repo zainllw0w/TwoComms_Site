@@ -70,6 +70,10 @@
                         <label>Опції повідомлення</label>
                         <div class="cp-toggle-grid">
                             <label class="offer-check">
+                                <input type="checkbox" id="cp-use-markdown" checked>
+                                <span>Автоформат Telegram (код-блок)</span>
+                            </label>
+                            <label class="offer-check">
                                 <input type="checkbox" id="cp-show-receipt" checked>
                                 <span>Блок “квитанція/чек”</span>
                             </label>
@@ -97,7 +101,7 @@
                 </div>
 
                 <div class="cp-preview-hint" id="cp-mono-hint">
-                    Щоб було як на скріні: після вставки виділи блок між лініями ━━━ і обери Формат → Моноширинний (або Code).
+                    Блок чеку копіюється як код — додатково форматувати не потрібно.
                 </div>
                 <div class="cp-preview-shell">
                     <div class="cp-preview" id="cp-preview" aria-label="Попередній перегляд"></div>
@@ -133,6 +137,7 @@
                     const showDropshipEl = document.getElementById('cp-show-dropship-loyalty');
                     const useSpoilerHintEl = document.getElementById('cp-use-spoiler-hint');
                     const includeGeneralTgEl = document.getElementById('cp-include-general-tg');
+                    const useMarkdownEl = document.getElementById('cp-use-markdown');
                     const shopNameEl = document.getElementById('recipient_name');
 
                     const pricing = context.pricing || {};
@@ -141,6 +146,10 @@
                     const links = context.links || {};
 
                     const separator = '━━━━━━━━━━━━━━━━━━━━';
+                    const monoHintTexts = {
+                        auto: 'Блок чеку копіюється як код — додатково форматувати не потрібно.',
+                        manual: 'Щоб було як на скріні: після вставки виділи блок між лініями ━━━ і обери Формат → Моноширинний (або Code).',
+                    };
                     const forbiddenPatterns = [
                         { pattern: /нуль\\s+ризик/i, label: 'нуль ризиків' },
                         { pattern: /гарантован.*прибут/i, label: 'гарантований прибуток' },
@@ -187,9 +196,9 @@
                         const hoodieRetail = (pricing.retailExamples || {}).hoodie || 0;
                         const hoodieEntry = getOptTierEntry();
                         const hoodieProfit = Math.max(0, hoodieRetail - hoodieEntry);
-                        return [
+                        const lines = [
                             separator,
-                            'ЧЕК (попросіть менеджера зробити “Моноширинним”)',
+                            'ЧЕК',
                             separator,
                             'ТЕСТ 14 ДНІВ  | S–XL',
                             'Оплата: лише доставка',
@@ -204,6 +213,10 @@
                             '*Це приклад розрахунку. Роздрібну ціну встановлюєте ви.',
                             separator,
                         ];
+                        if (useMarkdownEl && useMarkdownEl.checked && activeChannel === 'telegram') {
+                            return ['```', ...lines, '```'];
+                        }
+                        return lines;
                     };
 
                     const buildDropshipLoyalty = () => {
@@ -394,6 +407,25 @@
                             return;
                         }
                         const lines = String(txt).split('\n');
+                        const fenceIndexes = [];
+                        lines.forEach((line, idx) => {
+                            if (line.trim() === '```') {
+                                fenceIndexes.push(idx);
+                            }
+                        });
+                        if (fenceIndexes.length >= 2) {
+                            const start = fenceIndexes[0];
+                            const end = fenceIndexes[fenceIndexes.length - 1];
+                            const before = lines.slice(0, start).join('\n');
+                            const receipt = lines.slice(start + 1, end).join('\n');
+                            const after = lines.slice(end + 1).join('\n');
+                            const parts = [];
+                            if (before) parts.push(escapeHtml(before));
+                            parts.push(`<span class="cp-preview-receipt">${escapeHtml(receipt)}</span>`);
+                            if (after) parts.push(escapeHtml(after));
+                            preview.innerHTML = parts.join('\n');
+                            return;
+                        }
                         const separatorIndexes = [];
                         lines.forEach((line, idx) => {
                             const trimmed = line.trim();
@@ -481,7 +513,14 @@
                         const txt = buildMessage().join('\n').trim();
                         renderPreview(txt);
                         renderValidation(validateMessage(txt));
-                        if (monoHint) monoHint.style.display = activeChannel === 'telegram' ? 'block' : 'none';
+                        if (monoHint) {
+                            if (useMarkdownEl && useMarkdownEl.checked && activeChannel === 'telegram') {
+                                monoHint.textContent = monoHintTexts.auto;
+                            } else {
+                                monoHint.textContent = monoHintTexts.manual;
+                            }
+                            monoHint.style.display = activeChannel === 'telegram' ? 'block' : 'none';
+                        }
                         if (spoilerHint && useSpoilerHintEl) {
                             spoilerHint.hidden = !useSpoilerHintEl.checked;
                         }
@@ -505,7 +544,7 @@
                         });
                     }
 
-                    [messageLengthEl, optTierEl, showReceiptEl, showOptTiersEl, showDropshipEl, useSpoilerHintEl, includeGeneralTgEl].forEach((el) => {
+                    [messageLengthEl, optTierEl, showReceiptEl, showOptTiersEl, showDropshipEl, useSpoilerHintEl, includeGeneralTgEl, useMarkdownEl].forEach((el) => {
                         if (!el) return;
                         el.addEventListener('change', render);
                     });
