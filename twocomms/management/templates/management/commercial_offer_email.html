@@ -393,7 +393,7 @@
                             preview.textContent = '';
                             return;
                         }
-                        const lines = String(txt).split('\\n');
+                        const lines = String(txt).split('\n');
                         const separatorIndexes = [];
                         lines.forEach((line, idx) => {
                             const trimmed = line.trim();
@@ -404,14 +404,14 @@
                         if (separatorIndexes.length >= 2) {
                             const start = separatorIndexes[0];
                             const end = separatorIndexes[separatorIndexes.length - 1];
-                            const before = lines.slice(0, start).join('\\n');
-                            const receipt = lines.slice(start, end + 1).join('\\n');
-                            const after = lines.slice(end + 1).join('\\n');
+                            const before = lines.slice(0, start).join('\n');
+                            const receipt = lines.slice(start, end + 1).join('\n');
+                            const after = lines.slice(end + 1).join('\n');
                             const parts = [];
                             if (before) parts.push(escapeHtml(before));
                             parts.push(`<span class="cp-preview-receipt">${escapeHtml(receipt)}</span>`);
                             if (after) parts.push(escapeHtml(after));
-                            preview.innerHTML = parts.join('\\n');
+                            preview.innerHTML = parts.join('\n');
                             return;
                         }
                         preview.textContent = txt;
@@ -478,7 +478,7 @@
                     };
 
                     const render = () => {
-                        const txt = buildMessage().join('\\n').trim();
+                        const txt = buildMessage().join('\n').trim();
                         renderPreview(txt);
                         renderValidation(validateMessage(txt));
                         if (monoHint) monoHint.style.display = activeChannel === 'telegram' ? 'block' : 'none';
@@ -516,7 +516,7 @@
 
                     if (copyBtn) {
                         copyBtn.addEventListener('click', async () => {
-                            const txt = buildMessage().join('\\n').trim();
+                            const txt = buildMessage().join('\n').trim();
                             if (!txt) return;
                             const ok = await copyText(txt);
                             setStatus(ok ? 'Скопійовано' : 'Не вдалося скопіювати', ok ? 'ok' : 'err');
