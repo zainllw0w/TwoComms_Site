@@ -41,7 +41,15 @@ from .models import (
 from accounts.models import UserProfile
 from django.views.decorators.csrf import csrf_exempt
 
-from .email_templates.twocomms_cp import build_twocomms_cp_email, get_twocomms_cp_unit_defaults
+from .email_templates.twocomms_cp import (
+    build_twocomms_cp_email,
+    get_twocomms_cp_unit_defaults,
+    OPT_TIER_LABELS,
+    OPT_TIER_WHOLESALE_TEE,
+    OPT_TIER_WHOLESALE_HOODIE,
+    DROP_FIXED_TEE_PRICE,
+    DROP_FIXED_HOODIE_PRICE,
+)
 
 from .constants import POINTS, REMINDER_WINDOW_MINUTES, TARGET_CLIENTS_DAY, TARGET_POINTS_DAY
 
@@ -3008,8 +3016,8 @@ def _offer_payload_from_form(form, default_name, initial, request):
     }
 
 
-def _build_cp_messenger_templates(*, user, settings_obj, default_name, default_phone):
-    # Шаблони повідомлень КП для ручного копіювання у месенджери (plain text)
+def _build_cp_messenger_context(*, user, settings_obj, default_name, default_phone):
+    # Контекст для генератора Telegram-повідомлень у месенджерах (plain text)
     try:
         prof = user.userprofile
     except Exception:
@@ -3049,119 +3057,72 @@ def _build_cp_messenger_templates(*, user, settings_obj, default_name, default_p
     except Exception:
         pass
 
-    site_url = "https://twocomms.shop"
-    instagram_url = "https://instagram.com/twocomms"
+    base_url = (getattr(settings, "SITE_BASE_URL", "") or "").strip() or "https://twocomms.shop"
+    if not base_url.endswith("/"):
+        base_url += "/"
 
-    contact_lines = []
-    if telegram:
-        contact_lines.append(f"Telegram: {telegram}")
-    if whatsapp:
-        contact_lines.append(f"WhatsApp: {whatsapp}")
-    if viber:
-        contact_lines.append(f"Viber: {viber}")
-    if phone:
-        contact_lines.append(f"Телефон: {phone}")
+    def abs_url(path: str) -> str:
+        if not path:
+            return base_url
+        if path.startswith(("http://", "https://")):
+            return path
+        return f"{base_url}{path.lstrip('/')}"
 
-    contact_block_lines = []
-    if contact_lines:
-        contact_block_lines = ["", "Контакти менеджера:", *contact_lines]
+    def normalize_tg_link(value: str) -> str:
+        v = (value or "").strip()
+        if not v:
+            return ""
+        if v.startswith(("http://", "https://", "tg:")):
+            return v
+        if v.startswith("@"):
+            return f"https://t.me/{v[1:]}"
+        if v.startswith("t.me/"):
+            return f"https://{v}"
+        if "t.me/" in v:
+            return v if v.startswith(("http://", "https://")) else f"https://{v}"
+        return f"https://t.me/{v}"
 
-    base_intro_lines = [
-        "Вітаю! 👋",
-        "",
-        f"Мене звати {manager_name or 'менеджер TwoComms'}.",
-        "TwoComms — опт від 8 шт та дропшип по Україні.",
-    ]
+    general_tg_raw = (getattr(settings_obj, "general_tg", "") or "").strip()
+    general_tg = normalize_tg_link(general_tg_raw) or "https://t.me/twocomms"
 
-    def build_message(*lines):
-        return "\n".join(lines).rstrip()
+    opt_tiers = {}
+    for tier_key, label in OPT_TIER_LABELS.items():
+        opt_tiers[tier_key] = {
+            "label": label,
+            "tee": int(OPT_TIER_WHOLESALE_TEE[tier_key]),
+            "hoodie": int(OPT_TIER_WHOLESALE_HOODIE[tier_key]),
+        }
 
-    templates = [
-        {
-            "key": "trial_14",
-            "title": "14-денний варіант",
-            "subtitle": "Акцент на тест-драйв і повернення 14 днів",
-            "telegram": build_message(
-                *base_intro_lines,
-                "",
-                "⏳ Тест-драйв 14 днів: можна взяти тестову ростовку й спокійно перевірити якість.",
-                "✅ Швидкі відвантаження",
-                "✅ Ходові моделі та розміри",
-                "✅ Допомагаємо з підбором асортименту",
-                "",
-                f"Каталог/сайт: {site_url}",
-                f"Instagram: {instagram_url}",
-                *contact_block_lines,
-                "",
-                "Якщо зручно — напишіть, і я підберу варіант під ваш формат продажів.",
-            ),
-            "generic": build_message(
-                *base_intro_lines,
-                "",
-                "Тест-драйв 14 днів: можна взяти тестову ростовку й перевірити якість.",
-                "",
-                f"Сайт: {site_url}",
-                f"Instagram: {instagram_url}",
-                *contact_block_lines,
-                "",
-                "Підкажіть, куди зручно надіслати умови/прайс?",
-            ),
+    retail_defaults = get_twocomms_cp_unit_defaults(pricing_mode="OPT", opt_tier="100_PLUS")
+
+    pricing_config = {
+        "optTiers": opt_tiers,
+        "dropFixed": {
+            "tee": int(DROP_FIXED_TEE_PRICE),
+            "hoodie": int(DROP_FIXED_HOODIE_PRICE),
         },
-        {
-            "key": "standard",
-            "title": "Стандартний",
-            "subtitle": "Коротко й універсально",
-            "telegram": build_message(
-                *base_intro_lines,
-                "",
-                "Можу надіслати прайс, умови та приклади асортименту.",
-                "Що для вас актуальніше: опт чи дропшип?",
-                "",
-                f"Каталог/сайт: {site_url}",
-                f"Instagram: {instagram_url}",
-                *contact_block_lines,
-            ),
-            "generic": build_message(
-                *base_intro_lines,
-                "",
-                "Можу надіслати прайс та умови. Що цікавіше — опт чи дропшип?",
-                "",
-                f"Сайт: {site_url}",
-                f"Instagram: {instagram_url}",
-                *contact_block_lines,
-            ),
+        "retailExamples": {
+            "tee": int(retail_defaults.get("tee_retail_default") or 0),
+            "hoodie": int(retail_defaults.get("hoodie_retail_default") or 0),
         },
-        {
-            "key": "bonus",
-            "title": "Акцент на умови/бонус",
-            "subtitle": "Більше конкретики та вигод",
-            "telegram": build_message(
-                *base_intro_lines,
-                "",
-                "Вигоди для магазину:",
-                "• стабільні поставки та швидкі відвантаження",
-                "• популярні базові моделі",
-                "• підтримка менеджера з асортименту",
-                "",
-                "Якщо підкажете ваш формат (офлайн/онлайн, місто, обсяги) — запропоную найкращий сценарій.",
-                "",
-                f"Каталог/сайт: {site_url}",
-                f"Instagram: {instagram_url}",
-                *contact_block_lines,
-            ),
-            "generic": build_message(
-                *base_intro_lines,
-                "",
-                "Вигоди: швидкі відвантаження, ходовий асортимент, підтримка менеджера.",
-                "",
-                f"Сайт: {site_url}",
-                f"Instagram: {instagram_url}",
-                *contact_block_lines,
-            ),
-        },
-    ]
+        "dropshipLoyaltyStep": 10,
+        "maxDropDiscount": 120,
+    }
 
-    return templates
+    return {
+        "manager": {
+            "name": manager_name or "менеджер TwoComms",
+            "phone": phone,
+            "telegram": telegram,
+        },
+        "links": {
+            "catalog": abs_url("/catalog/"),
+            "wholesale": abs_url("/wholesale/"),
+            "dropship": abs_url("/dropshipper/"),
+            "general_tg": general_tg,
+        },
+        "pricing": pricing_config,
+    }
 
 
 
@@ -3230,7 +3191,7 @@ def commercial_offer_email(request):
     if cp_tab not in ("email", "messengers"):
         cp_tab = "email"
 
-    messenger_templates = _build_cp_messenger_templates(
+    messenger_context = _build_cp_messenger_context(
         user=request.user,
         settings_obj=settings_obj,
         default_name=default_name,
@@ -3450,7 +3411,7 @@ def commercial_offer_email(request):
             "gallery_neutral_json": gallery_neutral_json,
             "gallery_edgy_json": gallery_edgy_json,
             "cp_tab": cp_tab,
-            "messenger_templates": messenger_templates,
+            "messenger_context": messenger_context,
         },
     )
 
