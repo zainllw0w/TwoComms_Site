@@ -9,6 +9,8 @@
             <h2>
                 {% if admin_tab == 'invoices' %}
                     Накладні
+                {% elif admin_tab == 'payouts' %}
+                    Виплати
                 {% elif admin_tab == 'shops' %}
                     Магазини
                 {% else %}
@@ -18,6 +20,7 @@
             <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
                 <a href="?tab=managers" class="btn-ghost small{% if admin_tab == 'managers' %} active{% endif %}">Менеджери та прогрес</a>
                 <a href="?tab=invoices" class="btn-ghost small{% if admin_tab == 'invoices' %} active{% endif %}">Накладні</a>
+                <a href="?tab=payouts" class="btn-ghost small{% if admin_tab == 'payouts' %} active{% endif %}">Виплати</a>
                 <a href="?tab=shops" class="btn-ghost small{% if admin_tab == 'shops' %} active{% endif %}">Магазини</a>
                 <a href="{% url 'management_stats_admin' %}" class="btn-ghost small">Статистика менеджерів</a>
             </div>
@@ -61,7 +64,9 @@
             </tbody>
         </table>
     </div>
-    {% elif admin_tab == 'shops' %}
+    {% elif admin_tab == 'payouts' %}
+                    Виплати
+                {% elif admin_tab == 'shops' %}
     <div class="shops-grid" id="shops-grid">
         {% for shop in shops_payload %}
         <div class="shop-card" data-shop-id="{{ shop.id }}">
@@ -509,7 +514,9 @@ document.addEventListener('click', async (e) => {
     }
 });
 </script>
-{% elif admin_tab == 'shops' %}
+{% elif admin_tab == 'payouts' %}
+                    Виплати
+                {% elif admin_tab == 'shops' %}
 <script src="{% static 'js/management-shops.js' %}"></script>
 {% elif admin_tab == 'managers' %}
 <script>

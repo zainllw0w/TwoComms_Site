@@ -606,7 +606,7 @@ def admin_overview(request):
         return redirect('management_home')
 
     tab = (request.GET.get('tab') or 'managers').strip().lower()
-    if tab not in ('managers', 'invoices', 'shops'):
+    if tab not in ('managers', 'invoices', 'shops', 'payouts'):
         tab = 'managers'
 
     User = get_user_model()
@@ -678,6 +678,87 @@ def admin_overview(request):
             review_status='pending',
         ).select_related('created_by', 'created_by__userprofile').order_by('-created_at')[:200]
         ctx['invoices_for_review'] = invoices_for_review
+
+    if tab == 'payouts':
+        import re
+        from decimal import Decimal
+
+        from django.db import models
+        from django.db.models import Q, Sum
+        from django.db.models.functions import Coalesce
+
+        from management.models import ManagerCommissionAccrual, ManagerPayoutRequest
+
+        money_field = models.DecimalField(max_digits=12, decimal_places=2)
+        zero = Decimal('0')
+        now = timezone.now()
+
+        payout_users = User.objects.filter(
+            is_active=True,
+            userprofile__is_manager=True,
+        ).select_related('userprofile').order_by('id')
+
+        accr_rows = ManagerCommissionAccrual.objects.filter(owner__in=payout_users).values('owner_id').annotate(
+            total=Coalesce(Sum('amount'), zero, output_field=money_field),
+            frozen=Coalesce(Sum('amount', filter=Q(frozen_until__gt=now)), zero, output_field=money_field),
+        )
+        accr_map = {row['owner_id']: row for row in accr_rows}
+
+        pay_rows = ManagerPayoutRequest.objects.filter(owner__in=payout_users).values('owner_id').annotate(
+            paid=Coalesce(Sum('amount', filter=Q(status=ManagerPayoutRequest.Status.PAID)), zero, output_field=money_field),
+            reserved=Coalesce(Sum('amount', filter=Q(status__in=[ManagerPayoutRequest.Status.PROCESSING, ManagerPayoutRequest.Status.APPROVED])), zero, output_field=money_field),
+        )
+        pay_map = {row['owner_id']: row for row in pay_rows}
+
+        active_reqs = ManagerPayoutRequest.objects.filter(
+            owner__in=payout_users,
+            status__in=[ManagerPayoutRequest.Status.PROCESSING, ManagerPayoutRequest.Status.APPROVED],
+        ).select_related('owner', 'owner__userprofile').order_by('owner_id', '-created_at')
+        active_map = {}
+        for r in active_reqs:
+            if r.owner_id not in active_map:
+                active_map[r.owner_id] = r
+
+        def mask_card(raw):
+            digits = re.sub(r'\D+', '', (raw or '').strip())
+            if len(digits) < 4:
+                return '—'
+            return '**** ' + digits[-4:]
+
+        payouts_payload = []
+        for u in payout_users:
+            prof = getattr(u, 'userprofile', None)
+            a = accr_map.get(u.id) or {}
+            p = pay_map.get(u.id) or {}
+            total_accrued = a.get('total') or zero
+            frozen_amount = a.get('frozen') or zero
+            paid_total = p.get('paid') or zero
+            reserved_amount = p.get('reserved') or zero
+
+            balance = total_accrued - paid_total
+            available = balance - frozen_amount - reserved_amount
+            if available < 0:
+                available = zero
+
+            payouts_payload.append({
+                'id': u.id,
+                'name': u.get_full_name() or u.username,
+                'position': (getattr(prof, 'manager_position', '') or '').strip() or '—',
+                'base_salary': getattr(prof, 'manager_base_salary_uah', 0) if prof else 0,
+                'percent': getattr(prof, 'manager_commission_percent', 0) if prof else 0,
+                'started_at': getattr(prof, 'manager_started_at', None) if prof else None,
+                'card_mask': mask_card(getattr(prof, 'payment_details', '') if prof else ''),
+                'balance': balance,
+                'available': available,
+                'frozen': frozen_amount,
+                'reserved': reserved_amount,
+                'active_request': active_map.get(u.id),
+            })
+
+        payout_requests = ManagerPayoutRequest.objects.select_related('owner', 'owner__userprofile').order_by('-created_at')[:200]
+
+        ctx['payouts_payload'] = payouts_payload
+        ctx['payout_requests'] = payout_requests
 
     if tab == 'shops':
         from decimal import Decimal
@@ -1165,16 +1246,167 @@ def reminder_feed(request):
 def profile_update(request):
     if not user_is_management(request.user):
         return JsonResponse({'ok': False}, status=403)
+
+    import re
+    from datetime import date
+    from urllib.parse import urlparse
+
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
-    full_name = request.POST.get('full_name', '').strip()
-    email = request.POST.get('email', '').strip()
-    phone = request.POST.get('phone', '').strip()
-    if full_name:
-        profile.full_name = full_name
-    if email:
-        profile.email = email
-    if phone:
-        profile.phone = phone
+
+    errors = {}
+
+    def set_trimmed(attr: str, raw, *, max_len: int | None = None):
+        if raw is None:
+            return
+        val = (raw or '').strip()
+        if max_len is not None and len(val) > max_len:
+            errors[attr] = 'Слишком длинное значение.'
+            return
+        setattr(profile, attr, val)
+
+    full_name = request.POST.get('full_name')
+    if full_name is not None:
+        set_trimmed('full_name', full_name, max_len=200)
+
+    email = request.POST.get('email')
+    if email is not None:
+        email = (email or '').strip()
+        if email:
+            try:
+                validate_email(email)
+            except ValidationError:
+                errors['email'] = 'Некорректный email.'
+            else:
+                profile.email = email
+        else:
+            profile.email = ''
+
+    phone = request.POST.get('phone')
+    if phone is not None:
+        phone = (phone or '').strip()
+        if len(phone) > 32:
+            errors['phone'] = 'Слишком длинный телефон.'
+        else:
+            profile.phone = phone
+
+    city = request.POST.get('city')
+    if city is not None:
+        set_trimmed('city', city, max_len=100)
+
+    def normalize_instagram(value: str) -> str:
+        raw = (value or '').strip()
+        if not raw:
+            return ''
+        if raw.startswith('@'):
+            raw = raw[1:].strip()
+        if 'instagram.com' in raw:
+            try:
+                parsed = urlparse(raw if raw.startswith('http') else f'https://{raw.lstrip("/")}')
+                path = (parsed.path or '').strip('/')
+                if path:
+                    raw = path.split('/', 1)[0]
+            except Exception:
+                pass
+        raw = raw.strip().lstrip('@')
+        if not raw:
+            return ''
+        if len(raw) > 30:
+            raise ValueError('Instagram: слишком длинный логин.')
+        if not re.fullmatch(r'[A-Za-z0-9._]+', raw):
+            raise ValueError('Instagram: допустимы только буквы, цифры, точка и подчёркивание.')
+        return raw
+
+    instagram = request.POST.get('instagram')
+    if instagram is not None:
+        instagram = (instagram or '').strip()
+        if instagram:
+            try:
+                profile.instagram = normalize_instagram(instagram)
+            except ValueError as exc:
+                errors['instagram'] = str(exc)
+        else:
+            profile.instagram = ''
+
+    def normalize_messenger(value: str) -> str:
+        v = (value or '').strip()
+        if not v:
+            return ''
+        if len(v) > 100:
+            raise ValueError('Слишком длинное значение.')
+        if not re.fullmatch(r'[0-9+()\-\s@._]+', v):
+            raise ValueError('Недопустимые символы.')
+        return v
+
+    whatsapp_has = bool(request.POST.get('whatsapp_has'))
+    whatsapp = request.POST.get('whatsapp', '')
+    if not whatsapp_has:
+        profile.whatsapp = ''
+    else:
+        try:
+            profile.whatsapp = normalize_messenger(whatsapp)
+        except ValueError as exc:
+            errors['whatsapp'] = str(exc)
+
+    viber_has = bool(request.POST.get('viber_has'))
+    viber = request.POST.get('viber', '')
+    if not viber_has:
+        profile.viber = ''
+    else:
+        try:
+            profile.viber = normalize_messenger(viber)
+        except ValueError as exc:
+            errors['viber'] = str(exc)
+
+    day_raw = (request.POST.get('birth_day') or '').strip()
+    month_raw = (request.POST.get('birth_month') or '').strip()
+    year_raw = (request.POST.get('birth_year') or '').strip()
+
+    if day_raw or month_raw or year_raw:
+        if not (day_raw and month_raw and year_raw):
+            errors['birth_day'] = 'Укажите дату полностью.'
+            errors['birth_month'] = 'Укажите дату полностью.'
+            errors['birth_year'] = 'Укажите дату полностью.'
+        else:
+            try:
+                profile.birth_date = date(int(year_raw), int(month_raw), int(day_raw))
+            except Exception:
+                errors['birth_day'] = 'Некорректная дата.'
+                errors['birth_month'] = 'Некорректная дата.'
+                errors['birth_year'] = 'Некорректная дата.'
+    else:
+        profile.birth_date = None
+
+    payment_card = request.POST.get('payment_card')
+    if payment_card is not None:
+        card_raw = (payment_card or '').strip()
+        if card_raw:
+            digits = re.sub(r'\D+', '', card_raw)
+
+            def luhn_ok(num: str) -> bool:
+                if not num or not num.isdigit():
+                    return False
+                total = 0
+                rev = num[::-1]
+                for i, ch in enumerate(rev):
+                    d = int(ch)
+                    if i % 2 == 1:
+                        d *= 2
+                        if d > 9:
+                            d -= 9
+                    total += d
+                return total % 10 == 0
+
+            if len(digits) < 12 or len(digits) > 19:
+                errors['payment_card'] = 'Номер карты выглядит некорректно.'
+            elif not luhn_ok(digits):
+                errors['payment_card'] = 'Номер карты выглядит некорректно.'
+            else:
+                profile.payment_method = 'card'
+                profile.payment_details = ' '.join(digits[i:i+4] for i in range(0, len(digits), 4))
+
+    if errors:
+        return JsonResponse({'ok': False, 'error': 'Проверьте поля формы.', 'errors': errors}, status=400)
+
     profile.save()
     return JsonResponse({'ok': True})
 
@@ -1474,6 +1706,151 @@ def _send_invoice_review_request_to_admin(invoice, *, request=None):
         invoice.save(update_fields=['admin_tg_chat_id', 'admin_tg_message_id'])
 
 
+
+
+def _format_admin_payout_message(payout_req, *, status_line=None, include_links=True):
+    import re
+
+    manager_name = ''
+    try:
+        if getattr(payout_req, 'owner', None):
+            manager_name = payout_req.owner.get_full_name() or payout_req.owner.username
+    except Exception:
+        manager_name = ''
+
+    def mask_card(raw):
+        s = (raw or '').strip()
+        digits = re.sub(r'\D+', '', s)
+        if len(digits) < 4:
+            return '—'
+        return '**** ' + digits[-4:]
+
+    card_raw = ''
+    try:
+        prof = payout_req.owner.userprofile
+        card_raw = getattr(prof, 'payment_details', '')
+    except Exception:
+        card_raw = ''
+
+    created_label = ''
+    try:
+        created_label = timezone.localtime(payout_req.created_at).strftime('%d.%m.%Y %H:%M')
+    except Exception:
+        created_label = ''
+
+    lines = [
+        '💸 <b>Запрос на выплату</b>',
+        '',
+        f"<b>ID</b>: <code>{escape(str(getattr(payout_req, 'id', '')))}</code>",
+        f"<b>Менеджер</b>: {escape(manager_name) if manager_name else '—'}",
+        f"<b>Сумма</b>: {escape(str(getattr(payout_req, 'amount', '0')))} грн",
+        f"<b>Карта</b>: {escape(mask_card(card_raw))}",
+    ]
+    if created_label:
+        lines.append(f"<b>Создан</b>: {escape(created_label)}")
+
+    if status_line:
+        lines += ['', status_line]
+
+    if include_links:
+        lines += [
+            '',
+            '🌐 Адмін-панель: <a href="https://management.twocomms.shop/admin-panel/?tab=payouts">відкрити</a>',
+        ]
+
+    return "\n".join(lines)
+
+
+def _admin_payout_keyboard(payout_req):
+    try:
+        from management.models import ManagerPayoutRequest
+    except Exception:
+        return {'inline_keyboard': []}
+
+    status = getattr(payout_req, 'status', '')
+    if status == ManagerPayoutRequest.Status.PROCESSING:
+        return {
+            'inline_keyboard': [[
+                {'text': '✅ Одобрить', 'callback_data': f'pay:approve:{payout_req.id}'},
+                {'text': '❌ Отклонить', 'callback_data': f'pay:reject:{payout_req.id}'},
+            ]]
+        }
+
+    if status == ManagerPayoutRequest.Status.APPROVED:
+        return {
+            'inline_keyboard': [[
+                {'text': '💳 Выплачено', 'callback_data': f'pay:paid:{payout_req.id}'},
+                {'text': '❌ Отклонить', 'callback_data': f'pay:reject:{payout_req.id}'},
+            ]]
+        }
+
+    return {'inline_keyboard': []}
+
+
+def _notify_manager_payout(payout_req, *, title, body_lines):
+    try:
+        manager = payout_req.owner
+        profile = manager.userprofile
+    except Exception:
+        return
+
+    chat_id = getattr(profile, 'tg_manager_chat_id', None)
+    bot_token = _get_manager_bot_token()
+    if not bot_token or not chat_id:
+        return
+
+    text = "\n".join([title, *body_lines])
+    _tg_send_message(bot_token, chat_id, text, parse_mode='HTML')
+
+
+def _try_update_admin_payout_message(payout_req, *, bot_token=None, final=False):
+    if not getattr(payout_req, 'admin_tg_chat_id', None) or not getattr(payout_req, 'admin_tg_message_id', None):
+        return
+
+    token = bot_token or (os.environ.get('MANAGEMENT_TG_BOT_TOKEN') or os.environ.get('MANAGER_TG_BOT_TOKEN'))
+    if not token:
+        return
+
+    status = getattr(payout_req, 'status', '')
+    status_line = None
+    try:
+        from management.models import ManagerPayoutRequest
+        if status == ManagerPayoutRequest.Status.PROCESSING:
+            status_line = '⏳ <b>В ОБРАБОТКЕ</b>'
+        elif status == ManagerPayoutRequest.Status.APPROVED:
+            status_line = '✅ <b>ОДОБРЕНО</b>'
+        elif status == ManagerPayoutRequest.Status.REJECTED:
+            reason = escape((getattr(payout_req, 'rejection_reason', '') or '').strip() or '—')
+            status_line = f"❌ <b>ОТКЛОНЕНО</b>\n<b>Причина</b>: {reason}"
+        elif status == ManagerPayoutRequest.Status.PAID:
+            status_line = '💳 <b>ВЫПЛАЧЕНО</b>'
+    except Exception:
+        status_line = None
+
+    text = _format_admin_payout_message(payout_req, status_line=status_line, include_links=True)
+    reply_markup = {'inline_keyboard': []} if final else _admin_payout_keyboard(payout_req)
+    _tg_edit_message(token, payout_req.admin_tg_chat_id, payout_req.admin_tg_message_id, text, reply_markup=reply_markup, parse_mode='HTML')
+
+
+def _send_payout_request_to_admin(payout_req):
+    token, chat_id = _get_management_admin_bot_config()
+    if not token or not chat_id:
+        return
+
+    try:
+        chat_id_int = int(chat_id)
+    except Exception:
+        return
+
+    text = _format_admin_payout_message(payout_req, status_line='Оберіть дію нижче ⬇️', include_links=True)
+    keyboard = _admin_payout_keyboard(payout_req)
+    sent = _tg_send_message(token, chat_id_int, text, reply_markup=keyboard, parse_mode='HTML')
+    if sent and sent.get('message_id'):
+        payout_req.admin_tg_chat_id = chat_id_int
+        payout_req.admin_tg_message_id = sent.get('message_id')
+        payout_req.save(update_fields=['admin_tg_chat_id', 'admin_tg_message_id'])
+
+
 def _send_manager_bot_notifications(user, reminders):
     """Send new reminders (<=5 мин) to manager bot."""
     if not reminders:
@@ -1540,6 +1917,157 @@ def management_bot_webhook(request, token):
             _tg_answer_callback(bot_token, cb_id, "Недостатньо прав")
             return JsonResponse({'ok': True})
 
+
+
+        # ==================== CALLBACK QUERIES (ADMIN PAYOUTS) ====================
+        if data.startswith('pay:'):
+            parts = data.split(':', 2)
+            if len(parts) != 3:
+                _tg_answer_callback(bot_token, cb_id, 'Невідома дія')
+                return JsonResponse({'ok': True})
+
+            action = parts[1]
+            try:
+                payout_id = int(parts[2])
+            except Exception:
+                _tg_answer_callback(bot_token, cb_id, 'Невірний ID')
+                return JsonResponse({'ok': True})
+
+            from django.db import transaction
+            from management.models import ManagerPayoutRequest, PayoutRejectionReasonRequest
+
+            req = None
+            prompt_req = None
+
+            with transaction.atomic():
+                req = ManagerPayoutRequest.objects.select_for_update().select_related('owner', 'owner__userprofile').filter(id=payout_id).first()
+                if not req:
+                    _tg_answer_callback(bot_token, cb_id, 'Запит не знайдено')
+                    return JsonResponse({'ok': True})
+
+                # Persist message reference for later sync (site actions)
+                if chat_id and message_id and (not req.admin_tg_chat_id or not req.admin_tg_message_id):
+                    req.admin_tg_chat_id = chat_id
+                    req.admin_tg_message_id = message_id
+                    req.save(update_fields=['admin_tg_chat_id', 'admin_tg_message_id'])
+
+                if action == 'approve':
+                    if req.status == ManagerPayoutRequest.Status.PAID:
+                        _tg_answer_callback(bot_token, cb_id, 'Вже виплачено')
+                        return JsonResponse({'ok': True})
+                    if req.status == ManagerPayoutRequest.Status.REJECTED:
+                        _tg_answer_callback(bot_token, cb_id, 'Вже відхилено')
+                        return JsonResponse({'ok': True})
+                    if req.status == ManagerPayoutRequest.Status.APPROVED:
+                        _tg_answer_callback(bot_token, cb_id, 'Вже одобрено')
+                        return JsonResponse({'ok': True})
+
+                    req.status = ManagerPayoutRequest.Status.APPROVED
+                    req.approved_at = timezone.now()
+                    req.rejected_at = None
+                    req.rejection_reason = ''
+                    req.processed_by = None
+                    req.save(update_fields=['status', 'approved_at', 'rejected_at', 'rejection_reason', 'processed_by'])
+                    PayoutRejectionReasonRequest.objects.filter(payout_request=req, is_active=True).update(is_active=False)
+
+                elif action == 'reject':
+                    if req.status in (ManagerPayoutRequest.Status.PAID, ManagerPayoutRequest.Status.REJECTED):
+                        _tg_answer_callback(bot_token, cb_id, 'Вже оброблено')
+                        return JsonResponse({'ok': True})
+
+                    PayoutRejectionReasonRequest.objects.filter(admin_chat_id=chat_id, is_active=True).update(is_active=False)
+                    prompt_req = PayoutRejectionReasonRequest.objects.create(payout_request=req, admin_chat_id=chat_id, is_active=True)
+
+                elif action == 'paid':
+                    if req.status == ManagerPayoutRequest.Status.PAID:
+                        _tg_answer_callback(bot_token, cb_id, 'Вже виплачено')
+                        return JsonResponse({'ok': True})
+                    if req.status == ManagerPayoutRequest.Status.REJECTED:
+                        _tg_answer_callback(bot_token, cb_id, 'Запит відхилено')
+                        return JsonResponse({'ok': True})
+                    if req.status != ManagerPayoutRequest.Status.APPROVED:
+                        _tg_answer_callback(bot_token, cb_id, 'Спочатку одобріть')
+                        return JsonResponse({'ok': True})
+
+                    req.status = ManagerPayoutRequest.Status.PAID
+                    req.paid_at = timezone.now()
+                    req.processed_by = None
+                    req.save(update_fields=['status', 'paid_at', 'processed_by'])
+                    PayoutRejectionReasonRequest.objects.filter(payout_request=req, is_active=True).update(is_active=False)
+
+                else:
+                    _tg_answer_callback(bot_token, cb_id, 'Невідома дія')
+                    return JsonResponse({'ok': True})
+
+            # Outside transaction: Telegram edits / notifications
+            if action == 'approve' and req:
+                _try_update_admin_payout_message(req, bot_token=bot_token, final=False)
+
+                import re
+                card_raw = ''
+                try:
+                    card_raw = getattr(req.owner.userprofile, 'payment_details', '')
+                except Exception:
+                    card_raw = ''
+                digits = re.sub(r'\D+', '', (card_raw or ''))
+                card_mask = ('**** ' + digits[-4:]) if len(digits) >= 4 else '—'
+
+                _notify_manager_payout(
+                    req,
+                    title='✅ <b>Выплата одобрена</b>',
+                    body_lines=[
+                        f"Сумма: <b>{escape(str(req.amount))} грн</b>.",
+                        f"В течение 3 часов сумма будет зачислена на карту <code>{escape(card_mask)}</code>.",
+                    ],
+                )
+
+                _tg_answer_callback(bot_token, cb_id, 'Одобрено')
+                return JsonResponse({'ok': True})
+
+            if action == 'reject' and req and prompt_req:
+                waiting_text = _format_admin_payout_message(req, status_line='✍️ <b>Ожидаю причину отклонения</b>', include_links=True)
+                _tg_edit_message(bot_token, chat_id, message_id, waiting_text, reply_markup={'inline_keyboard': []}, parse_mode='HTML')
+
+                prompt = _tg_send_message(
+                    bot_token,
+                    chat_id,
+                    f"❌ <b>Отклонение выплаты</b> <code>{escape(str(req.id))}</code>\n\nНапишите причину одним сообщением.",
+                    reply_markup={'force_reply': True, 'input_field_placeholder': 'Причина…'},
+                    parse_mode='HTML',
+                )
+                if prompt and prompt.get('message_id'):
+                    prompt_req.prompt_message_id = prompt.get('message_id')
+                    prompt_req.save(update_fields=['prompt_message_id'])
+
+                _tg_answer_callback(bot_token, cb_id, 'Укажите причину')
+                return JsonResponse({'ok': True})
+
+            if action == 'paid' and req:
+                _try_update_admin_payout_message(req, bot_token=bot_token, final=True)
+
+                import re
+                card_raw = ''
+                try:
+                    card_raw = getattr(req.owner.userprofile, 'payment_details', '')
+                except Exception:
+                    card_raw = ''
+                digits = re.sub(r'\D+', '', (card_raw or ''))
+                card_mask = ('**** ' + digits[-4:]) if len(digits) >= 4 else '—'
+
+                _notify_manager_payout(
+                    req,
+                    title='💳 <b>Выплата выполнена</b>',
+                    body_lines=[
+                        f"Сумма: <b>{escape(str(req.amount))} грн</b>.",
+                        f"Зачислено на карту <code>{escape(card_mask)}</code>.",
+                    ],
+                )
+
+                _tg_answer_callback(bot_token, cb_id, 'Готово')
+                return JsonResponse({'ok': True})
+
+            _tg_answer_callback(bot_token, cb_id, 'Готово')
+            return JsonResponse({'ok': True})
         if not data.startswith('inv:') or ':' not in data:
             _tg_answer_callback(bot_token, cb_id, "Невідома дія")
             return JsonResponse({'ok': True})
@@ -1674,6 +2202,54 @@ def management_bot_webhook(request, token):
                 _tg_send_message(bot_token, chat_id, "Накладна вже оброблена або недоступна.", parse_mode='HTML')
             return JsonResponse({'ok': True})
 
+
+
+        # Payouts: rejection reason flow
+        try:
+            from management.models import ManagerPayoutRequest, PayoutRejectionReasonRequest
+        except Exception:
+            ManagerPayoutRequest = None
+            PayoutRejectionReasonRequest = None
+
+        if ManagerPayoutRequest and PayoutRejectionReasonRequest:
+            pay_req = PayoutRejectionReasonRequest.objects.select_related(
+                'payout_request',
+                'payout_request__owner',
+                'payout_request__owner__userprofile',
+            ).filter(
+                admin_chat_id=chat_id,
+                is_active=True,
+            ).first()
+
+            if pay_req:
+                req = pay_req.payout_request
+                pay_req.is_active = False
+                pay_req.save(update_fields=['is_active'])
+
+                if req and req.status not in (ManagerPayoutRequest.Status.REJECTED, ManagerPayoutRequest.Status.PAID):
+                    reason = text.strip()
+                    req.status = ManagerPayoutRequest.Status.REJECTED
+                    req.rejection_reason = reason
+                    req.rejected_at = timezone.now()
+                    req.approved_at = None
+                    req.paid_at = None
+                    req.processed_by = None
+                    req.save(update_fields=['status', 'rejection_reason', 'rejected_at', 'approved_at', 'paid_at', 'processed_by'])
+
+                    _try_update_admin_payout_message(req, bot_token=bot_token, final=True)
+                    _notify_manager_payout(
+                        req,
+                        title='❌ <b>Выплата отклонена</b>',
+                        body_lines=[
+                            f"Сумма: <b>{escape(str(req.amount))} грн</b>.",
+                            f"Причина: {escape(reason)}",
+                        ],
+                    )
+                    _tg_send_message(bot_token, chat_id, 'Готово ✅ Запрос отклонён.', parse_mode='HTML')
+                else:
+                    _tg_send_message(bot_token, chat_id, 'Запрос уже обработан или недоступен.', parse_mode='HTML')
+
+                return JsonResponse({'ok': True})
     # Manager bot binding
     if text.startswith('/start'):
         code = ''
@@ -2432,8 +3008,153 @@ def _offer_payload_from_form(form, default_name, initial, request):
     }
 
 
+def _build_cp_messenger_templates(*, user, settings_obj, default_name, default_phone):
+    # CP message templates for manual copy into messengers (plain text)
+    try:
+        prof = user.userprofile
+    except Exception:
+        prof = None
+
+    manager_name = (
+        (getattr(prof, 'full_name', '') or '').strip()
+        or (default_name or '').strip()
+        or (user.get_full_name() or '').strip()
+        or (getattr(user, 'username', '') or '').strip()
+    )
+
+    phone = ((getattr(prof, 'phone', '') or '').strip() or (default_phone or '').strip()).strip()
+
+    telegram_raw = ''
+    try:
+        if getattr(settings_obj, 'show_manager', True) and getattr(settings_obj, 'telegram_enabled', False):
+            telegram_raw = (getattr(settings_obj, 'telegram', '') or '').strip()
+    except Exception:
+        telegram_raw = ''
+
+    if not telegram_raw:
+        telegram_raw = (getattr(prof, 'telegram', '') or '').strip() if prof else ''
+
+    telegram = telegram_raw
+    if telegram and not telegram.startswith('@'):
+        if '/' not in telegram and ':' not in telegram and not telegram.startswith('+'):
+            telegram = f"@{telegram}"
+
+    whatsapp = ''
+    viber = ''
+    try:
+        if getattr(settings_obj, 'show_manager', True) and getattr(settings_obj, 'whatsapp_enabled', False):
+            whatsapp = (getattr(settings_obj, 'whatsapp', '') or '').strip()
+        if getattr(settings_obj, 'show_manager', True) and getattr(settings_obj, 'viber_enabled', False):
+            viber = (getattr(settings_obj, 'viber', '') or '').strip()
+    except Exception:
+        pass
+
+    site_url = 'https://twocomms.shop'
+    instagram_url = 'https://instagram.com/twocomms'
+
+    contacts = []
+    if telegram:
+        contacts.append(f"Telegram: {telegram}")
+    if whatsapp:
+        contacts.append(f"WhatsApp: {whatsapp}")
+    if viber:
+        contacts.append(f"Viber: {viber}")
+    if phone:
+        contacts.append(f"Телефон: {phone}")
+
+    contact_block = "\n".join(contacts)
+    if contact_block:
+        contact_block = f"\n\nКонтакты менеджера:\n{contact_block}"
+
+    base_intro = (
+        "Здравствуйте! 👋\n\n"
+        + f"Меня зовут {manager_name or 'менеджер TwoComms'}.\n"
+        + "TwoComms — опт от 8 шт и дропшип по Украине."
+    )
+
+    templates = [
+        {
+            'key': 'trial_14',
+            'title': '14-дневный вариант',
+            'subtitle': 'Акцент на тест-драйв и возврат 14 дней',
+            'telegram': (
+                base_intro
+                + "\n\n"
+                + "⏳ Тест-драйв 14 дней: можно взять пробную ростовку и спокойно проверить качество.\n"
+                + "✅ Быстрые отгрузки\n"
+                + "✅ Ходовые модели и размеры\n"
+                + "✅ Помогаем с подбором ассортимента\n\n"
+                + f"Каталог/сайт: {site_url}\n"
+                + f"Instagram: {instagram_url}"
+                + contact_block
+                + "\n\nЕсли удобно — напишите, и я подберу вариант под ваш формат продаж."
+            ),
+            'generic': (
+                base_intro
+                + "\n\n"
+                + "Тест-драйв 14 дней: можно взять пробную ростовку и проверить качество.\n\n"
+                + f"Сайт: {site_url}\n"
+                + f"Instagram: {instagram_url}"
+                + contact_block
+                + "\n\nПодскажите, куда удобнее отправить условия/прайс?"
+            ),
+        },
+        {
+            'key': 'standard',
+            'title': 'Стандартный',
+            'subtitle': 'Коротко и универсально',
+            'telegram': (
+                base_intro
+                + "\n\n"
+                + "Могу прислать прайс, условия и примеры ассортимента.\n"
+                + "Что для вас актуальнее: опт или дропшип?\n\n"
+                + f"Каталог/сайт: {site_url}\n"
+                + f"Instagram: {instagram_url}"
+                + contact_block
+            ),
+            'generic': (
+                base_intro
+                + "\n\n"
+                + "Могу прислать прайс и условия. Что интереснее — опт или дропшип?\n\n"
+                + f"Сайт: {site_url}\n"
+                + f"Instagram: {instagram_url}"
+                + contact_block
+            ),
+        },
+        {
+            'key': 'bonus',
+            'title': 'Акцент на условия/бонус',
+            'subtitle': 'Больше конкретики и выгод',
+            'telegram': (
+                base_intro
+                + "\n\n"
+                + "Выгоды для магазина:\n"
+                + "• стабильные поставки и быстрые отгрузки\n"
+                + "• популярные базовые модели\n"
+                + "• поддержка менеджера по ассортименту\n\n"
+                + "Если скажете ваш формат (офлайн/онлайн, город, объёмы) — предложу лучший сценарий.\n\n"
+                + f"Каталог/сайт: {site_url}\n"
+                + f"Instagram: {instagram_url}"
+                + contact_block
+            ),
+            'generic': (
+                base_intro
+                + "\n\n"
+                + "Выгоды: быстрые отгрузки, ходовой ассортимент, поддержка менеджера.\n\n"
+                + f"Сайт: {site_url}\n"
+                + f"Instagram: {instagram_url}"
+                + contact_block
+            ),
+        },
+    ]
+
+    return templates
+
+
 @login_required(login_url='management_login')
 def commercial_offer_email(request):
+
+
     if not user_is_management(request.user):
         return redirect('management_login')
 
@@ -2490,6 +3211,17 @@ def commercial_offer_email(request):
 
     sent_success = request.GET.get("sent") == "1"
     send_error = ""
+
+    cp_tab = (request.GET.get("tab") or "email").strip().lower()
+    if cp_tab not in ("email", "messengers"):
+        cp_tab = "email"
+
+    messenger_templates = _build_cp_messenger_templates(
+        user=request.user,
+        settings_obj=settings_obj,
+        default_name=default_name,
+        default_phone=default_phone,
+    )
 
     if request.method == "POST":
         form = CommercialOfferEmailForm(request.POST, user=request.user)
@@ -2703,6 +3435,8 @@ def commercial_offer_email(request):
             "send_error": send_error,
             "gallery_neutral_json": gallery_neutral_json,
             "gallery_edgy_json": gallery_edgy_json,
+            "cp_tab": cp_tab,
+            "messenger_templates": messenger_templates,
         },
     )
 
@@ -3327,3 +4061,613 @@ def commercial_offer_email_send_api(request):
             "error": error_text,
         }
     )
+
+
+
+@login_required(login_url='management_login')
+def info(request):
+    if not user_is_management(request.user):
+        return redirect('management_login')
+
+    stats = get_user_stats(request.user)
+    report_sent_today = has_report_today(request.user)
+    progress_clients_pct = min(100, int(stats['processed_today'] / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
+    progress_points_pct = min(100, int(stats['points_today'] / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
+    bot_username = get_manager_bot_username()
+    reminders = get_reminders(request.user, stats=stats, report_sent=report_sent_today)
+
+    faq_items = [
+        {
+            'q': 'Когда можно вывести начисления?',
+            'a': 'Скоро появится.',
+        },
+        {
+            'q': 'Почему часть баланса заморожена на 14 дней?',
+            'a': 'Скоро появится.',
+        },
+        {
+            'q': 'Когда выплачивается ставка и как формируется комиссия?',
+            'a': 'Скоро появится.',
+        },
+        {
+            'q': 'Как обновить карту для выплат?',
+            'a': 'Скоро появится.',
+        },
+        {
+            'q': 'Как привязать Telegram-бота менеджмента?',
+            'a': 'Скоро появится.',
+        },
+        {
+            'q': 'Куда писать, если есть вопрос по выплатам?',
+            'a': 'Скоро появится.',
+        },
+    ]
+
+    return render(
+        request,
+        'management/info.html',
+        {
+            'faq_items': faq_items,
+            'user_points_today': stats['points_today'],
+            'user_points_total': stats['points_total'],
+            'processed_today': stats['processed_today'],
+            'target_clients': TARGET_CLIENTS_DAY,
+            'target_points': TARGET_POINTS_DAY,
+            'progress_clients_pct': progress_clients_pct,
+            'progress_points_pct': progress_points_pct,
+            'has_report_today': report_sent_today,
+            'reminders': reminders,
+            'manager_bot_username': bot_username,
+        }
+    )
+
+
+@login_required(login_url='management_login')
+def payouts(request):
+    if not user_is_management(request.user):
+        return redirect('management_login')
+
+    import re
+    from decimal import Decimal
+
+    from django.db import models
+    from django.db.models import Sum
+    from django.db.models.functions import Coalesce
+
+    from orders.models import WholesaleInvoice
+    from management.models import ManagerCommissionAccrual, ManagerPayoutRequest
+
+    def mask_card(raw):
+        s = (raw or '').strip()
+        digits = re.sub(r'\D+', '', s)
+        if len(digits) < 4:
+            return '—'
+        return '**** ' + digits[-4:]
+
+    now = timezone.now()
+    zero = Decimal('0')
+    money_field = models.DecimalField(max_digits=12, decimal_places=2)
+
+    accruals_qs = ManagerCommissionAccrual.objects.filter(owner=request.user)
+    total_accrued = accruals_qs.aggregate(
+        total=Coalesce(Sum('amount'), zero, output_field=money_field),
+    )['total'] or zero
+
+    frozen_amount = accruals_qs.filter(frozen_until__gt=now).aggregate(
+        total=Coalesce(Sum('amount'), zero, output_field=money_field),
+    )['total'] or zero
+
+    paid_total = ManagerPayoutRequest.objects.filter(
+        owner=request.user,
+        status=ManagerPayoutRequest.Status.PAID,
+    ).aggregate(
+        total=Coalesce(Sum('amount'), zero, output_field=money_field),
+    )['total'] or zero
+
+    reserved_amount = ManagerPayoutRequest.objects.filter(
+        owner=request.user,
+        status__in=[ManagerPayoutRequest.Status.PROCESSING, ManagerPayoutRequest.Status.APPROVED],
+    ).aggregate(
+        total=Coalesce(Sum('amount'), zero, output_field=money_field),
+    )['total'] or zero
+
+    balance = (total_accrued - paid_total)
+    available = balance - frozen_amount - reserved_amount
+    if available < 0:
+        available = zero
+
+    active_request = ManagerPayoutRequest.objects.filter(
+        owner=request.user,
+        status__in=[ManagerPayoutRequest.Status.PROCESSING, ManagerPayoutRequest.Status.APPROVED],
+    ).order_by('-created_at').first()
+
+    history = list(
+        ManagerPayoutRequest.objects.filter(owner=request.user).order_by('-created_at')[:50]
+    )
+
+    deals_count = WholesaleInvoice.objects.filter(created_by=request.user, payment_status='paid').count()
+
+    first_deal_at = accruals_qs.order_by('created_at').values_list('created_at', flat=True).first()
+    last_payout_at = ManagerPayoutRequest.objects.filter(
+        owner=request.user,
+        status=ManagerPayoutRequest.Status.PAID,
+        paid_at__isnull=False,
+    ).order_by('-paid_at').values_list('paid_at', flat=True).first()
+
+    total_received = paid_total
+
+    try:
+        prof = request.user.userprofile
+    except Exception:
+        prof = None
+
+    position = (getattr(prof, 'manager_position', '') or '').strip() if prof else ''
+    base_salary = getattr(prof, 'manager_base_salary_uah', 0) if prof else 0
+    commission_percent = getattr(prof, 'manager_commission_percent', 0) if prof else 0
+
+    started_at = getattr(prof, 'manager_started_at', None) if prof else None
+    if not started_at:
+        try:
+            started_at = timezone.localtime(request.user.date_joined).date() if request.user.date_joined else None
+        except Exception:
+            started_at = None
+
+    days_worked = None
+    try:
+        if started_at:
+            days_worked = max(0, (timezone.localdate() - started_at).days)
+    except Exception:
+        days_worked = None
+
+    card_mask = mask_card(getattr(prof, 'payment_details', '') if prof else '')
+
+    stats = get_user_stats(request.user)
+    report_sent_today = has_report_today(request.user)
+    progress_clients_pct = min(100, int(stats['processed_today'] / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
+    progress_points_pct = min(100, int(stats['points_today'] / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
+    bot_username = get_manager_bot_username()
+    reminders = get_reminders(request.user, stats=stats, report_sent=report_sent_today)
+
+    return render(
+        request,
+        'management/payouts.html',
+        {
+            'balance': balance,
+            'available': available,
+            'frozen_amount': frozen_amount,
+            'reserved_amount': reserved_amount,
+            'active_request': active_request,
+            'history': history,
+            'position': position or '—',
+            'days_worked': days_worked,
+            'deals_count': deals_count,
+            'base_salary': base_salary,
+            'commission_percent': commission_percent,
+            'first_deal_at': first_deal_at,
+            'last_payout_at': last_payout_at,
+            'total_received': total_received,
+            'card_mask': card_mask,
+            'user_points_today': stats['points_today'],
+            'user_points_total': stats['points_total'],
+            'processed_today': stats['processed_today'],
+            'target_clients': TARGET_CLIENTS_DAY,
+            'target_points': TARGET_POINTS_DAY,
+            'progress_clients_pct': progress_clients_pct,
+            'progress_points_pct': progress_points_pct,
+            'has_report_today': report_sent_today,
+            'reminders': reminders,
+            'manager_bot_username': bot_username,
+        }
+    )
+
+
+@login_required(login_url='management_login')
+@require_POST
+def payouts_request_api(request):
+    if not user_is_management(request.user):
+        return JsonResponse({'ok': False}, status=403)
+
+    import json
+    from decimal import Decimal
+
+    from django.db import models, transaction
+    from django.db.models import Sum
+    from django.db.models.functions import Coalesce
+
+    from management.models import ManagerCommissionAccrual, ManagerPayoutRequest
+
+    try:
+        prof = request.user.userprofile
+    except Exception:
+        prof = None
+
+    card_details = (getattr(prof, 'payment_details', '') or '').strip() if prof else ''
+    if not card_details:
+        return JsonResponse({'ok': False, 'error': 'Укажите карту в профиле перед запросом выплаты.'}, status=400)
+
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        payload = {}
+
+    money_field = models.DecimalField(max_digits=12, decimal_places=2)
+    zero = Decimal('0')
+    now = timezone.now()
+
+    def calc_available():
+        accruals_qs = ManagerCommissionAccrual.objects.filter(owner=request.user)
+        total_accrued = accruals_qs.aggregate(
+            total=Coalesce(Sum('amount'), zero, output_field=money_field),
+        )['total'] or zero
+        frozen_amount = accruals_qs.filter(frozen_until__gt=now).aggregate(
+            total=Coalesce(Sum('amount'), zero, output_field=money_field),
+        )['total'] or zero
+        paid_total = ManagerPayoutRequest.objects.filter(
+            owner=request.user,
+            status=ManagerPayoutRequest.Status.PAID,
+        ).aggregate(
+            total=Coalesce(Sum('amount'), zero, output_field=money_field),
+        )['total'] or zero
+        reserved_amount = ManagerPayoutRequest.objects.filter(
+            owner=request.user,
+            status__in=[ManagerPayoutRequest.Status.PROCESSING, ManagerPayoutRequest.Status.APPROVED],
+        ).aggregate(
+            total=Coalesce(Sum('amount'), zero, output_field=money_field),
+        )['total'] or zero
+        balance = total_accrued - paid_total
+        available_val = balance - frozen_amount - reserved_amount
+        if available_val < 0:
+            available_val = zero
+        return available_val
+
+    amount_raw = payload.get('amount')
+    try:
+        amount = Decimal(str(amount_raw)) if amount_raw is not None else None
+    except Exception:
+        amount = None
+
+    with transaction.atomic():
+        existing = ManagerPayoutRequest.objects.select_for_update().filter(
+            owner=request.user,
+            status__in=[ManagerPayoutRequest.Status.PROCESSING, ManagerPayoutRequest.Status.APPROVED],
+        ).first()
+        if existing:
+            return JsonResponse({'ok': False, 'error': 'У вас уже есть активный запрос на выплату.'}, status=400)
+
+        available = calc_available()
+        if amount is None:
+            amount = available
+
+        if amount <= 0:
+            return JsonResponse({'ok': False, 'error': 'Недостаточно средств для выплаты.'}, status=400)
+        if amount > available:
+            return JsonResponse({'ok': False, 'error': 'Сумма превышает доступный баланс.'}, status=400)
+
+        req = ManagerPayoutRequest.objects.create(
+            owner=request.user,
+            kind=ManagerPayoutRequest.Kind.REQUEST,
+            amount=amount,
+            status=ManagerPayoutRequest.Status.PROCESSING,
+        )
+
+
+    # Telegram notifications (best-effort)
+    try:
+        import re
+        digits = re.sub(r'\D+', '', card_details)
+        card_mask = ('**** ' + digits[-4:]) if len(digits) >= 4 else '—'
+
+        _notify_manager_payout(
+            req,
+            title='💸 <b>Выплата запрошена</b>',
+            body_lines=[
+                f"Вы запросили выплату на сумму <b>{escape(str(req.amount))} грн</b>.",
+                f"Карта: <code>{escape(card_mask)}</code>",
+                'Статус: ⏳ <b>в обработке</b>.',
+            ],
+        )
+        _send_payout_request_to_admin(req)
+    except Exception:
+        pass
+
+    return JsonResponse({
+        'ok': True,
+        'request': {
+            'id': req.id,
+            'status': req.status,
+            'amount': str(req.amount),
+            'created_at': timezone.localtime(req.created_at).strftime('%d.%m.%Y %H:%M') if req.created_at else '',
+        }
+    })
+
+
+
+@login_required(login_url='management_login')
+@require_POST
+def admin_payout_settings_save_api(request):
+    if not request.user.is_staff:
+        return JsonResponse({'ok': False}, status=403)
+
+    import json
+    from decimal import Decimal
+
+    from django.contrib.auth import get_user_model
+
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        payload = {}
+
+    try:
+        user_id = int(payload.get('user_id'))
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'Невірний user_id'}, status=400)
+
+    position = (payload.get('position') or '').strip()
+
+    try:
+        base_salary = int(payload.get('base_salary') or 0)
+    except Exception:
+        base_salary = 0
+    base_salary = max(0, min(10_000_000, base_salary))
+
+    try:
+        percent = Decimal(str(payload.get('percent') or 0))
+    except Exception:
+        percent = Decimal('0')
+    if percent < 0:
+        percent = Decimal('0')
+    if percent > 100:
+        percent = Decimal('100')
+
+    started_at = None
+    started_at_raw = (payload.get('started_at') or '').strip()
+    if started_at_raw:
+        try:
+            from datetime import datetime
+            started_at = datetime.strptime(started_at_raw, '%Y-%m-%d').date()
+        except Exception:
+            started_at = None
+
+    User = get_user_model()
+    user = User.objects.filter(id=user_id).select_related('userprofile').first()
+    if not user:
+        return JsonResponse({'ok': False, 'error': 'Користувача не знайдено'}, status=404)
+
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    profile.manager_position = position
+    profile.manager_base_salary_uah = base_salary
+    profile.manager_commission_percent = percent
+    profile.manager_started_at = started_at
+    profile.save()
+
+    return JsonResponse({'ok': True})
+
+
+@login_required(login_url='management_login')
+@require_POST
+def admin_payout_approve_api(request, request_id):
+    if not request.user.is_staff:
+        return JsonResponse({'ok': False}, status=403)
+
+    from django.db import transaction
+    from management.models import ManagerPayoutRequest, PayoutRejectionReasonRequest
+
+    with transaction.atomic():
+        req = ManagerPayoutRequest.objects.select_for_update().filter(id=request_id).first()
+        if not req:
+            return JsonResponse({'ok': False, 'error': 'Запит не знайдено'}, status=404)
+
+        if req.status in (ManagerPayoutRequest.Status.REJECTED, ManagerPayoutRequest.Status.PAID):
+            return JsonResponse({'ok': False, 'error': 'Запит вже оброблено'}, status=400)
+
+        req.status = ManagerPayoutRequest.Status.APPROVED
+        req.approved_at = timezone.now()
+        req.rejected_at = None
+        req.rejection_reason = ''
+        req.processed_by = request.user
+        req.save(update_fields=['status', 'approved_at', 'rejected_at', 'rejection_reason', 'processed_by'])
+
+        PayoutRejectionReasonRequest.objects.filter(payout_request=req, is_active=True).update(is_active=False)
+
+    # Telegram sync (best-effort)
+    try:
+        req_full = ManagerPayoutRequest.objects.select_related('owner', 'owner__userprofile').filter(id=req.id).first()
+        if req_full:
+            _try_update_admin_payout_message(req_full, final=False)
+
+            import re
+            card_raw = ''
+            try:
+                card_raw = getattr(req_full.owner.userprofile, 'payment_details', '')
+            except Exception:
+                card_raw = ''
+            digits = re.sub(r'\D+', '', (card_raw or ''))
+            card_mask = ('**** ' + digits[-4:]) if len(digits) >= 4 else '—'
+
+            _notify_manager_payout(
+                req_full,
+                title='✅ <b>Выплата одобрена</b>',
+                body_lines=[
+                    f"Сумма: <b>{escape(str(req_full.amount))} грн</b>.",
+                    f"В течение 3 часов сумма будет зачислена на карту <code>{escape(card_mask)}</code>.",
+                ],
+            )
+    except Exception:
+        pass
+
+    return JsonResponse({'ok': True})
+
+
+@login_required(login_url='management_login')
+@require_POST
+def admin_payout_reject_api(request, request_id):
+    if not request.user.is_staff:
+        return JsonResponse({'ok': False}, status=403)
+
+    import json
+    from django.db import transaction
+    from management.models import ManagerPayoutRequest, PayoutRejectionReasonRequest
+
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        payload = {}
+
+    reason = (payload.get('reason') or '').strip()
+    if not reason:
+        return JsonResponse({'ok': False, 'error': 'Вкажіть причину'}, status=400)
+
+    with transaction.atomic():
+        req = ManagerPayoutRequest.objects.select_for_update().filter(id=request_id).first()
+        if not req:
+            return JsonResponse({'ok': False, 'error': 'Запит не знайдено'}, status=404)
+
+        if req.status in (ManagerPayoutRequest.Status.REJECTED, ManagerPayoutRequest.Status.PAID):
+            return JsonResponse({'ok': False, 'error': 'Запит вже оброблено'}, status=400)
+
+        req.status = ManagerPayoutRequest.Status.REJECTED
+        req.rejection_reason = reason
+        req.rejected_at = timezone.now()
+        req.approved_at = None
+        req.processed_by = request.user
+        req.save(update_fields=['status', 'rejection_reason', 'rejected_at', 'approved_at', 'processed_by'])
+
+        PayoutRejectionReasonRequest.objects.filter(payout_request=req, is_active=True).update(is_active=False)
+
+    # Telegram sync (best-effort)
+    try:
+        req_full = ManagerPayoutRequest.objects.select_related('owner', 'owner__userprofile').filter(id=req.id).first()
+        if req_full:
+            _try_update_admin_payout_message(req_full, final=True)
+            _notify_manager_payout(
+                req_full,
+                title='❌ <b>Выплата отклонена</b>',
+                body_lines=[
+                    f"Сумма: <b>{escape(str(req_full.amount))} грн</b>.",
+                    f"Причина: {escape(reason)}",
+                ],
+            )
+    except Exception:
+        pass
+
+    return JsonResponse({'ok': True})
+
+
+@login_required(login_url='management_login')
+@require_POST
+def admin_payout_paid_api(request, request_id):
+    if not request.user.is_staff:
+        return JsonResponse({'ok': False}, status=403)
+
+    from django.db import transaction
+    from management.models import ManagerPayoutRequest, PayoutRejectionReasonRequest
+
+    with transaction.atomic():
+        req = ManagerPayoutRequest.objects.select_for_update().filter(id=request_id).first()
+        if not req:
+            return JsonResponse({'ok': False, 'error': 'Запит не знайдено'}, status=404)
+
+        if req.status == ManagerPayoutRequest.Status.PAID:
+            return JsonResponse({'ok': False, 'error': 'Вже виплачено'}, status=400)
+        if req.status == ManagerPayoutRequest.Status.REJECTED:
+            return JsonResponse({'ok': False, 'error': 'Запит відхилено'}, status=400)
+
+        req.status = ManagerPayoutRequest.Status.PAID
+        req.paid_at = timezone.now()
+        req.processed_by = request.user
+        req.save(update_fields=['status', 'paid_at', 'processed_by'])
+
+        PayoutRejectionReasonRequest.objects.filter(payout_request=req, is_active=True).update(is_active=False)
+
+    # Telegram sync (best-effort)
+    try:
+        req_full = ManagerPayoutRequest.objects.select_related('owner', 'owner__userprofile').filter(id=req.id).first()
+        if req_full:
+            _try_update_admin_payout_message(req_full, final=True)
+
+            import re
+            card_raw = ''
+            try:
+                card_raw = getattr(req_full.owner.userprofile, 'payment_details', '')
+            except Exception:
+                card_raw = ''
+            digits = re.sub(r'\D+', '', (card_raw or ''))
+            card_mask = ('**** ' + digits[-4:]) if len(digits) >= 4 else '—'
+
+            _notify_manager_payout(
+                req_full,
+                title='💳 <b>Выплата выполнена</b>',
+                body_lines=[
+                    f"Сумма: <b>{escape(str(req_full.amount))} грн</b>.",
+                    f"Зачислено на карту <code>{escape(card_mask)}</code>.",
+                ],
+            )
+    except Exception:
+        pass
+
+    return JsonResponse({'ok': True})
+
+
+@login_required(login_url='management_login')
+@require_POST
+def admin_payout_manual_create_api(request):
+    if not request.user.is_staff:
+        return JsonResponse({'ok': False}, status=403)
+
+    import json
+    from decimal import Decimal
+
+    from management.models import ManagerPayoutRequest
+
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        payload = {}
+
+    try:
+        user_id = int(payload.get('user_id'))
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'Невірний user_id'}, status=400)
+
+    try:
+        amount = Decimal(str(payload.get('amount') or '0'))
+    except Exception:
+        amount = Decimal('0')
+
+    if amount <= 0:
+        return JsonResponse({'ok': False, 'error': 'Невірна сума'}, status=400)
+
+    paid_at = None
+    paid_at_raw = (payload.get('paid_at') or '').strip()
+    if paid_at_raw:
+        try:
+            from datetime import datetime
+            paid_at = datetime.strptime(paid_at_raw, '%Y-%m-%d').date()
+        except Exception:
+            paid_at = None
+
+    User = get_user_model()
+    user = User.objects.filter(id=user_id).first()
+    if not user:
+        return JsonResponse({'ok': False, 'error': 'Користувача не знайдено'}, status=404)
+
+    paid_dt = timezone.now()
+    if paid_at:
+        try:
+            from datetime import datetime, time
+            tz = timezone.get_current_timezone()
+            paid_dt = timezone.make_aware(datetime.combine(paid_at, time(12, 0)), tz)
+        except Exception:
+            paid_dt = timezone.now()
+
+    req = ManagerPayoutRequest.objects.create(
+        owner=user,
+        kind=ManagerPayoutRequest.Kind.MANUAL,
+        amount=amount,
+        status=ManagerPayoutRequest.Status.PAID,
+        paid_at=paid_dt,
+        processed_by=request.user,
+    )
+
+    return JsonResponse({'ok': True, 'id': req.id})

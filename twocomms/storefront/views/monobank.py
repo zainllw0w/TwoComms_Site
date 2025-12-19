@@ -1152,6 +1152,58 @@ def monobank_webhook(request):
 
     order = _get_order_by_payment_refs(invoice_id=invoice_id, order_ref=order_ref, order_id=order_id)
     if not order:
+        # Also handle Management wholesale invoices paid via Monobank
+        if invoice_id:
+            try:
+                from orders.models import WholesaleInvoice
+            except Exception:
+                WholesaleInvoice = None
+
+            inv = None
+            if WholesaleInvoice is not None:
+                try:
+                    inv = WholesaleInvoice.objects.filter(monobank_invoice_id=invoice_id).select_related('created_by', 'created_by__userprofile').first()
+                except Exception:
+                    inv = None
+
+            if inv:
+                status_value = result.get('status') or payload.get('status')
+                status_lower = (status_value or '').strip().lower()
+
+                old_payment_status = inv.payment_status
+                updated_fields = []
+
+                if status_lower in MONOBANK_SUCCESS_STATUSES:
+                    if inv.payment_status != 'paid':
+                        inv.payment_status = 'paid'
+                        updated_fields.append('payment_status')
+                elif status_lower in MONOBANK_PENDING_STATUSES:
+                    if inv.payment_status != 'pending':
+                        inv.payment_status = 'pending'
+                        updated_fields.append('payment_status')
+                elif status_lower in MONOBANK_FAILURE_STATUSES:
+                    if inv.payment_status != 'failed':
+                        inv.payment_status = 'failed'
+                        updated_fields.append('payment_status')
+                    if inv.payment_url:
+                        inv.payment_url = None
+                        updated_fields.append('payment_url')
+                    if inv.monobank_invoice_id:
+                        inv.monobank_invoice_id = None
+                        updated_fields.append('monobank_invoice_id')
+                else:
+                    # Unknown status: ignore
+                    return JsonResponse({'ok': True})
+
+                if updated_fields:
+                    inv.save(update_fields=list(set(updated_fields)))
+
+                # Keep noise low for known management invoices
+                if old_payment_status != inv.payment_status:
+                    monobank_logger.info('WholesaleInvoice %s payment_status %s -> %s via webhook', inv.id, old_payment_status, inv.payment_status)
+
+                return JsonResponse({'ok': True})
+
         monobank_logger.warning('Webhook received for unknown invoice/order: %s / %s', invoice_id, order_ref)
         return JsonResponse({'ok': True})
 

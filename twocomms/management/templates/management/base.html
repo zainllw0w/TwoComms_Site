@@ -52,9 +52,8 @@
             <a href="{% url 'management_home' %}" class="tab{% if request.resolver_match.url_name == 'management_home' or request.resolver_match.url_name == 'management_invoices' or request.resolver_match.url_name == 'management_commercial_offer_email' or request.resolver_match.url_name == 'management_shops' %} active{% endif %}">Менеджмент</a>
             <a href="{% url 'management_reports' %}" class="tab{% if request.resolver_match.url_name == 'management_reports' %} active{% endif %}">Звітність</a>
             <a href="{% url 'management_stats' %}" class="tab{% if request.resolver_match.url_name == 'management_stats' or request.resolver_match.url_name == 'management_stats_admin' or request.resolver_match.url_name == 'management_stats_admin_user' %} active{% endif %}">Статистика</a>
-            <a href="#" class="tab">Виплати</a>
-            <a href="#" class="tab">Профіль</a>
-            <a href="#" class="tab">Інформація</a>
+            <a href="{% url 'management_payouts' %}" class="tab{% if request.resolver_match.url_name == 'management_payouts' %} active{% endif %}">Виплати</a>
+                        <a href="{% url 'management_info' %}" class="tab{% if request.resolver_match.url_name == 'management_info' %} active{% endif %}">Информация</a>
             {% if request.user.is_staff %}
             <a href="{% url 'management_admin' %}" class="tab{% if request.resolver_match.url_name == 'management_admin' %} active{% endif %}">Адміністрування</a>
             {% endif %}
@@ -198,7 +197,7 @@
                     <span class="nav-icon">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1zm8 7L4.8 7h14.4L12 12z"/></svg>
                     </span>
-                    <span>КП на e-mail</span>
+                    <span>Коммерческие предложения</span>
                 </a>
                 <a href="#" class="nav-item">
                     <span class="nav-icon">
@@ -244,20 +243,108 @@
             </div>
             <form id="profile-form" class="modal-body">
                 {% csrf_token %}
-                <div class="field-grid">
-                    <div class="field">
-                        <label for="pf_full_name">ПІБ</label>
-                        <input type="text" id="pf_full_name" name="full_name" value="{{ request.user.userprofile.full_name|default:request.user.get_full_name }}" placeholder="Ваше імʼя та прізвище">
+
+                <div class="form-alert" id="profile-alert" role="status" aria-live="polite"></div>
+
+                <div class="profile-readonly" aria-label="Данные менеджера">
+                    <div class="profile-readonly__item">
+                        <div class="profile-readonly__label">Статус / посада</div>
+                        <div class="profile-readonly__value">{{ request.user.userprofile.manager_position|default:"—" }}</div>
                     </div>
-                    <div class="field">
-                        <label for="pf_email">Email</label>
-                        <input type="email" id="pf_email" name="email" value="{{ request.user.userprofile.email|default:request.user.email }}" placeholder="you@example.com">
-                    </div>
-                    <div class="field">
-                        <label for="pf_phone">Телефон</label>
-                        <input type="tel" id="pf_phone" name="phone" value="{{ request.user.userprofile.phone }}" placeholder="+380...">
+                    <div class="profile-readonly__item">
+                        <div class="profile-readonly__label">Условия</div>
+                        <div class="profile-readonly__value">{{ request.user.userprofile.manager_base_salary_uah|default:0 }} грн • {{ request.user.userprofile.manager_commission_percent|default:0 }}%</div>
                     </div>
                 </div>
+
+                <div class="profile-section">
+                    <div class="profile-section__title">Контакты</div>
+                    <div class="field-grid">
+                        <div class="field">
+                            <label for="pf_full_name">ФИО</label>
+                            <input type="text" id="pf_full_name" name="full_name" value="{{ request.user.userprofile.full_name|default:request.user.get_full_name }}" placeholder="Ваше имя и фамилия" autocomplete="name">
+                        </div>
+                        <div class="field">
+                            <label for="pf_email">Email</label>
+                            <input type="email" id="pf_email" name="email" value="{{ request.user.userprofile.email|default:request.user.email }}" placeholder="you@example.com" autocomplete="email">
+                        </div>
+                        <div class="field">
+                            <label for="pf_phone">Телефон</label>
+                            <input type="tel" id="pf_phone" name="phone" value="{{ request.user.userprofile.phone }}" placeholder="+380…" autocomplete="tel">
+                        </div>
+                        <div class="field">
+                            <label for="pf_city">Город</label>
+                            <input type="text" id="pf_city" name="city" value="{{ request.user.userprofile.city }}" placeholder="Например: Киев" autocomplete="address-level2">
+                        </div>
+                        <div class="field">
+                            <label for="pf_instagram">Instagram</label>
+                            <input type="text" id="pf_instagram" name="instagram" value="{{ request.user.userprofile.instagram }}" placeholder="username или ссылка" autocomplete="off">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-section">
+                    <div class="profile-section__title">Выплаты</div>
+                    <div class="field-grid">
+                        <div class="field field-span-2">
+                            <label for="pf_payment_card">Карта для выплат</label>
+                            <input type="text" id="pf_payment_card" name="payment_card" value="" placeholder="Введите номер карты" inputmode="numeric" autocomplete="cc-number">
+                            <div class="field-help">
+                                {% if request.user.userprofile.payment_details %}
+                                    Карта сохранена. Для смены — введите новую.
+                                {% else %}
+                                    Нужна для запросов выплат.
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-section">
+                    <div class="profile-section__title">Мессенджеры (опционально)</div>
+                    <div class="field-grid">
+                        <div class="field field-toggle">
+                            <label class="toggle-label" for="pf_whatsapp_has">
+                                <span>WhatsApp</span>
+                                <span class="toggle-switch">
+                                    <input type="checkbox" id="pf_whatsapp_has" name="whatsapp_has" {% if request.user.userprofile.whatsapp %}checked{% endif %}>
+                                    <span class="toggle-ui" aria-hidden="true"></span>
+                                </span>
+                            </label>
+                            <input type="text" id="pf_whatsapp" name="whatsapp" value="{{ request.user.userprofile.whatsapp }}" placeholder="Номер или @username" autocomplete="off">
+                        </div>
+                        <div class="field field-toggle">
+                            <label class="toggle-label" for="pf_viber_has">
+                                <span>Viber</span>
+                                <span class="toggle-switch">
+                                    <input type="checkbox" id="pf_viber_has" name="viber_has" {% if request.user.userprofile.viber %}checked{% endif %}>
+                                    <span class="toggle-ui" aria-hidden="true"></span>
+                                </span>
+                            </label>
+                            <input type="text" id="pf_viber" name="viber" value="{{ request.user.userprofile.viber }}" placeholder="Номер" autocomplete="off">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-section">
+                    <div class="profile-section__title">Дата рождения</div>
+                    <div class="dob-grid" data-initial="{{ request.user.userprofile.birth_date|date:'Y-m-d' }}">
+                        <div class="field">
+                            <label for="pf_birth_day">День</label>
+                            <select id="pf_birth_day" name="birth_day"></select>
+                        </div>
+                        <div class="field">
+                            <label for="pf_birth_month">Месяц</label>
+                            <select id="pf_birth_month" name="birth_month"></select>
+                        </div>
+                        <div class="field">
+                            <label for="pf_birth_year">Год</label>
+                            <select id="pf_birth_year" name="birth_year"></select>
+                        </div>
+                    </div>
+                </div>
+
+
 
                 <div class="bot-block">
                     <div class="bot-block-head">
@@ -632,20 +719,127 @@
         }
 
         const profileForm = document.getElementById('profile-form');
+        const profileAlert = document.getElementById('profile-alert');
+
+        const setProfileAlert = (msg, kind) => {
+            if (!profileAlert) return;
+            const text = (msg || '').trim();
+            if (!text) {
+                profileAlert.style.display = 'none';
+                profileAlert.textContent = '';
+                profileAlert.dataset.kind = '';
+                return;
+            }
+            profileAlert.style.display = '';
+            profileAlert.textContent = text;
+            profileAlert.dataset.kind = kind || '';
+        };
+
+        const clearProfileErrors = () => {
+            if (!profileForm) return;
+            profileForm.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
+        };
+
+        const markFieldError = (name) => {
+            if (!profileForm || !name) return;
+            const el = profileForm.querySelector(`[name="${name}"]`) || document.getElementById(`pf_${name}`);
+            if (el) el.classList.add('field-error');
+        };
+
+        const initOptionalField = (key) => {
+            const cb = document.getElementById(`pf_${key}_has`);
+            const input = document.getElementById(`pf_${key}`);
+            if (!cb || !input) return;
+
+            const sync = () => {
+                const on = !!cb.checked;
+                input.disabled = !on;
+                input.setAttribute('aria-disabled', String(!on));
+                input.dataset.disabled = on ? '' : '1';
+                if (!on) {
+                    input.value = '';
+                }
+            };
+
+            cb.addEventListener('change', sync);
+            sync();
+        };
+
+        const initDobSelects = () => {
+            const wrap = document.querySelector('.dob-grid');
+            if (!wrap) return;
+
+            const day = document.getElementById('pf_birth_day');
+            const month = document.getElementById('pf_birth_month');
+            const year = document.getElementById('pf_birth_year');
+            if (!day || !month || !year) return;
+
+            const addOpt = (sel, value, label) => {
+                const opt = document.createElement('option');
+                opt.value = value;
+                opt.textContent = label;
+                sel.appendChild(opt);
+            };
+
+            day.innerHTML = '';
+            month.innerHTML = '';
+            year.innerHTML = '';
+
+            addOpt(day, '', '—');
+            for (let d = 1; d <= 31; d++) addOpt(day, String(d), String(d));
+
+            const months = ['—', 'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+            addOpt(month, '', months[0]);
+            for (let m = 1; m <= 12; m++) addOpt(month, String(m), months[m]);
+
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            addOpt(year, '', '—');
+            for (let y = currentYear; y >= 1900; y--) addOpt(year, String(y), String(y));
+
+            const initial = (wrap.dataset.initial || '').trim();
+            if (!initial) return;
+            const parts = initial.split('-');
+            if (parts.length !== 3) return;
+            const [yy, mm, dd] = parts;
+            if (yy) year.value = String(parseInt(yy, 10));
+            if (mm) month.value = String(parseInt(mm, 10));
+            if (dd) day.value = String(parseInt(dd, 10));
+        };
+
         if (profileForm) {
-            profileForm.addEventListener('submit', (e) => {
+            initOptionalField('whatsapp');
+            initOptionalField('viber');
+            initDobSelects();
+
+            profileForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const formData = new FormData(profileForm);
-                fetch("{% url 'management_profile_update' %}", {
-                    method: 'POST',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                    body: formData
-                }).then(res => res.json()).then(data => {
-                    if (data.ok) {
+                clearProfileErrors();
+                setProfileAlert('Сохраняем…', 'info');
+
+                try {
+                    const formData = new FormData(profileForm);
+                    const resp = await fetch("{% url 'management_profile_update' %}", {
+                        method: 'POST',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        body: formData,
+                    });
+
+                    const data = await resp.json().catch(() => ({}));
+                    if (resp.ok && data && data.ok) {
+                        setProfileAlert('', '');
                         closeProfile();
+                        return;
                     }
+
+                    const errors = (data && data.errors) ? data.errors : {};
+                    Object.keys(errors || {}).forEach((k) => markFieldError(k));
+                    setProfileAlert((data && data.error) ? data.error : 'Не удалось сохранить профиль.', 'err');
+                } catch (err) {
+                    setProfileAlert('Сеть недоступна. Попробуйте позже.', 'err');
+                }
+            });
+        }
                 }).catch(() => {});
             });
         }
