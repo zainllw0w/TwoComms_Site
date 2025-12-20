@@ -511,6 +511,22 @@
                         }
                     };
 
+                    const copyFromPreview = () => {
+                        if (!preview) return false;
+                        try {
+                            const selection = window.getSelection();
+                            const range = document.createRange();
+                            range.selectNodeContents(preview);
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                            const ok = document.execCommand('copy');
+                            selection.removeAllRanges();
+                            return ok;
+                        } catch (e) {
+                            return false;
+                        }
+                    };
+
                     const copyHtmlOnly = async (html) => {
                         if (!html) return false;
                         try {
@@ -613,6 +629,8 @@
 
                     const copyText = async (txt) => {
                         if (useMarkdownEl && useMarkdownEl.checked && activeChannel === 'telegram') {
+                            const okPreview = copyFromPreview();
+                            if (okPreview) return true;
                             const html = safeBuildHtml(txt);
                             if (await copyHtmlOnly(html)) return true;
                             const ok = copyRichHtml(html, txt);
