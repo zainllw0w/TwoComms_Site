@@ -152,10 +152,10 @@
                         manual: 'Щоб було як на скріні: після вставки виділи блок між лініями ━━━ і обери Формат → Моноширинний (або Code).',
                     };
                     const forbiddenPatterns = [
-                        { pattern: /нуль\\s+ризик/i, label: 'нуль ризиків' },
+                        { pattern: /нуль\s+ризик/i, label: 'нуль ризиків' },
                         { pattern: /гарантован.*прибут/i, label: 'гарантований прибуток' },
-                        { pattern: /маржа\\s*40%/i, label: 'маржа 40% як факт' },
-                        { pattern: /\\bcrm\\b/i, label: 'CRM' },
+                        { pattern: /маржа\s*40%/i, label: 'маржа 40% як факт' },
+                        { pattern: /\bcrm\b/i, label: 'CRM' },
                     ];
 
                     let activeChannel = 'telegram';
@@ -440,7 +440,7 @@
                             if (/^Коротко по/i.test(trimmed)) {
                                 return `<strong>${safe}</strong>`;
                             }
-                            if (/^Формати:/i.test(trimmed) || /^Каталог\\/умови:/i.test(trimmed)) {
+                            if (/^Формати:/i.test(trimmed) || /^Каталог\/умови:/i.test(trimmed)) {
                                 return `<u><strong>${safe}</strong></u>`;
                             }
                             if (/^ЮНІТ-ЕКОНОМІКА/i.test(trimmed)) {
@@ -450,10 +450,10 @@
                                 safe = safe.replace(/(ТЕСТ|ТАК)/g, '<u><strong>$1</strong></u>');
                                 return `<strong>${safe}</strong>`;
                             }
-                            if (/TwoComms — одяг для свідомих\\./i.test(trimmed)) {
+                            if (/TwoComms — одяг для свідомих\./i.test(trimmed)) {
                                 return `<em>${safe}</em>`;
                             }
-                            if (/^2\\) ДРОП/i.test(trimmed)) {
+                            if (/^2\) ДРОП/i.test(trimmed)) {
                                 safe = safe.replace(/без складу/i, '<s>склад</s> без складу');
                                 return safe;
                             }
