@@ -619,36 +619,56 @@
                         rtf: safeBuildRtf(plainText),
                     });
 
-                    const copyClipboardPayload = async (payload) => {
-                        if (!navigator.clipboard || !navigator.clipboard.write || !window.ClipboardItem) return false;
-                        const base = {};
-                        if (payload.html) base['text/html'] = new Blob([payload.html], { type: 'text/html' });
-                        base['text/plain'] = new Blob([payload.plain], { type: 'text/plain' });
-                        if (payload.rtf) {
-                            const withRtf = {
-                                ...base,
-                                'text/rtf': new Blob([payload.rtf], { type: 'text/rtf' }),
-                            };
-                            try {
-                                await navigator.clipboard.write([new ClipboardItem(withRtf)]);
-                                return true;
-                            } catch (e) {}
+                    const buildClipboardItem = (payload, types) => {
+                        const allowed = Array.isArray(types) ? types : [];
+                        const item = {};
+                        if (allowed.includes('rtf') && payload.rtf) {
+                            item['text/rtf'] = new Blob([payload.rtf], { type: 'text/rtf' });
                         }
-                        try {
-                            await navigator.clipboard.write([new ClipboardItem(base)]);
-                            return true;
-                        } catch (e) {
-                            return false;
+                        if (allowed.includes('html') && payload.html) {
+                            item['text/html'] = new Blob([payload.html], { type: 'text/html' });
                         }
+                        if (allowed.includes('plain')) {
+                            item['text/plain'] = new Blob([payload.plain], { type: 'text/plain' });
+                        }
+                        if (!Object.keys(item).length) return null;
+                        return new ClipboardItem(item);
                     };
 
-                    const copyWithFormats = (payload) => {
+                    const copyClipboardPayload = async (payload) => {
+                        if (!navigator.clipboard || !navigator.clipboard.write || !window.ClipboardItem) return false;
+                        const attempts = [
+                            ['rtf', 'html'],
+                            ['html'],
+                            ['rtf'],
+                            ['rtf', 'html', 'plain'],
+                            ['html', 'plain'],
+                            ['plain'],
+                        ];
+                        for (const types of attempts) {
+                            try {
+                                const item = buildClipboardItem(payload, types);
+                                if (!item) continue;
+                                await navigator.clipboard.write([item]);
+                                return true;
+                            } catch (e) {
+                                continue;
+                            }
+                        }
+                        return false;
+                    };
+
+                    const copyWithFormats = (payload, includePlain) => {
                         try {
                             let ok = false;
                             const handler = (event) => {
-                                if (payload.rtf) event.clipboardData.setData('text/rtf', payload.rtf);
-                                if (payload.html) event.clipboardData.setData('text/html', payload.html);
-                                event.clipboardData.setData('text/plain', payload.plain || '');
+                                const clipboardData = event.clipboardData;
+                                if (!clipboardData) return;
+                                if (payload.rtf) clipboardData.setData('text/rtf', payload.rtf);
+                                if (payload.html) clipboardData.setData('text/html', payload.html);
+                                if (includePlain || (!payload.rtf && !payload.html)) {
+                                    clipboardData.setData('text/plain', payload.plain || '');
+                                }
                                 event.preventDefault();
                                 ok = true;
                             };
@@ -812,7 +832,8 @@
                         if (useMarkdownEl && useMarkdownEl.checked && activeChannel === 'telegram') {
                             const payload = buildClipboardPayload(txt);
                             if (await copyClipboardPayload(payload)) return true;
-                            if (copyWithFormats(payload)) return true;
+                            if (copyWithFormats(payload, false)) return true;
+                            if (copyWithFormats(payload, true)) return true;
                             const okPreview = copyFromPreview();
                             if (okPreview) return true;
                             const ok = copyRichHtml(payload.html, txt);
