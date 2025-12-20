@@ -848,10 +848,10 @@
                     const copyText = async (txt) => {
                         if (useMarkdownEl && useMarkdownEl.checked && activeChannel === 'telegram') {
                             const payload = buildClipboardPayload(txt);
-                            if (copyWithFormats(payload, false)) return true;
                             if (copyRichHtml(payload.htmlFragment || payload.html, txt)) return true;
                             if (copyFromPreview()) return true;
                             if (await copyClipboardPayload(payload)) return true;
+                            if (copyWithFormats(payload, false)) return true;
                             if (copyWithFormats(payload, true)) return true;
                         }
                         try {
