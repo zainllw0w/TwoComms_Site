@@ -111,6 +111,7 @@
 
                 <div class="cp-messenger-actions">
                     <button type="button" class="btn-primary" id="cp-copy-btn">Скопіювати повідомлення</button>
+                    <button type="button" class="btn-ghost" id="cp-copy-markdown">Скопіювати Markdown</button>
                     <button type="button" class="btn-ghost" id="cp-copy-price-image">Скопіювати price.png</button>
                     <div class="cp-copy-status" id="cp-copy-status" role="status" aria-live="polite"></div>
                 </div>
@@ -125,6 +126,7 @@
 
                     const preview = document.getElementById('cp-preview');
                     const copyBtn = document.getElementById('cp-copy-btn');
+                    const copyMarkdownBtn = document.getElementById('cp-copy-markdown');
                     const copyPriceImageBtn = document.getElementById('cp-copy-price-image');
                     const statusEl = document.getElementById('cp-copy-status');
                     const validationEl = document.getElementById('cp-validation');
@@ -487,6 +489,58 @@
                             idx += 1;
                         }
                         return htmlParts.join('');
+                    };
+
+                    const buildMarkdownMessage = (plainText) => {
+                        const lines = String(plainText || '').split('\n');
+                        const separatorIndexes = [];
+                        lines.forEach((line, idx) => {
+                            const trimmed = line.trim();
+                            if (trimmed && /^[━]+$/.test(trimmed)) {
+                                separatorIndexes.push(idx);
+                            }
+                        });
+                        const codeStart = separatorIndexes.length >= 2 ? separatorIndexes[0] : -1;
+                        const codeEnd = separatorIndexes.length >= 2 ? separatorIndexes[separatorIndexes.length - 1] : -1;
+
+                        const sanitize = (value) => String(value || '').replace(/[*_`]/g, '');
+
+                        const formatLine = (rawLine) => {
+                            const line = rawLine || '';
+                            const trimmed = line.trim();
+                            if (!trimmed) return '';
+                            if (/Це приклад/i.test(trimmed)) {
+                                return `> ${sanitize(trimmed)}`;
+                            }
+                            if (/^TWOCOMMS/i.test(trimmed) || /^Коротко по/i.test(trimmed) || /^ЮНІТ-ЕКОНОМІКА/i.test(trimmed)) {
+                                return `*${sanitize(trimmed)}*`;
+                            }
+                            if (/^Формати:/i.test(trimmed) || /^Каталог\/умови:/i.test(trimmed)) {
+                                return `*${sanitize(trimmed)}*`;
+                            }
+                            if (/напишіть/i.test(trimmed)) {
+                                return `*${sanitize(trimmed)}*`;
+                            }
+                            if (/TwoComms — одяг для свідомих\./i.test(trimmed)) {
+                                return `_${sanitize(trimmed)}_`;
+                            }
+                            return sanitize(trimmed);
+                        };
+
+                        const out = [];
+                        let idx = 0;
+                        while (idx < lines.length) {
+                            if (idx === codeStart && codeEnd >= codeStart) {
+                                out.push('```');
+                                out.push(...lines.slice(codeStart, codeEnd + 1));
+                                out.push('```');
+                                idx = codeEnd + 1;
+                                continue;
+                            }
+                            out.push(formatLine(lines[idx]));
+                            idx += 1;
+                        }
+                        return out.join('\n');
                     };
 
                     const wrapClipboardHtml = (fragment) => {
@@ -888,6 +942,30 @@
                         }
                     };
 
+                    const copyMarkdownText = async (txt) => {
+                        const md = buildMarkdownMessage(txt);
+                        try {
+                            if (navigator.clipboard && navigator.clipboard.writeText) {
+                                await navigator.clipboard.writeText(md);
+                                return true;
+                            }
+                        } catch (e) {}
+                        try {
+                            const ta = document.createElement('textarea');
+                            ta.value = md;
+                            ta.setAttribute('readonly', '');
+                            ta.style.position = 'fixed';
+                            ta.style.left = '-9999px';
+                            document.body.appendChild(ta);
+                            ta.select();
+                            const ok = document.execCommand('copy');
+                            document.body.removeChild(ta);
+                            return ok;
+                        } catch (e) {
+                            return false;
+                        }
+                    };
+
                     const render = () => {
                         const txt = buildMessage().join('\n').trim();
                         renderPreview(txt);
@@ -938,6 +1016,15 @@
                             if (!txt) return;
                             const ok = await copyText(txt);
                             setStatus(ok ? 'Скопійовано' : 'Не вдалося скопіювати', ok ? 'ok' : 'err');
+                        });
+                    }
+
+                    if (copyMarkdownBtn) {
+                        copyMarkdownBtn.addEventListener('click', async () => {
+                            const txt = buildMessage().join('\n').trim();
+                            if (!txt) return;
+                            const ok = await copyMarkdownText(txt);
+                            setStatus(ok ? 'Markdown скопійовано' : 'Не вдалося скопіювати', ok ? 'ok' : 'err');
                         });
                     }
 
