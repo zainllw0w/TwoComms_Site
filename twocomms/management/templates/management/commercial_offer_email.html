@@ -709,12 +709,13 @@
                     const copyClipboardPayload = async (payload) => {
                         if (!navigator.clipboard || !navigator.clipboard.write || !window.ClipboardItem) return false;
                         const attempts = [
+                            ['rtf', 'html', 'plain'],
+                            ['html', 'plain'],
+                            ['rtf', 'plain'],
+                            ['plain'],
                             ['rtf', 'html'],
                             ['html'],
                             ['rtf'],
-                            ['rtf', 'html', 'plain'],
-                            ['html', 'plain'],
-                            ['plain'],
                         ];
                         for (const types of attempts) {
                             try {
@@ -903,7 +904,6 @@
                         if (useMarkdownEl && useMarkdownEl.checked && activeChannel === 'telegram') {
                             const payload = buildClipboardPayload(txt, true);
                             if (await copyClipboardPayload(payload)) return true;
-                            if (copyWithFormats(payload, false)) return true;
                             if (copyWithFormats(payload, true)) return true;
                             const okPreview = copyFromPreview();
                             if (okPreview) return true;
