@@ -3290,6 +3290,38 @@ button.shop-card {
     white-space: pre-wrap;
 }
 
+.cp-preview pre {
+    margin: 10px 0;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px dashed rgba(255, 255, 255, 0.16);
+    background: rgba(0, 0, 0, 0.28);
+    color: #eaf0ff;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.9rem;
+    white-space: pre-wrap;
+}
+
+.cp-preview blockquote {
+    margin: 10px 0;
+    padding: 8px 12px;
+    border-left: 3px solid rgba(255, 126, 41, 0.6);
+    background: rgba(255, 255, 255, 0.04);
+    color: #f5e9d3;
+}
+
+.cp-preview u {
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+}
+
+.cp-preview .tg-spoiler {
+    background: rgba(255, 255, 255, 0.12);
+    color: transparent;
+    border-radius: 6px;
+    padding: 0 4px;
+}
+
 .cp-messenger-controls {
     margin-top: 14px;
 }
