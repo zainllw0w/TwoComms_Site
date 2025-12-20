@@ -479,11 +479,192 @@
                         return htmlParts.join('<br>');
                     };
 
+                    const buildRtfMessage = (plainText) => {
+                        const lines = String(plainText || '').split('\n');
+                        const separatorIndexes = [];
+                        lines.forEach((line, idx) => {
+                            const trimmed = line.trim();
+                            if (trimmed && /^[━]+$/.test(trimmed)) {
+                                separatorIndexes.push(idx);
+                            }
+                        });
+                        const codeStart = separatorIndexes.length >= 2 ? separatorIndexes[0] : -1;
+                        const codeEnd = separatorIndexes.length >= 2 ? separatorIndexes[separatorIndexes.length - 1] : -1;
+
+                        const rtfEscape = (text) => {
+                            const value = String(text || '');
+                            let out = '';
+                            for (let i = 0; i < value.length; i += 1) {
+                                const code = value.charCodeAt(i);
+                                const ch = value[i];
+                                if (ch === '\\') {
+                                    out += '\\\\';
+                                    continue;
+                                }
+                                if (ch === '{') {
+                                    out += '\\{';
+                                    continue;
+                                }
+                                if (ch === '}') {
+                                    out += '\\}';
+                                    continue;
+                                }
+                                if (code < 0x80) {
+                                    out += ch;
+                                    continue;
+                                }
+                                const signed = code > 0x7fff ? code - 0x10000 : code;
+                                out += `\\u${signed}?`;
+                            }
+                            return out;
+                        };
+
+                        const rtfWrap = (text, options) => {
+                            const opts = options || {};
+                            let out = '';
+                            if (opts.bold) out += '\\b ';
+                            if (opts.italic) out += '\\i ';
+                            if (opts.underline) out += '\\ul ';
+                            if (opts.strike) out += '\\strike ';
+                            out += rtfEscape(text);
+                            if (opts.strike) out += '\\strike0 ';
+                            if (opts.underline) out += '\\ul0 ';
+                            if (opts.italic) out += '\\i0 ';
+                            if (opts.bold) out += '\\b0 ';
+                            return out;
+                        };
+
+                        const rtfBoldLineWithAction = (text) => {
+                            const re = /(ТЕСТ|ТАК)/g;
+                            let out = '\\b ';
+                            let idx = 0;
+                            let match;
+                            while ((match = re.exec(text)) !== null) {
+                                out += rtfEscape(text.slice(idx, match.index));
+                                out += '\\ul ' + rtfEscape(match[0]) + '\\ul0 ';
+                                idx = match.index + match[0].length;
+                            }
+                            out += rtfEscape(text.slice(idx)) + '\\b0 ';
+                            return out;
+                        };
+
+                        let out = '{\\rtf1\\ansi\\deff0';
+                        out += '{\\fonttbl{\\f0\\fnil Helvetica;}{\\f1\\fnil Courier New;}}';
+                        out += '\\viewkind4\\uc1\\pard\\f0\\fs22 ';
+
+                        lines.forEach((rawLine, idx) => {
+                            const line = rawLine || '';
+                            const trimmed = line.trim();
+                            if (idx >= codeStart && idx <= codeEnd && codeStart >= 0) {
+                                out += '\\f1\\fs20 ' + rtfEscape(line) + '\\par\\f0\\fs22 ';
+                                return;
+                            }
+                            if (!trimmed) {
+                                out += '\\par ';
+                                return;
+                            }
+                            if (/Це приклад/i.test(trimmed)) {
+                                out += '\\pard\\li360\\i ' + rtfEscape(trimmed) + '\\i0\\par\\pard\\li0 ';
+                                return;
+                            }
+                            if (/^TWOCOMMS/i.test(trimmed) || /^Коротко по/i.test(trimmed) || /^ЮНІТ-ЕКОНОМІКА/i.test(trimmed)) {
+                                out += rtfWrap(trimmed, { bold: true }) + '\\par ';
+                                return;
+                            }
+                            if (/^Формати:/i.test(trimmed) || /^Каталог\/умови:/i.test(trimmed)) {
+                                out += rtfWrap(trimmed, { bold: true, underline: true }) + '\\par ';
+                                return;
+                            }
+                            if (/напишіть/i.test(trimmed)) {
+                                out += rtfBoldLineWithAction(trimmed) + '\\par ';
+                                return;
+                            }
+                            if (/TwoComms — одяг для свідомих\./i.test(trimmed)) {
+                                out += rtfWrap(trimmed, { italic: true }) + '\\par ';
+                                return;
+                            }
+                            if (/^2\) ДРОП/i.test(trimmed) && /без складу/i.test(trimmed)) {
+                                const parts = trimmed.split(/без складу/i);
+                                out += rtfEscape(parts[0].trimEnd() + ' ');
+                                out += '\\strike ' + rtfEscape('склад') + '\\strike0 ';
+                                out += rtfEscape(' без складу' + (parts[1] || '')) + '\\par ';
+                                return;
+                            }
+                            out += rtfEscape(trimmed) + '\\par ';
+                        });
+
+                        out += '}';
+                        return out;
+                    };
+
                     const safeBuildHtml = (plainText) => {
                         try {
                             return buildHtmlMessage(plainText);
                         } catch (e) {
                             return '';
+                        }
+                    };
+
+                    const safeBuildRtf = (plainText) => {
+                        try {
+                            return buildRtfMessage(plainText);
+                        } catch (e) {
+                            return '';
+                        }
+                    };
+
+                    const buildClipboardPayload = (plainText) => ({
+                        plain: String(plainText || ''),
+                        html: safeBuildHtml(plainText),
+                        rtf: safeBuildRtf(plainText),
+                    });
+
+                    const copyClipboardPayload = async (payload) => {
+                        if (!navigator.clipboard || !navigator.clipboard.write || !window.ClipboardItem) return false;
+                        const base = {};
+                        if (payload.html) base['text/html'] = new Blob([payload.html], { type: 'text/html' });
+                        base['text/plain'] = new Blob([payload.plain], { type: 'text/plain' });
+                        if (payload.rtf) {
+                            const withRtf = {
+                                ...base,
+                                'text/rtf': new Blob([payload.rtf], { type: 'text/rtf' }),
+                            };
+                            try {
+                                await navigator.clipboard.write([new ClipboardItem(withRtf)]);
+                                return true;
+                            } catch (e) {}
+                        }
+                        try {
+                            await navigator.clipboard.write([new ClipboardItem(base)]);
+                            return true;
+                        } catch (e) {
+                            return false;
+                        }
+                    };
+
+                    const copyWithFormats = (payload) => {
+                        try {
+                            let ok = false;
+                            const handler = (event) => {
+                                if (payload.rtf) event.clipboardData.setData('text/rtf', payload.rtf);
+                                if (payload.html) event.clipboardData.setData('text/html', payload.html);
+                                event.clipboardData.setData('text/plain', payload.plain || '');
+                                event.preventDefault();
+                                ok = true;
+                            };
+                            document.addEventListener('copy', handler, { once: true });
+                            const ta = document.createElement('textarea');
+                            ta.value = payload.plain || '';
+                            ta.setAttribute('readonly', '');
+                            ta.style.position = 'fixed';
+                            ta.style.left = '-9999px';
+                            document.body.appendChild(ta);
+                            ta.select();
+                            document.execCommand('copy');
+                            document.body.removeChild(ta);
+                            return ok;
+                        } catch (e) {
+                            return false;
                         }
                     };
 
@@ -629,11 +810,12 @@
 
                     const copyText = async (txt) => {
                         if (useMarkdownEl && useMarkdownEl.checked && activeChannel === 'telegram') {
+                            const payload = buildClipboardPayload(txt);
+                            if (await copyClipboardPayload(payload)) return true;
+                            if (copyWithFormats(payload)) return true;
                             const okPreview = copyFromPreview();
                             if (okPreview) return true;
-                            const html = safeBuildHtml(txt);
-                            if (await copyHtmlOnly(html)) return true;
-                            const ok = copyRichHtml(html, txt);
+                            const ok = copyRichHtml(payload.html, txt);
                             if (ok) return true;
                         }
                         try {
