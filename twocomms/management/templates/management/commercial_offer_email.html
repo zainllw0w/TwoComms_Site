@@ -1,4 +1,5 @@
 {% extends "management/base.html" %}
+{% load static %}
 
 {% block title %}Комерційні пропозиції{% endblock %}
 
@@ -110,6 +111,7 @@
 
                 <div class="cp-messenger-actions">
                     <button type="button" class="btn-primary" id="cp-copy-btn">Скопіювати повідомлення</button>
+                    <button type="button" class="btn-ghost" id="cp-copy-price-image">Скопіювати price.png</button>
                     <div class="cp-copy-status" id="cp-copy-status" role="status" aria-live="polite"></div>
                 </div>
 
@@ -123,6 +125,7 @@
 
                     const preview = document.getElementById('cp-preview');
                     const copyBtn = document.getElementById('cp-copy-btn');
+                    const copyPriceImageBtn = document.getElementById('cp-copy-price-image');
                     const statusEl = document.getElementById('cp-copy-status');
                     const validationEl = document.getElementById('cp-validation');
                     const monoHint = document.getElementById('cp-mono-hint');
@@ -655,9 +658,9 @@
                     const copyClipboardPayload = async (payload) => {
                         if (!navigator.clipboard || !navigator.clipboard.write || !window.ClipboardItem) return false;
                         const attempts = [
+                            ['rtf'],
                             ['rtf', 'html'],
                             ['html'],
-                            ['rtf'],
                             ['rtf', 'html', 'plain'],
                             ['html', 'plain'],
                             ['plain'],
@@ -848,10 +851,10 @@
                     const copyText = async (txt) => {
                         if (useMarkdownEl && useMarkdownEl.checked && activeChannel === 'telegram') {
                             const payload = buildClipboardPayload(txt);
-                            if (copyRichHtml(payload.htmlFragment || payload.html, txt)) return true;
-                            if (copyFromPreview()) return true;
                             if (await copyClipboardPayload(payload)) return true;
                             if (copyWithFormats(payload, false)) return true;
+                            if (copyRichHtml(payload.htmlFragment || payload.html, txt)) return true;
+                            if (copyFromPreview()) return true;
                             if (copyWithFormats(payload, true)) return true;
                         }
                         try {
@@ -935,6 +938,27 @@
                             if (!txt) return;
                             const ok = await copyText(txt);
                             setStatus(ok ? 'Скопійовано' : 'Не вдалося скопіювати', ok ? 'ok' : 'err');
+                        });
+                    }
+
+                    if (copyPriceImageBtn) {
+                        const priceImageUrl = '{% static "img/price.png" %}';
+                        copyPriceImageBtn.addEventListener('click', async () => {
+                            try {
+                                if (!navigator.clipboard || !navigator.clipboard.write || !window.ClipboardItem) {
+                                    setStatus('Браузер не підтримує копіювання зображень', 'err');
+                                    return;
+                                }
+                                const resp = await fetch(priceImageUrl, { cache: 'no-store' });
+                                if (!resp.ok) throw new Error('fetch_failed');
+                                const blob = await resp.blob();
+                                if (!blob.type.startsWith('image/')) throw new Error('not_image');
+                                const item = new ClipboardItem({ [blob.type]: blob });
+                                await navigator.clipboard.write([item]);
+                                setStatus('Картинку скопійовано', 'ok');
+                            } catch (e) {
+                                setStatus('Не вдалося скопіювати картинку', 'err');
+                            }
                         });
                     }
 
