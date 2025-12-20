@@ -498,27 +498,26 @@
 
                             const quoteLine = trimmed.replace(/^\*+|\*+$/g, '');
                             if (/Це приклад/i.test(quoteLine)) {
-                                return `> _${quoteLine}_`;
+                                return `_${quoteLine}_`;
                             }
 
                             if (/^TWOCOMMS/i.test(trimmed) || /^Коротко по/i.test(trimmed) || /^ЮНІТ-ЕКОНОМІКА/i.test(trimmed)) {
-                                return `**${trimmed}**`;
+                                return `*${trimmed}*`;
                             }
                             if (/^Формати:/i.test(trimmed) || /^Каталог\/умови:/i.test(trimmed)) {
-                                return `__**${trimmed}**__`;
+                                return `*${trimmed}*`;
                             }
                             if (/напишіть/i.test(trimmed)) {
-                                const emphasized = trimmed.replace(/(ТЕСТ|ТАК)/g, '__$1__');
-                                return `**${emphasized}**`;
+                                return `*${trimmed.replace(/[_*]/g, '')}*`;
                             }
                             if (/TwoComms — одяг для свідомих\./i.test(trimmed)) {
                                 return `_${trimmed}_`;
                             }
                             if (/^2\) ДРОП/i.test(trimmed)) {
-                                return trimmed.replace(/без складу/i, '~~склад~~ без складу');
+                                return trimmed.replace(/без складу/i, 'без складу');
                             }
                             if (useSpoilerHintEl && useSpoilerHintEl.checked && /зухвалі хіти/i.test(trimmed)) {
-                                return trimmed.replace(/зухвалі хіти/gi, '||зухвалі хіти||');
+                                return trimmed;
                             }
                             return trimmed;
                         };
