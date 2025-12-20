@@ -430,28 +430,28 @@
 
                             const quoteLine = trimmed.replace(/^\*+|\*+$/g, '');
                             if (/Це приклад/i.test(quoteLine)) {
-                                return `<blockquote><i>${escapeHtml(quoteLine)}</i></blockquote>`;
+                                return `<blockquote><em>${escapeHtml(quoteLine)}</em></blockquote>`;
                             }
 
                             let safe = escapeHtml(line);
                             if (/^TWOCOMMS/i.test(trimmed)) {
-                                return `<b>${safe}</b>`;
+                                return `<strong>${safe}</strong>`;
                             }
                             if (/^Коротко по/i.test(trimmed)) {
-                                return `<b>${safe}</b>`;
+                                return `<strong>${safe}</strong>`;
                             }
                             if (/^Формати:/i.test(trimmed) || /^Каталог\/умови:/i.test(trimmed)) {
-                                return `<u><b>${safe}</b></u>`;
+                                return `<u><strong>${safe}</strong></u>`;
                             }
                             if (/^ЮНІТ-ЕКОНОМІКА/i.test(trimmed)) {
-                                return `<b>${safe}</b>`;
+                                return `<strong>${safe}</strong>`;
                             }
                             if (/напишіть/i.test(trimmed)) {
-                                safe = safe.replace(/(ТЕСТ|ТАК)/g, '<u><b>$1</b></u>');
-                                return `<b>${safe}</b>`;
+                                safe = safe.replace(/(ТЕСТ|ТАК)/g, '<u><strong>$1</strong></u>');
+                                return `<strong>${safe}</strong>`;
                             }
                             if (/TwoComms — одяг для свідомих\./i.test(trimmed)) {
-                                return `<i>${safe}</i>`;
+                                return `<em>${safe}</em>`;
                             }
                             if (/^2\) ДРОП/i.test(trimmed)) {
                                 safe = safe.replace(/без складу/i, '<s>склад</s> без складу');
@@ -484,6 +484,11 @@
                             idx += 1;
                         }
                         return htmlParts.join('');
+                    };
+
+                    const wrapClipboardHtml = (fragment) => {
+                        if (!fragment) return '';
+                        return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><!--StartFragment-->${fragment}<!--EndFragment--></body></html>`;
                     };
 
                     const buildRtfMessage = (plainText) => {
@@ -620,11 +625,15 @@
                         }
                     };
 
-                    const buildClipboardPayload = (plainText) => ({
-                        plain: String(plainText || ''),
-                        html: safeBuildHtml(plainText),
-                        rtf: safeBuildRtf(plainText),
-                    });
+                    const buildClipboardPayload = (plainText) => {
+                        const fragment = safeBuildHtml(plainText);
+                        return {
+                            plain: String(plainText || ''),
+                            html: wrapClipboardHtml(fragment),
+                            htmlFragment: fragment,
+                            rtf: safeBuildRtf(plainText),
+                        };
+                    };
 
                     const buildClipboardItem = (payload, types) => {
                         const allowed = Array.isArray(types) ? types : [];
@@ -632,8 +641,9 @@
                         if (allowed.includes('rtf') && payload.rtf) {
                             item['text/rtf'] = new Blob([payload.rtf], { type: 'text/rtf' });
                         }
-                        if (allowed.includes('html') && payload.html) {
-                            item['text/html'] = new Blob([payload.html], { type: 'text/html' });
+                        if (allowed.includes('html')) {
+                            const html = payload.html || payload.htmlFragment;
+                            if (html) item['text/html'] = new Blob([html], { type: 'text/html' });
                         }
                         if (allowed.includes('plain')) {
                             item['text/plain'] = new Blob([payload.plain], { type: 'text/plain' });
@@ -838,7 +848,8 @@
                     const copyText = async (txt) => {
                         if (useMarkdownEl && useMarkdownEl.checked && activeChannel === 'telegram') {
                             const payload = buildClipboardPayload(txt);
-                            if (copyRichHtml(payload.html, txt)) return true;
+                            if (copyWithFormats(payload, false)) return true;
+                            if (copyRichHtml(payload.htmlFragment || payload.html, txt)) return true;
                             if (copyFromPreview()) return true;
                             if (await copyClipboardPayload(payload)) return true;
                             if (copyWithFormats(payload, true)) return true;
