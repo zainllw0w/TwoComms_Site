@@ -473,10 +473,17 @@
                                 idx = codeEnd + 1;
                                 continue;
                             }
-                            htmlParts.push(formatLine(lines[idx]));
+                            const formatted = formatLine(lines[idx]);
+                            if (!formatted) {
+                                htmlParts.push('<div><br></div>');
+                            } else if (formatted.startsWith('<blockquote>')) {
+                                htmlParts.push(formatted);
+                            } else {
+                                htmlParts.push(`<div>${formatted}</div>`);
+                            }
                             idx += 1;
                         }
-                        return htmlParts.join('<br>');
+                        return htmlParts.join('');
                     };
 
                     const buildRtfMessage = (plainText) => {
@@ -831,13 +838,10 @@
                     const copyText = async (txt) => {
                         if (useMarkdownEl && useMarkdownEl.checked && activeChannel === 'telegram') {
                             const payload = buildClipboardPayload(txt);
+                            if (copyRichHtml(payload.html, txt)) return true;
+                            if (copyFromPreview()) return true;
                             if (await copyClipboardPayload(payload)) return true;
-                            if (copyWithFormats(payload, false)) return true;
                             if (copyWithFormats(payload, true)) return true;
-                            const okPreview = copyFromPreview();
-                            if (okPreview) return true;
-                            const ok = copyRichHtml(payload.html, txt);
-                            if (ok) return true;
                         }
                         try {
                             if (navigator.clipboard && navigator.clipboard.write && window.ClipboardItem) {
