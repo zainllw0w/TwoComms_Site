@@ -71,7 +71,7 @@
                         <div class="cp-toggle-grid">
                             <label class="offer-check">
                                 <input type="checkbox" id="cp-use-markdown" checked>
-                                <span>Автоформат Telegram (код-блок)</span>
+                                <span>Автоформат Telegram (жирний/курсив/цитата/спойлер/код)</span>
                             </label>
                             <label class="offer-check">
                                 <input type="checkbox" id="cp-show-receipt" checked>
@@ -101,7 +101,7 @@
                 </div>
 
                 <div class="cp-preview-hint" id="cp-mono-hint">
-                    Блок чеку копіюється як код — додатково форматувати не потрібно.
+                    Формат Telegram застосовується автоматично при вставці (жирний/курсив/цитата/спойлер/код).
                 </div>
                 <div class="cp-preview-shell">
                     <div class="cp-preview" id="cp-preview" aria-label="Попередній перегляд"></div>
@@ -139,6 +139,7 @@
                     const includeGeneralTgEl = document.getElementById('cp-include-general-tg');
                     const useMarkdownEl = document.getElementById('cp-use-markdown');
                     const shopNameEl = document.getElementById('recipient_name');
+                    const segmentModeEl = document.getElementById('segment_mode');
 
                     const pricing = context.pricing || {};
                     const optTiers = pricing.optTiers || {};
@@ -147,7 +148,7 @@
 
                     const separator = '━━━━━━━━━━━━━━━━━━━━';
                     const monoHintTexts = {
-                        auto: 'Блок чеку копіюється як код — додатково форматувати не потрібно.',
+                        auto: 'Формат Telegram застосовується автоматично при вставці (жирний/курсив/цитата/спойлер/код).',
                         manual: 'Щоб було як на скріні: після вставки виділи блок між лініями ━━━ і обери Формат → Моноширинний (або Code).',
                     };
                     const forbiddenPatterns = [
@@ -196,7 +197,7 @@
                         const hoodieRetail = (pricing.retailExamples || {}).hoodie || 0;
                         const hoodieEntry = getOptTierEntry();
                         const hoodieProfit = Math.max(0, hoodieRetail - hoodieEntry);
-                        const lines = [
+                        return [
                             separator,
                             'ЧЕК',
                             separator,
@@ -204,19 +205,13 @@
                             'Оплата: лише доставка',
                             'Формат: Опт або Дроп',
                             '',
-                            'ЮНІТ-ЕКОНОМІКА (ПРИКЛАД)*',
+                            'ЮНІТ-ЕКОНОМІКА (ПРИКЛАД)',
                             'Худі (фліс):',
                             `вхід ${buildEntryText()}`,
                             `роздріб (приклад) ${formatUah(hoodieRetail)}`,
                             `прибуток ~${formatUah(hoodieProfit)}`,
-                            '',
-                            '*Це приклад розрахунку. Роздрібну ціну встановлюєте ви.',
                             separator,
                         ];
-                        if (useMarkdownEl && useMarkdownEl.checked && activeChannel === 'telegram') {
-                            return ['```', ...lines, '```'];
-                        }
-                        return lines;
                     };
 
                     const buildDropshipLoyalty = () => {
@@ -234,6 +229,17 @@
                             'Опт-ступені: 8–15 / 16–31 / 32–63 / 64–99 / 100+',
                             '(скажіться обсяг — підберу точний “вхід”)',
                         ];
+                    };
+
+                    const buildDisclaimer = () => [
+                        'Це приклад розрахунку. Роздрібну ціну встановлюєте ви.',
+                    ];
+
+                    const buildSegmentLine = () => {
+                        if (!useSpoilerHintEl || !useSpoilerHintEl.checked) return [];
+                        const seg = (segmentModeEl && segmentModeEl.value) || 'NEUTRAL';
+                        if (seg === 'EDGY') return ['Сегмент: зухвалі хіти'];
+                        return [];
                     };
 
                     const buildFooter = (options) => {
@@ -267,14 +273,17 @@
                                 'Тест-ростовка S–XL на 14 днів:',
                                 'повернення залишків, сплачуєте лише доставку.',
                                 '',
+                                ...buildSegmentLine(),
+                                '',
                                 'Опт (кратно 8) або Дроп (фікс).',
                             ];
                             if (showReceiptEl && showReceiptEl.checked) {
                                 lines.push('');
                                 lines.push(...buildReceiptBlock());
+                                lines.push(...buildDisclaimer());
                             } else {
-                                lines.push(`Приклад по худі: вхід ${buildEntryText()} → роздріб (приклад) ${formatUah(hoodieRetail)} → ~${formatUah(hoodieProfit)}*`);
-                                lines.push('*Це приклад. Роздрібну ціну встановлюєте ви.');
+                                lines.push(`Приклад по худі: вхід ${buildEntryText()} → роздріб (приклад) ${formatUah(hoodieRetail)} → ~${formatUah(hoodieProfit)}`);
+                                lines.push(...buildDisclaimer());
                             }
                             lines.push('');
                             lines.push(`Каталог: ${links.catalog || ''}`.trim());
@@ -296,13 +305,15 @@
                         if (showReceiptEl && showReceiptEl.checked) {
                             lines.push('');
                             lines.push(...buildReceiptBlock());
+                            lines.push(...buildDisclaimer());
                         } else {
                             lines.push('');
                             lines.push(`Юніт-економіка (приклад): худі — вхід ${buildEntryText()}, роздріб (приклад) ${formatUah(hoodieRetail)}, ~${formatUah(hoodieProfit)}.`);
-                            lines.push('Це приклад розрахунку. Роздрібну ціну встановлюєте ви.');
+                            lines.push(...buildDisclaimer());
                         }
 
                         lines.push('');
+                        lines.push(...buildSegmentLine());
                         lines.push('Формати:');
                         lines.push('1) ОПТ — від 8 шт, договір/КЕП, ціна нижча при більшому обсягу (кратно 8)');
                         lines.push('2) ДРОП — без складу, XML, кабінет партнера (ТТН/трекінг)');
@@ -381,8 +392,8 @@
                             '• без складу, XML, кабінет партнера (ТТН/трекінг)',
                             ...buildDropshipLoyalty(),
                             '',
-                            `Приклад по худі: вхід ${formatUah(dropHoodie)} → роздріб (приклад) ${formatUah(hoodieRetail)} → ~${formatUah(profit)}*`,
-                            '*Це приклад. Роздрібну ціну встановлюєте ви.',
+                            `Приклад по худі: вхід ${formatUah(dropHoodie)} → роздріб (приклад) ${formatUah(hoodieRetail)} → ~${formatUah(profit)}`,
+                            ...buildDisclaimer(),
                             '',
                             'Якщо цікаво — напишіть: ТАК.',
                             'TwoComms — одяг для свідомих.',
@@ -400,32 +411,85 @@
                         return buildFirstContact(length);
                     };
 
+                    const buildHtmlMessage = (plainText) => {
+                        const lines = String(plainText || '').split('\n');
+                        const separatorIndexes = [];
+                        lines.forEach((line, idx) => {
+                            const trimmed = line.trim();
+                            if (trimmed && /^[━]+$/.test(trimmed)) {
+                                separatorIndexes.push(idx);
+                            }
+                        });
+                        const codeStart = separatorIndexes.length >= 2 ? separatorIndexes[0] : -1;
+                        const codeEnd = separatorIndexes.length >= 2 ? separatorIndexes[separatorIndexes.length - 1] : -1;
+
+                        const formatLine = (rawLine) => {
+                            const line = rawLine || '';
+                            const trimmed = line.trim();
+                            if (!trimmed) return '';
+
+                            const quoteLine = trimmed.replace(/^\*+|\*+$/g, '');
+                            if (/Це приклад/i.test(quoteLine)) {
+                                return `<blockquote><em>${escapeHtml(quoteLine)}</em></blockquote>`;
+                            }
+
+                            let safe = escapeHtml(line);
+                            if (/^TWOCOMMS/i.test(trimmed)) {
+                                return `<strong>${safe}</strong>`;
+                            }
+                            if (/^Коротко по/i.test(trimmed)) {
+                                return `<strong>${safe}</strong>`;
+                            }
+                            if (/^Формати:/i.test(trimmed) || /^Каталог\\/умови:/i.test(trimmed)) {
+                                return `<u><strong>${safe}</strong></u>`;
+                            }
+                            if (/^ЮНІТ-ЕКОНОМІКА/i.test(trimmed)) {
+                                return `<strong>${safe}</strong>`;
+                            }
+                            if (/напишіть/i.test(trimmed)) {
+                                safe = safe.replace(/(ТЕСТ|ТАК)/g, '<u><strong>$1</strong></u>');
+                                return `<strong>${safe}</strong>`;
+                            }
+                            if (/TwoComms — одяг для свідомих\\./i.test(trimmed)) {
+                                return `<em>${safe}</em>`;
+                            }
+                            if (/^2\\) ДРОП/i.test(trimmed)) {
+                                safe = safe.replace(/без складу/i, '<s>склад</s> без складу');
+                                return safe;
+                            }
+                            if (useSpoilerHintEl && useSpoilerHintEl.checked && /зухвалі хіти/i.test(trimmed)) {
+                                safe = safe.replace(/зухвалі хіти/gi, '<span class="tg-spoiler">зухвалі хіти</span>');
+                                return safe;
+                            }
+                            return safe;
+                        };
+
+                        const htmlParts = [];
+                        let idx = 0;
+                        while (idx < lines.length) {
+                            if (idx === codeStart && codeEnd >= codeStart) {
+                                const block = lines.slice(codeStart, codeEnd + 1).join('\n');
+                                htmlParts.push(`<pre><code>${escapeHtml(block)}</code></pre>`);
+                                idx = codeEnd + 1;
+                                continue;
+                            }
+                            htmlParts.push(formatLine(lines[idx]));
+                            idx += 1;
+                        }
+                        return htmlParts.join('<br>');
+                    };
+
                     const renderPreview = (txt) => {
                         if (!preview) return;
+                        if (useMarkdownEl && useMarkdownEl.checked && activeChannel === 'telegram') {
+                            preview.innerHTML = buildHtmlMessage(txt);
+                            return;
+                        }
                         if (!txt) {
                             preview.textContent = '';
                             return;
                         }
                         const lines = String(txt).split('\n');
-                        const fenceIndexes = [];
-                        lines.forEach((line, idx) => {
-                            if (line.trim() === '```') {
-                                fenceIndexes.push(idx);
-                            }
-                        });
-                        if (fenceIndexes.length >= 2) {
-                            const start = fenceIndexes[0];
-                            const end = fenceIndexes[fenceIndexes.length - 1];
-                            const before = lines.slice(0, start).join('\n');
-                            const receipt = lines.slice(start + 1, end).join('\n');
-                            const after = lines.slice(end + 1).join('\n');
-                            const parts = [];
-                            if (before) parts.push(escapeHtml(before));
-                            parts.push(`<span class="cp-preview-receipt">${escapeHtml(receipt)}</span>`);
-                            if (after) parts.push(escapeHtml(after));
-                            preview.innerHTML = parts.join('\n');
-                            return;
-                        }
                         const separatorIndexes = [];
                         lines.forEach((line, idx) => {
                             const trimmed = line.trim();
@@ -488,6 +552,19 @@
 
                     const copyText = async (txt) => {
                         try {
+                            if (navigator.clipboard && navigator.clipboard.write && window.ClipboardItem) {
+                                const html = (useMarkdownEl && useMarkdownEl.checked && activeChannel === 'telegram')
+                                    ? buildHtmlMessage(txt)
+                                    : '';
+                                const item = new ClipboardItem({
+                                    'text/plain': new Blob([txt], { type: 'text/plain' }),
+                                    ...(html ? { 'text/html': new Blob([html], { type: 'text/html' }) } : {}),
+                                });
+                                await navigator.clipboard.write([item]);
+                                return true;
+                            }
+                        } catch (e) {}
+                        try {
                             if (navigator.clipboard && navigator.clipboard.writeText) {
                                 await navigator.clipboard.writeText(txt);
                                 return true;
@@ -544,7 +621,7 @@
                         });
                     }
 
-                    [messageLengthEl, optTierEl, showReceiptEl, showOptTiersEl, showDropshipEl, useSpoilerHintEl, includeGeneralTgEl, useMarkdownEl].forEach((el) => {
+                    [messageLengthEl, optTierEl, showReceiptEl, showOptTiersEl, showDropshipEl, useSpoilerHintEl, includeGeneralTgEl, useMarkdownEl, segmentModeEl].forEach((el) => {
                         if (!el) return;
                         el.addEventListener('change', render);
                     });
