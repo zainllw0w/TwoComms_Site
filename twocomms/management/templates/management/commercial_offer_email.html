@@ -479,11 +479,46 @@
                         return htmlParts.join('<br>');
                     };
 
+                    const safeBuildHtml = (plainText) => {
+                        try {
+                            return buildHtmlMessage(plainText);
+                        } catch (e) {
+                            return '';
+                        }
+                    };
+
+                    const copyRichHtml = (html, plainText) => {
+                        try {
+                            const container = document.createElement('div');
+                            container.contentEditable = 'true';
+                            container.style.position = 'fixed';
+                            container.style.left = '-9999px';
+                            container.style.top = '0';
+                            container.style.whiteSpace = 'pre-wrap';
+                            container.innerHTML = html || escapeHtml(plainText).replace(/\n/g, '<br>');
+                            document.body.appendChild(container);
+                            const selection = window.getSelection();
+                            const range = document.createRange();
+                            range.selectNodeContents(container);
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                            const ok = document.execCommand('copy');
+                            selection.removeAllRanges();
+                            document.body.removeChild(container);
+                            return ok;
+                        } catch (e) {
+                            return false;
+                        }
+                    };
+
                     const renderPreview = (txt) => {
                         if (!preview) return;
                         if (useMarkdownEl && useMarkdownEl.checked && activeChannel === 'telegram') {
-                            preview.innerHTML = buildHtmlMessage(txt);
-                            return;
+                            const html = safeBuildHtml(txt);
+                            if (html) {
+                                preview.innerHTML = html;
+                                return;
+                            }
                         }
                         if (!txt) {
                             preview.textContent = '';
@@ -554,7 +589,7 @@
                         try {
                             if (navigator.clipboard && navigator.clipboard.write && window.ClipboardItem) {
                                 const html = (useMarkdownEl && useMarkdownEl.checked && activeChannel === 'telegram')
-                                    ? buildHtmlMessage(txt)
+                                    ? safeBuildHtml(txt)
                                     : '';
                                 const item = new ClipboardItem({
                                     'text/plain': new Blob([txt], { type: 'text/plain' }),
@@ -564,6 +599,11 @@
                                 return true;
                             }
                         } catch (e) {}
+                        if (useMarkdownEl && useMarkdownEl.checked && activeChannel === 'telegram') {
+                            const html = safeBuildHtml(txt);
+                            const ok = copyRichHtml(html, txt);
+                            if (ok) return true;
+                        }
                         try {
                             if (navigator.clipboard && navigator.clipboard.writeText) {
                                 await navigator.clipboard.writeText(txt);
