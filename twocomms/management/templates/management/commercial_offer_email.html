@@ -479,6 +479,66 @@
                         return htmlParts.join('<br>');
                     };
 
+                    const buildMarkdownMessage = (plainText) => {
+                        const lines = String(plainText || '').split('\n');
+                        const separatorIndexes = [];
+                        lines.forEach((line, idx) => {
+                            const trimmed = line.trim();
+                            if (trimmed && /^[━]+$/.test(trimmed)) {
+                                separatorIndexes.push(idx);
+                            }
+                        });
+                        const codeStart = separatorIndexes.length >= 2 ? separatorIndexes[0] : -1;
+                        const codeEnd = separatorIndexes.length >= 2 ? separatorIndexes[separatorIndexes.length - 1] : -1;
+
+                        const formatLine = (rawLine) => {
+                            const line = rawLine || '';
+                            const trimmed = line.trim();
+                            if (!trimmed) return '';
+
+                            const quoteLine = trimmed.replace(/^\*+|\*+$/g, '');
+                            if (/Це приклад/i.test(quoteLine)) {
+                                return `> _${quoteLine}_`;
+                            }
+
+                            if (/^TWOCOMMS/i.test(trimmed) || /^Коротко по/i.test(trimmed) || /^ЮНІТ-ЕКОНОМІКА/i.test(trimmed)) {
+                                return `**${trimmed}**`;
+                            }
+                            if (/^Формати:/i.test(trimmed) || /^Каталог\/умови:/i.test(trimmed)) {
+                                return `__**${trimmed}**__`;
+                            }
+                            if (/напишіть/i.test(trimmed)) {
+                                const emphasized = trimmed.replace(/(ТЕСТ|ТАК)/g, '__$1__');
+                                return `**${emphasized}**`;
+                            }
+                            if (/TwoComms — одяг для свідомих\./i.test(trimmed)) {
+                                return `_${trimmed}_`;
+                            }
+                            if (/^2\) ДРОП/i.test(trimmed)) {
+                                return trimmed.replace(/без складу/i, '~~склад~~ без складу');
+                            }
+                            if (useSpoilerHintEl && useSpoilerHintEl.checked && /зухвалі хіти/i.test(trimmed)) {
+                                return trimmed.replace(/зухвалі хіти/gi, '||зухвалі хіти||');
+                            }
+                            return trimmed;
+                        };
+
+                        const out = [];
+                        let idx = 0;
+                        while (idx < lines.length) {
+                            if (idx === codeStart && codeEnd >= codeStart) {
+                                out.push('```');
+                                out.push(...lines.slice(codeStart, codeEnd + 1));
+                                out.push('```');
+                                idx = codeEnd + 1;
+                                continue;
+                            }
+                            out.push(formatLine(lines[idx]));
+                            idx += 1;
+                        }
+                        return out.join('\n');
+                    };
+
                     const buildRtfMessage = (plainText) => {
                         const lines = String(plainText || '').split('\n');
                         const separatorIndexes = [];
@@ -605,6 +665,14 @@
                         }
                     };
 
+                    const safeBuildMarkdown = (plainText) => {
+                        try {
+                            return buildMarkdownMessage(plainText);
+                        } catch (e) {
+                            return '';
+                        }
+                    };
+
                     const safeBuildRtf = (plainText) => {
                         try {
                             return buildRtfMessage(plainText);
@@ -613,11 +681,14 @@
                         }
                     };
 
-                    const buildClipboardPayload = (plainText) => ({
-                        plain: String(plainText || ''),
-                        html: safeBuildHtml(plainText),
-                        rtf: safeBuildRtf(plainText),
-                    });
+                    const buildClipboardPayload = (plainText, useMarkdownFallback) => {
+                        const fallbackText = useMarkdownFallback ? (safeBuildMarkdown(plainText) || plainText) : plainText;
+                        return {
+                            plain: String(fallbackText || ''),
+                            html: safeBuildHtml(plainText),
+                            rtf: safeBuildRtf(plainText),
+                        };
+                    };
 
                     const buildClipboardItem = (payload, types) => {
                         const allowed = Array.isArray(types) ? types : [];
@@ -830,7 +901,7 @@
 
                     const copyText = async (txt) => {
                         if (useMarkdownEl && useMarkdownEl.checked && activeChannel === 'telegram') {
-                            const payload = buildClipboardPayload(txt);
+                            const payload = buildClipboardPayload(txt, true);
                             if (await copyClipboardPayload(payload)) return true;
                             if (copyWithFormats(payload, false)) return true;
                             if (copyWithFormats(payload, true)) return true;
