@@ -430,35 +430,35 @@
 
                             const quoteLine = trimmed.replace(/^\*+|\*+$/g, '');
                             if (/Це приклад/i.test(quoteLine)) {
-                                return `<blockquote><em>${escapeHtml(quoteLine)}</em></blockquote>`;
+                                return `<blockquote><i>${escapeHtml(quoteLine)}</i></blockquote>`;
                             }
 
                             let safe = escapeHtml(line);
                             if (/^TWOCOMMS/i.test(trimmed)) {
-                                return `<strong>${safe}</strong>`;
+                                return `<b>${safe}</b>`;
                             }
                             if (/^Коротко по/i.test(trimmed)) {
-                                return `<strong>${safe}</strong>`;
+                                return `<b>${safe}</b>`;
                             }
                             if (/^Формати:/i.test(trimmed) || /^Каталог\/умови:/i.test(trimmed)) {
-                                return `<u><strong>${safe}</strong></u>`;
+                                return `<u><b>${safe}</b></u>`;
                             }
                             if (/^ЮНІТ-ЕКОНОМІКА/i.test(trimmed)) {
-                                return `<strong>${safe}</strong>`;
+                                return `<b>${safe}</b>`;
                             }
                             if (/напишіть/i.test(trimmed)) {
-                                safe = safe.replace(/(ТЕСТ|ТАК)/g, '<u><strong>$1</strong></u>');
-                                return `<strong>${safe}</strong>`;
+                                safe = safe.replace(/(ТЕСТ|ТАК)/g, '<u><b>$1</b></u>');
+                                return `<b>${safe}</b>`;
                             }
                             if (/TwoComms — одяг для свідомих\./i.test(trimmed)) {
-                                return `<em>${safe}</em>`;
+                                return `<i>${safe}</i>`;
                             }
                             if (/^2\) ДРОП/i.test(trimmed)) {
                                 safe = safe.replace(/без складу/i, '<s>склад</s> без складу');
                                 return safe;
                             }
                             if (useSpoilerHintEl && useSpoilerHintEl.checked && /зухвалі хіти/i.test(trimmed)) {
-                                safe = safe.replace(/зухвалі хіти/gi, '<span class="tg-spoiler">зухвалі хіти</span>');
+                                safe = safe.replace(/зухвалі хіти/gi, '<tg-spoiler>зухвалі хіти</tg-spoiler>');
                                 return safe;
                             }
                             return safe;
@@ -586,24 +586,34 @@
                     };
 
                     const copyText = async (txt) => {
-                        try {
-                            if (navigator.clipboard && navigator.clipboard.write && window.ClipboardItem) {
-                                const html = (useMarkdownEl && useMarkdownEl.checked && activeChannel === 'telegram')
-                                    ? safeBuildHtml(txt)
-                                    : '';
-                                const item = new ClipboardItem({
-                                    'text/plain': new Blob([txt], { type: 'text/plain' }),
-                                    ...(html ? { 'text/html': new Blob([html], { type: 'text/html' }) } : {}),
-                                });
-                                await navigator.clipboard.write([item]);
-                                return true;
-                            }
-                        } catch (e) {}
                         if (useMarkdownEl && useMarkdownEl.checked && activeChannel === 'telegram') {
                             const html = safeBuildHtml(txt);
                             const ok = copyRichHtml(html, txt);
                             if (ok) return true;
                         }
+                        try {
+                            if (useMarkdownEl && useMarkdownEl.checked && activeChannel === 'telegram') {
+                                const html = safeBuildHtml(txt);
+                                if (html) {
+                                    const item = new ClipboardItem({
+                                        'text/html': new Blob([html], { type: 'text/html' }),
+                                    });
+                                    await navigator.clipboard.write([item]);
+                                    return true;
+                                }
+                            }
+                            if (navigator.clipboard && navigator.clipboard.write && window.ClipboardItem) {
+                                const html = (useMarkdownEl && useMarkdownEl.checked && activeChannel === 'telegram')
+                                    ? safeBuildHtml(txt)
+                                    : '';
+                                const item = new ClipboardItem({
+                                    ...(html ? { 'text/html': new Blob([html], { type: 'text/html' }) } : {}),
+                                    'text/plain': new Blob([txt], { type: 'text/plain' }),
+                                });
+                                await navigator.clipboard.write([item]);
+                                return true;
+                            }
+                        } catch (e) {}
                         try {
                             if (navigator.clipboard && navigator.clipboard.writeText) {
                                 await navigator.clipboard.writeText(txt);
