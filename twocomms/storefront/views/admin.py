@@ -1140,37 +1140,70 @@ def add_print(request):
     - Загрузка изображений или URL
     - Система баллов за одобренные принты
     """
-    # TODO: Полная реализация
-    # Временно импортируем из старого views.py
-    from storefront import views as old_views
-    if hasattr(old_views, 'add_print'):
-        return old_views.add_print(request)
-    
-    if not request.user.is_authenticated:
-        return redirect('login')
-    
-    if request.method == 'POST':
-        form = PrintProposalForm(request.POST, request.FILES)
-        if form.is_valid():
-            proposal = form.save(commit=False)
-            proposal.user = request.user
-            proposal.save()
-            return redirect('cooperation')
-    else:
-        form = PrintProposalForm()
-    
+    import time
+
+    last_ts = request.session.get('print_proposal_last_ts', 0)
+    now = int(time.time())
+    rate_limited = now - last_ts < 60
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+    proposal_form = None
     proposals = []
+
     if request.user.is_authenticated:
         proposals = PrintProposal.objects.filter(
             user=request.user
         ).order_by('-created_at')[:10]
-    
+
+        if request.method == 'POST':
+            if rate_limited:
+                if is_ajax:
+                    return JsonResponse({'ok': False, 'error': 'rate_limited'}, status=429)
+                return redirect('cooperation')
+
+            form = PrintProposalForm(request.POST, request.FILES)
+            if form.is_valid():
+                obj = form.save(commit=False)
+                obj.user = request.user
+                obj.status = 'pending'
+                obj.save()
+                request.session['print_proposal_last_ts'] = now
+
+                if is_ajax:
+                    proposal_data = {
+                        'id': obj.id,
+                        'created_at': obj.created_at.strftime('%d.%m.%Y %H:%M'),
+                        'status': obj.status,
+                        'status_display': obj.get_status_display(),
+                        'awarded_points': obj.awarded_points,
+                        'awarded_promocode': obj.awarded_promocode.code if obj.awarded_promocode else None,
+                        'awarded_promocode_display': (
+                            obj.awarded_promocode.get_discount_display() if obj.awarded_promocode else None
+                        ),
+                        'description': obj.description or '',
+                        'image_url': obj.image.url if obj.image else None,
+                    }
+                    return JsonResponse({'ok': True, 'proposal': proposal_data})
+
+                return redirect('cooperation')
+
+            if is_ajax:
+                errors = []
+                for field, errs in form.errors.items():
+                    errors.extend([str(e) for e in errs])
+                return JsonResponse({'ok': False, 'error': errors[0] if errors else 'invalid'}, status=400)
+
+            proposal_form = form
+        else:
+            proposal_form = PrintProposalForm()
+
     return render(
         request,
-        'pages/add_print.html',
+        'pages/add-print.html',
         {
-            'form': form,
-            'proposals': proposals
+            'proposal_form': proposal_form,
+            'proposals': proposals,
+            'rate_limited': rate_limited,
         }
     )
 
