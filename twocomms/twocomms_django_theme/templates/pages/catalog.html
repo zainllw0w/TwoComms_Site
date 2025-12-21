@@ -117,7 +117,7 @@
 
   {% if show_category_cards %}
   <section class="col-12">
-    {% cache 1800 catalog_categories %}
+    {% cache 1800 catalog_categories_v2 %}
     <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4">
       {% for c in categories %}
       <div class="col">
@@ -125,15 +125,21 @@
           class="card product glass hover-raise text-decoration-none text-body">
           <div class="ratio ratio-1x1 rounded-top-4 overflow-hidden bg-elevate">
             {% if c.cover %}
-            {% optimized_image
-              c.cover.url
-              c.name
-              "w-100 h-100 object-fit-cover"
-              c.cover.width|default:1080
-              c.cover.height|default:1080
-              loading='lazy'
-              fetchpriority='low'
-              sizes='(max-width: 576px) 50vw, (max-width: 992px) 33vw, (max-width: 1400px) 25vw, 18vw' %}
+            <img src="{{ c.cover.url }}"
+              class="w-100 h-100 object-fit-cover"
+              width="{{ c.cover.width|default:1080 }}"
+              height="{{ c.cover.height|default:1080 }}"
+              alt="{{ c.name }}"
+              loading="lazy"
+              decoding="async">
+            {% else %}
+            <img src="{% static 'img/placeholder.jpg' %}"
+              class="w-100 h-100 object-fit-cover"
+              width="1080"
+              height="1080"
+              alt="{{ c.name }}"
+              loading="lazy"
+              decoding="async">
             {% endif %}
           </div>
           <div class="card-body">
