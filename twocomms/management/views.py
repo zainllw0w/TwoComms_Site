@@ -692,7 +692,7 @@ def admin_overview(request):
         from decimal import Decimal
 
         from django.db import models
-        from django.db.models import Count, Max, Min, Sum
+        from django.db.models import Max, Min, Sum
         from django.db.models.functions import Coalesce
 
         from management.models import ManagerCommissionAccrual, ManagerPayoutRequest
