@@ -65,8 +65,291 @@
         </table>
     </div>
     {% elif admin_tab == 'payouts' %}
-                    Виплати
-                {% elif admin_tab == 'shops' %}
+    <div class="admin-payouts">
+        <section class="payouts-stats" aria-label="Загальна статистика">
+            <div class="payouts-stats__grid admin-payouts-summary">
+                <div class="stat-card">
+                    <div class="stat-card__label">Менеджерів</div>
+                    <div class="stat-card__value">{{ payouts_summary.managers|default:0 }}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card__label">Баланс</div>
+                    <div class="stat-card__value">{{ payouts_summary.balance|floatformat:2 }} грн</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card__label">Доступно</div>
+                    <div class="stat-card__value">{{ payouts_summary.available|floatformat:2 }} грн</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card__label">Заморожено</div>
+                    <div class="stat-card__value">{{ payouts_summary.frozen|floatformat:2 }} грн</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card__label">В обробці</div>
+                    <div class="stat-card__value">{{ payouts_summary.reserved|floatformat:2 }} грн</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card__label">Виплачено</div>
+                    <div class="stat-card__value">{{ payouts_summary.paid_total|floatformat:2 }} грн</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card__label">Активні запити</div>
+                    <div class="stat-card__value">{{ payouts_summary.active_requests|default:0 }}</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="admin-payouts-grid" aria-label="Менеджери">
+            {% for p in payouts_payload %}
+            <article class="admin-payout-card" data-user-id="{{ p.id }}">
+                <div class="admin-payout-card__head">
+                    <div>
+                        <div class="admin-payout-card__name">{{ p.name }}</div>
+                        <div class="admin-payout-card__meta">
+                            <span>{{ p.position }}</span>
+                            <span>• Картка {{ p.card_mask }}</span>
+                            {% if p.days_worked is not None %}
+                                <span>• Днів у роботі: {{ p.days_worked }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="admin-payout-card__status">
+                        {% if p.active_request %}
+                            <span class="status-chip status-{{ p.active_request.status }}">{{ p.active_request.get_status_display }}</span>
+                        {% else %}
+                            <span class="status-chip status-none">Немає активних</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="admin-payout-card__metrics">
+                    <div class="admin-metric">
+                        <div class="admin-metric__label">Баланс</div>
+                        <div class="admin-metric__value">{{ p.balance|floatformat:2 }} грн</div>
+                    </div>
+                    <div class="admin-metric">
+                        <div class="admin-metric__label">Доступно</div>
+                        <div class="admin-metric__value">{{ p.available|floatformat:2 }} грн</div>
+                    </div>
+                    <div class="admin-metric">
+                        <div class="admin-metric__label">Заморожено</div>
+                        <div class="admin-metric__value">{{ p.frozen|floatformat:2 }} грн</div>
+                    </div>
+                    <div class="admin-metric">
+                        <div class="admin-metric__label">В обробці</div>
+                        <div class="admin-metric__value">{{ p.reserved|floatformat:2 }} грн</div>
+                    </div>
+                    <div class="admin-metric">
+                        <div class="admin-metric__label">Нараховано</div>
+                        <div class="admin-metric__value">{{ p.total_accrued|floatformat:2 }} грн</div>
+                    </div>
+                    <div class="admin-metric">
+                        <div class="admin-metric__label">Виплачено</div>
+                        <div class="admin-metric__value">{{ p.paid_total|floatformat:2 }} грн</div>
+                    </div>
+                    <div class="admin-metric">
+                        <div class="admin-metric__label">Накладних</div>
+                        <div class="admin-metric__value">{{ p.accruals_count|default:0 }}</div>
+                    </div>
+                    <div class="admin-metric">
+                        <div class="admin-metric__label">Запитів</div>
+                        <div class="admin-metric__value">{{ p.total_requests|default:0 }}</div>
+                    </div>
+                </div>
+
+                <div class="admin-payout-card__timeline">
+                    <div>
+                        <div class="admin-payout-card__hint">Найближча розморозка</div>
+                        <div class="admin-payout-card__value">
+                            {% if p.next_unfreeze_label %}
+                                {{ p.next_unfreeze_label }}{% if p.next_unfreeze_date %} • до {{ p.next_unfreeze_date }}{% endif %}
+                            {% else %}
+                                — немає заморожених сум
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div>
+                        <div class="admin-payout-card__hint">Останній запит</div>
+                        <div class="admin-payout-card__value">
+                            {% if p.last_request_at %}
+                                {{ p.last_request_at|date:"d.m.Y H:i" }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div>
+                        <div class="admin-payout-card__hint">Остання виплата</div>
+                        <div class="admin-payout-card__value">
+                            {% if p.last_paid_at %}
+                                {{ p.last_paid_at|date:"d.m.Y" }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                {% if p.active_request %}
+                <div class="admin-payout-card__actions">
+                    <div class="admin-payout-card__request">
+                        Запит #{{ p.active_request.id }} • {{ p.active_request.amount|floatformat:2 }} грн • {{ p.active_request.created_at|date:"d.m.Y H:i" }}
+                    </div>
+                    <div class="admin-payout-card__buttons">
+                        {% if p.active_request.status == 'processing' %}
+                            <button type="button" class="btn-ghost small" data-payout-action="approve" data-request-id="{{ p.active_request.id }}" style="border-color: rgba(16,185,129,0.4); color: #d1fae5; background: rgba(16,185,129,0.12);">Схвалити</button>
+                            <button type="button" class="btn-ghost small" data-payout-action="reject" data-request-id="{{ p.active_request.id }}" style="border-color: rgba(239,68,68,0.35); color: #fee2e2; background: rgba(239,68,68,0.12);">Відхилити</button>
+                        {% elif p.active_request.status == 'approved' %}
+                            <button type="button" class="btn-ghost small" data-payout-action="paid" data-request-id="{{ p.active_request.id }}" style="border-color: rgba(59,130,246,0.4); color: #dbeafe; background: rgba(59,130,246,0.12);">Позначити як виплачене</button>
+                            <button type="button" class="btn-ghost small" data-payout-action="reject" data-request-id="{{ p.active_request.id }}" style="border-color: rgba(239,68,68,0.35); color: #fee2e2; background: rgba(239,68,68,0.12);">Відхилити</button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <details class="admin-payout-card__details">
+                    <summary>Дії та деталі</summary>
+                    <div class="admin-alert" data-kind="" role="status"></div>
+
+                    <div class="admin-payout-card__forms">
+                        <div class="admin-payout-form">
+                            <div class="admin-payout-form__title">Налаштування менеджера</div>
+                            <div class="admin-payout-form__grid">
+                                <label>
+                                    Посада
+                                    <input class="admin-mini-input" type="text" name="position" value="{{ p.position|default:'' }}">
+                                </label>
+                                <label>
+                                    Ставка (грн)
+                                    <input class="admin-mini-input" type="number" name="base_salary" min="0" step="1" value="{{ p.base_salary|default:0 }}">
+                                </label>
+                                <label>
+                                    % з продажів
+                                    <input class="admin-mini-input" type="number" name="percent" min="0" max="100" step="0.01" value="{{ p.percent|default:0 }}">
+                                </label>
+                                <label>
+                                    Дата старту
+                                    <input class="admin-mini-input" type="date" name="started_at" value="{% if p.started_at %}{{ p.started_at|date:'Y-m-d' }}{% endif %}">
+                                </label>
+                            </div>
+                            <button type="button" class="btn-ghost small" data-payout-action="save-settings">Зберегти налаштування</button>
+                        </div>
+
+                        <div class="admin-payout-form">
+                            <div class="admin-payout-form__title">Ручна виплата</div>
+                            <div class="admin-payout-form__grid">
+                                <label>
+                                    Сума (грн)
+                                    <input class="admin-mini-input" type="number" name="manual_amount" min="0" step="0.01" placeholder="0.00">
+                                </label>
+                                <label>
+                                    Дата виплати
+                                    <input class="admin-mini-input" type="date" name="manual_paid_at">
+                                </label>
+                            </div>
+                            <button type="button" class="btn-ghost small" data-payout-action="manual-payout">Додати виплату</button>
+                        </div>
+
+                        <div class="admin-payout-form">
+                            <div class="admin-payout-form__title">Коригування балансу</div>
+                            <div class="admin-payout-form__grid">
+                                <label>
+                                    Тип
+                                    <select class="admin-mini-input" name="adjust_direction">
+                                        <option value="credit">+ Нарахування</option>
+                                        <option value="debit">- Списання</option>
+                                    </select>
+                                </label>
+                                <label>
+                                    Сума (грн)
+                                    <input class="admin-mini-input" type="number" name="adjust_amount" min="0" step="0.01" placeholder="0.00">
+                                </label>
+                                <label>
+                                    Заморожено до
+                                    <input class="admin-mini-input" type="date" name="adjust_frozen_until">
+                                </label>
+                                <label>
+                                    Пояснення
+                                    <input class="admin-mini-input" type="text" name="adjust_note" placeholder="Напр. бонус або штраф">
+                                </label>
+                            </div>
+                            <button type="button" class="btn-ghost small" data-payout-action="adjust-balance">Застосувати</button>
+                        </div>
+                    </div>
+
+                    <div class="admin-payout-card__frozen">
+                        <div class="admin-payout-form__title">Заморожені нарахування</div>
+                        <div class="admin-payout-frozen-list">
+                            {% for item in p.frozen_items %}
+                            <div class="admin-payout-frozen-item">
+                                <div class="admin-payout-frozen-amount">{{ item.amount|floatformat:2 }} грн</div>
+                                <div class="admin-payout-frozen-meta">{{ item.reason }}</div>
+                                <div class="admin-payout-frozen-meta">до {{ item.frozen_until }}{% if item.days_left is not None %} • {{ item.days_left }} дн{% endif %}</div>
+                            </div>
+                            {% empty %}
+                            <div class="table-empty">Заморожених сум немає</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </details>
+            </article>
+            {% empty %}
+            <div class="table-empty">Немає менеджерів для виплат</div>
+            {% endfor %}
+        </section>
+
+        <section class="payouts-history" aria-label="Запити на виплати">
+            <div class="panel-subhead">
+                <div>
+                    <p class="eyebrow">Запити</p>
+                    <h3>Останні виплати та запити</h3>
+                </div>
+            </div>
+            <div class="table-shell">
+                <table class="nexus-table admin-payout-requests">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Менеджер</th>
+                            <th>Сума</th>
+                            <th>Статус</th>
+                            <th>Тип</th>
+                            <th>Причина</th>
+                            <th>Дії</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for req in payout_requests %}
+                        <tr data-request-id="{{ req.id }}">
+                            <td>{{ req.created_at|date:"d.m.Y H:i" }}</td>
+                            <td>{{ req.owner.get_full_name|default:req.owner.username }}</td>
+                            <td>{{ req.amount|floatformat:2 }} грн</td>
+                            <td><span class="status-chip status-{{ req.status }}">{{ req.get_status_display }}</span></td>
+                            <td>{{ req.get_kind_display }}</td>
+                            <td>{% if req.status == 'rejected' %}{{ req.rejection_reason|default:"—" }}{% else %}—{% endif %}</td>
+                            <td style="white-space: nowrap;">
+                                {% if req.status == 'processing' %}
+                                    <button type="button" class="btn-ghost small" data-payout-action="approve" data-request-id="{{ req.id }}" style="border-color: rgba(16,185,129,0.4); color: #d1fae5; background: rgba(16,185,129,0.12);">Схвалити</button>
+                                    <button type="button" class="btn-ghost small" data-payout-action="reject" data-request-id="{{ req.id }}" style="border-color: rgba(239,68,68,0.35); color: #fee2e2; background: rgba(239,68,68,0.12);">Відхилити</button>
+                                {% elif req.status == 'approved' %}
+                                    <button type="button" class="btn-ghost small" data-payout-action="paid" data-request-id="{{ req.id }}" style="border-color: rgba(59,130,246,0.4); color: #dbeafe; background: rgba(59,130,246,0.12);">Виплачено</button>
+                                    <button type="button" class="btn-ghost small" data-payout-action="reject" data-request-id="{{ req.id }}" style="border-color: rgba(239,68,68,0.35); color: #fee2e2; background: rgba(239,68,68,0.12);">Відхилити</button>
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="table-empty">Немає запитів</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+    {% elif admin_tab == 'shops' %}
     <div class="shops-grid" id="shops-grid">
         {% for shop in shops_payload %}
         <div class="shop-card" data-shop-id="{{ shop.id }}">
@@ -515,8 +798,136 @@ document.addEventListener('click', async (e) => {
 });
 </script>
 {% elif admin_tab == 'payouts' %}
-                    Виплати
-                {% elif admin_tab == 'shops' %}
+<script>
+const getCookie = (name) => {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+};
+
+const payoutUrls = {
+    settings: "{% url 'management_admin_payout_settings_save_api' %}",
+    manual: "{% url 'management_admin_payout_manual_create_api' %}",
+    adjust: "{% url 'management_admin_payout_adjust_api' %}",
+    approve: (id) => `/admin-panel/payouts/api/request/${id}/approve/`,
+    reject: (id) => `/admin-panel/payouts/api/request/${id}/reject/`,
+    paid: (id) => `/admin-panel/payouts/api/request/${id}/paid/`,
+};
+
+const setCardAlert = (card, message, kind) => {
+    if (!card) return;
+    const alert = card.querySelector('.admin-alert');
+    if (!alert) return;
+    alert.textContent = message || '';
+    alert.dataset.kind = kind || '';
+};
+
+const postJson = async (url, payload) => {
+    const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: JSON.stringify(payload || {}),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || !data.ok) {
+        const msg = (data && data.error) ? data.error : 'Помилка запиту.';
+        throw new Error(msg);
+    }
+    return data;
+};
+
+document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-payout-action]');
+    if (!btn) return;
+    const action = btn.dataset.payoutAction;
+    const requestId = btn.dataset.requestId;
+    const card = btn.closest('.admin-payout-card');
+    const userId = card ? card.dataset.userId : null;
+
+    btn.disabled = true;
+    try {
+        if (action === 'save-settings') {
+            if (!card || !userId) throw new Error('Не знайдено менеджера.');
+            const payload = {
+                user_id: userId,
+                position: card.querySelector('[name="position"]')?.value || '',
+                base_salary: card.querySelector('[name="base_salary"]')?.value || 0,
+                percent: card.querySelector('[name="percent"]')?.value || 0,
+                started_at: card.querySelector('[name="started_at"]')?.value || '',
+            };
+            setCardAlert(card, 'Зберігаємо налаштування…', 'info');
+            await postJson(payoutUrls.settings, payload);
+            setCardAlert(card, 'Налаштування збережені.', 'ok');
+        } else if (action === 'manual-payout') {
+            if (!card || !userId) throw new Error('Не знайдено менеджера.');
+            const amount = card.querySelector('[name="manual_amount"]')?.value || '';
+            const paidAt = card.querySelector('[name="manual_paid_at"]')?.value || '';
+            if (!amount || Number(amount) <= 0) {
+                throw new Error('Вкажіть суму виплати.');
+            }
+            setCardAlert(card, 'Створюємо виплату…', 'info');
+            await postJson(payoutUrls.manual, { user_id: userId, amount, paid_at: paidAt });
+            setCardAlert(card, 'Виплату додано. Оновлюємо…', 'ok');
+            setTimeout(() => window.location.reload(), 650);
+        } else if (action === 'adjust-balance') {
+            if (!card || !userId) throw new Error('Не знайдено менеджера.');
+            const direction = card.querySelector('[name="adjust_direction"]')?.value || 'credit';
+            const amount = card.querySelector('[name="adjust_amount"]')?.value || '';
+            const note = card.querySelector('[name="adjust_note"]')?.value || '';
+            const frozenUntil = card.querySelector('[name="adjust_frozen_until"]')?.value || '';
+            if (!amount || Number(amount) <= 0) {
+                throw new Error('Вкажіть суму коригування.');
+            }
+            setCardAlert(card, 'Додаємо коригування…', 'info');
+            await postJson(payoutUrls.adjust, {
+                user_id: userId,
+                direction,
+                amount,
+                note,
+                frozen_until: frozenUntil,
+            });
+            setCardAlert(card, 'Коригування додано. Оновлюємо…', 'ok');
+            setTimeout(() => window.location.reload(), 650);
+        } else if (action === 'approve' || action === 'reject' || action === 'paid') {
+            if (!requestId) throw new Error('Не знайдено запит.');
+            let payload = {};
+            if (action === 'reject') {
+                const reason = prompt('Вкажіть причину відхилення:');
+                if (!reason) {
+                    btn.disabled = false;
+                    return;
+                }
+                payload = { reason };
+            }
+            const url = payoutUrls[action](requestId);
+            await postJson(url, payload);
+            setTimeout(() => window.location.reload(), 650);
+        }
+    } catch (err) {
+        if (card) {
+            setCardAlert(card, err.message || 'Помилка.', 'err');
+        } else {
+            alert(err.message || 'Помилка.');
+        }
+    } finally {
+        btn.disabled = false;
+    }
+});
+</script>
+{% elif admin_tab == 'shops' %}
 <script src="{% static 'js/management-shops.js' %}"></script>
 {% elif admin_tab == 'managers' %}
 <script>

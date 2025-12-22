@@ -1030,6 +1030,195 @@
     box-shadow: var(--shadow-lg);
 }
 
+.admin-payouts {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.admin-payouts-summary {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.admin-payouts-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.admin-payout-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 16px;
+    box-shadow: var(--shadow-lg);
+}
+
+.admin-payout-card__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.admin-payout-card__name {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.admin-payout-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.admin-payout-card__metrics {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+}
+
+.admin-metric {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 12px;
+}
+
+.admin-metric__label {
+    color: var(--muted);
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+}
+
+.admin-metric__value {
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-top: 4px;
+}
+
+.admin-payout-card__timeline {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.admin-payout-card__hint {
+    color: var(--muted);
+    font-size: 0.78rem;
+}
+
+.admin-payout-card__value {
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-top: 4px;
+}
+
+.admin-payout-card__actions {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.admin-payout-card__request {
+    color: var(--text-secondary);
+    font-weight: 700;
+}
+
+.admin-payout-card__buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.admin-payout-card__details {
+    margin-top: 14px;
+    border: 1px dashed rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.admin-payout-card__details summary {
+    cursor: pointer;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.admin-payout-card__details[open] summary {
+    margin-bottom: 10px;
+}
+
+.admin-payout-card__forms {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+}
+
+.admin-payout-form {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.02);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.admin-payout-form__title {
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.admin-payout-form__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+}
+
+.admin-payout-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.admin-payout-frozen-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+    max-height: 240px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.admin-payout-frozen-item {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.admin-payout-frozen-amount {
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.admin-payout-frozen-meta {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-top: 2px;
+}
+
 .status-dot {
     font-size: 14px;
     margin-right: 6px;
