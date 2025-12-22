@@ -749,6 +749,7 @@ class ManagerCommissionAccrual(models.Model):
     base_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name=_('База (грн)'))
     percent = models.DecimalField(max_digits=6, decimal_places=2, default=0, verbose_name=_('Відсоток'))
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name=_('Нараховано (грн)'))
+    note = models.CharField(max_length=255, blank=True, verbose_name=_('Пояснення'))
 
     frozen_until = models.DateTimeField(db_index=True, verbose_name=_('Заморожено до'))
     created_at = models.DateTimeField(auto_now_add=True)

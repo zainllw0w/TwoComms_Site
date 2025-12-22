@@ -692,7 +692,7 @@ def admin_overview(request):
         from decimal import Decimal
 
         from django.db import models
-        from django.db.models import Sum
+        from django.db.models import Count, Max, Min, Sum
         from django.db.models.functions import Coalesce
 
         from management.models import ManagerCommissionAccrual, ManagerPayoutRequest
@@ -709,12 +709,19 @@ def admin_overview(request):
         accr_rows = ManagerCommissionAccrual.objects.filter(owner__in=payout_users).values('owner_id').annotate(
             total=Coalesce(Sum('amount'), zero, output_field=money_field),
             frozen=Coalesce(Sum('amount', filter=Q(frozen_until__gt=now)), zero, output_field=money_field),
+            total_count=Count('id'),
+            frozen_count=Count('id', filter=Q(frozen_until__gt=now)),
+            last_accrual_at=Max('created_at'),
+            next_unfreeze_at=Min('frozen_until', filter=Q(frozen_until__gt=now)),
         )
         accr_map = {row['owner_id']: row for row in accr_rows}
 
         pay_rows = ManagerPayoutRequest.objects.filter(owner__in=payout_users).values('owner_id').annotate(
             paid=Coalesce(Sum('amount', filter=Q(status=ManagerPayoutRequest.Status.PAID)), zero, output_field=money_field),
             reserved=Coalesce(Sum('amount', filter=Q(status__in=[ManagerPayoutRequest.Status.PROCESSING, ManagerPayoutRequest.Status.APPROVED])), zero, output_field=money_field),
+            total_requests=Count('id'),
+            last_request_at=Max('created_at'),
+            last_paid_at=Max('paid_at', filter=Q(status=ManagerPayoutRequest.Status.PAID)),
         )
         pay_map = {row['owner_id']: row for row in pay_rows}
 
@@ -727,6 +734,37 @@ def admin_overview(request):
             if r.owner_id not in active_map:
                 active_map[r.owner_id] = r
 
+        frozen_details_map = {}
+        frozen_rows = (
+            ManagerCommissionAccrual.objects.filter(owner__in=payout_users, frozen_until__gt=now)
+            .select_related('invoice')
+            .order_by('owner_id', 'frozen_until')
+        )
+        for row in frozen_rows:
+            items = frozen_details_map.setdefault(row.owner_id, [])
+            invoice_number = ''
+            if row.invoice_id:
+                invoice_number = getattr(row.invoice, 'invoice_number', '') or ''
+            reason = (row.note or '').strip()
+            if not reason:
+                if invoice_number:
+                    reason = f"Накладна #{invoice_number}"
+                else:
+                    reason = "Ручне коригування"
+            frozen_until_local = timezone.localtime(row.frozen_until) if row.frozen_until else None
+            days_left = None
+            if frozen_until_local:
+                try:
+                    days_left = max(0, (frozen_until_local.date() - timezone.localdate()).days)
+                except Exception:
+                    days_left = None
+            items.append({
+                'amount': row.amount,
+                'frozen_until': frozen_until_local.strftime('%d.%m.%Y') if frozen_until_local else '—',
+                'days_left': days_left,
+                'reason': reason,
+            })
+
         def mask_card(raw):
             digits = re.sub(r'\D+', '', (raw or '').strip())
             if len(digits) < 4:
@@ -734,6 +772,15 @@ def admin_overview(request):
             return '**** ' + digits[-4:]
 
         payouts_payload = []
+        summary = {
+            'managers': 0,
+            'balance': zero,
+            'available': zero,
+            'frozen': zero,
+            'reserved': zero,
+            'paid_total': zero,
+            'active_requests': 0,
+        }
         for u in payout_users:
             prof = getattr(u, 'userprofile', None)
             a = accr_map.get(u.id) or {}
@@ -748,25 +795,79 @@ def admin_overview(request):
             if available < 0:
                 available = zero
 
+            next_unfreeze_at = a.get('next_unfreeze_at')
+            next_unfreeze_date = None
+            next_unfreeze_label = None
+            if next_unfreeze_at:
+                next_unfreeze_local = timezone.localtime(next_unfreeze_at)
+                next_unfreeze_date = next_unfreeze_local.strftime('%d.%m.%Y')
+                try:
+                    days_left = max(0, (next_unfreeze_local.date() - timezone.localdate()).days)
+                except Exception:
+                    days_left = None
+                if days_left is None:
+                    next_unfreeze_label = '—'
+                elif days_left == 0:
+                    next_unfreeze_label = 'Сьогодні'
+                elif days_left == 1:
+                    next_unfreeze_label = 'Через 1 день'
+                else:
+                    next_unfreeze_label = f"Через {days_left} дн"
+
+            started_at = getattr(prof, 'manager_started_at', None) if prof else None
+            if not started_at:
+                try:
+                    started_at = timezone.localtime(u.date_joined).date() if u.date_joined else None
+                except Exception:
+                    started_at = None
+
+            days_worked = None
+            try:
+                if started_at:
+                    days_worked = max(0, (timezone.localdate() - started_at).days)
+            except Exception:
+                days_worked = None
+
+            summary['managers'] += 1
+            summary['balance'] += balance
+            summary['available'] += available
+            summary['frozen'] += frozen_amount
+            summary['reserved'] += reserved_amount
+            summary['paid_total'] += paid_total
+            if active_map.get(u.id):
+                summary['active_requests'] += 1
+
             payouts_payload.append({
                 'id': u.id,
                 'name': u.get_full_name() or u.username,
                 'position': (getattr(prof, 'manager_position', '') or '').strip() or '—',
                 'base_salary': getattr(prof, 'manager_base_salary_uah', 0) if prof else 0,
                 'percent': getattr(prof, 'manager_commission_percent', 0) if prof else 0,
-                'started_at': getattr(prof, 'manager_started_at', None) if prof else None,
+                'started_at': started_at,
+                'days_worked': days_worked,
                 'card_mask': mask_card(getattr(prof, 'payment_details', '') if prof else ''),
                 'balance': balance,
                 'available': available,
                 'frozen': frozen_amount,
                 'reserved': reserved_amount,
                 'active_request': active_map.get(u.id),
+                'total_accrued': total_accrued,
+                'paid_total': paid_total,
+                'accruals_count': a.get('total_count') or 0,
+                'frozen_count': a.get('frozen_count') or 0,
+                'last_request_at': p.get('last_request_at'),
+                'last_paid_at': p.get('last_paid_at'),
+                'total_requests': p.get('total_requests') or 0,
+                'next_unfreeze_date': next_unfreeze_date,
+                'next_unfreeze_label': next_unfreeze_label,
+                'frozen_items': frozen_details_map.get(u.id, []),
             })
 
         payout_requests = ManagerPayoutRequest.objects.select_related('owner', 'owner__userprofile').order_by('-created_at')[:200]
 
         ctx['payouts_payload'] = payouts_payload
         ctx['payout_requests'] = payout_requests
+        ctx['payouts_summary'] = summary
 
     if tab == 'shops':
         from decimal import Decimal
@@ -4646,3 +4747,68 @@ def admin_payout_manual_create_api(request):
     )
 
     return JsonResponse({'ok': True, 'id': req.id})
+
+
+@login_required(login_url='management_login')
+@require_POST
+def admin_payout_adjust_api(request):
+    if not request.user.is_staff:
+        return JsonResponse({'ok': False}, status=403)
+
+    import json
+    from decimal import Decimal
+
+    from management.models import ManagerCommissionAccrual
+
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        payload = {}
+
+    try:
+        user_id = int(payload.get('user_id'))
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'Невірний user_id'}, status=400)
+
+    direction = (payload.get('direction') or 'credit').strip().lower()
+    if direction not in ('credit', 'debit'):
+        direction = 'credit'
+
+    try:
+        amount = Decimal(str(payload.get('amount') or '0'))
+    except Exception:
+        amount = Decimal('0')
+
+    if amount <= 0:
+        return JsonResponse({'ok': False, 'error': 'Невірна сума'}, status=400)
+
+    note = (payload.get('note') or '').strip()[:255]
+
+    frozen_until_raw = (payload.get('frozen_until') or '').strip()
+    frozen_dt = timezone.now()
+    if frozen_until_raw:
+        try:
+            from datetime import datetime, time
+            tz = timezone.get_current_timezone()
+            frozen_date = datetime.strptime(frozen_until_raw, '%Y-%m-%d').date()
+            frozen_dt = timezone.make_aware(datetime.combine(frozen_date, time(12, 0)), tz)
+        except Exception:
+            frozen_dt = timezone.now()
+
+    User = get_user_model()
+    user = User.objects.filter(id=user_id).first()
+    if not user:
+        return JsonResponse({'ok': False, 'error': 'Користувача не знайдено'}, status=404)
+
+    signed_amount = amount if direction == 'credit' else (-amount)
+
+    ManagerCommissionAccrual.objects.create(
+        owner=user,
+        base_amount=Decimal('0'),
+        percent=Decimal('0'),
+        amount=signed_amount,
+        frozen_until=frozen_dt,
+        note=note,
+    )
+
+    return JsonResponse({'ok': True})
