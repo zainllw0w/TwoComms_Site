@@ -551,6 +551,48 @@ def _material_for_prom_new(product) -> str:
     return '95% бавовна, 5% еластан'
 
 
+# Helper for manual CDATA handling
+def _format_description_for_prom(raw_desc: str) -> str:
+    """
+    Formats description for Prom.ua:
+    1. Keeps structure (newlines -> <br>)
+    2. Wraps in <p>
+    3. Wraps in CDATA markers for post-processing
+    """
+    if not raw_desc:
+        return ""
+    
+    # Basic cleaning (strip prices if needed, but keep structure)
+    # Removing aggressive whitespace collapsing to preserve user formatting
+    cleaned = re.sub(r"(?is)<[^>]*?(?:цена|price|грн|uah|₴)[^>]*?>.*?</[^>]+>", "", raw_desc)
+    cleaned = re.sub(r"(?i)цена\s*[:\-]?[^\n<]*", "", cleaned)
+    cleaned = re.sub(r"\d+[\s.,]*(?:грн|uah|₴)", "", cleaned, flags=re.IGNORECASE)
+    
+    # Convert newlines to HTML
+    # Logic: Double newline = new paragraph. Single newline = br.
+    paragraphs = re.split(r'\n\s*\n', cleaned.strip())
+    html_parts = []
+    
+    for p in paragraphs:
+        if not p.strip():
+            continue
+        # Convert internal single newlines to <br>
+        p_html = p.replace('\n', '<br>')
+        html_parts.append(f"<p>{p_html}</p>")
+        
+    final_html = "".join(html_parts)
+    
+    # Add signature/styling if needed, e.g. <b> header?
+    # User asked for <b> but didn't specify logic. 
+    # We'll assume the user uses <b> tags in the text or we leave it for now.
+    # We won't auto-bold random things to avoid breaking it.
+    
+    # CDATA MARKERS for post-processing
+    # We use a unique marker that survives XML escaping (mostly) 
+    # and then replace it in the byte string.
+    return f"___CDATA_START___{final_html}___CDATA_END___"
+
+
 def prom_feed_xml(request):
     """
     Dynamic generation of Prom.ua feed (replacing the static file cron job).
@@ -560,8 +602,6 @@ def prom_feed_xml(request):
 
     try:
         base_url = "https://twocomms.shop" 
-        # Hardcoding base_url to ensure correct links or use build_absolute_uri logic if preferred.
-        # Command used hardcoded. User prompt implies twocomms.shop.
 
         products_qs = (
             Product.objects
@@ -702,23 +742,14 @@ def prom_feed_xml(request):
                 ET.SubElement(offer_el, "vendor").text = "TwoComms"
                 ET.SubElement(offer_el, "group_id").text = group_id
                 
-                # Description
-                desc = getattr(product, 'full_description', None) or product.description
+                # Description with HTML and CDATA placeholders
+                desc = getattr(product, 'full_description', None) or product.description or ""
                 if not desc:
                      cat_for_desc = product.category.name.lower() if product.category else 'одяг'
                      desc = f"Якісний {cat_for_desc} з ексклюзивним дизайном від TwoComms"
                 
-                ET.SubElement(offer_el, "description").text = f"<![CDATA[{desc}]]>" 
-                # Note: ElementTree escapes text automatically. For CDATA we might need post-processing or just let it be text? 
-                # Prom accepts standard XML escaping. We will let ET handle escaping unless CDATA is strictly enforced.
-                # If CDATA enforced, we'd need a custom serializer. 
-                # BUT user prompt explicitly used CDATA in the command properly.
-                # In View, ET.text escapes < > &. 
-                # Hack: Just put text. Prom usually handles escaped HTML correctly.
-                # Or, if we really need CDATA, we can't use standard ET.
-                # Standard practice: Just send escaped HTML. 
-                # Let's keep it simple: just text. ET will escape < to &lt; which parsers read fine.
-                offer_el.find("description").text = desc 
+                formatted_desc = _format_description_for_prom(desc)
+                ET.SubElement(offer_el, "description").text = formatted_desc
 
                 # Params
                 ET.SubElement(offer_el, "param", {"name": "Розмір"}).text = size
@@ -733,7 +764,23 @@ def prom_feed_xml(request):
     try:
         ET.indent(catalog, space="  ", level=0)
         xml_payload = ET.tostring(catalog, encoding="utf-8", xml_declaration=True)
-        return HttpResponse(xml_payload, content_type="application/xml; charset=utf-8")
+        
+        # POST-PROCESSING FOR CDATA
+        # 1. Unescape HTML inside the CDATA block (ET escaped < to &lt;)
+        # 2. Replace markers with real CDATA tags
+        
+        # Helper to unescape ONLY inside markers
+        def unescape_cdata_content(match):
+            content = match.group(1)
+            # Unescape basic XML entities that ET escaped
+            content = content.replace(b"&lt;", b"<").replace(b"&gt;", b">").replace(b"&amp;", b"&")
+            return b"<![CDATA[" + content + b"]]>"
+
+        # Using regex on bytes
+        cdata_pattern = re.compile(b"___CDATA_START___(.*?)___CDATA_END___", re.DOTALL)
+        xml_payload_final = cdata_pattern.sub(unescape_cdata_content, xml_payload)
+
+        return HttpResponse(xml_payload_final, content_type="application/xml; charset=utf-8")
     except Exception as e:
         return HttpResponse(f"<error>{str(e)}</error>", status=500)
 
