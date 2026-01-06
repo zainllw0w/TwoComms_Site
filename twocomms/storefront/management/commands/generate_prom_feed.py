@@ -193,8 +193,16 @@ class Command(BaseCommand):
                         prod_url = f"https://twocomms.shop/product/{product.slug}/"
                         f.write(f'      <url>{escape_xml(prod_url)}</url>\n')
                         
-                        # Price
-                        f.write(f'      <price>{product.price}</price>\n')
+                        # Price Logic
+                        # Prom.ua: <price> is the SELLING price. <oldprice> is the higher original price if discounted.
+                        selling_price = getattr(product, 'final_price', product.price)
+                        old_price = product.price
+                        
+                        f.write(f'      <price>{selling_price}</price>\n')
+                        if selling_price < old_price:
+                             f.write(f'      <oldprice>{old_price}</oldprice>\n')
+                             # Optional: <discount> tag is sometimes used, but <oldprice> is standard YML
+                        
                         f.write('      <currencyId>UAH</currencyId>\n')
                         f.write(f'      <categoryId>{cat_id}</categoryId>\n')
                         
@@ -216,18 +224,17 @@ class Command(BaseCommand):
                             f.write(f'      <picture>{escape_xml(full_img_url)}</picture>\n')
 
                         # Name
-                        # Prompt: Title: <name> (Do not use g:title)
-                        # Maybe useful to include Variant info in title for clarity? 
-                        # Prom: "Nike Air Max" is fine if grouped.
-                        # But often better to be unique: "Nike Air Max - Red, L"
-                        # User Prompt example: <name>Nike Air Max</name> <param name="Size">42</param>
-                        # So just product title is likely enough if params provided.
                         f.write(f'      <name>{escape_xml(product.title)}</name>\n')
                         f.write('      <vendor>TwoComms</vendor>\n')
                         f.write(f'      <group_id>{group_id}</group_id>\n')
                         
                         # Description (CDATA)
-                        desc = product.full_description or product.description or ""
+                        # Logic: Use full_description -> description -> Fallback
+                        desc = product.full_description or product.description
+                        if not desc:
+                            cat_for_desc = product.category.name.lower() if product.category else 'одяг'
+                            desc = f"Якісний {cat_for_desc} з ексклюзивним дизайном від TwoComms"
+                        
                         f.write(f'      <description><![CDATA[{desc}]]></description>\n')
                         
                         # Params
