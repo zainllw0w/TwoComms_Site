@@ -3575,9 +3575,6 @@ def admin_product_edit_unified(request, pk):
         'product_images_payload': _product_images_payload(obj),
     })
 
-from django.views.decorators.cache import never_cache
-
-@never_cache
 def api_colors(request):
     """API endpoint для получения всех цветов"""
     from productcolors.models import Color
@@ -3594,7 +3591,11 @@ def api_colors(request):
             'secondary_hex': color.secondary_hex
         })
     
-    return JsonResponse(colors_data, safe=False)
+    response = JsonResponse(colors_data, safe=False)
+    response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    return response
 
 @login_required
 def admin_product_edit_simple(request, pk):
