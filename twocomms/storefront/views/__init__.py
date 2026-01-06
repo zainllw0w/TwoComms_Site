@@ -88,6 +88,7 @@ from .static_pages import (
     static_sitemap,
     google_merchant_feed,
     uaprom_products_feed,
+    prom_feed_xml,
     static_verification_file,
     about,
     contacts,
@@ -108,10 +109,10 @@ from .profile import (
     favorites,
     favorites_list,
     toggle_favorite,
-    add_to_favorites,
+    add_to_favorites, 
     remove_from_favorites,
     check_favorite_status,
-    favorites_count,
+    favorites_count, 
     points_history,
     settings,
     # User Points & Rewards
@@ -349,6 +350,7 @@ __all__ = [
     'robots_txt', 'static_sitemap', 'google_merchant_feed',
     'static_verification_file', 'about', 'contacts', 'delivery', 'returns',
     'privacy_policy', 'terms_of_service', 'test_analytics_events',
+    'prom_feed_xml',
     
     # Profile
     'profile', 'edit_profile', 'profile_setup', 'order_history', 'order_detail',
