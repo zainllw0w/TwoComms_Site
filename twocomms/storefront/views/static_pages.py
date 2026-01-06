@@ -661,7 +661,8 @@ def prom_feed_xml(request):
                 offer_id_suffix = f"-{var['variant_id']}" if var['variant_id'] else "-0"
                 offer_id = f"{product.id}{offer_id_suffix}-{size}"
                 
-                is_available = "true" if var.get('stock', 0) > 0 else "false"
+                # FORCE AVAILABLE = TRUE as per user request (IDs 100, 101 issue)
+                is_available = "true" 
 
                 offer_el = ET.SubElement(offers_el, "offer", {
                     "id": offer_id,
