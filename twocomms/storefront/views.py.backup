@@ -3125,7 +3125,7 @@ def admin_product_new(request):
                     if color_images:
                         for i, image_file in enumerate(color_images):
                             ProductColorImage.objects.create(
-                                color_variant=color_variant,
+                                variant=color_variant,
                                 image=image_file
                             )
                     
