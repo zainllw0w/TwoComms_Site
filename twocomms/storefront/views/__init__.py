@@ -221,7 +221,7 @@ from .legacy_stubs import (
     admin_store_update_product, admin_store_mark_product_sold, admin_store_remove_product,
     admin_print_proposal_update_status, admin_print_proposal_award_points,
     admin_print_proposal_award_promocode,
-    api_colors, debug_media, debug_media_page, debug_product_images, dev_grant_admin,
+    debug_media, debug_media_page, debug_product_images, dev_grant_admin,
     delivery_view, cooperation,
     pricelist_redirect, pricelist_page, test_pricelist, wholesale_page,
     wholesale_order_form, generate_wholesale_invoice, download_invoice_file,
@@ -270,6 +270,7 @@ _LEGACY_VIEW_NAMES = (
     'wholesale_payment_webhook',
     'get_user_invoices',
     'wholesale_prices_xlsx',
+    'api_colors',
 )
 
 
