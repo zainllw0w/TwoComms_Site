@@ -47,12 +47,17 @@ def _material_for_product(product) -> str:
     lookup_source = " ".join(filter(None, [
         product.category.name if getattr(product, "category", None) else "",
         product.title or "",
+        product.slug or ""
     ])).lower()
-    if any(token in lookup_source for token in ("худі", "hood", "hudi")):
-        return "трехнитка с начесом"
-    if "лонг" in lookup_source or "long" in lookup_source:
-        return "бамбук"
-    return "кулирка"
+    
+    if any(token in lookup_source for token in ("худі", "hood", "hudi", "hoodie")):
+        return '90% бавовна, 10% поліестер'
+    if any(token in lookup_source for token in ("лонг", "long", "longsleeve", "лонгслів")):
+        return '95% бамбук, 5% еластан'
+    if any(token in lookup_source for token in ("футболк", "tshirt", "t-shirt", "tee")):
+        return '95% бавовна, 5% еластан'
+        
+    return '95% бавовна, 5% еластан'
 
 
 def _normalize_color_name(raw_color: str | None) -> str:
