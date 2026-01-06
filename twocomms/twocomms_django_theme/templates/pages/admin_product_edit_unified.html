@@ -10,48 +10,54 @@
         <div class="card-body p-3">
           <div class="d-flex align-items-center mb-4">
             <div class="position-relative me-3">
-              <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+              <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center"
+                style="width: 40px; height: 40px;">
                 <i class="fas fa-edit text-white"></i>
               </div>
-              <div class="position-absolute top-0 end-0 bg-success rounded-circle" style="width: 12px; height: 12px; border: 2px solid var(--tc-bg);"></div>
+              <div class="position-absolute top-0 end-0 bg-success rounded-circle"
+                style="width: 12px; height: 12px; border: 2px solid var(--tc-bg);"></div>
             </div>
             <div>
               <h6 class="mb-0 fw-bold">{% if is_new %}Додавання товару{% else %}Редагування товару{% endif %}</h6>
               {% if not is_new %}
-                <small class="text-muted">ID: {{ obj.id }}</small>
+              <small class="text-muted">ID: {{ obj.id }}</small>
               {% else %}
-                <small class="text-muted">Новий товар</small>
+              <small class="text-muted">Новий товар</small>
               {% endif %}
             </div>
           </div>
-          
+
           <div class="nav flex-column nav-pills" id="edit-tabs" role="tablist">
-            <button class="nav-link active d-flex align-items-center mb-2" id="basic-tab" data-bs-toggle="pill" data-bs-target="#basic" type="button">
+            <button class="nav-link active d-flex align-items-center mb-2" id="basic-tab" data-bs-toggle="pill"
+              data-bs-target="#basic" type="button">
               <i class="fas fa-info-circle me-2"></i>
               <span>Основна інформація</span>
             </button>
-            <button class="nav-link d-flex align-items-center mb-2" id="colors-tab" data-bs-toggle="pill" data-bs-target="#colors" type="button">
+            <button class="nav-link d-flex align-items-center mb-2" id="colors-tab" data-bs-toggle="pill"
+              data-bs-target="#colors" type="button">
               <i class="fas fa-palette me-2"></i>
               <span>Кольори</span>
               {% if obj.color_variants.all %}
-                <span class="badge bg-primary ms-auto">{{ obj.color_variants.count }}</span>
+              <span class="badge bg-primary ms-auto">{{ obj.color_variants.count }}</span>
               {% endif %}
             </button>
-            <button class="nav-link d-flex align-items-center mb-2" id="images-tab" data-bs-toggle="pill" data-bs-target="#images" type="button">
+            <button class="nav-link d-flex align-items-center mb-2" id="images-tab" data-bs-toggle="pill"
+              data-bs-target="#images" type="button">
               <i class="fas fa-images me-2"></i>
               <span>Зображення</span>
               {% if obj.images.all %}
-                <span class="badge bg-primary ms-auto">{{ obj.images.count }}</span>
+              <span class="badge bg-primary ms-auto">{{ obj.images.count }}</span>
               {% endif %}
             </button>
-            <button class="nav-link d-flex align-items-center mb-2" id="preview-tab" data-bs-toggle="pill" data-bs-target="#preview" type="button">
+            <button class="nav-link d-flex align-items-center mb-2" id="preview-tab" data-bs-toggle="pill"
+              data-bs-target="#preview" type="button">
               <i class="fas fa-eye me-2"></i>
               <span>Попередній перегляд</span>
             </button>
           </div>
-          
+
           <hr class="my-3">
-          
+
           <div class="d-grid gap-2">
             <button type="submit" form="product-form" class="btn btn-cta btn-sm">
               <i class="fas fa-save me-1"></i>Зберегти зміни
@@ -67,7 +73,7 @@
     <!-- Основной контент -->
     <div class="col-lg-9 col-xl-10">
       <div class="tab-content" id="edit-tabs-content">
-        
+
         <!-- Основная информация -->
         <div class="tab-pane fade show active" id="basic" role="tabpanel">
           <div class="card glass border-0">
@@ -75,10 +81,13 @@
               <div class="d-flex align-items-center justify-content-between">
                 <div class="d-flex align-items-center">
                   <div class="position-relative me-3">
-                    <div class="bg-gradient-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; background: linear-gradient(135deg, #8b5cf6, #6366f1);">
+                    <div class="bg-gradient-primary rounded-circle d-flex align-items-center justify-content-center"
+                      style="width: 48px; height: 48px; background: linear-gradient(135deg, #8b5cf6, #6366f1);">
                       <i class="fas fa-info-circle text-white fa-lg"></i>
                     </div>
-                    <div class="position-absolute top-0 end-0 bg-success rounded-circle" style="width: 16px; height: 16px; border: 3px solid var(--tc-bg); box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>
+                    <div class="position-absolute top-0 end-0 bg-success rounded-circle"
+                      style="width: 16px; height: 16px; border: 3px solid var(--tc-bg); box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+                    </div>
                   </div>
                   <div>
                     <h5 class="mb-1 fw-bold">Основна інформація</h5>
@@ -87,53 +96,53 @@
                 </div>
                 <div class="d-flex align-items-center gap-2">
                   {% if not is_new %}
-                    <span class="badge bg-success">
-                      <i class="fas fa-hashtag me-1"></i>{{ obj.id }}
-                    </span>
-                    <span class="badge bg-info">
-                      <i class="fas fa-folder me-1"></i>{{ obj.category.name }}
-                    </span>
+                  <span class="badge bg-success">
+                    <i class="fas fa-hashtag me-1"></i>{{ obj.id }}
+                  </span>
+                  <span class="badge bg-info">
+                    <i class="fas fa-folder me-1"></i>{{ obj.category.name }}
+                  </span>
                   {% else %}
-                    <span class="badge bg-warning">
-                      <i class="fas fa-plus me-1"></i>Новий
-                    </span>
+                  <span class="badge bg-warning">
+                    <i class="fas fa-plus me-1"></i>Новий
+                  </span>
                   {% endif %}
                 </div>
               </div>
             </div>
-            
+
             <div class="card-body p-4">
               <form method="post" enctype="multipart/form-data" id="product-form">
                 {% csrf_token %}
                 <input type="hidden" name="form_type" value="product">
 
                 {% if form.non_field_errors %}
-                  <div class="alert alert-danger border-0">
-                    <div class="d-flex align-items-center">
-                      <div class="alert-icon me-3">
-                        <i class="fas fa-exclamation-triangle fa-lg"></i>
-                      </div>
-                      <div>
-                        <strong>Помилка!</strong> {{ form.non_field_errors }}
-                      </div>
+                <div class="alert alert-danger border-0">
+                  <div class="d-flex align-items-center">
+                    <div class="alert-icon me-3">
+                      <i class="fas fa-exclamation-triangle fa-lg"></i>
+                    </div>
+                    <div>
+                      <strong>Помилка!</strong> {{ form.non_field_errors }}
                     </div>
                   </div>
+                </div>
                 {% endif %}
-                
+
                 {% for field in form %}
-                  {% for err in field.errors %}
-                    <div class="alert alert-danger border-0 small">
-                      <div class="d-flex align-items-center">
-                        <i class="fas fa-times-circle me-2"></i>
-                        <strong>{{ field.label }}:</strong> {{ err }}
-                      </div>
-                    </div>
-                  {% endfor %}
+                {% for err in field.errors %}
+                <div class="alert alert-danger border-0 small">
+                  <div class="d-flex align-items-center">
+                    <i class="fas fa-times-circle me-2"></i>
+                    <strong>{{ field.label }}:</strong> {{ err }}
+                  </div>
+                </div>
+                {% endfor %}
                 {% endfor %}
 
                 <!-- Основная информация - новая структура -->
                 <div class="product-info-grid">
-                  
+
                   <!-- Категория и название -->
                   <div class="info-row">
                     <div class="info-group category">
@@ -221,18 +230,19 @@
                       </label>
                       {{ form.main_image }}
                       <div class="form-hint">
-                        <i class="fas fa-upload me-1"></i>Основне зображення товару (автоматично з першого кольору, якщо не вибрано)
+                        <i class="fas fa-upload me-1"></i>Основне зображення товару (автоматично з першого кольору, якщо
+                        не вибрано)
                       </div>
                     </div>
                     {% if obj.main_image %}
-                      <div class="info-group image-preview">
-                        <div class="current-image">
-                          <img src="{{ obj.main_image.url }}" alt="Поточне зображення" class="img-fluid rounded">
-                          <div class="image-overlay">
-                            <span class="image-label">Поточне зображення</span>
-                          </div>
+                    <div class="info-group image-preview">
+                      <div class="current-image">
+                        <img src="{{ obj.main_image.url }}" alt="Поточне зображення" class="img-fluid rounded">
+                        <div class="image-overlay">
+                          <span class="image-label">Поточне зображення</span>
                         </div>
                       </div>
+                    </div>
                     {% endif %}
                   </div>
 
@@ -268,10 +278,13 @@
               <div class="d-flex align-items-center justify-content-between">
                 <div class="d-flex align-items-center">
                   <div class="position-relative me-3">
-                    <div class="bg-gradient-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; background: linear-gradient(135deg, #e91e63, #ff5722);">
+                    <div class="bg-gradient-primary rounded-circle d-flex align-items-center justify-content-center"
+                      style="width: 48px; height: 48px; background: linear-gradient(135deg, #e91e63, #ff5722);">
                       <i class="fas fa-palette text-white fa-lg"></i>
                     </div>
-                    <div class="position-absolute top-0 end-0 bg-success rounded-circle" style="width: 16px; height: 16px; border: 3px solid var(--tc-bg); box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>
+                    <div class="position-absolute top-0 end-0 bg-success rounded-circle"
+                      style="width: 16px; height: 16px; border: 3px solid var(--tc-bg); box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+                    </div>
                   </div>
                   <div>
                     <h5 class="mb-1 fw-bold">Кольори товару</h5>
@@ -283,75 +296,80 @@
                 </button>
               </div>
             </div>
-            
+
             <div class="card-body">
               {% if obj.color_variants.all %}
-                <div class="row g-3">
-                  {% for color_variant in obj.color_variants.all %}
-                    <div class="col-md-6 col-lg-4 col-xl-3">
-                      <div class="card bg-dark border-0 h-100" data-color-card data-variant-id="{{ color_variant.id }}">
-                        <div class="position-relative">
-                          {% if color_variant.images.first %}
-                            <img src="{{ color_variant.images.first.image.url }}" 
-                                 class="card-img-top" alt="{{ color_variant.color.name }}" 
-                                 style="height: 180px; object-fit: cover;">
-                          {% else %}
-                            <div class="card-img-top d-flex align-items-center justify-content-center" 
-                                 style="height: 180px; background: linear-gradient(45deg, #2c3e50, #34495e);">
-                              <i class="fas fa-image fa-2x text-muted"></i>
-                            </div>
-                          {% endif %}
-                          <div class="position-absolute top-0 end-0 m-2">
-                            <span class="badge bg-primary">{{ color_variant.color.name }}</span>
-                          </div>
-                          {% if color_variant.images.count > 1 %}
-                            <div class="position-absolute top-0 start-0 m-2">
-                              <span class="badge bg-info">
-                                <i class="fas fa-images me-1"></i>{{ color_variant.images.count }}
-                              </span>
-                            </div>
-                          {% endif %}
-                        </div>
-                        <div class="card-body d-flex flex-column">
-                          <h6 class="card-title mb-2">{{ color_variant.color.name }}</h6>
-                          <div class="text-muted small mb-3">
-                            {{ color_variant.color.primary_hex }}{% if color_variant.color.secondary_hex %} + {{ color_variant.color.secondary_hex }}{% endif %}
-                          </div>
-                          <div class="mt-auto">
-                            <div class="d-grid gap-2">
-                              <button type="button" class="btn btn-outline-light btn-sm" data-action="edit-color" data-variant-id="{{ color_variant.id }}">
-                                <i class="fas fa-edit me-1"></i>Редагувати
-                              </button>
-                              <a href="{% url 'admin_product_color_delete' obj.id color_variant.id %}" 
-                                 class="btn btn-outline-danger btn-sm"
-                                 onclick="return confirm('Видалити колір {{ color_variant.color.name }}?')">
-                                <i class="fas fa-trash me-1"></i>Видалити
-                              </a>
-                            </div>
-                          </div>
-                        </div>
+              <div class="row g-3">
+                {% for color_variant in obj.color_variants.all %}
+                <div class="col-md-6 col-lg-4 col-xl-3">
+                  <div class="card bg-dark border-0 h-100" data-color-card data-variant-id="{{ color_variant.id }}">
+                    <div class="position-relative">
+                      {% if color_variant.images.first %}
+                      <img src="{{ color_variant.images.first.image.url }}" class="card-img-top"
+                        alt="{{ color_variant.color.name }}" style="height: 180px; object-fit: cover;">
+                      {% else %}
+                      <div class="card-img-top d-flex align-items-center justify-content-center"
+                        style="height: 180px; background: linear-gradient(45deg, #2c3e50, #34495e);">
+                        <i class="fas fa-image fa-2x text-muted"></i>
                       </div>
+                      {% endif %}
+                      <div class="position-absolute top-0 end-0 m-2">
+                        <span class="badge bg-primary">{{ color_variant.color.name }}</span>
+                      </div>
+                      {% if color_variant.images.count > 1 %}
+                      <div class="position-absolute top-0 start-0 m-2">
+                        <span class="badge bg-info">
+                          <i class="fas fa-images me-1"></i>{{ color_variant.images.count }}
+                        </span>
+                      </div>
+                      {% endif %}
                     </div>
-                  {% endfor %}
-                </div>
-              {% else %}
-                <div class="text-center py-5">
-                  <div class="mb-4">
-                    <div class="position-relative d-inline-block">
-                      <div class="bg-gradient-primary rounded-circle d-flex align-items-center justify-content-center mx-auto" style="width: 80px; height: 80px; background: linear-gradient(135deg, rgba(233, 30, 99, 0.2), rgba(255, 87, 34, 0.2));">
-                        <i class="fas fa-palette fa-2x text-muted"></i>
+                    <div class="card-body d-flex flex-column">
+                      <h6 class="card-title mb-2">{{ color_variant.color.name }}</h6>
+                      <div class="text-muted small mb-3">
+                        {{ color_variant.color.primary_hex }}{% if color_variant.color.secondary_hex %} + {{
+                        color_variant.color.secondary_hex }}{% endif %}
                       </div>
-                      <div class="position-absolute top-0 end-0 bg-warning rounded-circle d-flex align-items-center justify-content-center" style="width: 24px; height: 24px; border: 3px solid var(--tc-bg);">
-                        <i class="fas fa-exclamation-triangle fa-xs text-dark"></i>
+                      <div class="mt-auto">
+                        <div class="d-grid gap-2">
+                          <button type="button" class="btn btn-outline-light btn-sm" data-action="edit-color"
+                            data-variant-id="{{ color_variant.id }}">
+                            <i class="fas fa-edit me-1"></i>Редагувати
+                          </button>
+                          <a href="{% url 'admin_product_color_delete' obj.id color_variant.id %}"
+                            class="btn btn-outline-danger btn-sm"
+                            onclick="return confirm('Видалити колір {{ color_variant.color.name }}?')">
+                            <i class="fas fa-trash me-1"></i>Видалити
+                          </a>
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <h6 class="text-muted mb-2 fw-semibold">Поки що немає доданих кольорів</h6>
-                  <p class="text-muted small mb-4">Додайте кольорові варіанти для вашого товару</p>
-                  <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addColorModal">
-                    <i class="fas fa-plus me-1"></i>Додати перший колір
-                  </button>
                 </div>
+                {% endfor %}
+              </div>
+              {% else %}
+              <div class="text-center py-5">
+                <div class="mb-4">
+                  <div class="position-relative d-inline-block">
+                    <div
+                      class="bg-gradient-primary rounded-circle d-flex align-items-center justify-content-center mx-auto"
+                      style="width: 80px; height: 80px; background: linear-gradient(135deg, rgba(233, 30, 99, 0.2), rgba(255, 87, 34, 0.2));">
+                      <i class="fas fa-palette fa-2x text-muted"></i>
+                    </div>
+                    <div
+                      class="position-absolute top-0 end-0 bg-warning rounded-circle d-flex align-items-center justify-content-center"
+                      style="width: 24px; height: 24px; border: 3px solid var(--tc-bg);">
+                      <i class="fas fa-exclamation-triangle fa-xs text-dark"></i>
+                    </div>
+                  </div>
+                </div>
+                <h6 class="text-muted mb-2 fw-semibold">Поки що немає доданих кольорів</h6>
+                <p class="text-muted small mb-4">Додайте кольорові варіанти для вашого товару</p>
+                <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addColorModal">
+                  <i class="fas fa-plus me-1"></i>Додати перший колір
+                </button>
+              </div>
               {% endif %}
             </div>
           </div>
@@ -364,10 +382,13 @@
               <div class="d-flex align-items-center justify-content-between">
                 <div class="d-flex align-items-center">
                   <div class="position-relative me-3">
-                    <div class="bg-gradient-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; background: linear-gradient(135deg, #4caf50, #8bc34a);">
+                    <div class="bg-gradient-primary rounded-circle d-flex align-items-center justify-content-center"
+                      style="width: 48px; height: 48px; background: linear-gradient(135deg, #4caf50, #8bc34a);">
                       <i class="fas fa-images text-white fa-lg"></i>
                     </div>
-                    <div class="position-absolute top-0 end-0 bg-success rounded-circle" style="width: 16px; height: 16px; border: 3px solid var(--tc-bg); box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>
+                    <div class="position-absolute top-0 end-0 bg-success rounded-circle"
+                      style="width: 16px; height: 16px; border: 3px solid var(--tc-bg); box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+                    </div>
                   </div>
                   <div>
                     <h5 class="mb-1 fw-bold">Додаткові зображення</h5>
@@ -379,54 +400,57 @@
                 </button>
               </div>
             </div>
-            
+
             <div class="card-body">
               {% if obj.images.all %}
-                <p class="text-muted small mb-2">Перетягніть картки, щоб змінити порядок та обкладинку товару.</p>
-                <div class="row g-3" data-product-gallery data-gallery-draggable>
-                  {% for image in obj.images.all %}
-                    <div class="col-md-6 col-lg-4 col-xl-3">
-                      <div class="card bg-dark border-0 h-100" data-product-image-id="{{ image.id }}" draggable="true">
-                        <div class="position-relative">
-                          <img src="{{ image.image.url }}" class="card-img-top" 
-                               alt="Додаткове зображення" style="height: 180px; object-fit: cover;">
-                          <span class="badge bg-secondary position-absolute top-0 start-0 m-2">
-                            <i class="fas fa-grip-vertical me-1"></i>Drag
-                          </span>
-                        </div>
-                        <div class="card-body d-flex flex-column">
-                          <div class="mt-auto">
-                            <div class="d-grid gap-2">
-                              <a href="{% url 'admin_product_image_delete' obj.id image.id %}" 
-                                 class="btn btn-outline-danger btn-sm"
-                                 onclick="return confirm('Видалити зображення?')">
-                                <i class="fas fa-trash me-1"></i>Видалити
-                              </a>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+              <p class="text-muted small mb-2">Перетягніть картки, щоб змінити порядок та обкладинку товару.</p>
+              <div class="row g-3" data-product-gallery data-gallery-draggable>
+                {% for image in obj.images.all %}
+                <div class="col-md-6 col-lg-4 col-xl-3">
+                  <div class="card bg-dark border-0 h-100" data-product-image-id="{{ image.id }}" draggable="true">
+                    <div class="position-relative">
+                      <img src="{{ image.image.url }}" class="card-img-top" alt="Додаткове зображення"
+                        style="height: 180px; object-fit: cover;">
+                      <span class="badge bg-secondary position-absolute top-0 start-0 m-2">
+                        <i class="fas fa-grip-vertical me-1"></i>Drag
+                      </span>
                     </div>
-                  {% endfor %}
-                </div>
-              {% else %}
-                <div class="text-center py-5">
-                  <div class="mb-4">
-                    <div class="position-relative d-inline-block">
-                      <div class="bg-gradient-primary rounded-circle d-flex align-items-center justify-content-center mx-auto" style="width: 80px; height: 80px; background: linear-gradient(135deg, rgba(76, 175, 80, 0.2), rgba(139, 195, 74, 0.2));">
-                        <i class="fas fa-images fa-2x text-muted"></i>
-                      </div>
-                      <div class="position-absolute top-0 end-0 bg-warning rounded-circle d-flex align-items-center justify-content-center" style="width: 24px; height: 24px; border: 3px solid var(--tc-bg);">
-                        <i class="fas fa-exclamation-triangle fa-xs text-dark"></i>
+                    <div class="card-body d-flex flex-column">
+                      <div class="mt-auto">
+                        <div class="d-grid gap-2">
+                          <a href="{% url 'admin_product_image_delete' obj.id image.id %}"
+                            class="btn btn-outline-danger btn-sm" onclick="return confirm('Видалити зображення?')">
+                            <i class="fas fa-trash me-1"></i>Видалити
+                          </a>
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <h6 class="text-muted mb-2 fw-semibold">Поки що немає додаткових зображень</h6>
-                  <p class="text-muted small mb-4">Додайте зображення для створення галереї</p>
-                  <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addImageModal">
-                    <i class="fas fa-plus me-1"></i>Додати перше зображення
-                  </button>
                 </div>
+                {% endfor %}
+              </div>
+              {% else %}
+              <div class="text-center py-5">
+                <div class="mb-4">
+                  <div class="position-relative d-inline-block">
+                    <div
+                      class="bg-gradient-primary rounded-circle d-flex align-items-center justify-content-center mx-auto"
+                      style="width: 80px; height: 80px; background: linear-gradient(135deg, rgba(76, 175, 80, 0.2), rgba(139, 195, 74, 0.2));">
+                      <i class="fas fa-images fa-2x text-muted"></i>
+                    </div>
+                    <div
+                      class="position-absolute top-0 end-0 bg-warning rounded-circle d-flex align-items-center justify-content-center"
+                      style="width: 24px; height: 24px; border: 3px solid var(--tc-bg);">
+                      <i class="fas fa-exclamation-triangle fa-xs text-dark"></i>
+                    </div>
+                  </div>
+                </div>
+                <h6 class="text-muted mb-2 fw-semibold">Поки що немає додаткових зображень</h6>
+                <p class="text-muted small mb-4">Додайте зображення для створення галереї</p>
+                <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addImageModal">
+                  <i class="fas fa-plus me-1"></i>Додати перше зображення
+                </button>
+              </div>
               {% endif %}
             </div>
           </div>
@@ -438,10 +462,13 @@
             <div class="card-header bg-transparent border-0 pb-0">
               <div class="d-flex align-items-center">
                 <div class="position-relative me-3">
-                  <div class="bg-gradient-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; background: linear-gradient(135deg, #ff9800, #ff5722);">
+                  <div class="bg-gradient-primary rounded-circle d-flex align-items-center justify-content-center"
+                    style="width: 48px; height: 48px; background: linear-gradient(135deg, #ff9800, #ff5722);">
                     <i class="fas fa-eye text-white fa-lg"></i>
                   </div>
-                  <div class="position-absolute top-0 end-0 bg-success rounded-circle" style="width: 16px; height: 16px; border: 3px solid var(--tc-bg); box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>
+                  <div class="position-absolute top-0 end-0 bg-success rounded-circle"
+                    style="width: 16px; height: 16px; border: 3px solid var(--tc-bg); box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+                  </div>
                 </div>
                 <div>
                   <h5 class="mb-1 fw-bold">Попередній перегляд</h5>
@@ -454,11 +481,13 @@
                 <div class="col-md-6">
                   <div class="card product hover-raise">
                     {% if obj.main_image %}
-                      <img src="{{ obj.main_image.url }}" class="card-img-top" alt="{{ obj.title }}" style="height: 250px; object-fit: cover;">
+                    <img src="{{ obj.main_image.url }}" class="card-img-top" alt="{{ obj.title }}"
+                      style="height: 250px; object-fit: cover;">
                     {% else %}
-                      <div class="card-img-top d-flex align-items-center justify-content-center" style="height: 250px; background: #2c3e50;">
-                        <i class="fas fa-image fa-3x text-muted"></i>
-                      </div>
+                    <div class="card-img-top d-flex align-items-center justify-content-center"
+                      style="height: 250px; background: #2c3e50;">
+                      <i class="fas fa-image fa-3x text-muted"></i>
+                    </div>
                     {% endif %}
                     <div class="card-body">
                       <h5 class="card-title">{{ obj.title }}</h5>
@@ -466,9 +495,9 @@
                       <div class="d-flex justify-content-between align-items-center">
                         <div class="h5 mb-0 fw-bold">{{ obj.price }} грн</div>
                         {% if obj.points_reward %}
-                          <span class="badge bg-warning text-dark">
-                            <i class="fas fa-star me-1"></i>{{ obj.points_reward }} балів
-                          </span>
+                        <span class="badge bg-warning text-dark">
+                          <i class="fas fa-star me-1"></i>{{ obj.points_reward }} балів
+                        </span>
                         {% endif %}
                       </div>
                     </div>
@@ -492,22 +521,22 @@
                           <strong>Ціна:</strong> {{ obj.price }} грн
                         </li>
                         {% if obj.points_reward %}
-                          <li class="mb-2">
-                            <i class="fas fa-star me-2 text-warning"></i>
-                            <strong>Бали:</strong> {{ obj.points_reward }}
-                          </li>
+                        <li class="mb-2">
+                          <i class="fas fa-star me-2 text-warning"></i>
+                          <strong>Бали:</strong> {{ obj.points_reward }}
+                        </li>
                         {% endif %}
                         {% if obj.has_discount %}
-                          <li class="mb-2">
-                            <i class="fas fa-percentage me-2 text-success"></i>
-                            <strong>Знижка:</strong> {{ obj.discount_percent }}%
-                          </li>
+                        <li class="mb-2">
+                          <i class="fas fa-percentage me-2 text-success"></i>
+                          <strong>Знижка:</strong> {{ obj.discount_percent }}%
+                        </li>
                         {% endif %}
                         {% if obj.featured %}
-                          <li class="mb-2">
-                            <i class="fas fa-star me-2 text-warning"></i>
-                            <strong>Рекомендований</strong>
-                          </li>
+                        <li class="mb-2">
+                          <i class="fas fa-star me-2 text-warning"></i>
+                          <strong>Рекомендований</strong>
+                        </li>
                         {% endif %}
                         <li class="mb-2">
                           <i class="fas fa-palette me-2 text-primary"></i>
@@ -547,7 +576,7 @@
         <input type="hidden" name="image_order_payload" id="imageOrderPayload">
         <input type="hidden" name="delete_image_ids" id="deleteImageIds">
         <div class="modal-body">
-          
+
           <!-- Выбор типа цвета -->
           <div class="color-type-selector mb-4">
             <label class="form-label fw-semibold mb-3">
@@ -574,7 +603,8 @@
             <label class="form-label fw-semibold">
               <i class="fas fa-tag me-2"></i>Назва кольору
             </label>
-            <input type="text" name="color_name" class="form-control" placeholder="Наприклад: Червоний, Синій, Чорний+Жовтий" required>
+            <input type="text" name="color_name" class="form-control"
+              placeholder="Наприклад: Червоний, Синій, Чорний+Жовтий" required>
             <div class="form-hint">
               <i class="fas fa-lightbulb me-1"></i>Опишіть колір для зручності
             </div>
@@ -585,7 +615,7 @@
             <label class="form-label fw-semibold mb-3">
               <i class="fas fa-palette me-2"></i>Вибір кольору
             </label>
-            
+
             <!-- Переключатель: существующие/новые цвета -->
             <div class="color-mode-selector mb-3">
               <div class="btn-group w-100" role="group">
@@ -593,7 +623,7 @@
                 <label class="btn btn-outline-primary" for="existing_colors">
                   <i class="fas fa-database me-2"></i>Існуючі кольори
                 </label>
-                
+
                 <input type="radio" class="btn-check" name="color_mode" id="new_colors" value="new">
                 <label class="btn btn-outline-primary" for="new_colors">
                   <i class="fas fa-plus me-2"></i>Нові кольори
@@ -611,13 +641,14 @@
 
             <!-- Новые цвета с color picker -->
             <div class="new-colors-section" id="newColorsSection" style="display: none;">
-              
+
               <!-- Основной цвет -->
               <div class="primary-color-section mb-3">
                 <label class="form-label small">Основний колір</label>
                 <div class="color-picker-container">
                   <input type="color" id="primaryColorPicker" class="color-picker" value="#000000">
-                  <input type="text" id="primaryHexInput" class="form-control hex-input" placeholder="#000000" value="#000000">
+                  <input type="text" id="primaryHexInput" class="form-control hex-input" placeholder="#000000"
+                    value="#000000">
                 </div>
                 <input type="hidden" name="primary_hex" id="primaryHex" value="#000000">
               </div>
@@ -627,7 +658,8 @@
                 <label class="form-label small">Додатковий колір</label>
                 <div class="color-picker-container">
                   <input type="color" id="secondaryColorPicker" class="color-picker" value="#FFFF00">
-                  <input type="text" id="secondaryHexInput" class="form-control hex-input" placeholder="#FFFF00" value="#FFFF00">
+                  <input type="text" id="secondaryHexInput" class="form-control hex-input" placeholder="#FFFF00"
+                    value="#FFFF00">
                 </div>
                 <input type="hidden" name="secondary_hex" id="secondaryHex" value="">
               </div>
@@ -663,7 +695,7 @@
                   <i class="fas fa-info-circle me-1"></i>Можна завантажити кілька зображень для каруселі
                 </div>
               </div>
-              
+
               <!-- Поле для загрузки изображений -->
               <div class="file-upload-container mb-3">
                 <input type="file" name="color_images" class="form-control" accept="image/*" multiple>
@@ -671,12 +703,13 @@
                   <i class="fas fa-upload me-1"></i>Оберіть одне або кілька зображень
                 </div>
               </div>
-              
+
               <!-- Предварительный просмотр загруженных изображений -->
               <div class="image-preview-container" id="imagePreviewContainer" style="display: none;">
                 <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2">
                   <label class="form-label small mb-0">Попередній перегляд та порядок:</label>
-                  <span class="text-muted small">Перетягніть плитки, щоб змінити порядок. Перший кадр стане обкладинкою.</span>
+                  <span class="text-muted small">Перетягніть плитки, щоб змінити порядок. Перший кадр стане
+                    обкладинкою.</span>
                 </div>
                 <div class="image-preview-grid" id="imagePreviewGrid" data-image-grid></div>
               </div>
@@ -730,102 +763,89 @@
 {{ product_images_payload|json_script:"productImagesData" }}
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+  document.addEventListener('DOMContentLoaded', function () {
+
     (function relocateModals() {
-        ['addColorModal', 'addImageModal'].forEach(function(id) {
-            const el = document.getElementById(id);
-            if (el && el.parentElement !== document.body) {
-                try { document.body.appendChild(el); } catch (_) { }
-            }
-        });
+      ['addColorModal', 'addImageModal'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el && el.parentElement !== document.body) {
+          try { document.body.appendChild(el); } catch (_) { }
+        }
+      });
     })();
 
-    function boostZ(modalEl) {
-        if (!modalEl) return;
-        modalEl.style.zIndex = '20010';
-        try {
-            modalEl.addEventListener('shown.bs.modal', function () {
-                document.querySelectorAll('.modal-backdrop').forEach(function (bd) {
-                    bd.style.zIndex = '20000';
-                });
-                modalEl.style.zIndex = '20010';
-            });
-        } catch (_) { }
-    }
-    boostZ(document.getElementById('addColorModal'));
-    boostZ(document.getElementById('addImageModal'));
 
     const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
     const csrfToken = csrfInput ? csrfInput.value : '';
     const colorVariantsData = (() => {
-        const node = document.getElementById('colorVariantsData');
-        if (!node) return [];
-        try { return JSON.parse(node.textContent); } catch (_) { return []; }
+      const node = document.getElementById('colorVariantsData');
+      if (!node) return [];
+      try { return JSON.parse(node.textContent); } catch (_) { return []; }
     })();
     const productImagesData = (() => {
-        const node = document.getElementById('productImagesData');
-        if (!node) return [];
-        try { return JSON.parse(node.textContent); } catch (_) { return []; }
+      const node = document.getElementById('productImagesData');
+      if (!node) return [];
+      try { return JSON.parse(node.textContent); } catch (_) { return []; }
     })();
 
     // === Форма товара ===
     const productForm = document.getElementById('product-form');
     if (productForm) {
-        productForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const submitBtn = productForm.querySelector('button[type="submit"]');
-            const originalText = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Зберігаємо...';
-            submitBtn.disabled = true;
+      productForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        const submitBtn = productForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Зберігаємо...';
+        submitBtn.disabled = true;
 
-            fetch(productForm.action || window.location.href, {
-                method: 'POST',
-                body: new FormData(productForm),
-                headers: {
-                    'X-CSRFToken': csrfToken,
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            }).then(resp => {
-                const type = resp.headers.get('content-type');
-                if (type && type.includes('application/json')) {
-                    return resp.json();
-                }
-                return { success: resp.ok, message: resp.ok ? 'Товар успішно збережено!' : 'Помилка збереження' };
-            }).then(data => {
-                if (data.success) {
-                    submitBtn.innerHTML = '<i class="fas fa-check me-1"></i>Збережено!';
-                    submitBtn.classList.remove('btn-cta');
-                    submitBtn.classList.add('btn-success');
-                    if (data.product_id) {
-                        setTimeout(() => window.location.href = `/admin-panel/product/${data.product_id}/edit-unified/`, 1200);
-                    } else {
-                        setTimeout(() => window.location.reload(), 1200);
-                    }
-                } else {
-                    submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Помилка!';
-                    submitBtn.classList.remove('btn-cta');
-                    submitBtn.classList.add('btn-danger');
-                    console.error('Product save error:', data.errors || data.message);
-                    setTimeout(() => {
-                        submitBtn.innerHTML = originalText;
-                        submitBtn.classList.remove('btn-danger');
-                        submitBtn.classList.add('btn-cta');
-                        submitBtn.disabled = false;
-                    }, 1800);
-                }
-            }).catch(err => {
-                console.error(err);
-                submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Помилка!';
-                submitBtn.classList.remove('btn-cta');
-                submitBtn.classList.add('btn-danger');
-                setTimeout(() => {
-                    submitBtn.innerHTML = originalText;
-                    submitBtn.classList.remove('btn-danger');
-                    submitBtn.classList.add('btn-cta');
-                    submitBtn.disabled = false;
-                }, 1800);
-            });
+        fetch(productForm.action || window.location.href, {
+          method: 'POST',
+          body: new FormData(productForm),
+          headers: {
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        }).then(resp => {
+          const type = resp.headers.get('content-type');
+          if (type && type.includes('application/json')) {
+            return resp.json();
+          }
+          return { success: resp.ok, message: resp.ok ? 'Товар успішно збережено!' : 'Помилка збереження' };
+        }).then(data => {
+          if (data.success) {
+            submitBtn.innerHTML = '<i class="fas fa-check me-1"></i>Збережено!';
+            submitBtn.classList.remove('btn-cta');
+            submitBtn.classList.add('btn-success');
+            if (data.product_id) {
+              setTimeout(() => window.location.href = `/admin-panel/product/${data.product_id}/edit-unified/`, 1200);
+            } else {
+              setTimeout(() => window.location.reload(), 1200);
+            }
+          } else {
+            submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Помилка!';
+            submitBtn.classList.remove('btn-cta');
+            submitBtn.classList.add('btn-danger');
+            console.error('Product save error:', data.errors || data.message);
+            setTimeout(() => {
+              submitBtn.innerHTML = originalText;
+              submitBtn.classList.remove('btn-danger');
+              submitBtn.classList.add('btn-cta');
+              submitBtn.disabled = false;
+            }, 1800);
+          }
+        }).catch(err => {
+          console.error(err);
+          submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Помилка!';
+          submitBtn.classList.remove('btn-cta');
+          submitBtn.classList.add('btn-danger');
+          setTimeout(() => {
+            submitBtn.innerHTML = originalText;
+            submitBtn.classList.remove('btn-danger');
+            submitBtn.classList.add('btn-cta');
+            submitBtn.disabled = false;
+          }, 1800);
         });
+      });
     }
 
     // === Колір та галерея кольору ===
@@ -856,496 +876,496 @@ document.addEventListener('DOMContentLoaded', function() {
     const secondaryHexInput = document.getElementById('secondaryHexInput');
 
     const colorNames = {
-        '#000000': 'Чорний',
-        '#FFFFFF': 'Білий',
-        '#FF0000': 'Червоний',
-        '#00FF00': 'Зелений',
-        '#0000FF': 'Синій',
-        '#FFFF00': 'Жовтий',
-        '#FF00FF': 'Пурпурний',
-        '#00FFFF': 'Блакитний',
-        '#FFA500': 'Помаранчевий',
-        '#800080': 'Фіолетовий',
-        '#FFC0CB': 'Рожевий',
-        '#A52A2A': 'Коричневий',
-        '#808080': 'Сірий',
-        '#FFD700': 'Золотий',
-        '#C0C0C0': 'Срібний'
+      '#000000': 'Чорний',
+      '#FFFFFF': 'Білий',
+      '#FF0000': 'Червоний',
+      '#00FF00': 'Зелений',
+      '#0000FF': 'Синій',
+      '#FFFF00': 'Жовтий',
+      '#FF00FF': 'Пурпурний',
+      '#00FFFF': 'Блакитний',
+      '#FFA500': 'Помаранчевий',
+      '#800080': 'Фіолетовий',
+      '#FFC0CB': 'Рожевий',
+      '#A52A2A': 'Коричневий',
+      '#808080': 'Сірий',
+      '#FFD700': 'Золотий',
+      '#C0C0C0': 'Срібний'
     };
 
     const colorState = { variantId: null, images: [], newImages: [], deleted: new Set() };
 
     function updatePreview() {
-        if (!combinedPreview || !previewText) return;
-        const primaryColor = (primaryHex && primaryHex.value) ? primaryHex.value : '#000000';
-        const secondaryColor = (secondaryHex && secondaryHex.value) ? secondaryHex.value : '';
-        const activeType = document.querySelector('.color-type-option.active');
-        const isCombined = activeType && activeType.dataset.type === 'combined';
-        combinedPreview.style.setProperty('--primary-color', primaryColor);
-        combinedPreview.style.setProperty('--secondary-color', secondaryColor);
-        if (isCombined && secondaryColor) {
-            const primaryName = colorNames[primaryColor] || primaryColor;
-            const secondaryName = colorNames[secondaryColor] || secondaryColor;
-            previewText.textContent = `${primaryName}+${secondaryName}`;
-        } else {
-            previewText.textContent = colorNames[primaryColor] || primaryColor;
-        }
+      if (!combinedPreview || !previewText) return;
+      const primaryColor = (primaryHex && primaryHex.value) ? primaryHex.value : '#000000';
+      const secondaryColor = (secondaryHex && secondaryHex.value) ? secondaryHex.value : '';
+      const activeType = document.querySelector('.color-type-option.active');
+      const isCombined = activeType && activeType.dataset.type === 'combined';
+      combinedPreview.style.setProperty('--primary-color', primaryColor);
+      combinedPreview.style.setProperty('--secondary-color', secondaryColor);
+      if (isCombined && secondaryColor) {
+        const primaryName = colorNames[primaryColor] || primaryColor;
+        const secondaryName = colorNames[secondaryColor] || secondaryColor;
+        previewText.textContent = `${primaryName}+${secondaryName}`;
+      } else {
+        previewText.textContent = colorNames[primaryColor] || primaryColor;
+      }
     }
 
     function setColorMode(mode) {
-        if (!existingColorsSection || !newColorsSection) return;
-        const existingRadio = document.getElementById('existing_colors');
-        const newRadio = document.getElementById('new_colors');
-        if (mode === 'existing') {
-            existingColorsSection.style.display = 'block';
-            newColorsSection.style.display = 'none';
-            if (existingRadio) existingRadio.checked = true;
-        } else {
-            existingColorsSection.style.display = 'none';
-            newColorsSection.style.display = 'block';
-            if (newRadio) newRadio.checked = true;
-        }
+      if (!existingColorsSection || !newColorsSection) return;
+      const existingRadio = document.getElementById('existing_colors');
+      const newRadio = document.getElementById('new_colors');
+      if (mode === 'existing') {
+        existingColorsSection.style.display = 'block';
+        newColorsSection.style.display = 'none';
+        if (existingRadio) existingRadio.checked = true;
+      } else {
+        existingColorsSection.style.display = 'none';
+        newColorsSection.style.display = 'block';
+        if (newRadio) newRadio.checked = true;
+      }
     }
 
     function loadExistingColors() {
-        if (!existingColorSelect) return;
-        fetch('/api/colors/')
-            .then(resp => resp.json())
-            .then(colors => {
-                existingColorSelect.innerHTML = '<option value="">Оберіть колір...</option>';
-                colors.forEach(color => {
-                    const option = document.createElement('option');
-                    option.value = color.id;
-                    option.textContent = color.name;
-                    option.dataset.primary = color.primary_hex;
-                    option.dataset.secondary = color.secondary_hex || '';
-                    existingColorSelect.appendChild(option);
-                });
-            })
-            .catch(() => {
-                const fallback = [
-                    { id: 1, name: 'Чорний', primary_hex: '#000000', secondary_hex: '' },
-                    { id: 2, name: 'Білий', primary_hex: '#FFFFFF', secondary_hex: '' },
-                    { id: 3, name: 'Червоний', primary_hex: '#FF0000', secondary_hex: '' },
-                ];
-                existingColorSelect.innerHTML = '<option value="">Оберіть колір...</option>';
-                fallback.forEach(color => {
-                    const option = document.createElement('option');
-                    option.value = color.id;
-                    option.textContent = color.name;
-                    option.dataset.primary = color.primary_hex;
-                    option.dataset.secondary = color.secondary_hex || '';
-                    existingColorSelect.appendChild(option);
-                });
-            });
+      if (!existingColorSelect) return;
+      fetch('/api/colors/')
+        .then(resp => resp.json())
+        .then(colors => {
+          existingColorSelect.innerHTML = '<option value="">Оберіть колір...</option>';
+          colors.forEach(color => {
+            const option = document.createElement('option');
+            option.value = color.id;
+            option.textContent = color.name;
+            option.dataset.primary = color.primary_hex;
+            option.dataset.secondary = color.secondary_hex || '';
+            existingColorSelect.appendChild(option);
+          });
+        })
+        .catch(() => {
+          const fallback = [
+            { id: 1, name: 'Чорний', primary_hex: '#000000', secondary_hex: '' },
+            { id: 2, name: 'Білий', primary_hex: '#FFFFFF', secondary_hex: '' },
+            { id: 3, name: 'Червоний', primary_hex: '#FF0000', secondary_hex: '' },
+          ];
+          existingColorSelect.innerHTML = '<option value="">Оберіть колір...</option>';
+          fallback.forEach(color => {
+            const option = document.createElement('option');
+            option.value = color.id;
+            option.textContent = color.name;
+            option.dataset.primary = color.primary_hex;
+            option.dataset.secondary = color.secondary_hex || '';
+            existingColorSelect.appendChild(option);
+          });
+        });
     }
     loadExistingColors();
 
     function renderImageGrid() {
-        if (!imagePreviewGrid || !imagePreviewContainer) return;
-        imagePreviewGrid.innerHTML = '';
-        const items = [];
-        colorState.images
-            .filter(img => !colorState.deleted.has(img.id))
-            .sort((a, b) => (a.order || 0) - (b.order || 0))
-            .forEach(img => items.push({ type: 'existing', id: img.id, url: img.url || '' }));
-        colorState.newImages.forEach(img => items.push({ type: 'new', key: img.key, url: img.preview }));
+      if (!imagePreviewGrid || !imagePreviewContainer) return;
+      imagePreviewGrid.innerHTML = '';
+      const items = [];
+      colorState.images
+        .filter(img => !colorState.deleted.has(img.id))
+        .sort((a, b) => (a.order || 0) - (b.order || 0))
+        .forEach(img => items.push({ type: 'existing', id: img.id, url: img.url || '' }));
+      colorState.newImages.forEach(img => items.push({ type: 'new', key: img.key, url: img.preview }));
 
-        if (!items.length) {
-            imagePreviewContainer.style.display = 'none';
-            return;
+      if (!items.length) {
+        imagePreviewContainer.style.display = 'none';
+        return;
+      }
+      imagePreviewContainer.style.display = '';
+
+      items.forEach((item, idx) => {
+        const card = document.createElement('div');
+        card.className = 'image-preview-item position-relative border border-light border-opacity-25 rounded';
+        card.setAttribute('draggable', 'true');
+        card.dataset.imageCard = '1';
+        card.style.width = '110px';
+        card.style.height = '110px';
+        card.style.overflow = 'hidden';
+        if (item.type === 'existing') {
+          card.dataset.imageType = 'existing';
+          card.dataset.imageId = item.id;
+        } else {
+          card.dataset.imageType = 'new';
+          card.dataset.newKey = item.key;
         }
-        imagePreviewContainer.style.display = '';
-
-        items.forEach((item, idx) => {
-            const card = document.createElement('div');
-            card.className = 'image-preview-item position-relative border border-light border-opacity-25 rounded';
-            card.setAttribute('draggable', 'true');
-            card.dataset.imageCard = '1';
-            card.style.width = '110px';
-            card.style.height = '110px';
-            card.style.overflow = 'hidden';
-            if (item.type === 'existing') {
-                card.dataset.imageType = 'existing';
-                card.dataset.imageId = item.id;
-            } else {
-                card.dataset.imageType = 'new';
-                card.dataset.newKey = item.key;
-            }
-            card.innerHTML = `
+        card.innerHTML = `
                 <img src="${item.url}" alt="preview" style="width:100%;height:100%;object-fit:cover;">
                 <div class="image-number">${idx + 1}</div>
                 <button type="button" class="remove-image" data-action="remove-image"><i class="fas fa-times"></i></button>
                 <span class="drag-hint"><i class="fas fa-grip-vertical"></i></span>
             `;
-            imagePreviewGrid.appendChild(card);
-        });
-        bindImageDnD();
+        imagePreviewGrid.appendChild(card);
+      });
+      bindImageDnD();
     }
 
     function bindImageDnD() {
-        if (!imagePreviewGrid) return;
-        let dragged = null;
-        imagePreviewGrid.querySelectorAll('[data-image-card]').forEach(card => {
-            card.addEventListener('dragstart', evt => {
-                dragged = card;
-                card.classList.add('dragging');
-                evt.dataTransfer.effectAllowed = 'move';
-            });
+      if (!imagePreviewGrid) return;
+      let dragged = null;
+      imagePreviewGrid.querySelectorAll('[data-image-card]').forEach(card => {
+        card.addEventListener('dragstart', evt => {
+          dragged = card;
+          card.classList.add('dragging');
+          evt.dataTransfer.effectAllowed = 'move';
         });
-        imagePreviewGrid.addEventListener('dragover', evt => {
-            if (!dragged) return;
-            evt.preventDefault();
-            const target = evt.target.closest('[data-image-card]');
-            if (!target || target === dragged) return;
-            const bounds = target.getBoundingClientRect();
-            const after = (evt.clientY - bounds.top) > bounds.height / 2;
-            imagePreviewGrid.insertBefore(dragged, after ? target.nextSibling : target);
-        });
-        const finalize = () => {
-            if (!dragged) return;
-            dragged.classList.remove('dragging');
-            dragged = null;
-            reorderNumbers();
-        };
-        imagePreviewGrid.addEventListener('drop', evt => { evt.preventDefault(); finalize(); });
-        imagePreviewGrid.addEventListener('dragend', finalize);
+      });
+      imagePreviewGrid.addEventListener('dragover', evt => {
+        if (!dragged) return;
+        evt.preventDefault();
+        const target = evt.target.closest('[data-image-card]');
+        if (!target || target === dragged) return;
+        const bounds = target.getBoundingClientRect();
+        const after = (evt.clientY - bounds.top) > bounds.height / 2;
+        imagePreviewGrid.insertBefore(dragged, after ? target.nextSibling : target);
+      });
+      const finalize = () => {
+        if (!dragged) return;
+        dragged.classList.remove('dragging');
+        dragged = null;
         reorderNumbers();
+      };
+      imagePreviewGrid.addEventListener('drop', evt => { evt.preventDefault(); finalize(); });
+      imagePreviewGrid.addEventListener('dragend', finalize);
+      reorderNumbers();
     }
 
     function reorderNumbers() {
-        if (!imagePreviewGrid) return;
-        imagePreviewGrid.querySelectorAll('.image-number').forEach((num, idx) => num.textContent = idx + 1);
+      if (!imagePreviewGrid) return;
+      imagePreviewGrid.querySelectorAll('.image-number').forEach((num, idx) => num.textContent = idx + 1);
     }
 
     if (imagePreviewGrid) {
-        imagePreviewGrid.addEventListener('click', evt => {
-            const removeBtn = evt.target.closest('[data-action="remove-image"]');
-            if (!removeBtn) return;
-            const card = removeBtn.closest('[data-image-card]');
-            if (!card) return;
-            if (card.dataset.imageType === 'existing' && card.dataset.imageId) {
-                colorState.deleted.add(Number(card.dataset.imageId));
-            } else if (card.dataset.imageType === 'new' && card.dataset.newKey) {
-                colorState.newImages = colorState.newImages.filter(img => img.key !== card.dataset.newKey);
-            }
-            card.remove();
-            reorderNumbers();
-            if (!imagePreviewGrid.querySelector('[data-image-card]')) {
-                imagePreviewContainer.style.display = 'none';
-            }
-        });
+      imagePreviewGrid.addEventListener('click', evt => {
+        const removeBtn = evt.target.closest('[data-action="remove-image"]');
+        if (!removeBtn) return;
+        const card = removeBtn.closest('[data-image-card]');
+        if (!card) return;
+        if (card.dataset.imageType === 'existing' && card.dataset.imageId) {
+          colorState.deleted.add(Number(card.dataset.imageId));
+        } else if (card.dataset.imageType === 'new' && card.dataset.newKey) {
+          colorState.newImages = colorState.newImages.filter(img => img.key !== card.dataset.newKey);
+        }
+        card.remove();
+        reorderNumbers();
+        if (!imagePreviewGrid.querySelector('[data-image-card]')) {
+          imagePreviewContainer.style.display = 'none';
+        }
+      });
     }
 
     if (colorImageInput) {
-        colorImageInput.addEventListener('change', function () {
-            const files = Array.from(colorImageInput.files || []);
-            files.forEach(file => {
-                const key = `new-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-                const preview = URL.createObjectURL(file);
-                colorState.newImages.push({ key, file, preview });
-            });
-            colorImageInput.value = '';
-            renderImageGrid();
+      colorImageInput.addEventListener('change', function () {
+        const files = Array.from(colorImageInput.files || []);
+        files.forEach(file => {
+          const key = `new-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+          const preview = URL.createObjectURL(file);
+          colorState.newImages.push({ key, file, preview });
         });
+        colorImageInput.value = '';
+        renderImageGrid();
+      });
     }
 
     function resetColorFormForNew() {
-        colorState.variantId = null;
-        colorState.images = [];
-        colorState.newImages = [];
-        colorState.deleted = new Set();
-        if (colorVariantIdInput) colorVariantIdInput.value = '';
-        if (colorSubmitBtn) {
-            colorSubmitBtn.innerHTML = '<i class="fas fa-plus me-1"></i>Додати колір';
-        }
-        if (colorImageInput) colorImageInput.value = '';
-        if (deleteIdsInput) deleteIdsInput.value = '';
-        if (setAsMainToggle) setAsMainToggle.checked = false;
-        if (colorNameInput) colorNameInput.value = '';
-        primaryHexInput.value = primaryHex.value = '#000000';
-        secondaryHexInput.value = secondaryHex.value = '';
-        colorTypeOptions.forEach(opt => opt.classList.remove('active'));
-        const single = document.querySelector('.color-type-option[data-type="single"]');
-        if (single) single.classList.add('active');
-        setColorMode('existing');
-        renderImageGrid();
-        updatePreview();
+      colorState.variantId = null;
+      colorState.images = [];
+      colorState.newImages = [];
+      colorState.deleted = new Set();
+      if (colorVariantIdInput) colorVariantIdInput.value = '';
+      if (colorSubmitBtn) {
+        colorSubmitBtn.innerHTML = '<i class="fas fa-plus me-1"></i>Додати колір';
+      }
+      if (colorImageInput) colorImageInput.value = '';
+      if (deleteIdsInput) deleteIdsInput.value = '';
+      if (setAsMainToggle) setAsMainToggle.checked = false;
+      if (colorNameInput) colorNameInput.value = '';
+      primaryHexInput.value = primaryHex.value = '#000000';
+      secondaryHexInput.value = secondaryHex.value = '';
+      colorTypeOptions.forEach(opt => opt.classList.remove('active'));
+      const single = document.querySelector('.color-type-option[data-type="single"]');
+      if (single) single.classList.add('active');
+      setColorMode('existing');
+      renderImageGrid();
+      updatePreview();
     }
 
     function hydrateFromVariant(variantId) {
-        const variant = colorVariantsData.find(v => Number(v.id) === Number(variantId));
-        if (!variant) return;
-        colorState.variantId = variant.id;
-        colorState.images = Array.isArray(variant.images) ? variant.images.slice() : [];
-        colorState.newImages = [];
-        colorState.deleted = new Set();
-        if (colorVariantIdInput) colorVariantIdInput.value = variant.id;
-        if (colorSubmitBtn) {
-            colorSubmitBtn.innerHTML = '<i class="fas fa-save me-1"></i>Зберегти зміни';
-        }
-        if (setAsMainToggle) setAsMainToggle.checked = false;
-        if (colorNameInput) colorNameInput.value = variant.name || '';
-        primaryHexInput.value = primaryHex.value = variant.primary_hex || '#000000';
-        secondaryHexInput.value = secondaryHex.value = variant.secondary_hex || '';
-        colorTypeOptions.forEach(opt => opt.classList.remove('active'));
-        const type = variant.secondary_hex ? 'combined' : 'single';
-        const activeBtn = document.querySelector(`.color-type-option[data-type="${type}"]`);
-        if (activeBtn) activeBtn.classList.add('active');
-        if (secondaryColorSection) {
-            secondaryColorSection.style.display = variant.secondary_hex ? 'block' : 'none';
-        }
-        setColorMode('new');
-        renderImageGrid();
-        updatePreview();
+      const variant = colorVariantsData.find(v => Number(v.id) === Number(variantId));
+      if (!variant) return;
+      colorState.variantId = variant.id;
+      colorState.images = Array.isArray(variant.images) ? variant.images.slice() : [];
+      colorState.newImages = [];
+      colorState.deleted = new Set();
+      if (colorVariantIdInput) colorVariantIdInput.value = variant.id;
+      if (colorSubmitBtn) {
+        colorSubmitBtn.innerHTML = '<i class="fas fa-save me-1"></i>Зберегти зміни';
+      }
+      if (setAsMainToggle) setAsMainToggle.checked = false;
+      if (colorNameInput) colorNameInput.value = variant.name || '';
+      primaryHexInput.value = primaryHex.value = variant.primary_hex || '#000000';
+      secondaryHexInput.value = secondaryHex.value = variant.secondary_hex || '';
+      colorTypeOptions.forEach(opt => opt.classList.remove('active'));
+      const type = variant.secondary_hex ? 'combined' : 'single';
+      const activeBtn = document.querySelector(`.color-type-option[data-type="${type}"]`);
+      if (activeBtn) activeBtn.classList.add('active');
+      if (secondaryColorSection) {
+        secondaryColorSection.style.display = variant.secondary_hex ? 'block' : 'none';
+      }
+      setColorMode('new');
+      renderImageGrid();
+      updatePreview();
     }
 
     document.querySelectorAll('[data-bs-target="#addColorModal"]').forEach(btn => {
-        btn.addEventListener('click', () => resetColorFormForNew());
+      btn.addEventListener('click', () => resetColorFormForNew());
     });
 
     document.querySelectorAll('[data-action="edit-color"]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const id = Number(btn.dataset.variantId);
-            hydrateFromVariant(id);
-            if (colorModal) colorModal.show();
-        });
+      btn.addEventListener('click', () => {
+        const id = Number(btn.dataset.variantId);
+        hydrateFromVariant(id);
+        if (colorModal) colorModal.show();
+      });
     });
 
     document.querySelectorAll('input[name="color_mode"]').forEach(radio => {
-        radio.addEventListener('change', function() {
-            setColorMode(this.value);
-        });
+      radio.addEventListener('change', function () {
+        setColorMode(this.value);
+      });
     });
 
     if (existingColorSelect) {
-        existingColorSelect.addEventListener('change', function() {
-            const opt = this.options[this.selectedIndex];
-            if (!opt || !opt.value) return;
-            primaryHex.value = primaryHexInput.value = opt.dataset.primary || '#000000';
-            secondaryHex.value = secondaryHexInput.value = opt.dataset.secondary || '';
-            if (colorNameInput) colorNameInput.value = opt.textContent || '';
-            if (opt.dataset.secondary) {
-                if (secondaryColorSection) secondaryColorSection.style.display = 'block';
-                colorTypeOptions.forEach(optBtn => optBtn.classList.remove('active'));
-                const combinedBtn = document.querySelector('.color-type-option[data-type="combined"]');
-                if (combinedBtn) combinedBtn.classList.add('active');
-            } else {
-                if (secondaryColorSection) secondaryColorSection.style.display = 'none';
-                colorTypeOptions.forEach(optBtn => optBtn.classList.remove('active'));
-                const singleBtn = document.querySelector('.color-type-option[data-type="single"]');
-                if (singleBtn) singleBtn.classList.add('active');
-            }
-            updatePreview();
-        });
+      existingColorSelect.addEventListener('change', function () {
+        const opt = this.options[this.selectedIndex];
+        if (!opt || !opt.value) return;
+        primaryHex.value = primaryHexInput.value = opt.dataset.primary || '#000000';
+        secondaryHex.value = secondaryHexInput.value = opt.dataset.secondary || '';
+        if (colorNameInput) colorNameInput.value = opt.textContent || '';
+        if (opt.dataset.secondary) {
+          if (secondaryColorSection) secondaryColorSection.style.display = 'block';
+          colorTypeOptions.forEach(optBtn => optBtn.classList.remove('active'));
+          const combinedBtn = document.querySelector('.color-type-option[data-type="combined"]');
+          if (combinedBtn) combinedBtn.classList.add('active');
+        } else {
+          if (secondaryColorSection) secondaryColorSection.style.display = 'none';
+          colorTypeOptions.forEach(optBtn => optBtn.classList.remove('active'));
+          const singleBtn = document.querySelector('.color-type-option[data-type="single"]');
+          if (singleBtn) singleBtn.classList.add('active');
+        }
+        updatePreview();
+      });
     }
 
     [primaryColorPicker, secondaryColorPicker, primaryHexInput, secondaryHexInput].forEach(input => {
-        if (!input) return;
-        input.addEventListener('input', updatePreview);
+      if (!input) return;
+      input.addEventListener('input', updatePreview);
     });
     colorTypeOptions.forEach(option => {
-        option.addEventListener('click', function() {
-            colorTypeOptions.forEach(opt => opt.classList.remove('active'));
-            this.classList.add('active');
-            if (secondaryColorSection) {
-                if (this.dataset.type === 'combined') {
-                    secondaryColorSection.style.display = 'block';
-                } else {
-                    secondaryColorSection.style.display = 'none';
-                    secondaryHex.value = '';
-                    secondaryHexInput.value = '';
-                }
-            }
-            updatePreview();
-        });
+      option.addEventListener('click', function () {
+        colorTypeOptions.forEach(opt => opt.classList.remove('active'));
+        this.classList.add('active');
+        if (secondaryColorSection) {
+          if (this.dataset.type === 'combined') {
+            secondaryColorSection.style.display = 'block';
+          } else {
+            secondaryColorSection.style.display = 'none';
+            secondaryHex.value = '';
+            secondaryHexInput.value = '';
+          }
+        }
+        updatePreview();
+      });
     });
     updatePreview();
 
     if (colorForm) {
-        colorForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const submitBtn = colorForm.querySelector('button[type="submit"]');
-            const originalText = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Зберігаємо...';
-            submitBtn.disabled = true;
+      colorForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        const submitBtn = colorForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Зберігаємо...';
+        submitBtn.disabled = true;
 
-            const formData = new FormData();
-            formData.append('form_type', 'color');
-            formData.append('color_name', colorNameInput ? colorNameInput.value : '');
-            formData.append('primary_hex', primaryHex ? primaryHex.value : '');
-            formData.append('secondary_hex', secondaryHex ? secondaryHex.value : '');
-            if (colorVariantIdInput && colorVariantIdInput.value) {
-                formData.append('variant_id', colorVariantIdInput.value);
-            }
-            if (setAsMainToggle) {
-                formData.append('set_as_main', setAsMainToggle.checked ? '1' : '0');
-            }
+        const formData = new FormData();
+        formData.append('form_type', 'color');
+        formData.append('color_name', colorNameInput ? colorNameInput.value : '');
+        formData.append('primary_hex', primaryHex ? primaryHex.value : '');
+        formData.append('secondary_hex', secondaryHex ? secondaryHex.value : '');
+        if (colorVariantIdInput && colorVariantIdInput.value) {
+          formData.append('variant_id', colorVariantIdInput.value);
+        }
+        if (setAsMainToggle) {
+          formData.append('set_as_main', setAsMainToggle.checked ? '1' : '0');
+        }
 
-            const orderPayload = [];
-            if (imagePreviewGrid) {
-                imagePreviewGrid.querySelectorAll('[data-image-card]').forEach(card => {
-                    const type = card.dataset.imageType;
-                    if (type === 'existing' && card.dataset.imageId) {
-                        orderPayload.push({ kind: 'existing', id: Number(card.dataset.imageId) });
-                    } else if (type === 'new' && card.dataset.newKey) {
-                        orderPayload.push({ kind: 'new', key: card.dataset.newKey });
-                    }
-                });
+        const orderPayload = [];
+        if (imagePreviewGrid) {
+          imagePreviewGrid.querySelectorAll('[data-image-card]').forEach(card => {
+            const type = card.dataset.imageType;
+            if (type === 'existing' && card.dataset.imageId) {
+              orderPayload.push({ kind: 'existing', id: Number(card.dataset.imageId) });
+            } else if (type === 'new' && card.dataset.newKey) {
+              orderPayload.push({ kind: 'new', key: card.dataset.newKey });
             }
-            if (orderPayload.length) {
-                formData.append('image_order_payload', JSON.stringify(orderPayload));
-            }
+          });
+        }
+        if (orderPayload.length) {
+          formData.append('image_order_payload', JSON.stringify(orderPayload));
+        }
 
-            if (colorState.deleted.size) {
-                formData.append('delete_image_ids', Array.from(colorState.deleted).join(','));
-            }
+        if (colorState.deleted.size) {
+          formData.append('delete_image_ids', Array.from(colorState.deleted).join(','));
+        }
 
-            colorState.newImages.forEach(img => {
-                formData.append(`file-${img.key}`, img.file);
-            });
-
-            fetch(colorForm.action || window.location.href, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRFToken': csrfToken
-                }
-            }).then(resp => {
-                const type = resp.headers.get('content-type');
-                if (type && type.includes('application/json')) {
-                    return resp.json();
-                }
-                return { success: resp.ok, message: resp.ok ? 'Колір успішно збережено!' : 'Помилка збереження' };
-            }).then(data => {
-                if (data.success) {
-                    submitBtn.innerHTML = '<i class="fas fa-check me-1"></i>Збережено!';
-                    submitBtn.classList.remove('btn-cta');
-                    submitBtn.classList.add('btn-success');
-                    setTimeout(() => window.location.reload(), 1200);
-                } else {
-                    submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Помилка!';
-                    submitBtn.classList.remove('btn-cta');
-                    submitBtn.classList.add('btn-danger');
-                    setTimeout(() => {
-                        submitBtn.innerHTML = originalText;
-                        submitBtn.classList.remove('btn-danger');
-                        submitBtn.classList.add('btn-cta');
-                        submitBtn.disabled = false;
-                    }, 1600);
-                }
-            }).catch(err => {
-                console.error(err);
-                submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Помилка!';
-                submitBtn.classList.remove('btn-cta');
-                submitBtn.classList.add('btn-danger');
-                setTimeout(() => {
-                    submitBtn.innerHTML = originalText;
-                    submitBtn.classList.remove('btn-danger');
-                    submitBtn.classList.add('btn-cta');
-                    submitBtn.disabled = false;
-                }, 1600);
-            });
+        colorState.newImages.forEach(img => {
+          formData.append(`file-${img.key}`, img.file);
         });
+
+        fetch(colorForm.action || window.location.href, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'X-CSRFToken': csrfToken
+          }
+        }).then(resp => {
+          const type = resp.headers.get('content-type');
+          if (type && type.includes('application/json')) {
+            return resp.json();
+          }
+          return { success: resp.ok, message: resp.ok ? 'Колір успішно збережено!' : 'Помилка збереження' };
+        }).then(data => {
+          if (data.success) {
+            submitBtn.innerHTML = '<i class="fas fa-check me-1"></i>Збережено!';
+            submitBtn.classList.remove('btn-cta');
+            submitBtn.classList.add('btn-success');
+            setTimeout(() => window.location.reload(), 1200);
+          } else {
+            submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Помилка!';
+            submitBtn.classList.remove('btn-cta');
+            submitBtn.classList.add('btn-danger');
+            setTimeout(() => {
+              submitBtn.innerHTML = originalText;
+              submitBtn.classList.remove('btn-danger');
+              submitBtn.classList.add('btn-cta');
+              submitBtn.disabled = false;
+            }, 1600);
+          }
+        }).catch(err => {
+          console.error(err);
+          submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Помилка!';
+          submitBtn.classList.remove('btn-cta');
+          submitBtn.classList.add('btn-danger');
+          setTimeout(() => {
+            submitBtn.innerHTML = originalText;
+            submitBtn.classList.remove('btn-danger');
+            submitBtn.classList.add('btn-cta');
+            submitBtn.disabled = false;
+          }, 1600);
+        });
+      });
     }
 
     // === Галерея товара (доп. изображения) ===
     const imageForm = document.getElementById('image-form');
     if (imageForm) {
-        imageForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const submitBtn = imageForm.querySelector('button[type="submit"]');
-            const originalText = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Додаємо...';
-            submitBtn.disabled = true;
+      imageForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        const submitBtn = imageForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Додаємо...';
+        submitBtn.disabled = true;
 
-            fetch(imageForm.action || window.location.href, {
-                method: 'POST',
-                body: new FormData(imageForm),
-                headers: { 'X-CSRFToken': csrfToken }
-            }).then(resp => {
-                const type = resp.headers.get('content-type');
-                if (type && type.includes('application/json')) return resp.json();
-                return { success: resp.ok };
-            }).then(data => {
-                if (data.success) {
-                    submitBtn.innerHTML = '<i class="fas fa-check me-1"></i>Додано!';
-                    submitBtn.classList.remove('btn-cta');
-                    submitBtn.classList.add('btn-success');
-                    setTimeout(() => window.location.reload(), 1000);
-                } else {
-                    submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Помилка!';
-                    submitBtn.classList.remove('btn-cta');
-                    submitBtn.classList.add('btn-danger');
-                    setTimeout(() => {
-                        submitBtn.innerHTML = originalText;
-                        submitBtn.classList.remove('btn-danger');
-                        submitBtn.classList.add('btn-cta');
-                        submitBtn.disabled = false;
-                    }, 1400);
-                }
-            }).catch(() => {
-                submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Помилка!';
-                submitBtn.classList.remove('btn-cta');
-                submitBtn.classList.add('btn-danger');
-                setTimeout(() => {
-                    submitBtn.innerHTML = originalText;
-                    submitBtn.classList.remove('btn-danger');
-                    submitBtn.classList.add('btn-cta');
-                    submitBtn.disabled = false;
-                }, 1400);
-            });
+        fetch(imageForm.action || window.location.href, {
+          method: 'POST',
+          body: new FormData(imageForm),
+          headers: { 'X-CSRFToken': csrfToken }
+        }).then(resp => {
+          const type = resp.headers.get('content-type');
+          if (type && type.includes('application/json')) return resp.json();
+          return { success: resp.ok };
+        }).then(data => {
+          if (data.success) {
+            submitBtn.innerHTML = '<i class="fas fa-check me-1"></i>Додано!';
+            submitBtn.classList.remove('btn-cta');
+            submitBtn.classList.add('btn-success');
+            setTimeout(() => window.location.reload(), 1000);
+          } else {
+            submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Помилка!';
+            submitBtn.classList.remove('btn-cta');
+            submitBtn.classList.add('btn-danger');
+            setTimeout(() => {
+              submitBtn.innerHTML = originalText;
+              submitBtn.classList.remove('btn-danger');
+              submitBtn.classList.add('btn-cta');
+              submitBtn.disabled = false;
+            }, 1400);
+          }
+        }).catch(() => {
+          submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Помилка!';
+          submitBtn.classList.remove('btn-cta');
+          submitBtn.classList.add('btn-danger');
+          setTimeout(() => {
+            submitBtn.innerHTML = originalText;
+            submitBtn.classList.remove('btn-danger');
+            submitBtn.classList.add('btn-cta');
+            submitBtn.disabled = false;
+          }, 1400);
         });
+      });
     }
 
     const productGallery = document.querySelector('[data-product-gallery]');
     if (productGallery) {
-        let dragged = null;
-        const reorder = () => {
-            const ids = Array.from(productGallery.querySelectorAll('[data-product-image-id]')).map(el => el.dataset.productImageId);
-            fetch(window.location.href, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': csrfToken,
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: new URLSearchParams({
-                    form_type: 'reorder_product_images',
-                    order_payload: JSON.stringify(ids.map(Number))
-                })
-            }).catch(err => console.error('Reorder failed', err));
-        };
+      let dragged = null;
+      const reorder = () => {
+        const ids = Array.from(productGallery.querySelectorAll('[data-product-image-id]')).map(el => el.dataset.productImageId);
+        fetch(window.location.href, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: new URLSearchParams({
+            form_type: 'reorder_product_images',
+            order_payload: JSON.stringify(ids.map(Number))
+          })
+        }).catch(err => console.error('Reorder failed', err));
+      };
 
-        productGallery.addEventListener('dragstart', evt => {
-            const card = evt.target.closest('[data-product-image-id]');
-            if (!card) return;
-            dragged = card;
-            card.classList.add('dragging');
-            evt.dataTransfer.effectAllowed = 'move';
-        });
+      productGallery.addEventListener('dragstart', evt => {
+        const card = evt.target.closest('[data-product-image-id]');
+        if (!card) return;
+        dragged = card;
+        card.classList.add('dragging');
+        evt.dataTransfer.effectAllowed = 'move';
+      });
 
-        productGallery.addEventListener('dragover', evt => {
-            if (!dragged) return;
-            evt.preventDefault();
-            const target = evt.target.closest('[data-product-image-id]');
-            if (!target || target === dragged) return;
-            const bounds = target.getBoundingClientRect();
-            const after = (evt.clientY - bounds.top) > bounds.height / 2;
-            productGallery.insertBefore(dragged, after ? target.nextSibling : target);
-        });
+      productGallery.addEventListener('dragover', evt => {
+        if (!dragged) return;
+        evt.preventDefault();
+        const target = evt.target.closest('[data-product-image-id]');
+        if (!target || target === dragged) return;
+        const bounds = target.getBoundingClientRect();
+        const after = (evt.clientY - bounds.top) > bounds.height / 2;
+        productGallery.insertBefore(dragged, after ? target.nextSibling : target);
+      });
 
-        const endDrag = () => {
-            if (!dragged) return;
-            dragged.classList.remove('dragging');
-            dragged = null;
-            reorder();
-        };
+      const endDrag = () => {
+        if (!dragged) return;
+        dragged.classList.remove('dragging');
+        dragged = null;
+        reorder();
+      };
 
-        productGallery.addEventListener('drop', evt => { evt.preventDefault(); endDrag(); });
-        productGallery.addEventListener('dragend', endDrag);
+      productGallery.addEventListener('drop', evt => { evt.preventDefault(); endDrag(); });
+      productGallery.addEventListener('dragend', endDrag);
     }
-});
+  });
 </script>
 
 {% endblock %}
