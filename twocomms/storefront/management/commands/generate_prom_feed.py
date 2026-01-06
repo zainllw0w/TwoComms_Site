@@ -184,8 +184,8 @@ class Command(BaseCommand):
                         offer_id_suffix = f"-{var['variant_id']}" if var['variant_id'] else "-0"
                         offer_id = f"{product.id}{offer_id_suffix}-{size}"
                         
-                        # Availability Logic
-                        is_available = "true" if var.get('stock', 0) > 0 else "false"
+                        # Availability Logic - FORCED TRUE
+                        is_available = "true"
 
                         f.write(f'    <offer id="{escape_xml(offer_id)}" available="{is_available}">\n')
                         
