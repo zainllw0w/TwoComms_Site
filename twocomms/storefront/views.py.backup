@@ -3575,6 +3575,9 @@ def admin_product_edit_unified(request, pk):
         'product_images_payload': _product_images_payload(obj),
     })
 
+from django.views.decorators.cache import never_cache
+
+@never_cache
 def api_colors(request):
     """API endpoint для получения всех цветов"""
     from productcolors.models import Color

@@ -929,7 +929,7 @@
 
     function loadExistingColors() {
       if (!existingColorSelect) return;
-      fetch('/api/colors/')
+      fetch('/api/colors/?_=' + Date.now())
         .then(resp => resp.json())
         .then(colors => {
           existingColorSelect.innerHTML = '<option value="">Оберіть колір...</option>';
