@@ -48,7 +48,7 @@ def admin_print_proposal_award_points(request): return JsonResponse({'status': '
 def admin_print_proposal_award_promocode(request): return JsonResponse({'status': 'ok'})
 
 # ==================== API & DEBUG STUBS ====================
-def api_colors(request): return JsonResponse({'colors': []})
+
 @staff_required
 def debug_media(request): return JsonResponse({'status': 'ok'})
 @staff_required
