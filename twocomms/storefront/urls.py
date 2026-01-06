@@ -144,7 +144,7 @@ urlpatterns=[
     path('payments/monobank/return/', views.monobank_return, name='monobank_return'),
     path('payments/monobank/webhook/', csrf_exempt(views.monobank_webhook), name='monobank_webhook'),
     # API endpoints
-    path('api/colors/', views.api_colors, name='api_colors'),
+    path('api/colors/', _legacy_view('api_colors'), name='api_colors'),
     path('debug/media/', views.debug_media, name='debug_media'),
     path('debug/media-page/', views.debug_media_page, name='debug_media_page'),
     path('debug/product-images/', views.debug_product_images, name='debug_product_images'),
