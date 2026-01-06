@@ -529,4 +529,211 @@ def test_analytics_events(request):
 
 
 
+# ==================== NEW PROM.UA DYNAMIC FEED (v2) ====================
+
+def _material_for_prom_new(product) -> str:
+    """
+    Improved material logic for Prom.ua feed.
+    """
+    lookup_source = " ".join(filter(None, [
+        product.category.name if getattr(product, "category", None) else "",
+        product.title or "",
+        product.slug or ""
+    ])).lower()
+    
+    if any(token in lookup_source for token in ("худі", "hood", "hudi", "hoodie")):
+        return '90% бавовна, 10% поліестер'
+    if any(token in lookup_source for token in ("лонг", "long", "longsleeve", "лонгслів")):
+        return '95% бамбук, 5% еластан'
+    if any(token in lookup_source for token in ("футболк", "tshirt", "t-shirt", "tee")):
+        return '95% бавовна, 5% еластан'
+        
+    return '95% бавовна, 5% еластан'
+
+
+def prom_feed_xml(request):
+    """
+    Dynamic generation of Prom.ua feed (replacing the static file cron job).
+    URL: /prom-feed.xml
+    """
+    logger = logging.getLogger(__name__)
+
+    try:
+        base_url = "https://twocomms.shop" 
+        # Hardcoding base_url to ensure correct links or use build_absolute_uri logic if preferred.
+        # Command used hardcoded. User prompt implies twocomms.shop.
+
+        products_qs = (
+            Product.objects
+            .filter(status='published', is_dropship_available=True)
+            .select_related("category")
+            .prefetch_related(
+                "images",
+                "color_variants__images",
+                "color_variants__color"
+            )
+            .order_by("-id")
+        )
+        products = list(products_qs)
+        
+        # Collect relevant categories
+        categories_ids = {p.category_id for p in products if p.category_id}
+        categories_map = {
+            cat.id: cat for cat in Category.objects.filter(id__in=categories_ids)
+        }
+
+    except Exception as e:
+        logger.error(f"Error fetching products for Prom feed: {e}", exc_info=True)
+        return HttpResponse(f"<error>{str(e)}</error>", status=500, content_type="text/xml")
+
+    # XML Structure
+    catalog = ET.Element("yml_catalog", {"date": timezone.now().strftime("%Y-%m-%d %H:%M")})
+    shop = ET.SubElement(catalog, "shop")
+    ET.SubElement(shop, "name").text = "TwoComms"
+    ET.SubElement(shop, "company").text = "TwoComms"
+    ET.SubElement(shop, "url").text = base_url
+
+    currencies = ET.SubElement(shop, "currencies")
+    ET.SubElement(currencies, "currency", {"id": "UAH", "rate": "1"})
+
+    categories_el = ET.SubElement(shop, "categories")
+    for cat_id in sorted(categories_ids):
+        cat = categories_map.get(cat_id)
+        if cat:
+            ET.SubElement(categories_el, "category", {"id": str(cat_id)}).text = cat.name
+
+    offers_el = ET.SubElement(shop, "offers")
+
+    # Offer Generation Loop
+    for product in products:
+        try:
+            # Logic to mirror Command.handle
+            cat_id = str(product.category.id) if product.category else ""
+            group_id = str(product.id)
+            material_value = _material_for_prom_new(product)
+            
+            # Prepare variants
+            color_variants = list(product.color_variants.all())
+            
+            final_variants = []
+            
+            # --- Variant Preparation Logic ---
+            if not color_variants:
+                # Fallback for no variants
+                # Check is_dropship_available logic from Command
+                stock_val = 100 if product.is_dropship_available else 0
+                fake_variant = {
+                    'color_name': '',
+                    'images': [],
+                    'variant_id': None,
+                    'stock': stock_val
+                }
+                if product.main_image:
+                     fake_variant['images'].append(product.main_image.url)
+                
+                for size in FEED_SIZE_OPTIONS: # Use predefined sizes
+                     final_variants.append({
+                         'color_var': fake_variant,
+                         'size': size
+                     })
+            else:
+                 for cv in color_variants:
+                    c_name = cv.color.name if cv.color and cv.color.name else normalize_feed_color(getattr(cv.color, 'primary_hex', ''))
+                    
+                    cv_images = [img.image.url for img in cv.images.all() if img.image]
+                    var_data = {
+                        'color_name': c_name,
+                        'images': cv_images,
+                        'variant_id': cv.id,
+                        'stock': cv.stock
+                    }
+                    for size in FEED_SIZE_OPTIONS:
+                        final_variants.append({
+                            'color_var': var_data,
+                            'size': size
+                        })
+            
+            # --- Write Offers ---
+            for item in final_variants:
+                var = item['color_var']
+                size = item['size']
+                
+                offer_id_suffix = f"-{var['variant_id']}" if var['variant_id'] else "-0"
+                offer_id = f"{product.id}{offer_id_suffix}-{size}"
+                
+                is_available = "true" if var.get('stock', 0) > 0 else "false"
+
+                offer_el = ET.SubElement(offers_el, "offer", {
+                    "id": offer_id,
+                    "available": is_available
+                })
+
+                # URL
+                product_path = f"/product/{product.slug}/" if product.slug else f"/product/{product.id}/"
+                ET.SubElement(offer_el, "url").text = urljoin(base_url, product_path)
+                
+                # Price Logic
+                selling_price = getattr(product, 'final_price', product.price)
+                old_price = product.price
+                
+                ET.SubElement(offer_el, "price").text = str(selling_price)
+                if selling_price < old_price:
+                     ET.SubElement(offer_el, "oldprice").text = str(old_price)
+                
+                ET.SubElement(offer_el, "currencyId").text = "UAH"
+                ET.SubElement(offer_el, "categoryId").text = cat_id
+                
+                # Pictures
+                imgs = var['images'][:]
+                # Add main image if missing
+                if product.main_image and product.main_image.url not in imgs:
+                     imgs.append(product.main_image.url)
+                # Add other product images
+                for p_img in product.images.all():
+                    if p_img.image and p_img.image.url not in imgs:
+                        imgs.append(p_img.image.url)
+                
+                for img_url in imgs[:10]:
+                    full_img_url = urljoin(base_url, img_url)
+                    ET.SubElement(offer_el, "picture").text = full_img_url
+
+                ET.SubElement(offer_el, "name").text = product.title
+                ET.SubElement(offer_el, "vendor").text = "TwoComms"
+                ET.SubElement(offer_el, "group_id").text = group_id
+                
+                # Description
+                desc = getattr(product, 'full_description', None) or product.description
+                if not desc:
+                     cat_for_desc = product.category.name.lower() if product.category else 'одяг'
+                     desc = f"Якісний {cat_for_desc} з ексклюзивним дизайном від TwoComms"
+                
+                ET.SubElement(offer_el, "description").text = f"<![CDATA[{desc}]]>" 
+                # Note: ElementTree escapes text automatically. For CDATA we might need post-processing or just let it be text? 
+                # Prom accepts standard XML escaping. We will let ET handle escaping unless CDATA is strictly enforced.
+                # If CDATA enforced, we'd need a custom serializer. 
+                # BUT user prompt explicitly used CDATA in the command properly.
+                # In View, ET.text escapes < > &. 
+                # Hack: Just put text. Prom usually handles escaped HTML correctly.
+                # Or, if we really need CDATA, we can't use standard ET.
+                # Standard practice: Just send escaped HTML. 
+                # Let's keep it simple: just text. ET will escape < to &lt; which parsers read fine.
+                offer_el.find("description").text = desc 
+
+                # Params
+                ET.SubElement(offer_el, "param", {"name": "Розмір"}).text = size
+                if var['color_name']:
+                     ET.SubElement(offer_el, "param", {"name": "Колір"}).text = var['color_name']
+                ET.SubElement(offer_el, "param", {"name": "Матеріал"}).text = material_value
+
+        except Exception as e:
+            logger.warning(f"Skipping product {product.id} in prom feed: {e}")
+            continue
+
+    try:
+        ET.indent(catalog, space="  ", level=0)
+        xml_payload = ET.tostring(catalog, encoding="utf-8", xml_declaration=True)
+        return HttpResponse(xml_payload, content_type="application/xml; charset=utf-8")
+    except Exception as e:
+        return HttpResponse(f"<error>{str(e)}</error>", status=500)
+
 

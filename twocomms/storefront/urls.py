@@ -159,8 +159,13 @@ urlpatterns=[
     path('google-merchant-feed.xml', views.google_merchant_feed, name='google_merchant_feed'),
     # alternate no-cache path
     path('google-merchant-feed-v2.xml', views.google_merchant_feed, name='google_merchant_feed_v2'),
-    # UAPROM-style product feed
+    # UAPROM-style product feed (legacy Bezet feed)
     path('products_feed.xml', views.uaprom_products_feed, name='uaprom_products_feed'),
+    # New Dynamic Prom.ua feed
+    path('prom-feed.xml', views.prom_feed_xml, name='prom_feed_xml'),
+    # Try to intercept media path (might be blocked by Nginx, but worth adding for user request)
+    path('media/prom-feed.xml', views.prom_feed_xml, name='prom_feed_xml_legacy_path'),
+    
     path('contacts/', views.contacts, name='contacts'),
     path('search/', views.search, name='search'),
     # Test analytics events page
