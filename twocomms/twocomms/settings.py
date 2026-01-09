@@ -116,6 +116,7 @@ INSTALLED_APPS = [
     "django.contrib.sitemaps",      # Sitemap для SEO
     "django.contrib.redirects",     # Редиректы для SEO
     "compressor",                   # Сжатие статических файлов
+    "mathfilters",                  # Math filters for templates
     # Django REST Framework
     "rest_framework",               # DRF для API
     "drf_spectacular",              # OpenAPI 3 документация
