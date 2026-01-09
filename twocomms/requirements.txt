@@ -31,6 +31,7 @@ rjsmin==1.2.2
 django-redis==5.4.0
 redis==5.2.1
 hiredis==3.0.0
+django-mathfilters==1.0.0
 celery==5.3.6
 
 
