@@ -3614,6 +3614,7 @@
         const colorSelectForImage = document.getElementById('productColor');
         const selectedOption = colorSelectForImage.options[colorSelectForImage.selectedIndex];
         const colorName = selectedOption ? selectedOption.textContent : 'Чорний';
+        const colorHex = selectedOption ? (selectedOption.dataset.colorHex || '#000000') : '#000000';
         const colorImage = selectedOption ? selectedOption.dataset.colorImage : currentProduct.main_image;
 
         // Check if we already have this exact item (same product, size, color)
@@ -3649,6 +3650,7 @@
                 },
                 size: size === 'all' ? 'Всі ростовки (S-XL)' : size,
                 color: colorName,
+                colorHex: colorHex,
                 quantity: quantity,
                 price: price,
                 total: price * quantity
@@ -3670,6 +3672,7 @@
 
     function addOrderItemToUI(orderItem) {
         const orderItemsContainer = document.getElementById('orderItems');
+        const dotColor = orderItem.colorHex || '#000000';
 
         const orderItemElement = document.createElement('div');
         orderItemElement.className = 'order-item';
@@ -3694,7 +3697,7 @@
                 <div class="order-item-specs-row">
                     <div class="order-item-color-section">
                         <span class="order-item-color-text">${orderItem.color}</span>
-                        <span class="order-item-color-dot" data-color="#000000" style="background-color: #000000; width: 8px; height: 8px; border-radius: 50%; display: inline-block; border: 1px solid rgba(255, 255, 255, 0.2);"></span>
+                        <span class="order-item-color-dot" data-color="${dotColor}" style="background-color: ${dotColor}; width: 8px; height: 8px; border-radius: 50%; display: inline-block; border: 1px solid rgba(255, 255, 255, 0.2);"></span>
                     </div>
                     
                     <div class="order-item-size">${orderItem.size}</div>
