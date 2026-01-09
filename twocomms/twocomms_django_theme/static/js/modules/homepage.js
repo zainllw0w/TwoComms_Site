@@ -71,6 +71,27 @@ function animateNewCards(container) {
   });
 }
 
+function revealColorDots(container) {
+  if (!container) return;
+  const cards = container.querySelectorAll('.product-card-wrap');
+  cards.forEach((card) => {
+    if (card.dataset.colorDotsReady === '1') return;
+    const dotsWrap = card.querySelector('.product-card-dots');
+    if (!dotsWrap) return;
+    dotsWrap.classList.add('visible');
+    const dots = dotsWrap.querySelectorAll('.color-dot');
+    dots.forEach((dot, idx) => {
+      if (dot.classList.contains('visible')) return;
+      if (prefersReducedMotion) {
+        dot.classList.add('visible');
+      } else {
+        setTimeout(() => dot.classList.add('visible'), idx * 60);
+      }
+    });
+    card.dataset.colorDotsReady = '1';
+  });
+}
+
 export function initHomepagePagination() {
   const boot = () => {
     const productsContainer = document.getElementById('products-container');
@@ -155,6 +176,7 @@ export function initHomepagePagination() {
               updatePaginationNav(paginationNav, currentPage);
             }
             animateNewCards(productsContainer);
+            revealColorDots(productsContainer);
             setTimeout(() => {
               try {
                 if (window.equalizeCardHeights) {
@@ -193,6 +215,7 @@ export function initHomepagePagination() {
     }
 
     syncSelector();
+    revealColorDots(productsContainer);
   };
 
   if (document.readyState === 'loading') {
