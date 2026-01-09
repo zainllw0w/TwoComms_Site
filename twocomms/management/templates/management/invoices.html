@@ -2772,10 +2772,7 @@
                     <div class="product-card-content">
                         <div class="product-image-container">
                             {% if product.main_image %}
-                            {% optimized_image product.main_image.url product.title "product-image"
-                            width=product.main_image.width|default:1080 height=product.main_image.height|default:1350
-                            loading='lazy' fetchpriority='low' sizes='(max-width: 768px) 45vw, (max-width: 1200px) 30vw,
-                            20vw' %}
+                            {% optimized_image product.main_image.url product.title "product-image" width=product.main_image.width|default:1080 height=product.main_image.height|default:1350 loading='lazy' fetchpriority='low' sizes='(max-width: 768px) 45vw, (max-width: 1200px) 30vw, 20vw' %}
                             {% else %}
                             <div class="product-image"
                                 style="background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #718096;">
@@ -2813,8 +2810,7 @@
                                 <span class="color-more">+{{ product.color_variants.count|add:"-3" }}</span>
                                 {% endif %}
                             </div>
-                            <div class="product-price">Опт: {{ tshirt_prices.wholesale.4 }}₴ - {{
-                                tshirt_prices.wholesale.0 }}₴</div>
+                            <div class="product-price">Опт: {{ tshirt_prices.wholesale.4 }}₴ - {{ tshirt_prices.wholesale.0 }}₴</div>
                         </div>
                     </div>
                 </div>
@@ -2828,10 +2824,7 @@
                     <div class="product-card-content">
                         <div class="product-image-container">
                             {% if product.main_image %}
-                            {% optimized_image product.main_image.url product.title "product-image"
-                            width=product.main_image.width|default:1080 height=product.main_image.height|default:1350
-                            loading='lazy' fetchpriority='low' sizes='(max-width: 768px) 45vw, (max-width: 1200px) 30vw,
-                            20vw' %}
+                            {% optimized_image product.main_image.url product.title "product-image" width=product.main_image.width|default:1080 height=product.main_image.height|default:1350 loading='lazy' fetchpriority='low' sizes='(max-width: 768px) 45vw, (max-width: 1200px) 30vw, 20vw' %}
                             {% else %}
                             <div class="product-image"
                                 style="background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #718096;">
@@ -2854,8 +2847,7 @@
                                     <span class="color-name">Чорний</span>
                                 </span>
                             </div>
-                            <div class="product-price">Опт: {{ hoodie_prices.wholesale.4 }}₴ - {{
-                                hoodie_prices.wholesale.0 }}₴</div>
+                            <div class="product-price">Опт: {{ hoodie_prices.wholesale.4 }}₴ - {{ hoodie_prices.wholesale.0 }}₴</div>
                         </div>
                     </div>
                 </div>
