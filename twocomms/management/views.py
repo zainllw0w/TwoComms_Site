@@ -2534,6 +2534,12 @@ def _ua_number_to_words(value):
     return " ".join([p for p in parts if p])
 
 
+def _replace_placeholders(text, replacements):
+    for key, value in replacements.items():
+        text = text.replace(key, value)
+    return text
+
+
 def _safe_contract_filename(realizer_name, contract_number):
     safe_name = re.sub(r"[\\\\/:*?\"<>|]+", "", realizer_name or "").strip()
     safe_name = re.sub(r"\s+", "_", safe_name) or "Реалізатор"
@@ -2584,9 +2590,11 @@ def _guess_product_type(product):
         title = (product.title or "").lower()
     except Exception:
         title = ""
-    if slug == "hoodie" or "худи" in title or "hoodie" in title or "флис" in title:
+    hoodie_slugs = {"hoodie", "hoodies"}
+    tshirt_slugs = {"tshirts", "tshirt", "t-shirt", "tee"}
+    if slug in hoodie_slugs or "худи" in title or "hoodie" in title or "флис" in title:
         return "hoodie"
-    if "футболка" in title or "t-shirt" in title or "tshirt" in title:
+    if slug in tshirt_slugs or "футболка" in title or "t-shirt" in title or "tshirt" in title:
         return "tshirt"
     return ""
 
@@ -2595,11 +2603,37 @@ def _update_contract_paragraphs(doc, data):
     type_forms = data["type_forms"]
     in_realizer_block = False
     in_delivery_block = False
+    placeholder_map = {
+        "{{contract_number}}": data["contract_number"],
+        "{{contract_date}}": data["contract_date_text"],
+        "{{realizer_name}}": data["realizer_name"],
+        "{{realizer_code}}": data["realizer_code"],
+        "{{realizer_address}}": data["realizer_address"],
+        "{{realizer_iban}}": data["realizer_iban"],
+        "{{realizer_phone}}": data["realizer_phone"],
+        "{{realizer_email}}": data["realizer_email"],
+        "{{delivery_address}}": data["delivery_address"],
+        "{{recipient_name}}": data["recipient_name"],
+        "{{recipient_phone}}": data["recipient_phone"],
+        "{{product_type_single}}": type_forms["single"],
+        "{{product_type_plural}}": type_forms["plural"],
+        "{{product_type_gen}}": type_forms["gen"],
+        "{{product_print}}": data["product_print"],
+        "{{price_str}}": data["price_str"],
+        "{{price_words}}": data["price_words"],
+        "{{total_sum}}": str(data["total_sum"]),
+        "{{product_table_name}}": data["product_table_name"],
+    }
     for paragraph in doc.paragraphs:
         raw_text = paragraph.text or ""
         text = raw_text.strip()
         if not text:
             continue
+        if "{{" in raw_text and "}}" in raw_text:
+            replaced = _replace_placeholders(raw_text, placeholder_map)
+            if replaced != raw_text:
+                paragraph.text = replaced
+                continue
         if text.startswith("№ "):
             paragraph.text = f"№ {data['contract_number']}"
             continue
@@ -2737,9 +2771,20 @@ def contracts(request):
     hoodie_products = []
     tshirt_products = []
     try:
-        products_qs = Product.objects.filter(status='published', is_dropship_available=True).select_related("category")
+        hoodie_slugs = {"hoodie", "hoodies"}
+        tshirt_slugs = {"tshirts", "tshirt", "t-shirt", "tee"}
+        products_qs = Product.objects.filter(
+            status='published',
+            is_dropship_available=True,
+        ).select_related("category")
         for product in products_qs:
             prod_type = _guess_product_type(product)
+            if not prod_type and product.category_id:
+                slug = (product.category.slug or "").lower()
+                if slug in hoodie_slugs:
+                    prod_type = "hoodie"
+                elif slug in tshirt_slugs:
+                    prod_type = "tshirt"
             if not prod_type:
                 continue
             item = {
@@ -2755,6 +2800,17 @@ def contracts(request):
         hoodie_products = []
         tshirt_products = []
 
+    drop_tee_price = DROP_FIXED_TEE_PRICE
+    drop_hoodie_price = DROP_FIXED_HOODIE_PRICE
+    try:
+        settings_obj = CommercialOfferEmailSettings.objects.filter(owner=request.user).first()
+        if settings_obj:
+            drop_tee_price = int(settings_obj.drop_tee_price or drop_tee_price)
+            drop_hoodie_price = int(settings_obj.drop_hoodie_price or drop_hoodie_price)
+    except Exception:
+        drop_tee_price = DROP_FIXED_TEE_PRICE
+        drop_hoodie_price = DROP_FIXED_HOODIE_PRICE
+
     last_contract = ManagementContract.objects.filter(created_by=request.user).first()
     prefill_payload = last_contract.payload if last_contract else {}
 
@@ -2769,8 +2825,8 @@ def contracts(request):
         'preview_paragraphs': preview_paragraphs,
         'hoodie_products': hoodie_products,
         'tshirt_products': tshirt_products,
-        'drop_hoodie_price': int(DROP_FIXED_HOODIE_PRICE),
-        'drop_tee_price': int(DROP_FIXED_TEE_PRICE),
+        'drop_hoodie_price': int(drop_hoodie_price),
+        'drop_tee_price': int(drop_tee_price),
         'contract_date_display': contract_date_display,
         'next_contract_number': next_contract_number,
         'prefill_payload': prefill_payload,
@@ -2847,7 +2903,17 @@ def contracts_generate_api(request):
     if product:
         price = int(product.get_drop_price(None) or 0)
     if not price:
-        price = int(DROP_FIXED_HOODIE_PRICE if product_type == "hoodie" else DROP_FIXED_TEE_PRICE)
+        default_tee = DROP_FIXED_TEE_PRICE
+        default_hoodie = DROP_FIXED_HOODIE_PRICE
+        try:
+            settings_obj = CommercialOfferEmailSettings.objects.filter(owner=request.user).first()
+            if settings_obj:
+                default_tee = int(settings_obj.drop_tee_price or default_tee)
+                default_hoodie = int(settings_obj.drop_hoodie_price or default_hoodie)
+        except Exception:
+            default_tee = DROP_FIXED_TEE_PRICE
+            default_hoodie = DROP_FIXED_HOODIE_PRICE
+        price = int(default_hoodie if product_type == "hoodie" else default_tee)
 
     price_str = _format_price_uah(price)
     price_words = _ua_number_to_words(price)
