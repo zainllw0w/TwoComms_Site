@@ -398,6 +398,15 @@
 </script>
 {% endblock %}
 
+{% block extra_js %}
+  {{ block.super }}
+  <script type="module">
+    import("{% static 'js/modules/survey.js' %}")
+      .then(({ initSurvey }) => initSurvey())
+      .catch(() => {});
+  </script>
+{% endblock %}
+
 {% block modals %}
   {{ block.super }}
   <div
