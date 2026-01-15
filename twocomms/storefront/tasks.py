@@ -1,8 +1,9 @@
 import logging
 import os
 import sys
-from pathlib import Path
 from datetime import timedelta
+from pathlib import Path
+import html
 
 from celery import shared_task
 from django.apps import apps
@@ -29,7 +30,7 @@ from .models import Product, Category
 from .seo_utils import SEOKeywordGenerator, SEOContentOptimizer
 from .models import SurveySession
 from .services.survey_engine import load_survey_definition
-from .services.survey_reports import build_survey_report, resolve_report_path
+from .services.survey_reports import build_survey_report, get_survey_title, resolve_report_path
 from orders.telegram_notifications import telegram_notifier
 
 logger = logging.getLogger(__name__)
@@ -208,16 +209,57 @@ def send_survey_report_task(session_id: int, status: str) -> bool:
         logger.warning("Survey definition missing, report not sent for %s", session_id)
         return False
 
-    report_path = Path(session.report_file_path) if session.report_file_path else resolve_report_path(session)
+    report_path = resolve_report_path(session, definition)
     build_survey_report(session, definition, status, report_path)
 
-    caption = (
-        f"#{status}\\n"
-        f"Survey: {session.survey_key}\\n"
-        f"User: {session.user.username} (ID {session.user_id})\\n"
-        f"Last activity: {timezone.localtime(session.last_activity_at).strftime('%d.%m.%Y %H:%M')}"
+    def fmt_dt(value):
+        if not value:
+            return "—"
+        return timezone.localtime(value).strftime("%d.%m.%Y %H:%M")
+
+    title = html.escape(get_survey_title(definition))
+    username = html.escape(session.user.username or f"user{session.user_id}")
+    email = html.escape(session.user.email or "")
+    status_labels = {
+        "FINAL": "✅ Завершено",
+        "PARTIAL": "⏳ Без активності",
+        "UPDATED": "♻️ Оновлено",
+    }
+    status_text = status_labels.get(status, status)
+    inactivity_minutes = int(
+        (definition.get("policy", {}) or {}).get("inactivity", {}).get("partial_send_after_minutes", 10)
     )
-    sent = telegram_notifier.send_admin_document(str(report_path), caption)
+    if status == "PARTIAL":
+        status_text = f"{status_text} {inactivity_minutes} хв"
+
+    caption_lines = [
+        f"<b>{title}</b>",
+        f"Статус: {status_text}",
+        f"Користувач: {username} (ID {session.user_id})",
+    ]
+    if email:
+        caption_lines.append(f"Email: {email}")
+
+    promo_code = session.awarded_promocode.code if session.awarded_promocode else ""
+    promo_expires = (
+        fmt_dt(session.awarded_promocode.valid_until)
+        if session.awarded_promocode and session.awarded_promocode.valid_until
+        else ""
+    )
+    if status == "FINAL" and promo_code:
+        caption_lines.append(f"Промокод: {promo_code} (до {promo_expires})")
+    elif promo_code:
+        caption_lines.append(f"Промокод: {promo_code}")
+
+    caption_lines.extend([
+        f"Початок: {fmt_dt(session.started_at)}",
+        f"Остання активність: {fmt_dt(session.last_activity_at)}",
+    ])
+    if session.completed_at:
+        caption_lines.append(f"Завершено: {fmt_dt(session.completed_at)}")
+
+    caption = "\n".join(caption_lines)
+    sent = telegram_notifier.send_admin_document(str(report_path), caption, filename=Path(report_path).name)
     if sent:
         session.report_status = status
         session.report_file_path = str(report_path)
