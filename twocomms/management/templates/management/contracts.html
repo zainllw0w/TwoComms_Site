@@ -11,6 +11,8 @@
         display: flex;
         flex-direction: column;
         gap: 18px;
+        min-height: 100%;
+        padding: 0 0 56px;
     }
 
     .contracts-header {
@@ -43,6 +45,8 @@
         grid-template-columns: minmax(320px, 0.9fr) minmax(360px, 1.1fr);
         gap: 18px;
         min-height: 0;
+        flex: 1;
+        height: clamp(560px, 72vh, 900px);
     }
 
     .contract-form-card,
@@ -56,6 +60,10 @@
         flex-direction: column;
         gap: 16px;
         min-height: 0;
+    }
+
+    .contract-form-card {
+        overflow: auto;
     }
 
     .contract-section {
@@ -161,6 +169,7 @@
     @media (max-width: 1100px) {
         .contract-layout {
             grid-template-columns: 1fr;
+            height: auto;
         }
         .preview-body {
             min-height: 420px;
@@ -400,7 +409,6 @@
 
         const buildPayload = () => {
             const selected = getSelectedProduct();
-            const price = computePrice();
             const quantities = {};
             ['S', 'M', 'L', 'XL'].forEach((size) => {
                 const field = qtyFields[size];
@@ -408,7 +416,17 @@
                 if (Number.isNaN(qty) || qty < 0) qty = 0;
                 quantities[size] = qty;
             });
-            const title = productTitle.value.trim() || selected?.title || `${getProductTypeForms().title} "${productPrint.value.trim()}"`;
+            const printValue = productPrint.value.trim();
+            let title = productTitle.value.trim();
+            if (!title) {
+                if (selected?.title) {
+                    title = selected.title;
+                } else if (printValue) {
+                    title = `${getProductTypeForms().title} "${printValue}"`;
+                } else {
+                    title = '';
+                }
+            }
             return {
                 realizer_name: document.getElementById('realizer-name').value.trim(),
                 realizer_code: document.getElementById('realizer-code').value.trim(),
@@ -421,7 +439,7 @@
                 recipient_phone: document.getElementById('recipient-phone').value.trim(),
                 product_type: productType.value,
                 product_id: selected?.id || '',
-                product_print: productPrint.value.trim(),
+                product_print: printValue,
                 product_title: title,
                 quantities,
             };
@@ -478,12 +496,18 @@
         };
 
         const renderDocxBuffer = async (buffer) => {
+            if (!window.docx || typeof window.docx.renderAsync !== 'function' || !window.JSZip) {
+                throw new Error('Бібліотека прев’ю не завантажилась. Оновіть сторінку.');
+            }
             previewEl.innerHTML = '';
             await window.docx.renderAsync(buffer, previewEl, null, {
                 className: 'docx',
                 inWrapper: true,
                 ignoreWidth: false,
                 ignoreHeight: false,
+                renderHeaders: true,
+                renderFooters: true,
+                renderFootnotes: true,
             });
         };
 
@@ -579,16 +603,12 @@
         const loadPreview = async () => {
             const payload = buildPayload();
             const missing = getMissingFields(payload);
-            if (missing.length) {
-                previewEl.innerHTML = '<div class="preview-status">Заповніть форму, щоб побачити прев’ю.</div>';
-                setPreviewStatus(`Не заповнено: ${missing.join(', ')}`, 'is-error');
-                return;
-            }
+            const missingText = missing.length ? `Прев’ю з заглушками. Не заповнено: ${missing.join(', ')}` : '';
             if (previewAbort) {
                 previewAbort.abort();
             }
             previewAbort = new AbortController();
-            setPreviewStatus('Оновлюємо прев’ю...', '');
+            setPreviewStatus(missingText || 'Оновлюємо прев’ю...', missing.length ? 'is-error' : '');
             try {
                 const csrfToken = form.querySelector('input[name=csrfmiddlewaretoken]').value;
                 const response = await fetch('{% url "management_contracts_preview_api" %}', {
@@ -611,7 +631,7 @@
                 }
                 const buffer = await response.arrayBuffer();
                 await renderDocxBuffer(buffer);
-                setPreviewStatus('Прев’ю оновлено', 'is-success');
+                setPreviewStatus(missingText || 'Прев’ю оновлено', missing.length ? 'is-error' : 'is-success');
             } catch (err) {
                 if (err.name === 'AbortError') return;
                 previewEl.innerHTML = '<div class="preview-status">Помилка прев’ю.</div>';
