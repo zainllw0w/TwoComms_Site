@@ -859,6 +859,13 @@ class ContractSequence(models.Model):
 
 
 class ManagementContract(models.Model):
+    REVIEW_STATUS_CHOICES = [
+        ('draft', 'Чернетка'),
+        ('pending', 'На перевірці'),
+        ('approved', 'Підтверджено'),
+        ('rejected', 'Відхилено'),
+    ]
+
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -871,6 +878,25 @@ class ManagementContract(models.Model):
     contract_date = models.DateField(verbose_name=_("Дата договору"))
     realizer_name = models.CharField(max_length=255, verbose_name=_("Реалізатор"))
     file_path = models.CharField(max_length=500, verbose_name=_("Шлях до файлу"))
+    review_status = models.CharField(
+        max_length=20,
+        choices=REVIEW_STATUS_CHOICES,
+        default='draft',
+        verbose_name=_("Статус перевірки"),
+    )
+    review_reject_reason = models.TextField(blank=True, verbose_name=_("Причина відхилення"))
+    reviewed_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Дата перевірки"))
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='reviewed_management_contracts',
+        verbose_name=_("Перевірив (адмін)"),
+    )
+    admin_tg_chat_id = models.BigIntegerField(null=True, blank=True, verbose_name=_("Telegram admin chat id"))
+    admin_tg_message_id = models.BigIntegerField(null=True, blank=True, verbose_name=_("Telegram admin message id"))
+    is_approved = models.BooleanField(default=False, verbose_name=_("Підтверджено"))
     payload = models.JSONField(default=dict, blank=True, verbose_name=_("Дані договору"))
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -881,3 +907,27 @@ class ManagementContract(models.Model):
 
     def __str__(self):
         return f"{self.contract_number} ({self.realizer_name})"
+
+
+class ContractRejectionReasonRequest(models.Model):
+    contract = models.ForeignKey(
+        ManagementContract,
+        on_delete=models.CASCADE,
+        related_name='rejection_reason_requests',
+        verbose_name=_("Договір"),
+    )
+    admin_chat_id = models.BigIntegerField(db_index=True, verbose_name=_("Telegram chat id (адмін)"))
+    prompt_message_id = models.BigIntegerField(null=True, blank=True, verbose_name=_("Message id запиту"))
+    is_active = models.BooleanField(default=True, db_index=True, verbose_name=_("Активний запит"))
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Запит причини відхилення договору")
+        verbose_name_plural = _("Запити причин відхилення договорів")
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['admin_chat_id', 'is_active'], name='mgmt_contractrej_chat_act'),
+        ]
+
+    def __str__(self):
+        return f"{self.contract_id} ({'active' if self.is_active else 'closed'})"
