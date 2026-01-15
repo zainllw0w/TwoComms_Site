@@ -18,78 +18,153 @@
       </div>
 
       <div class="promocodes-container">
-        {% if used_promocodes %}
-          <div class="promocodes-grid">
-            {% for item in used_promocodes %}
-            <div class="promocode-card used">
-              <div class="promocode-header">
-                <div class="promocode-code">
-                  <span class="code-text">{{ item.promo_code.code }}</span>
-                  <span class="used-badge">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                    </svg>
-                    Використано
-                  </span>
+        {% if active_promocodes %}
+          <div class="promocodes-section">
+            <h2 class="promocodes-section-title">Активні промокоди</h2>
+            <div class="promocodes-grid">
+              {% for item in active_promocodes %}
+              <div class="promocode-card active">
+                <div class="promocode-header">
+                  <div class="promocode-code">
+                    <span class="code-text">{{ item.promo_code.code }}</span>
+                    <span class="used-badge active">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                      </svg>
+                      Активний
+                    </span>
+                  </div>
+                  <div class="promocode-type">
+                    {% if item.promo_code.discount_type == 'percent' %}
+                      <span class="type-badge percent">{{ item.promo_code.discount_value }}%</span>
+                    {% else %}
+                      <span class="type-badge fixed">{{ item.promo_code.discount_value }} грн</span>
+                    {% endif %}
+                  </div>
                 </div>
-                <div class="promocode-type">
-                  {% if item.promo_code.discount_type == 'percent' %}
-                    <span class="type-badge percent">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M7.5 11c1.38 0 2.5-1.12 2.5-2.5S8.88 6 7.5 6 5 7.12 5 8.5 6.12 11 7.5 11zm0-3c.28 0 .5.22.5.5s-.22.5-.5.5-.5-.22-.5-.5.22-.5.5-.5z"/>
+                <div class="promocode-details">
+                  <div class="detail-row">
+                    <span class="detail-label">Діє до:</span>
+                    <span class="detail-value">{% if item.expires_at %}{{ item.expires_at|date:"d.m.Y H:i" }}{% else %}—{% endif %}</span>
+                  </div>
+                </div>
+                <div class="promocode-description">
+                  {{ item.promo_code.description|default:"Промокод готовий до використання" }}
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+
+        {% if expired_promocodes %}
+          <div class="promocodes-section">
+            <h2 class="promocodes-section-title">Термін дії минув</h2>
+            <div class="promocodes-grid">
+              {% for item in expired_promocodes %}
+              <div class="promocode-card expired">
+                <div class="promocode-header">
+                  <div class="promocode-code">
+                    <span class="code-text">{{ item.promo_code.code }}</span>
+                    <span class="used-badge expired">Недійсний</span>
+                  </div>
+                  <div class="promocode-type">
+                    {% if item.promo_code.discount_type == 'percent' %}
+                      <span class="type-badge percent">{{ item.promo_code.discount_value }}%</span>
+                    {% else %}
+                      <span class="type-badge fixed">{{ item.promo_code.discount_value }} грн</span>
+                    {% endif %}
+                  </div>
+                </div>
+                <div class="promocode-details">
+                  <div class="detail-row">
+                    <span class="detail-label">Діяв до:</span>
+                    <span class="detail-value">{% if item.expires_at %}{{ item.expires_at|date:"d.m.Y H:i" }}{% else %}—{% endif %}</span>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+
+        {% if used_promocodes %}
+          <div class="promocodes-section">
+            <h2 class="promocodes-section-title">Використані промокоди</h2>
+            <div class="promocodes-grid">
+              {% for item in used_promocodes %}
+              <div class="promocode-card used">
+                <div class="promocode-header">
+                  <div class="promocode-code">
+                    <span class="code-text">{{ item.promo_code.code }}</span>
+                    <span class="used-badge">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                       </svg>
-                      {{ item.promo_code.discount_value }}%
+                      Використано
                     </span>
+                  </div>
+                  <div class="promocode-type">
+                    {% if item.promo_code.discount_type == 'percent' %}
+                      <span class="type-badge percent">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M7.5 11c1.38 0 2.5-1.12 2.5-2.5S8.88 6 7.5 6 5 7.12 5 8.5 6.12 11 7.5 11zm0-3c.28 0 .5.22.5.5s-.22.5-.5.5-.5-.22-.5-.5.22-.5.5-.5z"/>
+                        </svg>
+                        {{ item.promo_code.discount_value }}%
+                      </span>
+                    {% else %}
+                      <span class="type-badge fixed">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/>
+                        </svg>
+                        {{ item.promo_code.discount_value }} грн
+                      </span>
+                    {% endif %}
+                  </div>
+                </div>
+
+                <div class="promocode-details">
+                  <div class="detail-row">
+                    <span class="detail-label">Дата використання:</span>
+                    <span class="detail-value">{{ item.used_date|date:"d.m.Y H:i" }}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Замовлення:</span>
+                    <span class="detail-value">#{{ item.order.order_number }}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Знижка:</span>
+                    <span class="detail-value discount">-{{ item.discount_amount }} грн</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Сума замовлення:</span>
+                    <span class="detail-value total">{{ item.order_total }} грн</span>
+                  </div>
+                </div>
+
+                <div class="promocode-description">
+                  {% if item.promo_code.description %}
+                    {{ item.promo_code.description }}
                   {% else %}
-                    <span class="type-badge fixed">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/>
-                      </svg>
-                      {{ item.promo_code.discount_value }} грн
-                    </span>
+                    Промокод використано успішно
                   {% endif %}
                 </div>
               </div>
-
-              <div class="promocode-details">
-                <div class="detail-row">
-                  <span class="detail-label">Дата використання:</span>
-                  <span class="detail-value">{{ item.used_date|date:"d.m.Y H:i" }}</span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label">Замовлення:</span>
-                  <span class="detail-value">#{{ item.order.order_number }}</span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label">Знижка:</span>
-                  <span class="detail-value discount">-{{ item.discount_amount }} грн</span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label">Сума замовлення:</span>
-                  <span class="detail-value total">{{ item.order_total }} грн</span>
-                </div>
-              </div>
-
-              <div class="promocode-description">
-                {% if item.promo_code.description %}
-                  {{ item.promo_code.description }}
-                {% else %}
-                  Промокод використано успішно
-                {% endif %}
-              </div>
+              {% endfor %}
             </div>
-            {% endfor %}
           </div>
-        {% else %}
+        {% endif %}
+
+        {% if not active_promocodes and not expired_promocodes and not used_promocodes %}
           <div class="empty-state">
             <div class="empty-icon">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
               </svg>
             </div>
-            <h3 class="empty-title">Поки що немає використаних промокодів</h3>
+            <h3 class="empty-title">Поки що немає промокодів</h3>
             <p class="empty-text">
-              Коли ви використаєте промокод при оформленні замовлення, він з'явиться тут
+              Активні та використані промокоди з'являться тут
             </p>
             <a href="{% url 'catalog' %}" class="btn btn-primary">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">

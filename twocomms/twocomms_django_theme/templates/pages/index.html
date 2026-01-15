@@ -96,11 +96,9 @@
   </div>
 </section>
 {% endcache %}
-{% if featured %}
-{% cache 1200 featured_block featured.id featured.final_price featured.discount_percent %}
 <section class="mb-4 mb-md-5 reveal" id="featured-section">
-  <!-- Компактный блок рекомендаций в стиле категорий -->
-  <div class="featured-unified-block">
+  <!-- Компактный блок опитування в стиле рекомендаций -->
+  <div class="featured-unified-block survey-unified-block">
     <!-- Фоновые эффекты -->
     <div class="featured-bg-unified">
       <div class="featured-particles">
@@ -134,15 +132,15 @@
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
               </svg>
-              <span>Рекомендовано</span>
+              <span>{{ survey_ui_home.badge_uk|default:"Опитування" }}</span>
             </div>
-            <div class="featured-subtitle-compact">Найкращий вибір тижня</div>
+            <div class="featured-subtitle-compact">{{ survey_ui_home.title_uk|default:"Коротке опитування про PRINT" }}</div>
           </div>
           <div class="featured-accent-line"></div>
         </div>
         
         <!-- Кнопка сворачивания в центре -->
-        <button class="featured-toggle-btn" id="featuredToggle" aria-label="Свернуть/развернуть рекомендации" aria-expanded="false" aria-controls="featured-content">
+        <button class="featured-toggle-btn" id="featuredToggle" aria-label="Сховати або показати опитування" aria-expanded="false" aria-controls="featured-content">
           <div class="toggle-btn-content">
             <span class="toggle-text">Сховати</span>
             <div class="toggle-icon">
@@ -159,50 +157,57 @@
     
     <!-- Скрываемый контент -->
     <div class="featured-content-unified" id="featured-content">
-      <div class="featured-card-compact">
-        <div class="featured-image-compact">
-          {% if featured.display_image %}
-            {% optimized_image featured.display_image.url featured.title|add:" - "|add:featured.category.name|add:" TwoComms" "featured-img" 400 400 loading='eager' fetchpriority='auto' %}
-          {% else %}
-            {% static 'img/placeholder.jpg' as ph_url %}
-            <img
-              src="{{ ph_url }}"
-              class="featured-img"
-              alt="{{ featured.title }} - рекомендуємий товар TwoComms"
-              loading="eager"
-              fetchpriority="auto"
-              decoding="async"
-              width="400"
-              height="400"
-            >
-          {% endif %}
-          {% if featured.has_discount and featured.discount_percent %}
-            <div class="featured-discount-compact">-{{ featured.discount_percent }}%</div>
-          {% endif %}
-        </div>
-        
-        <div class="featured-info-compact">
-          <div class="featured-category-compact">{{ featured.category.name }}</div>
-          <h3 class="featured-title-compact-text">{{ featured.title }}</h3>
-          <div class="featured-price-compact">
-            <span class="featured-price-current-compact">{{ featured.final_price }} грн</span>
-            {% if featured.has_discount %}
-              <span class="featured-price-old-compact">{{ featured.price }} грн</span>
-            {% endif %}
+      <div class="featured-card-compact survey-card">
+        <div class="featured-image-compact survey-visual">
+          <div class="survey-visual-inner">
+            <div class="survey-visual-badge">≈5 хв</div>
+            <div class="survey-visual-icon">
+              <svg width="42" height="42" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M4 4h16v12H5.17L4 17.17V4zm0-2c-1.1 0-2 .9-2 2v20l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2H4z"/>
+              </svg>
+            </div>
+            <div class="survey-visual-reward">-{{ survey_reward.amount_uah|default:200 }} грн</div>
+            <div class="survey-visual-foot">діє {{ survey_reward.expires_in_days|default:5 }} днів</div>
           </div>
-          <a href="{% url 'product' featured.slug %}" class="featured-btn-compact">
-            <span>Переглянути</span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
-            </svg>
-          </a>
+        </div>
+
+        <div class="featured-info-compact survey-info">
+          <div class="survey-chips">
+            <span class="survey-chip">1 питання за раз</span>
+            <span class="survey-chip">Автозбереження</span>
+            <span class="survey-chip">Без цифр прогресу</span>
+          </div>
+          <h3 class="featured-title-compact-text survey-title">
+            {{ survey_ui_home.title_uk|default:"Коротке опитування про PRINT" }}
+          </h3>
+          <p class="survey-subtitle">
+            {{ survey_ui_home.subtitle_uk|default:"Відповідай на кілька коротких запитань (≈5 хв)." }}
+          </p>
+          <div class="survey-footnote">
+            {{ survey_ui_home.note_uk|default:"Доступно лише для зареєстрованих користувачів. Відповіді зберігаються — можна продовжити пізніше." }}
+          </div>
+          <div class="survey-actions">
+            <button
+              type="button"
+              class="featured-btn-compact survey-cta"
+              data-survey-cta
+              data-survey-key="{{ survey_key }}"
+              data-survey-start-text="{{ survey_ui_home.cta_start_uk|default:'Пройти опитування' }}"
+              data-survey-continue-text="{{ survey_ui_home.cta_continue_uk|default:'Продовжити опитування' }}"
+              data-survey-authenticated="{% if request.user.is_authenticated %}1{% else %}0{% endif %}"
+              data-login-url="{% url 'login' %}?next={{ request.path }}"
+            >
+              <span>{{ survey_cta_text }}</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </section>
-{% endcache %}
-{% endif %}
 {% cache 1800 categories_block %}
 <section class="mb-4 mb-md-5 reveal categories-section">
   <!-- Единый блок категорий без разделения -->
@@ -391,4 +396,66 @@
 <script>
   // Collapsible Featured и загрузка «Показать ещё» перенесены в main.js
 </script>
+{% endblock %}
+
+{% block modals %}
+  {{ block.super }}
+  <div
+    class="survey-modal"
+    id="survey-modal"
+    aria-hidden="true"
+    data-button-next="{{ survey_ui_modal.button_next_uk|default:'Далі' }}"
+    data-button-back="{{ survey_ui_modal.button_back_once_uk|default:'Повернутись на 1 крок' }}"
+    data-button-close="{{ survey_ui_modal.button_close_uk|default:'Закрити' }}"
+    data-button-skip="{{ survey_ui_modal.button_skip_uk|default:'Пропустити' }}"
+    data-thanks-title="{{ survey_ui_modal.thanks_title_uk|default:'Дякуємо!' }}"
+    data-thanks-text="{{ survey_ui_modal.thanks_text_uk|default:'Твій промокод готовий.' }}"
+    data-copy-code="{{ survey_ui_modal.copy_code_uk|default:'Скопіювати код' }}"
+  >
+    <div class="survey-overlay" data-survey-close></div>
+    <div class="survey-dialog" role="dialog" aria-modal="true" aria-labelledby="survey-modal-title">
+      <button type="button" class="survey-close" data-survey-close aria-label="{{ survey_ui_modal.button_close_uk|default:'Закрити' }}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+        </svg>
+      </button>
+
+      <div class="survey-header">
+        <div class="survey-header-main">
+          <div class="survey-badge">{{ survey_ui_home.badge_uk|default:"Опитування" }}</div>
+          <h3 class="survey-modal-title" id="survey-modal-title">
+            {{ survey_ui_modal.title_uk|default:"Коротке опитування про PRINT" }}
+          </h3>
+          <p class="survey-modal-subtitle">
+            {{ survey_ui_modal.subtitle_uk|default:"Твої відповіді допоможуть покращити сайт." }}
+          </p>
+        </div>
+        {% if survey_ui_modal.privacy_hint_uk %}
+        <p class="survey-modal-privacy">{{ survey_ui_modal.privacy_hint_uk }}</p>
+        {% endif %}
+      </div>
+
+      <div class="survey-body" id="survey-body">
+        <div class="survey-loading">
+          <div class="survey-spinner"></div>
+          <div class="survey-loading-text">Завантаження…</div>
+        </div>
+      </div>
+
+      <div class="survey-footer">
+        <div class="survey-soft-hint" id="survey-soft-hint"></div>
+        <div class="survey-actions-row">
+          <button type="button" class="survey-btn survey-btn-ghost" data-survey-back>
+            {{ survey_ui_modal.button_back_once_uk|default:"Повернутись на 1 крок" }}
+          </button>
+          <button type="button" class="survey-btn survey-btn-ghost" data-survey-skip>
+            {{ survey_ui_modal.button_skip_uk|default:"Пропустити" }}
+          </button>
+          <button type="button" class="survey-btn survey-btn-primary" data-survey-next>
+            {{ survey_ui_modal.button_next_uk|default:"Далі" }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 {% endblock %}

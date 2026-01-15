@@ -16,11 +16,12 @@ from django.urls import reverse
 from django.template.loader import render_to_string
 from django.db.models import Q
 
-from ..models import Product, Category
+from ..models import Product, Category, SurveySession
 from ..services.catalog_helpers import (
     build_color_preview_map,
     get_categories_cached,
 )
+from ..services.survey_engine import load_survey_definition
 from cache_utils import get_fragment_cache
 from .utils import cache_page_for_anon, HOME_PRODUCTS_PER_PAGE, PRODUCTS_PER_PAGE
 
@@ -81,6 +82,23 @@ def home(request):
     total_products = paginator.count
     has_more = page_obj.has_next()
 
+    survey_def = load_survey_definition()
+    survey_ui_home = survey_def.get('ui_copy', {}).get('homepage_block', {}) if survey_def else {}
+    survey_ui_modal = survey_def.get('ui_copy', {}).get('modal', {}) if survey_def else {}
+    survey_reward = survey_def.get('reward', {}) if survey_def else {}
+    survey_key = survey_def.get('survey_key', 'print_feedback_v1') if survey_def else 'print_feedback_v1'
+    survey_has_active = False
+    if request.user.is_authenticated and survey_def:
+        survey_has_active = SurveySession.objects.filter(
+            user=request.user,
+            survey_key=survey_key,
+            status='in_progress',
+        ).exists()
+    survey_cta_text = survey_ui_home.get(
+        'cta_continue_uk' if survey_has_active else 'cta_start_uk',
+        'Пройти опитування',
+    )
+
     return render(
         request,
         'pages/index.html',
@@ -93,7 +111,13 @@ def home(request):
             'current_page': page_obj.number,
             'paginator': paginator,
             'page_obj': page_obj,
-            'total_products': total_products
+            'total_products': total_products,
+            'survey_ui_home': survey_ui_home,
+            'survey_ui_modal': survey_ui_modal,
+            'survey_reward': survey_reward,
+            'survey_key': survey_key,
+            'survey_cta_text': survey_cta_text,
+            'survey_has_active': survey_has_active,
         }
     )
 
@@ -305,7 +329,6 @@ def search(request):
                 'error': 'Произошла ошибка при поиске. Попробуйте еще раз.'
             }
         )
-
 
 
 
