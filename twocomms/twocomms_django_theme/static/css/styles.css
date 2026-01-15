@@ -23617,6 +23617,16 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 
 .survey-cta {
   gap: 0.5rem;
+  background: linear-gradient(135deg, #ff8c42, #ffb347);
+  color: #1d130a;
+  border: none;
+  box-shadow: 0 8px 24px rgba(255, 140, 66, 0.35);
+}
+
+.survey-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(255, 140, 66, 0.4);
+  color: #1d130a;
 }
 
 .survey-modal {

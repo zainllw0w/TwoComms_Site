@@ -39,6 +39,8 @@ export function initSurvey() {
   const cta = document.querySelector('[data-survey-cta]');
   const modal = document.getElementById('survey-modal');
   if (!cta || !modal) return;
+  if (modal.dataset.surveyInit === '1') return;
+  modal.dataset.surveyInit = '1';
 
   const body = document.body;
   const overlay = modal.querySelector('[data-survey-close]');

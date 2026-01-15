@@ -2541,6 +2541,15 @@ document.addEventListener('click', function (e) {
   } catch (_) { }
 });
 
+// Опрос подгружаем сразу, чтобы кнопка работала без задержек
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('[data-survey-cta]') || document.getElementById('survey-modal')) {
+    import('./modules/survey.js')
+      .then(({ initSurvey }) => initSurvey())
+      .catch(() => { });
+  }
+});
+
 // Цветовые точки, корзина и пагинация подгружаются по требованию, чтобы сократить работу в главном потоке
 document.addEventListener('DOMContentLoaded', () => {
   scheduleIdle(() => {
@@ -2557,11 +2566,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('load-more-btn') || document.getElementById('products-container')) {
       import('./modules/homepage.js')
         .then(({ initHomepagePagination }) => initHomepagePagination())
-        .catch(() => { });
-    }
-    if (document.querySelector('[data-survey-cta]') || document.getElementById('survey-modal')) {
-      import('./modules/survey.js')
-        .then(({ initSurvey }) => initSurvey())
         .catch(() => { });
     }
   });
