@@ -3061,6 +3061,21 @@ def contracts(request):
     last_contract = ManagementContract.objects.filter(created_by=request.user).first()
     prefill_payload = last_contract.payload if last_contract else {}
 
+    contracts_history = []
+    try:
+        history_qs = ManagementContract.objects.filter(created_by=request.user).order_by('-created_at')[:50]
+        for contract in history_qs:
+            contracts_history.append({
+                "id": contract.id,
+                "contract_number": contract.contract_number,
+                "contract_date": contract.contract_date.strftime('%d.%m.%Y') if contract.contract_date else "",
+                "realizer_name": contract.realizer_name,
+                "download_url": reverse('management_contracts_download', args=[contract.id]),
+                "file_name": os.path.basename(contract.file_path) if contract.file_path else "",
+            })
+    except Exception:
+        contracts_history = []
+
     stats = get_user_stats(request.user)
     report_sent_today = has_report_today(request.user)
     progress_clients_pct = min(100, int(stats['processed_today'] / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
@@ -3076,6 +3091,7 @@ def contracts(request):
         'contract_date_display': contract_date_display,
         'next_contract_number': next_contract_number,
         'prefill_payload': prefill_payload,
+        'contracts_history': contracts_history,
         'user_points_today': stats['points_today'],
         'user_points_total': stats['points_total'],
         'processed_today': stats['processed_today'],

@@ -66,6 +66,10 @@
         overflow: auto;
     }
 
+    .contract-preview-card {
+        overflow: hidden;
+    }
+
     .contract-section {
         background: rgba(255, 255, 255, 0.03);
         border: 1px solid var(--border);
@@ -122,21 +126,29 @@
         border-radius: 14px;
         padding: 16px;
         overflow: auto;
+        overflow-x: hidden;
+        overscroll-behavior: contain;
     }
 
     .preview-body .docx-wrapper {
         background: transparent;
-        padding: 0;
+        padding: 0 0 18px;
+        width: 100%;
+        box-sizing: border-box;
     }
 
     .preview-body .docx {
         background: transparent;
     }
 
-    .preview-body .docx-page {
+    .preview-body .docx-wrapper > section.docx {
         margin: 0 auto 18px;
         box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
         border-radius: 6px;
+    }
+
+    .preview-body .docx-wrapper > section.docx:last-child {
+        margin-bottom: 0;
     }
 
     .contract-status {
@@ -166,6 +178,89 @@
         cursor: default;
     }
 
+    .contracts-history {
+        background: var(--panel-strong);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 18px;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .contracts-history-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 10px;
+    }
+
+    .contracts-history-title {
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        font-size: 0.82rem;
+    }
+
+    .contracts-history-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .contracts-history-empty {
+        color: var(--muted);
+        text-align: center;
+        padding: 18px;
+        border: 1px dashed var(--border);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .contract-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px 16px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.03);
+        transition: border-color 0.2s ease, transform 0.2s ease;
+    }
+
+    .contract-item:hover {
+        border-color: rgba(255, 126, 41, 0.45);
+        transform: translateY(-1px);
+    }
+
+    .contract-item-main {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+    }
+
+    .contract-item-title {
+        font-weight: 700;
+        letter-spacing: 0.03em;
+    }
+
+    .contract-item-meta {
+        color: var(--muted);
+        font-size: 0.85rem;
+    }
+
+    .contract-item-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+    }
+
     @media (max-width: 1100px) {
         .contract-layout {
             grid-template-columns: 1fr;
@@ -173,6 +268,18 @@
         }
         .preview-body {
             min-height: 420px;
+        }
+    }
+
+    @media (max-width: 720px) {
+        .contract-item {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .contract-item-actions {
+            width: 100%;
+            justify-content: flex-start;
         }
     }
 </style>
@@ -338,6 +445,30 @@
             </div>
         </div>
     </div>
+
+    <div class="contracts-history">
+        <div class="contracts-history-header">
+            <div class="contracts-history-title">Сформовані договори</div>
+            <div class="preview-status">Останні 50</div>
+        </div>
+        <div class="contracts-history-list" id="contracts-history-list">
+            {% if contracts_history %}
+                {% for contract in contracts_history %}
+                    <div class="contract-item" data-contract-id="{{ contract.id }}">
+                        <div class="contract-item-main">
+                            <div class="contract-item-title">Договір № {{ contract.contract_number }}</div>
+                            <div class="contract-item-meta">{{ contract.contract_date }} • {{ contract.realizer_name }}</div>
+                        </div>
+                        <div class="contract-item-actions">
+                            <a class="btn-ghost" href="{{ contract.download_url }}" download>Завантажити</a>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="contracts-history-empty">Поки що немає сформованих договорів.</div>
+            {% endif %}
+        </div>
+    </div>
 </div>
 
 {{ prefill_payload|json_script:"contract-prefill" }}
@@ -353,6 +484,7 @@
         const previewStatus = document.getElementById('preview-status');
         const previewRefresh = document.getElementById('preview-refresh');
         const previewEl = document.getElementById('contract-preview');
+        const contractsHistoryList = document.getElementById('contracts-history-list');
         const downloadBtn = document.getElementById('contract-download');
         const generateBtn = document.getElementById('contract-generate');
         const recipientSame = document.getElementById('recipient-same');
@@ -375,6 +507,7 @@
         const dropTeePrice = {{ drop_tee_price|default:570 }};
         let previewTimeout = null;
         let previewAbort = null;
+        let resizeTimeout = null;
 
         const formatPrice = (value) => parseInt(value || 0, 10);
 
@@ -509,6 +642,7 @@
                 renderFooters: true,
                 renderFootnotes: true,
             });
+            fitPreview();
         };
 
         const setDownload = (link, label) => {
@@ -525,6 +659,84 @@
 
         const updateDerived = () => {
             productPrice.value = formatPrice(computePrice());
+        };
+
+        const fitPreview = () => {
+            const wrapper = previewEl.querySelector('.docx-wrapper');
+            const page = previewEl.querySelector('section.docx');
+            if (!wrapper || !page) return;
+            wrapper.style.transform = '';
+            wrapper.style.transformOrigin = '';
+            wrapper.style.zoom = '';
+            const containerWidth = previewEl.clientWidth - 12;
+            const pageWidth = page.getBoundingClientRect().width || 1;
+            if (!containerWidth || !pageWidth) return;
+            const scale = Math.min(1, containerWidth / pageWidth);
+            if (scale >= 0.999) return;
+            if ('zoom' in document.body.style) {
+                wrapper.style.zoom = String(scale);
+            } else {
+                wrapper.style.transform = `scale(${scale})`;
+                wrapper.style.transformOrigin = 'top center';
+            }
+        };
+
+        const scheduleFit = () => {
+            if (resizeTimeout) {
+                clearTimeout(resizeTimeout);
+            }
+            resizeTimeout = setTimeout(fitPreview, 120);
+        };
+
+        const renderContractItem = (contract, { prepend = false } = {}) => {
+            if (!contractsHistoryList || !contract) return;
+            const contractId = contract.id != null ? String(contract.id) : '';
+            if (contractId && contractsHistoryList.querySelector(`[data-contract-id="${contractId}"]`)) {
+                return;
+            }
+            const empty = contractsHistoryList.querySelector('.contracts-history-empty');
+            if (empty) {
+                empty.remove();
+            }
+            const item = document.createElement('div');
+            item.className = 'contract-item';
+            if (contractId) item.dataset.contractId = contractId;
+
+            const main = document.createElement('div');
+            main.className = 'contract-item-main';
+            const title = document.createElement('div');
+            title.className = 'contract-item-title';
+            title.textContent = contract.contract_number ? `Договір № ${contract.contract_number}` : 'Договір';
+            const meta = document.createElement('div');
+            meta.className = 'contract-item-meta';
+            const metaParts = [];
+            if (contract.contract_date) metaParts.push(contract.contract_date);
+            if (contract.realizer_name) metaParts.push(contract.realizer_name);
+            meta.textContent = metaParts.join(' • ');
+            main.appendChild(title);
+            main.appendChild(meta);
+
+            const actions = document.createElement('div');
+            actions.className = 'contract-item-actions';
+            const link = document.createElement('a');
+            link.className = 'btn-ghost';
+            link.textContent = 'Завантажити';
+            if (contract.download_url) {
+                link.href = contract.download_url;
+                link.setAttribute('download', '');
+            } else {
+                link.href = '#';
+            }
+            actions.appendChild(link);
+
+            item.appendChild(main);
+            item.appendChild(actions);
+
+            if (prepend) {
+                contractsHistoryList.prepend(item);
+            } else {
+                contractsHistoryList.appendChild(item);
+            }
         };
 
         const applyPrefill = () => {
@@ -702,6 +914,13 @@
                     setStatus(`Готово. Договір № ${data.contract.contract_number}`, 'is-success');
                     setDownload(data.contract.download_url, `Завантажити № ${data.contract.contract_number}`);
                     contractNumberField.value = data.contract.contract_number;
+                    renderContractItem({
+                        id: data.contract.id,
+                        contract_number: data.contract.contract_number,
+                        contract_date: data.contract.contract_date,
+                        realizer_name: data.contract.realizer_name,
+                        download_url: data.contract.download_url,
+                    }, { prepend: true });
                     await renderGeneratedDoc(data.contract.download_url, data.contract.contract_number);
                 } catch (err) {
                     setStatus(err.message || 'Помилка генерації.', 'is-error');
@@ -717,6 +936,7 @@
         updateDerived();
         bindEvents();
         schedulePreview();
+        window.addEventListener('resize', scheduleFit);
     })();
 </script>
 {% endblock %}
