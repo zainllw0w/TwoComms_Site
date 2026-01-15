@@ -34,7 +34,7 @@
 </head>
 
 <body class="management-body"
-      data-mgmt-shell="{% if request.resolver_match.url_name == 'management_home' or request.resolver_match.url_name == 'management_invoices' or request.resolver_match.url_name == 'management_commercial_offer_email' or request.resolver_match.url_name == 'management_shops' %}1{% else %}0{% endif %}"
+      data-mgmt-shell="{% if request.resolver_match.url_name == 'management_home' or request.resolver_match.url_name == 'management_invoices' or request.resolver_match.url_name == 'management_contracts' or request.resolver_match.url_name == 'management_commercial_offer_email' or request.resolver_match.url_name == 'management_shops' %}1{% else %}0{% endif %}"
       data-url-name="{{ request.resolver_match.url_name }}"
       data-activity-pulse-url="{% url 'management_activity_pulse' %}">
     <!-- Глобальный верхний хедер -->
@@ -49,7 +49,7 @@
             </div>
         </div>
         <nav class="header-tabs">
-            <a href="{% url 'management_home' %}" class="tab{% if request.resolver_match.url_name == 'management_home' or request.resolver_match.url_name == 'management_invoices' or request.resolver_match.url_name == 'management_commercial_offer_email' or request.resolver_match.url_name == 'management_shops' %} active{% endif %}">Менеджмент</a>
+            <a href="{% url 'management_home' %}" class="tab{% if request.resolver_match.url_name == 'management_home' or request.resolver_match.url_name == 'management_invoices' or request.resolver_match.url_name == 'management_contracts' or request.resolver_match.url_name == 'management_commercial_offer_email' or request.resolver_match.url_name == 'management_shops' %} active{% endif %}">Менеджмент</a>
             <a href="{% url 'management_reports' %}" class="tab{% if request.resolver_match.url_name == 'management_reports' %} active{% endif %}">Звітність</a>
             <a href="{% url 'management_stats' %}" class="tab{% if request.resolver_match.url_name == 'management_stats' or request.resolver_match.url_name == 'management_stats_admin' or request.resolver_match.url_name == 'management_stats_admin_user' %} active{% endif %}">Статистика</a>
             <a href="{% url 'management_payouts' %}" class="tab{% if request.resolver_match.url_name == 'management_payouts' %} active{% endif %}">Виплати</a>
@@ -118,7 +118,7 @@
 
     <div class="workspace">
         <!-- Left Sidebar -->
-        {% if request.resolver_match.url_name == 'management_home' or request.resolver_match.url_name == 'management_invoices' or request.resolver_match.url_name == 'management_commercial_offer_email' or request.resolver_match.url_name == 'management_shops' %}
+        {% if request.resolver_match.url_name == 'management_home' or request.resolver_match.url_name == 'management_invoices' or request.resolver_match.url_name == 'management_contracts' or request.resolver_match.url_name == 'management_commercial_offer_email' or request.resolver_match.url_name == 'management_shops' %}
         <aside class="sidebar">
             <div class="user-profile">
                 {% if request.user.userprofile.avatar %}
@@ -199,11 +199,11 @@
                     </span>
                     <span>Комерційні пропозиції</span>
                 </a>
-                <a href="#" class="nav-item">
+                <a href="{% url 'management_contracts' %}" class="nav-item{% if request.resolver_match.url_name == 'management_contracts' %} active{% endif %}">
                     <span class="nav-icon">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a5 5 0 015 5v1h1a3 3 0 013 3v7h-2v-2h-2v2H7v-2H5v2H3v-7a3 3 0 013-3h1V8a5 5 0 015-5zm-3 6h6V8a3 3 0 00-6 0v1z"/></svg>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l5 5v13a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2zm8 1.5V7h3.5L14 3.5zM8 11h8v2H8v-2zm0 4h8v2H8v-2zm0-8h4v2H8V7z"/></svg>
                     </span>
-                    <span>Дропшипери</span>
+                    <span>Сформувати договір</span>
                 </a>
                 <a href="{% url 'management_shops' %}" class="nav-item{% if request.resolver_match.url_name == 'management_shops' %} active{% endif %}">
                     <span class="nav-icon">
