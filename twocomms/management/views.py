@@ -2545,12 +2545,16 @@ def _replace_placeholders(text, replacements):
 
 
 def _replace_text_in_paragraph(paragraph, search_text, replace_text):
-    if not search_text:
+    if search_text is None or search_text == "":
         return False
+    replace_text = "" if replace_text is None else str(replace_text)
+    if search_text == replace_text:
+        return True
     if search_text not in paragraph.text:
         return False
     replaced = False
-    while search_text in paragraph.text:
+    max_iter = paragraph.text.count(search_text)
+    while search_text in paragraph.text and max_iter > 0:
         full_text = "".join(run.text for run in paragraph.runs)
         start_idx = full_text.find(search_text)
         if start_idx < 0:
@@ -2573,6 +2577,7 @@ def _replace_text_in_paragraph(paragraph, search_text, replace_text):
                 run.text = run_text[:local_start] + run_text[local_end:]
             offset = run_end
         replaced = True
+        max_iter -= 1
     return replaced
 
 
@@ -2781,7 +2786,12 @@ def _update_contract_table(doc, data):
         if first.text:
             _replace_text_in_paragraph(first, first.text, value_str)
         else:
-            first.text = value_str
+            if first.runs:
+                first.runs[0].text = value_str
+                for run in first.runs[1:]:
+                    run.text = ""
+            else:
+                first.add_run(value_str)
         for extra in cell.paragraphs[1:]:
             if extra.text:
                 if not _replace_text_in_paragraph(extra, extra.text, ""):
@@ -2818,38 +2828,58 @@ def _build_contract_docx(template_path, output_target, data):
 
 
 def _prepare_contract_data(payload, request, *, preview=False):
-    realizer_name = (payload.get('realizer_name') or '').strip()
-    realizer_code = (payload.get('realizer_code') or '').strip()
-    realizer_address = (payload.get('realizer_address') or '').strip()
-    realizer_iban = (payload.get('realizer_iban') or '').strip()
-    realizer_phone = (payload.get('realizer_phone') or '').strip()
-    realizer_email = (payload.get('realizer_email') or '').strip()
-    delivery_address = (payload.get('delivery_address') or '').strip()
-    recipient_name = (payload.get('recipient_name') or '').strip()
-    recipient_phone = (payload.get('recipient_phone') or '').strip()
-    product_type = (payload.get('product_type') or '').strip()
-    product_print = (payload.get('product_print') or '').strip()
-    product_title = (payload.get('product_title') or '').strip()
-    product_id = payload.get('product_id')
+    missing = []
+    placeholder_long = "_" * 30
+    placeholder_short = "_" * 18
+    placeholder_phone = "_" * 30
+    placeholder_iban = "_" * 30
 
+    def _value(field, placeholder):
+        val = (payload.get(field) or "").strip()
+        if val:
+            return val
+        missing.append(field)
+        return placeholder if preview else ""
+
+    realizer_name = _value("realizer_name", placeholder_long)
+    realizer_code = _value("realizer_code", placeholder_short)
+    realizer_address = _value("realizer_address", placeholder_long)
+    realizer_iban = _value("realizer_iban", placeholder_iban)
+    realizer_phone = _value("realizer_phone", placeholder_phone)
+    realizer_email = _value("realizer_email", placeholder_long)
+    delivery_address = _value("delivery_address", placeholder_long)
+    recipient_name = _value("recipient_name", placeholder_long)
+    recipient_phone = _value("recipient_phone", placeholder_phone)
+
+    product_type = (payload.get("product_type") or "").strip()
     if product_type not in ("hoodie", "tshirt"):
-        raise ContractPayloadError("invalid_product_type")
+        if preview:
+            if "product_type" not in missing:
+                missing.append("product_type")
+            product_type = "hoodie"
+        else:
+            raise ContractPayloadError("invalid_product_type")
+
+    product_print = _value("product_print", placeholder_long)
+    product_title = (payload.get("product_title") or "").strip()
+    product_id = payload.get("product_id")
 
     required_fields = [
-        (realizer_name, 'realizer_name'),
-        (realizer_code, 'realizer_code'),
-        (realizer_address, 'realizer_address'),
-        (realizer_iban, 'realizer_iban'),
-        (realizer_phone, 'realizer_phone'),
-        (realizer_email, 'realizer_email'),
-        (delivery_address, 'delivery_address'),
-        (recipient_name, 'recipient_name'),
-        (recipient_phone, 'recipient_phone'),
-        (product_print, 'product_print'),
+        "realizer_name",
+        "realizer_code",
+        "realizer_address",
+        "realizer_iban",
+        "realizer_phone",
+        "realizer_email",
+        "delivery_address",
+        "recipient_name",
+        "recipient_phone",
+        "product_print",
     ]
-    missing = [name for val, name in required_fields if not val]
-    if missing:
-        raise ContractPayloadError("missing_fields", missing)
+    if not preview:
+        missing_required = [field for field in required_fields if field in set(missing)]
+        if missing_required:
+            raise ContractPayloadError("missing_fields", missing_required)
 
     from storefront.models import Product
 
@@ -2889,6 +2919,13 @@ def _prepare_contract_data(payload, request, *, preview=False):
         "gen": "худі" if product_type == "hoodie" else "футболки",
         "title": "Худі" if product_type == "hoodie" else "Футболка",
     }
+    if "product_type" in missing:
+        type_forms = {
+            "single": placeholder_short,
+            "plural": placeholder_short,
+            "gen": placeholder_short,
+            "title": "Товар",
+        }
 
     if not product_title:
         if product and product.title:
