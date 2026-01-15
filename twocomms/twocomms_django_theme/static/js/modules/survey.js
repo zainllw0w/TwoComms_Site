@@ -431,7 +431,9 @@ export function initSurvey() {
   overlay?.addEventListener('click', closeModal);
   closeBtn?.addEventListener('click', closeModal);
 
-  cta.addEventListener('click', () => {
+  cta.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     const isAuthed = cta.dataset.surveyAuthenticated === '1';
     if (!isAuthed) {
       openAuthPanel();
