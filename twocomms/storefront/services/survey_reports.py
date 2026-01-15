@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional
 
 from django.conf import settings
 from django.utils import timezone
+from django.utils.text import slugify
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
@@ -116,8 +117,32 @@ def build_survey_report(
     return file_path
 
 
-def resolve_report_path(session) -> Path:
-    """Resolve report path for a session, using a stable filename."""
+def _safe_filename_component(value: Optional[str], fallback: str, allow_unicode: bool = False) -> str:
+    if not value:
+        return fallback
+    slug = slugify(str(value), allow_unicode=allow_unicode)
+    return slug or fallback
+
+
+def get_survey_title(definition: Optional[Dict[str, Any]]) -> str:
+    """Resolve a human-friendly survey title for notifications/files."""
+    definition = definition or {}
+    ui = definition.get("ui_copy", {}) or {}
+    modal_title = (ui.get("modal") or {}).get("title_uk")
+    home_title = (ui.get("homepage_block") or {}).get("title_uk")
+    return modal_title or home_title or definition.get("survey_key", "Survey")
+
+
+def resolve_report_path(session, definition: Optional[Dict[str, Any]] = None) -> Path:
+    """Resolve report path for a session, using a stable human-friendly filename."""
     base_dir = Path(getattr(settings, "SURVEY_REPORTS_DIR", settings.MEDIA_ROOT / "survey_reports"))
-    filename = f"{session.survey_key}_session_{session.id}.xlsx"
+    title = get_survey_title(definition)
+    title_slug = _safe_filename_component(title, "survey", allow_unicode=True)
+    username = _safe_filename_component(session.user.username, f"user{session.user_id}", allow_unicode=True)
+    email = _safe_filename_component(session.user.email, "", allow_unicode=False)
+    parts = [title_slug, username]
+    if email:
+        parts.append(email)
+    parts.append(f"s{session.id}")
+    filename = f"opituvannia_{'_'.join(parts)}.xlsx"
     return base_dir / filename
