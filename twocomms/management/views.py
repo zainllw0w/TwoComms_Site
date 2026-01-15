@@ -2666,39 +2666,39 @@ def _update_contract_paragraphs(doc, data):
                     _replace_text_in_paragraph(paragraph, key, value)
             continue
         if text.startswith("№ "):
-            match = re.search(r"№\\s*(.+)", text)
+            match = re.search(r"№\s*(.+)", text)
             if match:
                 _replace_text_in_paragraph(paragraph, match.group(1), data["contract_number"])
             continue
         if text.startswith("м.") and "«" in text and "р." in text:
-            match = re.search(r"«\\d{1,2}»\\s+[^\\s]+\\s+\\d{4}р\\.", text)
+            match = re.search(r"«\d{1,2}»\s+[^\s]+\s+\d{4}р\.", text)
             if match:
                 _replace_text_in_paragraph(paragraph, match.group(0), data["contract_date_text"])
             continue
         if text.startswith("Фізична особа – підприємець") and "Реалізатор" in text:
-            name_match = re.search(r"підприємець\\s+(.+?),\\s+код\\s+([0-9A-Za-z]+)", text)
+            name_match = re.search(r"підприємець\s+(.+?),\s+код\s+([0-9A-Za-z]+)", text)
             if name_match:
                 _replace_text_in_paragraph(paragraph, name_match.group(1), data["realizer_name"])
                 _replace_text_in_paragraph(paragraph, name_match.group(2), data["realizer_code"])
             continue
         if text.startswith("1.1. Постачальник передає"):
-            match = re.search(r"товару –\\s+(.+?)\\s+\\(далі", text)
+            match = re.search(r"товару –\s+(.+?)\s+\(далі", text)
             if match:
                 _replace_text_in_paragraph(paragraph, match.group(1), type_forms["gen"])
             continue
         if text.startswith("1.2.1. Орієнтовно:"):
-            match = re.search(r"Орієнтовно:\\s+(.+?)\\s+з", text)
+            match = re.search(r"Орієнтовно:\s+(.+?)\s+з", text)
             if match:
                 _replace_text_in_paragraph(paragraph, match.group(1), type_forms["plural"])
-            print_match = re.search(r"\\[\"(.+?)\"\\]", text)
+            print_match = re.search(r'\["(.+?)"\]', text)
             if print_match:
                 _replace_text_in_paragraph(paragraph, print_match.group(1), data["product_print"])
             continue
         if text.startswith("1.2.2. Базова ціна"):
-            price_match = re.search(r"(\\d+[\\d\\s]*,\\d{2})", text)
+            price_match = re.search(r"(\d+[\d\s]*,\d{2})", text)
             if price_match:
                 _replace_text_in_paragraph(paragraph, price_match.group(1), data["price_str"])
-            words_match = re.search(r"\\(([^\\)]+)\\)", text)
+            words_match = re.search(r"\(([^)]+)\)", text)
             if words_match:
                 _replace_text_in_paragraph(paragraph, words_match.group(1), data["price_words"])
             continue
@@ -2742,7 +2742,7 @@ def _update_contract_paragraphs(doc, data):
                     _replace_text_in_paragraph(paragraph, value, data["realizer_email"])
                 continue
         if text.startswith("1. Найменування Товару:"):
-            match = re.search(r"Товару:\\s+(.+?)\\s+з", text)
+            match = re.search(r"Товару:\s+(.+?)\s+з", text)
             if match:
                 _replace_text_in_paragraph(paragraph, match.group(1), type_forms["single"])
             print_match = re.search(r"«(.+?)»", text)
@@ -2750,7 +2750,7 @@ def _update_contract_paragraphs(doc, data):
                 _replace_text_in_paragraph(paragraph, print_match.group(1), data["product_print"])
             continue
         if text.startswith("3. Загальна вартість партії:"):
-            match = re.search(r"партії:\\s*(\\d+)", text)
+            match = re.search(r"партії:\s*(\d+)", text)
             if match:
                 _replace_text_in_paragraph(paragraph, match.group(1), str(data["total_sum"]))
             continue
