@@ -3168,7 +3168,7 @@ def contracts_preview_api(request):
         content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     )
     response['X-Contract-Number'] = meta["contract_number"]
-    response['Content-Disposition'] = f'inline; filename=\"preview_{meta[\"contract_number\"]}.docx\"'
+    response['Content-Disposition'] = f'inline; filename="preview_{meta["contract_number"]}.docx"'
     return response
 
 
