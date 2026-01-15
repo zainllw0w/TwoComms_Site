@@ -447,6 +447,35 @@
 
         const formatPrice = (value) => `${parseInt(value || 0, 10)},00`;
 
+        const applyPlaceholders = (text, payload) => {
+            const replacements = {
+                '{{contract_number}}': currentContractNumber || '',
+                '{{contract_date}}': contractDateField.value || '',
+                '{{realizer_name}}': payload.realizerName || '',
+                '{{realizer_code}}': payload.realizerCode || '',
+                '{{realizer_address}}': payload.realizerAddress || '',
+                '{{realizer_iban}}': payload.realizerIban || '',
+                '{{realizer_phone}}': payload.realizerPhone || '',
+                '{{realizer_email}}': payload.realizerEmail || '',
+                '{{delivery_address}}': payload.deliveryAddress || '',
+                '{{recipient_name}}': payload.recipientName || '',
+                '{{recipient_phone}}': payload.recipientPhone || '',
+                '{{product_type_single}}': payload.forms.single || '',
+                '{{product_type_plural}}': payload.forms.plural || '',
+                '{{product_type_gen}}': payload.forms.gen || '',
+                '{{product_print}}': payload.productPrint || '',
+                '{{price_str}}': formatPrice(payload.price || 0),
+                '{{price_words}}': uaNumberToWords(payload.price || 0),
+                '{{total_sum}}': String(payload.totalSum || 0),
+                '{{product_table_name}}': payload.productTitle || '',
+            };
+            let updated = text;
+            Object.entries(replacements).forEach(([key, value]) => {
+                updated = updated.split(key).join(value);
+            });
+            return updated;
+        };
+
         const getSelectedProduct = () => {
             const type = productType.value;
             const select = type === 'hoodie' ? hoodieSelect : tshirtSelect;
@@ -577,6 +606,9 @@
 
             baseParagraphs.forEach((line) => {
                 let text = line;
+                if (text.includes('{{') && text.includes('}}')) {
+                    text = applyPlaceholders(text, payload);
+                }
                 if (text.startsWith('№ ')) {
                     text = `№ ${currentContractNumber || text.slice(2)}`;
                 } else if (text.startsWith('м.') && text.includes('«') && text.includes('р.')) {
