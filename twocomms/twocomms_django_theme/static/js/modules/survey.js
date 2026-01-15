@@ -301,6 +301,11 @@ export function initSurvey() {
 
     if (!prefersReducedMotion) {
       container.classList.add('reveal-fast');
+      requestAnimationFrame(() => {
+        container.classList.add('visible');
+      });
+    } else {
+      container.classList.add('visible');
     }
   };
 
