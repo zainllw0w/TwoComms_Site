@@ -158,33 +158,30 @@
     <!-- Скрываемый контент -->
     <div class="featured-content-unified" id="featured-content">
       <div class="featured-card-compact survey-card">
-        <div class="featured-image-compact survey-visual">
-          <div class="survey-visual-inner">
-            <div class="survey-visual-badge">≈5 хв</div>
-            <div class="survey-visual-icon">
-              <svg width="42" height="42" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M4 4h16v12H5.17L4 17.17V4zm0-2c-1.1 0-2 .9-2 2v20l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2H4z"/>
-              </svg>
-            </div>
-            <div class="survey-visual-reward">-{{ survey_reward.amount_uah|default:200 }} грн</div>
-            <div class="survey-visual-foot">діє {{ survey_reward.expires_in_days|default:5 }} днів</div>
+        <div class="survey-signal">
+          <div class="survey-signal-ring">
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.49 2 2 5.92 2 11c0 2.52 1.09 4.78 2.86 6.38L4 22l4.06-2.2c1.2.33 2.49.5 3.94.5 5.51 0 10-3.92 10-9S17.51 2 12 2zm.1 14.4c-.62 0-1.1-.48-1.1-1.08 0-.63.48-1.12 1.1-1.12.64 0 1.14.49 1.14 1.12 0 .6-.5 1.08-1.14 1.08zm2.1-6.33c-.36.45-.84.74-1.25 1.03-.39.27-.63.53-.63 1.07v.3h-1.4v-.42c0-.86.4-1.38.96-1.78.3-.22.65-.43.91-.74.22-.26.33-.54.33-.87 0-.7-.59-1.16-1.35-1.16-.77 0-1.3.45-1.43 1.2l-1.48-.3c.2-1.34 1.43-2.3 2.95-2.3 1.65 0 2.86 1 2.86 2.44 0 .62-.16 1.14-.47 1.53z"/>
+            </svg>
+          </div>
+          <div class="survey-signal-stack">
+            <div class="survey-signal-pill">≈5 хв</div>
+            <div class="survey-signal-pill">1 питання за раз</div>
+            <div class="survey-signal-pill">Автозбереження</div>
           </div>
         </div>
 
         <div class="featured-info-compact survey-info">
-          <div class="survey-chips">
-            <span class="survey-chip">1 питання за раз</span>
-            <span class="survey-chip">Автозбереження</span>
-            <span class="survey-chip">Без цифр прогресу</span>
-          </div>
           <h3 class="featured-title-compact-text survey-title">
             {{ survey_ui_home.title_uk|default:"Коротке опитування про PRINT" }}
           </h3>
           <p class="survey-subtitle">
             {{ survey_ui_home.subtitle_uk|default:"Відповідай на кілька коротких запитань (≈5 хв)." }}
           </p>
-          <div class="survey-footnote">
-            {{ survey_ui_home.note_uk|default:"Доступно лише для зареєстрованих користувачів. Відповіді зберігаються — можна продовжити пізніше." }}
+          <div class="survey-points">
+            <div class="survey-point">Промокод на {{ survey_reward.amount_uah|default:200 }} грн після завершення</div>
+            <div class="survey-point">Можна продовжити пізніше</div>
+            <div class="survey-point">Без цифр прогресу</div>
           </div>
           <div class="survey-actions">
             <button
@@ -202,6 +199,9 @@
                 <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
               </svg>
             </button>
+          </div>
+          <div class="survey-footnote">
+            {{ survey_ui_home.note_uk|default:"Доступно лише для зареєстрованих користувачів. Відповіді зберігаються — можна продовжити пізніше." }}
           </div>
         </div>
       </div>

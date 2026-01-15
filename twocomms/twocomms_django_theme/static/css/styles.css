@@ -23501,92 +23501,112 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
 }
 /* Survey CTA + modal */
 .survey-card {
-  display: flex;
-  gap: 1.5rem;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) 1fr;
+  gap: 1.6rem;
+  align-items: stretch;
 }
 
-.survey-visual {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 200px;
-  min-height: 200px;
-  border-radius: 20px;
+.survey-signal {
   position: relative;
-  overflow: hidden;
-  background: radial-gradient(circle at top, rgba(255, 200, 120, 0.3), rgba(255, 140, 66, 0.15)),
-    linear-gradient(135deg, rgba(255, 140, 66, 0.25), rgba(255, 140, 66, 0.05));
+  padding: 1.25rem;
+  border-radius: 20px;
+  background: linear-gradient(160deg, rgba(255, 209, 140, 0.22), rgba(255, 140, 66, 0.12));
   border: 1px solid rgba(255, 140, 66, 0.35);
-  box-shadow: 0 12px 28px rgba(255, 140, 66, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2);
-}
-
-.survey-visual-inner {
-  text-align: center;
+  box-shadow: 0 14px 28px rgba(255, 140, 66, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.18);
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  color: #fff6ec;
+  gap: 0.9rem;
+  min-height: 200px;
+  overflow: hidden;
 }
 
-.survey-visual-badge {
+.survey-signal::after {
+  content: '';
+  position: absolute;
+  right: -30px;
+  bottom: -40px;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 193, 92, 0.4), transparent 70%);
+  opacity: 0.6;
+}
+
+.survey-signal-ring {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
   display: inline-flex;
-  align-self: center;
-  padding: 0.25rem 0.7rem;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ffd18c, #ff8c42);
+  color: #2a1508;
+  box-shadow: 0 10px 24px rgba(255, 140, 66, 0.35);
+  position: relative;
+  z-index: 1;
+}
+
+.survey-signal-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  position: relative;
+  z-index: 1;
+}
+
+.survey-signal-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.7rem;
   border-radius: 999px;
   font-size: 0.75rem;
-  font-weight: 700;
-  background: rgba(0, 0, 0, 0.35);
-  letter-spacing: 0.05em;
-}
-
-.survey-visual-icon {
-  color: #fff;
-  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.35));
-}
-
-.survey-visual-reward {
-  font-size: 1.4rem;
-  font-weight: 800;
-  color: #fff;
-}
-
-.survey-visual-foot {
-  font-size: 0.8rem;
-  opacity: 0.85;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  background: rgba(8, 8, 12, 0.35);
+  color: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .survey-info {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-}
-
-.survey-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.survey-chip {
-  padding: 0.25rem 0.6rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.85);
+  gap: 0.65rem;
 }
 
 .survey-subtitle {
   margin: 0;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.88);
   font-size: 0.95rem;
+}
+
+.survey-points {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.survey-point {
+  position: relative;
+  padding-left: 1.2rem;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.survey-point::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.5rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: rgba(255, 183, 92, 0.95);
+  box-shadow: 0 0 10px rgba(255, 183, 92, 0.6);
 }
 
 .survey-footnote {
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.65);
 }
 
 .survey-actions {
@@ -23914,13 +23934,11 @@ body.survey-modal-open {
 
 @media (max-width: 768px) {
   .survey-card {
-    flex-direction: column;
-    align-items: stretch;
+    grid-template-columns: 1fr;
   }
 
-  .survey-visual {
-    width: 100%;
-    min-height: 180px;
+  .survey-signal {
+    min-height: auto;
   }
 
   .survey-dialog {

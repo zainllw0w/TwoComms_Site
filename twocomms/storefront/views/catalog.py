@@ -13,6 +13,7 @@ from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.core.paginator import Paginator, EmptyPage
 from django.urls import reverse
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.template.loader import render_to_string
 from django.db.models import Q
 
@@ -28,6 +29,7 @@ from .utils import cache_page_for_anon, HOME_PRODUCTS_PER_PAGE, PRODUCTS_PER_PAG
 
 # ==================== CATALOG VIEWS ====================
 
+@ensure_csrf_cookie
 def home(request):
     """
     Главная страница сайта.
@@ -329,7 +331,6 @@ def search(request):
                 'error': 'Произошла ошибка при поиске. Попробуйте еще раз.'
             }
         )
-
 
 
 
