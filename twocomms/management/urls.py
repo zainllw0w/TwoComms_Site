@@ -37,6 +37,7 @@ urlpatterns = [
     path('invoices/api/<int:invoice_id>/create-payment/', views.invoices_create_payment_api, name='management_invoices_create_payment_api'),
     path('contracts/', views.contracts, name='management_contracts'),
     path('contracts/api/generate/', views.contracts_generate_api, name='management_contracts_generate_api'),
+    path('contracts/api/preview/', views.contracts_preview_api, name='management_contracts_preview_api'),
     path('contracts/<int:contract_id>/download/', views.contracts_download, name='management_contracts_download'),
     path('commercial-offer/email/', views.commercial_offer_email, name='management_commercial_offer_email'),
     path('commercial-offer/email/preview/', views.commercial_offer_email_preview_api, name='management_commercial_offer_email_preview_api'),

@@ -5,8 +5,37 @@
 
 {% block extra_css %}
 <style>
-    .contract-modal-card {
-        width: min(1420px, 96vw);
+    .contracts-page {
+        max-width: 1500px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+
+    .contracts-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        background: var(--panel-strong);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 18px 22px;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    .contracts-header h2 {
+        margin: 4px 0 0;
+        letter-spacing: 0.04em;
+    }
+
+    .contracts-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
     }
 
     .contract-layout {
@@ -16,10 +45,17 @@
         min-height: 0;
     }
 
-    .contract-form {
+    .contract-form-card,
+    .contract-preview-card {
+        background: var(--panel-strong);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 18px;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
         display: flex;
         flex-direction: column;
         gap: 16px;
+        min-height: 0;
     }
 
     .contract-section {
@@ -27,7 +63,6 @@
         border: 1px solid var(--border);
         border-radius: 16px;
         padding: 16px 16px 18px;
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
     }
 
     .contract-section h4 {
@@ -42,23 +77,14 @@
         gap: 10px;
     }
 
-    .contract-preview {
-        display: flex;
-        flex-direction: column;
-        border-radius: 18px;
-        border: 1px solid var(--border);
-        background: rgba(10, 12, 18, 0.55);
-        min-height: 420px;
-        overflow: hidden;
-    }
-
     .preview-toolbar {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 12px 16px;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding-bottom: 12px;
         border-bottom: 1px solid var(--border);
-        background: rgba(255, 255, 255, 0.03);
     }
 
     .preview-title {
@@ -68,93 +94,47 @@
         font-size: 0.82rem;
     }
 
-    .preview-nav {
-        display: flex;
-        align-items: center;
-        gap: 10px;
+    .preview-status {
+        color: var(--muted);
         font-size: 0.85rem;
     }
 
-    .preview-nav button {
-        width: 32px;
-        height: 32px;
-        border-radius: 10px;
-        border: 1px solid var(--border);
-        background: rgba(255, 255, 255, 0.06);
-        color: var(--text-primary);
-        cursor: pointer;
+    .preview-status.is-error {
+        color: #fca5a5;
     }
 
-    .preview-stage {
+    .preview-status.is-success {
+        color: #86efac;
+    }
+
+    .preview-body {
         flex: 1 1 auto;
-        padding: 20px;
-        display: grid;
-        place-items: center;
-        background:
-            radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 60%),
-            linear-gradient(180deg, rgba(8, 10, 16, 0.4), rgba(8, 10, 16, 0.85));
+        min-height: 520px;
+        background: rgba(7, 10, 16, 0.55);
+        border-radius: 14px;
+        padding: 16px;
         overflow: auto;
     }
 
-    .preview-page {
-        width: min(520px, 100%);
-        aspect-ratio: 210 / 297;
-        background: #f8f7f3;
-        color: #111827;
-        border-radius: 12px;
-        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
-        padding: 22px 24px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        font-size: 0.78rem;
-        line-height: 1.45;
-        overflow: hidden;
+    .preview-body .docx-wrapper {
+        background: transparent;
+        padding: 0;
     }
 
-    .preview-page h5 {
-        margin: 6px 0 2px;
-        font-size: 0.85rem;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
+    .preview-body .docx {
+        background: transparent;
     }
 
-    .preview-paragraph {
-        margin: 0;
-        white-space: pre-wrap;
-    }
-
-    .preview-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.7rem;
-        margin: 6px 0 6px;
-    }
-
-    .preview-table th,
-    .preview-table td {
-        border: 1px solid rgba(15, 23, 42, 0.4);
-        padding: 4px 6px;
-        text-align: left;
-    }
-
-    .preview-table th {
-        background: rgba(15, 23, 42, 0.08);
-        font-weight: 700;
-    }
-
-    .contract-actions {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex-wrap: wrap;
+    .preview-body .docx-page {
+        margin: 0 auto 18px;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+        border-radius: 6px;
     }
 
     .contract-status {
-        flex: 1 1 auto;
         font-size: 0.85rem;
         color: var(--muted);
-        min-height: 18px;
+        min-height: 20px;
     }
 
     .contract-status.is-error {
@@ -182,203 +162,190 @@
         .contract-layout {
             grid-template-columns: 1fr;
         }
-        .preview-page {
-            width: min(520px, 100%);
+        .preview-body {
+            min-height: 420px;
         }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="modal-overlay show" id="contract-modal" aria-hidden="false">
-    <div class="modal-card contract-modal-card">
-        <div class="modal-header">
-            <div>
-                <p class="eyebrow">Менеджмент</p>
-                <h3>Сформувати договір</h3>
-            </div>
-            <button type="button" class="modal-close" id="contract-close" aria-label="Закрити">×</button>
+<div class="contracts-page">
+    <div class="contracts-header">
+        <div>
+            <p class="eyebrow">Менеджмент</p>
+            <h2>Сформувати договір</h2>
         </div>
-        <div class="modal-body">
-            <div class="contract-layout">
-                <form id="contract-form" class="contract-form">
-                    {% csrf_token %}
+        <div class="contracts-actions">
+            <button type="button" class="btn-ghost" id="preview-refresh">Оновити прев’ю</button>
+            <button type="button" class="btn-primary" id="contract-generate">Сформувати договір</button>
+            <a class="btn-primary contract-download" id="contract-download" href="#" download>Завантажити</a>
+        </div>
+    </div>
 
-                    <div class="contract-section">
-                        <h4>Реквізити Реалізатора</h4>
-                        <div class="field-grid">
-                            <div class="field field-span-2">
-                                <label for="realizer-name">ПІБ / Назва ФОП</label>
-                                <input id="realizer-name" name="realizer_name" type="text" placeholder="ФОП: ..." required>
-                            </div>
-                            <div class="field">
-                                <label for="realizer-code">РНОКПП / ЄДРПОУ</label>
-                                <input id="realizer-code" name="realizer_code" type="text" placeholder="2995319678" required>
-                            </div>
-                            <div class="field field-span-2">
-                                <label for="realizer-address">Адреса реєстрації</label>
-                                <input id="realizer-address" name="realizer_address" type="text" placeholder="м. ..." required>
-                            </div>
-                            <div class="field">
-                                <label for="realizer-iban">IBAN</label>
-                                <input id="realizer-iban" name="realizer_iban" type="text" placeholder="UA..." required>
-                            </div>
-                            <div class="field">
-                                <label for="realizer-phone">Телефон</label>
-                                <input id="realizer-phone" name="realizer_phone" type="text" placeholder="+380..." required>
-                            </div>
-                            <div class="field">
-                                <label for="realizer-email">Email</label>
-                                <input id="realizer-email" name="realizer_email" type="email" placeholder="email@example.com" required>
-                            </div>
-                        </div>
-                    </div>
+    <div class="contract-layout">
+        <form id="contract-form" class="contract-form-card">
+            {% csrf_token %}
+            <div class="contract-status" id="contract-status"></div>
 
-                    <div class="contract-section">
-                        <h4>Доставка / Одержувач</h4>
-                        <div class="checkbox-field" style="margin-bottom: 10px;">
-                            <label>
-                                <input type="checkbox" id="recipient-same" checked>
-                                Одержувач = Реалізатор
-                            </label>
-                        </div>
-                        <div class="field-grid">
-                            <div class="field field-span-2">
-                                <label for="delivery-address">Адреса / відділення доставки</label>
-                                <input id="delivery-address" name="delivery_address" type="text" placeholder="Нова Пошта, відділення..." required>
-                            </div>
-                            <div class="field">
-                                <label for="recipient-name">ПІБ одержувача</label>
-                                <input id="recipient-name" name="recipient_name" type="text" placeholder="Інна" required>
-                            </div>
-                            <div class="field">
-                                <label for="recipient-phone">Телефон одержувача</label>
-                                <input id="recipient-phone" name="recipient_phone" type="text" placeholder="+380..." required>
-                            </div>
-                        </div>
+            <div class="contract-section">
+                <h4>Реквізити Реалізатора</h4>
+                <div class="field-grid">
+                    <div class="field field-span-2">
+                        <label for="realizer-name">ПІБ / Назва ФОП</label>
+                        <input id="realizer-name" name="realizer_name" type="text" placeholder="ФОП: ..." required>
                     </div>
-
-                    <div class="contract-section">
-                        <h4>Товар і партія</h4>
-                        <div class="field-grid">
-                            <div class="field">
-                                <label for="product-type">Тип товару</label>
-                                <select id="product-type" name="product_type" required>
-                                    <option value="hoodie">Худі</option>
-                                    <option value="tshirt">Футболка</option>
-                                </select>
-                            </div>
-                            <div class="field">
-                                <label for="product-select-hoodie">Позиція (худі)</label>
-                                <select id="product-select-hoodie">
-                                    <option value="">Не вибрано</option>
-                                    {% for item in hoodie_products %}
-                                    <option value="{{ item.id }}" data-drop-price="{{ item.drop_price|default:0 }}" data-title="{{ item.title|escape }}">{{ item.title }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="field">
-                                <label for="product-select-tshirt">Позиція (футболка)</label>
-                                <select id="product-select-tshirt">
-                                    <option value="">Не вибрано</option>
-                                    {% for item in tshirt_products %}
-                                    <option value="{{ item.id }}" data-drop-price="{{ item.drop_price|default:0 }}" data-title="{{ item.title|escape }}">{{ item.title }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="field field-span-2">
-                                <label for="product-print">Назва / принт</label>
-                                <input id="product-print" name="product_print" type="text" placeholder="Мені поЖуй - це філософія" required>
-                            </div>
-                            <div class="field field-span-2">
-                                <label for="product-title">Назва у таблиці (за потреби)</label>
-                                <input id="product-title" name="product_title" type="text" placeholder="Худі \"...\"">
-                                <div class="field-help">Заповнюється автоматично, можна змінити вручну.</div>
-                            </div>
-                            <div class="field">
-                                <label for="product-price">Ціна дропа, грн</label>
-                                <input id="product-price" name="product_price" type="text" class="is-readonly" readonly>
-                            </div>
-                        </div>
-                        <div class="field-grid" style="margin-top: 12px;">
-                            <div class="field">
-                                <label for="qty-s">S (кількість)</label>
-                                <input id="qty-s" type="number" min="0" value="1">
-                            </div>
-                            <div class="field">
-                                <label for="qty-m">M (кількість)</label>
-                                <input id="qty-m" type="number" min="0" value="1">
-                            </div>
-                            <div class="field">
-                                <label for="qty-l">L (кількість)</label>
-                                <input id="qty-l" type="number" min="0" value="1">
-                            </div>
-                            <div class="field">
-                                <label for="qty-xl">XL (кількість)</label>
-                                <input id="qty-xl" type="number" min="0" value="1">
-                            </div>
-                        </div>
+                    <div class="field">
+                        <label for="realizer-code">РНОКПП / ЄДРПОУ</label>
+                        <input id="realizer-code" name="realizer_code" type="text" placeholder="2995319678" required>
                     </div>
-
-                    <div class="contract-section">
-                        <h4>Номер і дата договору</h4>
-                        <div class="contract-meta">
-                            <div class="field">
-                                <label for="contract-number">Номер</label>
-                                <input id="contract-number" type="text" class="is-readonly" value="{{ next_contract_number }}" readonly>
-                            </div>
-                            <div class="field">
-                                <label for="contract-date">Дата</label>
-                                <input id="contract-date" type="text" class="is-readonly" value="{{ contract_date_display }}" readonly>
-                            </div>
-                        </div>
+                    <div class="field field-span-2">
+                        <label for="realizer-address">Адреса реєстрації</label>
+                        <input id="realizer-address" name="realizer_address" type="text" placeholder="м. ..." required>
                     </div>
-                </form>
-
-                <div class="contract-preview">
-                    <div class="preview-toolbar">
-                        <div class="preview-title">Прев’ю договору</div>
-                        <div class="preview-nav">
-                            <button type="button" id="preview-prev">‹</button>
-                            <span id="preview-page-indicator">1 / 1</span>
-                            <button type="button" id="preview-next">›</button>
-                        </div>
+                    <div class="field">
+                        <label for="realizer-iban">IBAN</label>
+                        <input id="realizer-iban" name="realizer_iban" type="text" placeholder="UA..." required>
                     </div>
-                    <div class="preview-stage" id="preview-stage">
-                        <div class="preview-page"></div>
+                    <div class="field">
+                        <label for="realizer-phone">Телефон</label>
+                        <input id="realizer-phone" name="realizer_phone" type="text" placeholder="+380..." required>
+                    </div>
+                    <div class="field">
+                        <label for="realizer-email">Email</label>
+                        <input id="realizer-email" name="realizer_email" type="email" placeholder="email@example.com" required>
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="modal-footer">
-            <div class="contract-status" id="contract-status"></div>
-            <div class="contract-actions">
-                <button type="button" class="btn-ghost" id="contract-reset">Очистити</button>
-                <button type="button" class="btn-primary" id="contract-generate">Сформувати договір</button>
-                <a class="btn-primary contract-download" id="contract-download" href="#" download>Завантажити</a>
+
+            <div class="contract-section">
+                <h4>Доставка / Одержувач</h4>
+                <div class="checkbox-field" style="margin-bottom: 10px;">
+                    <label>
+                        <input type="checkbox" id="recipient-same" checked>
+                        Одержувач = Реалізатор
+                    </label>
+                </div>
+                <div class="field-grid">
+                    <div class="field field-span-2">
+                        <label for="delivery-address">Адреса / відділення доставки</label>
+                        <input id="delivery-address" name="delivery_address" type="text" placeholder="Нова Пошта, відділення..." required>
+                    </div>
+                    <div class="field">
+                        <label for="recipient-name">ПІБ одержувача</label>
+                        <input id="recipient-name" name="recipient_name" type="text" placeholder="Інна" required>
+                    </div>
+                    <div class="field">
+                        <label for="recipient-phone">Телефон одержувача</label>
+                        <input id="recipient-phone" name="recipient_phone" type="text" placeholder="+380..." required>
+                    </div>
+                </div>
+            </div>
+
+            <div class="contract-section">
+                <h4>Товар і партія</h4>
+                <div class="field-grid">
+                    <div class="field">
+                        <label for="product-type">Тип товару</label>
+                        <select id="product-type" name="product_type" required>
+                            <option value="hoodie">Худі</option>
+                            <option value="tshirt">Футболка</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="product-select-hoodie">Позиція (худі)</label>
+                        <select id="product-select-hoodie">
+                            <option value="">Не вибрано</option>
+                            {% for item in hoodie_products %}
+                            <option value="{{ item.id }}" data-drop-price="{{ item.drop_price|default:0 }}" data-title="{{ item.title|escape }}">{{ item.title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="product-select-tshirt">Позиція (футболка)</label>
+                        <select id="product-select-tshirt">
+                            <option value="">Не вибрано</option>
+                            {% for item in tshirt_products %}
+                            <option value="{{ item.id }}" data-drop-price="{{ item.drop_price|default:0 }}" data-title="{{ item.title|escape }}">{{ item.title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="field field-span-2">
+                        <label for="product-print">Назва / принт</label>
+                        <input id="product-print" name="product_print" type="text" placeholder="Мені поЖуй - це філософія" required>
+                    </div>
+                    <div class="field field-span-2">
+                        <label for="product-title">Назва у таблиці (за потреби)</label>
+                        <input id="product-title" name="product_title" type="text" placeholder="Худі \"...\"">
+                        <div class="field-help">Заповнюється автоматично, можна змінити вручну.</div>
+                    </div>
+                    <div class="field">
+                        <label for="product-price">Ціна дропа, грн</label>
+                        <input id="product-price" name="product_price" type="text" class="is-readonly" readonly>
+                    </div>
+                </div>
+                <div class="field-grid" style="margin-top: 12px;">
+                    <div class="field">
+                        <label for="qty-s">S (кількість)</label>
+                        <input id="qty-s" type="number" min="0" value="1">
+                    </div>
+                    <div class="field">
+                        <label for="qty-m">M (кількість)</label>
+                        <input id="qty-m" type="number" min="0" value="1">
+                    </div>
+                    <div class="field">
+                        <label for="qty-l">L (кількість)</label>
+                        <input id="qty-l" type="number" min="0" value="1">
+                    </div>
+                    <div class="field">
+                        <label for="qty-xl">XL (кількість)</label>
+                        <input id="qty-xl" type="number" min="0" value="1">
+                    </div>
+                </div>
+            </div>
+
+            <div class="contract-section">
+                <h4>Номер і дата договору</h4>
+                <div class="contract-meta">
+                    <div class="field">
+                        <label for="contract-number">Номер</label>
+                        <input id="contract-number" type="text" class="is-readonly" value="{{ next_contract_number }}" readonly>
+                    </div>
+                    <div class="field">
+                        <label for="contract-date">Дата</label>
+                        <input id="contract-date" type="text" class="is-readonly" value="{{ contract_date_display }}" readonly>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <div class="contract-preview-card">
+            <div class="preview-toolbar">
+                <div class="preview-title">Прев’ю договору</div>
+                <div class="preview-status" id="preview-status">Очікуємо дані…</div>
+            </div>
+            <div class="preview-body" id="contract-preview">
+                <div class="preview-status" style="padding: 12px;">Заповніть форму, щоб побачити прев’ю.</div>
             </div>
         </div>
     </div>
 </div>
 
-{{ preview_paragraphs|json_script:"contract-preview-paragraphs" }}
 {{ prefill_payload|json_script:"contract-prefill" }}
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'js/jszip.min.js' %}"></script>
+<script src="{% static 'js/docx-preview.js' %}"></script>
 <script>
     (() => {
-        const modal = document.getElementById('contract-modal');
-        const closeBtn = document.getElementById('contract-close');
         const form = document.getElementById('contract-form');
         const statusEl = document.getElementById('contract-status');
+        const previewStatus = document.getElementById('preview-status');
+        const previewRefresh = document.getElementById('preview-refresh');
+        const previewEl = document.getElementById('contract-preview');
         const downloadBtn = document.getElementById('contract-download');
         const generateBtn = document.getElementById('contract-generate');
-        const resetBtn = document.getElementById('contract-reset');
-        const previewStage = document.getElementById('preview-stage');
-        const previewIndicator = document.getElementById('preview-page-indicator');
-        const previewPrev = document.getElementById('preview-prev');
-        const previewNext = document.getElementById('preview-next');
         const recipientSame = document.getElementById('recipient-same');
         const productType = document.getElementById('product-type');
         const hoodieSelect = document.getElementById('product-select-hoodie');
@@ -387,94 +354,20 @@
         const productTitle = document.getElementById('product-title');
         const productPrice = document.getElementById('product-price');
         const contractNumberField = document.getElementById('contract-number');
-        const contractDateField = document.getElementById('contract-date');
         const qtyFields = {
             S: document.getElementById('qty-s'),
             M: document.getElementById('qty-m'),
             L: document.getElementById('qty-l'),
             XL: document.getElementById('qty-xl'),
         };
-        const baseParagraphs = JSON.parse(document.getElementById('contract-preview-paragraphs').textContent || '[]');
         const prefill = JSON.parse(document.getElementById('contract-prefill').textContent || '{}');
 
         const dropHoodiePrice = {{ drop_hoodie_price|default:1350 }};
         const dropTeePrice = {{ drop_tee_price|default:570 }};
-        let currentPages = [];
-        let currentPageIndex = 0;
-        let currentContractNumber = contractNumberField.value;
+        let previewTimeout = null;
+        let previewAbort = null;
 
-        document.body.classList.add('modal-open');
-
-        const uaMonths = ['січня', 'лютого', 'березня', 'квітня', 'травня', 'червня', 'липня', 'серпня', 'вересня', 'жовтня', 'листопада', 'грудня'];
-        const uaUnitsM = ['', 'один', 'два', 'три', 'чотири', 'п’ять', 'шість', 'сім', 'вісім', 'дев’ять'];
-        const uaUnitsF = ['', 'одна', 'дві', 'три', 'чотири', 'п’ять', 'шість', 'сім', 'вісім', 'дев’ять'];
-        const uaTeens = ['десять', 'одинадцять', 'дванадцять', 'тринадцять', 'чотирнадцять', 'п’ятнадцять', 'шістнадцять', 'сімнадцять', 'вісімнадцять', 'дев’ятнадцять'];
-        const uaTens = ['', '', 'двадцять', 'тридцять', 'сорок', 'п’ятдесят', 'шістдесят', 'сімдесят', 'вісімдесят', 'дев’яносто'];
-        const uaHundreds = ['', 'сто', 'двісті', 'триста', 'чотириста', 'п’ятсот', 'шістсот', 'сімсот', 'вісімсот', 'дев’ятсот'];
-
-        const uaNumberToWords = (value) => {
-            let num = Number(value) || 0;
-            if (!num) return 'нуль';
-            const parts = [];
-            const thousands = Math.floor(num / 1000);
-            if (thousands) {
-                parts.push(uaUnitsF[thousands]);
-                if (thousands % 10 === 1 && thousands % 100 !== 11) {
-                    parts.push('тисяча');
-                } else if ([2, 3, 4].includes(thousands % 10) && !(thousands % 100 >= 12 && thousands % 100 <= 14)) {
-                    parts.push('тисячі');
-                } else {
-                    parts.push('тисяч');
-                }
-            }
-            num %= 1000;
-            if (Math.floor(num / 100)) {
-                parts.push(uaHundreds[Math.floor(num / 100)]);
-            }
-            num %= 100;
-            if (num >= 10 && num <= 19) {
-                parts.push(uaTeens[num - 10]);
-            } else {
-                if (Math.floor(num / 10)) {
-                    parts.push(uaTens[Math.floor(num / 10)]);
-                }
-                if (num % 10) {
-                    parts.push(uaUnitsM[num % 10]);
-                }
-            }
-            return parts.filter(Boolean).join(' ');
-        };
-
-        const formatPrice = (value) => `${parseInt(value || 0, 10)},00`;
-
-        const applyPlaceholders = (text, payload) => {
-            const replacements = {
-                '{{contract_number}}': currentContractNumber || '',
-                '{{contract_date}}': contractDateField.value || '',
-                '{{realizer_name}}': payload.realizerName || '',
-                '{{realizer_code}}': payload.realizerCode || '',
-                '{{realizer_address}}': payload.realizerAddress || '',
-                '{{realizer_iban}}': payload.realizerIban || '',
-                '{{realizer_phone}}': payload.realizerPhone || '',
-                '{{realizer_email}}': payload.realizerEmail || '',
-                '{{delivery_address}}': payload.deliveryAddress || '',
-                '{{recipient_name}}': payload.recipientName || '',
-                '{{recipient_phone}}': payload.recipientPhone || '',
-                '{{product_type_single}}': payload.forms.single || '',
-                '{{product_type_plural}}': payload.forms.plural || '',
-                '{{product_type_gen}}': payload.forms.gen || '',
-                '{{product_print}}': payload.productPrint || '',
-                '{{price_str}}': formatPrice(payload.price || 0),
-                '{{price_words}}': uaNumberToWords(payload.price || 0),
-                '{{total_sum}}': String(payload.totalSum || 0),
-                '{{product_table_name}}': payload.productTitle || '',
-            };
-            let updated = text;
-            Object.entries(replacements).forEach(([key, value]) => {
-                updated = updated.split(key).join(value);
-            });
-            return updated;
-        };
+        const formatPrice = (value) => parseInt(value || 0, 10);
 
         const getSelectedProduct = () => {
             const type = productType.value;
@@ -492,9 +385,9 @@
         const getProductTypeForms = () => {
             const type = productType.value;
             if (type === 'hoodie') {
-                return { single: 'худі', plural: 'худі', gen: 'худі', title: 'Худі' };
+                return { title: 'Худі' };
             }
-            return { single: 'футболка', plural: 'футболки', gen: 'футболки', title: 'Футболка' };
+            return { title: 'Футболка' };
         };
 
         const computePrice = () => {
@@ -509,196 +402,45 @@
             const selected = getSelectedProduct();
             const price = computePrice();
             const quantities = {};
-            let totalSum = 0;
-            const sizes = ['S', 'M', 'L', 'XL'];
-            sizes.forEach((size, idx) => {
+            ['S', 'M', 'L', 'XL'].forEach((size) => {
                 const field = qtyFields[size];
                 let qty = parseInt(field?.value || '0', 10);
                 if (Number.isNaN(qty) || qty < 0) qty = 0;
-                const lineTotal = qty * price;
-                totalSum += lineTotal;
-                quantities[size] = { qty, lineTotal };
+                quantities[size] = qty;
             });
-            const forms = getProductTypeForms();
-            const title = productTitle.value.trim() || selected?.title || `${forms.title} "${productPrint.value.trim()}"`;
+            const title = productTitle.value.trim() || selected?.title || `${getProductTypeForms().title} "${productPrint.value.trim()}"`;
             return {
-                realizerName: document.getElementById('realizer-name').value.trim(),
-                realizerCode: document.getElementById('realizer-code').value.trim(),
-                realizerAddress: document.getElementById('realizer-address').value.trim(),
-                realizerIban: document.getElementById('realizer-iban').value.trim(),
-                realizerPhone: document.getElementById('realizer-phone').value.trim(),
-                realizerEmail: document.getElementById('realizer-email').value.trim(),
-                deliveryAddress: document.getElementById('delivery-address').value.trim(),
-                recipientName: document.getElementById('recipient-name').value.trim(),
-                recipientPhone: document.getElementById('recipient-phone').value.trim(),
-                productType: productType.value,
-                productId: selected?.id || '',
-                productPrint: productPrint.value.trim(),
-                productTitle: title,
-                price,
+                realizer_name: document.getElementById('realizer-name').value.trim(),
+                realizer_code: document.getElementById('realizer-code').value.trim(),
+                realizer_address: document.getElementById('realizer-address').value.trim(),
+                realizer_iban: document.getElementById('realizer-iban').value.trim(),
+                realizer_phone: document.getElementById('realizer-phone').value.trim(),
+                realizer_email: document.getElementById('realizer-email').value.trim(),
+                delivery_address: document.getElementById('delivery-address').value.trim(),
+                recipient_name: document.getElementById('recipient-name').value.trim(),
+                recipient_phone: document.getElementById('recipient-phone').value.trim(),
+                product_type: productType.value,
+                product_id: selected?.id || '',
+                product_print: productPrint.value.trim(),
+                product_title: title,
                 quantities,
-                totalSum,
-                forms,
             };
         };
 
-        const buildTableHtml = (payload) => {
-            const rows = ['S', 'M', 'L', 'XL'].map((size, idx) => {
-                const row = payload.quantities[size];
-                return `
-                    <tr>
-                        <td>${idx + 1}</td>
-                        <td>${payload.productTitle}</td>
-                        <td>${size}</td>
-                        <td>${row.qty}</td>
-                        <td>${formatPrice(payload.price)}</td>
-                        <td>${formatPrice(row.lineTotal)}</td>
-                    </tr>
-                `;
-            }).join('');
-            return `
-                <table class="preview-table">
-                    <thead>
-                        <tr>
-                            <th>№</th>
-                            <th>Найменування товару</th>
-                            <th>Розмір</th>
-                            <th>Кількість, шт.</th>
-                            <th>Ціна за 1 од., грн</th>
-                            <th>Сума, грн</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${rows}
-                    </tbody>
-                </table>
-            `;
-        };
-
-        const buildPages = (paragraphs) => {
-            const maxChars = 1650;
-            const pages = [];
-            let current = [];
-            let count = 0;
-            paragraphs.forEach((para) => {
-                const length = para.length + 2;
-                if (count + length > maxChars && current.length) {
-                    pages.push(current);
-                    current = [];
-                    count = 0;
-                }
-                current.push(para);
-                count += length;
-            });
-            if (current.length) pages.push(current);
-            return pages.length ? pages : [[]];
-        };
-
-        const renderPreview = () => {
-            const payload = buildPayload();
-            const forms = payload.forms;
-            const priceWords = uaNumberToWords(payload.price);
-            const recipientDiff = payload.recipientName !== payload.realizerName || payload.recipientPhone !== payload.realizerPhone;
-
-            const updated = [];
-            let inRealizer = false;
-            let inDelivery = false;
-
-            baseParagraphs.forEach((line) => {
-                let text = line;
-                if (text.includes('{{') && text.includes('}}')) {
-                    text = applyPlaceholders(text, payload);
-                }
-                if (text.startsWith('№ ')) {
-                    text = `№ ${currentContractNumber || text.slice(2)}`;
-                } else if (text.startsWith('м.') && text.includes('«') && text.includes('р.')) {
-                    const prefix = text.split('«')[0];
-                    text = `${prefix}${contractDateField.value}`;
-                } else if (text.startsWith('Фізична особа – підприємець') && text.includes('Реалізатор')) {
-                    text = `Фізична особа – підприємець ${payload.realizerName}, код ${payload.realizerCode}, надалі – «Реалізатор», з іншої сторони, разом – «Сторони», уклали цей договір (надалі – «Договір») про таке.`;
-                } else if (text.startsWith('1.1. Постачальник передає')) {
-                    text = `1.1. Постачальник передає Реалізатору тестову партію товару – ${forms.gen} (далі – «Товар») для реалізації протягом тестового періоду, а Реалізатор приймає Товар на умовах цього Договору.`;
-                } else if (text.startsWith('1.2.1. Орієнтовно:')) {
-                    text = `1.2.1. Орієнтовно: ${forms.plural} з принтами ["${payload.productPrint}"]` +
-                        ', розміри S, M, L, XL (по одній одиниці кожного розміру або інша кількість за домовленістю).';
-                } else if (text.startsWith('1.2.2. Базова ціна')) {
-                    text = `1.2.2. Базова ціна однієї одиниці Товару на момент укладення Договору становить ${formatPrice(payload.price)} (${priceWords}) грн за одиницю, якщо інше не буде вказано у Додатку №1.`;
-                } else if (text.startsWith('3.1. Товар відправляється') && recipientDiff) {
-                    text = '3.1. Товар відправляється Постачальником на ПІБ отримувача, номер телефону та відділення служби доставки, зазначені в Додатку №1.';
-                } else if (text.startsWith('РЕАЛІЗАТОР:')) {
-                    inRealizer = true;
-                } else if (text.startsWith('Додаток №1')) {
-                    inRealizer = false;
-                }
-
-                if (inRealizer) {
-                    if (text.startsWith('ФОП:')) {
-                        text = `ФОП: ${payload.realizerName}`;
-                    } else if (text.startsWith('РНОКПП/ЄДРПОУ:')) {
-                        text = `РНОКПП/ЄДРПОУ: ${payload.realizerCode}`;
-                    } else if (text.startsWith('Адреса:')) {
-                        text = `Адреса: ${payload.realizerAddress}`;
-                    } else if (text.startsWith('IBAN:')) {
-                        text = `IBAN: ${payload.realizerIban}`;
-                    } else if (text.startsWith('Телефон:')) {
-                        text = `Телефон: ${payload.realizerPhone}`;
-                    } else if (text.startsWith('E-mail:')) {
-                        text = `E-mail: ${payload.realizerEmail}`;
-                    }
-                }
-
-                if (text.startsWith('1. Найменування Товару:')) {
-                    text = `1. Найменування Товару: ${forms.single} з принтом «${payload.productPrint}»`;
-                } else if (text.startsWith('3. Загальна вартість партії:')) {
-                    text = `3. Загальна вартість партії: ${payload.totalSum} грн.`;
-                } else if (text.startsWith('4. Адреса доставки')) {
-                    inDelivery = true;
-                } else if (text.startsWith('Адреса / відділення доставки:')) {
-                    text = `Адреса / відділення доставки: ${payload.deliveryAddress}`;
-                } else if (text.startsWith('ПІБ отримувача:')) {
-                    text = `ПІБ отримувача: ${payload.recipientName}`;
-                } else if (inDelivery && text.startsWith('Телефон:')) {
-                    text = `Телефон: ${payload.recipientPhone}`;
-                }
-
-                updated.push(text);
-                if (text.startsWith('2. Параметри партії:')) {
-                    updated.push('__TABLE__');
-                }
-            });
-
-            const prepared = updated.map((line) => line);
-            const pages = buildPages(prepared.filter(Boolean));
-            currentPages = pages;
-            if (currentPageIndex >= pages.length) currentPageIndex = pages.length - 1;
-            renderPage();
-
-            productPrice.value = payload.price ? payload.price : '';
-        };
-
-        const renderPage = () => {
-            const page = currentPages[currentPageIndex] || [];
-            const payload = buildPayload();
-            const tableHtml = buildTableHtml(payload);
-
-            const pageEl = document.createElement('div');
-            pageEl.className = 'preview-page';
-            page.forEach((line) => {
-                if (line === '__TABLE__') {
-                    const wrapper = document.createElement('div');
-                    wrapper.innerHTML = tableHtml;
-                    pageEl.appendChild(wrapper);
-                    return;
-                }
-                const p = document.createElement('p');
-                p.className = 'preview-paragraph';
-                p.textContent = line;
-                pageEl.appendChild(p);
-            });
-
-            previewStage.innerHTML = '';
-            previewStage.appendChild(pageEl);
-            previewIndicator.textContent = `${currentPageIndex + 1} / ${currentPages.length}`;
+        const getMissingFields = (payload) => {
+            const required = [
+                ['realizer_name', 'ПІБ / Назва ФОП'],
+                ['realizer_code', 'РНОКПП / ЄДРПОУ'],
+                ['realizer_address', 'Адреса'],
+                ['realizer_iban', 'IBAN'],
+                ['realizer_phone', 'Телефон'],
+                ['realizer_email', 'Email'],
+                ['delivery_address', 'Адреса доставки'],
+                ['recipient_name', 'ПІБ одержувача'],
+                ['recipient_phone', 'Телефон одержувача'],
+                ['product_print', 'Назва / принт'],
+            ];
+            return required.filter(([key]) => !payload[key]).map(([, label]) => label);
         };
 
         const syncRecipient = () => {
@@ -729,6 +471,22 @@
             if (mode) statusEl.classList.add(mode);
         };
 
+        const setPreviewStatus = (text, mode) => {
+            previewStatus.textContent = text || '';
+            previewStatus.classList.remove('is-error', 'is-success');
+            if (mode) previewStatus.classList.add(mode);
+        };
+
+        const renderDocxBuffer = async (buffer) => {
+            previewEl.innerHTML = '';
+            await window.docx.renderAsync(buffer, previewEl, null, {
+                className: 'docx',
+                inWrapper: true,
+                ignoreWidth: false,
+                ignoreHeight: false,
+            });
+        };
+
         const setDownload = (link, label) => {
             if (!link) {
                 downloadBtn.classList.remove('is-visible');
@@ -739,6 +497,10 @@
             downloadBtn.classList.add('is-visible');
             downloadBtn.href = link;
             downloadBtn.textContent = label || 'Завантажити';
+        };
+
+        const updateDerived = () => {
+            productPrice.value = formatPrice(computePrice());
         };
 
         const applyPrefill = () => {
@@ -785,44 +547,104 @@
             }
         };
 
+        const schedulePreview = () => {
+            if (previewTimeout) {
+                clearTimeout(previewTimeout);
+            }
+            previewTimeout = setTimeout(loadPreview, 600);
+        };
+
+        const renderGeneratedDoc = async (downloadUrl, contractNumber) => {
+            if (!downloadUrl) return;
+            if (previewAbort) {
+                previewAbort.abort();
+                previewAbort = null;
+            }
+            const numberLabel = contractNumber ? ` № ${contractNumber}` : '';
+            setPreviewStatus(`Завантажуємо готовий договір${numberLabel}...`, '');
+            try {
+                const response = await fetch(downloadUrl, { credentials: 'same-origin' });
+                if (!response.ok) {
+                    throw new Error('Не вдалося завантажити готовий договір.');
+                }
+                const buffer = await response.arrayBuffer();
+                await renderDocxBuffer(buffer);
+                setPreviewStatus(`Готовий договір${numberLabel}`, 'is-success');
+            } catch (err) {
+                previewEl.innerHTML = '<div class="preview-status">Помилка прев’ю.</div>';
+                setPreviewStatus(err.message || 'Помилка прев’ю', 'is-error');
+            }
+        };
+
+        const loadPreview = async () => {
+            const payload = buildPayload();
+            const missing = getMissingFields(payload);
+            if (missing.length) {
+                previewEl.innerHTML = '<div class="preview-status">Заповніть форму, щоб побачити прев’ю.</div>';
+                setPreviewStatus(`Не заповнено: ${missing.join(', ')}`, 'is-error');
+                return;
+            }
+            if (previewAbort) {
+                previewAbort.abort();
+            }
+            previewAbort = new AbortController();
+            setPreviewStatus('Оновлюємо прев’ю...', '');
+            try {
+                const csrfToken = form.querySelector('input[name=csrfmiddlewaretoken]').value;
+                const response = await fetch('{% url "management_contracts_preview_api" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
+                    signal: previewAbort.signal,
+                    body: JSON.stringify(payload),
+                });
+                if (!response.ok) {
+                    const data = await response.json().catch(() => ({}));
+                    const msg = data.fields ? `Заповніть: ${data.fields.join(', ')}` : 'Не вдалося згенерувати прев’ю.';
+                    throw new Error(msg);
+                }
+                const nextNumber = response.headers.get('X-Contract-Number');
+                if (nextNumber) {
+                    contractNumberField.value = nextNumber;
+                }
+                const buffer = await response.arrayBuffer();
+                await renderDocxBuffer(buffer);
+                setPreviewStatus('Прев’ю оновлено', 'is-success');
+            } catch (err) {
+                if (err.name === 'AbortError') return;
+                previewEl.innerHTML = '<div class="preview-status">Помилка прев’ю.</div>';
+                setPreviewStatus(err.message || 'Помилка прев’ю', 'is-error');
+            }
+        };
+
         const bindEvents = () => {
-            closeBtn.addEventListener('click', () => {
-                window.location.href = '{% url "management_home" %}';
-            });
-            previewPrev.addEventListener('click', () => {
-                if (currentPageIndex > 0) {
-                    currentPageIndex -= 1;
-                    renderPage();
-                }
-            });
-            previewNext.addEventListener('click', () => {
-                if (currentPageIndex < currentPages.length - 1) {
-                    currentPageIndex += 1;
-                    renderPage();
-                }
-            });
+            previewRefresh.addEventListener('click', loadPreview);
             recipientSame.addEventListener('change', () => {
                 syncRecipient();
-                renderPreview();
+                schedulePreview();
             });
-
             productType.addEventListener('change', () => {
                 toggleProductSelect();
-                renderPreview();
+                updateDerived();
+                schedulePreview();
             });
             hoodieSelect.addEventListener('change', () => {
                 const selected = getSelectedProduct();
                 if (selected?.title) {
                     productTitle.value = selected.title;
                 }
-                renderPreview();
+                updateDerived();
+                schedulePreview();
             });
             tshirtSelect.addEventListener('change', () => {
                 const selected = getSelectedProduct();
                 if (selected?.title) {
                     productTitle.value = selected.title;
                 }
-                renderPreview();
+                updateDerived();
+                schedulePreview();
             });
 
             form.querySelectorAll('input, select, textarea').forEach((input) => {
@@ -830,20 +652,9 @@
                     if (recipientSame.checked && (input.id === 'realizer-name' || input.id === 'realizer-phone')) {
                         syncRecipient();
                     }
-                    renderPreview();
+                    updateDerived();
+                    schedulePreview();
                 });
-                input.addEventListener('change', renderPreview);
-            });
-
-            resetBtn.addEventListener('click', () => {
-                form.reset();
-                contractNumberField.value = '{{ next_contract_number }}';
-                currentContractNumber = contractNumberField.value;
-                setDownload('');
-                setStatus('');
-                toggleProductSelect();
-                syncRecipient();
-                renderPreview();
             });
 
             generateBtn.addEventListener('click', async () => {
@@ -861,22 +672,7 @@
                             'Content-Type': 'application/json',
                             'X-CSRFToken': csrfToken,
                         },
-                        body: JSON.stringify({
-                            realizer_name: payload.realizerName,
-                            realizer_code: payload.realizerCode,
-                            realizer_address: payload.realizerAddress,
-                            realizer_iban: payload.realizerIban,
-                            realizer_phone: payload.realizerPhone,
-                            realizer_email: payload.realizerEmail,
-                            delivery_address: payload.deliveryAddress,
-                            recipient_name: payload.recipientName,
-                            recipient_phone: payload.recipientPhone,
-                            product_type: payload.productType,
-                            product_id: payload.productId,
-                            product_print: payload.productPrint,
-                            product_title: payload.productTitle,
-                            quantities: Object.fromEntries(Object.entries(payload.quantities).map(([size, row]) => [size, row.qty])),
-                        }),
+                        body: JSON.stringify(payload),
                     });
                     const data = await response.json();
                     if (!response.ok || !data.ok) {
@@ -885,9 +681,8 @@
                     }
                     setStatus(`Готово. Договір № ${data.contract.contract_number}`, 'is-success');
                     setDownload(data.contract.download_url, `Завантажити № ${data.contract.contract_number}`);
-                    currentContractNumber = data.contract.contract_number;
-                    contractNumberField.value = currentContractNumber;
-                    renderPreview();
+                    contractNumberField.value = data.contract.contract_number;
+                    await renderGeneratedDoc(data.contract.download_url, data.contract.contract_number);
                 } catch (err) {
                     setStatus(err.message || 'Помилка генерації.', 'is-error');
                 } finally {
@@ -899,8 +694,9 @@
         applyPrefill();
         toggleProductSelect();
         syncRecipient();
-        renderPreview();
+        updateDerived();
         bindEvents();
+        schedulePreview();
     })();
 </script>
 {% endblock %}
