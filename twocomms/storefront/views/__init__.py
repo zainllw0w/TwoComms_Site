@@ -163,6 +163,16 @@ from .api import (
     contact_form,
 )
 
+# Surveys
+from .survey import (
+    survey_start_or_resume,
+    survey_current_question,
+    survey_submit_answer,
+    survey_back_one_step,
+    survey_close,
+    survey_complete,
+)
+
 # Оформление заказа
 from .checkout import (
     create_order,

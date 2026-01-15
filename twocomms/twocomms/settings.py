@@ -436,6 +436,10 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Survey definitions and reports
+SURVEY_DEFINITION_PATH = BASE_DIR / "surveys" / "print_feedback_v1.json"
+SURVEY_REPORTS_DIR = MEDIA_ROOT / "survey_reports"
+
 # Email (SMTP)
 # cPanel: mail.twocomms.shop, SSL 465, user cooperation@twocomms.shop
 EMAIL_BACKEND = os.environ.get(
@@ -560,6 +564,13 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 # CELERY_TASK_ALWAYS_EAGER = DEBUG  # Optional: run tasks synchronously in debug mode
+
+CELERY_BEAT_SCHEDULE = {
+    'survey-inactivity-check': {
+        'task': 'storefront.tasks.check_survey_inactivity_task',
+        'schedule': 120.0,
+    },
+}
 
 # ============================================================================
 # SESSION CONFIGURATION (E-COMMERCE BEST PRACTICES)

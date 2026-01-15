@@ -701,6 +701,95 @@ class PromoCodeUsage(models.Model):
         return f'{self.user.username} - {self.promo_code.code} ({self.used_at.strftime("%Y-%m-%d %H:%M")})'
 
 
+class UserPromoCode(models.Model):
+    """Промокоди, видані конкретному користувачу (напр., за опитування)."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='promo_grants',
+        verbose_name='Користувач'
+    )
+    promo_code = models.ForeignKey(
+        PromoCode,
+        on_delete=models.CASCADE,
+        related_name='user_grants',
+        verbose_name='Промокод'
+    )
+    survey_key = models.CharField(max_length=100, verbose_name='Ключ опитування')
+    source = models.CharField(max_length=50, default='survey', verbose_name='Джерело')
+    expires_at = models.DateTimeField(null=True, blank=True, verbose_name='Діє до')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Створено')
+
+    class Meta:
+        verbose_name = 'Промокод користувача'
+        verbose_name_plural = 'Промокоди користувача'
+        unique_together = [('user', 'survey_key')]
+        indexes = [
+            models.Index(fields=['user', 'survey_key'], name='idx_user_survey_promo'),
+            models.Index(fields=['user', 'created_at'], name='idx_user_promo_created'),
+        ]
+
+    def __str__(self):
+        return f'{self.user.username} - {self.promo_code.code} ({self.survey_key})'
+
+
+class SurveySession(models.Model):
+    """Сесія проходження опитування користувачем."""
+    STATUS_CHOICES = [
+        ('in_progress', 'В процесі'),
+        ('completed', 'Завершено'),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='survey_sessions',
+        verbose_name='Користувач'
+    )
+    survey_key = models.CharField(max_length=100, verbose_name='Ключ опитування')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='in_progress')
+    answers = models.JSONField(default=dict, blank=True)
+    history = models.JSONField(default=list, blank=True)
+    current_question_id = models.CharField(max_length=100, blank=True, null=True)
+    back_used = models.BooleanField(default=False)
+    version = models.PositiveIntegerField(default=1)
+    module_order = models.JSONField(default=list, blank=True)
+
+    device_type = models.CharField(max_length=20, blank=True, null=True)
+    user_agent = models.TextField(blank=True, null=True)
+
+    started_at = models.DateTimeField(auto_now_add=True)
+    last_activity_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    awarded_promocode = models.ForeignKey(
+        PromoCode,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='survey_sessions',
+        verbose_name='Промокод'
+    )
+
+    report_status = models.CharField(max_length=20, blank=True, null=True)
+    report_file_path = models.CharField(max_length=512, blank=True, null=True)
+    last_report_version = models.PositiveIntegerField(default=0)
+    last_report_sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Сесія опитування'
+        verbose_name_plural = 'Сесії опитувань'
+        unique_together = [('user', 'survey_key')]
+        indexes = [
+            models.Index(fields=['survey_key', 'status'], name='idx_survey_status'),
+            models.Index(fields=['user', 'survey_key'], name='idx_survey_user_key'),
+            models.Index(fields=['last_activity_at'], name='idx_survey_last_activity'),
+        ]
+
+    def __str__(self):
+        return f'{self.user.username} - {self.survey_key} ({self.status})'
+
+
 class OfflineStore(models.Model):
     """Модель для оффлайн магазинов"""
     name = models.CharField(max_length=200, verbose_name='Назва магазину')

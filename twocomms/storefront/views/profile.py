@@ -547,6 +547,8 @@ def my_promocodes(request):
     Показывает использованные промокоды в заказах.
     """
     from orders.models import Order
+    from django.utils import timezone
+    from ..models import UserPromoCode, PromoCodeUsage
     
     # Получаем все заказы пользователя с промокодами
     orders_with_promocodes = Order.objects.filter(
@@ -561,13 +563,40 @@ def my_promocodes(request):
             used_promocodes.append({
                 'promo_code': order.promo_code,
                 'order': order,
-                'used_date': order.created_at,
+                'used_date': order.created,
                 'discount_amount': order.discount_amount,
                 'order_total': order.total_sum
             })
     
+    granted = UserPromoCode.objects.filter(user=request.user).select_related('promo_code')
+    used_promo_ids = set(
+        PromoCodeUsage.objects.filter(user=request.user, promo_code__in=[g.promo_code for g in granted])
+        .values_list('promo_code_id', flat=True)
+    )
+
+    active_promocodes = []
+    expired_promocodes = []
+    now = timezone.now()
+    for grant in granted:
+        promo = grant.promo_code
+        is_used = promo.id in used_promo_ids
+        is_valid = promo.is_active and promo.is_valid_now()
+        entry = {
+            'promo_code': promo,
+            'expires_at': promo.valid_until or grant.expires_at,
+            'is_used': is_used,
+        }
+        if is_used:
+            continue
+        if is_valid:
+            active_promocodes.append(entry)
+        else:
+            expired_promocodes.append(entry)
+
     return render(request, 'pages/my_promocodes.html', {
-        'used_promocodes': used_promocodes
+        'used_promocodes': used_promocodes,
+        'active_promocodes': active_promocodes,
+        'expired_promocodes': expired_promocodes,
     })
 
 

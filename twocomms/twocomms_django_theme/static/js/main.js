@@ -2559,5 +2559,10 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(({ initHomepagePagination }) => initHomepagePagination())
         .catch(() => { });
     }
+    if (document.querySelector('[data-survey-cta]') || document.getElementById('survey-modal')) {
+      import('./modules/survey.js')
+        .then(({ initSurvey }) => initSurvey())
+        .catch(() => { });
+    }
   });
 });
