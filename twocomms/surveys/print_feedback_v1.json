@@ -75,15 +75,34 @@
       "q040_price",
       "q050_site_usability",
       "q060_checkout_ease",
+      "q065_recommend",
+      "q066_nps_reason_low",
+      "q067_nps_reason_high",
       "q070_found_us",
+      "q071_found_us_ads_channel",
+      "q072_found_us_ads_other",
+      "q073_found_us_marketplace",
+      "q074_found_us_marketplace_other",
+      "q075_found_us_other_text",
       "q080_audience",
+      "q081_military_branch",
+      "q082_military_branch_other",
+      "q083_volunteer_type",
+      "q084_volunteer_other",
+      "q085_streetwear_vibe",
+      "q086_streetwear_other",
+      "q087_audience_other",
       "q090_purchase_stage",
-      "q100_priority_improve"
+      "q095_product_interest",
+      "q100_priority_improve",
+      "q101_priority_other"
     ],
     "closing": [
       "q900_open_best",
       "q910_open_improve",
-      "q920_contact_permission"
+      "q920_contact_permission",
+      "q921_contact_channel",
+      "q922_contact_value"
     ]
   },
   "modules": {
