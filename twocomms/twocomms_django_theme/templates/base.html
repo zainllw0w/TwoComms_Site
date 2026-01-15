@@ -793,6 +793,7 @@
 </head>
 
 <body class='bg-body text-body'
+  data-survey-module-url="{% static 'js/modules/survey.js' %}"
   style='font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;'>
   <!-- Deferred preconnects for analytics (not in head to avoid blocking first paint) -->
   {% if not debug %}
@@ -1145,7 +1146,7 @@
   <script defer src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js'
     onload="this.classList.add('script-loaded')" onerror="this.classList.add('script-error')"
     crossorigin="anonymous"></script>
-  <script type="module" src="{% static 'js/main.js' %}?v=41" onload="this.classList.add('script-loaded')"
+  <script type="module" src="{% static 'js/main.js' %}?v=42" onload="this.classList.add('script-loaded')"
     onerror="this.classList.add('script-error')" crossorigin="anonymous"></script>
 
   <!-- UI fallback helpers -->

@@ -2543,8 +2543,10 @@ document.addEventListener('click', function (e) {
 
 // Опрос подгружаем сразу, чтобы кнопка работала без задержек
 document.addEventListener('DOMContentLoaded', () => {
+  const surveyModuleUrl = document.body && document.body.dataset ? document.body.dataset.surveyModuleUrl : null;
+  if (!surveyModuleUrl) return;
   if (document.querySelector('[data-survey-cta]') || document.getElementById('survey-modal')) {
-    import('./modules/survey.js')
+    import(surveyModuleUrl)
       .then(({ initSurvey }) => initSurvey())
       .catch(() => { });
   }
