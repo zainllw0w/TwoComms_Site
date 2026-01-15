@@ -37,6 +37,7 @@ from .models import (
     CommercialOfferEmailLog,
     CommercialOfferEmailSettings,
     ContractSequence,
+    ContractRejectionReasonRequest,
     InvoiceRejectionReasonRequest,
     ManagementContract,
     ReminderRead,
@@ -1828,6 +1829,120 @@ def _send_invoice_review_request_to_admin(invoice, *, request=None):
         invoice.save(update_fields=['admin_tg_chat_id', 'admin_tg_message_id'])
 
 
+def _format_admin_contract_message(contract, *, status_line=None, include_links=True):
+    manager_name = ""
+    if getattr(contract, 'created_by', None):
+        manager_name = contract.created_by.get_full_name() or contract.created_by.username
+    payload = contract.payload or {}
+    realizer = payload.get("realizer_name") or contract.realizer_name or ""
+    recipient = payload.get("recipient_name") or realizer or ""
+    recipient_phone = payload.get("recipient_phone") or payload.get("realizer_phone") or ""
+    delivery_address = payload.get("delivery_address") or ""
+    product_title = payload.get("product_title") or payload.get("product_print") or ""
+    total_sum = payload.get("total_sum")
+    total_sum_text = str(total_sum) if total_sum not in (None, "") else "—"
+    contract_date = contract.contract_date.strftime('%d.%m.%Y') if contract.contract_date else ""
+
+    lines = [
+        "📄 <b>Договір на перевірку</b>",
+        "",
+        f"<b>№</b>: <code>{escape(contract.contract_number)}</code>",
+        f"<b>Дата</b>: {escape(contract_date) if contract_date else '—'}",
+        f"<b>Менеджер</b>: {escape(manager_name) if manager_name else '—'}",
+        f"<b>Реалізатор</b>: {escape(realizer) if realizer else '—'}",
+        f"<b>Одержувач</b>: {escape(recipient) if recipient else '—'}",
+        f"<b>Телефон</b>: {escape(recipient_phone) if recipient_phone else '—'}",
+        f"<b>Адреса доставки</b>: {escape(delivery_address) if delivery_address else '—'}",
+        f"<b>Товар</b>: {escape(product_title) if product_title else '—'}",
+        f"<b>Сума партії</b>: {escape(total_sum_text)} грн",
+    ]
+    if status_line:
+        lines += ["", status_line]
+
+    if include_links:
+        lines += [
+            "",
+            "🌐 Адмін-панель: <a href=\"https://management.twocomms.shop/admin-panel/?tab=contracts\">відкрити</a>",
+            f"📥 DOCX: <a href=\"https://management.twocomms.shop/contracts/{contract.id}/download/\">скачати</a>",
+        ]
+
+    return "\n".join(lines)
+
+
+def _notify_manager_contract(contract, *, title, body_lines):
+    try:
+        manager = contract.created_by
+        profile = manager.userprofile
+    except Exception:
+        return
+    chat_id = getattr(profile, 'tg_manager_chat_id', None)
+    bot_token = _get_manager_bot_token()
+    if not bot_token or not chat_id:
+        return
+    text = "\n".join([title, *body_lines])
+    _tg_send_message(bot_token, chat_id, text, parse_mode='HTML')
+
+
+def _try_update_admin_contract_message(contract, *, bot_token=None, final=False):
+    if not contract.admin_tg_chat_id or not contract.admin_tg_message_id:
+        return
+    token = bot_token or (os.environ.get("MANAGEMENT_TG_BOT_TOKEN") or os.environ.get("MANAGER_TG_BOT_TOKEN"))
+    if not token:
+        return
+    status_line = None
+    if contract.review_status == 'approved':
+        status_line = "✅ <b>ПІДТВЕРДЖЕНО</b>"
+    elif contract.review_status == 'rejected':
+        reason = escape((contract.review_reject_reason or '').strip() or '—')
+        status_line = f"❌ <b>ВІДХИЛЕНО</b>\n<b>Причина</b>: {reason}"
+    elif contract.review_status == 'pending':
+        status_line = "⏳ <b>НА ПЕРЕВІРЦІ</b>"
+
+    text = _format_admin_contract_message(contract, status_line=status_line, include_links=True)
+    reply_markup = {'inline_keyboard': []} if final else None
+    updated = _tg_edit_caption(token, contract.admin_tg_chat_id, contract.admin_tg_message_id, text, reply_markup=reply_markup, parse_mode='HTML')
+    if not updated:
+        _tg_edit_message(token, contract.admin_tg_chat_id, contract.admin_tg_message_id, text, reply_markup=reply_markup, parse_mode='HTML')
+
+
+def _send_contract_review_request_to_admin(contract, *, request=None):
+    token, chat_id = _get_management_admin_bot_config()
+    if not token or not chat_id:
+        return
+    try:
+        chat_id_int = int(chat_id)
+    except Exception:
+        return
+
+    caption = _format_admin_contract_message(contract, status_line="Оберіть дію нижче ⬇️", include_links=True)
+    keyboard = {
+        'inline_keyboard': [[
+            {'text': '✅ Підтвердити', 'callback_data': f'ctr:approve:{contract.id}'},
+            {'text': '❌ Відхилити', 'callback_data': f'ctr:reject:{contract.id}'},
+        ]]
+    }
+    sent = None
+    try:
+        if contract.file_path and os.path.exists(contract.file_path):
+            sent = _tg_send_document(
+                token,
+                chat_id_int,
+                file_path=contract.file_path,
+                filename=os.path.basename(contract.file_path),
+                caption=caption,
+                reply_markup=keyboard,
+                parse_mode='HTML',
+            )
+    except Exception:
+        sent = None
+    if not sent:
+        sent = _tg_send_message(token, chat_id_int, caption, reply_markup=keyboard, parse_mode='HTML')
+    if sent and sent.get('message_id'):
+        contract.admin_tg_chat_id = chat_id_int
+        contract.admin_tg_message_id = sent.get('message_id')
+        contract.save(update_fields=['admin_tg_chat_id', 'admin_tg_message_id'])
+
+
 
 
 def _format_admin_payout_message(payout_req, *, status_line=None, include_links=True):
@@ -2190,6 +2305,82 @@ def management_bot_webhook(request, token):
 
             _tg_answer_callback(bot_token, cb_id, 'Готово')
             return JsonResponse({'ok': True})
+
+        if data.startswith('ctr:'):
+            parts = data.split(':', 2)
+            if len(parts) != 3:
+                _tg_answer_callback(bot_token, cb_id, "Невідома дія")
+                return JsonResponse({'ok': True})
+
+            action = parts[1]
+            try:
+                contract_id = int(parts[2])
+            except Exception:
+                _tg_answer_callback(bot_token, cb_id, "Невірний ID")
+                return JsonResponse({'ok': True})
+
+            contract = ManagementContract.objects.filter(id=contract_id).select_related('created_by', 'created_by__userprofile').first()
+            if not contract:
+                _tg_answer_callback(bot_token, cb_id, "Договір не знайдено")
+                return JsonResponse({'ok': True})
+
+            if chat_id and message_id and (not contract.admin_tg_chat_id or not contract.admin_tg_message_id):
+                contract.admin_tg_chat_id = chat_id
+                contract.admin_tg_message_id = message_id
+                contract.save(update_fields=['admin_tg_chat_id', 'admin_tg_message_id'])
+
+            if contract.review_status != 'pending':
+                _tg_answer_callback(bot_token, cb_id, "Вже оброблено")
+                _try_update_admin_contract_message(contract, bot_token=bot_token, final=True)
+                return JsonResponse({'ok': True})
+
+            if action == 'approve':
+                contract.review_status = 'approved'
+                contract.review_reject_reason = ''
+                contract.reviewed_at = timezone.now()
+                contract.reviewed_by = None
+                contract.is_approved = True
+                contract.save(update_fields=['review_status', 'review_reject_reason', 'reviewed_at', 'reviewed_by', 'is_approved'])
+                ContractRejectionReasonRequest.objects.filter(contract=contract, is_active=True).update(is_active=False)
+                _try_update_admin_contract_message(contract, bot_token=bot_token, final=True)
+                _notify_manager_contract(
+                    contract,
+                    title="✅ <b>Договір підтверджено</b>",
+                    body_lines=[
+                        f"№: <code>{escape(contract.contract_number)}</code>",
+                        f"Реалізатор: {escape(contract.realizer_name or '—')}",
+                        "Статус: ✅ Підтверджено",
+                    ],
+                )
+                _tg_answer_callback(bot_token, cb_id, "Підтверджено")
+                return JsonResponse({'ok': True})
+
+            if action == 'reject':
+                ContractRejectionReasonRequest.objects.filter(admin_chat_id=chat_id, is_active=True).update(is_active=False)
+                req = ContractRejectionReasonRequest.objects.create(contract=contract, admin_chat_id=chat_id, is_active=True)
+
+                waiting_text = _format_admin_contract_message(contract, status_line="✍️ <b>Очікую причину відхилення</b>", include_links=True)
+                updated = _tg_edit_caption(bot_token, chat_id, message_id, waiting_text, reply_markup={'inline_keyboard': []}, parse_mode='HTML')
+                if not updated:
+                    _tg_edit_message(bot_token, chat_id, message_id, waiting_text, reply_markup={'inline_keyboard': []}, parse_mode='HTML')
+
+                prompt = _tg_send_message(
+                    bot_token,
+                    chat_id,
+                    f"❌ <b>Відхилення договору</b> <code>{escape(contract.contract_number)}</code>\n\nНапишіть причину одним повідомленням.",
+                    reply_markup={'force_reply': True, 'input_field_placeholder': 'Причина відхилення…'},
+                    parse_mode='HTML',
+                )
+                if prompt and prompt.get('message_id'):
+                    req.prompt_message_id = prompt.get('message_id')
+                    req.save(update_fields=['prompt_message_id'])
+
+                _tg_answer_callback(bot_token, cb_id, "Вкажіть причину")
+                return JsonResponse({'ok': True})
+
+            _tg_answer_callback(bot_token, cb_id, "Невідома дія")
+            return JsonResponse({'ok': True})
+
         if not data.startswith('inv:') or ':' not in data:
             _tg_answer_callback(bot_token, cb_id, "Невідома дія")
             return JsonResponse({'ok': True})
@@ -2325,6 +2516,44 @@ def management_bot_webhook(request, token):
             return JsonResponse({'ok': True})
 
 
+
+        contract_req = ContractRejectionReasonRequest.objects.select_related('contract').filter(
+            admin_chat_id=chat_id,
+            is_active=True,
+        ).first()
+        if contract_req:
+            contract = contract_req.contract
+            contract_req.is_active = False
+            contract_req.save(update_fields=['is_active'])
+
+            if contract and contract.review_status == 'pending':
+                reason = text.strip()
+                contract.review_status = 'rejected'
+                contract.review_reject_reason = reason
+                contract.reviewed_at = timezone.now()
+                contract.reviewed_by = None
+                contract.is_approved = False
+                contract.save(update_fields=[
+                    'review_status',
+                    'review_reject_reason',
+                    'reviewed_at',
+                    'reviewed_by',
+                    'is_approved',
+                ])
+                _try_update_admin_contract_message(contract, bot_token=bot_token, final=True)
+                _notify_manager_contract(
+                    contract,
+                    title="❌ <b>Договір відхилено</b>",
+                    body_lines=[
+                        f"№: <code>{escape(contract.contract_number)}</code>",
+                        f"Реалізатор: {escape(contract.realizer_name or '—')}",
+                        f"Причина: {escape(reason)}",
+                    ],
+                )
+                _tg_send_message(bot_token, chat_id, "Готово ✅ Договір відхилено.", parse_mode='HTML')
+            else:
+                _tg_send_message(bot_token, chat_id, "Договір вже оброблено або недоступний.", parse_mode='HTML')
+            return JsonResponse({'ok': True})
 
         # Payouts: rejection reason flow
         try:
@@ -2860,9 +3089,11 @@ def _prepare_contract_data(payload, request, *, preview=False):
         else:
             raise ContractPayloadError("invalid_product_type")
 
-    product_print = _value("product_print", placeholder_long)
+    product_print_raw = (payload.get("product_print") or "").strip()
     product_title = (payload.get("product_title") or "").strip()
     product_id = payload.get("product_id")
+    if not product_print_raw:
+        missing.append("product_print")
 
     required_fields = [
         "realizer_name",
@@ -2874,12 +3105,7 @@ def _prepare_contract_data(payload, request, *, preview=False):
         "delivery_address",
         "recipient_name",
         "recipient_phone",
-        "product_print",
     ]
-    if not preview:
-        missing_required = [field for field in required_fields if field in set(missing)]
-        if missing_required:
-            raise ContractPayloadError("missing_fields", missing_required)
 
     from storefront.models import Product
 
@@ -2930,8 +3156,33 @@ def _prepare_contract_data(payload, request, *, preview=False):
     if not product_title:
         if product and product.title:
             product_title = product.title
-        else:
-            product_title = f"{type_forms['title']} \"{product_print}\""
+        elif product_print_raw:
+            product_title = f"{type_forms['title']} \"{product_print_raw}\""
+
+    def _extract_print_from_title(title):
+        match = re.search(r'[«"](.+?)[»"]', title)
+        return match.group(1).strip() if match else ""
+
+    product_print = product_print_raw
+    if not product_print and product_title:
+        extracted = _extract_print_from_title(product_title)
+        product_print = extracted or product_title
+        if "product_print" in missing:
+            missing.remove("product_print")
+
+    if not product_print:
+        if preview:
+            product_print = placeholder_long
+
+    if not product_title:
+        product_title = f"{type_forms['title']} \"{product_print}\""
+
+    if not preview:
+        missing_required = [field for field in required_fields if field in set(missing)]
+        if not product_print:
+            missing_required.append("product_print")
+        if missing_required:
+            raise ContractPayloadError("missing_fields", missing_required)
 
     quantities = payload.get('quantities') or {}
     sizes_order = ["S", "M", "L", "XL"]
@@ -3065,11 +3316,22 @@ def contracts(request):
     try:
         history_qs = ManagementContract.objects.filter(created_by=request.user).order_by('-created_at')[:50]
         for contract in history_qs:
+            payload = contract.payload or {}
+            total_sum = payload.get("total_sum")
+            try:
+                total_sum = int(total_sum) if total_sum not in (None, "") else None
+            except Exception:
+                total_sum = None
             contracts_history.append({
                 "id": contract.id,
                 "contract_number": contract.contract_number,
                 "contract_date": contract.contract_date.strftime('%d.%m.%Y') if contract.contract_date else "",
+                "created_at": timezone.localtime(contract.created_at).strftime('%d.%m.%Y %H:%M') if contract.created_at else "",
                 "realizer_name": contract.realizer_name,
+                "product_title": payload.get("product_title") or payload.get("product_print") or "",
+                "total_sum": total_sum,
+                "review_status": contract.review_status,
+                "review_reject_reason": contract.review_reject_reason,
                 "download_url": reverse('management_contracts_download', args=[contract.id]),
                 "file_name": os.path.basename(contract.file_path) if contract.file_path else "",
             })
@@ -3153,6 +3415,7 @@ def contracts_generate_api(request):
             "price_str": meta["price_str"],
             "total_sum": meta["total_sum"],
             "product_title": meta["product_title"],
+            "product_print": doc_data["product_print"],
         },
     )
 
@@ -3162,7 +3425,13 @@ def contracts_generate_api(request):
             'id': contract.id,
             'contract_number': contract.contract_number,
             'contract_date': meta["today"].strftime('%d.%m.%Y'),
+            'created_at': timezone.localtime(contract.created_at).strftime('%d.%m.%Y %H:%M') if contract.created_at else '',
             'realizer_name': contract.realizer_name,
+            'product_title': meta["product_title"],
+            'total_sum': meta["total_sum"],
+            'review_status': contract.review_status,
+            'review_reject_reason': contract.review_reject_reason,
+            'is_approved': contract.is_approved,
             'download_url': reverse('management_contracts_download', args=[contract.id]),
             'file_name': filename,
         }
@@ -3183,6 +3452,76 @@ def contracts_download(request, contract_id):
         return HttpResponse('Not found', status=404)
     filename = os.path.basename(contract.file_path)
     return FileResponse(open(contract.file_path, 'rb'), as_attachment=True, filename=filename)
+
+
+@login_required(login_url='management_login')
+def contracts_list_api(request):
+    if not user_is_management(request.user):
+        return JsonResponse({'ok': False}, status=403)
+
+    contracts = ManagementContract.objects.filter(created_by=request.user).order_by('-created_at')[:200]
+    data = []
+    for contract in contracts:
+        payload = contract.payload or {}
+        total_sum = payload.get("total_sum")
+        try:
+            total_sum = int(total_sum) if total_sum not in (None, "") else None
+        except Exception:
+            total_sum = None
+        data.append({
+            'id': contract.id,
+            'contract_number': contract.contract_number,
+            'contract_date': contract.contract_date.strftime('%d.%m.%Y') if contract.contract_date else '',
+            'created_at': timezone.localtime(contract.created_at).strftime('%d.%m.%Y %H:%M') if contract.created_at else '',
+            'realizer_name': contract.realizer_name,
+            'product_title': payload.get("product_title") or payload.get("product_print") or '',
+            'total_sum': total_sum,
+            'review_status': contract.review_status,
+            'review_reject_reason': contract.review_reject_reason,
+            'is_approved': contract.is_approved,
+            'download_url': reverse('management_contracts_download', args=[contract.id]),
+        })
+    return JsonResponse({'ok': True, 'contracts': data})
+
+
+@login_required(login_url='management_login')
+@require_POST
+def contracts_submit_for_review_api(request, contract_id):
+    if not user_is_management(request.user):
+        return JsonResponse({'ok': False}, status=403)
+
+    contract = ManagementContract.objects.filter(id=contract_id, created_by=request.user).first()
+    if not contract:
+        return JsonResponse({'ok': False, 'error': 'Договір не знайдено'}, status=404)
+
+    if contract.review_status != 'draft':
+        return JsonResponse({'ok': False, 'error': 'Договір вже відправлено або оброблено'}, status=400)
+
+    contract.review_status = 'pending'
+    contract.review_reject_reason = ''
+    contract.reviewed_at = None
+    contract.reviewed_by = None
+    contract.is_approved = False
+    contract.save(update_fields=[
+        'review_status',
+        'review_reject_reason',
+        'reviewed_at',
+        'reviewed_by',
+        'is_approved',
+    ])
+
+    _send_contract_review_request_to_admin(contract, request=request)
+    _notify_manager_contract(
+        contract,
+        title="📤 <b>Договір відправлено на перевірку</b>",
+        body_lines=[
+            f"№: <code>{escape(contract.contract_number)}</code>",
+            f"Реалізатор: {escape(contract.realizer_name or '—')}",
+            "Статус: ⏳ На перевірці",
+        ],
+    )
+
+    return JsonResponse({'ok': True})
 
 
 @login_required(login_url='management_login')
