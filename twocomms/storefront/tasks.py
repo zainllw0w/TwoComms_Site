@@ -2,11 +2,13 @@ import logging
 import os
 import sys
 from pathlib import Path
+from datetime import timedelta
 
 from celery import shared_task
 from django.apps import apps
 from django.conf import settings
 from django.core.management import call_command
+from django.utils import timezone
 
 # Defensive import for image optimizer in case PYTHONPATH lacks project root
 try:
@@ -25,6 +27,10 @@ except ModuleNotFoundError:
 
 from .models import Product, Category
 from .seo_utils import SEOKeywordGenerator, SEOContentOptimizer
+from .models import SurveySession
+from .services.survey_engine import load_survey_definition
+from .services.survey_reports import build_survey_report, resolve_report_path
+from orders.telegram_notifications import telegram_notifier
 
 logger = logging.getLogger(__name__)
 
@@ -186,3 +192,94 @@ def generate_ai_content_for_category_task(category_id):
         logger.warning(f"Category {category_id} not found for AI generation")
     except Exception as e:
         logger.error(f"Error generating AI content for category {category_id}: {e}", exc_info=True)
+
+
+@shared_task
+def send_survey_report_task(session_id: int, status: str) -> bool:
+    """Generate and send survey report to Telegram asynchronously."""
+    try:
+        session = SurveySession.objects.select_related('user', 'awarded_promocode').get(id=session_id)
+    except SurveySession.DoesNotExist:
+        logger.warning("Survey session %s not found for report", session_id)
+        return False
+
+    definition = load_survey_definition()
+    if not definition:
+        logger.warning("Survey definition missing, report not sent for %s", session_id)
+        return False
+
+    report_path = Path(session.report_file_path) if session.report_file_path else resolve_report_path(session)
+    build_survey_report(session, definition, status, report_path)
+
+    caption = (
+        f"#{status}\\n"
+        f"Survey: {session.survey_key}\\n"
+        f"User: {session.user.username} (ID {session.user_id})\\n"
+        f"Last activity: {timezone.localtime(session.last_activity_at).strftime('%d.%m.%Y %H:%M')}"
+    )
+    sent = telegram_notifier.send_admin_document(str(report_path), caption)
+    if sent:
+        session.report_status = status
+        session.report_file_path = str(report_path)
+        session.last_report_version = session.version
+        session.last_report_sent_at = timezone.now()
+        session.save(update_fields=[
+            'report_status',
+            'report_file_path',
+            'last_report_version',
+            'last_report_sent_at',
+        ])
+    return sent
+
+
+def queue_survey_report(session_id: int, status: str) -> bool:
+    """
+    Try to enqueue survey report via Celery, fallback to sync when broker/worker is unavailable.
+    """
+    try:
+        send_survey_report_task.delay(session_id, status)
+        return True
+    except Exception as exc:
+        logger.warning(
+            "Survey report queue failed (session=%s, status=%s): %s",
+            session_id,
+            status,
+            exc,
+            exc_info=True,
+        )
+        try:
+            return bool(send_survey_report_task(session_id, status))
+        except Exception as sync_exc:  # pragma: no cover - defensive
+            logger.warning(
+                "Survey report sync fallback failed (session=%s, status=%s): %s",
+                session_id,
+                status,
+                sync_exc,
+                exc_info=True,
+            )
+            return False
+
+
+@shared_task
+def check_survey_inactivity_task() -> int:
+    """Check inactive survey sessions and send partial/updated reports."""
+    definition = load_survey_definition()
+    inactivity_policy = definition.get('policy', {}).get('inactivity', {}) if definition else {}
+    threshold_minutes = int(inactivity_policy.get('partial_send_after_minutes', 10))
+    allow_updates = bool(inactivity_policy.get('send_updates_after_partial', True))
+    cutoff = timezone.now() - timedelta(minutes=threshold_minutes)
+
+    sessions = SurveySession.objects.filter(
+        status='in_progress',
+        last_activity_at__lte=cutoff,
+    )
+    triggered = 0
+    for session in sessions:
+        if session.report_status in ('PARTIAL', 'UPDATED') and not allow_updates:
+            continue
+        if session.last_report_version >= session.version and session.report_status in ('PARTIAL', 'UPDATED'):
+            continue
+        status = 'PARTIAL' if not session.report_status else 'UPDATED'
+        queue_survey_report(session.id, status)
+        triggered += 1
+    return triggered

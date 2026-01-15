@@ -175,6 +175,13 @@ urlpatterns=[
     path('favorites/toggle/<int:product_id>/', views.toggle_favorite, name='toggle_favorite'),
     path('favorites/check/<int:product_id>/', views.check_favorite_status, name='check_favorite_status'),
     path('favorites/count/', views.favorites_count, name='favorites_count'),
+    # survey
+    path('survey/print-feedback/start/', views.survey_start_or_resume, name='survey_start_or_resume'),
+    path('survey/print-feedback/current/', views.survey_current_question, name='survey_current_question'),
+    path('survey/print-feedback/answer/', views.survey_submit_answer, name='survey_submit_answer'),
+    path('survey/print-feedback/back/', views.survey_back_one_step, name='survey_back_one_step'),
+    path('survey/print-feedback/close/', views.survey_close, name='survey_close'),
+    path('survey/print-feedback/complete/', views.survey_complete, name='survey_complete'),
     # wholesale prices
     path('pricelist_opt.xlsx', _legacy_view('wholesale_prices_xlsx'), name='wholesale_prices_xlsx'),
     path('pricelist/', _legacy_view('pricelist_page'), name='pricelist_page'),

@@ -3,6 +3,7 @@ Telegram уведомления для заказов
 """
 import requests
 import os
+from pathlib import Path
 from django.conf import settings
 from django.utils import timezone
 from datetime import datetime
@@ -73,6 +74,27 @@ class TelegramNotifier:
             bool: True если сообщение отправлено успешно
         """
         return self.send_message(message, parse_mode)
+
+    def send_admin_document(self, file_path, caption, filename=None, parse_mode='HTML'):
+        """Отправляет документ админу в Telegram."""
+        if not self.is_configured():
+            return False
+
+        target_id = self.admin_id if self.admin_id else self.chat_id
+        try:
+            url = f"https://api.telegram.org/bot{self.bot_token}/sendDocument"
+            with open(file_path, 'rb') as file_obj:
+                files = {'document': (filename or Path(file_path).name, file_obj)}
+                data = {
+                    'chat_id': target_id,
+                    'caption': caption,
+                    'parse_mode': parse_mode
+                }
+                response = requests.post(url, data=data, files=files, timeout=30)
+                return response.status_code == 200
+        except Exception as e:
+            print(f"Ошибка при отправке документа в Telegram: {e}")
+            return False
     
     def send_personal_message(self, telegram_id, message, parse_mode='HTML'):
         """Отправляет личное сообщение пользователю по telegram_id"""
