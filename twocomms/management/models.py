@@ -843,3 +843,41 @@ class PayoutRejectionReasonRequest(models.Model):
 
     def __str__(self):
         return f"{self.payout_request_id} ({'active' if self.is_active else 'closed'})"
+
+
+class ContractSequence(models.Model):
+    year = models.PositiveIntegerField(unique=True)
+    last_number = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Нумерація договорів (рік)")
+        verbose_name_plural = _("Нумерація договорів (рік)")
+
+    def __str__(self):
+        return f"{self.year}: {self.last_number}"
+
+
+class ManagementContract(models.Model):
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="management_contracts",
+        verbose_name=_("Менеджер"),
+    )
+    contract_number = models.CharField(max_length=50, unique=True, verbose_name=_("Номер договору"))
+    contract_date = models.DateField(verbose_name=_("Дата договору"))
+    realizer_name = models.CharField(max_length=255, verbose_name=_("Реалізатор"))
+    file_path = models.CharField(max_length=500, verbose_name=_("Шлях до файлу"))
+    payload = models.JSONField(default=dict, blank=True, verbose_name=_("Дані договору"))
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Договір (менеджмент)")
+        verbose_name_plural = _("Договори (менеджмент)")
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.contract_number} ({self.realizer_name})"

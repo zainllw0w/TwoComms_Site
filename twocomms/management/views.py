@@ -1,8 +1,11 @@
 from collections import OrderedDict
 from datetime import datetime, timedelta
 import json
+import re
 import time
+import zipfile
 from pathlib import Path
+import xml.etree.ElementTree as ET
 
 from django.conf import settings
 from django.shortcuts import render, redirect
@@ -10,6 +13,7 @@ from django.utils import timezone
 from django.utils.html import escape, strip_tags
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models import Count, Q
 from django.http import JsonResponse, FileResponse, HttpResponse
 from django.core.exceptions import ValidationError
@@ -26,13 +30,17 @@ import datetime as dt
 import os
 import secrets
 
+from docx import Document
+
 from .forms import CommercialOfferEmailForm, CommercialOfferEmailPreviewForm
 from .models import (
     Client,
     ClientFollowUp,
     CommercialOfferEmailLog,
     CommercialOfferEmailSettings,
+    ContractSequence,
     InvoiceRejectionReasonRequest,
+    ManagementContract,
     ReminderRead,
     ReminderSent,
     Report,
@@ -2428,6 +2436,545 @@ def _get_wholesale_price_context():
         'ranges': ['8–15 шт.', '16–31 шт.', '32–63 шт.', '64–99 шт.', '100+ шт.']
     }
     return tshirt_prices, hoodie_prices
+
+
+_CONTRACT_PREVIEW_CACHE = {"template": None, "paragraphs": []}
+_UA_MONTHS = {
+    1: "січня",
+    2: "лютого",
+    3: "березня",
+    4: "квітня",
+    5: "травня",
+    6: "червня",
+    7: "липня",
+    8: "серпня",
+    9: "вересня",
+    10: "жовтня",
+    11: "листопада",
+    12: "грудня",
+}
+
+
+def _contract_template_path():
+    base_path = Path(settings.BASE_DIR) / "static"
+    primary = base_path / "Договір.docx"
+    fallback = base_path / "Договір Рудь.docx"
+    return primary if primary.exists() else fallback
+
+
+def _ua_month_name(month_num):
+    return _UA_MONTHS.get(month_num, "")
+
+
+def _format_ua_date(date_obj):
+    return f"«{date_obj.day}» {_ua_month_name(date_obj.month)} {date_obj.year}р."
+
+
+def _format_contract_number(seq_num, date_obj):
+    return f"{seq_num:02d}\\{date_obj.day:02d}{date_obj.month:02d}\\{str(date_obj.year)[-2:]}"
+
+
+def _format_price_uah(value):
+    return f"{int(value)},00"
+
+
+def _ua_number_to_words(value):
+    value = int(value)
+    if value == 0:
+        return "нуль"
+    units_m = ["", "один", "два", "три", "чотири", "п’ять", "шість", "сім", "вісім", "дев’ять"]
+    units_f = ["", "одна", "дві", "три", "чотири", "п’ять", "шість", "сім", "вісім", "дев’ять"]
+    teens = [
+        "десять",
+        "одинадцять",
+        "дванадцять",
+        "тринадцять",
+        "чотирнадцять",
+        "п’ятнадцять",
+        "шістнадцять",
+        "сімнадцять",
+        "вісімнадцять",
+        "дев’ятнадцять",
+    ]
+    tens = ["", "", "двадцять", "тридцять", "сорок", "п’ятдесят", "шістдесят", "сімдесят", "вісімдесят", "дев’яносто"]
+    hundreds = [
+        "",
+        "сто",
+        "двісті",
+        "триста",
+        "чотириста",
+        "п’ятсот",
+        "шістсот",
+        "сімсот",
+        "вісімсот",
+        "дев’ятсот",
+    ]
+
+    parts = []
+    thousands = value // 1000
+    if thousands:
+        parts.append(units_f[thousands])
+        if thousands % 10 == 1 and thousands % 100 != 11:
+            parts.append("тисяча")
+        elif 2 <= thousands % 10 <= 4 and not (12 <= thousands % 100 <= 14):
+            parts.append("тисячі")
+        else:
+            parts.append("тисяч")
+    value = value % 1000
+    if value // 100:
+        parts.append(hundreds[value // 100])
+    value = value % 100
+    if 10 <= value <= 19:
+        parts.append(teens[value - 10])
+    else:
+        if value // 10:
+            parts.append(tens[value // 10])
+        if value % 10:
+            parts.append(units_m[value % 10])
+    return " ".join([p for p in parts if p])
+
+
+def _safe_contract_filename(realizer_name, contract_number):
+    safe_name = re.sub(r"[\\\\/:*?\"<>|]+", "", realizer_name or "").strip()
+    safe_name = re.sub(r"\s+", "_", safe_name) or "Реалізатор"
+    safe_number = re.sub(r"[\\\\/:*?\"<>|]+", "-", contract_number)
+    return f"Договір_{safe_name}_{safe_number}.docx"
+
+
+def _extract_contract_preview_paragraphs(template_path):
+    if _CONTRACT_PREVIEW_CACHE["template"] == str(template_path):
+        return _CONTRACT_PREVIEW_CACHE["paragraphs"]
+    if not template_path.exists():
+        return []
+    with zipfile.ZipFile(template_path, "r") as zipf:
+        xml_data = zipf.read("word/document.xml")
+    root = ET.fromstring(xml_data)
+    ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+    parent_map = {child: parent for parent in root.iter() for child in parent}
+    paragraphs = []
+    for p in root.iter(f"{{{ns['w']}}}p"):
+        parent = parent_map.get(p)
+        in_table = False
+        while parent is not None:
+            if parent.tag.endswith("tbl"):
+                in_table = True
+                break
+            parent = parent_map.get(parent)
+        if in_table:
+            continue
+        texts = [node.text for node in p.iter(f"{{{ns['w']}}}t") if node.text]
+        if not texts:
+            continue
+        text = "".join(texts).strip()
+        if text:
+            paragraphs.append(text)
+    _CONTRACT_PREVIEW_CACHE["template"] = str(template_path)
+    _CONTRACT_PREVIEW_CACHE["paragraphs"] = paragraphs
+    return paragraphs
+
+
+def _guess_product_type(product):
+    slug = ""
+    title = ""
+    try:
+        slug = (product.category.slug or "").lower() if getattr(product, "category", None) else ""
+    except Exception:
+        slug = ""
+    try:
+        title = (product.title or "").lower()
+    except Exception:
+        title = ""
+    if slug == "hoodie" or "худи" in title or "hoodie" in title or "флис" in title:
+        return "hoodie"
+    if "футболка" in title or "t-shirt" in title or "tshirt" in title:
+        return "tshirt"
+    return ""
+
+
+def _update_contract_paragraphs(doc, data):
+    type_forms = data["type_forms"]
+    in_realizer_block = False
+    in_delivery_block = False
+    for paragraph in doc.paragraphs:
+        raw_text = paragraph.text or ""
+        text = raw_text.strip()
+        if not text:
+            continue
+        if text.startswith("№ "):
+            paragraph.text = f"№ {data['contract_number']}"
+            continue
+        if text.startswith("м.") and "«" in text and "р." in text:
+            prefix = raw_text.split("«")[0]
+            paragraph.text = f"{prefix}{data['contract_date_text']}"
+            continue
+        if text.startswith("Фізична особа – підприємець") and "Реалізатор" in text:
+            paragraph.text = (
+                "Фізична особа – підприємець "
+                f"{data['realizer_name']}, код {data['realizer_code']}, надалі – «Реалізатор», "
+                "з іншої сторони, разом – «Сторони», уклали цей договір (надалі – «Договір») про таке."
+            )
+            continue
+        if text.startswith("1.1. Постачальник передає"):
+            paragraph.text = (
+                "1.1. Постачальник передає Реалізатору тестову партію товару – "
+                f"{type_forms['gen']} (далі – «Товар») для реалізації протягом тестового періоду, "
+                "а Реалізатор приймає Товар на умовах цього Договору."
+            )
+            continue
+        if text.startswith("1.2.1. Орієнтовно:"):
+            paragraph.text = (
+                "1.2.1. Орієнтовно: "
+                f"{type_forms['plural']} з принтами [\"{data['product_print']}\"]"
+                ", розміри S, M, L, XL (по одній одиниці кожного розміру або інша кількість за домовленістю)."
+            )
+            continue
+        if text.startswith("1.2.2. Базова ціна"):
+            paragraph.text = (
+                "1.2.2. Базова ціна однієї одиниці Товару на момент укладення Договору становить "
+                f"{data['price_str']} ({data['price_words']}) грн за одиницю, якщо інше не буде вказано у Додатку №1."
+            )
+            continue
+        if text.startswith("3.1. Товар відправляється") and data["recipient_diff"]:
+            paragraph.text = (
+                "3.1. Товар відправляється Постачальником на ПІБ отримувача, номер телефону та "
+                "відділення служби доставки, зазначені в Додатку №1."
+            )
+            continue
+        if text.startswith("РЕАЛІЗАТОР:"):
+            in_realizer_block = True
+            continue
+        if text.startswith("Додаток №1"):
+            in_realizer_block = False
+        if in_realizer_block:
+            if text.startswith("ФОП:"):
+                paragraph.text = f"ФОП: {data['realizer_name']}"
+                continue
+            if text.startswith("РНОКПП/ЄДРПОУ:"):
+                paragraph.text = f"РНОКПП/ЄДРПОУ: {data['realizer_code']}"
+                continue
+            if text.startswith("Адреса:"):
+                paragraph.text = f"Адреса: {data['realizer_address']}"
+                continue
+            if text.startswith("IBAN:"):
+                paragraph.text = f"IBAN: {data['realizer_iban']}"
+                continue
+            if text.startswith("Телефон:"):
+                paragraph.text = f"Телефон: {data['realizer_phone']}"
+                continue
+            if text.startswith("E-mail:"):
+                paragraph.text = f"E-mail: {data['realizer_email']}"
+                continue
+        if text.startswith("1. Найменування Товару:"):
+            paragraph.text = (
+                "1. Найменування Товару: "
+                f"{type_forms['single']} з принтом «{data['product_print']}»"
+            )
+            continue
+        if text.startswith("3. Загальна вартість партії:"):
+            paragraph.text = f"3. Загальна вартість партії: {data['total_sum']} грн."
+            continue
+        if text.startswith("4. Адреса доставки"):
+            in_delivery_block = True
+            continue
+        if text.startswith("Адреса / відділення доставки:"):
+            paragraph.text = f"Адреса / відділення доставки: {data['delivery_address']}"
+            continue
+        if text.startswith("ПІБ отримувача:"):
+            paragraph.text = f"ПІБ отримувача: {data['recipient_name']}"
+            continue
+        if in_delivery_block and text.startswith("Телефон:"):
+            paragraph.text = f"Телефон: {data['recipient_phone']}"
+            continue
+
+
+def _update_contract_table(doc, data):
+    target_table = None
+    for table in doc.tables:
+        if not table.rows:
+            continue
+        header_cells = [cell.text for cell in table.rows[0].cells]
+        if any("Найменування" in cell for cell in header_cells) and any("Сума" in cell for cell in header_cells):
+            target_table = table
+            break
+    if not target_table:
+        return
+    sizes = data["sizes"]
+    while len(target_table.rows) < len(sizes) + 1:
+        target_table.add_row()
+    for idx, row_data in enumerate(sizes, start=1):
+        row = target_table.rows[idx]
+        row.cells[0].text = str(idx)
+        row.cells[1].text = data["product_table_name"]
+        row.cells[2].text = row_data["size"]
+        row.cells[3].text = str(row_data["qty"])
+        row.cells[4].text = data["price_str"]
+        row.cells[5].text = row_data["total_str"]
+
+
+def _build_contract_docx(template_path, output_path, data):
+    doc = Document(str(template_path))
+    _update_contract_paragraphs(doc, data)
+    _update_contract_table(doc, data)
+    doc.save(str(output_path))
+
+
+@login_required(login_url='management_login')
+def contracts(request):
+    if not user_is_management(request.user):
+        return redirect('management_login')
+
+    from storefront.models import Product
+
+    template_path = _contract_template_path()
+    preview_paragraphs = _extract_contract_preview_paragraphs(template_path)
+
+    today = timezone.localdate()
+    contract_date_display = _format_ua_date(today)
+    seq = ContractSequence.objects.filter(year=today.year).first()
+    next_number = (seq.last_number + 1) if seq else 1
+    next_contract_number = _format_contract_number(next_number, today)
+
+    hoodie_products = []
+    tshirt_products = []
+    try:
+        products_qs = Product.objects.filter(status='published', is_dropship_available=True).select_related("category")
+        for product in products_qs:
+            prod_type = _guess_product_type(product)
+            if not prod_type:
+                continue
+            item = {
+                "id": product.id,
+                "title": product.title,
+                "drop_price": int(product.get_drop_price(None) or 0),
+            }
+            if prod_type == "hoodie":
+                hoodie_products.append(item)
+            elif prod_type == "tshirt":
+                tshirt_products.append(item)
+    except Exception:
+        hoodie_products = []
+        tshirt_products = []
+
+    last_contract = ManagementContract.objects.filter(created_by=request.user).first()
+    prefill_payload = last_contract.payload if last_contract else {}
+
+    stats = get_user_stats(request.user)
+    report_sent_today = has_report_today(request.user)
+    progress_clients_pct = min(100, int(stats['processed_today'] / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
+    progress_points_pct = min(100, int(stats['points_today'] / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
+    bot_username = get_manager_bot_username()
+    reminders = get_reminders(request.user, stats=stats, report_sent=report_sent_today)
+
+    return render(request, 'management/contracts.html', {
+        'preview_paragraphs': preview_paragraphs,
+        'hoodie_products': hoodie_products,
+        'tshirt_products': tshirt_products,
+        'drop_hoodie_price': int(DROP_FIXED_HOODIE_PRICE),
+        'drop_tee_price': int(DROP_FIXED_TEE_PRICE),
+        'contract_date_display': contract_date_display,
+        'next_contract_number': next_contract_number,
+        'prefill_payload': prefill_payload,
+        'user_points_today': stats['points_today'],
+        'user_points_total': stats['points_total'],
+        'processed_today': stats['processed_today'],
+        'target_clients': TARGET_CLIENTS_DAY,
+        'target_points': TARGET_POINTS_DAY,
+        'progress_clients_pct': progress_clients_pct,
+        'progress_points_pct': progress_points_pct,
+        'has_report_today': report_sent_today,
+        'reminders': reminders,
+        'manager_bot_username': bot_username,
+    })
+
+
+@login_required(login_url='management_login')
+@require_POST
+def contracts_generate_api(request):
+    if not user_is_management(request.user):
+        return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
+
+    try:
+        payload = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
+
+    realizer_name = (payload.get('realizer_name') or '').strip()
+    realizer_code = (payload.get('realizer_code') or '').strip()
+    realizer_address = (payload.get('realizer_address') or '').strip()
+    realizer_iban = (payload.get('realizer_iban') or '').strip()
+    realizer_phone = (payload.get('realizer_phone') or '').strip()
+    realizer_email = (payload.get('realizer_email') or '').strip()
+    delivery_address = (payload.get('delivery_address') or '').strip()
+    recipient_name = (payload.get('recipient_name') or '').strip()
+    recipient_phone = (payload.get('recipient_phone') or '').strip()
+    product_type = (payload.get('product_type') or '').strip()
+    product_print = (payload.get('product_print') or '').strip()
+    product_title = (payload.get('product_title') or '').strip()
+    product_id = payload.get('product_id')
+
+    if product_type not in ("hoodie", "tshirt"):
+        return JsonResponse({'ok': False, 'error': 'invalid_product_type'}, status=400)
+
+    required_fields = [
+        (realizer_name, 'realizer_name'),
+        (realizer_code, 'realizer_code'),
+        (realizer_address, 'realizer_address'),
+        (realizer_iban, 'realizer_iban'),
+        (realizer_phone, 'realizer_phone'),
+        (realizer_email, 'realizer_email'),
+        (delivery_address, 'delivery_address'),
+        (recipient_name, 'recipient_name'),
+        (recipient_phone, 'recipient_phone'),
+        (product_print, 'product_print'),
+    ]
+    missing = [name for val, name in required_fields if not val]
+    if missing:
+        return JsonResponse({'ok': False, 'error': 'missing_fields', 'fields': missing}, status=400)
+
+    from storefront.models import Product
+
+    product = None
+    if product_id:
+        try:
+            product = Product.objects.filter(id=int(product_id)).first()
+        except (TypeError, ValueError):
+            product = None
+    detected_type = _guess_product_type(product) if product else ""
+    if product and detected_type and detected_type != product_type:
+        product = None
+
+    price = None
+    if product:
+        price = int(product.get_drop_price(None) or 0)
+    if not price:
+        price = int(DROP_FIXED_HOODIE_PRICE if product_type == "hoodie" else DROP_FIXED_TEE_PRICE)
+
+    price_str = _format_price_uah(price)
+    price_words = _ua_number_to_words(price)
+    today = timezone.localdate()
+
+    type_forms = {
+        "single": "худі" if product_type == "hoodie" else "футболка",
+        "plural": "худі" if product_type == "hoodie" else "футболки",
+        "gen": "худі" if product_type == "hoodie" else "футболки",
+        "title": "Худі" if product_type == "hoodie" else "Футболка",
+    }
+
+    if not product_title:
+        if product and product.title:
+            product_title = product.title
+        else:
+            product_title = f"{type_forms['title']} \"{product_print}\""
+
+    quantities = payload.get('quantities') or {}
+    sizes_order = ["S", "M", "L", "XL"]
+    sizes = []
+    total_sum = 0
+    for size in sizes_order:
+        qty = quantities.get(size, 1)
+        try:
+            qty = max(int(qty), 0)
+        except (TypeError, ValueError):
+            qty = 0
+        line_total = qty * price
+        total_sum += line_total
+        sizes.append({
+            "size": size,
+            "qty": qty,
+            "total": line_total,
+            "total_str": _format_price_uah(line_total),
+        })
+
+    with transaction.atomic():
+        seq, _ = ContractSequence.objects.select_for_update().get_or_create(year=today.year, defaults={"last_number": 0})
+        seq.last_number = int(seq.last_number) + 1
+        seq.save(update_fields=["last_number"])
+        seq_num = seq.last_number
+
+    contract_number = _format_contract_number(seq_num, today)
+    contract_date_text = _format_ua_date(today)
+    recipient_diff = recipient_name != realizer_name or recipient_phone != realizer_phone
+
+    template_path = _contract_template_path()
+    if not template_path.exists():
+        return JsonResponse({'ok': False, 'error': 'template_missing'}, status=500)
+
+    contract_dir = Path(settings.MEDIA_ROOT) / "contracts" / str(today.year)
+    contract_dir.mkdir(parents=True, exist_ok=True)
+    filename = _safe_contract_filename(realizer_name, contract_number)
+    file_path = contract_dir / filename
+
+    doc_data = {
+        "contract_number": contract_number,
+        "contract_date_text": contract_date_text,
+        "realizer_name": realizer_name,
+        "realizer_code": realizer_code,
+        "realizer_address": realizer_address,
+        "realizer_iban": realizer_iban,
+        "realizer_phone": realizer_phone,
+        "realizer_email": realizer_email,
+        "delivery_address": delivery_address,
+        "recipient_name": recipient_name,
+        "recipient_phone": recipient_phone,
+        "product_print": product_print,
+        "product_table_name": product_title,
+        "price_str": price_str,
+        "price_words": price_words,
+        "total_sum": total_sum,
+        "sizes": sizes,
+        "type_forms": type_forms,
+        "recipient_diff": recipient_diff,
+    }
+
+    try:
+        _build_contract_docx(template_path, file_path, doc_data)
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'render_failed'}, status=500)
+
+    contract = ManagementContract.objects.create(
+        created_by=request.user,
+        contract_number=contract_number,
+        contract_date=today,
+        realizer_name=realizer_name,
+        file_path=str(file_path),
+        payload={
+            **payload,
+            "contract_number": contract_number,
+            "contract_date": today.isoformat(),
+            "price": price,
+            "price_str": price_str,
+            "total_sum": total_sum,
+            "product_title": product_title,
+        },
+    )
+
+    return JsonResponse({
+        'ok': True,
+        'contract': {
+            'id': contract.id,
+            'contract_number': contract.contract_number,
+            'contract_date': today.strftime('%d.%m.%Y'),
+            'realizer_name': contract.realizer_name,
+            'download_url': reverse('management_contracts_download', args=[contract.id]),
+            'file_name': filename,
+        }
+    })
+
+
+@login_required(login_url='management_login')
+def contracts_download(request, contract_id):
+    if not user_is_management(request.user):
+        return redirect('management_login')
+
+    contract = ManagementContract.objects.filter(id=contract_id).first()
+    if not contract:
+        return HttpResponse('Not found', status=404)
+    if not (request.user.is_staff or request.user.is_superuser or contract.created_by_id == request.user.id):
+        return HttpResponse('Forbidden', status=403)
+    if not contract.file_path or not os.path.exists(contract.file_path):
+        return HttpResponse('Not found', status=404)
+    filename = os.path.basename(contract.file_path)
+    return FileResponse(open(contract.file_path, 'rb'), as_attachment=True, filename=filename)
 
 
 @login_required(login_url='management_login')
