@@ -186,8 +186,9 @@
         border-radius: 6px;
         border: 1px solid rgba(255, 255, 255, 0.08);
         max-width: 100%;
-        transform: scale(0.75);
+        transform: scale(0.65);
         transform-origin: top center;
+        margin-bottom: -25%;
     }
 
     .contract-status {
@@ -695,14 +696,15 @@
         };
         const prefill = JSON.parse(document.getElementById('contract-prefill').textContent || '{}');
 
-        const dropHoodiePrice = {{ drop_hoodie_price|default:1350 }};
-        const dropTeePrice = {{ drop_tee_price|default:570 }};
-        const contractCache = new Map();
-        let previewTimeout = null;
-        let previewAbort = null;
-        let resizeTimeout = null;
-        let lastPreviewKey = '';
-        let lastPreviewOk = false;
+        const dropHoodiePrice = {{ drop_hoodie_price|default: 1350
+    }};
+    const dropTeePrice = {{ drop_tee_price|default: 570 }};
+    const contractCache = new Map();
+    let previewTimeout = null;
+    let previewAbort = null;
+    let resizeTimeout = null;
+    let lastPreviewKey = '';
+    let lastPreviewOk = false;
 
     const formatPrice = (value) => parseInt(value || 0, 10);
 
