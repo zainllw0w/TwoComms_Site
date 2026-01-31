@@ -1,0 +1,36 @@
+{% extends 'dtf/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Ціни DTF" %}{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="dtf-container">
+    <h1>{% trans "Ціни" %}</h1>
+    <p>{% trans "Розрахунок: довжина файлу × кількість копій = загальний метраж." %}</p>
+    <div class="price-table">
+      <div class="price-row head">
+        <span>{% trans "Метраж" %}</span>
+        <span>{% trans "Ціна, грн/м" %}</span>
+        <span>{% trans "Коментар" %}</span>
+      </div>
+      <div class="price-row">
+        <span>1–9 м</span>
+        <span>{{ pricing.base_rate }}</span>
+        <span>{% trans "Базова" %}</span>
+      </div>
+      {% for tier in pricing.tiers %}
+      <div class="price-row">
+        <span>{% blocktrans %}Від {{ tier.min }} м{% endblocktrans %}</span>
+        <span>{{ tier.rate }}</span>
+        <span>{% trans "Знижка" %}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="calc-example">
+      <h3>{% trans "Приклад" %}</h3>
+      <p>{% trans "Файл 2.5 м × 10 копій = 25 м. Розрахунок за відповідною ціною." %}</p>
+    </div>
+  </div>
+</section>
+{% endblock %}
