@@ -1,0 +1,59 @@
+{% extends 'dtf/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Статус замовлення" %}{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="dtf-container status-page">
+    <h1>{% trans "Статус замовлення" %}</h1>
+    <form method="post" class="status-form">
+      {% csrf_token %}
+      <label>{% trans "Номер замовлення" %}
+        <input type="text" name="order_number" placeholder="DTF01012025N01" required>
+      </label>
+      <label>{% trans "Телефон" %}
+        <input type="tel" name="phone" required>
+      </label>
+      <button class="btn btn-primary" type="submit">{% trans "Перевірити" %}</button>
+    </form>
+
+    {% if error %}
+      <div class="form-error">{{ error }}</div>
+    {% endif %}
+
+    {% if order %}
+      <div class="status-card">
+        <div class="status-header">
+          <div>
+            <div class="label">{% trans "Замовлення" %}</div>
+            <div class="value">{{ order.order_number }}</div>
+          </div>
+          {% if order.tracking_number %}
+            <div class="ttn">{% trans "ТТН" %}: {{ order.tracking_number }}</div>
+          {% endif %}
+        </div>
+        <div class="status-steps">
+          {% for code, label in status_steps %}
+            <div class="status-step {% if status_index is not None and forloop.counter0 < status_index %}done{% endif %}{% if order.status == code %} active{% endif %}">
+              <span></span>
+              <div>
+                <strong>{{ label }}</strong>
+                {% if order.status == code %}
+                  <small>{% trans "Поточний етап" %}</small>
+                {% endif %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="status-next">
+          {% trans "Ми повідомимо, якщо потрібні правки або оплата." %}
+        </div>
+        {% if order.need_fix_reason %}
+          <div class="status-next">{{ order.need_fix_reason }}</div>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

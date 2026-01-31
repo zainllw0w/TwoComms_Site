@@ -1,0 +1,121 @@
+{% load static i18n %}
+<!DOCTYPE html>
+<html lang="{{ current_lang|default:'uk' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{% trans "DTF друк у рулоні 60 см — TwoComms" %}{% endblock %}</title>
+  <meta name="description" content="{% block description %}{% trans "DTF друк 60 см: швидкий розрахунок метражу, перевірка макета та доставка НП." %}{% endblock %}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{% block og_title %}{% trans "DTF друк у рулоні 60 см" %}{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}{% trans "Прозорий розрахунок, ручна перевірка макета, доставка Новою Поштою." %}{% endblock %}">
+  <meta property="og:locale" content="uk_UA">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <div class="dtf-shell">
+    <header class="dtf-header">
+      <div class="dtf-container header-inner">
+        <a href="{% url 'dtf:landing' %}" class="logo">
+          <span class="logo-mark">DTF</span>
+          <span class="logo-text">TwoComms</span>
+        </a>
+        <nav class="main-nav">
+          <a href="{% url 'dtf:order' %}">{% trans "Замовити" %}</a>
+          <a href="{% url 'dtf:price' %}">{% trans "Ціни" %}</a>
+          <a href="{% url 'dtf:requirements' %}">{% trans "Вимоги" %}</a>
+          <a href="{% url 'dtf:status' %}">{% trans "Статус" %}</a>
+          <a href="{% url 'dtf:contacts' %}">{% trans "Контакти" %}</a>
+        </nav>
+        <div class="header-actions">
+          <div class="lang-switch">
+            <a href="{{ lang_links.uk }}" class="{% if current_lang == 'uk' %}active{% endif %}">UA</a>
+            <a href="{{ lang_links.ru }}" class="{% if current_lang == 'ru' %}active{% endif %}">RU</a>
+          </div>
+          <a class="btn btn-primary" href="{% url 'dtf:order' %}">{% trans "Розрахувати" %}</a>
+        </div>
+      </div>
+    </header>
+
+    {% if messages %}
+      <div class="dtf-container">
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <main>
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="dtf-footer">
+      <div class="dtf-container footer-inner">
+        <div>
+          <div class="footer-title">TwoComms DTF</div>
+          <div class="footer-text">{% trans "DTF друк рулоном 60 см. Ручна перевірка макета перед друком." %}</div>
+        </div>
+        <div class="footer-links">
+          <a href="{% url 'dtf:delivery_payment' %}">{% trans "Доставка та оплата" %}</a>
+          <a href="{% url 'dtf:requirements' %}">{% trans "Вимоги до файлів" %}</a>
+          <a href="{% url 'dtf:contacts' %}">{% trans "Контакти" %}</a>
+        </div>
+        <div class="footer-meta">© TwoComms, {% now "Y" %}</div>
+      </div>
+    </footer>
+  </div>
+
+  <div class="dtf-fab" id="dtf-fab">
+    <button class="fab-btn" type="button" aria-label="{% trans 'Менеджер' %}">
+      <span>+</span>
+      <small>{% trans "Менеджер" %}</small>
+    </button>
+  </div>
+
+  <div class="dtf-modal" id="dtf-fab-modal" aria-hidden="true">
+    <div class="modal-backdrop" data-close="1"></div>
+    <div class="modal-content" role="dialog" aria-modal="true">
+      <button class="modal-close" type="button" data-close="1">×</button>
+      <h3>{% trans "Менеджер зв'яжеться" %}</h3>
+      <p class="modal-sub">{% trans "Залиште контакти та коротке питання." %}</p>
+      <form id="dtf-fab-form" method="post" action="{% url 'dtf:fab_lead' %}">
+        {% csrf_token %}
+        <label>{% trans "Ім'я" %}
+          <input type="text" name="name" required>
+        </label>
+        <label>{% trans "Телефон" %}
+          <input type="tel" name="phone" required>
+        </label>
+        <label>{% trans "Канал" %}
+          <select name="contact_channel">
+            <option value="telegram">Telegram</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="instagram">Instagram</option>
+            <option value="call">{% trans "Дзвінок" %}</option>
+          </select>
+        </label>
+        <label>{% trans "Нік/посилання" %}
+          <input type="text" name="contact_handle">
+        </label>
+        <label>{% trans "Питання" %}
+          <textarea name="task_description" rows="3"></textarea>
+        </label>
+        <button class="btn btn-primary" type="submit">{% trans "Надіслати" %}</button>
+        <div class="form-note">{% trans "Ручна перевірка макета перед друком" %}</div>
+      </form>
+    </div>
+  </div>
+
+  <div class="mobile-cta" id="mobile-cta">
+    <a class="btn btn-primary" href="{% url 'dtf:order' %}">{% trans "Розрахувати" %}</a>
+    <a class="btn btn-ghost" href="{% url 'dtf:order' %}?tab=help">{% trans "Потрібна допомога" %}</a>
+  </div>
+
+  <script src="{% static 'dtf/js/dtf.js' %}" defer></script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

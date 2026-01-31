@@ -1,0 +1,52 @@
+{% extends 'dtf/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Вимоги до файлів" %}{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="dtf-container requirements">
+    <h1>{% trans "Вимоги до файлів" %}</h1>
+    <div class="req-grid">
+      <div class="req-card">
+        <h3>{% trans "Формат" %}</h3>
+        <ul>
+          <li>{% trans "PDF або PNG" %}</li>
+          <li>{% trans "Ширина 60 см" %}</li>
+          <li>{% trans "Прозорий фон" %}</li>
+        </ul>
+      </div>
+      <div class="req-card">
+        <h3>{% trans "Якість" %}</h3>
+        <ul>
+          <li>{% trans "Рекомендовано 300 DPI" %}</li>
+          <li>{% trans "Без зайвих відступів" %}</li>
+          <li>{% trans "Кольори у CMYK/RGB" %}</li>
+        </ul>
+      </div>
+      <div class="req-card">
+        <h3>{% trans "Типові помилки" %}</h3>
+        <ul>
+          <li>{% trans "Дуже тонкі лінії" %}</li>
+          <li>{% trans "Низька роздільна здатність" %}</li>
+          <li>{% trans "Відсутній білий підклад" %}</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="template-links">
+      <h3>{% trans "Шаблони 60 см" %}</h3>
+      <div class="cta-group">
+        <a class="btn btn-outline" href="{% static 'dtf/assets/template-60cm.pdf' %}" download>PDF</a>
+        <a class="btn btn-outline" href="{% static 'dtf/assets/template-60cm.ai' %}" download>AI</a>
+      </div>
+    </div>
+
+    <div class="cta-block">
+      <h3>{% trans "Не вмієте підготувати?" %}</h3>
+      <p>{% trans "Надішліть файли — менеджер допоможе з розкладкою." %}</p>
+      <a class="btn btn-primary" href="{% url 'dtf:order' %}?tab=help">{% trans "Потрібна допомога" %}</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

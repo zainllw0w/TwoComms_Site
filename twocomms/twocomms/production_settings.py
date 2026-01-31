@@ -66,6 +66,8 @@ if _allowed_hosts_env:
     # Always ensure management subdomain is allowed
     if 'management.twocomms.shop' not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append('management.twocomms.shop')
+    if 'dtf.twocomms.shop' not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append('dtf.twocomms.shop')
 else:
     # Значения по умолчанию: ваш домен(ы)
     ALLOWED_HOSTS = [
@@ -77,6 +79,7 @@ else:
         '127.0.0.1',
         'testserver',  # Для Django тестового клиента
         'management.twocomms.shop',
+        'dtf.twocomms.shop',
     ]
 
 _csrf_origins_env = os.environ.get('CSRF_TRUSTED_ORIGINS')
@@ -95,8 +98,13 @@ if 'https://twocomms.shop' in CSRF_TRUSTED_ORIGINS and 'https://www.twocomms.sho
 if 'http://twocomms.shop' in CSRF_TRUSTED_ORIGINS and 'http://www.twocomms.shop' not in CSRF_TRUSTED_ORIGINS:
     CSRF_TRUSTED_ORIGINS.extend(['http://www.twocomms.shop'])
 
-# Add management subdomain to CSRF sources
-CSRF_TRUSTED_ORIGINS.extend(['https://management.twocomms.shop', 'http://management.twocomms.shop'])
+# Add management + dtf subdomain to CSRF sources
+CSRF_TRUSTED_ORIGINS.extend([
+    'https://management.twocomms.shop',
+    'http://management.twocomms.shop',
+    'https://dtf.twocomms.shop',
+    'http://dtf.twocomms.shop',
+])
 
 # Social Auth: приложения и контекст-процессоры уже подключены из base settings
 if 'social_django' not in INSTALLED_APPS:

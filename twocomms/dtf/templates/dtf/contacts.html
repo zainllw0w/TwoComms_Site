@@ -1,0 +1,26 @@
+{% extends 'dtf/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Контакти" %}{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="dtf-container">
+    <h1>{% trans "Контакти" %}</h1>
+    <div class="info-grid">
+      <div class="info-card">
+        <h3>{% trans "Графік" %}</h3>
+        <p>{% trans "Пн–Пт: 10:00–18:00" %}</p>
+      </div>
+      <div class="info-card">
+        <h3>{% trans "Телефон" %}</h3>
+        <p>+380 XX XXX XX XX</p>
+      </div>
+      <div class="info-card">
+        <h3>{% trans "Telegram" %}</h3>
+        <p>@twocomms</p>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
