@@ -63,6 +63,11 @@ class SubdomainURLRoutingMiddleware(MiddlewareMixin):
         if host.startswith('management.'):
             request.urlconf = 'twocomms.urls_management'
             return None
+
+        # Если это dtf поддомен
+        if host.startswith('dtf.'):
+            request.urlconf = 'twocomms.urls_dtf'
+            return None
             
         # Продолжаем обычную обработку
         return None

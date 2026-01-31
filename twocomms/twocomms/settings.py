@@ -81,6 +81,7 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') if os.environ.get
     '127.0.0.1',
     'mail.twocomms.shop',  # Added for mail subdomain
     'management.twocomms.shop',
+    'dtf.twocomms.shop',
 ]
 
 # Security settings (только для продакшена)
@@ -130,6 +131,7 @@ INSTALLED_APPS = [
     
     # Management Subdomain App
     "management",
+    "dtf.apps.DtfConfig",
 ]
 
 # Явно переопределим список middleware, чтобы исключить любые лишние строки
@@ -144,6 +146,7 @@ MIDDLEWARE = [
     "twocomms.middleware.SimpleRateLimitMiddleware",  # Rate limiting (ПОСЛЕ статики!)
     "twocomms.image_middleware.ImageOptimizationMiddleware",  # Enabled with caching
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -412,13 +415,33 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'uk'
+
+from django.utils.translation import gettext_lazy as _
+
+LANGUAGES = [
+    ("uk", _("Ukrainian")),
+    ("ru", _("Russian")),
+]
 
 TIME_ZONE = 'Europe/Kiev'
 
 USE_I18N = True
 
 USE_TZ = True
+
+# DTF module defaults
+DTF_PRICING = {
+    "base_rate": 280,
+    "tiers": [
+        {"min": 10, "rate": 270},
+        {"min": 30, "rate": 260},
+        {"min": 50, "rate": 250},
+    ],
+}
+DTF_MAX_FILE_MB = 50
+DTF_MAX_COPIES = 500
+DTF_MAX_METERS_REVIEW = 200
 
 
 # Static files (CSS, JavaScript, Images)

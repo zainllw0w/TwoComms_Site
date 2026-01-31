@@ -1,0 +1,167 @@
+{% extends 'dtf/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Замовити DTF друк" %}{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="dtf-container">
+    <div class="section-head">
+      <h1>{% trans "Замовлення DTF" %}</h1>
+      <p>{% trans "Оберіть формат: готовий ганг-лист або допомога з підготовкою." %}</p>
+    </div>
+
+    <div class="order-tabs" data-tab="{{ tab }}">
+      <button class="tab-btn {% if tab == 'ready' %}active{% endif %}" data-target="ready">{% trans "Є готовий ганг-лист (60 см)" %}</button>
+      <button class="tab-btn {% if tab == 'help' %}active{% endif %}" data-target="help">{% trans "Потрібна допомога з розкладкою" %}</button>
+      <div class="tab-indicator"></div>
+    </div>
+
+    <div class="order-panels">
+      <div class="panel {% if tab == 'ready' %}active{% endif %}" id="panel-ready">
+        <form method="post" enctype="multipart/form-data" class="order-form">
+          {% csrf_token %}
+          <input type="hidden" name="tab" value="ready">
+
+          {% if order_form.errors %}
+            <div class="form-errors">
+              {% for field, errors in order_form.errors.items %}
+                {% for error in errors %}
+                  <div class="form-error">{{ error }}</div>
+                {% endfor %}
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          <div class="form-grid">
+            <label>{% trans "Файл (PDF/PNG)" %}
+              {{ order_form.gang_file }}
+            </label>
+
+            <label>{% trans "Довжина файлу, м" %}
+              {{ order_form.length_m }}
+              <small>{% trans "Якщо не визначилось автоматично — вкажіть вручну" %}</small>
+            </label>
+
+            <label>{% trans "Копії" %}
+              {{ order_form.copies }}
+              <small>{% trans "Наприклад: 1 м × 50 = 50 м без великого файлу" %}</small>
+            </label>
+
+            <label>{% trans "Коментар" %}
+              {{ order_form.comment }}
+            </label>
+          </div>
+
+          <div class="form-grid">
+            <label>{% trans "Ім'я" %}
+              {{ order_form.name }}
+            </label>
+            <label>{% trans "Телефон" %}
+              {{ order_form.phone }}
+            </label>
+            <label>{% trans "Канал зв'язку" %}
+              {{ order_form.contact_channel }}
+            </label>
+            <label>{% trans "Нік/посилання" %}
+              {{ order_form.contact_handle }}
+            </label>
+            <label>{% trans "Місто" %}
+              {{ order_form.city }}
+            </label>
+            <label>{% trans "Відділення НП" %}
+              {{ order_form.np_branch }}
+            </label>
+          </div>
+
+          <div class="calc-box">
+            <div>
+              <div class="calc-label">{% trans "Метраж" %}</div>
+              <div class="calc-value" id="calc-meters">—</div>
+            </div>
+            <div>
+              <div class="calc-label">{% trans "Орієнтовна ціна" %}</div>
+              <div class="calc-value" id="calc-price">—</div>
+            </div>
+            <div class="calc-note">{% trans "Фінальну суму підтвердить менеджер" %}</div>
+            <div class="calc-warning" id="calc-warning" hidden>{% trans "Оптовий метраж — уточнимо терміни та вартість" %}</div>
+          </div>
+
+          <label class="trust-check">
+            <input type="checkbox" checked disabled>
+            <span>{% trans "Ручна перевірка макета перед друком" %}</span>
+          </label>
+
+          <button class="btn btn-primary" type="submit">{% trans "Надіслати замовлення" %}</button>
+        </form>
+      </div>
+
+      <div class="panel {% if tab == 'help' %}active{% endif %}" id="panel-help">
+        <form method="post" enctype="multipart/form-data" class="order-form">
+          {% csrf_token %}
+          <input type="hidden" name="tab" value="help">
+
+          {% if help_form.errors %}
+            <div class="form-errors">
+              {% for field, errors in help_form.errors.items %}
+                {% for error in errors %}
+                  <div class="form-error">{{ error }}</div>
+                {% endfor %}
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          <div class="form-grid">
+            <label>{% trans "Файли (multiple)" %}
+              {{ help_form.files }}
+            </label>
+            <label>{% trans "Посилання на папку" %}
+              {{ help_form.folder_link }}
+            </label>
+            <label>{% trans "Задача / деталі" %}
+              {{ help_form.task_description }}
+            </label>
+            <label>{% trans "Терміни" %}
+              {{ help_form.deadline_note }}
+            </label>
+          </div>
+
+          <div class="form-grid">
+            <label>{% trans "Ім'я" %}
+              {{ help_form.name }}
+            </label>
+            <label>{% trans "Телефон" %}
+              {{ help_form.phone }}
+            </label>
+            <label>{% trans "Канал зв'язку" %}
+              {{ help_form.contact_channel }}
+            </label>
+            <label>{% trans "Нік/посилання" %}
+              {{ help_form.contact_handle }}
+            </label>
+            <label>{% trans "Місто" %}
+              {{ help_form.city }}
+            </label>
+            <label>{% trans "Відділення НП" %}
+              {{ help_form.np_branch }}
+            </label>
+          </div>
+
+          <label class="trust-check">
+            <input type="checkbox" checked disabled>
+            <span>{% trans "Менеджер підтвердить метраж та вартість" %}</span>
+          </label>
+
+          <button class="btn btn-primary" type="submit">{% trans "Надіслати заявку" %}</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div id="pricing-data"
+     data-base-rate="{{ pricing.base_rate }}"
+     data-tiers="{% for tier in pricing.tiers %}{{ tier.min }}:{{ tier.rate }}{% if not forloop.last %},{% endif %}{% endfor %}"
+     data-max-meters-review="{{ limits.max_meters_review }}"
+     data-max-copies="{{ limits.max_copies }}"></div>
+{% endblock %}
