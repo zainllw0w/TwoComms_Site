@@ -455,34 +455,61 @@
       return;
     }
     initState.inkDroplets = true;
-    let frame = null;
-    let targetX = 0;
-    let targetY = 0;
+    layer.classList.add('is-dynamic');
+    layer.style.setProperty('--drop-opacity', '0.35');
 
-    const apply = () => {
-      layer.style.setProperty('--drop-dx', `${targetX}px`);
-      layer.style.setProperty('--drop-dy', `${targetY}px`);
-      frame = null;
+    const dropCount = 8;
+    const drops = [];
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    let pointerX = width * 0.5;
+    let pointerY = height * 0.4;
+    let pointerActive = false;
+
+    const rand = (min, max) => Math.random() * (max - min) + min;
+
+    for (let i = 0; i < dropCount; i += 1) {
+      const el = document.createElement('span');
+      el.className = 'ink-drop';
+      const size = rand(90, 160);
+      el.style.setProperty('--drop-size', `${size}px`);
+      layer.appendChild(el);
+      const x = rand(width * 0.2, width * 0.8);
+      const y = rand(height * 0.2, height * 0.7);
+      drops.push({
+        el,
+        x,
+        y,
+        ox: x,
+        oy: y,
+        vx: rand(-0.3, 0.3),
+        vy: rand(-0.3, 0.3),
+        size,
+      });
+    }
+
+    const onResize = () => {
+      width = window.innerWidth;
+      height = window.innerHeight;
     };
 
-    const handleMove = (xRatio, yRatio) => {
-      const maxShift = 22;
-      targetX = (xRatio - 0.5) * maxShift * 2;
-      targetY = (yRatio - 0.5) * maxShift * 2;
-      if (!frame) frame = window.requestAnimationFrame(apply);
-    };
+    window.addEventListener('resize', onResize);
 
-    const onMouse = (event) => {
-      const xRatio = event.clientX / window.innerWidth;
-      const yRatio = event.clientY / window.innerHeight;
-      handleMove(xRatio, yRatio);
+    const updatePointer = (x, y) => {
+      pointerX = x;
+      pointerY = y;
+      pointerActive = true;
       layer.style.setProperty('--drop-opacity', '0.55');
     };
 
-    window.addEventListener('mousemove', onMouse);
-    window.addEventListener('mouseenter', () => layer.style.setProperty('--drop-opacity', '0.55'));
-    window.addEventListener('mouseleave', () => layer.style.setProperty('--drop-opacity', '0.2'));
-    layer.style.setProperty('--drop-opacity', '0.2');
+    window.addEventListener('mousemove', (event) => {
+      updatePointer(event.clientX, event.clientY);
+    });
+
+    window.addEventListener('mouseleave', () => {
+      pointerActive = false;
+      layer.style.setProperty('--drop-opacity', '0.3');
+    });
 
     let tiltEnabled = false;
     let tiltRequested = false;
@@ -493,8 +520,7 @@
       const beta = Math.max(-30, Math.min(30, event.beta));
       const xRatio = (gamma + 30) / 60;
       const yRatio = (beta + 30) / 60;
-      handleMove(xRatio, yRatio);
-      layer.style.setProperty('--drop-opacity', '0.4');
+      updatePointer(xRatio * width, yRatio * height);
     };
 
     const enableTilt = async () => {
@@ -515,6 +541,43 @@
     document.addEventListener('touchstart', () => {
       if (!tiltEnabled) enableTilt();
     }, { once: true, passive: true });
+
+    const step = () => {
+      const now = Date.now();
+      drops.forEach((drop, index) => {
+        const driftX = Math.sin(now * 0.0004 + index) * 0.15;
+        const driftY = Math.cos(now * 0.00035 + index) * 0.15;
+        drop.vx += driftX;
+        drop.vy += driftY;
+
+        if (pointerActive) {
+          const dx = drop.x - pointerX;
+          const dy = drop.y - pointerY;
+          const dist = Math.max(40, Math.hypot(dx, dy));
+          const force = Math.min(1.2, 120 / dist);
+          drop.vx += (dx / dist) * force * 0.6;
+          drop.vy += (dy / dist) * force * 0.6;
+        }
+
+        drop.vx += (drop.ox - drop.x) * 0.0004;
+        drop.vy += (drop.oy - drop.y) * 0.0004;
+        drop.vx *= 0.96;
+        drop.vy *= 0.96;
+        drop.x += drop.vx;
+        drop.y += drop.vy;
+
+        if (drop.x < -200) drop.x = width + 200;
+        if (drop.x > width + 200) drop.x = -200;
+        if (drop.y < -200) drop.y = height + 200;
+        if (drop.y > height + 200) drop.y = -200;
+
+        drop.el.style.transform = `translate3d(${drop.x - drop.size / 2}px, ${drop.y - drop.size / 2}px, 0)`;
+      });
+
+      window.requestAnimationFrame(step);
+    };
+
+    window.requestAnimationFrame(step);
   }
 
   function initSpeculationRules() {
