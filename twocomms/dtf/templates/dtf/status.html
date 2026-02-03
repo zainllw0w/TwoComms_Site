@@ -3,53 +3,133 @@
 
 {% block title %}{% trans "Статус замовлення" %}{% endblock %}
 
+{% block extra_head %}
+  {% trans "Статус" as crumb_label %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "DTF",
+        "item": "https://dtf.twocomms.shop/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "{{ crumb_label|escapejs }}",
+        "item": "https://dtf.twocomms.shop{{ request.path }}"
+      }
+    ]
+  }
+  </script>
+{% endblock %}
+
 {% block content %}
 <section class="section">
   <div class="dtf-container status-page">
-    <h1>{% trans "Статус замовлення" %}</h1>
-    <form method="post" class="status-form">
-      {% csrf_token %}
-      <label>{% trans "Номер замовлення" %}
-        <input type="text" name="order_number" placeholder="DTF01012025N01" required>
-      </label>
-      <label>{% trans "Телефон" %}
-        <input type="tel" name="phone" required>
-      </label>
-      <button class="btn btn-primary" type="submit">{% trans "Перевірити" %}</button>
-    </form>
+    <div class="section-head">
+      <h1>{% trans "Статус замовлення" %}</h1>
+      <p>{% trans "Контроль виробництва та трекінг без зайвих деталей." %}</p>
+    </div>
+
+    {% if not share_mode %}
+      <!-- ASSET_REQUEST | id=status-pipeline-icons | type=icon | usage=Status timeline | spec=SVG set, 1x/2x | notes=unique per stage, line style -->
+      <form method="post" class="status-form order-form">
+        {% csrf_token %}
+        <label>{% trans "Номер замовлення" %}
+          <input type="text" name="order_number" placeholder="DTF01012025N01" required>
+        </label>
+        <label>{% trans "Телефон" %}
+          <input type="tel" name="phone" required>
+        </label>
+        <button class="btn btn-primary" type="submit">{% trans "Перевірити" %}</button>
+      </form>
+    {% endif %}
 
     {% if error %}
-      <div class="form-error">{{ error }}</div>
+      <div class="form-error" role="alert">{{ error }}</div>
     {% endif %}
 
     {% if order %}
-      <div class="status-card">
+      <div class="status-board" data-status-index="{{ status_index|default:'0' }}" data-status-total="{{ status_steps|length }}" data-status-order="{{ order.order_number }}">
         <div class="status-header">
           <div>
             <div class="label">{% trans "Замовлення" %}</div>
             <div class="value">{{ order.order_number }}</div>
+            <div class="status-sub">{{ order.get_status_display }}</div>
           </div>
-          {% if order.tracking_number %}
-            <div class="ttn">{% trans "ТТН" %}: {{ order.tracking_number }}</div>
+          <div class="status-actions">
+            {% if share_url %}
+              <button class="btn btn-outline" type="button" data-copy="{{ share_url }}">{% trans "Скопіювати лінк" %}</button>
+            {% endif %}
+            {% if not share_mode %}
+              <a class="btn btn-ghost" href="{{ share_url }}" target="_blank" rel="noopener">{% trans "Share" %}</a>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="status-grid">
+          <div class="status-card status-pipeline">
+            <h3>{% trans "Pipeline" %}</h3>
+            <div class="status-steps">
+              {% for step in status_steps %}
+                <div class="status-step {% if status_index is not None and forloop.counter0 < status_index %}done{% endif %}{% if status_index is not None and forloop.counter0 == status_index %} active{% endif %}">
+                  <span></span>
+                  <div>
+                    <strong>{{ step.label }}</strong>
+                    {% if status_index is not None and forloop.counter0 == status_index %}
+                      <small>{% trans "Поточний етап" %}</small>
+                    {% endif %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          {% if not share_mode %}
+            <div class="status-card">
+              <h3>{% trans "QC Report" %}</h3>
+              <div class="qc-list">
+                {% for item in qc_checks %}
+                  <div class="qc-item">
+                    <span class="qc-label">{{ item.label }}</span>
+                    <span class="qc-status {{ item.status }}">{{ item.value }}</span>
+                  </div>
+                {% endfor %}
+              </div>
+              <button class="btn btn-outline" type="button" disabled>{% trans "PDF сертифікат" %}</button>
+            </div>
+          {% endif %}
+
+          <div class="status-card">
+            <h3>{% trans "Доставка" %}</h3>
+            {% if order.tracking_number %}
+              <div class="ttn">{% trans "ТТН" %}: {{ order.tracking_number }}</div>
+              <a class="btn btn-ghost" href="https://novaposhta.ua/tracking/?cargo_number={{ order.tracking_number }}" target="_blank" rel="noopener">{% trans "Відстежити" %}</a>
+            {% else %}
+              <div class="status-next">{% trans "Трекінг буде після відправки" %}</div>
+            {% endif %}
+          </div>
+
+          {% if not share_mode %}
+            <div class="status-card">
+              <h3>{% trans "Повторити" %}</h3>
+              <p class="status-next">{% trans "Створіть нове замовлення за цим кейсом." %}</p>
+              <a class="btn btn-primary" href="{% url 'dtf:order' %}?reorder={{ order.order_number }}">{% trans "Повторити замовлення" %}</a>
+            </div>
+
+            <div class="status-card">
+              <h3>{% trans "Потрібна допомога" %}</h3>
+              <p class="status-next">{% trans "Менеджер підкаже щодо файлу або термінів." %}</p>
+              <a class="btn btn-outline" href="{% url 'dtf:order' %}?tab=help">{% trans "Написати менеджеру" %}</a>
+            </div>
           {% endif %}
         </div>
-        <div class="status-steps">
-          {% for code, label in status_steps %}
-            <div class="status-step {% if status_index is not None and forloop.counter0 < status_index %}done{% endif %}{% if order.status == code %} active{% endif %}">
-              <span></span>
-              <div>
-                <strong>{{ label }}</strong>
-                {% if order.status == code %}
-                  <small>{% trans "Поточний етап" %}</small>
-                {% endif %}
-              </div>
-            </div>
-          {% endfor %}
-        </div>
-        <div class="status-next">
-          {% trans "Ми повідомимо, якщо потрібні правки або оплата." %}
-        </div>
-        {% if order.need_fix_reason %}
+
+        {% if order.need_fix_reason and not share_mode %}
           <div class="status-next">{{ order.need_fix_reason }}</div>
         {% endif %}
       </div>

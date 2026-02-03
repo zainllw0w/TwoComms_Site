@@ -4,19 +4,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0a0a">
   <title>{% block title %}{% trans "DTF друк у рулоні 60 см — TwoComms" %}{% endblock %}</title>
   <meta name="description" content="{% block description %}{% trans "DTF друк 60 см: швидкий розрахунок метражу, перевірка макета та доставка НП." %}{% endblock %}">
   <meta property="og:type" content="website">
   <meta property="og:title" content="{% block og_title %}{% trans "DTF друк у рулоні 60 см" %}{% endblock %}">
   <meta property="og:description" content="{% block og_description %}{% trans "Прозорий розрахунок, ручна перевірка макета, доставка Новою Поштою." %}{% endblock %}">
   <meta property="og:locale" content="uk_UA">
+  <meta property="og:url" content="{{ request.build_absolute_uri }}">
+  <!-- ASSET_REQUEST | id=og-dtf | type=photo | usage=Open Graph share image | spec=1200x630 | notes=DTF Lab Proof cover -->
+  <meta property="og:image" content="{% static 'dtf/assets/og-dtf.jpg' %}">
+  <link rel="canonical" href="{{ request.build_absolute_uri }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=Manrope:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'dtf/css/tokens.css' %}">
   <link rel="stylesheet" href="{% static 'dtf/css/dtf.css' %}">
   {% block extra_head %}{% endblock %}
 </head>
-<body>
+<body data-page="{% block page_id %}{% endblock %}">
+  <a class="skip-link" href="#main-content">{% trans "Перейти до контенту" %}</a>
+  <!-- ASSET_REQUEST | id=noise-tiling-1 | type=texture | usage=global background noise layer | spec=seamless 512x512, subtle grain | notes=static, compressible -->
   <div class="dtf-shell">
     <header class="dtf-header">
       <div class="dtf-container header-inner">
@@ -24,14 +32,18 @@
           <span class="logo-mark">DTF</span>
           <span class="logo-text">TwoComms</span>
         </a>
-        <nav class="main-nav">
-          <a href="{% url 'dtf:order' %}">{% trans "Замовити" %}</a>
-          <a href="{% url 'dtf:price' %}">{% trans "Ціни" %}</a>
-          <a href="{% url 'dtf:requirements' %}">{% trans "Вимоги" %}</a>
-          <a href="{% url 'dtf:status' %}">{% trans "Статус" %}</a>
-          <a href="{% url 'dtf:contacts' %}">{% trans "Контакти" %}</a>
+        <nav class="main-nav" aria-label="{% trans 'Основна навігація' %}">
+          <a href="{% url 'dtf:order' %}" class="{% if request.path == '/order/' %}is-active{% endif %}" {% if request.path == '/order/' %}aria-current="page"{% endif %}>{% trans "Замовити" %}</a>
+          <a href="{% url 'dtf:price' %}" class="{% if request.path == '/price/' %}is-active{% endif %}" {% if request.path == '/price/' %}aria-current="page"{% endif %}>{% trans "Ціни" %}</a>
+          <a href="{% url 'dtf:gallery' %}" class="{% if request.path == '/gallery/' %}is-active{% endif %}" {% if request.path == '/gallery/' %}aria-current="page"{% endif %}>{% trans "Галерея" %}</a>
+          <a href="{% url 'dtf:requirements' %}" class="{% if request.path == '/requirements/' %}is-active{% endif %}" {% if request.path == '/requirements/' %}aria-current="page"{% endif %}>{% trans "Вимоги" %}</a>
+          <a href="{% url 'dtf:status' %}" class="{% if request.path == '/status/' %}is-active{% endif %}" {% if request.path == '/status/' %}aria-current="page"{% endif %}>{% trans "Статус" %}</a>
+          <a href="{% url 'dtf:order' %}?tab=help" class="{% if request.path == '/order/' and request.GET.tab == 'help' %}is-active{% endif %}" {% if request.path == '/order/' and request.GET.tab == 'help' %}aria-current="page"{% endif %}>{% trans "Допомога" %}</a>
         </nav>
         <div class="header-actions">
+          <button class="nav-toggle" type="button" data-drawer-open aria-controls="nav-drawer" aria-expanded="false">
+            {% trans "Меню" %}
+          </button>
           <div class="lang-switch">
             <a href="{{ lang_links.uk }}" class="{% if current_lang == 'uk' %}active{% endif %}">UA</a>
             <a href="{{ lang_links.ru }}" class="{% if current_lang == 'ru' %}active{% endif %}">RU</a>
@@ -41,6 +53,24 @@
       </div>
     </header>
 
+    <div class="nav-drawer" id="nav-drawer" aria-hidden="true">
+      <div class="nav-backdrop" data-drawer-close></div>
+      <div class="nav-panel" role="dialog" aria-modal="true" aria-labelledby="nav-drawer-title">
+        <div class="nav-panel-head">
+          <div class="nav-title" id="nav-drawer-title">DTF TwoComms</div>
+          <button class="nav-close" type="button" data-drawer-close aria-label="{% trans 'Закрити' %}">×</button>
+        </div>
+        <nav class="nav-panel-links" aria-label="{% trans 'Мобільна навігація' %}">
+          <a href="{% url 'dtf:order' %}">{% trans "Замовити" %}</a>
+          <a href="{% url 'dtf:price' %}">{% trans "Ціни" %}</a>
+          <a href="{% url 'dtf:gallery' %}">{% trans "Галерея" %}</a>
+          <a href="{% url 'dtf:requirements' %}">{% trans "Вимоги" %}</a>
+          <a href="{% url 'dtf:status' %}">{% trans "Статус" %}</a>
+          <a href="{% url 'dtf:order' %}?tab=help">{% trans "Допомога" %}</a>
+        </nav>
+      </div>
+    </div>
+
     {% if messages %}
       <div class="dtf-container">
         {% for message in messages %}
@@ -49,7 +79,7 @@
       </div>
     {% endif %}
 
-    <main>
+    <main id="main-content">
       {% block content %}{% endblock %}
     </main>
 
@@ -62,6 +92,8 @@
         <div class="footer-links">
           <a href="{% url 'dtf:delivery_payment' %}">{% trans "Доставка та оплата" %}</a>
           <a href="{% url 'dtf:requirements' %}">{% trans "Вимоги до файлів" %}</a>
+          <a href="{% url 'dtf:quality' %}">{% trans "Quality" %}</a>
+          <a href="{% url 'dtf:templates' %}">{% trans "Шаблони" %}</a>
           <a href="{% url 'dtf:contacts' %}">{% trans "Контакти" %}</a>
         </div>
         <div class="footer-meta">© TwoComms, {% now "Y" %}</div>
@@ -78,10 +110,10 @@
 
   <div class="dtf-modal" id="dtf-fab-modal" aria-hidden="true">
     <div class="modal-backdrop" data-close="1"></div>
-    <div class="modal-content" role="dialog" aria-modal="true">
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="fab-modal-title" aria-describedby="fab-modal-desc">
       <button class="modal-close" type="button" data-close="1">×</button>
-      <h3>{% trans "Менеджер зв'яжеться" %}</h3>
-      <p class="modal-sub">{% trans "Залиште контакти та коротке питання." %}</p>
+      <h3 id="fab-modal-title">{% trans "Менеджер зв'яжеться" %}</h3>
+      <p class="modal-sub" id="fab-modal-desc">{% trans "Залиште контакти та коротке питання." %}</p>
       <form id="dtf-fab-form" method="post" action="{% url 'dtf:fab_lead' %}">
         {% csrf_token %}
         <label>{% trans "Ім'я" %}
@@ -110,11 +142,23 @@
     </div>
   </div>
 
-  <div class="mobile-cta" id="mobile-cta">
-    <a class="btn btn-primary" href="{% url 'dtf:order' %}">{% trans "Розрахувати" %}</a>
-    <a class="btn btn-ghost" href="{% url 'dtf:order' %}?tab=help">{% trans "Потрібна допомога" %}</a>
-  </div>
+  <nav class="mobile-dock" aria-label="{% trans 'Мобільна навігація' %}">
+    <a class="dock-item {% if request.path == '/order/' %}is-active{% endif %}" href="{% url 'dtf:order' %}" {% if request.path == '/order/' %}aria-current="page"{% endif %}>
+      <span>{% trans "Замовити" %}</span>
+    </a>
+    <a class="dock-item {% if request.path == '/price/' %}is-active{% endif %}" href="{% url 'dtf:price' %}" {% if request.path == '/price/' %}aria-current="page"{% endif %}>
+      <span>{% trans "Ціни" %}</span>
+    </a>
+    <a class="dock-item {% if request.path == '/status/' %}is-active{% endif %}" href="{% url 'dtf:status' %}" {% if request.path == '/status/' %}aria-current="page"{% endif %}>
+      <span>{% trans "Статус" %}</span>
+    </a>
+    <a class="dock-item {% if request.path == '/order/' and request.GET.tab == 'help' %}is-active{% endif %}" href="{% url 'dtf:order' %}?tab=help" {% if request.path == '/order/' and request.GET.tab == 'help' %}aria-current="page"{% endif %}>
+      <span>{% trans "Допомога" %}</span>
+    </a>
+  </nav>
 
+  {{ feature_flags|json_script:"dtf-feature-flags" }}
+  <script src="{% static 'dtf/js/vendor/htmx.min.js' %}" defer></script>
   <script src="{% static 'dtf/js/dtf.js' %}" defer></script>
   {% block extra_scripts %}{% endblock %}
 </body>

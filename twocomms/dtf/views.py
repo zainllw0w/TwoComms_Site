@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponseBadRequest
@@ -21,10 +21,13 @@ from .utils import (
     activate_language_from_request,
     build_lang_links,
     calculate_pricing,
+    get_file_extension,
+    get_feature_flags,
     get_limits,
     get_pricing_config,
     normalize_phone,
 )
+from .utils import ALLOWED_READY_EXTS
 
 
 STATUS_STEPS = [
@@ -45,11 +48,12 @@ def _base_context(request):
         "lang_links": build_lang_links(request),
         "pricing": get_pricing_config(),
         "limits": get_limits(),
+        "feature_flags": get_feature_flags(),
     }
 
 
-def _render(request, template, context):
-    response = render(request, template, context)
+def _render(request, template, context, status: int | None = None):
+    response = render(request, template, context, status=status)
     lang = request.GET.get("lang")
     if lang in ("uk", "ru"):
         response.set_cookie("dtf_lang", lang, max_age=365 * 24 * 3600)
@@ -67,6 +71,36 @@ def landing(request):
         "status_steps": STATUS_STEPS,
     })
     return _render(request, "dtf/index.html", ctx)
+
+
+@require_http_methods(["GET"])
+def estimate(request):
+    length_raw = (request.GET.get("length_m") or "").replace(",", ".")
+    copies_raw = request.GET.get("copies") or "1"
+    context_kind = request.GET.get("context") or "estimate"
+    length_m = None
+    copies = 1
+    try:
+        if length_raw:
+            length_m = Decimal(length_raw)
+    except (InvalidOperation, ValueError):
+        length_m = None
+    try:
+        copies = int(copies_raw)
+    except (TypeError, ValueError):
+        copies = 1
+
+    pricing = None
+    if length_m and copies:
+        pricing = calculate_pricing(length_m, copies)
+
+    ctx = _base_context(request)
+    ctx.update({
+        "pricing_result": pricing,
+    })
+    if context_kind == "order":
+        return render(request, "dtf/partials/order_calc.html", ctx)
+    return render(request, "dtf/partials/estimate_result.html", ctx)
 
 
 @require_http_methods(["GET", "POST"])
@@ -129,10 +163,15 @@ def thanks(request, kind: str, number: str):
 
 
 @require_http_methods(["GET", "POST"])
-def status(request):
+def status(request, order_number: str | None = None):
     ctx = _base_context(request)
     order = None
     error = None
+    share_mode = request.GET.get("share") == "1"
+    share_number = request.GET.get("order")
+    if order_number:
+        share_mode = True
+        share_number = order_number
     if request.method == "POST":
         number = request.POST.get("order_number", "").strip()
         phone = request.POST.get("phone", "").strip()
@@ -147,19 +186,95 @@ def status(request):
                 if normalize_phone(order.phone) != phone_digits:
                     error = _("Телефон не збігається із замовленням")
                     order = None
+    elif share_mode and share_number:
+        order = DtfOrder.objects.filter(order_number__iexact=str(share_number).strip()).first()
+        if not order:
+            error = _("Замовлення не знайдено")
+
+    pipeline_steps = [
+        {"key": "intake", "label": _("Intake")},
+        {"key": "preflight", "label": _("Preflight")},
+        {"key": "print", "label": _("Print")},
+        {"key": "powder", "label": _("Powder")},
+        {"key": "cure", "label": _("Cure")},
+        {"key": "pack", "label": _("Pack")},
+        {"key": "ship", "label": _("Ship")},
+    ]
+    status_map = {
+        OrderStatus.NEW_ORDER: 0,
+        OrderStatus.CHECK_MOCKUP: 1,
+        OrderStatus.AWAITING_PAYMENT: 1,
+        OrderStatus.PRINTING: 2,
+        OrderStatus.READY: 5,
+        OrderStatus.SHIPPED: 6,
+        OrderStatus.CLOSED: 6,
+    }
     status_index = None
     if order:
         try:
-            status_index = [code for code, _ in STATUS_STEPS].index(order.status)
-        except ValueError:
+            status_index = status_map.get(order.status)
+        except Exception:
             status_index = None
+    qc_checks = []
+    if order:
+        limits = get_limits()
+        ext = get_file_extension(order.gang_file.name) if order.gang_file else ""
+        ext_ok = ext.lower() in ALLOWED_READY_EXTS if ext else False
+        qc_checks = [
+            {
+                "label": _("Файл"),
+                "status": "ok" if order.gang_file else "warn",
+                "value": ext.upper() if ext else _("Відсутній"),
+            },
+            {
+                "label": _("Метраж"),
+                "status": "ok" if order.meters_total else "warn",
+                "value": f"{order.meters_total} м" if order.meters_total else _("Невідомо"),
+            },
+            {
+                "label": _("Копії"),
+                "status": "warn" if order.copies > limits["max_copies"] else "ok",
+                "value": str(order.copies),
+            },
+            {
+                "label": _("Оптовий метраж"),
+                "status": "warn" if order.requires_review else "ok",
+                "value": _("Потрібна перевірка") if order.requires_review else _("OK"),
+            },
+            {
+                "label": _("Формат"),
+                "status": "ok" if ext_ok else "warn",
+                "value": ext.upper() if ext else _("Невідомо"),
+            },
+        ]
+    share_url = None
+    if order and request.build_absolute_uri:
+        share_url = request.build_absolute_uri(f"{request.path}?share=1&order={order.order_number}")
     ctx.update({
         "order": order,
         "error": error,
-        "status_steps": STATUS_STEPS,
+        "status_steps": pipeline_steps,
         "status_index": status_index,
+        "qc_checks": qc_checks,
+        "share_mode": share_mode,
+        "share_url": share_url,
     })
     return _render(request, "dtf/status.html", ctx)
+
+
+def gallery(request):
+    ctx = _base_context(request)
+    category = request.GET.get("category", "all")
+    works = DtfWork.objects.filter(is_active=True).order_by("sort_order", "-created_at")
+    if category in {WorkCategory.MACRO, WorkCategory.PROCESS, WorkCategory.FINAL}:
+        works = works.filter(category=category)
+    works_list = list(works)
+    ctx.update({
+        "works": works_list,
+        "works_with_images": [work for work in works_list if getattr(work, "image", None)],
+        "category": category,
+    })
+    return _render(request, "dtf/gallery.html", ctx)
 
 
 def requirements(request):
@@ -172,6 +287,41 @@ def price(request):
     return _render(request, "dtf/price.html", ctx)
 
 
+def quality(request):
+    ctx = _base_context(request)
+    return _render(request, "dtf/quality.html", ctx)
+
+
+def templates(request):
+    ctx = _base_context(request)
+    return _render(request, "dtf/templates.html", ctx)
+
+
+def how_to_press(request):
+    ctx = _base_context(request)
+    return _render(request, "dtf/how_to_press.html", ctx)
+
+
+@require_http_methods(["GET", "POST"])
+def preflight(request):
+    ctx = _base_context(request)
+    if request.method == "POST":
+        form = DtfHelpForm(request.POST, request.FILES)
+        if form.is_valid():
+            lead = form.save(commit=False)
+            lead.lead_type = LeadType.HELP
+            lead.source = "preflight"
+            lead.save()
+            for file in request.FILES.getlist("files"):
+                DtfLeadAttachment.objects.create(lead=lead, file=file)
+            notify_new_lead(lead)
+            return redirect("dtf:thanks", kind="lead", number=lead.lead_number)
+    else:
+        form = DtfHelpForm(initial={"task_description": _("Preflight перевірка файлу")})
+    ctx.update({"preflight_form": form})
+    return _render(request, "dtf/preflight.html", ctx)
+
+
 def delivery_payment(request):
     ctx = _base_context(request)
     return _render(request, "dtf/delivery_payment.html", ctx)
@@ -180,6 +330,16 @@ def delivery_payment(request):
 def contacts(request):
     ctx = _base_context(request)
     return _render(request, "dtf/contacts.html", ctx)
+
+
+def handler404(request, exception):
+    ctx = _base_context(request)
+    return _render(request, "dtf/404.html", ctx, status=404)
+
+
+def handler500(request):
+    ctx = _base_context(request)
+    return _render(request, "dtf/500.html", ctx, status=500)
 
 
 @require_POST

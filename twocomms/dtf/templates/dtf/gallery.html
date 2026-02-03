@@ -1,0 +1,184 @@
+{% extends 'dtf/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Галерея робіт" %}{% endblock %}
+
+{% block extra_head %}
+  {% if works_with_images %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "CreativeWork",
+    "name": "DTF Gallery",
+    "url": "https://dtf.twocomms.shop/gallery",
+    "hasPart": [
+      {% for item in works_with_images %}
+      {
+        "@type": "ImageObject",
+        "contentUrl": "{{ item.image.url }}",
+        "caption": "{% if item.title %}{{ item.title|escapejs }}{% else %}DTF work{% endif %}"
+      }{% if not forloop.last %},{% endif %}
+      {% endfor %}
+    ]
+  }
+  </script>
+  {% endif %}
+  {% trans "Галерея" as crumb_label %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "DTF",
+        "item": "https://dtf.twocomms.shop/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "{{ crumb_label|escapejs }}",
+        "item": "https://dtf.twocomms.shop{{ request.path }}"
+      }
+    ]
+  }
+  </script>
+{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="dtf-container">
+    <div class="section-head">
+      <h1>{% trans "Галерея DTF" %}</h1>
+      <p>{% trans "Реальні кейси, макро‑деталі та порівняння до/після." %}</p>
+    </div>
+
+    <div class="filter-bar">
+      <a class="chip {% if category == 'all' %}active{% endif %}" href="{% url 'dtf:gallery' %}">{% trans "Всі" %}</a>
+      <a class="chip {% if category == 'macro' %}active{% endif %}" href="{% url 'dtf:gallery' %}?category=macro">{% trans "Макро" %}</a>
+      <a class="chip {% if category == 'process' %}active{% endif %}" href="{% url 'dtf:gallery' %}?category=process">{% trans "Процес" %}</a>
+      <a class="chip {% if category == 'final' %}active{% endif %}" href="{% url 'dtf:gallery' %}?category=final">{% trans "Готове" %}</a>
+    </div>
+
+    <div class="gallery-grid">
+      {% for item in works %}
+        <article class="gallery-card">
+          <div class="gallery-media">
+            <img src="{{ item.image.url }}" alt="{{ item.title }}" loading="lazy" class="skeleton">
+            <div class="gallery-chips">
+              <span class="chip">60 см</span>
+              <span class="chip">{{ item.get_category_display }}</span>
+              <span class="chip">24–48 год</span>
+            </div>
+          </div>
+          <div class="gallery-body">
+            <h3>{% if item.title %}{{ item.title }}{% else %}{% trans "Приклад" %}{% endif %}</h3>
+            <details class="case-passport">
+              <summary>{% trans "Паспорт кейса" %}</summary>
+              <div class="passport-body">
+                <div>{% trans "Матеріал" %}: {% trans "бавовна" %}</div>
+                <div>{% trans "Метраж" %}: 12 м</div>
+                <div>{% trans "Термін" %}: 24–48 год</div>
+              </div>
+            </details>
+            <a class="btn btn-outline" href="{% url 'dtf:order' %}?ref={{ item.id }}">{% trans "Зробити як тут" %}</a>
+          </div>
+        </article>
+      {% empty %}
+        {% for i in "123456" %}
+        <article class="gallery-card placeholder">
+          <div class="gallery-media asset-slot">
+            <div class="asset-placeholder">{% trans "Приклад" %}</div>
+          </div>
+          <div class="gallery-body">
+            <h3>{% trans "Кейс" %}</h3>
+            <div class="passport-body">{% trans "Додамо реальні роботи" %}</div>
+            <a class="btn btn-outline" href="{% url 'dtf:order' %}">{% trans "Зробити як тут" %}</a>
+          </div>
+        </article>
+        {% endfor %}
+      {% endfor %}
+    </div>
+
+    <div class="proof-grid" data-reveal>
+      <article class="proof-card compare-card" data-compare>
+        <!-- ASSET_REQUEST | id=gallery-compare-1-before | type=photo | usage=Gallery Compare #1 (before) | spec=2x, ~1600px wide | notes=raw print -->
+        <!-- ASSET_REQUEST | id=gallery-compare-1-after | type=photo | usage=Gallery Compare #1 (after) | spec=2x, ~1600px wide | notes=finished print same framing -->
+        <div class="compare-media asset-slot">
+          <div class="compare-layer compare-before">
+            <div class="asset-placeholder">{% trans "До (placeholder)" %}</div>
+          </div>
+          <div class="compare-layer compare-after">
+            <div class="asset-placeholder">{% trans "Після (placeholder)" %}</div>
+          </div>
+          <div class="compare-handle" aria-hidden="true"></div>
+        </div>
+        <input class="compare-range" type="range" min="0" max="100" value="50" aria-label="{% trans 'Порівняння' %}">
+        <div class="proof-meta">
+          <div class="proof-title">{% trans "Контраст і білий" %}</div>
+          <div class="proof-sub">{% trans "До / Після" %}</div>
+        </div>
+      </article>
+      <article class="proof-card compare-card" data-compare>
+        <!-- ASSET_REQUEST | id=gallery-compare-2-before | type=photo | usage=Gallery Compare #2 (before) | spec=2x, ~1600px wide | notes=raw print -->
+        <!-- ASSET_REQUEST | id=gallery-compare-2-after | type=photo | usage=Gallery Compare #2 (after) | spec=2x, ~1600px wide | notes=finished print same framing -->
+        <div class="compare-media asset-slot">
+          <div class="compare-layer compare-before">
+            <div class="asset-placeholder">{% trans "До (placeholder)" %}</div>
+          </div>
+          <div class="compare-layer compare-after">
+            <div class="asset-placeholder">{% trans "Після (placeholder)" %}</div>
+          </div>
+          <div class="compare-handle" aria-hidden="true"></div>
+        </div>
+        <input class="compare-range" type="range" min="0" max="100" value="46" aria-label="{% trans 'Порівняння' %}">
+        <div class="proof-meta">
+          <div class="proof-title">{% trans "Деталі дрібного тексту" %}</div>
+          <div class="proof-sub">{% trans "До / Після" %}</div>
+        </div>
+      </article>
+      <article class="proof-card compare-card" data-compare>
+        <!-- ASSET_REQUEST | id=gallery-compare-3-before | type=photo | usage=Gallery Compare #3 (before) | spec=2x, ~1600px wide | notes=raw print -->
+        <!-- ASSET_REQUEST | id=gallery-compare-3-after | type=photo | usage=Gallery Compare #3 (after) | spec=2x, ~1600px wide | notes=finished print same framing -->
+        <div class="compare-media asset-slot">
+          <div class="compare-layer compare-before">
+            <div class="asset-placeholder">{% trans "До (placeholder)" %}</div>
+          </div>
+          <div class="compare-layer compare-after">
+            <div class="asset-placeholder">{% trans "Після (placeholder)" %}</div>
+          </div>
+          <div class="compare-handle" aria-hidden="true"></div>
+        </div>
+        <input class="compare-range" type="range" min="0" max="100" value="52" aria-label="{% trans 'Порівняння' %}">
+        <div class="proof-meta">
+          <div class="proof-title">{% trans "Градієнт та напівтони" %}</div>
+          <div class="proof-sub">{% trans "До / Після" %}</div>
+        </div>
+      </article>
+      <article class="proof-card lens-card" data-lens>
+        <!-- ASSET_REQUEST | id=gallery-lens-macro-1 | type=photo | usage=Gallery Lens macro | spec=2x, ~1600px wide | notes=4K macro texture -->
+        <div class="lens-media asset-slot" data-lens-src="{% static 'dtf/assets/gallery-lens-macro-1.jpg' %}">
+          <div class="asset-placeholder">{% trans "Лінза (placeholder)" %}</div>
+          <div class="lens-glass" aria-hidden="true"></div>
+        </div>
+        <div class="proof-meta">
+          <div class="proof-title">{% trans "Макро‑текстура" %}</div>
+          <div class="proof-sub">{% trans "Наведення для збільшення" %}</div>
+        </div>
+      </article>
+    </div>
+
+    <div class="lens-modal" id="lens-modal" aria-hidden="true">
+      <div class="lens-modal-backdrop" data-close></div>
+      <div class="lens-modal-dialog" role="dialog" aria-modal="true" aria-label="{% trans 'Збільшення' %}">
+        <button class="lens-modal-close" type="button" data-close aria-label="{% trans 'Закрити' %}">×</button>
+        <div class="lens-modal-media asset-slot" style="aspect-ratio: 4 / 3">
+          <img data-lens-modal-img src="" alt="" loading="lazy" decoding="async" hidden>
+          <div class="asset-placeholder" data-lens-modal-placeholder>{% trans "Макро‑превʼю (placeholder)" %}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
