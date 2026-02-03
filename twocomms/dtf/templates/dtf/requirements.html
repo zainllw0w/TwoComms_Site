@@ -89,7 +89,11 @@
     <div class="req-visual">
       <!-- ASSET_REQUEST | id=requirements-ok-risk | type=photo | usage=Requirements OK vs RISK | spec=2x, ~1400px wide | notes=side-by-side example -->
       <div class="asset-slot" style="aspect-ratio: 16 / 9">
-        <div class="asset-placeholder">{% trans "OK vs RISK (placeholder)" %}</div>
+        <img src="{% static 'dtf/assets/requirements-ok-risk.jpg' %}"
+             alt="{% trans 'Приклад OK vs RISK' %}"
+             loading="lazy"
+             decoding="async"
+             class="skeleton">
       </div>
     </div>
 
