@@ -164,5 +164,19 @@
   <script src="{% static 'dtf/js/vendor/htmx.min.js' %}" defer></script>
   <script src="{% static 'dtf/js/dtf.js' %}" defer></script>
   {% block extra_scripts %}{% endblock %}
+
+  <svg class="ink-filters" width="0" height="0" aria-hidden="true" focusable="false">
+    <filter id="ink-gooey">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blur" />
+      <feColorMatrix in="blur" mode="matrix"
+        values="
+          1 0 0 0 0
+          0 1 0 0 0
+          0 0 1 0 0
+          0 0 0 18 -7"
+        result="gooey" />
+      <feComposite in="SourceGraphic" in2="gooey" operator="atop" />
+    </filter>
+  </svg>
 </body>
 </html>

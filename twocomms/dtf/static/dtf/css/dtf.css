@@ -81,8 +81,7 @@ img {
     radial-gradient(circle at 12% 18%, rgba(255, 106, 0, 0.22), transparent 55%),
     radial-gradient(circle at 82% 32%, rgba(0, 194, 255, 0.12), transparent 60%),
     radial-gradient(circle at 40% 70%, rgba(139, 143, 90, 0.14), transparent 65%);
-  opacity: 0.35;
-  filter: blur(30px);
+  opacity: 0.28;
   mix-blend-mode: screen;
   pointer-events: none;
   z-index: 0;
@@ -96,12 +95,28 @@ img {
   background-size: 1400px 1400px;
   background-repeat: repeat;
   opacity: var(--drop-opacity, 0);
-  filter: blur(10px);
+  filter: blur(6px);
   mix-blend-mode: screen;
   pointer-events: none;
   z-index: 0;
   transform: translate3d(var(--drop-dx, 0px), var(--drop-dy, 0px), 0);
   animation: droplet-float 28s ease-in-out infinite;
+}
+
+.ink-droplets.is-dynamic {
+  background-image: none;
+  animation: none;
+  filter: url(#ink-gooey);
+}
+
+.ink-droplets .ink-drop {
+  position: absolute;
+  width: var(--drop-size, 120px);
+  height: var(--drop-size, 120px);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 120, 20, 0.45) 0%, rgba(255, 120, 20, 0.2) 45%, rgba(255, 120, 20, 0) 70%);
+  mix-blend-mode: screen;
+  will-change: transform;
 }
 
 .dtf-shell > *:not(.ink-droplets) {
@@ -412,8 +427,7 @@ section.section {
     radial-gradient(circle at 18% 12%, rgba(255, 106, 0, 0.25), transparent 55%),
     radial-gradient(circle at 78% 28%, rgba(255, 212, 0, 0.12), transparent 60%),
     radial-gradient(circle at 55% 85%, rgba(0, 194, 255, 0.1), transparent 60%);
-  opacity: 0.35;
-  filter: blur(24px);
+  opacity: 0.3;
   pointer-events: none;
   z-index: 0;
   animation: hero-aurora 16s ease-in-out infinite;
