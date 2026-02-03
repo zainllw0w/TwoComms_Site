@@ -107,10 +107,18 @@
         <!-- ASSET_REQUEST | id=gallery-compare-1-after | type=photo | usage=Gallery Compare #1 (after) | spec=2x, ~1600px wide | notes=finished print same framing -->
         <div class="compare-media asset-slot">
           <div class="compare-layer compare-before">
-            <div class="asset-placeholder">{% trans "До (placeholder)" %}</div>
+            <img src="{% static 'dtf/assets/gallery-compare-1-before.jpg' %}"
+                 alt="{% trans 'До друку — галерея кейс 1' %}"
+                 loading="lazy"
+                 decoding="async"
+                 class="skeleton">
           </div>
           <div class="compare-layer compare-after">
-            <div class="asset-placeholder">{% trans "Після (placeholder)" %}</div>
+            <img src="{% static 'dtf/assets/gallery-compare-1-after.jpg' %}"
+                 alt="{% trans 'Після друку — галерея кейс 1' %}"
+                 loading="lazy"
+                 decoding="async"
+                 class="skeleton">
           </div>
           <div class="compare-handle" aria-hidden="true"></div>
         </div>
@@ -125,10 +133,18 @@
         <!-- ASSET_REQUEST | id=gallery-compare-2-after | type=photo | usage=Gallery Compare #2 (after) | spec=2x, ~1600px wide | notes=finished print same framing -->
         <div class="compare-media asset-slot">
           <div class="compare-layer compare-before">
-            <div class="asset-placeholder">{% trans "До (placeholder)" %}</div>
+            <img src="{% static 'dtf/assets/gallery-compare-2-before.jpg' %}"
+                 alt="{% trans 'До друку — галерея кейс 2' %}"
+                 loading="lazy"
+                 decoding="async"
+                 class="skeleton">
           </div>
           <div class="compare-layer compare-after">
-            <div class="asset-placeholder">{% trans "Після (placeholder)" %}</div>
+            <img src="{% static 'dtf/assets/gallery-compare-2-after.jpg' %}"
+                 alt="{% trans 'Після друку — галерея кейс 2' %}"
+                 loading="lazy"
+                 decoding="async"
+                 class="skeleton">
           </div>
           <div class="compare-handle" aria-hidden="true"></div>
         </div>
@@ -143,10 +159,18 @@
         <!-- ASSET_REQUEST | id=gallery-compare-3-after | type=photo | usage=Gallery Compare #3 (after) | spec=2x, ~1600px wide | notes=finished print same framing -->
         <div class="compare-media asset-slot">
           <div class="compare-layer compare-before">
-            <div class="asset-placeholder">{% trans "До (placeholder)" %}</div>
+            <img src="{% static 'dtf/assets/gallery-compare-3-before.jpg' %}"
+                 alt="{% trans 'До друку — галерея кейс 3' %}"
+                 loading="lazy"
+                 decoding="async"
+                 class="skeleton">
           </div>
           <div class="compare-layer compare-after">
-            <div class="asset-placeholder">{% trans "Після (placeholder)" %}</div>
+            <img src="{% static 'dtf/assets/gallery-compare-3-after.jpg' %}"
+                 alt="{% trans 'Після друку — галерея кейс 3' %}"
+                 loading="lazy"
+                 decoding="async"
+                 class="skeleton">
           </div>
           <div class="compare-handle" aria-hidden="true"></div>
         </div>
@@ -159,7 +183,11 @@
       <article class="proof-card lens-card" data-lens>
         <!-- ASSET_REQUEST | id=gallery-lens-macro-1 | type=photo | usage=Gallery Lens macro | spec=2x, ~1600px wide | notes=4K macro texture -->
         <div class="lens-media asset-slot" data-lens-src="{% static 'dtf/assets/gallery-lens-macro-1.jpg' %}">
-          <div class="asset-placeholder">{% trans "Лінза (placeholder)" %}</div>
+          <img src="{% static 'dtf/assets/gallery-lens-macro-1.jpg' %}"
+               alt="{% trans 'Макро-текстура DTF (галерея)' %}"
+               loading="lazy"
+               decoding="async"
+               class="skeleton">
           <div class="lens-glass" aria-hidden="true"></div>
         </div>
         <div class="proof-meta">
