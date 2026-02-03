@@ -13,6 +13,9 @@
     lensModal: false,
     htmxA11y: false,
     drawer: false,
+    inkFlow: false,
+    spotlight: false,
+    speculation: false,
   };
   let lensModalInstance = null;
   const focusTrap = {
@@ -22,6 +25,16 @@
   };
 
   const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex=\"-1\"])';
+
+  function allowAmbientEffects() {
+    if (prefersReduced) return false;
+    if (window.matchMedia && window.matchMedia('(hover: none)').matches) return false;
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (connection && connection.saveData) return false;
+    const memory = navigator.deviceMemory || 4;
+    if (memory <= 2) return false;
+    return true;
+  }
 
   function getFocusable(container) {
     if (!container) return [];
@@ -366,6 +379,94 @@
       hero.classList.add('scan-animate');
     });
     trackEvent('used_printhead_scan', { tier });
+  }
+
+  function initInkFlow() {
+    if (initState.inkFlow) return;
+    const hero = document.querySelector('.hero');
+    if (!hero) return;
+    if (!allowAmbientEffects()) return;
+    initState.inkFlow = true;
+    let frame = null;
+    let targetX = 55;
+    let targetY = 30;
+
+    const update = () => {
+      hero.style.setProperty('--ink-x', `${targetX}%`);
+      hero.style.setProperty('--ink-y', `${targetY}%`);
+      frame = null;
+    };
+
+    const handleMove = (event) => {
+      const rect = hero.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const x = ((event.clientX - rect.left) / rect.width) * 100;
+      const y = ((event.clientY - rect.top) / rect.height) * 100;
+      targetX = Math.max(0, Math.min(100, x));
+      targetY = Math.max(0, Math.min(100, y));
+      if (!frame) frame = window.requestAnimationFrame(update);
+    };
+
+    hero.addEventListener('mousemove', handleMove);
+    hero.addEventListener('mouseenter', () => hero.style.setProperty('--ink-opacity', '0.65'));
+    hero.addEventListener('mouseleave', () => hero.style.setProperty('--ink-opacity', '0'));
+  }
+
+  function initSpotlight(root = document) {
+    if (!allowAmbientEffects()) return;
+    const cards = collectTargets(root, '.hero-card, .work-card, .proof-card');
+    if (!cards.length) return;
+    cards.forEach(card => {
+      if (!initOnce(card, 'Spotlight')) return;
+      let frame = null;
+      let targetX = 50;
+      let targetY = 30;
+
+      const update = () => {
+        card.style.setProperty('--spot-x', `${targetX}%`);
+        card.style.setProperty('--spot-y', `${targetY}%`);
+        frame = null;
+      };
+
+      const handleMove = (event) => {
+        const rect = card.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        const x = ((event.clientX - rect.left) / rect.width) * 100;
+        const y = ((event.clientY - rect.top) / rect.height) * 100;
+        targetX = Math.max(0, Math.min(100, x));
+        targetY = Math.max(0, Math.min(100, y));
+        if (!frame) frame = window.requestAnimationFrame(update);
+      };
+
+      card.addEventListener('mousemove', handleMove);
+      card.addEventListener('mouseenter', () => card.style.setProperty('--spot-opacity', '0.7'));
+      card.addEventListener('mouseleave', () => card.style.setProperty('--spot-opacity', '0'));
+    });
+  }
+
+  function initSpeculationRules() {
+    if (initState.speculation) return;
+    if (!('HTMLScriptElement' in window) || typeof HTMLScriptElement.supports !== 'function') return;
+    if (!HTMLScriptElement.supports('speculationrules')) return;
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (connection && connection.saveData) return;
+    const triggers = document.querySelectorAll('a.btn-primary[href*=\"/order\"], a.btn-primary[href*=\"/order/\"]');
+    if (!triggers.length) return;
+    initState.speculation = true;
+    const inject = () => {
+      if (document.getElementById('speculation-order')) return;
+      const script = document.createElement('script');
+      script.type = 'speculationrules';
+      script.id = 'speculation-order';
+      const url = new URL('/order/', window.location.origin).href;
+      script.textContent = JSON.stringify({ prerender: [{ source: 'list', urls: [url] }] });
+      document.head.appendChild(script);
+    };
+    triggers.forEach(btn => {
+      btn.addEventListener('mouseenter', inject, { once: true });
+      btn.addEventListener('focus', inject, { once: true });
+      btn.addEventListener('touchstart', inject, { once: true });
+    });
   }
 
   function showToast(message, tone = 'success') {
@@ -893,6 +994,8 @@
     initSkeletons(root);
     initFab();
     initPrintheadScan();
+    initInkFlow();
+    initSpotlight(root);
     initCompare(root);
     initLens(root);
     initDropzones(root);
@@ -908,6 +1011,7 @@
     initWebVitals();
     initHtmxA11y();
     initDrawer();
+    initSpeculationRules();
   }
 
   document.addEventListener('DOMContentLoaded', () => {
