@@ -86,10 +86,14 @@
           </div>
         </article>
       {% empty %}
-        {% for i in "123456" %}
-        <article class="gallery-card placeholder">
+        <article class="gallery-card">
           <div class="gallery-media asset-slot">
-            <div class="asset-placeholder">{% trans "Приклад" %}</div>
+            <img src="{% static 'dtf/assets/gallery-macro-01.jpg' %}" alt="{% trans 'Галерея приклад 01' %}" loading="lazy" decoding="async" class="skeleton">
+            <div class="gallery-chips">
+              <span class="chip">60 см</span>
+              <span class="chip">{% trans "Макро" %}</span>
+              <span class="chip">24–48 год</span>
+            </div>
           </div>
           <div class="gallery-body">
             <h3>{% trans "Кейс" %}</h3>
@@ -97,7 +101,81 @@
             <a class="btn btn-outline" href="{% url 'dtf:order' %}">{% trans "Зробити як тут" %}</a>
           </div>
         </article>
-        {% endfor %}
+        <article class="gallery-card">
+          <div class="gallery-media asset-slot">
+            <img src="{% static 'dtf/assets/gallery-macro-02.jpg' %}" alt="{% trans 'Галерея приклад 02' %}" loading="lazy" decoding="async" class="skeleton">
+            <div class="gallery-chips">
+              <span class="chip">60 см</span>
+              <span class="chip">{% trans "Процес" %}</span>
+              <span class="chip">24–48 год</span>
+            </div>
+          </div>
+          <div class="gallery-body">
+            <h3>{% trans "Кейс" %}</h3>
+            <div class="passport-body">{% trans "Додамо реальні роботи" %}</div>
+            <a class="btn btn-outline" href="{% url 'dtf:order' %}">{% trans "Зробити як тут" %}</a>
+          </div>
+        </article>
+        <article class="gallery-card">
+          <div class="gallery-media asset-slot">
+            <img src="{% static 'dtf/assets/gallery-macro-03.jpg' %}" alt="{% trans 'Галерея приклад 03' %}" loading="lazy" decoding="async" class="skeleton">
+            <div class="gallery-chips">
+              <span class="chip">60 см</span>
+              <span class="chip">{% trans "Готове" %}</span>
+              <span class="chip">24–48 год</span>
+            </div>
+          </div>
+          <div class="gallery-body">
+            <h3>{% trans "Кейс" %}</h3>
+            <div class="passport-body">{% trans "Додамо реальні роботи" %}</div>
+            <a class="btn btn-outline" href="{% url 'dtf:order' %}">{% trans "Зробити як тут" %}</a>
+          </div>
+        </article>
+        <article class="gallery-card">
+          <div class="gallery-media asset-slot">
+            <img src="{% static 'dtf/assets/gallery-macro-04.jpg' %}" alt="{% trans 'Галерея приклад 04' %}" loading="lazy" decoding="async" class="skeleton">
+            <div class="gallery-chips">
+              <span class="chip">60 см</span>
+              <span class="chip">{% trans "Макро" %}</span>
+              <span class="chip">24–48 год</span>
+            </div>
+          </div>
+          <div class="gallery-body">
+            <h3>{% trans "Кейс" %}</h3>
+            <div class="passport-body">{% trans "Додамо реальні роботи" %}</div>
+            <a class="btn btn-outline" href="{% url 'dtf:order' %}">{% trans "Зробити як тут" %}</a>
+          </div>
+        </article>
+        <article class="gallery-card">
+          <div class="gallery-media asset-slot">
+            <img src="{% static 'dtf/assets/gallery-macro-05.jpg' %}" alt="{% trans 'Галерея приклад 05' %}" loading="lazy" decoding="async" class="skeleton">
+            <div class="gallery-chips">
+              <span class="chip">60 см</span>
+              <span class="chip">{% trans "Процес" %}</span>
+              <span class="chip">24–48 год</span>
+            </div>
+          </div>
+          <div class="gallery-body">
+            <h3>{% trans "Кейс" %}</h3>
+            <div class="passport-body">{% trans "Додамо реальні роботи" %}</div>
+            <a class="btn btn-outline" href="{% url 'dtf:order' %}">{% trans "Зробити як тут" %}</a>
+          </div>
+        </article>
+        <article class="gallery-card">
+          <div class="gallery-media asset-slot">
+            <img src="{% static 'dtf/assets/gallery-macro-06.jpg' %}" alt="{% trans 'Галерея приклад 06' %}" loading="lazy" decoding="async" class="skeleton">
+            <div class="gallery-chips">
+              <span class="chip">60 см</span>
+              <span class="chip">{% trans "Готове" %}</span>
+              <span class="chip">24–48 год</span>
+            </div>
+          </div>
+          <div class="gallery-body">
+            <h3>{% trans "Кейс" %}</h3>
+            <div class="passport-body">{% trans "Додамо реальні роботи" %}</div>
+            <a class="btn btn-outline" href="{% url 'dtf:order' %}">{% trans "Зробити як тут" %}</a>
+          </div>
+        </article>
       {% endfor %}
     </div>
 

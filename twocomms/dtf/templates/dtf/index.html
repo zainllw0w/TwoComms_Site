@@ -253,19 +253,72 @@
           </figure>
         {% endfor %}
       {% else %}
-        {% for i in "123456789" %}
-        <div class="work-card placeholder">
+        <figure class="work-card">
           <div class="work-media">
-            <div class="skeleton"></div>
+            <img src="{% static 'dtf/assets/gallery-macro-01.jpg' %}" alt="{% trans 'Приклад DTF 01' %}" loading="lazy" decoding="async" class="skeleton">
             <div class="work-chips">
               <span class="chip">60 см</span>
-              <span class="chip">{% trans "Приклад" %}</span>
+              <span class="chip">{% trans "Макро" %}</span>
               <span class="chip">24–48 год</span>
             </div>
           </div>
           <figcaption>{% trans "Приклад" %}</figcaption>
-        </div>
-        {% endfor %}
+        </figure>
+        <figure class="work-card">
+          <div class="work-media">
+            <img src="{% static 'dtf/assets/gallery-macro-02.jpg' %}" alt="{% trans 'Приклад DTF 02' %}" loading="lazy" decoding="async" class="skeleton">
+            <div class="work-chips">
+              <span class="chip">60 см</span>
+              <span class="chip">{% trans "Процес" %}</span>
+              <span class="chip">24–48 год</span>
+            </div>
+          </div>
+          <figcaption>{% trans "Приклад" %}</figcaption>
+        </figure>
+        <figure class="work-card">
+          <div class="work-media">
+            <img src="{% static 'dtf/assets/gallery-macro-03.jpg' %}" alt="{% trans 'Приклад DTF 03' %}" loading="lazy" decoding="async" class="skeleton">
+            <div class="work-chips">
+              <span class="chip">60 см</span>
+              <span class="chip">{% trans "Готове" %}</span>
+              <span class="chip">24–48 год</span>
+            </div>
+          </div>
+          <figcaption>{% trans "Приклад" %}</figcaption>
+        </figure>
+        <figure class="work-card">
+          <div class="work-media">
+            <img src="{% static 'dtf/assets/gallery-macro-04.jpg' %}" alt="{% trans 'Приклад DTF 04' %}" loading="lazy" decoding="async" class="skeleton">
+            <div class="work-chips">
+              <span class="chip">60 см</span>
+              <span class="chip">{% trans "Макро" %}</span>
+              <span class="chip">24–48 год</span>
+            </div>
+          </div>
+          <figcaption>{% trans "Приклад" %}</figcaption>
+        </figure>
+        <figure class="work-card">
+          <div class="work-media">
+            <img src="{% static 'dtf/assets/gallery-macro-05.jpg' %}" alt="{% trans 'Приклад DTF 05' %}" loading="lazy" decoding="async" class="skeleton">
+            <div class="work-chips">
+              <span class="chip">60 см</span>
+              <span class="chip">{% trans "Процес" %}</span>
+              <span class="chip">24–48 год</span>
+            </div>
+          </div>
+          <figcaption>{% trans "Приклад" %}</figcaption>
+        </figure>
+        <figure class="work-card">
+          <div class="work-media">
+            <img src="{% static 'dtf/assets/gallery-macro-06.jpg' %}" alt="{% trans 'Приклад DTF 06' %}" loading="lazy" decoding="async" class="skeleton">
+            <div class="work-chips">
+              <span class="chip">60 см</span>
+              <span class="chip">{% trans "Готове" %}</span>
+              <span class="chip">24–48 год</span>
+            </div>
+          </div>
+          <figcaption>{% trans "Приклад" %}</figcaption>
+        </figure>
       {% endif %}
     </div>
     <div class="proof-grid" data-reveal>
