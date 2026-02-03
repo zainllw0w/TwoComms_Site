@@ -3,6 +3,30 @@
 
 {% block title %}{% trans "Ціни DTF" %}{% endblock %}
 
+{% block extra_head %}
+  {% trans "Ціни" as crumb_label %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "DTF",
+        "item": "https://dtf.twocomms.shop/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "{{ crumb_label|escapejs }}",
+        "item": "https://dtf.twocomms.shop{{ request.path }}"
+      }
+    ]
+  }
+  </script>
+{% endblock %}
+
 {% block content %}
 <section class="section">
   <div class="dtf-container">
@@ -17,19 +41,35 @@
       <div class="price-row">
         <span>1–9 м</span>
         <span>{{ pricing.base_rate }}</span>
-        <span>{% trans "Базова" %}</span>
+        <span>
+          {% trans "Базова" %}
+          <span class="tooltip" tabindex="0" role="button" aria-label="{% trans 'Що входить у базову ціну' %}"
+                data-tooltip="{% trans 'Включено: базова перевірка файлу, друк, пакування.' %}">i</span>
+        </span>
       </div>
       {% for tier in pricing.tiers %}
       <div class="price-row">
         <span>{% blocktrans %}Від {{ tier.min }} м{% endblocktrans %}</span>
         <span>{{ tier.rate }}</span>
-        <span>{% trans "Знижка" %}</span>
+        <span>
+          {% trans "Знижка" %}
+          <span class="tooltip" tabindex="0" role="button" aria-label="{% trans 'Що входить у знижку' %}"
+                data-tooltip="{% trans 'Ті ж умови, нижча ціна за більший метраж.' %}">i</span>
+        </span>
       </div>
       {% endfor %}
     </div>
     <div class="calc-example">
       <h3>{% trans "Приклад" %}</h3>
       <p>{% trans "Файл 2.5 м × 10 копій = 25 м. Розрахунок за відповідною ціною." %}</p>
+    </div>
+    <div class="cutoff-block card">
+      <h3>{% trans "Cutoff / терміни" %}</h3>
+      <ul class="list">
+        <li>{% trans "Cutoff на виробництво: після підтвердження макета." %}</li>
+        <li>{% trans "Стандартний термін: 24–48 год (узгоджується менеджером)." %}</li>
+        <li>{% trans "Доставка: за тарифами Нової Пошти." %}</li>
+      </ul>
     </div>
   </div>
 </section>

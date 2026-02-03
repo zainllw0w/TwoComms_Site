@@ -1,0 +1,15 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M4 14C4 14 6 16 12 16C18 16 20 14 20 14" stroke="#EDEDED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M2.05 11L7 6" stroke="#EDEDED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M22 11L17 6" stroke="#EDEDED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="12" cy="12" r="1" fill="#EDEDED"/>
+<circle cx="8" cy="11" r="1" fill="#EDEDED"/>
+<circle cx="16" cy="11" r="1" fill="#EDEDED"/>
+<circle cx="10" cy="8" r="1" fill="#EDEDED"/>
+<circle cx="14" cy="8" r="1" fill="#EDEDED"/>
+<path d="M12 20V20.01" stroke="#EDEDED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M8 20V20.01" stroke="#EDEDED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M16 20V20.01" stroke="#EDEDED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M10 22V22.01" stroke="#EDEDED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M14 22V22.01" stroke="#EDEDED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
