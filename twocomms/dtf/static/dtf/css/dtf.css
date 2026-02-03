@@ -104,6 +104,20 @@ img {
   animation: droplet-float 28s ease-in-out infinite;
 }
 
+.ink-droplets.is-fluid {
+  background-image:
+    radial-gradient(ellipse var(--d1rx, 180px) var(--d1ry, 140px) at var(--d1x, 20%) var(--d1y, 30%), rgba(255, 120, 20, 0.4) 0%, rgba(255, 120, 20, 0.2) 42%, rgba(255, 120, 20, 0) 70%),
+    radial-gradient(ellipse var(--d2rx, 160px) var(--d2ry, 120px) at var(--d2x, 70%) var(--d2y, 28%), rgba(255, 120, 20, 0.38) 0%, rgba(255, 120, 20, 0.18) 45%, rgba(255, 120, 20, 0) 72%),
+    radial-gradient(ellipse var(--d3rx, 190px) var(--d3ry, 150px) at var(--d3x, 55%) var(--d3y, 65%), rgba(255, 120, 20, 0.36) 0%, rgba(255, 120, 20, 0.16) 48%, rgba(255, 120, 20, 0) 72%),
+    radial-gradient(ellipse var(--d4rx, 140px) var(--d4ry, 110px) at var(--d4x, 32%) var(--d4y, 58%), rgba(255, 120, 20, 0.32) 0%, rgba(255, 120, 20, 0.14) 46%, rgba(255, 120, 20, 0) 70%),
+    radial-gradient(ellipse var(--d5rx, 150px) var(--d5ry, 120px) at var(--d5x, 78%) var(--d5y, 62%), rgba(255, 120, 20, 0.34) 0%, rgba(255, 120, 20, 0.16) 46%, rgba(255, 120, 20, 0) 70%),
+    radial-gradient(ellipse var(--d6rx, 120px) var(--d6ry, 90px) at var(--d6x, 48%) var(--d6y, 38%), rgba(255, 120, 20, 0.3) 0%, rgba(255, 120, 20, 0.12) 44%, rgba(255, 120, 20, 0) 68%);
+  background-repeat: no-repeat;
+  animation: none;
+  transform: none;
+  filter: blur(18px);
+}
+
 
 .dtf-shell > *:not(.ink-droplets) {
   position: relative;
