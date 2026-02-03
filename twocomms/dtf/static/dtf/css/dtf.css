@@ -104,7 +104,7 @@ img {
   animation: droplet-float 28s ease-in-out infinite;
 }
 
-.dtf-shell > * {
+.dtf-shell > *:not(.ink-droplets) {
   position: relative;
   z-index: 1;
 }
