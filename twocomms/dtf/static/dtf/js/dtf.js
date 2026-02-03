@@ -15,6 +15,7 @@
     drawer: false,
     inkFlow: false,
     spotlight: false,
+    inkDroplets: false,
     speculation: false,
   };
   let lensModalInstance = null;
@@ -442,6 +443,78 @@
       card.addEventListener('mouseenter', () => card.style.setProperty('--spot-opacity', '0.7'));
       card.addEventListener('mouseleave', () => card.style.setProperty('--spot-opacity', '0'));
     });
+  }
+
+  function initInkDroplets() {
+    if (initState.inkDroplets) return;
+    const layer = document.querySelector('.ink-droplets');
+    if (!layer) return;
+    if (document.body && document.body.dataset.page === 'order') return;
+    if (!allowAmbientEffects()) {
+      layer.style.opacity = '0';
+      return;
+    }
+    initState.inkDroplets = true;
+    let frame = null;
+    let targetX = 0;
+    let targetY = 0;
+
+    const apply = () => {
+      layer.style.setProperty('--drop-dx', `${targetX}px`);
+      layer.style.setProperty('--drop-dy', `${targetY}px`);
+      frame = null;
+    };
+
+    const handleMove = (xRatio, yRatio) => {
+      const maxShift = 22;
+      targetX = (xRatio - 0.5) * maxShift * 2;
+      targetY = (yRatio - 0.5) * maxShift * 2;
+      if (!frame) frame = window.requestAnimationFrame(apply);
+    };
+
+    const onMouse = (event) => {
+      const xRatio = event.clientX / window.innerWidth;
+      const yRatio = event.clientY / window.innerHeight;
+      handleMove(xRatio, yRatio);
+      layer.style.setProperty('--drop-opacity', '0.55');
+    };
+
+    window.addEventListener('mousemove', onMouse);
+    window.addEventListener('mouseenter', () => layer.style.setProperty('--drop-opacity', '0.55'));
+    window.addEventListener('mouseleave', () => layer.style.setProperty('--drop-opacity', '0.2'));
+    layer.style.setProperty('--drop-opacity', '0.2');
+
+    let tiltEnabled = false;
+    let tiltRequested = false;
+
+    const onTilt = (event) => {
+      if (event.beta == null || event.gamma == null) return;
+      const gamma = Math.max(-30, Math.min(30, event.gamma));
+      const beta = Math.max(-30, Math.min(30, event.beta));
+      const xRatio = (gamma + 30) / 60;
+      const yRatio = (beta + 30) / 60;
+      handleMove(xRatio, yRatio);
+      layer.style.setProperty('--drop-opacity', '0.4');
+    };
+
+    const enableTilt = async () => {
+      if (tiltRequested) return;
+      tiltRequested = true;
+      try {
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+          const result = await DeviceOrientationEvent.requestPermission();
+          if (result !== 'granted') return;
+        }
+        window.addEventListener('deviceorientation', onTilt, true);
+        tiltEnabled = true;
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    document.addEventListener('touchstart', () => {
+      if (!tiltEnabled) enableTilt();
+    }, { once: true, passive: true });
   }
 
   function initSpeculationRules() {
@@ -996,6 +1069,7 @@
     initPrintheadScan();
     initInkFlow();
     initSpotlight(root);
+    initInkDroplets();
     initCompare(root);
     initLens(root);
     initDropzones(root);
