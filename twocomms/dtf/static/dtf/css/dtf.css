@@ -89,6 +89,21 @@ img {
   animation: ambient-drift 18s ease-in-out infinite;
 }
 
+.ink-droplets {
+  position: fixed;
+  inset: -10% -10%;
+  background-image: url("../assets/ink-droplets-field.png");
+  background-size: 1400px 1400px;
+  background-repeat: repeat;
+  opacity: var(--drop-opacity, 0);
+  filter: blur(10px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  z-index: 0;
+  transform: translate3d(var(--drop-dx, 0px), var(--drop-dy, 0px), 0);
+  animation: droplet-float 28s ease-in-out infinite;
+}
+
 .dtf-shell > * {
   position: relative;
   z-index: 1;
@@ -103,9 +118,15 @@ img {
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
-  background: rgba(10, 10, 10, 0.85);
-  backdrop-filter: blur(12px);
+  background: rgba(10, 10, 10, 0.92);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@supports (backdrop-filter: blur(12px)) {
+  .dtf-header {
+    background: rgba(10, 10, 10, 0.75);
+    backdrop-filter: blur(12px);
+  }
 }
 
 .header-inner {
@@ -560,6 +581,11 @@ section.section {
   0% { opacity: 0; transform: translateX(-120%) skewX(-12deg); }
   30% { opacity: 0.6; }
   100% { opacity: 0; transform: translateX(120%) skewX(-12deg); }
+}
+
+@keyframes droplet-float {
+  0%, 100% { background-position: 40% 40%; }
+  50% { background-position: 60% 55%; }
 }
 
 @keyframes spin {
@@ -1611,6 +1637,10 @@ body.keyboard-open .order-summary {
   display: none;
 }
 
+body[data-page="order"] .ink-droplets {
+  display: none;
+}
+
 label {
   display: flex;
   flex-direction: column;
@@ -2263,6 +2293,9 @@ body[data-page="order"] .mobile-dock {
     transition-duration: 0.01ms !important;
   }
   .scan-line {
+    display: none;
+  }
+  .ink-droplets {
     display: none;
   }
 }
