@@ -4,6 +4,7 @@
 |---|---|---|---|---|---|
 | hero-printhead-photo | photo | HOME Hero / Printhead Scan | transparent PNG, 2x, ~2200px wide | neutral lab lighting, top-left view, industrial clean | DONE |
 | noise-tiling-1 | texture | global background noise layer | seamless 512x512, subtle grain | static, compressible | DONE |
+| ink-droplets-field | texture | global ambient ink droplets layer | seamless 1400x1400 PNG | soft orange translucent droplets, subtle | TODO |
 | gallery-macro-photos | photo | Gallery proof grid | 6–12 photos, 2x | placeholders delivered; replace with real | PARTIAL |
 | compare-case-1-before | photo | Home Proof Compare #1 (before) | 2x, ~1400px wide | raw print / pre-clean stage | DONE |
 | compare-case-1-after | photo | Home Proof Compare #1 (after) | 2x, ~1400px wide | finished print, same framing | DONE |
