@@ -25,6 +25,19 @@ DEFAULT_TIERS = [
     {"min": Decimal("30"), "rate": Decimal("260")},
     {"min": Decimal("50"), "rate": Decimal("250")},
 ]
+DEFAULT_FEATURE_FLAGS = {
+    "enable_view_transitions": False,
+    "enable_prerender_order": False,
+    "enable_printhead_scan": True,
+    "enable_compare": False,
+    "enable_lens": False,
+    "enable_preflight": False,
+    "enable_underbase_preview": False,
+    "enable_haptics": False,
+    "enable_sound": False,
+    "enable_dynamic_favicon": False,
+    "tier_mode": "auto",
+}
 
 
 def normalize_phone(value: str) -> str:
@@ -64,6 +77,13 @@ def get_pricing_config():
         })
     tiers.sort(key=lambda x: x["min"])
     return {"base_rate": base_rate, "tiers": tiers}
+
+
+def get_feature_flags():
+    flags = dict(DEFAULT_FEATURE_FLAGS)
+    overrides = getattr(settings, "DTF_FEATURE_FLAGS", {}) or {}
+    flags.update(overrides)
+    return flags
 
 
 def calculate_pricing(length_m: Decimal, copies: int):

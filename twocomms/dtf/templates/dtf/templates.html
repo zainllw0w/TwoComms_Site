@@ -1,0 +1,62 @@
+{% extends 'dtf/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Шаблони 60 см" %}{% endblock %}
+
+{% block extra_head %}
+  {% trans "Шаблони" as crumb_label %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "DTF",
+        "item": "https://dtf.twocomms.shop/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "{{ crumb_label|escapejs }}",
+        "item": "https://dtf.twocomms.shop{{ request.path }}"
+      }
+    ]
+  }
+  </script>
+{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="dtf-container">
+    <div class="section-head">
+      <h1>{% trans "Шаблони 60 см" %}</h1>
+      <p>{% trans "PDF/AI/Figma для швидкої підготовки ганг-листів." %}</p>
+    </div>
+
+    <!-- ASSET_REQUEST | id=template-preview-60cm | type=photo | usage=Templates page preview | spec=2x, ~1200px wide | notes=60cm layout preview -->
+    <div class="template-grid">
+      <div class="card">
+        <div class="asset-slot" style="aspect-ratio: 16 / 9">
+          <div class="asset-placeholder">{% trans "Preview (placeholder)" %}</div>
+        </div>
+        <h3>{% trans "Шаблон 60 см" %}</h3>
+        <p class="muted">{% trans "PDF, AI, Figma" %}</p>
+        <div class="cta-group">
+          <a class="btn btn-outline" href="{% static 'dtf/assets/template-60cm.pdf' %}" download>{% trans "Download PDF" %}</a>
+          <button class="btn btn-ghost" type="button" disabled>{% trans "Figma" %}</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>{% trans "Як користуватись" %}</h3>
+        <ol class="list">
+          <li>{% trans "Відкрийте шаблон" %}</li>
+          <li>{% trans "Розмістіть макети в межах 60 см" %}</li>
+          <li>{% trans "Експортуйте PDF/PNG" %}</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

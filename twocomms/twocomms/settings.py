@@ -422,6 +422,7 @@ from django.utils.translation import gettext_lazy as _
 LANGUAGES = [
     ("uk", _("Ukrainian")),
     ("ru", _("Russian")),
+    ("en", _("English")),
 ]
 
 TIME_ZONE = 'Europe/Kiev'
@@ -442,6 +443,19 @@ DTF_PRICING = {
 DTF_MAX_FILE_MB = 50
 DTF_MAX_COPIES = 500
 DTF_MAX_METERS_REVIEW = 200
+DTF_FEATURE_FLAGS = {
+    "enable_view_transitions": False,
+    "enable_prerender_order": False,
+    "enable_printhead_scan": True,
+    "enable_compare": False,
+    "enable_lens": False,
+    "enable_preflight": False,
+    "enable_underbase_preview": False,
+    "enable_haptics": False,
+    "enable_sound": False,
+    "enable_dynamic_favicon": False,
+    "tier_mode": "auto",
+}
 
 
 # Static files (CSS, JavaScript, Images)

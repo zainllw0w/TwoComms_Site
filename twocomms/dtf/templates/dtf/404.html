@@ -1,0 +1,20 @@
+{% extends 'dtf/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Сторінку не знайдено" %}{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="dtf-container">
+    <div class="info-card">
+      <div class="overline">{% trans "Помилка 404" %}</div>
+      <h1>{% trans "Сторінку не знайдено" %}</h1>
+      <p>{% trans "Можливо, посилання застаріло або сторінка була переміщена." %}</p>
+      <div class="cta-group">
+        <a class="btn btn-primary" href="{% url 'dtf:landing' %}">{% trans "На головну" %}</a>
+        <a class="btn btn-ghost" href="{% url 'dtf:order' %}">{% trans "Створити замовлення" %}</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
