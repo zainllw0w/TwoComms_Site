@@ -483,6 +483,30 @@ section.section {
   margin-bottom: 32px;
 }
 
+.section-head h2 {
+  position: relative;
+  display: inline-block;
+}
+
+.section-head h2::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -10px;
+  height: 1px;
+  width: 100%;
+  background: linear-gradient(90deg, rgba(255, 92, 0, 0.6), rgba(255, 255, 255, 0.08) 70%, transparent);
+  opacity: 0;
+  transform: scaleX(0.6);
+  transform-origin: left;
+  transition: opacity 240ms ease, transform 240ms ease;
+}
+
+.section-head[data-reveal].is-visible h2::after {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
 .hero {
   position: relative;
   padding: 90px 0 60px;
@@ -1088,6 +1112,24 @@ section.section {
   border-radius: var(--radius);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: var(--shadow), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.step::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255, 92, 0, 0.18) 50%, transparent 70%);
+  opacity: 0;
+  transform: translateX(-80%);
+  pointer-events: none;
+}
+
+.step:hover::after {
+  opacity: 0.6;
+  transform: translateX(80%);
+  transition: transform 800ms ease, opacity 300ms ease;
 }
 
 .step span {
@@ -1176,6 +1218,10 @@ section.section {
     border-color var(--motion-base) var(--motion-ease);
 }
 
+.work-card::after {
+  background: radial-gradient(circle at var(--spot-x, 50%) var(--spot-y, 30%), rgba(255, 92, 0, 0.26), transparent 60%);
+}
+
 .work-card:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-2), inset 0 0 0 1px rgba(255, 140, 0, 0.35);
@@ -1233,6 +1279,10 @@ section.section {
   transition: transform var(--motion-base) var(--motion-ease),
     box-shadow var(--motion-base) var(--motion-ease),
     border-color var(--motion-base) var(--motion-ease);
+}
+
+.proof-card::after {
+  background: radial-gradient(circle at var(--spot-x, 50%) var(--spot-y, 30%), rgba(255, 92, 0, 0.22), transparent 60%);
 }
 
 .proof-card:hover {
@@ -2565,6 +2615,10 @@ body[data-page="order"] .mobile-dock {
     animation: none;
   }
   .hero-card {
+    transform: none;
+  }
+  .step:hover::after {
+    opacity: 0;
     transform: none;
   }
 }
