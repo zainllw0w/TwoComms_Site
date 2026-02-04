@@ -84,10 +84,19 @@ img {
   content: "";
   position: absolute;
   inset: -20%;
-  background-image: url("../assets/noise-tiling-1.png");
-  background-size: 360px 360px;
+  background-image:
+    url("../assets/noise-tiling-1.png"),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.035) 0px,
+      rgba(255, 255, 255, 0.035) 1px,
+      transparent 1px,
+      transparent 4px
+    );
+  background-size: 360px 360px, 100% 100%;
   opacity: 0.14;
   mix-blend-mode: overlay;
+  background-blend-mode: overlay;
   animation: film-drift 120s linear infinite;
   will-change: transform;
 }
@@ -508,6 +517,36 @@ section.section {
   z-index: 1;
 }
 
+.hero-grid::before {
+  content: "";
+  position: absolute;
+  inset: -40px;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.04) 0,
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 120px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.03) 0,
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 48px
+    );
+  opacity: 0.16;
+  pointer-events: none;
+  z-index: 0;
+  mask-image: radial-gradient(circle at 40% 20%, rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0));
+}
+
+.hero-grid > * {
+  position: relative;
+  z-index: 1;
+}
+
 .hero-copy h1 {
   font-size: clamp(2.2rem, 3vw, 3.5rem);
   line-height: 0.95;
@@ -693,6 +732,12 @@ section.section {
   100% { opacity: 0; transform: translateX(70%) skewX(-12deg); }
 }
 
+@keyframes scan-media {
+  0% { opacity: 0; transform: translateX(-60%); }
+  25% { opacity: 0.55; }
+  100% { opacity: 0; transform: translateX(60%); }
+}
+
 @keyframes btn-sheen {
   0% { opacity: 0; transform: translateX(-120%) skewX(-12deg); }
   30% { opacity: 0.6; }
@@ -779,10 +824,29 @@ section.section {
     border-color var(--motion-base) var(--motion-ease);
 }
 
+.hero-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255, 92, 0, 0.55), rgba(255, 140, 0, 0.25), rgba(255, 92, 0, 0));
+  opacity: 0;
+  pointer-events: none;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  transition: opacity var(--motion-base) var(--motion-ease);
+}
+
 .hero-card:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-2), inset 0 0 0 1px rgba(255, 140, 0, 0.35);
   border-color: rgba(255, 140, 0, 0.35);
+}
+
+.hero-card:hover::after {
+  opacity: 1;
 }
 
 .work-card::after,
@@ -848,6 +912,18 @@ section.section {
   position: relative;
 }
 
+.hero-media::before {
+  content: "";
+  position: absolute;
+  inset: -10%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 92, 0, 0.22) 50%, transparent 100%);
+  opacity: 0;
+  transform: translateX(-60%);
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
 .hero-media::after {
   content: "";
   position: absolute;
@@ -858,6 +934,10 @@ section.section {
   mix-blend-mode: screen;
   pointer-events: none;
   animation: hero-sheen 6.5s ease-in-out infinite;
+}
+
+.hero-card:hover .hero-media::before {
+  animation: scan-media 1.2s ease;
 }
 
 .asset-placeholder {
@@ -913,6 +993,24 @@ section.section {
   box-shadow: var(--shadow), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
   position: relative;
   z-index: 1;
+}
+
+.estimate-bar::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 16px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.16) 0 0) left top/10px 1px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.16) 0 0) left top/1px 10px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.16) 0 0) right top/10px 1px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.16) 0 0) right top/1px 10px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.16) 0 0) left bottom/10px 1px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.16) 0 0) left bottom/1px 10px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.16) 0 0) right bottom/10px 1px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.16) 0 0) right bottom/1px 10px no-repeat;
+  opacity: 0.35;
+  pointer-events: none;
 }
 
 .estimate-field {
@@ -2442,6 +2540,9 @@ body[data-page="order"] .mobile-dock {
     display: none;
   }
   .film-layer::before {
+    animation: none;
+  }
+  .hero-card:hover .hero-media::before {
     animation: none;
   }
 }
