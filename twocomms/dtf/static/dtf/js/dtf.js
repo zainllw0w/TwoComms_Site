@@ -16,6 +16,7 @@
     inkFlow: false,
     spotlight: false,
     inkDroplets: false,
+    heroTilt: false,
     speculation: false,
   };
   let lensModalInstance = null;
@@ -411,6 +412,41 @@
     hero.addEventListener('mousemove', handleMove);
     hero.addEventListener('mouseenter', () => hero.style.setProperty('--ink-opacity', '0.65'));
     hero.addEventListener('mouseleave', () => hero.style.setProperty('--ink-opacity', '0'));
+  }
+
+  function initHeroTilt() {
+    if (initState.heroTilt) return;
+    const card = document.querySelector('.hero-card');
+    if (!card) return;
+    if (!allowAmbientEffects()) return;
+    initState.heroTilt = true;
+    let frame = null;
+    let targetX = 0;
+    let targetY = 0;
+
+    const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+    const update = () => {
+      card.style.setProperty('--tilt-x', `${targetX}deg`);
+      card.style.setProperty('--tilt-y', `${targetY}deg`);
+      frame = null;
+    };
+
+    const handleMove = (event) => {
+      const rect = card.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const relX = (event.clientX - rect.left) / rect.width - 0.5;
+      const relY = (event.clientY - rect.top) / rect.height - 0.5;
+      targetX = clamp(relX * 6, -6, 6);
+      targetY = clamp(-relY * 6, -6, 6);
+      if (!frame) frame = window.requestAnimationFrame(update);
+    };
+
+    card.addEventListener('mousemove', handleMove);
+    card.addEventListener('mouseleave', () => {
+      targetX = 0;
+      targetY = 0;
+      if (!frame) frame = window.requestAnimationFrame(update);
+    });
   }
 
   function initSpotlight(root = document) {
@@ -1135,6 +1171,7 @@
     initFab();
     initPrintheadScan();
     initInkFlow();
+    initHeroTilt();
     initSpotlight(root);
     initInkDroplets();
     initCompare(root);
