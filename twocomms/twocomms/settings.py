@@ -438,6 +438,7 @@ DTF_PRICING = {
         {"min": 10, "rate": 330},
         {"min": 30, "rate": 320},
         {"min": 50, "rate": 300},
+        {"min": 100, "rate": 280},
     ],
 }
 DTF_MAX_FILE_MB = 50
