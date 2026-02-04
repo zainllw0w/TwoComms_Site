@@ -216,6 +216,7 @@ body[data-page="order"] .film-layer {
   gap: 16px;
   padding: 16px 0;
   padding-top: calc(16px + env(safe-area-inset-top));
+  flex-wrap: wrap;
 }
 
 .logo {
@@ -244,6 +245,8 @@ body[data-page="order"] .film-layer {
   gap: 18px;
   font-size: 14px;
   color: var(--muted);
+  flex-wrap: wrap;
+  row-gap: 6px;
 }
 
 .main-nav a {
@@ -337,6 +340,7 @@ body[data-page="order"] .film-layer {
   gap: 20px;
   transform: translateX(100%);
   transition: transform 0.25s ease;
+  box-shadow: -20px 0 40px rgba(0, 0, 0, 0.35);
 }
 
 .nav-drawer.is-open .nav-panel {
@@ -380,6 +384,12 @@ body[data-page="order"] .film-layer {
 .nav-panel-links a:hover {
   border-color: rgba(255, 140, 0, 0.35);
   background: rgba(255, 140, 0, 0.08);
+}
+
+.nav-panel-links a.is-active {
+  border-color: rgba(255, 140, 0, 0.5);
+  background: rgba(255, 140, 0, 0.14);
+  color: var(--text);
 }
 
 .lang-switch {
@@ -2682,6 +2692,12 @@ body[data-page="order"] .mobile-dock {
   }
   .hero {
     padding-top: 60px;
+  }
+  .hero-grid {
+    gap: 28px;
+  }
+  .hero-card {
+    padding: 18px;
   }
   .estimate-bar {
     grid-template-columns: 1fr;
