@@ -520,7 +520,15 @@ section.section {
   background:
     radial-gradient(circle at 18% 12%, rgba(255, 106, 0, 0.25), transparent 55%),
     radial-gradient(circle at 78% 28%, rgba(255, 212, 0, 0.12), transparent 60%),
-    radial-gradient(circle at 55% 85%, rgba(0, 194, 255, 0.1), transparent 60%);
+    radial-gradient(circle at 55% 85%, rgba(0, 194, 255, 0.1), transparent 60%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.035) 0px,
+      rgba(255, 255, 255, 0.035) 1px,
+      transparent 1px,
+      transparent 6px
+    );
+  background-blend-mode: screen;
   opacity: 0.35;
   filter: blur(24px);
   pointer-events: none;
@@ -776,6 +784,12 @@ section.section {
   100% { opacity: 0; transform: translateX(60%); }
 }
 
+@keyframes stat-scan {
+  0% { opacity: 0; transform: translateX(-40%); }
+  20% { opacity: 0.65; }
+  100% { opacity: 0; transform: translateX(40%); }
+}
+
 @keyframes btn-sheen {
   0% { opacity: 0; transform: translateX(-120%) skewX(-12deg); }
   30% { opacity: 0.6; }
@@ -983,6 +997,11 @@ section.section {
   animation: scan-media 1.2s ease;
 }
 
+.hero-card:hover .hero-stat::after {
+  opacity: 0.75;
+  animation: stat-scan 1.4s ease;
+}
+
 .asset-placeholder {
   font-size: 0.78rem;
   color: var(--muted);
@@ -995,6 +1014,19 @@ section.section {
   justify-content: space-between;
   border-bottom: 1px dashed rgba(255, 255, 255, 0.16);
   padding-bottom: 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-stat::after {
+  content: "";
+  position: absolute;
+  left: -30%;
+  right: -30%;
+  bottom: -1px;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(255, 92, 0, 0), rgba(255, 92, 0, 0.55), rgba(255, 92, 0, 0));
+  opacity: 0;
 }
 
 .hero-stat strong {
@@ -2620,6 +2652,10 @@ body[data-page="order"] .mobile-dock {
   .step:hover::after {
     opacity: 0;
     transform: none;
+  }
+  .hero-card:hover .hero-stat::after {
+    opacity: 0;
+    animation: none;
   }
 }
 
