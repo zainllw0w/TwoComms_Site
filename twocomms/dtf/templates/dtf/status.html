@@ -1,5 +1,5 @@
 {% extends 'dtf/base.html' %}
-{% load i18n %}
+{% load static i18n %}
 
 {% block title %}{% trans "Статус замовлення" %}{% endblock %}
 
@@ -77,7 +77,11 @@
             <div class="status-steps">
               {% for step in status_steps %}
                 <div class="status-step {% if status_index is not None and forloop.counter0 < status_index %}done{% endif %}{% if status_index is not None and forloop.counter0 == status_index %} active{% endif %}">
-                  <span></span>
+                  {% cycle 'status-intake.svg' 'status-preflight.svg' 'status-print.svg' 'status-powder.svg' 'status-cure.svg' 'status-pack.svg' 'status-ship.svg' as status_icon silent %}
+                  <span class="status-dot" aria-hidden="true"></span>
+                  <span class="status-icon" aria-hidden="true">
+                    <img src="{% static 'dtf/assets/' %}{{ status_icon }}" alt="" loading="lazy">
+                  </span>
                   <div>
                     <strong>{{ step.label }}</strong>
                     {% if status_index is not None and forloop.counter0 == status_index %}
