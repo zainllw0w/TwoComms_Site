@@ -148,28 +148,36 @@
     <!-- ASSET_REQUEST | id=process-icons | type=icon | usage=Home Process steps | spec=SVG set, 1x/2x | notes=upload/preflight/print/ship minimal line style -->
     <div class="steps" data-reveal>
       <div class="step">
-        <span>1</span>
+        <span class="step-icon" data-step="1" aria-hidden="true">
+          <img src="{% static 'dtf/assets/step-upload.svg' %}" alt="" loading="lazy">
+        </span>
         <div>
           <h3>{% trans "Завантаження" %}</h3>
           <p>{% trans "Надішліть ганг-лист або файли для допомоги." %}</p>
         </div>
       </div>
       <div class="step">
-        <span>2</span>
+        <span class="step-icon" data-step="2" aria-hidden="true">
+          <img src="{% static 'dtf/assets/step-preflight.svg' %}" alt="" loading="lazy">
+        </span>
         <div>
           <h3>{% trans "Перевірка макета" %}</h3>
           <p>{% trans "Менеджер перевіряє, підтверджує метраж та узгоджує правки." %}</p>
         </div>
       </div>
       <div class="step">
-        <span>3</span>
+        <span class="step-icon" data-step="3" aria-hidden="true">
+          <img src="{% static 'dtf/assets/step-payment.svg' %}" alt="" loading="lazy">
+        </span>
         <div>
           <h3>{% trans "Оплата" %}</h3>
           <p>{% trans "Після перевірки надсилаємо реквізити у вибраний канал." %}</p>
         </div>
       </div>
       <div class="step">
-        <span>4</span>
+        <span class="step-icon" data-step="4" aria-hidden="true">
+          <img src="{% static 'dtf/assets/step-print-ship.svg' %}" alt="" loading="lazy">
+        </span>
         <div>
           <h3>{% trans "Друк + НП" %}</h3>
           <p>{% trans "Друкуємо, пакуємо і відправляємо Новою Поштою." %}</p>

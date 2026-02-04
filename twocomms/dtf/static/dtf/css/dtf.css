@@ -1334,16 +1334,40 @@ body[data-page="home"] section.section > .dtf-container {
   transition: transform 800ms ease, opacity 300ms ease;
 }
 
-.step span {
-  width: 36px;
-  height: 36px;
+.step-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: rgba(255, 92, 0, 0.14);
+  border: 1px solid rgba(255, 140, 0, 0.35);
+  display: inline-grid;
+  place-items: center;
+  position: relative;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.step-icon img {
+  width: 20px;
+  height: 20px;
+  display: block;
+  filter: drop-shadow(0 0 6px rgba(255, 140, 0, 0.35));
+}
+
+.step-icon::after {
+  content: attr(data-step);
+  position: absolute;
+  bottom: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  background: var(--c-molten);
+  background: #0e0e0e;
   color: #fff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  font-size: 0.65rem;
   font-weight: 700;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .price-section {
@@ -2530,22 +2554,49 @@ textarea:disabled {
   color: var(--muted);
 }
 
-.status-step span {
+.status-dot {
   width: 12px;
   height: 12px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.18);
 }
 
-.status-step.done span {
+.status-step.done .status-dot {
   background: var(--c-olive);
   box-shadow: 0 0 0 6px rgba(139, 143, 90, 0.16);
 }
 
-.status-step.active span {
+.status-step.active .status-dot {
   background: var(--c-molten);
   box-shadow: 0 0 0 6px rgba(255, 106, 0, 0.18);
   animation: status-pulse 1.6s ease-in-out infinite;
+}
+
+.status-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.status-icon img {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.status-step.done .status-icon {
+  border-color: rgba(139, 143, 90, 0.5);
+  box-shadow: inset 0 0 0 1px rgba(139, 143, 90, 0.2);
+}
+
+.status-step.active .status-icon {
+  border-color: rgba(255, 92, 0, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(255, 92, 0, 0.25), 0 0 12px rgba(255, 92, 0, 0.2);
 }
 
 .status-next {
