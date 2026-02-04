@@ -65,12 +65,12 @@
           <button class="nav-close" type="button" data-drawer-close aria-label="{% trans 'Закрити' %}">×</button>
         </div>
         <nav class="nav-panel-links" aria-label="{% trans 'Мобільна навігація' %}">
-          <a href="{% url 'dtf:order' %}">{% trans "Замовити" %}</a>
-          <a href="{% url 'dtf:price' %}">{% trans "Ціни" %}</a>
-          <a href="{% url 'dtf:gallery' %}">{% trans "Галерея" %}</a>
-          <a href="{% url 'dtf:requirements' %}">{% trans "Вимоги" %}</a>
-          <a href="{% url 'dtf:status' %}">{% trans "Статус" %}</a>
-          <a href="{% url 'dtf:order' %}?tab=help">{% trans "Допомога" %}</a>
+          <a href="{% url 'dtf:order' %}" class="{% if request.path == '/order/' %}is-active{% endif %}" {% if request.path == '/order/' %}aria-current="page"{% endif %}>{% trans "Замовити" %}</a>
+          <a href="{% url 'dtf:price' %}" class="{% if request.path == '/price/' %}is-active{% endif %}" {% if request.path == '/price/' %}aria-current="page"{% endif %}>{% trans "Ціни" %}</a>
+          <a href="{% url 'dtf:gallery' %}" class="{% if request.path == '/gallery/' %}is-active{% endif %}" {% if request.path == '/gallery/' %}aria-current="page"{% endif %}>{% trans "Галерея" %}</a>
+          <a href="{% url 'dtf:requirements' %}" class="{% if request.path == '/requirements/' %}is-active{% endif %}" {% if request.path == '/requirements/' %}aria-current="page"{% endif %}>{% trans "Вимоги" %}</a>
+          <a href="{% url 'dtf:status' %}" class="{% if request.path == '/status/' %}is-active{% endif %}" {% if request.path == '/status/' %}aria-current="page"{% endif %}>{% trans "Статус" %}</a>
+          <a href="{% url 'dtf:order' %}?tab=help" class="{% if request.path == '/order/' and request.GET.tab == 'help' %}is-active{% endif %}" {% if request.path == '/order/' and request.GET.tab == 'help' %}aria-current="page"{% endif %}>{% trans "Допомога" %}</a>
         </nav>
       </div>
     </div>
