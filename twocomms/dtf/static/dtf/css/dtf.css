@@ -77,7 +77,7 @@ img {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: var(--z-toast);
+  z-index: var(--z-film);
 }
 
 .film-layer::before {
@@ -108,6 +108,14 @@ img {
   background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 38%, rgba(0, 0, 0, 0.65) 100%);
   opacity: 0.9;
   mix-blend-mode: multiply;
+}
+
+@supports not (mix-blend-mode: overlay) {
+  .film-layer::before {
+    opacity: 0.06;
+    mix-blend-mode: normal;
+    background-blend-mode: normal;
+  }
 }
 
 body[data-page="order"] .film-layer {
@@ -536,10 +544,16 @@ section.section {
       transparent 1px,
       transparent 48px
     );
-  opacity: 0.16;
+  opacity: 0.08;
   pointer-events: none;
   z-index: 0;
-  mask-image: radial-gradient(circle at 40% 20%, rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0));
+}
+
+@supports (mask-image: radial-gradient(#000, transparent)) {
+  .hero-grid::before {
+    opacity: 0.16;
+    mask-image: radial-gradient(circle at 40% 20%, rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0));
+  }
 }
 
 .hero-grid > * {
@@ -845,8 +859,10 @@ section.section {
   border-color: rgba(255, 140, 0, 0.35);
 }
 
-.hero-card:hover::after {
-  opacity: 1;
+@supports ((-webkit-mask-composite: xor) or (mask-composite: exclude)) {
+  .hero-card:hover::after {
+    opacity: 1;
+  }
 }
 
 .work-card::after,
