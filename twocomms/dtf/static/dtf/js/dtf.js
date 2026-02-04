@@ -125,6 +125,10 @@
       items.forEach(el => {
         if (!initOnce(el, 'Reveal')) return;
         el.classList.add('is-visible');
+        if (el.classList.contains('section-head')) {
+          const section = el.closest('section');
+          if (section) section.classList.add('is-hot');
+        }
       });
       return;
     }
@@ -133,6 +137,10 @@
         entries.forEach(entry => {
           if (entry.isIntersecting) {
             entry.target.classList.add('is-visible');
+            if (entry.target.classList.contains('section-head')) {
+              const section = entry.target.closest('section');
+              if (section) section.classList.add('is-hot');
+            }
             observer.unobserve(entry.target);
           }
         });
@@ -380,6 +388,15 @@
     requestAnimationFrame(() => {
       hero.classList.add('scan-animate');
     });
+    if (!prefersReduced) {
+      const cta = hero.querySelector('.cta-group .btn-primary');
+      if (cta) {
+        const delay = tier >= 2 ? 600 : 300;
+        window.setTimeout(() => {
+          cta.classList.add('cta-pulse');
+        }, delay);
+      }
+    }
     trackEvent('used_printhead_scan', { tier });
   }
 
