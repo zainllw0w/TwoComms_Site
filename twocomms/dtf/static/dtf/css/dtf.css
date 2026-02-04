@@ -6,6 +6,7 @@ html,
 body {
   width: 100%;
   overflow-x: hidden;
+  overscroll-behavior-x: none;
 }
 
 @supports (overflow-x: clip) {
@@ -22,6 +23,7 @@ body {
   background: linear-gradient(180deg, var(--bg), var(--bg-alt));
   color-scheme: dark;
   isolation: isolate;
+  touch-action: pan-y;
 }
 
 a:focus-visible,
@@ -72,6 +74,7 @@ img {
   flex-direction: column;
   position: relative;
   width: 100%;
+  max-width: 100vw;
   overflow-x: clip;
 }
 
@@ -161,26 +164,32 @@ body[data-page="order"] .film-layer {
   background-size: 1400px 1400px;
   background-repeat: repeat;
   opacity: var(--drop-opacity, 0);
-  filter: blur(10px);
   mix-blend-mode: screen;
   pointer-events: none;
   z-index: 0;
   transform: translate3d(var(--drop-dx, 0px), var(--drop-dy, 0px), 0);
   animation: droplet-float 28s ease-in-out infinite;
+  transition: opacity 600ms ease;
+  filter: blur(10px);
 }
 
-.ink-droplets.is-fluid {
-  background-image:
-    radial-gradient(ellipse var(--d1rx, 180px) var(--d1ry, 140px) at var(--d1x, 20%) var(--d1y, 30%), rgba(255, 120, 20, 0.4) 0%, rgba(255, 120, 20, 0.2) 42%, rgba(255, 120, 20, 0) 70%),
-    radial-gradient(ellipse var(--d2rx, 160px) var(--d2ry, 120px) at var(--d2x, 70%) var(--d2y, 28%), rgba(255, 120, 20, 0.38) 0%, rgba(255, 120, 20, 0.18) 45%, rgba(255, 120, 20, 0) 72%),
-    radial-gradient(ellipse var(--d3rx, 190px) var(--d3ry, 150px) at var(--d3x, 55%) var(--d3y, 65%), rgba(255, 120, 20, 0.36) 0%, rgba(255, 120, 20, 0.16) 48%, rgba(255, 120, 20, 0) 72%),
-    radial-gradient(ellipse var(--d4rx, 140px) var(--d4ry, 110px) at var(--d4x, 32%) var(--d4y, 58%), rgba(255, 120, 20, 0.32) 0%, rgba(255, 120, 20, 0.14) 46%, rgba(255, 120, 20, 0) 70%),
-    radial-gradient(ellipse var(--d5rx, 150px) var(--d5ry, 120px) at var(--d5x, 78%) var(--d5y, 62%), rgba(255, 120, 20, 0.34) 0%, rgba(255, 120, 20, 0.16) 46%, rgba(255, 120, 20, 0) 70%),
-    radial-gradient(ellipse var(--d6rx, 120px) var(--d6ry, 90px) at var(--d6x, 48%) var(--d6y, 38%), rgba(255, 120, 20, 0.3) 0%, rgba(255, 120, 20, 0.12) 44%, rgba(255, 120, 20, 0) 68%);
-  background-repeat: no-repeat;
+.ink-droplets.has-canvas {
+  background-image: none;
+  filter: none;
   animation: none;
-  transform: none;
-  filter: blur(18px);
+}
+
+.ink-droplets canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 1;
+  filter: blur(18px) saturate(1.15);
+  mix-blend-mode: screen;
+  transform: translate3d(var(--drop-dx, 0px), var(--drop-dy, 0px), 0);
+  will-change: transform, opacity;
+  pointer-events: none;
 }
 
 
@@ -243,10 +252,13 @@ body[data-page="order"] .film-layer {
 .main-nav {
   display: flex;
   gap: 18px;
-  font-size: 14px;
+  font-size: 0.78rem;
   color: var(--muted);
   flex-wrap: wrap;
   row-gap: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 500;
 }
 
 .main-nav a {
@@ -378,6 +390,8 @@ body[data-page="order"] .film-layer {
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.02);
+  font-weight: 600;
+  letter-spacing: 0.02em;
   transition: border-color var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease);
 }
 
@@ -1406,6 +1420,11 @@ body[data-page="home"] section.section > .dtf-container {
   color: var(--muted);
 }
 
+.work-card figcaption strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
 .proof-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -1636,6 +1655,24 @@ body[data-page="home"] section.section > .dtf-container {
   position: relative;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   z-index: 0;
+}
+
+.gallery-card::after {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  border-radius: inherit;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.16) 0 0) left top/8px 1px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.16) 0 0) left top/1px 8px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.16) 0 0) right top/8px 1px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.16) 0 0) right top/1px 8px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.16) 0 0) left bottom/8px 1px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.16) 0 0) left bottom/1px 8px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.16) 0 0) right bottom/8px 1px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.16) 0 0) right bottom/1px 8px no-repeat;
+  opacity: 0.16;
+  pointer-events: none;
 }
 
 .gallery-card::before {
@@ -2279,6 +2316,24 @@ textarea:disabled {
   box-shadow: var(--shadow);
 }
 
+.status-card::after {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  border-radius: inherit;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.14) 0 0) left top/8px 1px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.14) 0 0) left top/1px 8px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.14) 0 0) right top/8px 1px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.14) 0 0) right top/1px 8px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.14) 0 0) left bottom/8px 1px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.14) 0 0) left bottom/1px 8px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.14) 0 0) right bottom/8px 1px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.14) 0 0) right bottom/1px 8px no-repeat;
+  opacity: 0.2;
+  pointer-events: none;
+}
+
 .status-pipeline {
   position: relative;
   overflow: hidden;
@@ -2449,6 +2504,7 @@ textarea:disabled {
   border-radius: var(--radius);
   padding: 20px;
   border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: var(--shadow), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .req-grid {
@@ -2463,6 +2519,7 @@ textarea:disabled {
   border-radius: var(--radius);
   padding: 18px;
   border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: var(--shadow), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .req-card ul,
@@ -2728,6 +2785,19 @@ body[data-page="order"] .mobile-dock {
   }
   .btn {
     min-height: 48px;
+  }
+  .hero-grid,
+  .works-grid,
+  .proof-grid,
+  .gallery-grid,
+  .split,
+  .form-grid,
+  .status-grid,
+  .status-page .status-form,
+  .info-grid,
+  .req-grid,
+  .template-grid {
+    grid-template-columns: 1fr;
   }
   .calc-box {
     flex-direction: column;
