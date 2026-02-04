@@ -537,8 +537,11 @@
     let dpr = Math.min(window.devicePixelRatio || 1, 2);
     let pointerX = baseWidth * 0.5;
     let pointerY = baseHeight * 0.4;
+    let targetPointerX = pointerX;
+    let targetPointerY = pointerY;
     let pointerActive = false;
     let running = true;
+    let lastTime = 0;
 
     const rand = (min, max) => Math.random() * (max - min) + min;
 
@@ -547,8 +550,8 @@
       height = window.innerHeight;
       const prevW = baseWidth;
       const prevH = baseHeight;
-      baseWidth = Math.max(260, Math.min(420, Math.round(width / 3)));
-      baseHeight = Math.max(180, Math.round(baseWidth * (height / width)));
+      baseWidth = Math.max(320, Math.min(560, Math.round(width / 2.6)));
+      baseHeight = Math.max(200, Math.round(baseWidth * (height / width)));
       dpr = Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.round(baseWidth * dpr);
       canvas.height = Math.round(baseHeight * dpr);
@@ -568,6 +571,8 @@
       }
       pointerX = (pointerX / prevW) * baseWidth || baseWidth * 0.5;
       pointerY = (pointerY / prevH) * baseHeight || baseHeight * 0.4;
+      targetPointerX = pointerX;
+      targetPointerY = pointerY;
     };
 
     const createDrops = () => {
@@ -594,8 +599,8 @@
     createDrops();
 
     const updatePointer = (x, y) => {
-      pointerX = (x / width) * baseWidth;
-      pointerY = (y / height) * baseHeight;
+      targetPointerX = (x / width) * baseWidth;
+      targetPointerY = (y / height) * baseHeight;
       pointerActive = true;
       layer.style.setProperty('--drop-opacity', '0.65');
     };
@@ -642,41 +647,86 @@
 
     const step = (time) => {
       if (!running) return;
+      const dt = lastTime ? Math.min(32, time - lastTime) / 16.67 : 1;
+      lastTime = time;
+      pointerX += (targetPointerX - pointerX) * 0.08;
+      pointerY += (targetPointerY - pointerY) * 0.08;
+
       ctx.clearRect(0, 0, baseWidth, baseHeight);
-      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalCompositeOperation = 'screen';
       const centerX = baseWidth * 0.5;
       const centerY = baseHeight * 0.45;
 
+      for (let i = 0; i < drops.length; i += 1) {
+        for (let j = i + 1; j < drops.length; j += 1) {
+          const a = drops[i];
+          const b = drops[j];
+          let dx = b.x - a.x;
+          let dy = b.y - a.y;
+          const dist = Math.max(1, Math.hypot(dx, dy));
+          const minDist = (a.r + b.r) * 0.55;
+          const pullDist = (a.r + b.r) * 1.8;
+          if (dist < pullDist) {
+            const nx = dx / dist;
+            const ny = dy / dist;
+            let force = (pullDist - dist) / pullDist;
+            if (dist < minDist) {
+              force *= 0.04;
+              a.vx -= nx * force * dt;
+              a.vy -= ny * force * dt;
+              b.vx += nx * force * dt;
+              b.vy += ny * force * dt;
+            } else {
+              force *= 0.01;
+              a.vx += nx * force * dt;
+              a.vy += ny * force * dt;
+              b.vx -= nx * force * dt;
+              b.vy -= ny * force * dt;
+            }
+          }
+        }
+      }
+
       drops.forEach((drop, index) => {
         drop.wobble += 0.02;
-        drop.vx += Math.sin(time * 0.0004 + drop.wobble + index) * 0.015;
-        drop.vy += Math.cos(time * 0.00036 + drop.wobble + index) * 0.015;
+        drop.vx += Math.sin(time * 0.0004 + drop.wobble + index) * 0.015 * dt;
+        drop.vy += Math.cos(time * 0.00036 + drop.wobble + index) * 0.015 * dt;
 
         if (pointerActive) {
           const dx = drop.x - pointerX;
           const dy = drop.y - pointerY;
           const dist = Math.max(40, Math.hypot(dx, dy));
           const force = Math.min(0.9, 90 / dist);
-          drop.vx += (dx / dist) * force * 0.35;
-          drop.vy += (dy / dist) * force * 0.35;
+          drop.vx += (dx / dist) * force * 0.25 * dt;
+          drop.vy += (dy / dist) * force * 0.25 * dt;
         }
 
-        drop.vx += (centerX - drop.x) * 0.0002;
-        drop.vy += (centerY - drop.y) * 0.0002;
-        drop.vx += (drop.ox - drop.x) * 0.00015;
-        drop.vy += (drop.oy - drop.y) * 0.00015;
-        drop.vx *= 0.98;
-        drop.vy *= 0.98;
+        drop.vx += (centerX - drop.x) * 0.00018 * dt;
+        drop.vy += (centerY - drop.y) * 0.00018 * dt;
+        drop.vx += (drop.ox - drop.x) * 0.00012 * dt;
+        drop.vy += (drop.oy - drop.y) * 0.00012 * dt;
+        drop.vx *= 0.985;
+        drop.vy *= 0.985;
         drop.x += drop.vx;
         drop.y += drop.vy;
 
-        const grad = ctx.createRadialGradient(drop.x, drop.y, drop.r * 0.15, drop.x, drop.y, drop.r);
-        grad.addColorStop(0, 'rgba(255, 120, 20, 0.55)');
-        grad.addColorStop(0.45, 'rgba(255, 120, 20, 0.22)');
+        const grad = ctx.createRadialGradient(drop.x, drop.y, drop.r * 0.1, drop.x, drop.y, drop.r);
+        grad.addColorStop(0, 'rgba(255, 140, 40, 0.65)');
+        grad.addColorStop(0.4, 'rgba(255, 120, 20, 0.3)');
         grad.addColorStop(1, 'rgba(255, 120, 20, 0)');
         ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.arc(drop.x, drop.y, drop.r, 0, Math.PI * 2);
+        ctx.fill();
+
+        const hx = drop.x - drop.r * 0.2;
+        const hy = drop.y - drop.r * 0.2;
+        const hgrad = ctx.createRadialGradient(hx, hy, 0, hx, hy, drop.r * 0.35);
+        hgrad.addColorStop(0, 'rgba(255, 220, 160, 0.35)');
+        hgrad.addColorStop(1, 'rgba(255, 220, 160, 0)');
+        ctx.fillStyle = hgrad;
+        ctx.beginPath();
+        ctx.arc(hx, hy, drop.r * 0.35, 0, Math.PI * 2);
         ctx.fill();
       });
 
