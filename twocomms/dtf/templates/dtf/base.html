@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="view-transition" content="same-origin">
-  <meta name="theme-color" content="#0a0a0a">
+  <meta name="theme-color" content="#050505">
   <title>{% block title %}{% trans "DTF друк у рулоні 60 см — TwoComms" %}{% endblock %}</title>
   <meta name="description" content="{% block description %}{% trans "DTF друк 60 см: швидкий розрахунок метражу, перевірка макета та доставка НП." %}{% endblock %}">
   <meta property="og:type" content="website">
@@ -25,6 +25,7 @@
 </head>
 <body data-page="{% block page_id %}{% endblock %}">
   <a class="skip-link" href="#main-content">{% trans "Перейти до контенту" %}</a>
+  <div class="film-layer" aria-hidden="true"></div>
   <!-- ASSET_REQUEST | id=noise-tiling-1 | type=texture | usage=global background noise layer | spec=seamless 512x512, subtle grain | notes=static, compressible -->
   <div class="dtf-shell">
     <!-- ASSET_REQUEST | id=ink-droplets-field | type=texture | usage=global ambient ink droplets layer | spec=seamless 1400x1400 PNG, soft orange translucent droplets | notes=subtle, no harsh edges -->
