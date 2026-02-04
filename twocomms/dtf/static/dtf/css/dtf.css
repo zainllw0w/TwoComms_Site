@@ -2,6 +2,19 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+@supports (overflow-x: clip) {
+  html,
+  body {
+    overflow-x: clip;
+  }
+}
+
 body {
   margin: 0;
   font-family: var(--font-ui);
@@ -58,6 +71,8 @@ img {
   display: flex;
   flex-direction: column;
   position: relative;
+  width: 100%;
+  overflow-x: clip;
 }
 
 .dtf-shell::before {
@@ -231,6 +246,25 @@ body[data-page="order"] .film-layer {
   color: var(--muted);
 }
 
+.main-nav a {
+  position: relative;
+  padding: 4px 0;
+}
+
+.main-nav a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -6px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 92, 0, 0.7), rgba(255, 255, 255, 0.2) 70%, transparent);
+  opacity: 0;
+  transform: scaleX(0.6);
+  transform-origin: left;
+  transition: opacity var(--motion-fast) var(--motion-ease), transform var(--motion-fast) var(--motion-ease);
+}
+
 .main-nav a:hover {
   color: var(--text);
 }
@@ -239,6 +273,12 @@ body[data-page="order"] .film-layer {
   color: var(--text);
   border-bottom: 1px solid rgba(255, 255, 255, 0.35);
   padding-bottom: 2px;
+}
+
+.main-nav a:hover::after,
+.main-nav a.is-active::after {
+  opacity: 1;
+  transform: scaleX(1);
 }
 
 .header-actions {
@@ -277,15 +317,21 @@ body[data-page="order"] .film-layer {
   background: rgba(8, 8, 8, 0.72);
 }
 
+@supports ((-webkit-backdrop-filter: blur(8px)) or (backdrop-filter: blur(8px))) {
+  .nav-backdrop {
+    backdrop-filter: blur(8px);
+  }
+}
+
 .nav-panel {
   position: absolute;
   right: 0;
   top: 0;
   height: 100%;
   width: min(86vw, 320px);
-  background: var(--surface);
+  background: linear-gradient(180deg, rgba(18, 18, 18, 0.98), rgba(10, 10, 10, 0.92));
   border-left: 1px solid rgba(255, 255, 255, 0.12);
-  padding: 20px;
+  padding: calc(20px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom));
   display: grid;
   grid-template-rows: auto 1fr;
   gap: 20px;
@@ -321,6 +367,19 @@ body[data-page="order"] .film-layer {
   display: grid;
   gap: 12px;
   font-size: 1rem;
+}
+
+.nav-panel-links a {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.02);
+  transition: border-color var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease);
+}
+
+.nav-panel-links a:hover {
+  border-color: rgba(255, 140, 0, 0.35);
+  background: rgba(255, 140, 0, 0.08);
 }
 
 .lang-switch {
@@ -2643,7 +2702,7 @@ body[data-page="order"] .mobile-dock {
     right: 12px;
     bottom: calc(12px + env(safe-area-inset-bottom));
     top: auto;
-    z-index: var(--z-header);
+    z-index: var(--z-sticky);
   }
 }
 
