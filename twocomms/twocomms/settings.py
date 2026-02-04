@@ -433,11 +433,11 @@ USE_TZ = True
 
 # DTF module defaults
 DTF_PRICING = {
-    "base_rate": 280,
+    "base_rate": 350,
     "tiers": [
-        {"min": 10, "rate": 270},
-        {"min": 30, "rate": 260},
-        {"min": 50, "rate": 250},
+        {"min": 10, "rate": 330},
+        {"min": 30, "rate": 320},
+        {"min": 50, "rate": 300},
     ],
 }
 DTF_MAX_FILE_MB = 50
