@@ -38,6 +38,15 @@
     return true;
   }
 
+  function allowDroplets() {
+    if (prefersReduced) return false;
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (connection && connection.saveData) return false;
+    const memory = navigator.deviceMemory || 4;
+    if (memory <= 2) return false;
+    return true;
+  }
+
   function getFocusable(container) {
     if (!container) return [];
     return Array.from(container.querySelectorAll(FOCUSABLE)).filter(el => !el.hasAttribute('aria-hidden'));
@@ -502,63 +511,93 @@
     if (initState.inkDroplets) return;
     const layer = document.querySelector('.ink-droplets');
     if (!layer) return;
-    if (document.body && document.body.dataset.page === 'order') return;
-    if (!allowAmbientEffects()) {
+    const page = document.body ? document.body.dataset.page : '';
+    if (page !== 'home') return;
+    if (!allowDroplets()) {
       layer.style.opacity = '0';
       return;
     }
     initState.inkDroplets = true;
-    layer.classList.add('is-fluid');
-    layer.style.setProperty('--drop-opacity', '0.45');
+    const canvas = document.createElement('canvas');
+    canvas.className = 'ink-droplets-canvas';
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      layer.style.opacity = '0';
+      return;
+    }
+    layer.classList.add('has-canvas');
+    layer.appendChild(canvas);
+    layer.style.setProperty('--drop-opacity', '0.55');
 
-    const dropCount = 6;
     const drops = [];
     let width = window.innerWidth;
     let height = window.innerHeight;
-    let pointerX = width * 0.5;
-    let pointerY = height * 0.4;
+    let baseWidth = 320;
+    let baseHeight = 200;
+    let dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let pointerX = baseWidth * 0.5;
+    let pointerY = baseHeight * 0.4;
     let pointerActive = false;
+    let running = true;
 
     const rand = (min, max) => Math.random() * (max - min) + min;
 
-    for (let i = 0; i < dropCount; i += 1) {
-      const x = rand(width * 0.2, width * 0.8);
-      const y = rand(height * 0.2, height * 0.7);
-      const rx = rand(120, 210);
-      const ry = rand(90, 170);
-      drops.push({
-        x,
-        y,
-        ox: x,
-        oy: y,
-        vx: rand(-0.4, 0.4),
-        vy: rand(-0.4, 0.4),
-        rx,
-        ry,
-      });
-    }
-
-    const updateVars = () => {
-      drops.forEach((drop, index) => {
-        layer.style.setProperty(`--d${index + 1}x`, `${(drop.x / width) * 100}%`);
-        layer.style.setProperty(`--d${index + 1}y`, `${(drop.y / height) * 100}%`);
-        layer.style.setProperty(`--d${index + 1}rx`, `${drop.rx}px`);
-        layer.style.setProperty(`--d${index + 1}ry`, `${drop.ry}px`);
-      });
-    };
-
-    const onResize = () => {
+    const resizeCanvas = () => {
       width = window.innerWidth;
       height = window.innerHeight;
+      const prevW = baseWidth;
+      const prevH = baseHeight;
+      baseWidth = Math.max(260, Math.min(420, Math.round(width / 3)));
+      baseHeight = Math.max(180, Math.round(baseWidth * (height / width)));
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(baseWidth * dpr);
+      canvas.height = Math.round(baseHeight * dpr);
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (prevW && prevH && drops.length) {
+        const sx = baseWidth / prevW;
+        const sy = baseHeight / prevH;
+        drops.forEach(drop => {
+          drop.x *= sx;
+          drop.y *= sy;
+          drop.ox *= sx;
+          drop.oy *= sy;
+          drop.r *= (sx + sy) / 2;
+        });
+      }
+      pointerX = (pointerX / prevW) * baseWidth || baseWidth * 0.5;
+      pointerY = (pointerY / prevH) * baseHeight || baseHeight * 0.4;
     };
 
-    window.addEventListener('resize', onResize);
+    const createDrops = () => {
+      drops.length = 0;
+      const count = Math.max(8, Math.min(18, Math.round(width / 140)));
+      for (let i = 0; i < count; i += 1) {
+        const x = rand(baseWidth * 0.15, baseWidth * 0.85);
+        const y = rand(baseHeight * 0.2, baseHeight * 0.8);
+        const r = rand(baseWidth * 0.12, baseWidth * 0.22);
+        drops.push({
+          x,
+          y,
+          ox: x,
+          oy: y,
+          vx: rand(-0.08, 0.08),
+          vy: rand(-0.08, 0.08),
+          r,
+          wobble: rand(0, Math.PI * 2),
+        });
+      }
+    };
+
+    resizeCanvas();
+    createDrops();
 
     const updatePointer = (x, y) => {
-      pointerX = x;
-      pointerY = y;
+      pointerX = (x / width) * baseWidth;
+      pointerY = (y / height) * baseHeight;
       pointerActive = true;
-      layer.style.setProperty('--drop-opacity', '0.6');
+      layer.style.setProperty('--drop-opacity', '0.65');
     };
 
     window.addEventListener('mousemove', (event) => {
@@ -567,7 +606,7 @@
 
     window.addEventListener('mouseleave', () => {
       pointerActive = false;
-      layer.style.setProperty('--drop-opacity', '0.35');
+      layer.style.setProperty('--drop-opacity', '0.4');
     });
 
     let tiltEnabled = false;
@@ -601,39 +640,60 @@
       if (!tiltEnabled) enableTilt();
     }, { once: true, passive: true });
 
-    const step = () => {
-      const now = Date.now();
+    const step = (time) => {
+      if (!running) return;
+      ctx.clearRect(0, 0, baseWidth, baseHeight);
+      ctx.globalCompositeOperation = 'lighter';
+      const centerX = baseWidth * 0.5;
+      const centerY = baseHeight * 0.45;
+
       drops.forEach((drop, index) => {
-        drop.vx += Math.sin(now * 0.00035 + index) * 0.05;
-        drop.vy += Math.cos(now * 0.00032 + index) * 0.05;
+        drop.wobble += 0.02;
+        drop.vx += Math.sin(time * 0.0004 + drop.wobble + index) * 0.015;
+        drop.vy += Math.cos(time * 0.00036 + drop.wobble + index) * 0.015;
 
         if (pointerActive) {
           const dx = drop.x - pointerX;
           const dy = drop.y - pointerY;
-          const dist = Math.max(60, Math.hypot(dx, dy));
-          const force = Math.min(1.1, 140 / dist);
-          drop.vx += (dx / dist) * force * 0.5;
-          drop.vy += (dy / dist) * force * 0.5;
+          const dist = Math.max(40, Math.hypot(dx, dy));
+          const force = Math.min(0.9, 90 / dist);
+          drop.vx += (dx / dist) * force * 0.35;
+          drop.vy += (dy / dist) * force * 0.35;
         }
 
-        drop.vx += (drop.ox - drop.x) * 0.0003;
-        drop.vy += (drop.oy - drop.y) * 0.0003;
-        drop.vx *= 0.97;
-        drop.vy *= 0.97;
+        drop.vx += (centerX - drop.x) * 0.0002;
+        drop.vy += (centerY - drop.y) * 0.0002;
+        drop.vx += (drop.ox - drop.x) * 0.00015;
+        drop.vy += (drop.oy - drop.y) * 0.00015;
+        drop.vx *= 0.98;
+        drop.vy *= 0.98;
         drop.x += drop.vx;
         drop.y += drop.vy;
 
-        if (drop.x < -200) drop.x = width + 200;
-        if (drop.x > width + 200) drop.x = -200;
-        if (drop.y < -200) drop.y = height + 200;
-        if (drop.y > height + 200) drop.y = -200;
+        const grad = ctx.createRadialGradient(drop.x, drop.y, drop.r * 0.15, drop.x, drop.y, drop.r);
+        grad.addColorStop(0, 'rgba(255, 120, 20, 0.55)');
+        grad.addColorStop(0.45, 'rgba(255, 120, 20, 0.22)');
+        grad.addColorStop(1, 'rgba(255, 120, 20, 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(drop.x, drop.y, drop.r, 0, Math.PI * 2);
+        ctx.fill();
       });
 
-      updateVars();
       window.requestAnimationFrame(step);
     };
 
-    updateVars();
+    const onResize = () => {
+      resizeCanvas();
+      createDrops();
+    };
+
+    window.addEventListener('resize', onResize);
+    document.addEventListener('visibilitychange', () => {
+      running = !document.hidden;
+      if (running) window.requestAnimationFrame(step);
+    });
+
     window.requestAnimationFrame(step);
   }
 
