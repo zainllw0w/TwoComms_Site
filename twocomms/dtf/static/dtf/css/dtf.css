@@ -391,9 +391,23 @@ body[data-page="order"] .film-layer {
   pointer-events: none;
 }
 
+.btn-primary::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 140, 0, 0.4);
+  opacity: 0;
+  pointer-events: none;
+}
+
 .btn-primary:hover::after,
 .btn-primary:focus-visible::after {
   animation: btn-sheen 240ms ease;
+}
+
+.btn-primary.cta-pulse::before {
+  animation: cta-pulse 900ms ease 1;
 }
 
 .btn:focus-visible {
@@ -455,6 +469,33 @@ body[data-page="order"] .film-layer {
 
 section.section {
   padding: 80px 0;
+}
+
+body[data-page="home"] section.section {
+  position: relative;
+}
+
+body[data-page="home"] section.section::before {
+  content: "";
+  position: absolute;
+  inset: -12% -6%;
+  background: radial-gradient(circle at 30% 20%, rgba(255, 92, 0, 0.18), transparent 60%),
+    radial-gradient(circle at 75% 40%, rgba(255, 140, 0, 0.12), transparent 55%);
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 600ms ease, transform 600ms ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body[data-page="home"] section.section.is-hot::before {
+  opacity: 0.45;
+  transform: translateY(0);
+}
+
+body[data-page="home"] section.section > .dtf-container {
+  position: relative;
+  z-index: 1;
 }
 
 .section h1,
@@ -794,6 +835,12 @@ section.section {
   0% { opacity: 0; transform: translateX(-120%) skewX(-12deg); }
   30% { opacity: 0.6; }
   100% { opacity: 0; transform: translateX(120%) skewX(-12deg); }
+}
+
+@keyframes cta-pulse {
+  0% { opacity: 0; transform: scale(0.98); }
+  40% { opacity: 0.6; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.06); }
 }
 
 @keyframes droplet-float {
@@ -2655,6 +2702,9 @@ body[data-page="order"] .mobile-dock {
   }
   .hero-card:hover .hero-stat::after {
     opacity: 0;
+    animation: none;
+  }
+  .btn-primary.cta-pulse::before {
     animation: none;
   }
 }
