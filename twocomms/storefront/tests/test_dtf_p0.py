@@ -20,6 +20,11 @@ class DtfP0RoutesTests(TestCase):
         self.assertEqual(response.status_code, 301)
         self.assertTrue(response["Location"].endswith("/price/"))
 
+    def test_checkout_redirects_to_cart(self):
+        response = self.client.get("/checkout/", follow=False, secure=True)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response["Location"].endswith("/cart/"))
+
     def test_robots_points_to_current_host_sitemap(self):
         response = self.client.get("/robots.txt", headers={"host": "dtf.twocomms.shop"}, secure=True)
         body = response.content.decode("utf-8")
