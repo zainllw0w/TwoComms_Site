@@ -90,6 +90,8 @@ from .static_pages import (
     uaprom_products_feed,
     prom_feed_xml,
     static_verification_file,
+    quality,
+    price,
     about,
     contacts,
     delivery,
@@ -349,7 +351,8 @@ __all__ = [
     
     # Static Pages
     'robots_txt', 'static_sitemap', 'google_merchant_feed',
-    'static_verification_file', 'about', 'contacts', 'delivery', 'returns',
+    'static_verification_file', 'quality', 'price',
+    'about', 'contacts', 'delivery', 'returns',
     'privacy_policy', 'terms_of_service', 'test_analytics_events',
     'prom_feed_xml',
     

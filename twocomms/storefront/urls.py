@@ -1,5 +1,6 @@
 from django.urls import path
 from django.views.decorators.csrf import csrf_exempt
+from django.views.generic import RedirectView
 from django.http import Http404
 from . import views
 # Import auth views from the modular auth.py module
@@ -152,6 +153,9 @@ urlpatterns=[
     path('dev/grant-admin/', views.dev_grant_admin, name='dev_grant_admin'),
     # static pages
     path('add-print/', views.add_print, name='add_print'),
+    path('quality/', views.quality, name='quality'),
+    path('price/', views.price, name='price'),
+    path('prices/', RedirectView.as_view(pattern_name='price', permanent=True), name='prices_redirect'),
     path('delivery/', views.delivery_view, name='delivery'),
     path('cooperation/', views.cooperation, name='cooperation'),
     path('about/', views.about, name='about'),
