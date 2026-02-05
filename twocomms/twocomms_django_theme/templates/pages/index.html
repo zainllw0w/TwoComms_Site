@@ -53,7 +53,7 @@
   <!-- Фоновый логотип -->
   <div class="hero-logo-bg">
     {% static 'img/logo.svg' as hero_logo_url %}
-    <img src="{{ hero_logo_url }}" alt="TwoComms логотип - стріт & мілітарі одяг" width="600" height="600" class="hero-logo-image" loading="eager" fetchpriority="high" decoding="sync">
+    <img src="{{ hero_logo_url }}" alt="TwoComms логотип - стріт & мілітарі одяг" width="600" height="600" class="hero-logo-image" loading="eager" fetchpriority="high" decoding="async" sizes="(max-width: 768px) 68vw, 600px">
   </div>
   
   <div class="hero-container row align-items-center g-4">
@@ -162,15 +162,15 @@
       <div class="featured-card-compact">
         <div class="featured-image-compact">
           {% if featured.display_image %}
-            {% optimized_image featured.display_image.url featured.title|add:" - "|add:featured.category.name|add:" TwoComms" "featured-img" 400 400 loading='eager' fetchpriority='auto' %}
+            {% optimized_image featured.display_image.url featured.title|add:" - "|add:featured.category.name|add:" TwoComms" "featured-img" 400 400 loading='lazy' fetchpriority='low' sizes='(max-width: 768px) 92vw, 400px' %}
           {% else %}
             {% static 'img/placeholder.jpg' as ph_url %}
             <img
               src="{{ ph_url }}"
               class="featured-img"
               alt="{{ featured.title }} - рекомендуємий товар TwoComms"
-              loading="eager"
-              fetchpriority="auto"
+              loading="lazy"
+              fetchpriority="low"
               decoding="async"
               width="400"
               height="400"
