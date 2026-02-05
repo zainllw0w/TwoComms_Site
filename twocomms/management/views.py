@@ -94,6 +94,17 @@ def _load_env_tokens():
 _load_env_tokens()
 
 
+def _split_chat_ids(raw_value):
+    if not raw_value:
+        return []
+    parts = re.split(r"[;,\s]+", str(raw_value))
+    return [part for part in (p.strip() for p in parts) if part]
+
+
+def _get_management_admin_chat_ids():
+    return _split_chat_ids(os.environ.get("MANAGEMENT_TG_ADMIN_CHAT_ID"))
+
+
 def user_is_management(user):
     if not user.is_authenticated:
         return False
@@ -409,8 +420,8 @@ def build_report_excel(user, stats, clients):
 
 def send_telegram_report(user, stats, clients, file_bytes, filename):
     token = os.environ.get("MANAGEMENT_TG_BOT_TOKEN")
-    chat_id = os.environ.get("MANAGEMENT_TG_ADMIN_CHAT_ID")
-    if not token or not chat_id:
+    chat_ids = _get_management_admin_chat_ids()
+    if not token or not chat_ids:
         return
     text = (
         f"Звіт менеджера\n"
@@ -424,15 +435,16 @@ def send_telegram_report(user, stats, clients, file_bytes, filename):
     files = {
         'document': (filename, file_bytes, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     }
-    data = {
-        'chat_id': chat_id,
-        'caption': text,
-        'parse_mode': 'HTML'
-    }
-    try:
-        requests.post(url, data=data, files=files, timeout=10)
-    except Exception:
-        pass
+    for chat_id in chat_ids:
+        data = {
+            'chat_id': chat_id,
+            'caption': text,
+            'parse_mode': 'HTML'
+        }
+        try:
+            requests.post(url, data=data, files=files, timeout=10)
+        except Exception:
+            pass
 
 @login_required(login_url='management_login')
 def home(request):
@@ -1703,8 +1715,8 @@ def _tg_answer_callback(bot_token, callback_query_id, text=''):
 
 def _get_management_admin_bot_config():
     token = os.environ.get("MANAGEMENT_TG_BOT_TOKEN") or os.environ.get("MANAGER_TG_BOT_TOKEN")
-    chat_id = os.environ.get("MANAGEMENT_TG_ADMIN_CHAT_ID")
-    return token, chat_id
+    chat_ids = _get_management_admin_chat_ids()
+    return token, (chat_ids[0] if chat_ids else None)
 
 
 def _get_manager_bot_token():
@@ -2149,8 +2161,8 @@ def management_bot_webhook(request, token):
         chat_id = msg_chat.get('id')
         message_id = msg.get('message_id')
 
-        admin_chat_cfg = os.environ.get("MANAGEMENT_TG_ADMIN_CHAT_ID")
-        if admin_chat_cfg and str(chat_id) != str(admin_chat_cfg):
+        admin_chat_cfg = _get_management_admin_chat_ids()
+        if admin_chat_cfg and str(chat_id) not in {str(v) for v in admin_chat_cfg}:
             _tg_answer_callback(bot_token, cb_id, "Недостатньо прав")
             return JsonResponse({'ok': True})
 

@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime, time, timedelta
 
 from django.core.management.base import BaseCommand
@@ -19,6 +20,21 @@ def _send_message(token: str, chat_id: int, text: str) -> None:
         return
 
 
+def _parse_chat_ids(raw_value):
+    if not raw_value:
+        return []
+    parts = re.split(r"[;,\s]+", str(raw_value))
+    chat_ids = []
+    for part in (p.strip() for p in parts):
+        if not part:
+            continue
+        try:
+            chat_ids.append(int(part))
+        except Exception:
+            continue
+    return chat_ids
+
+
 class Command(BaseCommand):
     help = "Надсилає Telegram-сповіщення, коли у тестового магазину залишилась 1 доба."
 
@@ -30,10 +46,7 @@ class Command(BaseCommand):
         admin_token = os.environ.get("MANAGEMENT_TG_BOT_TOKEN") or manager_token
 
         admin_chat_raw = os.environ.get("MANAGEMENT_TG_ADMIN_CHAT_ID")
-        try:
-            admin_chat_id = int(admin_chat_raw) if admin_chat_raw else None
-        except Exception:
-            admin_chat_id = None
+        admin_chat_ids = _parse_chat_ids(admin_chat_raw)
 
         qs = Shop.objects.filter(shop_type=Shop.ShopType.TEST, test_connected_at__isnull=False).select_related("managed_by")
         sent_count = 0
@@ -72,10 +85,10 @@ class Command(BaseCommand):
                 sent_count += 1
 
             # Admin
-            if admin_chat_id and admin_token and not ReminderSent.objects.filter(key=key, chat_id=admin_chat_id).exists():
-                _send_message(admin_token, admin_chat_id, text)
-                ReminderSent.objects.create(key=key, chat_id=admin_chat_id)
-                sent_count += 1
+            for admin_chat_id in admin_chat_ids:
+                if admin_token and not ReminderSent.objects.filter(key=key, chat_id=admin_chat_id).exists():
+                    _send_message(admin_token, admin_chat_id, text)
+                    ReminderSent.objects.create(key=key, chat_id=admin_chat_id)
+                    sent_count += 1
 
         self.stdout.write(self.style.SUCCESS(f"Done. Sent: {sent_count}"))
-
