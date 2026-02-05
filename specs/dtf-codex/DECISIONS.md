@@ -30,3 +30,13 @@
 ### D-006: Apply contrast fix via dedicated override stylesheet
 - Decision: Add `static/css/dtf-fixes.css` with token `--c-molten-onlight` and targeted overrides instead of rewriting the large generated stylesheet.
 - Why: Minimal-risk patch with clear rollback path and no purge/minify rebuild dependency.
+
+### D-007: Fix Google Merchant feed by loading legacy handler directly
+- Decision: Replace recursive `from storefront import views` call with explicit loader from `storefront/views.py.backup` and guarded fallback XML response.
+- Why: Current implementation recursively calls itself via package export and causes production `500` on `/google_merchant_feed.xml`.
+- Evidence: production traceback showed `RecursionError` in `storefront/views/static_pages.py` before fix.
+
+### D-008: Restore `/checkout/` as compatibility route
+- Decision: Re-enable `/checkout/` route and bind it to `checkout_view` (redirect to cart).
+- Why: Regression guard includes `/checkout/`; current production returned 404. Redirect preserves current cart-integrated checkout flow with minimal risk.
+- Evidence: added smoke test `test_checkout_redirects_to_cart` and production check `302 -> /cart/`.
