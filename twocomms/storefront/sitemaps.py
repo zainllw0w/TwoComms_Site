@@ -13,12 +13,12 @@ class StaticViewSitemap(Sitemap):
     priority = 0.8
     changefreq = 'weekly'
     protocol = 'https'
-    domain = 'twocomms.shop'
     
     def items(self):
         return [
             'home',
             'catalog',
+            'price',
         ]
     
     def location(self, item):
@@ -34,7 +34,6 @@ class ProductSitemap(Sitemap):
     changefreq = 'weekly'
     priority = 0.9
     protocol = 'https'
-    domain = 'twocomms.shop'
     
     def items(self):
         # Возвращаем все товары, так как у Product нет поля is_active
@@ -54,7 +53,6 @@ class CategorySitemap(Sitemap):
     changefreq = 'monthly'
     priority = 0.7
     protocol = 'https'
-    domain = 'twocomms.shop'
     
     def items(self):
         return Category.objects.filter(is_active=True)
