@@ -63,9 +63,13 @@
   - `/prices/` -> **301** to `/price/`
   - `/checkout/` -> **302** to `/cart/`
   - `/robots.txt`, `/sitemap.xml`, `/google_merchant_feed.xml`, `/prom-feed.xml` -> **200**
+- Admin route smoke (unauthenticated):
+  - `/admin-panel/`, `/admin-panel/product/new/`, `/admin-panel/product/1/edit/` -> **302** to login (no `404/500`)
 - Host isolation checks:
   - `robots.txt` sitemap line is host-specific for each domain.
   - `sitemap.xml` `<loc>` values use the requested host (`twocomms.shop` vs `dtf.twocomms.shop`).
+- Reduced-motion guard:
+  - `prefers-reduced-motion` media queries still present in active CSS (`styles.css`, `styles.min.css`, `styles.direct.css`).
 
 ## P1 Implementation Evidence
 - Performance:

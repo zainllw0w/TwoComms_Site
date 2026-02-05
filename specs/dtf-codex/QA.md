@@ -16,7 +16,7 @@
 - [x] `GET /sitemap.xml` contains only current host URLs and includes `/price/`
 - [ ] Mobile 320px: sticky summary does not cover form fields/buttons
 - [ ] Home first viewport: no obvious image CLS jump
-- [ ] Reduced-motion still disables animations
+- [x] Reduced-motion still disables animations (static CSS audit: `prefers-reduced-motion` rules present in active bundles)
 
 ## Evidence Capture
 - [x] Save command outputs and key assertions in `EVIDENCE.md`
