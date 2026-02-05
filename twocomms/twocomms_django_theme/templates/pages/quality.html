@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Якість продукції | TwoComms{% endblock %}
+{% block description %}Інформація про якість матеріалів, пошиття та контроль якості продукції TwoComms.{% endblock %}
+
+{% block canonical %}{{ request.scheme }}://{{ request.get_host }}/quality/{% endblock %}
+
+{% block content %}
+<section class="container py-5 reveal">
+  <div class="row justify-content-center">
+    <div class="col-12 col-lg-9">
+      <div class="card glassy p-4 p-md-5">
+        <div class="d-flex align-items-center gap-3 mb-4">
+          <img src="{% static 'img/logo.svg' %}" alt="TwoComms logo" width="36" height="36" loading="eager" decoding="async">
+          <h1 class="h3 mb-0">Контроль якості</h1>
+        </div>
+
+        <p class="text-secondary mb-3">
+          Ми перевіряємо кожен виріб перед відправкою: якість швів, друку, тканини та фурнітури.
+        </p>
+        <ul class="mb-0 text-secondary">
+          <li>Стабільні матеріали та перевірені постачальники.</li>
+          <li>Контроль відповідності розмірів.</li>
+          <li>Фінальна перевірка перед пакуванням.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
