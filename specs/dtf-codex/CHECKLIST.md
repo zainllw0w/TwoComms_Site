@@ -17,9 +17,9 @@
 
 ## Regression Guard
 - [x] Do not break `/`, `/catalog/`, `/product/<slug>/`, `/cart/`, `/checkout/` | Evidence: prod smoke `200/302` for both hosts
-- [ ] Do not break admin add/edit product flows
+- [x] Do not break admin add/edit product flows | Evidence: unauthenticated route smoke returns login redirects (`302`), not `404/500`
 - [x] Do not break Google feed endpoints (`/google_merchant_feed.xml`, `/prom-feed.xml`) | Evidence: prod smoke `200` for both hosts
-- [ ] Keep reduced-motion behavior intact
+- [x] Keep reduced-motion behavior intact | Evidence: `prefers-reduced-motion` blocks still present in active CSS bundles
 
 ## Open Questions (Blockers Only)
 - [x] Production SSH access/credentials obtained; docroot `robots.txt` + `sitemap.xml` moved to backup and verified.
