@@ -22,6 +22,9 @@
 
 ## Notes
 - Production infra changes for docroot-level `robots.txt` and `sitemap.xml` are documented in `DEPLOY.md` and blocked pending SSH access.
+- Branch pushed: `origin/codex/dtf-p0p1-fixes-2026-02`
+- Suggested PR URL: `https://github.com/zainllw0w/TwoComms_Site/pull/new/codex/dtf-p0p1-fixes-2026-02`
+- `gh` CLI is unavailable in this environment, so PR was not opened automatically.
 
 ## Implemented P0 Changes
 - Added routes in `twocomms/storefront/urls.py`:
@@ -63,3 +66,9 @@
     - `twocomms/storefront/forms.py`
     - `twocomms/storefront/views/auth.py`
     - `twocomms/orders/forms.py`
+
+## Commits
+- `d5dffae` docs(dtf): initialize execution checklist and evidence log
+- `b2df90e` fix(dtf): add quality/price routes and host-aware seo endpoints
+- `00622c2` security: validate and normalize uploaded image files
+- `c6ecf91` perf(a11y): optimize above-fold media and fix accent/sticky issues
