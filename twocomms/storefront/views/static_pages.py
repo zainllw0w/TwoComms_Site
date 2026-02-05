@@ -15,6 +15,8 @@ from django.http import HttpResponse, FileResponse, Http404
 from django.conf import settings
 from django.shortcuts import render
 from pathlib import Path
+import importlib.machinery
+import importlib.util
 from django.utils.text import slugify
 from django.utils import timezone
 from urllib.parse import urljoin
@@ -27,6 +29,7 @@ import logging
 # Константы для feed
 FEED_SIZE_OPTIONS = ["S", "M", "L", "XL"]
 DEFAULT_FEED_SEASON = "Демисезон"
+_LEGACY_GOOGLE_MERCHANT_FEED = None
 
 # Вспомогательные функции для feed
 def _sanitize_feed_description(raw: str) -> str:
@@ -69,6 +72,37 @@ def _absolute_media_url(base_url: str, path: str | None) -> str | None:
     if not path.startswith("/"):
         path = f"/{path}"
     return urljoin(base_url, path)
+
+
+def _load_legacy_google_merchant_feed():
+    """
+    Loads legacy google_merchant_feed from storefront/views.py.backup.
+    Avoids recursive self-import through storefront.views package exports.
+    """
+    global _LEGACY_GOOGLE_MERCHANT_FEED
+    if _LEGACY_GOOGLE_MERCHANT_FEED is not None:
+        return _LEGACY_GOOGLE_MERCHANT_FEED
+
+    legacy_path = Path(__file__).resolve().parent.parent / "views.py.backup"
+    if not legacy_path.exists():
+        _LEGACY_GOOGLE_MERCHANT_FEED = False
+        return None
+
+    loader = importlib.machinery.SourceFileLoader(
+        "storefront.legacy_views_for_google_feed",
+        str(legacy_path),
+    )
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    if not spec or not spec.loader:
+        _LEGACY_GOOGLE_MERCHANT_FEED = False
+        return None
+
+    legacy_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(legacy_module)
+    _LEGACY_GOOGLE_MERCHANT_FEED = getattr(legacy_module, "google_merchant_feed", False)
+    if _LEGACY_GOOGLE_MERCHANT_FEED is False:
+        return None
+    return _LEGACY_GOOGLE_MERCHANT_FEED
 
 
 # ==================== STATIC PAGES ====================
@@ -147,16 +181,19 @@ def google_merchant_feed(request):
     
     Генерирует XML feed для Google Shopping.
     """
-    # TODO: Реализовать генерацию Google Merchant Feed
-    # Временно импортируем из старого views.py
-    from storefront import views as old_views
-    if hasattr(old_views, 'google_merchant_feed'):
-        return old_views.google_merchant_feed(request)
-    
+    legacy_handler = _load_legacy_google_merchant_feed()
+    if callable(legacy_handler):
+        try:
+            return legacy_handler(request)
+        except Exception:
+            logging.getLogger(__name__).exception(
+                "Legacy google_merchant_feed failed, using minimal fallback."
+            )
+
     return HttpResponse(
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<feed xmlns="http://www.w3.org/2005/Atom"></feed>',
-        content_type='application/xml'
+        content_type='application/xml; charset=utf-8'
     )
 
 
