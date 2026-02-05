@@ -3,6 +3,7 @@ Telegram уведомления для заказов
 """
 import requests
 import os
+import re
 from pathlib import Path
 from django.conf import settings
 from django.utils import timezone
@@ -14,6 +15,13 @@ except ImportError:
     send_telegram_notification_task = None
 
 
+def _parse_chat_ids(raw_value):
+    if not raw_value:
+        return []
+    parts = re.split(r"[;,\s]+", str(raw_value))
+    return [part for part in (p.strip() for p in parts) if part]
+
+
 class TelegramNotifier:
     """Класс для отправки уведомлений в Telegram"""
     
@@ -21,10 +29,12 @@ class TelegramNotifier:
         self.bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
         self.chat_id = os.environ.get('TELEGRAM_CHAT_ID')
         self.admin_id = os.environ.get('TELEGRAM_ADMIN_ID')
+        self.chat_ids = _parse_chat_ids(self.chat_id)
+        self.admin_ids = _parse_chat_ids(self.admin_id)
         
     def is_configured(self):
         """Проверяет, настроен ли бот"""
-        return bool(self.bot_token and (self.chat_id or self.admin_id))
+        return bool(self.bot_token and (self.chat_ids or self.admin_ids))
     
     def send_message(self, message, parse_mode='HTML'):
         """Отправляет сообщение в Telegram админу"""
@@ -38,28 +48,33 @@ class TelegramNotifier:
             return False
             
         # Используем админ ID, если он доступен, иначе chat_id
-        target_id = self.admin_id if self.admin_id else self.chat_id
-        print(f"🟡 Target admin ID: {target_id}")
+        target_ids = self.admin_ids or self.chat_ids
+        print(f"🟡 Target admin IDs: {', '.join(target_ids) if target_ids else 'NOT SET'}")
+        if not target_ids:
+            return False
         
         if send_telegram_notification_task:
-            print(f"🟢 Delegating to Celery task (chat_id={target_id})")
-            send_telegram_notification_task.delay(message, chat_id=target_id, parse_mode=parse_mode)
+            print(f"🟢 Delegating to Celery task (chat_id={target_ids})")
+            for target_id in target_ids:
+                send_telegram_notification_task.delay(message, chat_id=target_id, parse_mode=parse_mode)
             return True
         else:
             # Fallback if task not available (e.g. during migration or if import failed)
-            try:
-                url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
-                data = {
-                    'chat_id': target_id,
-                    'text': message,
-                    'parse_mode': parse_mode
-                }
-                print(f"🟢 Sending SYNC POST to Telegram API for admin (chat_id={target_id})")
-                response = requests.post(url, data=data, timeout=10)
-                return response.status_code == 200
-            except Exception as e:
-                print(f"❌ Exception in send_message to admin: {e}")
-                return False
+            success = False
+            for target_id in target_ids:
+                try:
+                    url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
+                    data = {
+                        'chat_id': target_id,
+                        'text': message,
+                        'parse_mode': parse_mode
+                    }
+                    print(f"🟢 Sending SYNC POST to Telegram API for admin (chat_id={target_id})")
+                    response = requests.post(url, data=data, timeout=10)
+                    success = success or response.status_code == 200
+                except Exception as e:
+                    print(f"❌ Exception in send_message to admin (chat_id={target_id}): {e}")
+            return success
     
     def send_admin_message(self, message, parse_mode='HTML'):
         """
@@ -80,18 +95,23 @@ class TelegramNotifier:
         if not self.is_configured():
             return False
 
-        target_id = self.admin_id if self.admin_id else self.chat_id
+        target_ids = self.admin_ids or self.chat_ids
+        if not target_ids:
+            return False
         try:
             url = f"https://api.telegram.org/bot{self.bot_token}/sendDocument"
-            with open(file_path, 'rb') as file_obj:
-                files = {'document': (filename or Path(file_path).name, file_obj)}
-                data = {
-                    'chat_id': target_id,
-                    'caption': caption,
-                    'parse_mode': parse_mode
-                }
-                response = requests.post(url, data=data, files=files, timeout=30)
-                return response.status_code == 200
+            success = False
+            for target_id in target_ids:
+                with open(file_path, 'rb') as file_obj:
+                    files = {'document': (filename or Path(file_path).name, file_obj)}
+                    data = {
+                        'chat_id': target_id,
+                        'caption': caption,
+                        'parse_mode': parse_mode
+                    }
+                    response = requests.post(url, data=data, files=files, timeout=30)
+                    success = success or response.status_code == 200
+            return success
         except Exception as e:
             print(f"Ошибка при отправке документа в Telegram: {e}")
             return False
@@ -540,21 +560,26 @@ class TelegramNotifier:
             return False
             
         # Используем админ ID, если он доступен, иначе chat_id
-        target_id = self.admin_id if self.admin_id else self.chat_id
+        target_ids = self.admin_ids or self.chat_ids
+        if not target_ids:
+            return False
             
         try:
             url = f"https://api.telegram.org/bot{self.bot_token}/sendDocument"
             
             # Читаем файл
-            with open(file_path, 'rb') as file:
-                files = {'document': file}
-                data = {
-                    'chat_id': target_id,
-                    'caption': f"📋 Накладна #{invoice.invoice_number}\n🏢 {invoice.company_name}\n💰 {invoice.total_amount} грн",
-                    'parse_mode': 'HTML'
-                }
-                response = requests.post(url, files=files, data=data, timeout=30)
-                return response.status_code == 200
+            success = False
+            for target_id in target_ids:
+                with open(file_path, 'rb') as file:
+                    files = {'document': file}
+                    data = {
+                        'chat_id': target_id,
+                        'caption': f"📋 Накладна #{invoice.invoice_number}\n🏢 {invoice.company_name}\n💰 {invoice.total_amount} грн",
+                        'parse_mode': 'HTML'
+                    }
+                    response = requests.post(url, files=files, data=data, timeout=30)
+                    success = success or response.status_code == 200
+            return success
         except Exception as e:
             print(f"Ошибка при отправке документа накладной: {e}")
             return False

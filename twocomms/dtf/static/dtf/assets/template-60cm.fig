@@ -1,17 +1,68 @@
-<svg width="60cm" height="100cm" viewBox="0 0 600 1000" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
-      <path d="M 10 0 L 0 0 0 10" fill="none" stroke="gray" stroke-width="0.5"/>
-    </pattern>
-  </defs>
-  <rect width="100%" height="100%" fill="white"/>
-  <rect width="100%" height="100%" fill="url(#grid)" opacity="0.2"/>
-  
-  <!-- Safe Area (1cm margin) -->
-  <rect x="10" y="10" width="580" height="980" fill="none" stroke="#FF4500" stroke-width="2" stroke-dasharray="10,5"/>
-  <text x="300" y="50" font-family="Arial" font-size="20" text-anchor="middle" fill="#333">DTF 60cm Roll Template</text>
-  <text x="300" y="80" font-family="Arial" font-size="14" text-anchor="middle" fill="#666">Safe Print Area (58cm width)</text>
-  
-  <line x1="10" y1="0" x2="10" y2="1000" stroke="red" stroke-width="1"/>
-  <line x1="590" y1="0" x2="590" y2="1000" stroke="red" stroke-width="1"/>
-</svg>
+%PDF-1.3
+%“Œ‹ž ReportLab Generated PDF document (opensource)
+1 0 obj
+<<
+/F1 2 0 R
+>>
+endobj
+2 0 obj
+<<
+/BaseFont /Helvetica /Encoding /WinAnsiEncoding /Name /F1 /Subtype /Type1 /Type /Font
+>>
+endobj
+3 0 obj
+<<
+/Contents 7 0 R /MediaBox [ 0 0 1700.787 2834.646 ] /Parent 6 0 R /Resources <<
+/Font 1 0 R /ProcSet [ /PDF /Text /ImageB /ImageC /ImageI ]
+>> /Rotate 0 /Trans <<
+
+>> 
+  /Type /Page
+>>
+endobj
+4 0 obj
+<<
+/PageMode /UseNone /Pages 6 0 R /Type /Catalog
+>>
+endobj
+5 0 obj
+<<
+/Author (TwoComms DTF Lab) /CreationDate (D:20260203235748+02'00') /Creator (anonymous) /Keywords () /ModDate (D:20260203235748+02'00') /Producer (ReportLab PDF Library - \(opensource\)) 
+  /Subject (unspecified) /Title (60cm DTF Gang Sheet Template) /Trapped /False
+>>
+endobj
+6 0 obj
+<<
+/Count 1 /Kids [ 3 0 R ] /Type /Pages
+>>
+endobj
+7 0 obj
+<<
+/Filter [ /ASCII85Decode /FlateDecode ] /Length 261
+>>
+stream
+Gas2D9i&Y\%#46H(%6.37#2L8D2uCq/jhr^a'Aa=$])/fL:"]k;\8&@O=eYa?9bkl:m99HT+c20EP3`]L@7AY)?,G_(UCnH'HuH*+9q%!)RaIKKIjH/NhPdMQEE!a&Zq]D5L20OP/`o9lD19'NF>rin!!U?oj=<fU7q%V=j)\mF\C^-<c.%EDK6.FX[o:AqiL^,iNuq/^VOgqn1Vl/i<?O[HQ9oLUOA!h"'/.R\UqSTG@O6X*5`F2ni1g-Qk5nT[7`.~>endstream
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000061 00000 n 
+0000000092 00000 n 
+0000000199 00000 n 
+0000000402 00000 n 
+0000000470 00000 n 
+0000000758 00000 n 
+0000000817 00000 n 
+trailer
+<<
+/ID 
+[<d0c2ec8e9565ba325fe0d8960fbc2e58><d0c2ec8e9565ba325fe0d8960fbc2e58>]
+% ReportLab generated PDF document -- digest (opensource)
+
+/Info 5 0 R
+/Root 4 0 R
+/Size 8
+>>
+startxref
+1168
+%%EOF

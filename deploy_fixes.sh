@@ -18,8 +18,8 @@ echo "📦 Step 1: Pulling latest code from repository..."
 sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no "$SERVER_USER@$SERVER_HOST" << 'ENDSSH'
 cd /home/qlknpodo/TWC/TwoComms_Site/twocomms
 git fetch origin
-git checkout fix-audit-errors-f88J2
-git pull origin fix-audit-errors-f88J2
+git checkout fix-500-error-invoices
+git pull origin fix-500-error-invoices
 echo "✅ Code updated successfully"
 ENDSSH
 
