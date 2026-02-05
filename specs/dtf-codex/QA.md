@@ -3,6 +3,7 @@
 ## Automated
 - [x] `python manage.py test storefront.tests.test_dtf_p0 --settings=test_settings`
 - [x] `python manage.py test storefront.tests.test_upload_security --settings=test_settings`
+- [x] `python manage.py test storefront.tests.test_feed_endpoints --settings=test_settings`
 - [ ] `python manage.py test storefront --settings=test_settings`
 - [x] `python manage.py check --settings=test_settings`
 - [ ] `npm run build:css` (if CSS source changed)
@@ -18,5 +19,5 @@
 - [ ] Reduced-motion still disables animations
 
 ## Evidence Capture
-- [ ] Save command outputs and key assertions in `EVIDENCE.md`
-- [ ] Record production verification URLs/HTTP codes in `DEPLOY.md`
+- [x] Save command outputs and key assertions in `EVIDENCE.md`
+- [x] Record production verification URLs/HTTP codes in `DEPLOY.md`
