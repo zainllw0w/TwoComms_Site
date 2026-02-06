@@ -3,11 +3,11 @@
 
 {% block title %}
   {% if current_lang == 'ru' %}
-    DTF печать в рулоне 60 см — {{ pricing_range_label }} грн/м
+    DTF печать в рулоне 60 см — {{ pricing_range_label }} {% trans "грн/м" %}
   {% elif current_lang == 'en' %}
     DTF roll printing 60 cm — {{ pricing_range_label }} UAH/m
   {% else %}
-    DTF друк у рулоні 60 см — {{ pricing_range_label }} грн/м
+    DTF друк у рулоні 60 см — {{ pricing_range_label }} {% trans "грн/м" %}
   {% endif %}
 {% endblock %}
 {% block page_id %}home{% endblock %}
@@ -78,11 +78,11 @@
       <h1 class="scan-title">
         <span class="scan-outline ink-spread">
           {% trans "60 см, Hot Peel, все включено" %}<br>
-          <span class="scan-accent">{{ pricing_range_label }} грн/м</span>
+          <span class="scan-accent">{{ pricing_range_label }} {% trans "грн/м" %}</span>
         </span>
         <span class="scan-fill ink-spread" aria-hidden="true">
           {% trans "60 см, Hot Peel, все включено" %}<br>
-          <span class="scan-accent">{{ pricing_range_label }} грн/м</span>
+          <span class="scan-accent">{{ pricing_range_label }} {% trans "грн/м" %}</span>
         </span>
         <span class="scan-line" aria-hidden="true"></span>
       </h1>
@@ -95,7 +95,7 @@
     </div>
     <div class="hero-card" data-reveal>
       <div class="hero-card-header">
-        <div class="price-badge">{{ pricing_range_label }} грн/м</div>
+        <div class="price-badge">{{ pricing_range_label }} {% trans "грн/м" %}</div>
         <div class="hot-peel" aria-label="{% trans 'Hot Peel' %}">
           <span class="hot-peel-mark" aria-hidden="true">
             <span class="hot-peel-core"></span>
@@ -242,7 +242,7 @@
         <span>{% trans "Коментар" %}</span>
       </div>
       <div class="price-row">
-        <span>1–9 м</span>
+        <span>{% trans "1–9 м" %}</span>
         <span>{{ pricing.base_rate }}</span>
         <span>{% trans "Базова" %}</span>
       </div>
@@ -299,7 +299,7 @@
               <div class="work-chips">
                 <span class="chip">{% trans "Готове" %}</span>
                 <span class="chip">{% trans "Матеріал" %}</span>
-                <span class="chip">1–9 м</span>
+                <span class="chip">{% trans "1–9 м" %}</span>
               </div>
             </div>
             <figcaption>{% if item.title %}{{ item.title }}{% else %}{% trans "Готове" %}{% endif %}</figcaption>
