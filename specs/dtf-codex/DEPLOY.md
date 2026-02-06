@@ -4,7 +4,7 @@
 - DTF-only rollout for `dtf.twocomms.shop` without changing `twocomms.shop` behavior.
 
 ## Deployed commit
-- `64d947f` on branch `codex/dtf-p0p1-fixes-2026-02`
+- `0b4843a` on branch `codex/dtf-p0p1-fixes-2026-02`
 
 ## Commands executed on server
 ```bash
@@ -32,6 +32,7 @@ mkdir -p tmp && touch tmp/restart.txt
 - `/robots.txt` -> 200, sitemap points to `https://dtf.twocomms.shop/sitemap.xml`
 - `/sitemap.xml` -> 200, DTF-only `<loc>` URLs
 - `/order/` includes versioned DTF assets (`dtf.css?v=20260206b`, `dtf.js?v=20260206b`)
+- Home/hero and calculator use unified pricing range `350-280` (`base=350`, tiers `10:330,30:310,50:280`)
 
 ### Main host
 - `/` -> 200

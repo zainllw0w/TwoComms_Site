@@ -8,11 +8,12 @@
   - `864ec13` (`fix(dtf): restore mobile order autolayout and remove overlay conflicts`)
   - `64d947f` (`fix(dtf): bust template asset cache for mobile layout updates`)
   - `903f59d` (`docs(dtf): record mobile order layout and cache-busting verification`)
-- Server HEAD after deploy: `64d947f` (before 350-280 price rollout)
+  - `0b4843a` (`fix(dtf): unify pricing range to 350-280 across ui and calculator`)
+- Server HEAD after deploy: `0b4843a`
 
 ## Local validation
 - `SECRET_KEY=test-secret-key-123 python3 twocomms/manage.py check` -> `System check identified no issues (0 silenced).`
-- `python3 twocomms/manage.py test dtf --settings=test_settings` -> `Ran 16 tests ... OK`
+- `python3 twocomms/manage.py test dtf --settings=test_settings` -> `Ran 17 tests ... OK`
 
 ## What is covered by tests
 - DTF P0 routes (`/quality/`, `/price/`, `/prices/` redirect)
@@ -27,7 +28,7 @@
 - DTF pricing defaults and hero price range are unified to `350-280`
 
 ## Production deploy output summary
-- `git pull` updated `be59420..74f84f8`, `74f84f8..2c05731`, `a77c67c..864ec13`, `864ec13..64d947f`
+- `git pull` updated `be59420..74f84f8`, `74f84f8..2c05731`, `a77c67c..864ec13`, `864ec13..64d947f`, `903f59d..0b4843a`
 - `python manage.py check` -> no issues
 - `python manage.py migrate --noinput` -> no migrations to apply
 - `python manage.py collectstatic --noinput` -> completed
