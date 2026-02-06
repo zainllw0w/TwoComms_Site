@@ -34,11 +34,11 @@ MIME_BY_EXT = {
 DEFAULT_MAX_FILE_MB = 50
 DEFAULT_MAX_COPIES = 500
 DEFAULT_MAX_METERS_REVIEW = Decimal("200")
-DEFAULT_BASE_RATE = Decimal("280")
+DEFAULT_BASE_RATE = Decimal("350")
 DEFAULT_TIERS = [
-    {"min": Decimal("10"), "rate": Decimal("270")},
-    {"min": Decimal("30"), "rate": Decimal("260")},
-    {"min": Decimal("50"), "rate": Decimal("250")},
+    {"min": Decimal("10"), "rate": Decimal("330")},
+    {"min": Decimal("30"), "rate": Decimal("310")},
+    {"min": Decimal("50"), "rate": Decimal("280")},
 ]
 DEFAULT_FEATURE_FLAGS = {
     "enable_view_transitions": False,

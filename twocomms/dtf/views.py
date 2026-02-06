@@ -44,10 +44,17 @@ STATUS_STEPS = [
 
 def _base_context(request):
     lang = activate_language_from_request(request)
+    pricing = get_pricing_config()
+    rates = [pricing["base_rate"], *[tier["rate"] for tier in pricing["tiers"]]]
+    pricing_rate_high = max(rates) if rates else pricing["base_rate"]
+    pricing_rate_low = min(rates) if rates else pricing["base_rate"]
     return {
         "current_lang": lang,
         "lang_links": build_lang_links(request),
-        "pricing": get_pricing_config(),
+        "pricing": pricing,
+        "pricing_rate_high": pricing_rate_high,
+        "pricing_rate_low": pricing_rate_low,
+        "pricing_range_label": f"{pricing_rate_high}-{pricing_rate_low}",
         "limits": get_limits(),
         "feature_flags": get_feature_flags(),
     }

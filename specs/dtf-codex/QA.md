@@ -15,6 +15,7 @@
 - [x] DTF landing uses DTF template assets
 - [x] DTF hero uses responsive AVIF/WebP sources + preload/fetchpriority
 - [x] DTF home includes touch lens modal fallback (`id=\"lens-modal\"`)
+- [x] DTF default price range is `350-280`
 
 ## Manual production smoke
 - [x] `https://dtf.twocomms.shop/` => 200, DTF template markers present
@@ -28,6 +29,7 @@
 - [x] `https://twocomms.shop/sitemap.xml` => main host locs
 - [x] Mobile `/order/` uses non-overlapping layout (summary static, FAB hidden on order page, no horizontal overflow)
 - [x] Home compare/lens interactions work on mobile (tap lens modal) and desktop (hover lens + compare slider)
+- [x] DTF visible price range shows `350-280 грн/м` and table/calculator use updated rates
 
 ## Notes
 - DTF host intentionally has no `/google_merchant_feed.xml` and `/prom-feed.xml` routes (404), while main host keeps both endpoints as 200.

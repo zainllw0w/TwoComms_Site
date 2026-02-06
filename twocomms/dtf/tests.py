@@ -5,7 +5,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from .forms import DtfHelpForm, DtfOrderForm
 from .models import DtfOrder
-from .utils import calculate_pricing
+from .utils import calculate_pricing, get_pricing_config
 
 
 class DtfOrderTests(TestCase):
@@ -31,6 +31,12 @@ class DtfOrderTests(TestCase):
         result = calculate_pricing(Decimal("2.5"), 10)
         self.assertEqual(result["meters_total"], Decimal("25.00"))
         self.assertGreater(result["price_total"], 0)
+
+    def test_default_pricing_range_is_350_to_280(self):
+        config = get_pricing_config()
+        rates = [config["base_rate"], *[tier["rate"] for tier in config["tiers"]]]
+        self.assertEqual(max(rates), Decimal("350"))
+        self.assertEqual(min(rates), Decimal("280"))
 
     def test_status_lookup(self):
         order = DtfOrder.objects.create(
