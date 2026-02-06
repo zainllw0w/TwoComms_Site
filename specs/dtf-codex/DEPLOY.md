@@ -1,38 +1,45 @@
 # Deploy Notes (DTF Isolation Re-run)
 
 ## Target
-- DTF-only rollout for `dtf.twocomms.shop` with no behavioral changes to `twocomms.shop`.
+- DTF-only rollout for `dtf.twocomms.shop` without changing `twocomms.shop` behavior.
 
-## Pre-deploy checks
-- `python3 manage.py check --settings=test_settings`
-- `python3 manage.py test dtf --settings=test_settings`
+## Deployed commit
+- `21ef640` on branch `codex/dtf-p0p1-fixes-2026-02`
 
-## Deployment steps
+## Commands executed on server
 ```bash
-sshpass -p '***' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "bash -lc '
-  source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate &&
-  cd /home/qlknpodo/TWC/TwoComms_Site/twocomms &&
-  git checkout codex/dtf-p0p1-fixes-2026-02 &&
-  git pull &&
-  python manage.py check &&
-  python manage.py migrate --noinput &&
-  python manage.py collectstatic --noinput &&
-  mkdir -p tmp && touch tmp/restart.txt
-'"
+source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate
+cd /home/qlknpodo/TWC/TwoComms_Site/twocomms
+git checkout codex/dtf-p0p1-fixes-2026-02
+git pull
+python manage.py check
+python manage.py migrate --noinput
+python manage.py collectstatic --noinput
+mkdir -p tmp && touch tmp/restart.txt
 ```
 
-## Post-deploy smoke
-- DTF host:
-  - `/`
-  - `/quality/`
-  - `/price/`
-  - `/prices/` (301)
-  - `/robots.txt`
-  - `/sitemap.xml`
-- Main host:
-  - `/`
-  - `/robots.txt`
-  - `/sitemap.xml`
+## Server notes
+- `check`: OK
+- `migrate`: no migrations to apply
+- Warning remains: model changes in `accounts`, `dtf`, `management` are not represented by migrations (pre-existing project state)
+- `collectstatic`: completed
 
-## Status
-- Pending commit/push/deploy for current DTF-only re-baseline changes.
+## Post-deploy verification
+### DTF host
+- `/` -> 200
+- `/quality/` -> 200
+- `/price/` -> 200
+- `/prices/` -> 301 to `/price/`
+- `/robots.txt` -> 200, sitemap points to `https://dtf.twocomms.shop/sitemap.xml`
+- `/sitemap.xml` -> 200, DTF-only `<loc>` URLs
+
+### Main host
+- `/` -> 200
+- `/robots.txt` -> 200, sitemap points to `https://twocomms.shop/sitemap.xml`
+- `/sitemap.xml` -> 200, main-host `<loc>` URLs
+- `/google_merchant_feed.xml` -> 200
+- `/prom-feed.xml` -> 200
+
+## Isolation result
+- `dtf.twocomms.shop` serves DTF template/assets.
+- `twocomms.shop` does not render DTF template/assets.
