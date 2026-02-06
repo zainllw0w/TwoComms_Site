@@ -209,6 +209,7 @@
           <div class="footer-text">{% trans "DTF друк рулоном 60 см. Ручна перевірка макета перед друком." %}</div>
         </div>
         <div class="footer-links">
+          <a href="{% url 'dtf:blog' %}">{% trans "База знань" %}</a>
           <a href="{% url 'dtf:delivery_payment' %}">{% trans "Доставка та оплата" %}</a>
           <a href="{% url 'dtf:requirements' %}">{% trans "Вимоги до файлів" %}</a>
           <a href="{% url 'dtf:quality' %}">{% trans "Quality" %}</a>
@@ -262,6 +263,17 @@
         <button class="btn btn-primary" type="submit" data-submit data-stateful>{% trans "Надіслати" %}</button>
         <div class="form-note">{% trans "Ручна перевірка макета перед друком" %}</div>
       </form>
+    </div>
+  </div>
+
+  <div class="knowledge-overlay" id="knowledge-overlay" aria-hidden="true">
+    <div class="knowledge-overlay-backdrop" data-knowledge-close></div>
+    <div class="knowledge-overlay-dialog" role="dialog" aria-modal="true" aria-labelledby="knowledge-overlay-title">
+      <button class="knowledge-overlay-close" type="button" data-knowledge-close aria-label="{% trans 'Закрити' %}">×</button>
+      <div class="knowledge-overlay-scroll">
+        <h2 id="knowledge-overlay-title" class="knowledge-overlay-title">{% trans "База знань" %}</h2>
+        <div class="knowledge-overlay-content" data-knowledge-content></div>
+      </div>
     </div>
   </div>
 
