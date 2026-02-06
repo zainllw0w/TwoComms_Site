@@ -314,6 +314,10 @@
     };
 
     const closeModal = () => {
+      const active = document.activeElement;
+      if (active && modal.contains(active) && btn && btn.focus) {
+        btn.focus({ preventScroll: true });
+      }
       releaseFocusTrap();
       modal.classList.remove('active');
       modal.setAttribute('aria-hidden', 'true');
@@ -1151,9 +1155,12 @@
     const dialog = modal.querySelector('.lens-modal-dialog');
 
     const close = () => {
+      if (document.activeElement && modal.contains(document.activeElement)) {
+        modal.blur && modal.blur();
+      }
+      releaseFocusTrap();
       modal.classList.remove('is-open');
       modal.setAttribute('aria-hidden', 'true');
-      releaseFocusTrap();
     };
 
     if (!initState.lensModal) {
