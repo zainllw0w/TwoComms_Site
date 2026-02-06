@@ -3301,6 +3301,11 @@ body[data-page="order"] .mobile-dock {
   .modal-content h3 {
     font-size: 1.2rem;
   }
+  .nav-backdrop {
+    background: rgba(5, 5, 6, 0.98);
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
   .nav-panel {
     left: 0;
     right: 0;
@@ -3313,7 +3318,7 @@ body[data-page="order"] .mobile-dock {
     border-radius: 0;
     transform: translateY(-110%);
     padding: calc(18px + env(safe-area-inset-top)) 16px calc(22px + env(safe-area-inset-bottom));
-    background: linear-gradient(180deg, rgba(16, 16, 16, 0.995), rgba(8, 8, 8, 0.99));
+    background: #0a0a0a;
   }
   .nav-panel-links {
     gap: 12px;
