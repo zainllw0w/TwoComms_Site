@@ -1891,5 +1891,13 @@ msgstr "OK"
 msgid "Preflight перевірка файлу"
 msgstr "Preflight file check"
 
+#: templates/dtf/base.html:156
+msgid "або"
+msgstr "or"
+
+#: templates/dtf/base.html:159
+msgid "Увійти через Google"
+msgstr "Sign in with Google"
+
 #~ msgid "Від %(tier.min)s м"
 #~ msgstr "From %(tier.min)s m"

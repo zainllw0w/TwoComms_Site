@@ -1887,6 +1887,14 @@ msgstr "OK"
 msgid "Preflight перевірка файлу"
 msgstr "Preflight перевірка файлу"
 
+#: templates/dtf/base.html:156
+msgid "або"
+msgstr "або"
+
+#: templates/dtf/base.html:159
+msgid "Увійти через Google"
+msgstr "Увійти через Google"
+
 #~ msgid "DTF друк у рулоні 60 см — 280 грн/м"
 #~ msgstr "DTF друк у рулоні 60 см — 280 грн/м"
 
