@@ -7,7 +7,8 @@
   - `2c05731` (`fix(dtf): enable touch lens modal on home page`)
   - `864ec13` (`fix(dtf): restore mobile order autolayout and remove overlay conflicts`)
   - `64d947f` (`fix(dtf): bust template asset cache for mobile layout updates`)
-- Server HEAD after deploy: `64d947f`
+  - `903f59d` (`docs(dtf): record mobile order layout and cache-busting verification`)
+- Server HEAD after deploy: `64d947f` (before 350-280 price rollout)
 
 ## Local validation
 - `SECRET_KEY=test-secret-key-123 python3 twocomms/manage.py check` -> `System check identified no issues (0 silenced).`
@@ -23,6 +24,7 @@
 - DTF home touch-lens fallback modal exists and opens on tap
 - DTF `/order/` mobile layout no longer uses fixed overlay summary and hides FAB on order page
 - DTF base template adds asset version query params to avoid stale client-side cache
+- DTF pricing defaults and hero price range are unified to `350-280`
 
 ## Production deploy output summary
 - `git pull` updated `be59420..74f84f8`, `74f84f8..2c05731`, `a77c67c..864ec13`, `864ec13..64d947f`

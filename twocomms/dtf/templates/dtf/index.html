@@ -1,7 +1,7 @@
 {% extends 'dtf/base.html' %}
 {% load static i18n %}
 
-{% block title %}{% trans "DTF друк у рулоні 60 см — від 280 грн/м" %}{% endblock %}
+{% block title %}{% if current_lang == 'ru' %}DTF печать в рулоне 60 см — {{ pricing_range_label }} грн/м{% else %}DTF друк у рулоні 60 см — {{ pricing_range_label }} грн/м{% endif %}{% endblock %}
 {% block page_id %}home{% endblock %}
 
 {% block extra_head %}
@@ -70,11 +70,11 @@
       <h1 class="scan-title">
         <span class="scan-outline ink-spread">
           {% trans "60 см, Hot Peel, все включено" %}<br>
-          <span class="scan-accent">{% trans "від 280 грн/м" %}</span>
+          <span class="scan-accent">{{ pricing_range_label }} грн/м</span>
         </span>
         <span class="scan-fill ink-spread" aria-hidden="true">
           {% trans "60 см, Hot Peel, все включено" %}<br>
-          <span class="scan-accent">{% trans "від 280 грн/м" %}</span>
+          <span class="scan-accent">{{ pricing_range_label }} грн/м</span>
         </span>
         <span class="scan-line" aria-hidden="true"></span>
       </h1>
@@ -87,7 +87,7 @@
     </div>
     <div class="hero-card" data-reveal>
       <div class="hero-card-header">
-        <div class="price-badge">280–350 грн/м</div>
+        <div class="price-badge">{{ pricing_range_label }} грн/м</div>
         <div class="hot-peel">
           <img src="{% static 'dtf/assets/hot-peel.gif' %}" alt="Hot Peel" loading="lazy">
           <span>{% trans "Hot Peel" %}</span>
