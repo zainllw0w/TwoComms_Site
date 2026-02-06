@@ -13,5 +13,5 @@
 - Why: Provides server-side protection while remaining compatible with current hosting constraints.
 
 ## D-004: P1 improvements are applied only in DTF template/CSS
-- Decision: LCP/CLS hardening (hero preload/fetchpriority/dimensions), sticky overlap mitigation, and on-light accent token are implemented only in DTF assets.
+- Decision: LCP/CLS hardening (hero AVIF/WebP sources + srcset/sizes + preload/fetchpriority/dimensions), sticky overlap mitigation, and on-light accent token are implemented only in DTF assets.
 - Why: Meet checklist goals without altering main site design system.

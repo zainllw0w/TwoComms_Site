@@ -1,8 +1,8 @@
 # QA Checklist (DTF Re-run)
 
 ## Automated
-- [x] `python3 manage.py check --settings=test_settings`
-- [x] `python3 manage.py test dtf --settings=test_settings`
+- [x] `SECRET_KEY=test-secret-key-123 python3 twocomms/manage.py check`
+- [x] `python3 twocomms/manage.py test dtf --settings=test_settings`
 
 ## Coverage map (DTF tests)
 - [x] `/quality/` returns 200
@@ -13,6 +13,7 @@
 - [x] DTF upload security blocks invalid files and renames accepted uploads
 - [x] Host isolation check: main and dtf robots/sitemap stay separated
 - [x] DTF landing uses DTF template assets
+- [x] DTF hero uses responsive AVIF/WebP sources + preload/fetchpriority
 
 ## Manual production smoke
 - [x] `https://dtf.twocomms.shop/` => 200, DTF template markers present
