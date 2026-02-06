@@ -61,6 +61,7 @@ class DtfP0RoutesTests(TestCase):
     def test_price_page_returns_200(self):
         response = self.client.get("/price/", secure=True)
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Від 10 м")
 
     def test_prices_redirects_to_price(self):
         response = self.client.get("/prices/", secure=True)
@@ -191,6 +192,8 @@ class DtfSubdomainIsolationTests(TestCase):
         html = response.content.decode("utf-8", "ignore")
         self.assertIn("/static/dtf/css/dtf.css", html)
         self.assertIn('class="logo-mark">DTF', html)
+        self.assertIn("type=\"image/avif\"", html)
+        self.assertIn("hero-printhead-640.avif", html)
 
     def test_robots_are_isolated_by_host(self):
         dtf_robots = self.dtf_client.get("/robots.txt", secure=True).content.decode("utf-8", "ignore")
