@@ -203,6 +203,7 @@ class DtfSubdomainIsolationTests(TestCase):
         self.assertIn('fetchpriority="high"', html)
         self.assertIn('width="1024"', html)
         self.assertIn('height="1024"', html)
+        self.assertIn('id="lens-modal"', html)
 
     def test_robots_are_isolated_by_host(self):
         dtf_robots = self.dtf_client.get("/robots.txt", secure=True).content.decode("utf-8", "ignore")
