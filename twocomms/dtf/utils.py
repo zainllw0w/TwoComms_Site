@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import os
 import re
+import secrets
 from decimal import Decimal, ROUND_HALF_UP
 from urllib.parse import urlencode
 
@@ -16,6 +17,20 @@ except Exception:
 
 
 ALLOWED_READY_EXTS = {"pdf", "png"}
+ALLOWED_HELP_EXTS = {"pdf", "png", "jpg", "jpeg", "webp", "tif", "tiff", "zip", "rar", "7z", "ai", "psd", "svg"}
+MIME_BY_EXT = {
+    "pdf": {"application/pdf"},
+    "png": {"image/png"},
+    "jpg": {"image/jpeg"},
+    "jpeg": {"image/jpeg"},
+    "webp": {"image/webp"},
+    "tif": {"image/tiff"},
+    "tiff": {"image/tiff"},
+    "svg": {"image/svg+xml", "text/xml", "application/xml"},
+    "zip": {"application/zip", "application/x-zip-compressed", "multipart/x-zip"},
+    "rar": {"application/x-rar-compressed", "application/vnd.rar"},
+    "7z": {"application/x-7z-compressed"},
+}
 DEFAULT_MAX_FILE_MB = 50
 DEFAULT_MAX_COPIES = 500
 DEFAULT_MAX_METERS_REVIEW = Decimal("200")
@@ -51,6 +66,90 @@ def get_file_extension(filename: str) -> str:
     if not filename:
         return ""
     return os.path.splitext(filename)[1].lower().lstrip(".")
+
+
+def _sniff_magic(uploaded_file) -> str:
+    try:
+        pos = uploaded_file.tell()
+    except Exception:
+        pos = None
+
+    try:
+        head = uploaded_file.read(32)
+    finally:
+        try:
+            if pos is not None:
+                uploaded_file.seek(pos)
+            else:
+                uploaded_file.seek(0)
+        except Exception:
+            pass
+
+    if not head:
+        return ""
+    if head.startswith(b"%PDF-"):
+        return "pdf"
+    if head.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if head.startswith(b"\xff\xd8\xff"):
+        return "jpg"
+    if head.startswith(b"RIFF") and b"WEBP" in head[:16]:
+        return "webp"
+    if head[:4] in (b"II*\x00", b"MM\x00*"):
+        return "tiff"
+    if head.startswith(b"PK\x03\x04"):
+        return "zip"
+    if head.startswith(b"Rar!\x1a\x07\x00") or head.startswith(b"Rar!\x1a\x07\x01\x00"):
+        return "rar"
+    if head.startswith(b"7z\xbc\xaf\x27\x1c"):
+        return "7z"
+    return ""
+
+
+def build_safe_upload_name(prefix: str, original_name: str) -> str:
+    ext = get_file_extension(original_name)
+    token = secrets.token_hex(16)
+    safe_prefix = re.sub(r"[^a-z0-9_-]+", "-", (prefix or "file").lower()).strip("-") or "file"
+    safe_ext = f".{ext}" if ext else ""
+    return f"{safe_prefix}-{token}{safe_ext}"
+
+
+def validate_uploaded_file(uploaded_file, *, allowed_exts: set[str], max_file_mb: int, strict_magic: bool = True):
+    ext = get_file_extension(getattr(uploaded_file, "name", ""))
+    if ext not in allowed_exts:
+        raise ValueError("unsupported_extension")
+
+    max_bytes = int(max_file_mb) * 1024 * 1024
+    if getattr(uploaded_file, "size", 0) and uploaded_file.size > max_bytes:
+        raise ValueError("file_too_large")
+
+    content_type = (getattr(uploaded_file, "content_type", "") or "").split(";")[0].strip().lower()
+    expected_mimes = MIME_BY_EXT.get(ext, set())
+    if expected_mimes and content_type and content_type not in expected_mimes:
+        raise ValueError("mime_mismatch")
+    if content_type in {"text/x-php", "application/x-httpd-php", "application/javascript", "text/javascript"}:
+        raise ValueError("forbidden_mime")
+
+    if strict_magic:
+        sniffed = _sniff_magic(uploaded_file)
+        if ext == "jpeg":
+            ext_for_magic = "jpg"
+        elif ext == "tif":
+            ext_for_magic = "tiff"
+        else:
+            ext_for_magic = ext
+
+        # For vector/native design formats without stable signatures, skip strict magic check.
+        magic_optional_exts = {"ai", "psd", "svg"}
+        if ext_for_magic not in magic_optional_exts:
+            if not sniffed:
+                raise ValueError("unknown_magic")
+            if ext_for_magic == "tiff" and sniffed != "tiff":
+                raise ValueError("magic_mismatch")
+            elif ext_for_magic != "tiff" and sniffed != ext_for_magic:
+                raise ValueError("magic_mismatch")
+
+    return uploaded_file
 
 
 def get_limits():

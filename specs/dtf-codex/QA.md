@@ -1,23 +1,26 @@
-# QA Checklist
+# QA Checklist (DTF Re-run)
 
 ## Automated
-- [x] `python manage.py test storefront.tests.test_dtf_p0 --settings=test_settings`
-- [x] `python manage.py test storefront.tests.test_upload_security --settings=test_settings`
-- [x] `python manage.py test storefront.tests.test_feed_endpoints --settings=test_settings`
-- [ ] `python manage.py test storefront --settings=test_settings`
-- [x] `python manage.py check --settings=test_settings`
-- [ ] `npm run build:css` (if CSS source changed)
+- [x] `python3 manage.py check --settings=test_settings`
+- [x] `python3 manage.py test dtf --settings=test_settings`
 
-## Manual Smoke
-- [x] `GET /quality/` returns 200 and renders template correctly
-- [x] `GET /price/` returns 200
-- [x] `GET /prices/` returns 301 -> `/price/`
-- [x] `GET /robots.txt` points to current host sitemap and has no wrong main-domain sitemap link
-- [x] `GET /sitemap.xml` contains only current host URLs and includes `/price/`
-- [ ] Mobile 320px: sticky summary does not cover form fields/buttons
-- [ ] Home first viewport: no obvious image CLS jump
-- [x] Reduced-motion still disables animations (static CSS audit: `prefers-reduced-motion` rules present in active bundles)
+## Coverage map (DTF tests)
+- [x] `/quality/` returns 200
+- [x] `/price/` returns 200
+- [x] `/prices/` redirects 301 to `/price/`
+- [x] `/robots.txt` points to `https://dtf.twocomms.shop/sitemap.xml`
+- [x] `/sitemap.xml` uses DTF host and includes `/price/`
+- [x] DTF upload security blocks invalid files and renames accepted uploads
+- [x] Host isolation check: main and dtf robots/sitemap stay separated
+- [x] DTF landing uses DTF template assets
 
-## Evidence Capture
-- [x] Save command outputs and key assertions in `EVIDENCE.md`
-- [x] Record production verification URLs/HTTP codes in `DEPLOY.md`
+## Manual production smoke (must-do per deploy)
+- [ ] `https://dtf.twocomms.shop/` => DTF template visible
+- [ ] `https://dtf.twocomms.shop/quality/` => 200
+- [ ] `https://dtf.twocomms.shop/price/` => 200
+- [ ] `https://dtf.twocomms.shop/prices/` => 301 to `/price/`
+- [ ] `https://dtf.twocomms.shop/robots.txt` => DTF sitemap line
+- [ ] `https://dtf.twocomms.shop/sitemap.xml` => DTF-only locs
+- [ ] `https://twocomms.shop/` => NOT DTF template
+- [ ] `https://twocomms.shop/robots.txt` => main sitemap line
+- [ ] `https://twocomms.shop/sitemap.xml` => main host locs
