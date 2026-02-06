@@ -50,6 +50,8 @@
 ## P2-6 QA Contour
 - [x] QA matrix updated with baseline, guardrails, automated checks, post-deploy minimum.
   - Evidence: `specs/dtf-codex/QA.md`
+- [x] Post-deploy smoke completed on live DTF host with isolation verification.
+  - Evidence: `specs/dtf-codex/perf/postdeploy-curl-2026-02-06.txt`
 
 ## P2-7 Cleanup
 - [ ] Dead-code cleanup intentionally skipped in this pass (no proven-unused candidates with zero-risk guarantee).
