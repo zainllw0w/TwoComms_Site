@@ -14,13 +14,16 @@
 - [x] Host isolation check: main and dtf robots/sitemap stay separated
 - [x] DTF landing uses DTF template assets
 
-## Manual production smoke (must-do per deploy)
-- [ ] `https://dtf.twocomms.shop/` => DTF template visible
-- [ ] `https://dtf.twocomms.shop/quality/` => 200
-- [ ] `https://dtf.twocomms.shop/price/` => 200
-- [ ] `https://dtf.twocomms.shop/prices/` => 301 to `/price/`
-- [ ] `https://dtf.twocomms.shop/robots.txt` => DTF sitemap line
-- [ ] `https://dtf.twocomms.shop/sitemap.xml` => DTF-only locs
-- [ ] `https://twocomms.shop/` => NOT DTF template
-- [ ] `https://twocomms.shop/robots.txt` => main sitemap line
-- [ ] `https://twocomms.shop/sitemap.xml` => main host locs
+## Manual production smoke
+- [x] `https://dtf.twocomms.shop/` => 200, DTF template markers present
+- [x] `https://dtf.twocomms.shop/quality/` => 200
+- [x] `https://dtf.twocomms.shop/price/` => 200
+- [x] `https://dtf.twocomms.shop/prices/` => 301 to `/price/`
+- [x] `https://dtf.twocomms.shop/robots.txt` => DTF sitemap line
+- [x] `https://dtf.twocomms.shop/sitemap.xml` => DTF-only locs
+- [x] `https://twocomms.shop/` => 200 and NOT DTF template
+- [x] `https://twocomms.shop/robots.txt` => main sitemap line
+- [x] `https://twocomms.shop/sitemap.xml` => main host locs
+
+## Notes
+- DTF host intentionally has no `/google_merchant_feed.xml` and `/prom-feed.xml` routes (404), while main host keeps both endpoints as 200.
