@@ -13,6 +13,11 @@
 {% block page_id %}home{% endblock %}
 
 {% block extra_head %}
+{% trans "DTF друк рулоном 60 см" as service_name %}
+{% trans "Не відклеїться?" as faq_q1 %}
+{% trans "DTF витримує багато циклів прання за умови правильного переносу." as faq_a1 %}
+{% trans "Є білий шар?" as faq_q2 %}
+{% trans "Так, використовується білий підклад для насичених кольорів." as faq_a2 %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -25,7 +30,7 @@
 {
   "@context": "https://schema.org",
   "@type": "Service",
-  "name": "DTF друк рулоном 60 см",
+  "name": "{{ service_name|escapejs }}",
   "areaServed": "UA",
   "provider": {
     "@type": "Organization",
@@ -40,18 +45,18 @@
   "mainEntity": [
     {
       "@type": "Question",
-      "name": "Не відклеїться?",
+      "name": "{{ faq_q1|escapejs }}",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "DTF витримує багато циклів прання за умови правильного переносу."
+        "text": "{{ faq_a1|escapejs }}"
       }
     },
     {
       "@type": "Question",
-      "name": "Є білий шар?",
+      "name": "{{ faq_q2|escapejs }}",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Так, використовується білий підклад для насичених кольорів."
+        "text": "{{ faq_a2|escapejs }}"
       }
     }
   ]

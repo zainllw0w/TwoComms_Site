@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: dtf 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-06 12:11+0200\n"
+"POT-Creation-Date: 2026-02-06 12:29+0200\n"
 "PO-Revision-Date: 2026-01-31 00:00+0000\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -166,7 +166,7 @@ msgstr "Принято (заявка)"
 msgid "Прийнято"
 msgstr "Принято"
 
-#: models.py:109 templates/dtf/index.html:206 views.py:36
+#: models.py:109 templates/dtf/index.html:211 views.py:36
 msgid "Перевірка макета"
 msgstr "Проверка макета"
 
@@ -207,16 +207,16 @@ msgid "Автовизначення"
 msgstr "Автоопределение"
 
 #: models.py:202 templates/dtf/gallery.html:59 templates/dtf/gallery.html:94
-#: templates/dtf/gallery.html:139 templates/dtf/index.html:275
-#: templates/dtf/index.html:279 templates/dtf/index.html:314
-#: templates/dtf/index.html:347
+#: templates/dtf/gallery.html:139 templates/dtf/index.html:280
+#: templates/dtf/index.html:284 templates/dtf/index.html:319
+#: templates/dtf/index.html:352
 msgid "Макро"
 msgstr "Макро"
 
 #: models.py:203 templates/dtf/gallery.html:60 templates/dtf/gallery.html:109
-#: templates/dtf/gallery.html:154 templates/dtf/index.html:287
-#: templates/dtf/index.html:292 templates/dtf/index.html:325
-#: templates/dtf/index.html:358
+#: templates/dtf/gallery.html:154 templates/dtf/index.html:292
+#: templates/dtf/index.html:297 templates/dtf/index.html:330
+#: templates/dtf/index.html:363
 msgid "Процес"
 msgstr "Процесс"
 
@@ -293,7 +293,7 @@ msgid "Основна навігація"
 msgstr "Основная навигация"
 
 #: templates/dtf/base.html:40 templates/dtf/base.html:69
-#: templates/dtf/base.html:156 templates/dtf/index.html:497
+#: templates/dtf/base.html:156 templates/dtf/index.html:502
 msgid "Замовити"
 msgstr "Заказать"
 
@@ -327,7 +327,7 @@ msgid "Розрахувати"
 msgstr "Рассчитать"
 
 #: templates/dtf/base.html:66 templates/dtf/gallery.html:281
-#: templates/dtf/index.html:453
+#: templates/dtf/index.html:458
 msgid "Закрити"
 msgstr "закрывать"
 
@@ -340,12 +340,12 @@ msgid "DTF друк рулоном 60 см. Ручна перевірка мак
 msgstr "DTF печать рулоном 60 см. Ручная проверка макета перед печатью."
 
 #: templates/dtf/base.html:98 templates/dtf/delivery_payment.html:4
-#: templates/dtf/delivery_payment.html:9 templates/dtf/index.html:494
+#: templates/dtf/delivery_payment.html:9 templates/dtf/index.html:499
 msgid "Доставка та оплата"
 msgstr "Доставка и оплата"
 
-#: templates/dtf/base.html:99 templates/dtf/index.html:149
-#: templates/dtf/index.html:466 templates/dtf/requirements.html:4
+#: templates/dtf/base.html:99 templates/dtf/index.html:154
+#: templates/dtf/index.html:471 templates/dtf/requirements.html:4
 #: templates/dtf/requirements.html:61
 msgid "Вимоги до файлів"
 msgstr "Требования к файлам"
@@ -425,7 +425,7 @@ msgstr "Вопрос"
 msgid "Надіслати"
 msgstr "Отправить"
 
-#: templates/dtf/base.html:149 templates/dtf/index.html:94
+#: templates/dtf/base.html:149 templates/dtf/index.html:99
 #: templates/dtf/order.html:167
 msgid "Ручна перевірка макета перед друком"
 msgstr "Ручная проверка макета перед печатью"
@@ -447,7 +447,7 @@ msgstr "Доставка"
 msgid "Нова Пошта по Україні. Вкажіть місто та відділення при оформленні."
 msgstr "Новая Почта по Украине. Укажите город и отделение при оформлении."
 
-#: templates/dtf/delivery_payment.html:16 templates/dtf/index.html:215
+#: templates/dtf/delivery_payment.html:16 templates/dtf/index.html:220
 msgid "Оплата"
 msgstr "Оплата"
 
@@ -481,20 +481,20 @@ msgid "Всі"
 msgstr "Все"
 
 #: templates/dtf/gallery.html:61 templates/dtf/gallery.html:124
-#: templates/dtf/gallery.html:169 templates/dtf/index.html:300
-#: templates/dtf/index.html:305 templates/dtf/index.html:336
-#: templates/dtf/index.html:369
+#: templates/dtf/gallery.html:169 templates/dtf/index.html:305
+#: templates/dtf/index.html:310 templates/dtf/index.html:341
+#: templates/dtf/index.html:374
 msgid "Готове"
 msgstr "Готовое"
 
 #: templates/dtf/gallery.html:70 templates/dtf/gallery.html:93
 #: templates/dtf/gallery.html:108 templates/dtf/gallery.html:123
 #: templates/dtf/gallery.html:138 templates/dtf/gallery.html:153
-#: templates/dtf/gallery.html:168 templates/dtf/index.html:136
-#: templates/dtf/index.html:274 templates/dtf/index.html:289
-#: templates/dtf/index.html:313 templates/dtf/index.html:324
-#: templates/dtf/index.html:335 templates/dtf/index.html:346
-#: templates/dtf/index.html:357 templates/dtf/index.html:368
+#: templates/dtf/gallery.html:168 templates/dtf/index.html:141
+#: templates/dtf/index.html:279 templates/dtf/index.html:294
+#: templates/dtf/index.html:318 templates/dtf/index.html:329
+#: templates/dtf/index.html:340 templates/dtf/index.html:351
+#: templates/dtf/index.html:362 templates/dtf/index.html:373
 msgid "60 см"
 msgstr "60 см"
 
@@ -502,17 +502,17 @@ msgstr "60 см"
 #: templates/dtf/gallery.html:95 templates/dtf/gallery.html:110
 #: templates/dtf/gallery.html:125 templates/dtf/gallery.html:140
 #: templates/dtf/gallery.html:155 templates/dtf/gallery.html:170
-#: templates/dtf/index.html:140 templates/dtf/index.html:276
-#: templates/dtf/index.html:315 templates/dtf/index.html:326
-#: templates/dtf/index.html:337 templates/dtf/index.html:348
-#: templates/dtf/index.html:359 templates/dtf/index.html:370
+#: templates/dtf/index.html:145 templates/dtf/index.html:281
+#: templates/dtf/index.html:320 templates/dtf/index.html:331
+#: templates/dtf/index.html:342 templates/dtf/index.html:353
+#: templates/dtf/index.html:364 templates/dtf/index.html:375
 msgid "24–48 год"
 msgstr "24–48 ч"
 
-#: templates/dtf/gallery.html:76 templates/dtf/index.html:318
-#: templates/dtf/index.html:329 templates/dtf/index.html:340
-#: templates/dtf/index.html:351 templates/dtf/index.html:362
-#: templates/dtf/index.html:373 templates/dtf/price.html:63
+#: templates/dtf/gallery.html:76 templates/dtf/index.html:323
+#: templates/dtf/index.html:334 templates/dtf/index.html:345
+#: templates/dtf/index.html:356 templates/dtf/index.html:367
+#: templates/dtf/index.html:378 templates/dtf/price.html:63
 msgid "Приклад"
 msgstr "Пример"
 
@@ -520,7 +520,7 @@ msgstr "Пример"
 msgid "Паспорт кейса"
 msgstr "Паспорт кейса"
 
-#: templates/dtf/gallery.html:80 templates/dtf/index.html:301
+#: templates/dtf/gallery.html:80 templates/dtf/index.html:306
 msgid "Матеріал"
 msgstr "Материал"
 
@@ -528,7 +528,7 @@ msgstr "Материал"
 msgid "бавовна"
 msgstr "хлопок"
 
-#: templates/dtf/gallery.html:81 templates/dtf/index.html:240
+#: templates/dtf/gallery.html:81 templates/dtf/index.html:245
 #: templates/dtf/partials/order_calc.html:4
 #: templates/dtf/partials/order_calc.html:17 templates/dtf/price.html:37
 #: views.py:238
@@ -640,15 +640,15 @@ msgstr "Макро-текстура DTF (галерея)"
 msgid "Макро‑текстура"
 msgstr "Макро‑текстура"
 
-#: templates/dtf/gallery.html:273 templates/dtf/index.html:442
+#: templates/dtf/gallery.html:273 templates/dtf/index.html:447
 msgid "Наведення для збільшення"
 msgstr "Наведите для увеличения"
 
-#: templates/dtf/gallery.html:280 templates/dtf/index.html:452
+#: templates/dtf/gallery.html:280 templates/dtf/index.html:457
 msgid "Збільшення"
 msgstr "Увеличение"
 
-#: templates/dtf/gallery.html:284 templates/dtf/index.html:456
+#: templates/dtf/gallery.html:284 templates/dtf/index.html:461
 msgid "Макро‑превʼю (placeholder)"
 msgstr "Макро-превью"
 
@@ -676,8 +676,8 @@ msgstr "Давление: среднее"
 msgid "Час: 10–12 сек"
 msgstr "Час: 10–12 сек"
 
-#: templates/dtf/how_to_press.html:24 templates/dtf/index.html:99
-#: templates/dtf/index.html:104 templates/dtf/index.html:288
+#: templates/dtf/how_to_press.html:24 templates/dtf/index.html:104
+#: templates/dtf/index.html:109 templates/dtf/index.html:293
 msgid "Hot Peel"
 msgstr "Hot Peel"
 
@@ -702,225 +702,245 @@ msgid "Уникайте вологи"
 msgstr "Избегайте влаги"
 
 #: templates/dtf/index.html:6 templates/dtf/index.html:10
-#: templates/dtf/index.html:81 templates/dtf/index.html:85
-#: templates/dtf/index.html:98
+#: templates/dtf/index.html:86 templates/dtf/index.html:90
+#: templates/dtf/index.html:103
 msgid "грн/м"
 msgstr "грн/м"
 
-#: templates/dtf/index.html:77
+#: templates/dtf/index.html:16
+msgid "DTF друк рулоном 60 см"
+msgstr "DTF печать в рулоне 60 см"
+
+#: templates/dtf/index.html:17 templates/dtf/index.html:478
+msgid "Не відклеїться?"
+msgstr "Не отклеится?"
+
+#: templates/dtf/index.html:18 templates/dtf/index.html:479
+msgid "DTF витримує багато циклів прання за умови правильного переносу."
+msgstr "DTF выдерживает много циклов стирки при правильном переносе."
+
+#: templates/dtf/index.html:19 templates/dtf/index.html:482
+msgid "Є білий шар?"
+msgstr "Есть белый слой?"
+
+#: templates/dtf/index.html:20 templates/dtf/index.html:483
+msgid "Так, використовується білий підклад для насичених кольорів."
+msgstr "Да, используется белая подложка для насыщенных цветов."
+
+#: templates/dtf/index.html:82
 msgid "DTF друк в рулоні"
 msgstr "DTF печать в рулоне"
 
-#: templates/dtf/index.html:80 templates/dtf/index.html:84
+#: templates/dtf/index.html:85 templates/dtf/index.html:89
 msgid "60 см, Hot Peel, все включено"
 msgstr "60 см, Hot Peel, всё включено"
 
-#: templates/dtf/index.html:89
+#: templates/dtf/index.html:94
 msgid ""
 "Швидкий розрахунок, ручна перевірка макета, друк та доставка Новою Поштою."
 msgstr ""
 "Быстрый расчет, ручная проверка макета, печать и доставка Новой Почтой."
 
-#: templates/dtf/index.html:91
+#: templates/dtf/index.html:96
 msgid "Розрахувати / Замовити"
 msgstr "Рассчитать / Заказать"
 
-#: templates/dtf/index.html:92
+#: templates/dtf/index.html:97
 msgid "Потрібна допомога з макетом"
 msgstr "Нужна помощь с макетом"
 
-#: templates/dtf/index.html:105
+#: templates/dtf/index.html:110
 msgid "Гаряче зняття"
 msgstr "Горячее снятие"
 
-#: templates/dtf/index.html:126
+#: templates/dtf/index.html:131
 msgid "Фото друкуючої головки DTF (hero)"
 msgstr "Фото печатающей головки DTF (hero)"
 
-#: templates/dtf/index.html:137
+#: templates/dtf/index.html:142
 msgid "Ширина рулону"
 msgstr "Ширина рулона"
 
-#: templates/dtf/index.html:141
+#: templates/dtf/index.html:146
 msgid "Середній термін"
 msgstr "Средний срок"
 
-#: templates/dtf/index.html:144
+#: templates/dtf/index.html:149
 msgid "НП"
 msgstr "НП"
 
-#: templates/dtf/index.html:145
+#: templates/dtf/index.html:150
 msgid "Доставка по Україні"
 msgstr "Доставка по Украине"
 
-#: templates/dtf/index.html:150
+#: templates/dtf/index.html:155
 msgid "PDF/PNG рекомендовано"
 msgstr "PDF/PNG рекомендовано"
 
-#: templates/dtf/index.html:161
+#: templates/dtf/index.html:166
 msgid "МЕТРИ"
 msgstr "МЕТРЫ"
 
-#: templates/dtf/index.html:171
+#: templates/dtf/index.html:176
 msgid "≈ ЦІНА"
 msgstr "≈ ЦЕНА"
 
-#: templates/dtf/index.html:178
+#: templates/dtf/index.html:183
 msgid "Далі"
 msgstr "Далее"
 
-#: templates/dtf/index.html:179
+#: templates/dtf/index.html:184
 msgid "Замовити без розрахунку"
 msgstr "Заказать без расчета"
 
-#: templates/dtf/index.html:188
+#: templates/dtf/index.html:193
 msgid "Як це працює"
 msgstr "Как это работает"
 
-#: templates/dtf/index.html:197
+#: templates/dtf/index.html:202
 msgid "Завантаження"
 msgstr "Загрузка"
 
-#: templates/dtf/index.html:198
+#: templates/dtf/index.html:203
 msgid "Надішліть ганг-лист або файли для допомоги."
 msgstr "Отправьте ганг-лист или файлы для помощи."
 
-#: templates/dtf/index.html:207
+#: templates/dtf/index.html:212
 msgid "Менеджер перевіряє, підтверджує метраж та узгоджує правки."
 msgstr "Менеджер проверяет, подтверждает метраж и согласовывает правки."
 
-#: templates/dtf/index.html:216
+#: templates/dtf/index.html:221
 msgid "Після перевірки надсилаємо реквізити у вибраний канал."
 msgstr "После проверки отправляем реквизиты в выбранный канал."
 
-#: templates/dtf/index.html:224
+#: templates/dtf/index.html:229
 msgid "Друк + НП"
 msgstr "Печать + НП"
 
-#: templates/dtf/index.html:225
+#: templates/dtf/index.html:230
 msgid "Друкуємо, пакуємо і відправляємо Новою Поштою."
 msgstr "Печатаем, упаковываем и отправляем Новой Почтой."
 
-#: templates/dtf/index.html:235
+#: templates/dtf/index.html:240
 msgid "Ціни та знижки"
 msgstr "Цены и скидки"
 
-#: templates/dtf/index.html:236
+#: templates/dtf/index.html:241
 msgid "Базова ціна та знижки від метражу. Точну суму підтвердить менеджер."
 msgstr "Базовая цена и скидки от метража. Итоговую сумму подтвердит менеджер."
 
-#: templates/dtf/index.html:241 templates/dtf/price.html:38
+#: templates/dtf/index.html:246 templates/dtf/price.html:38
 msgid "Ціна, грн/м"
 msgstr "Цена, грн/м"
 
-#: templates/dtf/index.html:242 templates/dtf/order.html:125
+#: templates/dtf/index.html:247 templates/dtf/order.html:125
 #: templates/dtf/preflight.html:77 templates/dtf/price.html:39
 msgid "Коментар"
 msgstr "Комментарий"
 
-#: templates/dtf/index.html:245 templates/dtf/index.html:302
+#: templates/dtf/index.html:250 templates/dtf/index.html:307
 #: templates/dtf/price.html:42
 msgid "1–9 м"
 msgstr "1–9 м"
 
-#: templates/dtf/index.html:247 templates/dtf/price.html:45
+#: templates/dtf/index.html:252 templates/dtf/price.html:45
 msgid "Базова"
 msgstr "Базовая"
 
-#: templates/dtf/index.html:251 templates/dtf/price.html:52
+#: templates/dtf/index.html:256 templates/dtf/price.html:52
 #, python-format
 msgid "Від %(min)s м"
 msgstr "От %(min)s м"
 
-#: templates/dtf/index.html:253 templates/dtf/price.html:55
+#: templates/dtf/index.html:258 templates/dtf/price.html:55
 msgid "Знижка"
 msgstr "Скидка"
 
-#: templates/dtf/index.html:263
+#: templates/dtf/index.html:268
 msgid "Наші роботи"
 msgstr "Наши работы"
 
-#: templates/dtf/index.html:264
+#: templates/dtf/index.html:269
 msgid "Кілька реальних прикладів з макро та готовим результатом."
 msgstr "Несколько реальных примеров с макро и готовым результатом."
 
-#: templates/dtf/index.html:311
+#: templates/dtf/index.html:316
 msgid "Приклад DTF 01"
 msgstr "Пример DTF 01"
 
-#: templates/dtf/index.html:322
+#: templates/dtf/index.html:327
 msgid "Приклад DTF 02"
 msgstr "Пример DTF 02"
 
-#: templates/dtf/index.html:333
+#: templates/dtf/index.html:338
 msgid "Приклад DTF 03"
 msgstr "Пример DTF 03"
 
-#: templates/dtf/index.html:344
+#: templates/dtf/index.html:349
 msgid "Приклад DTF 04"
 msgstr "Пример DTF 04"
 
-#: templates/dtf/index.html:355
+#: templates/dtf/index.html:360
 msgid "Приклад DTF 05"
 msgstr "Пример DTF 05"
 
-#: templates/dtf/index.html:366
+#: templates/dtf/index.html:371
 msgid "Приклад DTF 06"
 msgstr "Пример DTF 06"
 
-#: templates/dtf/index.html:384
+#: templates/dtf/index.html:389
 msgid "До друку — кейс 1"
 msgstr "До печати — кейс 1"
 
-#: templates/dtf/index.html:391
+#: templates/dtf/index.html:396
 msgid "Після друку — кейс 1"
 msgstr "После печати — кейс 1"
 
-#: templates/dtf/index.html:398
+#: templates/dtf/index.html:403
 msgid "Порівняння якості"
 msgstr "Сравнение качества"
 
-#: templates/dtf/index.html:400
+#: templates/dtf/index.html:405
 msgid "Стійкість фарби"
 msgstr "Стойкость краски"
 
-#: templates/dtf/index.html:401
+#: templates/dtf/index.html:406
 msgid "Макро + контроль підкладки"
 msgstr "Макро + контроль подложки"
 
-#: templates/dtf/index.html:410
+#: templates/dtf/index.html:415
 msgid "До друку — кейс 2"
 msgstr "До печати — кейс 2"
 
-#: templates/dtf/index.html:417
+#: templates/dtf/index.html:422
 msgid "Після друку — кейс 2"
 msgstr "После печати — кейс 2"
 
-#: templates/dtf/index.html:424
+#: templates/dtf/index.html:429
 msgid "Порівняння деталей"
 msgstr "Сравнение деталей"
 
-#: templates/dtf/index.html:426 templates/dtf/quality.html:77
+#: templates/dtf/index.html:431 templates/dtf/quality.html:77
 msgid "Реєстрація шарів"
 msgstr "Совмещение слоев"
 
-#: templates/dtf/index.html:427
+#: templates/dtf/index.html:432
 msgid "До / після очищення"
 msgstr "До / после очистки"
 
-#: templates/dtf/index.html:434
+#: templates/dtf/index.html:439
 msgid "Макро-текстура DTF"
 msgstr "Макро-текстура DTF"
 
-#: templates/dtf/index.html:441
+#: templates/dtf/index.html:446
 msgid "Текстура і край"
 msgstr "Текстура и край"
 
-#: templates/dtf/index.html:447
+#: templates/dtf/index.html:452
 msgid "Дивитись всі роботи"
 msgstr "Смотреть все работы"
 
-#: templates/dtf/index.html:467
+#: templates/dtf/index.html:472
 msgid ""
 "PDF/PNG, ширина 60 см, прозорість для фону. Додаткові вимоги та шаблони — на "
 "окремій сторінці."
@@ -928,47 +948,31 @@ msgstr ""
 "PDF/PNG, ширина 60 см, прозрачность для фона. Дополнительные требования и "
 "шаблоны — на отдельной странице."
 
-#: templates/dtf/index.html:468
+#: templates/dtf/index.html:473
 msgid "Перейти до вимог"
 msgstr "Перейти к требованиям"
 
-#: templates/dtf/index.html:471
+#: templates/dtf/index.html:476
 msgid "FAQ"
 msgstr "FAQ"
 
-#: templates/dtf/index.html:473
-msgid "Не відклеїться?"
-msgstr "Не отклеится?"
-
-#: templates/dtf/index.html:474
-msgid "DTF витримує багато циклів прання за умови правильного переносу."
-msgstr "DTF выдерживает много циклов стирки при правильном переносе."
-
-#: templates/dtf/index.html:477
-msgid "Є білий шар?"
-msgstr "Есть белый слой?"
-
-#: templates/dtf/index.html:478
-msgid "Так, використовується білий підклад для насичених кольорів."
-msgstr "Да, используется белая подложка для насыщенных цветов."
-
-#: templates/dtf/index.html:481
+#: templates/dtf/index.html:486
 msgid "Як переносити?"
 msgstr "Как переносить?"
 
-#: templates/dtf/index.html:482
+#: templates/dtf/index.html:487
 msgid "Надаємо інструкцію під ваш прес та матеріал."
 msgstr "Даём инструкцию под ваш пресс и материал."
 
-#: templates/dtf/index.html:485
+#: templates/dtf/index.html:490
 msgid "Якщо макет слабкий?"
 msgstr "Если макет слабый?"
 
-#: templates/dtf/index.html:486
+#: templates/dtf/index.html:491
 msgid "Менеджер підкаже, як виправити, або запропонує допомогу."
 msgstr "Менеджер подскажет, как исправить, или предложит помощь."
 
-#: templates/dtf/index.html:495
+#: templates/dtf/index.html:500
 msgid ""
 "Нова Пошта по Україні. Оплата після перевірки макета. Реквізити надсилаємо у "
 "зручний канал."
@@ -976,7 +980,7 @@ msgstr ""
 "Новая Почта по Украине. Оплата после проверки макета. Реквизиты отправляем в "
 "удобный канал."
 
-#: templates/dtf/index.html:498
+#: templates/dtf/index.html:503
 msgid "Детальніше"
 msgstr "Подробнее"
 
@@ -1195,6 +1199,10 @@ msgstr "Прозрачность"
 #: templates/dtf/order.html:98
 msgid "Ширина"
 msgstr "Ширина"
+
+#: templates/dtf/order.html:99
+msgid "60 см — OK"
+msgstr "60 см"
 
 #: templates/dtf/order.html:104
 msgid "Я розумію можливі ризики та погоджуюсь"
