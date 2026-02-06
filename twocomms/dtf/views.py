@@ -6,7 +6,7 @@ from django.contrib.auth import logout
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import render, redirect, get_object_or_404
-from django.urls import reverse
+from django.urls import reverse, NoReverseMatch
 from django.views.decorators.http import require_http_methods, require_POST
 from django.utils.translation import gettext_lazy as _
 
@@ -124,9 +124,19 @@ def _base_context(request):
     scheme, current_host, main_host, management_host = _resolve_platform_hosts(request)
     current_url = request.build_absolute_uri()
     next_param = quote(current_url, safe="")
+    next_path_param = quote(request.get_full_path() or "/", safe="")
+    try:
+        google_login_path = reverse("social:begin", args=("google-oauth2",))
+    except NoReverseMatch:
+        google_login_path = "/oauth/login/google-oauth2/"
     profile_links = {
         "login": f"{scheme}://{main_host}/login/?next={next_param}",
         "register": f"{scheme}://{main_host}/register/?next={next_param}",
+        "google_login": (
+            f"{scheme}://{current_host}"
+            f"{google_login_path}"
+            f"?next={next_path_param}"
+        ),
         "profile": f"{scheme}://{main_host}/profile/setup/",
         "orders": f"{scheme}://{main_host}/my/orders/",
         "store_admin": f"{scheme}://{main_host}/admin-panel/",
