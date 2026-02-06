@@ -49,6 +49,16 @@
   ]
 }
 </script>
+<link
+  rel="preload"
+  as="image"
+  href="{% static 'dtf/assets/hero-printhead-1024.avif' %}"
+  type="image/avif"
+  imagesrcset="
+    {% static 'dtf/assets/hero-printhead-512.avif' %} 512w,
+    {% static 'dtf/assets/hero-printhead-768.avif' %} 768w,
+    {% static 'dtf/assets/hero-printhead-1024.avif' %} 1024w"
+  imagesizes="(max-width: 960px) 100vw, 45vw">
 {% endblock %}
 
 {% block content %}
@@ -84,10 +94,29 @@
         </div>
       </div>
       <div class="hero-media asset-slot" style="aspect-ratio: 16 / 9">
-        <img src="{% static 'dtf/assets/hero-printhead.png' %}"
-             alt="{% trans 'Фото друкуючої головки DTF (hero)' %}"
-             loading="eager"
-             decoding="async">
+        <picture>
+          <source
+            type="image/avif"
+            srcset="
+              {% static 'dtf/assets/hero-printhead-512.avif' %} 512w,
+              {% static 'dtf/assets/hero-printhead-768.avif' %} 768w,
+              {% static 'dtf/assets/hero-printhead-1024.avif' %} 1024w"
+            sizes="(max-width: 960px) 100vw, 45vw">
+          <source
+            type="image/webp"
+            srcset="
+              {% static 'dtf/assets/hero-printhead-512.webp' %} 512w,
+              {% static 'dtf/assets/hero-printhead-768.webp' %} 768w,
+              {% static 'dtf/assets/hero-printhead-1024.webp' %} 1024w"
+            sizes="(max-width: 960px) 100vw, 45vw">
+          <img src="{% static 'dtf/assets/hero-printhead.png' %}"
+               alt="{% trans 'Фото друкуючої головки DTF (hero)' %}"
+               loading="eager"
+               decoding="async"
+               fetchpriority="high"
+               width="1024"
+               height="1024">
+        </picture>
       </div>
       <div class="hero-card-body">
         <div class="hero-stat">

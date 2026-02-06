@@ -67,6 +67,10 @@ img {
   display: block;
 }
 
+.text-accent-onlight {
+  color: var(--c-molten-onlight);
+}
+
 .dtf-shell {
   min-height: 100vh;
   min-height: 100svh;
@@ -2850,6 +2854,12 @@ body[data-page="order"] .mobile-dock {
   border-radius: var(--r-2);
   overflow: hidden;
   position: relative;
+}
+
+.asset-slot picture {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .asset-slot img {

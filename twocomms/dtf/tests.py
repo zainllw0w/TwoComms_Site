@@ -193,6 +193,17 @@ class DtfSubdomainIsolationTests(TestCase):
         self.assertIn("/static/dtf/css/dtf.css", html)
         self.assertIn('class="logo-mark">DTF', html)
 
+    def test_dtf_home_hero_uses_responsive_sources(self):
+        response = self.dtf_client.get("/", secure=True)
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8", "ignore")
+        self.assertIn("hero-printhead-512.avif", html)
+        self.assertIn("hero-printhead-768.avif", html)
+        self.assertIn("hero-printhead-1024.webp", html)
+        self.assertIn('fetchpriority="high"', html)
+        self.assertIn('width="1024"', html)
+        self.assertIn('height="1024"', html)
+
     def test_robots_are_isolated_by_host(self):
         dtf_robots = self.dtf_client.get("/robots.txt", secure=True).content.decode("utf-8", "ignore")
         main_robots = self.main_client.get("/robots.txt", secure=True).content.decode("utf-8", "ignore")
