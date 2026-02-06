@@ -3306,12 +3306,22 @@ body[data-page="order"] .mobile-dock {
     right: 0;
     top: 0;
     width: 100%;
-    height: min(76vh, 560px);
+    height: 100dvh;
+    min-height: 100svh;
     border-left: 0;
     border-top: 0;
-    border-radius: 0 0 22px 22px;
+    border-radius: 0;
     transform: translateY(-110%);
-    padding: calc(18px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+    padding: calc(18px + env(safe-area-inset-top)) 16px calc(22px + env(safe-area-inset-bottom));
+    background: linear-gradient(180deg, rgba(16, 16, 16, 0.995), rgba(8, 8, 8, 0.99));
+  }
+  .nav-panel-links {
+    gap: 12px;
+    align-content: start;
+    margin-top: 6px;
+  }
+  .nav-panel-links a {
+    min-height: 50px;
   }
   .nav-drawer.is-open .nav-panel {
     transform: translateY(0);
