@@ -5,7 +5,9 @@
 - Local commits pushed:
   - `74f84f8` (`fix(dtf): complete p1 hero optimization and contrast token`)
   - `2c05731` (`fix(dtf): enable touch lens modal on home page`)
-- Server HEAD after deploy: `2c05731`
+  - `864ec13` (`fix(dtf): restore mobile order autolayout and remove overlay conflicts`)
+  - `64d947f` (`fix(dtf): bust template asset cache for mobile layout updates`)
+- Server HEAD after deploy: `64d947f`
 
 ## Local validation
 - `SECRET_KEY=test-secret-key-123 python3 twocomms/manage.py check` -> `System check identified no issues (0 silenced).`
@@ -19,9 +21,11 @@
 - DTF landing renders DTF template markers/assets
 - DTF hero uses responsive AVIF/WebP sources with preload/fetchpriority
 - DTF home touch-lens fallback modal exists and opens on tap
+- DTF `/order/` mobile layout no longer uses fixed overlay summary and hides FAB on order page
+- DTF base template adds asset version query params to avoid stale client-side cache
 
 ## Production deploy output summary
-- `git pull` updated `be59420..74f84f8`, then `74f84f8..2c05731`
+- `git pull` updated `be59420..74f84f8`, `74f84f8..2c05731`, `a77c67c..864ec13`, `864ec13..64d947f`
 - `python manage.py check` -> no issues
 - `python manage.py migrate --noinput` -> no migrations to apply
 - `python manage.py collectstatic --noinput` -> completed
@@ -46,6 +50,7 @@
 - `main_home_has_logo_mark=no`
 - `dtf_home_has_lens_modal=yes`
 - `dtf_home_has_hero_avif_sources=yes`
+- `dtf_order_uses_versioned_css_js=yes`
 
 ### Robots assertions
 - DTF: `Sitemap: https://dtf.twocomms.shop/sitemap.xml`
