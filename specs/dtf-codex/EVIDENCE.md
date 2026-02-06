@@ -143,7 +143,8 @@ python3 -m pip_audit -r /Users/zainllw0w/PycharmProjects/TwoComms/twocomms/requi
 
 ## Deployment Status
 - Deployed to server branch: `codex/dtf-p2-polish-only-2026-02`
-- Deployed commit: `0d4c9a4`
+- Initial runtime deploy commit: `0d4c9a4`
+- Current server branch head after fast-forward docs sync: `90fb287`
 - Server actions executed:
   - `git fetch --all --prune`
   - `git checkout codex/dtf-p2-polish-only-2026-02`
