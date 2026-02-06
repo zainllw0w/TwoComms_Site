@@ -1,0 +1,116 @@
+{% extends 'dtf/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Вимоги до файлів" %}{% endblock %}
+
+{% block extra_head %}
+  {% trans "Який формат файлів приймаєте?" as faq_q1 %}
+  {% trans "PDF або PNG, ширина рулону 60 см, прозорий фон." as faq_a1 %}
+  {% trans "Яка рекомендована якість?" as faq_q2 %}
+  {% trans "Рекомендовано 300 DPI, без зайвих відступів." as faq_a2 %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "{{ faq_q1|escapejs }}",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "{{ faq_a1|escapejs }}"
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "{{ faq_q2|escapejs }}",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "{{ faq_a2|escapejs }}"
+        }
+      }
+    ]
+  }
+  </script>
+  {% trans "Вимоги" as crumb_label %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "DTF",
+        "item": "https://dtf.twocomms.shop/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "{{ crumb_label|escapejs }}",
+        "item": "https://dtf.twocomms.shop{{ request.path }}"
+      }
+    ]
+  }
+  </script>
+{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="dtf-container requirements">
+    <h1>{% trans "Вимоги до файлів" %}</h1>
+    <div class="req-grid">
+      <div class="req-card">
+        <h3>{% trans "Формат" %}</h3>
+        <ul>
+          <li>{% trans "PDF або PNG" %}</li>
+          <li>{% trans "Ширина 60 см" %}</li>
+          <li>{% trans "Прозорий фон" %}</li>
+        </ul>
+      </div>
+      <div class="req-card">
+        <h3>{% trans "Якість" %}</h3>
+        <ul>
+          <li>{% trans "Рекомендовано 300 DPI" %}</li>
+          <li>{% trans "Без зайвих відступів" %}</li>
+          <li>{% trans "Кольори у CMYK/RGB" %}</li>
+        </ul>
+      </div>
+      <div class="req-card">
+        <h3>{% trans "Типові помилки" %}</h3>
+        <ul>
+          <li>{% trans "Дуже тонкі лінії" %}</li>
+          <li>{% trans "Низька роздільна здатність" %}</li>
+          <li>{% trans "Відсутній білий підклад" %}</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="req-visual">
+      <!-- ASSET_REQUEST | id=requirements-ok-risk | type=photo | usage=Requirements OK vs RISK | spec=2x, ~1400px wide | notes=side-by-side example -->
+      <div class="asset-slot" style="aspect-ratio: 16 / 9">
+        <img src="{% static 'dtf/assets/requirements-ok-risk.jpg' %}"
+             alt="{% trans 'Приклад OK vs RISK' %}"
+             loading="lazy"
+             decoding="async"
+             class="skeleton">
+      </div>
+    </div>
+
+    <div class="template-links">
+      <h3>{% trans "Шаблони 60 см" %}</h3>
+      <div class="cta-group">
+        <!-- ASSET_REQUEST | id=template-60cm-file | type=mockup | usage=Requirements download button | spec=PDF/AI/FIGMA file set | notes=final 60cm template files -->
+        <a class="btn btn-primary" href="{% static 'dtf/assets/template-60cm.pdf' %}" download>{% trans "Скачати шаблон 60 см" %}</a>
+        <a class="btn btn-outline" href="{% url 'dtf:templates' %}">{% trans "Перейти до шаблонів" %}</a>
+      </div>
+    </div>
+
+    <div class="cta-block">
+      <h3>{% trans "Не вмієте підготувати?" %}</h3>
+      <p>{% trans "Надішліть файли — менеджер допоможе з розкладкою." %}</p>
+      <a class="btn btn-primary" href="{% url 'dtf:order' %}?tab=help">{% trans "Потрібна допомога" %}</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

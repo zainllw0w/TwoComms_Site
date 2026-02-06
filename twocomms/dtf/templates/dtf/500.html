@@ -1,0 +1,20 @@
+{% extends 'dtf/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Внутрішня помилка" %}{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="dtf-container">
+    <div class="info-card">
+      <div class="overline">{% trans "Помилка 500" %}</div>
+      <h1>{% trans "Щось пішло не так" %}</h1>
+      <p>{% trans "Ми вже працюємо над цим. Спробуйте оновити сторінку або поверніться пізніше." %}</p>
+      <div class="cta-group">
+        <a class="btn btn-primary" href="{% url 'dtf:landing' %}">{% trans "На головну" %}</a>
+        <a class="btn btn-ghost" href="{% url 'dtf:contacts' %}">{% trans "Зв'язатися" %}</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,8 @@
+{% load i18n %}
+{% if pricing_result %}
+  <div class="estimate-value tabular-nums" id="calc-price" aria-live="polite">{{ pricing_result.price_total }} грн</div>
+  <div class="estimate-sub tabular-nums" id="calc-meters">{{ pricing_result.meters_total }} м</div>
+{% else %}
+  <div class="estimate-value tabular-nums" id="calc-price" aria-live="polite">—</div>
+  <div class="estimate-sub tabular-nums" id="calc-meters">—</div>
+{% endif %}
