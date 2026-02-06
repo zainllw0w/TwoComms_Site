@@ -1,11 +1,12 @@
 from decimal import Decimal
+from datetime import date
 import xml.etree.ElementTree as ET
 
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from .forms import DtfHelpForm, DtfOrderForm
-from .models import DtfOrder
+from .models import DtfOrder, KnowledgePost
 from .utils import calculate_pricing, get_pricing_config
 
 
@@ -244,6 +245,50 @@ class DtfSubdomainIsolationTests(TestCase):
         self.assertIn("https://dtf.twocomms.shop/", dtf_sitemap)
         self.assertNotIn("https://twocomms.shop/", dtf_sitemap)
         self.assertIn("https://twocomms.shop/", main_sitemap)
+
+
+class DtfKnowledgeBaseTests(TestCase):
+    def setUp(self):
+        self.client = Client(HTTP_HOST="dtf.twocomms.shop")
+        self.post = KnowledgePost.objects.create(
+            title="DTF Test Knowledge Post",
+            slug="dtf-test-knowledge-post",
+            excerpt="Short excerpt for SEO checks.",
+            content_md="## Heading\n\nBody content with **markdown**.",
+            pub_date=date.today(),
+            is_published=True,
+        )
+
+    def test_blog_index_lists_post(self):
+        response = self.client.get("/blog/", secure=True)
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8", "ignore")
+        self.assertIn("Knowledge Base", html)
+        self.assertIn(self.post.title, html)
+
+    def test_blog_post_renders_article_and_schema(self):
+        response = self.client.get(f"/blog/{self.post.slug}/", secure=True)
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8", "ignore")
+        self.assertIn(self.post.title, html)
+        self.assertIn('"@type": "Article"', html)
+        self.assertIn('data-reading-progress-bar', html)
+
+    def test_blog_overlay_mode_returns_partial(self):
+        response = self.client.get(f"/blog/{self.post.slug}/?overlay=1", secure=True)
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8", "ignore")
+        self.assertIn("knowledge-overlay-article", html)
+        self.assertNotIn("<html", html.lower())
+
+    def test_sitemap_contains_blog_routes(self):
+        response = self.client.get("/sitemap.xml", secure=True)
+        self.assertEqual(response.status_code, 200)
+        xml_root = ET.fromstring(response.content)
+        ns = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
+        locs = [node.text for node in xml_root.findall("sm:url/sm:loc", ns) if node.text]
+        self.assertIn("https://dtf.twocomms.shop/blog/", locs)
+        self.assertIn(f"https://dtf.twocomms.shop/blog/{self.post.slug}/", locs)
 
 
 class DtfAuthSurfaceTests(TestCase):

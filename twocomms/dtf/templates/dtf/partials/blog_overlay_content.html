@@ -1,0 +1,17 @@
+{% load i18n %}
+<article class="knowledge-overlay-article">
+  <p class="knowledge-overlay-meta">
+    <span>{{ post.pub_date|date:"d M Y" }}</span>
+    <span>•</span>
+    <span>{% trans "База знань" %}</span>
+  </p>
+  <h3>{{ post.title }}</h3>
+  <p class="knowledge-overlay-excerpt">{{ post.excerpt }}</p>
+  <div class="knowledge-overlay-body">
+    {{ post.content_html|safe }}
+  </div>
+  <div class="knowledge-overlay-actions">
+    <button type="button" class="btn btn-outline" data-knowledge-close>{% trans "Закрити" %}</button>
+    <a class="btn btn-ghost" href="{% url 'dtf:blog_post' slug=post.slug %}" data-stateful-link>{% trans "Читати окремо" %}</a>
+  </div>
+</article>
