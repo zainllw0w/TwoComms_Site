@@ -829,15 +829,6 @@ body[data-page="home"] section.section > .dtf-container {
   color: var(--c-molten);
 }
 
-.accent-on-light {
-  color: var(--c-molten-onlight);
-}
-
-.on-light .scan-accent,
-.on-light .accent {
-  color: var(--c-molten-onlight);
-}
-
 .scan-line {
   position: absolute;
   top: 0;
@@ -2926,27 +2917,7 @@ body[data-page="order"] .mobile-dock {
     right: 12px;
     bottom: calc(12px + env(safe-area-inset-bottom));
     top: auto;
-    max-height: min(46vh, 340px);
-    overflow: auto;
     z-index: var(--z-sticky);
-  }
-
-  .order-summary .btn {
-    position: sticky;
-    bottom: 0;
-    margin-top: 4px;
-    backdrop-filter: blur(6px);
-  }
-
-  .order-summary .btn::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: -10px;
-    height: 10px;
-    background: linear-gradient(180deg, rgba(11, 11, 11, 0), rgba(11, 11, 11, 0.88));
-    pointer-events: none;
   }
 }
 
@@ -2977,15 +2948,6 @@ body[data-page="order"] .mobile-dock {
   .mobile-dock {
     width: calc(100% - 20px);
   }
-
-  .order-right {
-    padding-bottom: calc(250px + env(safe-area-inset-bottom));
-  }
-
-  .order-summary {
-    max-height: min(42vh, 320px);
-  }
-
   .price-row {
     grid-template-columns: 1fr 1fr;
     gap: 6px 12px;
