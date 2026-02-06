@@ -1066,6 +1066,7 @@
       if (media) {
         let dragging = false;
         let activePointerId = null;
+        const pointerSupported = 'PointerEvent' in window;
 
         const stopDrag = () => {
           if (!dragging) return;
@@ -1075,25 +1076,65 @@
           trackEvent('compare_interaction', { value: range.value, mode: 'drag' });
         };
 
-        media.addEventListener('pointerdown', (event) => {
-          dragging = true;
-          activePointerId = event.pointerId;
-          media.classList.add('is-dragging');
-          if (media.setPointerCapture) {
-            media.setPointerCapture(event.pointerId);
-          }
-          apply(valueFromClientX(event.clientX));
-        });
+        if (pointerSupported) {
+          media.addEventListener('pointerdown', (event) => {
+            dragging = true;
+            activePointerId = event.pointerId;
+            media.classList.add('is-dragging');
+            if (media.setPointerCapture) {
+              media.setPointerCapture(event.pointerId);
+            }
+            apply(valueFromClientX(event.clientX));
+          });
 
-        media.addEventListener('pointermove', (event) => {
-          if (!dragging) return;
-          if (activePointerId !== null && event.pointerId !== activePointerId) return;
-          apply(valueFromClientX(event.clientX));
-        });
+          media.addEventListener('pointermove', (event) => {
+            if (!dragging) return;
+            if (activePointerId !== null && event.pointerId !== activePointerId) return;
+            apply(valueFromClientX(event.clientX));
+          });
 
-        media.addEventListener('pointerup', stopDrag);
-        media.addEventListener('pointercancel', stopDrag);
-        media.addEventListener('lostpointercapture', stopDrag);
+          media.addEventListener('pointerup', stopDrag);
+          media.addEventListener('pointercancel', stopDrag);
+          media.addEventListener('lostpointercapture', stopDrag);
+        } else {
+          const onMouseMove = (event) => {
+            if (!dragging) return;
+            apply(valueFromClientX(event.clientX));
+          };
+          const onMouseUp = () => {
+            stopDrag();
+            window.removeEventListener('mousemove', onMouseMove);
+          };
+          media.addEventListener('mousedown', (event) => {
+            dragging = true;
+            media.classList.add('is-dragging');
+            apply(valueFromClientX(event.clientX));
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseup', onMouseUp, { once: true });
+          });
+
+          const onTouchMove = (event) => {
+            if (!dragging) return;
+            const touch = event.touches && event.touches[0];
+            if (!touch) return;
+            apply(valueFromClientX(touch.clientX));
+            event.preventDefault();
+          };
+          const onTouchEnd = () => {
+            stopDrag();
+            window.removeEventListener('touchmove', onTouchMove);
+          };
+          media.addEventListener('touchstart', (event) => {
+            const touch = event.touches && event.touches[0];
+            if (!touch) return;
+            dragging = true;
+            media.classList.add('is-dragging');
+            apply(valueFromClientX(touch.clientX));
+            window.addEventListener('touchmove', onTouchMove, { passive: false });
+            window.addEventListener('touchend', onTouchEnd, { once: true });
+            window.addEventListener('touchcancel', onTouchEnd, { once: true });
+          }, { passive: true });
+        }
       }
 
       apply(parseFloat(range.value || '50'));
