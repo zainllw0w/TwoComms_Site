@@ -26,9 +26,9 @@
 - [x] `curl -i https://dtf.twocomms.shop/sitemap.xml` => 200 + DTF host `<loc>` values
 
 ## Post-deploy checklist (must pass)
-- [ ] `https://dtf.twocomms.shop/` renders new assets (`dtf.css?v=20260206e`, `dtf.js?v=20260206e`)
-- [ ] Mobile drawer opens/closes cleanly and does not leave background interactive
-- [ ] Manager modal is visually solid (not over-transparent) and FAB does not overlap when modal is open
-- [ ] Before/after slider supports direct drag and range movement
-- [ ] EN language switch visible and functional
-- [ ] `https://dtf.twocomms.shop/sitemap.xml` includes legal URLs
+- [x] `https://dtf.twocomms.shop/` renders new assets (`dtf.css?v=20260206j`, `dtf.js?v=20260206j`)
+- [x] Mobile drawer opens/closes cleanly and does not leave background interactive
+- [x] Manager modal is visually solid (not over-transparent) and FAB does not overlap when modal is open
+- [x] Before/after slider supports direct drag and range movement
+- [x] EN language switch visible and functional
+- [x] `https://dtf.twocomms.shop/sitemap.xml` includes legal URLs
