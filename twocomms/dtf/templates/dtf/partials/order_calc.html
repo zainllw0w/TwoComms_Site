@@ -2,11 +2,11 @@
 {% if pricing_result %}
   <div class="summary-row">
     <span>{% trans "Метраж" %}</span>
-    <span class="tabular-nums" id="calc-meters">{{ pricing_result.meters_total }} м</span>
+    <span class="tabular-nums" id="calc-meters">{{ pricing_result.meters_total }} {% trans "м" %}</span>
   </div>
   <div class="summary-row">
     <span>{% trans "≈ Ціна" %}</span>
-    <span class="tabular-nums" id="calc-price" aria-live="polite">{{ pricing_result.price_total }} грн</span>
+    <span class="tabular-nums" id="calc-price" aria-live="polite">{{ pricing_result.price_total }} {% trans "грн" %}</span>
   </div>
   <div class="summary-note">{% trans "Фінальну суму підтвердить менеджер" %}</div>
   <div class="calc-warning" id="calc-warning"{% if not pricing_result.requires_review %} hidden{% endif %}>
