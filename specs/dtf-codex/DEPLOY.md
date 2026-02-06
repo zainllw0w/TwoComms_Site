@@ -4,7 +4,7 @@
 - DTF-only rollout for `dtf.twocomms.shop` without changing `twocomms.shop` behavior.
 
 ## Deployed commit
-- `2c05731` on branch `codex/dtf-p0p1-fixes-2026-02`
+- `64d947f` on branch `codex/dtf-p0p1-fixes-2026-02`
 
 ## Commands executed on server
 ```bash
@@ -25,11 +25,13 @@ mkdir -p tmp && touch tmp/restart.txt
 ## Post-deploy verification
 ### DTF host
 - `/` -> 200
+- `/order/` -> 200
 - `/quality/` -> 200
 - `/price/` -> 200
 - `/prices/` -> 301 to `/price/`
 - `/robots.txt` -> 200, sitemap points to `https://dtf.twocomms.shop/sitemap.xml`
 - `/sitemap.xml` -> 200, DTF-only `<loc>` URLs
+- `/order/` includes versioned DTF assets (`dtf.css?v=20260206b`, `dtf.js?v=20260206b`)
 
 ### Main host
 - `/` -> 200
