@@ -352,6 +352,17 @@ body[data-page="order"] .film-layer {
   pointer-events: none;
 }
 
+.nav-drawer,
+.nav-panel,
+.nav-panel-head,
+.nav-panel-links,
+.nav-panel-links a,
+.nav-close,
+.nav-title {
+  position: relative;
+  isolation: isolate;
+}
+
 .nav-drawer.is-open {
   opacity: 1;
   visibility: visible;
@@ -3319,6 +3330,7 @@ body[data-page="order"] .mobile-dock {
     transform: translateY(-110%);
     padding: calc(18px + env(safe-area-inset-top)) 16px calc(22px + env(safe-area-inset-bottom));
     background: #0a0a0a;
+    z-index: 2;
   }
   .nav-panel-links {
     gap: 12px;
@@ -3330,6 +3342,9 @@ body[data-page="order"] .mobile-dock {
   }
   .nav-drawer.is-open .nav-panel {
     transform: translateY(0);
+  }
+  .nav-drawer {
+    z-index: 9999;
   }
   .nav-panel::before {
     border-left: 0;
