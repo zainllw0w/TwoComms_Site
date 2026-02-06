@@ -18,6 +18,9 @@
     spotlight: false,
     inkDroplets: false,
     heroTilt: false,
+    heroBeams: false,
+    flipWords: false,
+    statefulLinks: false,
     speculation: false,
   };
   let lensModalInstance = null;
@@ -45,6 +48,9 @@
       reorder_prefill_added: 'Додали референс до коментаря',
       auth_success_reload: 'Готово. Оновлюємо сторінку...',
       auth_error_default: 'Не вдалося увійти. Спробуйте ще раз.',
+      stateful_opening: 'Відкриваємо...',
+      stateful_sending: 'Надсилаємо...',
+      stateful_done: 'Готово',
     },
     ru: {
       unsupported_ready_file: 'Формат файла не поддерживается для готового ганг-листа. Переключили на вкладку помощи.',
@@ -62,6 +68,9 @@
       reorder_prefill_added: 'Добавили референс в комментарий',
       auth_success_reload: 'Готово. Обновляем страницу...',
       auth_error_default: 'Не удалось войти. Попробуйте снова.',
+      stateful_opening: 'Открываем...',
+      stateful_sending: 'Отправляем...',
+      stateful_done: 'Готово',
     },
     en: {
       unsupported_ready_file: 'This file format is not supported for a ready gang sheet. Switched to the help tab.',
@@ -79,12 +88,43 @@
       reorder_prefill_added: 'Added reorder reference to comment',
       auth_success_reload: 'Done. Reloading...',
       auth_error_default: 'Could not complete sign in. Try again.',
+      stateful_opening: 'Opening...',
+      stateful_sending: 'Sending...',
+      stateful_done: 'Done',
     },
   };
 
   function t(key, fallback = '') {
     const pack = MESSAGES[locale] || MESSAGES.uk;
     return pack[key] || MESSAGES.uk[key] || fallback || key;
+  }
+
+  function rememberButtonLabel(btn) {
+    if (!btn || btn.dataset.stateDefault) return;
+    const fallback = (btn.textContent || '').trim();
+    btn.dataset.stateDefault = btn.dataset.stateDefault || fallback;
+  }
+
+  function setButtonState(btn, state) {
+    if (!btn) return;
+    rememberButtonLabel(btn);
+    const defaults = {
+      default: btn.dataset.stateDefault || '',
+      loading: btn.dataset.stateLoading || t('stateful_sending'),
+      success: btn.dataset.stateSuccess || t('stateful_done'),
+    };
+    btn.classList.remove('is-loading', 'is-success');
+    if (state === 'loading') {
+      btn.classList.add('is-loading');
+      btn.textContent = defaults.loading;
+      return;
+    }
+    if (state === 'success') {
+      btn.classList.add('is-success');
+      btn.textContent = defaults.success;
+      return;
+    }
+    btn.textContent = defaults.default;
   }
 
   function allowAmbientEffects() {
@@ -221,6 +261,103 @@
       if (!initOnce(el, 'Reveal')) return;
       observer.observe(el);
     });
+  }
+
+  function initHeroBeams(root = document) {
+    const layers = collectTargets(root, '.hero-beams');
+    if (!layers.length || prefersReduced) return;
+    layers.forEach(layer => {
+      if (!initOnce(layer, 'HeroBeams')) return;
+      if (!('IntersectionObserver' in window)) {
+        layer.classList.add('is-active');
+        return;
+      }
+      const observer = new IntersectionObserver(
+        entries => {
+          entries.forEach(entry => {
+            layer.classList.toggle('is-active', entry.isIntersecting);
+          });
+        },
+        { threshold: 0.15 }
+      );
+      observer.observe(layer);
+    });
+    initState.heroBeams = true;
+  }
+
+  function initFlipWords(root = document) {
+    const groups = {};
+    collectTargets(root, '[data-flip-words]').forEach(node => {
+      if (!initOnce(node, 'FlipWords')) return;
+      const words = String(node.dataset.words || '')
+        .split(',')
+        .map(part => part.trim())
+        .filter(Boolean);
+      if (!words.length) return;
+      const groupId = node.dataset.flipGroup || `group-${Math.random().toString(36).slice(2)}`;
+      if (!groups[groupId]) {
+        groups[groupId] = { words, nodes: [] };
+      }
+      groups[groupId].nodes.push(node);
+      const current = node.querySelector('.flip-word');
+      if (current && !current.textContent.trim()) {
+        current.textContent = words[0];
+      }
+    });
+
+    Object.values(groups).forEach(group => {
+      if (!group.nodes.length) return;
+      const wordNodes = group.nodes
+        .map(node => node.querySelector('.flip-word'))
+        .filter(Boolean);
+      if (!wordNodes.length) return;
+
+      let index = 0;
+      let isVisible = !prefersReduced;
+      const host = group.nodes[0].closest('.hero-copy') || group.nodes[0];
+      const applyWord = (nextIndex) => {
+        const word = group.words[nextIndex] || group.words[0];
+        wordNodes.forEach(wordNode => {
+          wordNode.classList.add('is-swap');
+        });
+        window.setTimeout(() => {
+          wordNodes.forEach(wordNode => {
+            wordNode.textContent = word;
+            wordNode.classList.remove('is-swap');
+          });
+        }, 170);
+      };
+
+      if (prefersReduced || !group.words.slice(1).length) {
+        wordNodes.forEach(node => {
+          node.textContent = group.words[0];
+        });
+        return;
+      }
+
+      if ('IntersectionObserver' in window) {
+        const observer = new IntersectionObserver(
+          entries => {
+            entries.forEach(entry => {
+              isVisible = entry.isIntersecting && !document.hidden;
+            });
+          },
+          { threshold: 0.25 }
+        );
+        observer.observe(host);
+      }
+
+      document.addEventListener('visibilitychange', () => {
+        isVisible = !document.hidden;
+      });
+
+      window.setInterval(() => {
+        if (!isVisible) return;
+        index = (index + 1) % group.words.length;
+        applyWord(index);
+      }, 2200);
+    });
+    initState.flipWords = true;
   }
 
   function initFaq(root = document) {
@@ -556,7 +693,8 @@
           const submitBtn = form.querySelector('[data-auth-submit]');
           if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.classList.add('is-loading');
+            submitBtn.dataset.stateLoading = submitBtn.dataset.stateLoading || t('stateful_sending');
+            setButtonState(submitBtn, 'loading');
           }
           setFeedback('');
 
@@ -572,6 +710,7 @@
             });
             const data = await response.json().catch(() => ({}));
             if (response.ok && data && data.success) {
+              if (submitBtn) setButtonState(submitBtn, 'success');
               setFeedback(data.message || t('auth_success_reload'), 'success');
               window.setTimeout(() => {
                 window.location.reload();
@@ -602,7 +741,7 @@
           } finally {
             if (submitBtn) {
               submitBtn.disabled = false;
-              submitBtn.classList.remove('is-loading');
+              setButtonState(submitBtn, 'default');
             }
           }
         });
@@ -656,6 +795,12 @@
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(form);
+        const submitBtn = form.querySelector('[data-submit], button[type=\"submit\"]');
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.dataset.stateLoading = submitBtn.dataset.stateLoading || t('stateful_sending');
+          setButtonState(submitBtn, 'loading');
+        }
         try {
           const resp = await fetch(form.action, {
             method: 'POST',
@@ -666,6 +811,7 @@
           });
           const data = await resp.json();
           if (resp.ok) {
+            if (submitBtn) setButtonState(submitBtn, 'success');
             form.reset();
             closeModal();
             alert(t('fab_success'));
@@ -675,6 +821,11 @@
           }
         } catch (err) {
           alert(t('fab_error_network'));
+        } finally {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            setButtonState(submitBtn, 'default');
+          }
         }
       });
     }
@@ -1221,14 +1372,40 @@
   function initSubmitGuard(root = document) {
     collectTargets(root, 'form[data-submit-guard]').forEach(form => {
       if (!initOnce(form, 'SubmitGuard')) return;
-      form.addEventListener('submit', () => {
-        const btn = form.querySelector('[data-submit]');
+      form.addEventListener('submit', (event) => {
+        const submitted = event.submitter && event.submitter.matches
+          ? event.submitter
+          : null;
+        const btn = submitted || form.querySelector('[data-submit], button[type=\"submit\"]');
         if (btn) {
           btn.disabled = true;
-          btn.classList.add('is-loading');
+          btn.dataset.stateLoading = btn.dataset.stateLoading || t('stateful_sending');
+          setButtonState(btn, 'loading');
+          window.setTimeout(() => {
+            if (!document.body.contains(btn)) return;
+            if (!btn.classList.contains('is-loading')) return;
+            btn.disabled = false;
+            setButtonState(btn, 'default');
+          }, 12000);
         }
       });
     });
+  }
+
+  function initStatefulLinks(root = document) {
+    collectTargets(root, 'a[data-stateful-link]').forEach(link => {
+      if (!initOnce(link, 'StatefulLink')) return;
+      link.dataset.stateLoading = link.dataset.stateLoading || t('stateful_opening');
+      link.addEventListener('click', (event) => {
+        if (event.defaultPrevented) return;
+        if (event.button && event.button !== 0) return;
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        if (link.target && link.target !== '_self') return;
+        setButtonState(link, 'loading');
+        window.setTimeout(() => setButtonState(link, 'default'), 2000);
+      });
+    });
+    initState.statefulLinks = true;
   }
 
   function initKeyboardMode() {
@@ -1750,6 +1927,8 @@
 
   function initAll(root = document) {
     revealOnScroll(root);
+    initHeroBeams(root);
+    initFlipWords(root);
     initFaq(root);
     initTabs(root);
     initCalc(root);
@@ -1767,6 +1946,7 @@
     initDropzones(root);
     initOrderHtmxCalc(root);
     initSubmitGuard(root);
+    initStatefulLinks(root);
     initKeyboardMode();
     initOrderDrafts();
     initUnderbaseToggle(root);
