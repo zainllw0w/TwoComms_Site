@@ -43,6 +43,8 @@
       link_copied: 'Лінк скопійовано',
       copy_failed: 'Не вдалося скопіювати',
       reorder_prefill_added: 'Додали референс до коментаря',
+      auth_success_reload: 'Готово. Оновлюємо сторінку...',
+      auth_error_default: 'Не вдалося увійти. Спробуйте ще раз.',
     },
     ru: {
       unsupported_ready_file: 'Формат файла не поддерживается для готового ганг-листа. Переключили на вкладку помощи.',
@@ -58,6 +60,8 @@
       link_copied: 'Ссылка скопирована',
       copy_failed: 'Не удалось скопировать',
       reorder_prefill_added: 'Добавили референс в комментарий',
+      auth_success_reload: 'Готово. Обновляем страницу...',
+      auth_error_default: 'Не удалось войти. Попробуйте снова.',
     },
     en: {
       unsupported_ready_file: 'This file format is not supported for a ready gang sheet. Switched to the help tab.',
@@ -73,6 +77,8 @@
       link_copied: 'Link copied',
       copy_failed: 'Could not copy',
       reorder_prefill_added: 'Added reorder reference to comment',
+      auth_success_reload: 'Done. Reloading...',
+      auth_error_default: 'Could not complete sign in. Try again.',
     },
   };
 
@@ -348,6 +354,135 @@
   function getCookie(name) {
     const value = document.cookie.split('; ').find(row => row.startsWith(name + '='));
     return value ? decodeURIComponent(value.split('=')[1]) : '';
+  }
+
+  function initProfileMenu(root = document) {
+    const menus = collectTargets(root, '[data-profile-menu]');
+    if (!menus.length) return;
+    menus.forEach(menu => {
+      if (!initOnce(menu, 'ProfileMenu')) return;
+      const trigger = menu.querySelector('[data-profile-trigger]');
+      const panel = menu.querySelector('[data-profile-panel]');
+      if (!trigger || !panel) return;
+
+      let open = false;
+      const setOpen = (value) => {
+        open = Boolean(value);
+        menu.classList.toggle('is-open', open);
+        trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+        panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+      };
+
+      trigger.addEventListener('click', (event) => {
+        event.preventDefault();
+        setOpen(!open);
+      });
+
+      panel.querySelectorAll('[data-profile-close]').forEach(link => {
+        link.addEventListener('click', () => setOpen(false));
+      });
+
+      document.addEventListener('click', (event) => {
+        if (!menu.contains(event.target)) {
+          setOpen(false);
+        }
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          setOpen(false);
+        }
+      });
+
+      const tabButtons = Array.from(panel.querySelectorAll('[data-profile-tab-trigger]'));
+      const authForms = Array.from(panel.querySelectorAll('[data-profile-auth-form]'));
+      const feedback = panel.querySelector('[data-profile-feedback]');
+
+      const setFeedback = (message, tone = '') => {
+        if (!feedback) return;
+        feedback.textContent = message || '';
+        feedback.classList.remove('is-error', 'is-success');
+        if (tone === 'error') feedback.classList.add('is-error');
+        if (tone === 'success') feedback.classList.add('is-success');
+      };
+
+      const activateTab = (tabName) => {
+        tabButtons.forEach(btn => {
+          btn.classList.toggle('is-active', btn.dataset.profileTabTrigger === tabName);
+        });
+        authForms.forEach(form => {
+          const active = form.dataset.profileAuthForm === tabName;
+          form.classList.toggle('is-active', active);
+          form.hidden = !active;
+        });
+        setFeedback('');
+      };
+
+      if (tabButtons.length && authForms.length) {
+        tabButtons.forEach(btn => {
+          btn.addEventListener('click', () => activateTab(btn.dataset.profileTabTrigger));
+        });
+      }
+
+      authForms.forEach(form => {
+        if (!initOnce(form, 'ProfileAuthForm')) return;
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const submitBtn = form.querySelector('[data-auth-submit]');
+          if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.classList.add('is-loading');
+          }
+          setFeedback('');
+
+          const payload = new FormData(form);
+          try {
+            const response = await fetch(form.action, {
+              method: 'POST',
+              body: payload,
+              headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+              },
+              credentials: 'same-origin',
+            });
+            const data = await response.json().catch(() => ({}));
+            if (response.ok && data && data.success) {
+              setFeedback(data.message || t('auth_success_reload'), 'success');
+              window.setTimeout(() => {
+                window.location.reload();
+              }, 250);
+              return;
+            }
+
+            const collectedErrors = [];
+            if (data && typeof data.error === 'string') {
+              collectedErrors.push(data.error);
+            }
+            if (data && data.errors && typeof data.errors === 'object') {
+              Object.values(data.errors).forEach(value => {
+                if (Array.isArray(value)) {
+                  value.forEach(item => {
+                    if (item) collectedErrors.push(String(item));
+                  });
+                } else if (value) {
+                  collectedErrors.push(String(value));
+                }
+              });
+            }
+
+            const message = collectedErrors.join(' ') || t('auth_error_default');
+            setFeedback(message, 'error');
+          } catch (err) {
+            setFeedback(t('auth_error_default'), 'error');
+          } finally {
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.classList.remove('is-loading');
+            }
+          }
+        });
+      });
+    });
   }
 
   function initFab() {
@@ -1492,6 +1627,7 @@
     initFileGuard(root);
     initSkeletons(root);
     initFab();
+    initProfileMenu(root);
     initPrintheadScan();
     initInkFlow();
     initHeroTilt();
