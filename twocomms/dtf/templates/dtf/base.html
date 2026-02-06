@@ -167,7 +167,7 @@
               {% endif %}
             </div>
           </div>
-          <a class="btn btn-primary" href="{% url 'dtf:order' %}">{% trans "Розрахувати" %}</a>
+          <a class="btn btn-primary" href="{% url 'dtf:order' %}" data-stateful-link>{% trans "Розрахувати" %}</a>
         </div>
       </div>
     </header>
@@ -237,7 +237,7 @@
       <button class="modal-close" type="button" data-close="1">×</button>
       <h3 id="fab-modal-title">{% trans "Менеджер зв'яжеться" %}</h3>
       <p class="modal-sub" id="fab-modal-desc">{% trans "Залиште контакти та коротке питання." %}</p>
-      <form id="dtf-fab-form" method="post" action="{% url 'dtf:fab_lead' %}">
+      <form id="dtf-fab-form" method="post" action="{% url 'dtf:fab_lead' %}" data-submit-guard>
         {% csrf_token %}
         <label>{% trans "Ім'я" %}
           <input type="text" name="name" required>
@@ -259,7 +259,7 @@
         <label>{% trans "Питання" %}
           <textarea name="task_description" rows="3"></textarea>
         </label>
-        <button class="btn btn-primary" type="submit">{% trans "Надіслати" %}</button>
+        <button class="btn btn-primary" type="submit" data-submit data-stateful>{% trans "Надіслати" %}</button>
         <div class="form-note">{% trans "Ручна перевірка макета перед друком" %}</div>
       </form>
     </div>
