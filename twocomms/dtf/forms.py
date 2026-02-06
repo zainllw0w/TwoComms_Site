@@ -5,11 +5,31 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
 from .models import DtfLead, DtfOrder, ContactChannel, LeadType
-from .utils import ALLOWED_READY_EXTS, detect_length_m, get_file_extension, get_limits, normalize_phone
+from .utils import (
+    ALLOWED_HELP_EXTS,
+    ALLOWED_READY_EXTS,
+    build_safe_upload_name,
+    detect_length_m,
+    get_limits,
+    normalize_phone,
+    validate_uploaded_file,
+)
 
 
 class MultiFileInput(forms.ClearableFileInput):
     allow_multiple_selected = True
+
+
+class MultiFileField(forms.FileField):
+    def clean(self, data, initial=None):
+        if not data:
+            return []
+        if not isinstance(data, (list, tuple)):
+            data = [data]
+        cleaned = []
+        for item in data:
+            cleaned.append(super().clean(item, initial))
+        return cleaned
 
 
 class DtfOrderForm(forms.ModelForm):
@@ -44,15 +64,27 @@ class DtfOrderForm(forms.ModelForm):
         file = self.cleaned_data.get("gang_file")
         if not file:
             raise ValidationError(_("Завантажте файл ганг-листа"))
-        ext = get_file_extension(file.name)
-        if ext not in ALLOWED_READY_EXTS:
-            raise ValidationError(_("Формат файлу не підтримується для готового ганг-листа. Використайте PDF або PNG."))
         limits = get_limits()
-        max_bytes = limits["max_file_mb"] * 1024 * 1024
-        if file.size and file.size > max_bytes:
-            raise ValidationError(
-                _("Файл завеликий. Максимум %(max_size)s MB") % {"max_size": limits["max_file_mb"]}
+        try:
+            validate_uploaded_file(
+                file,
+                allowed_exts=ALLOWED_READY_EXTS,
+                max_file_mb=limits["max_file_mb"],
+                strict_magic=True,
             )
+        except ValueError as exc:
+            code = str(exc)
+            if code == "unsupported_extension":
+                raise ValidationError(
+                    _("Формат файлу не підтримується для готового ганг-листа. Використайте PDF або PNG.")
+                )
+            if code == "file_too_large":
+                raise ValidationError(
+                    _("Файл завеликий. Максимум %(max_size)s MB") % {"max_size": limits["max_file_mb"]}
+                )
+            raise ValidationError(_("Файл не пройшов перевірку безпеки. Завантажте коректний PDF або PNG."))
+
+        file.name = build_safe_upload_name("orders", file.name)
         return file
 
     def clean_length_m(self):
@@ -89,7 +121,7 @@ class DtfOrderForm(forms.ModelForm):
 
 
 class DtfHelpForm(forms.ModelForm):
-    files = forms.FileField(required=False, widget=MultiFileInput(attrs={"multiple": True}))
+    files = MultiFileField(required=False, widget=MultiFileInput(attrs={"multiple": True}))
     folder_link = forms.URLField(required=False)
 
     class Meta:
@@ -118,13 +150,39 @@ class DtfHelpForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
-        files = self.files.getlist("files") if hasattr(self, "files") else []
+        files = cleaned.get("files") or []
+        if not isinstance(files, (list, tuple)):
+            files = [files]
         folder_link = cleaned.get("folder_link")
         task = cleaned.get("task_description", "").strip()
         if not task:
             self.add_error("task_description", _("Опишіть задачу"))
         if not files and not folder_link:
             self.add_error("folder_link", _("Завантажте файли або додайте посилання на папку"))
+
+        validated_files = []
+        limits = get_limits()
+        for uploaded_file in files:
+            try:
+                validate_uploaded_file(
+                    uploaded_file,
+                    allowed_exts=ALLOWED_HELP_EXTS,
+                    max_file_mb=limits["max_file_mb"],
+                    strict_magic=True,
+                )
+            except ValueError as exc:
+                code = str(exc)
+                if code == "unsupported_extension":
+                    self.add_error("files", _("Непідтримуваний формат файлу у вкладеннях."))
+                elif code == "file_too_large":
+                    self.add_error("files", _("Один із файлів перевищує ліміт %(max_size)s MB.") % {"max_size": limits["max_file_mb"]})
+                else:
+                    self.add_error("files", _("Один із файлів не пройшов перевірку безпеки."))
+                continue
+            uploaded_file.name = build_safe_upload_name("leads", uploaded_file.name)
+            validated_files.append(uploaded_file)
+
+        self._validated_files = validated_files
         return cleaned
 
 
