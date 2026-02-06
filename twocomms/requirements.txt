@@ -1,5 +1,5 @@
 # Django и основные зависимости
-Django==5.2.6
+Django==5.2.11
 asgiref==3.9.1
 sqlparse==0.5.3
 
@@ -39,7 +39,7 @@ celery==5.3.6
 python-dotenv==1.0.1
 
 # Социальная аутентификация (Google OAuth)
-social-auth-app-django==5.4.1
+social-auth-app-django==5.6.0
 
 # Статика и кэширование (долгий Cache-Control, компрессия)
 whitenoise==6.7.0

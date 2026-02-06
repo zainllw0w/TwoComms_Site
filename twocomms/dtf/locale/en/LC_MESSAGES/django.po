@@ -1131,7 +1131,7 @@ msgstr "PDF/PNG up to 50 MB"
 
 #: templates/dtf/order.html:46
 msgid "Готовий ганг-лист 60 см"
-msgstr "Ready gang-list 60 cm"
+msgstr "Ready gang sheet 60 cm"
 
 #: templates/dtf/order.html:48
 msgid "Вставити з буфера"
@@ -1161,7 +1161,7 @@ msgstr "First frame PDF or PNG (after upload)."
 
 #: templates/dtf/order.html:67
 msgid "Прев'ю з'явиться після завантаження"
-msgstr "A preview will appear after downloading"
+msgstr "A preview will appear after upload"
 
 #: templates/dtf/order.html:70
 msgid "Замінити"
@@ -1248,7 +1248,7 @@ msgstr "City"
 #: templates/dtf/order.html:151 templates/dtf/order.html:249
 #: templates/dtf/preflight.html:133
 msgid "Відділення НП"
-msgstr "Department of NP"
+msgstr "Nova Poshta branch"
 
 #: templates/dtf/order.html:159 templates/dtf/order.html:257
 #: templates/dtf/preflight.html:141
@@ -1266,7 +1266,7 @@ msgstr "Send order"
 #: templates/dtf/order.html:170 templates/dtf/order.html:266
 #: templates/dtf/preflight.html:152
 msgid "Відповімо протягом робочого дня"
-msgstr "We will respond during the working day"
+msgstr "We will respond within one business day"
 
 #: templates/dtf/order.html:196
 msgid "Файли для розкладки"
@@ -1332,7 +1332,7 @@ msgstr "The manager will confirm the footage and cost"
 
 #: templates/dtf/order.html:265
 msgid "Надіслати заявку"
-msgstr "Send an application"
+msgstr "Send request"
 
 #: templates/dtf/partials/estimate_result.html:3
 #: templates/dtf/partials/order_calc.html:9
@@ -1458,7 +1458,7 @@ msgstr "What is included in the discount"
 
 #: templates/dtf/price.html:57
 msgid "Ті ж умови, нижча ціна за більший метраж."
-msgstr "The same conditions, a lower price for a larger square footage."
+msgstr "Same terms, lower price for higher meterage."
 
 #: templates/dtf/price.html:64
 msgid "Файл 2.5 м × 10 копій = 25 м. Розрахунок за відповідною ціною."
@@ -1471,11 +1471,11 @@ msgstr "Cutoff / deadlines"
 
 #: templates/dtf/price.html:69
 msgid "Cutoff на виробництво: після підтвердження макета."
-msgstr "Cutoff for production: after confirmation of the layout."
+msgstr "Production cutoff: after artwork approval."
 
 #: templates/dtf/price.html:70
 msgid "Стандартний термін: 24–48 год (узгоджується менеджером)."
-msgstr "Standard term: 24–48 hours (agreed by the manager)."
+msgstr "Standard turnaround: 24–48 hours (confirmed by manager)."
 
 #: templates/dtf/price.html:71
 msgid "Доставка: за тарифами Нової Пошти."
@@ -1491,7 +1491,7 @@ msgstr "What inspections are included in QC?"
 
 #: templates/dtf/quality.html:8
 msgid "Перевіряємо прозорість, DPI, білу підкладку і тест переносу."
-msgstr "We check transparency, DPI, white background and transfer test."
+msgstr "We check transparency, DPI, white underbase, and transfer test."
 
 #: templates/dtf/quality.html:9
 msgid "Чи друкуєте без узгодження?"
@@ -1504,7 +1504,7 @@ msgstr "No, if there are risks, we agree on the edits before printing."
 #: templates/dtf/quality.html:63
 msgid "Контроль кольору, реєстрації та прання. Нічого зайвого — тільки факти."
 msgstr ""
-"Control of color, registration and washing. Nothing extra - just the facts."
+"Color registration and wash durability control. Nothing extra, only facts."
 
 #: templates/dtf/quality.html:71
 msgid "QC макро"
@@ -1512,11 +1512,11 @@ msgstr "QC macro"
 
 #: templates/dtf/quality.html:78
 msgid "Контроль суміщення"
-msgstr "Combination control"
+msgstr "Registration control"
 
 #: templates/dtf/quality.html:84
 msgid "Текстура DTF"
-msgstr "Texture DTF"
+msgstr "DTF texture"
 
 #: templates/dtf/quality.html:90
 msgid "Тактильність"
@@ -1540,7 +1540,7 @@ msgstr "QC control of the white substrate"
 
 #: templates/dtf/quality.html:116
 msgid "Біла підкладка"
-msgstr "White lining"
+msgstr "White underbase"
 
 #: templates/dtf/quality.html:117
 msgid "Рівномірність підкладки"
@@ -1576,11 +1576,11 @@ msgstr "QC check"
 
 #: templates/dtf/quality.html:152
 msgid "Перевірка файлу на прозорість і DPI"
-msgstr "Checking the file for transparency and DPI"
+msgstr "File check for transparency and DPI"
 
 #: templates/dtf/quality.html:153
 msgid "Контроль білої підкладки"
-msgstr "White lining control"
+msgstr "White underbase control"
 
 #: templates/dtf/quality.html:154
 msgid "Тест на перенесення"
@@ -1592,7 +1592,7 @@ msgstr "Guarantee"
 
 #: templates/dtf/quality.html:159
 msgid "Не запускаємо друк без узгодження при ризиках."
-msgstr "We do not start printing without agreement at risks."
+msgstr "We do not start printing without approval when risks are detected."
 
 #: templates/dtf/quality.html:160
 msgid "Перевірити файл"
@@ -1729,15 +1729,15 @@ msgstr "TTN"
 
 #: templates/dtf/status.html:115
 msgid "Відстежити"
-msgstr "track"
+msgstr "Track shipment"
 
 #: templates/dtf/status.html:117
 msgid "Трекінг буде після відправки"
-msgstr "Tracking will be after shipping"
+msgstr "Tracking number appears after dispatch"
 
 #: templates/dtf/status.html:123
 msgid "Повторити"
-msgstr "Repeat"
+msgstr "Reorder"
 
 #: templates/dtf/status.html:124
 msgid "Створіть нове замовлення за цим кейсом."
@@ -1745,11 +1745,11 @@ msgstr "Create a new order for this case."
 
 #: templates/dtf/status.html:125
 msgid "Повторити замовлення"
-msgstr "Repeat the order"
+msgstr "Reorder"
 
 #: templates/dtf/status.html:130
 msgid "Менеджер підкаже щодо файлу або термінів."
-msgstr "The manager will tell you about the file or terms."
+msgstr "A manager will advise on file quality and lead times."
 
 #: templates/dtf/status.html:131
 msgid "Написати менеджеру"
@@ -1873,11 +1873,11 @@ msgstr "Missing"
 
 #: views.py:240 views.py:255
 msgid "Невідомо"
-msgstr "It is unknown"
+msgstr "Unknown"
 
 #: views.py:248
 msgid "Оптовий метраж"
-msgstr "Wholesale footage"
+msgstr "Bulk meterage"
 
 #: views.py:250
 msgid "Потрібна перевірка"

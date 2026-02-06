@@ -1,110 +1,146 @@
-# Evidence Log (DTF backlog re-run, 2026-02-06)
+# Evidence Log — DTF POLISH ONLY (2026-02-06)
 
-## Branch / scope
-- Branch: `codex/dtf-p0p1-fixes-2026-02`
-- Scope: DTF-only code paths + DTF docs in `/specs/dtf-codex/`
+## Branch / Scope
+- Branch: `codex/dtf-p2-polish-only-2026-02`
+- Scope: DTF-only codepaths and docs.
+- Isolation intent: no changes to main-domain routing behavior.
 
-## Local validation commands
+## P2-0 Discovery Snapshot
+
+### DTF project map
+- DTF app root: `twocomms/dtf/`
+- Templates: `twocomms/dtf/templates/dtf/`
+- Tokens: `twocomms/dtf/static/dtf/css/tokens.css`
+- Main DTF JS lifecycle: `twocomms/dtf/static/dtf/js/dtf.js`
+  - idempotent init gate: `initOnce(...)`
+  - global bootstrapping: `initAll(...)`
+  - HTMX hook: `window.htmx.onLoad((content) => initAll(content))`
+- Subdomain routing: `twocomms/twocomms/middleware.py` (`SubdomainURLRoutingMiddleware`) -> `twocomms/twocomms/urls_dtf.py`
+
+### Production curl snapshot (GET headers)
+- Artifact: `specs/dtf-codex/perf/discovery-curl-2026-02-06.txt`
+- Routes covered:
+  - `https://dtf.twocomms.shop/`
+  - `https://dtf.twocomms.shop/order/`
+  - `https://dtf.twocomms.shop/price/`
+  - `https://dtf.twocomms.shop/prices/`
+  - `https://dtf.twocomms.shop/quality/`
+  - `https://dtf.twocomms.shop/robots.txt`
+  - `https://dtf.twocomms.shop/sitemap.xml`
+
+### Robots/Sitemap body checks
+- Artifact: `specs/dtf-codex/perf/robots-sitemap-2026-02-06.txt`
+- Observed:
+  - DTF `robots.txt` points to `https://dtf.twocomms.shop/sitemap.xml`
+  - DTF `sitemap.xml` contains DTF host URLs
+  - Main domain robots/sitemap remain main-domain specific
+
+## P2-1 Lighthouse Baseline
+
+### Artifacts
+- Mobile JSON/HTML:
+  - `specs/dtf-codex/perf/home-mobile-baseline.report.json`
+  - `specs/dtf-codex/perf/order-mobile-baseline.report.json`
+  - `specs/dtf-codex/perf/price-mobile-baseline.report.json`
+  - `specs/dtf-codex/perf/home-mobile-baseline.report.html`
+  - `specs/dtf-codex/perf/order-mobile-baseline.report.html`
+  - `specs/dtf-codex/perf/price-mobile-baseline.report.html`
+- Desktop JSON/HTML:
+  - `specs/dtf-codex/perf/home-desktop-baseline.report.json`
+  - `specs/dtf-codex/perf/order-desktop-baseline.report.json`
+  - `specs/dtf-codex/perf/price-desktop-baseline.report.json`
+  - `specs/dtf-codex/perf/home-desktop-baseline.report.html`
+  - `specs/dtf-codex/perf/order-desktop-baseline.report.html`
+  - `specs/dtf-codex/perf/price-desktop-baseline.report.html`
+- Metrics summary: `specs/dtf-codex/perf/lighthouse-metrics-2026-02-06.txt`
+
+### Baseline metrics (from summary)
+- Home mobile: perf `60`, LCP `7.29s`, CLS `0.000`
+- Order mobile: perf `88`, LCP `3.02s`, CLS `0.017`
+- Price mobile: perf `73`, LCP `4.75s`, CLS `0.051`
+- Home desktop: perf `57`, LCP `5.58s`, CLS `0.017`
+- Order desktop: perf `83`, LCP `2.08s`, CLS `0.014`
+- Price desktop: perf `84`, LCP `1.80s`, CLS `0.037`
+
+## P2-2 i18n Inventory + Fixes
+- Inventory document: `specs/dtf-codex/I18N_INVENTORY.md`
+- RU/EN catalog improvements:
+  - `twocomms/dtf/locale/ru/LC_MESSAGES/django.po`
+  - `twocomms/dtf/locale/en/LC_MESSAGES/django.po`
+- Compiled message catalogs:
+  - `twocomms/dtf/locale/ru/LC_MESSAGES/django.mo`
+  - `twocomms/dtf/locale/en/LC_MESSAGES/django.mo`
+- Localized JS runtime alerts/toasts by locale:
+  - `twocomms/dtf/static/dtf/js/dtf.js`
+- Cache-bust for JS rollout:
+  - `twocomms/dtf/templates/dtf/base.html` (`dtf.js?v=20260206p`)
+
+## P2-3 Visual QA Baseline (Breakpoints)
+- Captured screenshots for `320/375/768/1024/1440` on:
+  - `/`
+  - `/order/`
+  - `/price/`
+  - `/quality/`
+  - `/gallery/`
+  - `/privacy/`
+- Artifact index: `specs/dtf-codex/perf/screens/index-2026-02-06.txt`
+- Screenshot folder: `specs/dtf-codex/perf/screens/`
+
+## P2-4 HTMX Lifecycle Regression Check
+- JS confirms idempotent + re-init lifecycle pattern remains intact.
+- Evidence file: `twocomms/dtf/static/dtf/js/dtf.js`
+
+## P2-5 Security / Headers / Dependencies
+
+### Headers sanity
+- Source: `specs/dtf-codex/perf/discovery-curl-2026-02-06.txt`
+- Confirmed headers on DTF routes include:
+  - `Strict-Transport-Security`
+  - `X-Content-Type-Options: nosniff`
+  - `Referrer-Policy`
+  - `X-Frame-Options`
+  - CSP present
+
+### Dependency audit
+- Initial audit: `specs/dtf-codex/perf/pip-audit.json`
+  - Found vulnerabilities in `Django==5.2.6` and `social-auth-app-django==5.4.1`.
+- Remediation:
+  - `twocomms/requirements.txt` -> `Django==5.2.11`
+  - `twocomms/requirements.txt` -> `social-auth-app-django==5.6.0`
+- Post-fix audit: `specs/dtf-codex/perf/pip-audit-postfix.json`
+  - Result: `No known vulnerabilities found`.
+
+## Local Validation Commands
 ```bash
 cd /Users/zainllw0w/PycharmProjects/TwoComms/twocomms
+DJANGO_SETTINGS_MODULE=test_settings python3 manage.py compilemessages -l uk -l ru -l en
 DJANGO_SETTINGS_MODULE=test_settings python3 manage.py check
 DJANGO_SETTINGS_MODULE=test_settings python3 manage.py test dtf.tests --keepdb
-DJANGO_SETTINGS_MODULE=test_settings python3 manage.py compilemessages -l uk -l ru -l en
+python3 -m pip_audit -r /Users/zainllw0w/PycharmProjects/TwoComms/twocomms/requirements.txt -f json -o /Users/zainllw0w/PycharmProjects/TwoComms/specs/dtf-codex/perf/pip-audit-postfix.json
 ```
 
-## Local validation result
+## Local Validation Results
+- `compilemessages`: RU/EN catalogs rebuilt, UK unchanged.
 - `manage.py check`: `System check identified no issues (0 silenced).`
-- `manage.py test dtf.tests --keepdb`: `Ran 19 tests ... OK`
-- `compilemessages`: updated `ru` + `en` catalogs, `uk` up-to-date
+- `manage.py test dtf.tests --keepdb`: `Ran 19 tests ... OK`.
+- `pip-audit` after dependency update: no known vulnerabilities.
 
-## Pre-deploy production probes
-```bash
-curl -I https://dtf.twocomms.shop/quality/
-curl -I https://dtf.twocomms.shop/price/
-curl -I https://dtf.twocomms.shop/prices/
-curl -i https://dtf.twocomms.shop/robots.txt
-curl -i https://dtf.twocomms.shop/sitemap.xml
-```
+## Files Changed In This Polish Run
+- `twocomms/dtf/static/dtf/js/dtf.js`
+- `twocomms/dtf/templates/dtf/base.html`
+- `twocomms/dtf/locale/ru/LC_MESSAGES/django.po`
+- `twocomms/dtf/locale/ru/LC_MESSAGES/django.mo`
+- `twocomms/dtf/locale/en/LC_MESSAGES/django.po`
+- `twocomms/dtf/locale/en/LC_MESSAGES/django.mo`
+- `twocomms/requirements.txt`
+- `specs/dtf-codex/I18N_INVENTORY.md`
+- `specs/dtf-codex/CHECKLIST.md`
+- `specs/dtf-codex/DECISIONS.md`
+- `specs/dtf-codex/QA.md`
+- `specs/dtf-codex/DEPLOY.md`
+- `specs/dtf-codex/EVIDENCE.md`
+- `specs/dtf-codex/perf/*`
 
-### Observed status (pre-deploy)
-- `/quality/` => `HTTP/2 200`
-- `/price/` => `HTTP/2 200`
-- `/prices/` => `HTTP/2 301` with `Location: /price/`
-- `/robots.txt` => contains `Sitemap: https://dtf.twocomms.shop/sitemap.xml`
-- `/sitemap.xml` => `HTTP/2 200`, content-type `application/xml`, DTF host URLs
-
-## Code artifacts touched in this run
-- `/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/dtf/static/dtf/css/dtf.css`
-- `/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/dtf/static/dtf/js/dtf.js`
-- `/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/dtf/templates/dtf/base.html`
-- `/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/dtf/templates/dtf/index.html`
-- `/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/dtf/templates/dtf/price.html`
-- `/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/dtf/templates/dtf/legal/privacy.html`
-- `/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/dtf/templates/dtf/legal/terms.html`
-- `/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/dtf/templates/dtf/legal/returns.html`
-- `/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/dtf/templates/dtf/legal/requisites.html`
-- `/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/dtf/views.py`
-- `/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/dtf/urls.py`
-- `/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/dtf/utils.py`
-- `/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/dtf/tests.py`
-- `/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/dtf/locale/en/LC_MESSAGES/django.po`
-- `/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/dtf/locale/en/LC_MESSAGES/django.mo`
-- `/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/dtf/locale/ru/LC_MESSAGES/django.po`
-- `/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/dtf/locale/ru/LC_MESSAGES/django.mo`
-- `/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/dtf/locale/uk/LC_MESSAGES/django.po`
-- `/Users/zainllw0w/PycharmProjects/TwoComms/twocomms/dtf/locale/uk/LC_MESSAGES/django.mo`
-
-## Post-deploy evidence (to append after deploy)
-- [x] Server pull/restart commands and resulting commit hash
-- [x] Post-deploy curl checks for DTF pages + robots/sitemap
-- [x] Browser checks for mobile menu, manager modal, compare slider, EN switch
-
-### Server deploy log (latest)
-```bash
-sshpass -p '***' ssh -o StrictHostKeyChecking=no qlknpodo@195.191.24.169 "\
-bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.13/bin/activate && \
-cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && \
-git pull --ff-only && \
-python manage.py check && \
-python manage.py collectstatic --noinput && \
-touch tmp/restart.txt && \
-git log -1 --oneline'"
-```
-
-Observed:
-- Production branch: `codex/dtf-p0p1-fixes-2026-02`
-- Deployed commit: `dc7ab38 fix(dtf-ui): correct mobile drawer layering above page content`
-- `python manage.py check` on server: `System check identified no issues`
-- `collectstatic`: completed (1 static file copied, rest unchanged)
-
-### Post-deploy production probes
-```bash
-curl -I https://dtf.twocomms.shop/quality/
-curl -I https://dtf.twocomms.shop/price/
-curl -I https://dtf.twocomms.shop/prices/
-curl https://dtf.twocomms.shop/robots.txt
-curl https://dtf.twocomms.shop/sitemap.xml
-curl https://twocomms.shop/robots.txt
-curl https://twocomms.shop/sitemap.xml
-```
-
-Observed:
-- `https://dtf.twocomms.shop/quality/` => `HTTP/2 200`
-- `https://dtf.twocomms.shop/price/` => `HTTP/2 200`
-- `https://dtf.twocomms.shop/prices/` => `HTTP/2 301` with `Location: /price/`
-- DTF `robots.txt` contains only DTF sitemap:
-  - `Sitemap: https://dtf.twocomms.shop/sitemap.xml`
-- DTF `sitemap.xml` => `200` and contains DTF-only URLs including:
-  - `/price/`, `/privacy/`, `/terms/`, `/returns/`, `/requisites/`
-- Main domain isolation preserved:
-  - `https://twocomms.shop/robots.txt` points to `https://twocomms.shop/sitemap.xml`
-  - `https://twocomms.shop/sitemap.xml` contains main-domain catalog/product URLs
-
-### Browser/manual verification (mobile)
-- Mobile drawer layering fixed and now fully overlays content.
-  - Screenshot: `/Users/zainllw0w/PycharmProjects/TwoComms/artifacts/postdeploy-mobile-menu-live-dc7ab38.png`
-- Manager modal visual opacity/contrast now solid and aligned with theme.
-  - Screenshot: `/Users/zainllw0w/PycharmProjects/TwoComms/artifacts/postdeploy-mobile-modal-live-dc7ab38.png`
-- Before/after slider drag works (JS runtime check):
-  - `--compare` changed from `55%` to `80%`, range value changed to `80`
-- EN switch visible in header and active in language links.
+## Deployment Status
+- This evidence log reflects pre-deploy polish completion in repository.
+- Post-deploy curl/browser verification should be appended after server pull from this branch.
