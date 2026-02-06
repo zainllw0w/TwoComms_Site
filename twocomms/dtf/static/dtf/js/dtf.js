@@ -361,12 +361,27 @@
     if (!menus.length) return;
     menus.forEach(menu => {
       if (!initOnce(menu, 'ProfileMenu')) return;
+      const body = document.body;
+      const header = document.querySelector('.dtf-header');
       const trigger = menu.querySelector('[data-profile-trigger]');
       const panel = menu.querySelector('[data-profile-panel]');
       const scrim = menu.querySelector('[data-profile-scrim]');
       if (!trigger || !panel || !scrim) return;
 
       let open = false;
+      const syncHeaderBackdrop = (active) => {
+        if (!header) return;
+        if (active) {
+          header.style.background = 'rgba(10, 10, 10, 0.96)';
+          header.style.webkitBackdropFilter = 'none';
+          header.style.backdropFilter = 'none';
+        } else {
+          header.style.background = '';
+          header.style.webkitBackdropFilter = '';
+          header.style.backdropFilter = '';
+        }
+      };
+
       const setOpen = (value, focusMode = 'restore') => {
         const next = Boolean(value);
         if (open === next) return;
@@ -375,6 +390,8 @@
         trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
         panel.setAttribute('aria-hidden', open ? 'false' : 'true');
         scrim.setAttribute('aria-hidden', open ? 'false' : 'true');
+        if (body) body.classList.toggle('is-profile-open', open);
+        syncHeaderBackdrop(open);
 
         if (!open) {
           if (focusMode === 'restore' && trigger && trigger.focus) {
