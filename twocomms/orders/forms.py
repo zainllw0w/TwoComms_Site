@@ -1,5 +1,4 @@
 from django import forms
-from storefront.upload_security import validate_image_file
 
 class CompanyProfileForm(forms.Form):
     company_name = forms.CharField(
@@ -88,7 +87,3 @@ class CompanyProfileForm(forms.Form):
 
     def clean_payment_details(self):
         return self.cleaned_data.get('payment_details', '').strip()
-
-    def clean_avatar(self):
-        avatar = self.cleaned_data.get("avatar")
-        return validate_image_file(avatar, field_name="company-avatar", max_size=5 * 1024 * 1024)

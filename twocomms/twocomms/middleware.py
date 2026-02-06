@@ -57,7 +57,12 @@ class SubdomainURLRoutingMiddleware(MiddlewareMixin):
     Если запрос приходит на main.domain.com, переключаем urlconf на специальный конфиг.
     """
     def process_request(self, request):
-        host = request.get_host().lower()
+        host = request.get_host().split(":")[0].lower()
+
+        # DTF subdomain should run its own site/urlconf.
+        if host.startswith('dtf.'):
+            request.urlconf = 'twocomms.urls_dtf'
+            return None
         
         # Если это management поддомен
         if host.startswith('management.'):

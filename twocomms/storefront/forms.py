@@ -14,7 +14,6 @@ from .models import (
     CatalogOptionValue,
     SizeGrid,
 )
-from .upload_security import validate_image_file, validate_image_list
 
 # ✅ Виджет с поддержкой множественной загрузки
 class MultiFileInput(forms.ClearableFileInput):
@@ -105,16 +104,6 @@ class ProductForm(forms.ModelForm):
             if price_field in self.fields:
                 self.fields[price_field].required = False
                 self.fields[price_field].initial = self.fields[price_field].initial or 0
-
-    def clean_main_image(self):
-        main_image = self.cleaned_data.get("main_image")
-        return validate_image_file(main_image, field_name="product-main-image")
-
-    def clean_extra_images(self):
-        extra_images = self.cleaned_data.get("extra_images")
-        if isinstance(extra_images, (list, tuple)):
-            return validate_image_list(extra_images, field_name="product-extra-image")
-        return validate_image_file(extra_images, field_name="product-extra-image")
 
     def clean(self):
         data = super().clean()
@@ -383,10 +372,6 @@ class ProductColorImageForm(forms.ModelForm):
         model = ProductColorImage
         fields = ["image", "alt_text", "order"]
 
-    def clean_image(self):
-        image = self.cleaned_data.get("image")
-        return validate_image_file(image, field_name="product-variant-image")
-
 
 ProductColorImageFormSet = inlineformset_factory(
     ProductColorVariant,
@@ -463,14 +448,6 @@ class CategoryForm(forms.ModelForm):
                 # Если возникает ошибка кодировки, пропускаем проверку
                 pass
         return slug
-
-    def clean_icon(self):
-        icon = self.cleaned_data.get("icon")
-        return validate_image_file(icon, field_name="category-icon")
-
-    def clean_cover(self):
-        cover = self.cleaned_data.get("cover")
-        return validate_image_file(cover, field_name="category-cover")
     
     def save(self, commit=True):
         instance = super().save(commit=False)
@@ -501,7 +478,3 @@ class PrintProposalForm(forms.ModelForm):
 
         # Лёгкая защита от спама: ограничим частоту отправок в view
         return data
-
-    def clean_image(self):
-        image = self.cleaned_data.get("image")
-        return validate_image_file(image, field_name="print-proposal-image")

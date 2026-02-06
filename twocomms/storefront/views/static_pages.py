@@ -15,8 +15,6 @@ from django.http import HttpResponse, FileResponse, Http404
 from django.conf import settings
 from django.shortcuts import render
 from pathlib import Path
-import importlib.machinery
-import importlib.util
 from django.utils.text import slugify
 from django.utils import timezone
 from urllib.parse import urljoin
@@ -29,7 +27,6 @@ import logging
 # Константы для feed
 FEED_SIZE_OPTIONS = ["S", "M", "L", "XL"]
 DEFAULT_FEED_SEASON = "Демисезон"
-_LEGACY_GOOGLE_MERCHANT_FEED = None
 
 # Вспомогательные функции для feed
 def _sanitize_feed_description(raw: str) -> str:
@@ -74,37 +71,6 @@ def _absolute_media_url(base_url: str, path: str | None) -> str | None:
     return urljoin(base_url, path)
 
 
-def _load_legacy_google_merchant_feed():
-    """
-    Loads legacy google_merchant_feed from storefront/views.py.backup.
-    Avoids recursive self-import through storefront.views package exports.
-    """
-    global _LEGACY_GOOGLE_MERCHANT_FEED
-    if _LEGACY_GOOGLE_MERCHANT_FEED is not None:
-        return _LEGACY_GOOGLE_MERCHANT_FEED
-
-    legacy_path = Path(__file__).resolve().parent.parent / "views.py.backup"
-    if not legacy_path.exists():
-        _LEGACY_GOOGLE_MERCHANT_FEED = False
-        return None
-
-    loader = importlib.machinery.SourceFileLoader(
-        "storefront.legacy_views_for_google_feed",
-        str(legacy_path),
-    )
-    spec = importlib.util.spec_from_loader(loader.name, loader)
-    if not spec or not spec.loader:
-        _LEGACY_GOOGLE_MERCHANT_FEED = False
-        return None
-
-    legacy_module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(legacy_module)
-    _LEGACY_GOOGLE_MERCHANT_FEED = getattr(legacy_module, "google_merchant_feed", False)
-    if _LEGACY_GOOGLE_MERCHANT_FEED is False:
-        return None
-    return _LEGACY_GOOGLE_MERCHANT_FEED
-
-
 # ==================== STATIC PAGES ====================
 
 def robots_txt(request):
@@ -114,15 +80,11 @@ def robots_txt(request):
     Returns:
         HttpResponse: текстовый файл robots.txt
     """
-    scheme = request.scheme or "https"
-    host = request.get_host().split(":")[0]
-    sitemap_url = f"{scheme}://{host}/sitemap.xml"
-
     lines = [
         "User-agent: *",
         "Allow: /",
         "",
-        f"Sitemap: {sitemap_url}",
+        f"Sitemap: {request.build_absolute_uri('/sitemap.xml')}",
         "",
         "# Disallow admin and internal pages",
         "Disallow: /admin/",
@@ -131,8 +93,8 @@ def robots_txt(request):
         "Disallow: /cart/",
         "Disallow: /checkout/",
     ]
-
-    return HttpResponse("\n".join(lines) + "\n", content_type="text/plain; charset=utf-8")
+    
+    return HttpResponse("\n".join(lines), content_type="text/plain")
 
 
 def static_sitemap(request):
@@ -142,37 +104,19 @@ def static_sitemap(request):
     Генерирует XML карту сайта для поисковых систем.
     Импортирует реальную функцию из старого views.py.
     """
-    scheme = request.scheme or "https"
-    host = request.get_host().split(":")[0]
-    base_url = f"{scheme}://{host}"
-
-    paths = ["/", "/catalog/", "/price/"]
-
-    for product in Product.objects.filter(status="published").only("slug"):
-        if product.slug:
-            paths.append(f"/product/{product.slug}/")
-
-    for category in Category.objects.filter(is_active=True).only("slug"):
-        if category.slug:
-            paths.append(f"/catalog/{category.slug}/")
-
-    unique_paths = []
-    seen = set()
-    for path in paths:
-        if path not in seen:
-            unique_paths.append(path)
-            seen.add(path)
-
-    urlset = ET.Element(
-        "urlset",
-        {"xmlns": "http://www.sitemaps.org/schemas/sitemap/0.9"},
+    # TODO: Реализовать генерацию sitemap
+    # Временно редиректим на старую реализацию
+    from storefront import views as old_views
+    if hasattr(old_views, 'static_sitemap'):
+        return old_views.static_sitemap(request)
+    
+    return HttpResponse(
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f'  <url><loc>{request.build_absolute_uri("/")}</loc></url>\n'
+        '</urlset>',
+        content_type='application/xml'
     )
-    for path in unique_paths:
-        url_el = ET.SubElement(urlset, "url")
-        ET.SubElement(url_el, "loc").text = f"{base_url}{path}"
-
-    xml_payload = ET.tostring(urlset, encoding="utf-8", xml_declaration=True)
-    return HttpResponse(xml_payload, content_type="application/xml; charset=utf-8")
 
 
 def google_merchant_feed(request):
@@ -181,19 +125,16 @@ def google_merchant_feed(request):
     
     Генерирует XML feed для Google Shopping.
     """
-    legacy_handler = _load_legacy_google_merchant_feed()
-    if callable(legacy_handler):
-        try:
-            return legacy_handler(request)
-        except Exception:
-            logging.getLogger(__name__).exception(
-                "Legacy google_merchant_feed failed, using minimal fallback."
-            )
-
+    # TODO: Реализовать генерацию Google Merchant Feed
+    # Временно импортируем из старого views.py
+    from storefront import views as old_views
+    if hasattr(old_views, 'google_merchant_feed'):
+        return old_views.google_merchant_feed(request)
+    
     return HttpResponse(
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<feed xmlns="http://www.w3.org/2005/Atom"></feed>',
-        content_type='application/xml; charset=utf-8'
+        content_type='application/xml'
     )
 
 
@@ -494,24 +435,6 @@ def about(request):
     """
     return render(request, 'pages/about.html', {
         'page_title': 'Про нас'
-    })
-
-
-def quality(request):
-    """
-    Страница с информацией о качестве продукции.
-    """
-    return render(request, "pages/quality.html", {
-        "page_title": "Якість продукції",
-    })
-
-
-def price(request):
-    """
-    DTF price page alias.
-    """
-    return render(request, "pages/pricelist.html", {
-        "page_title": "Ціни",
     })
 
 
@@ -860,3 +783,5 @@ def prom_feed_xml(request):
         return HttpResponse(xml_payload_final, content_type="application/xml; charset=utf-8")
     except Exception as e:
         return HttpResponse(f"<error>{str(e)}</error>", status=500)
+
+

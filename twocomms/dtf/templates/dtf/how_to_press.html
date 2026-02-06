@@ -1,0 +1,40 @@
+{% extends 'dtf/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Як переносити" %}{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="dtf-container">
+    <div class="section-head">
+      <h1>{% trans "Як переносити" %}</h1>
+      <p>{% trans "Базова інструкція для пресу та матеріалів." %}</p>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-card">
+        <h3>{% trans "Стандарт" %}</h3>
+        <ul class="list">
+          <li>{% trans "Температура: 150–160°C" %}</li>
+          <li>{% trans "Тиск: середній" %}</li>
+          <li>{% trans "Час: 10–12 сек" %}</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <h3>{% trans "Hot Peel" %}</h3>
+        <ul class="list">
+          <li>{% trans "Знімати плівку відразу" %}</li>
+          <li>{% trans "Фінальний прес 5–7 сек" %}</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <h3>{% trans "Поради" %}</h3>
+        <ul class="list">
+          <li>{% trans "Тестуйте на обрізку" %}</li>
+          <li>{% trans "Уникайте вологи" %}</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

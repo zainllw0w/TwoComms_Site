@@ -1,0 +1,165 @@
+{% extends 'dtf/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Quality / Lab Proof" %}{% endblock %}
+
+{% block extra_head %}
+  {% trans "Які перевірки входять у QC?" as faq_q1 %}
+  {% trans "Перевіряємо прозорість, DPI, білу підкладку і тест переносу." as faq_a1 %}
+  {% trans "Чи друкуєте без узгодження?" as faq_q2 %}
+  {% trans "Ні, при ризиках узгоджуємо правки до друку." as faq_a2 %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "{{ faq_q1|escapejs }}",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "{{ faq_a1|escapejs }}"
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "{{ faq_q2|escapejs }}",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "{{ faq_a2|escapejs }}"
+        }
+      }
+    ]
+  }
+  </script>
+  {% trans "Quality" as crumb_label %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "DTF",
+        "item": "https://dtf.twocomms.shop/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "{{ crumb_label|escapejs }}",
+        "item": "https://dtf.twocomms.shop{{ request.path }}"
+      }
+    ]
+  }
+  </script>
+{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="dtf-container">
+    <div class="section-head">
+      <h1>{% trans "Quality / Lab Proof" %}</h1>
+      <p>{% trans "Контроль кольору, реєстрації та прання. Нічого зайвого — тільки факти." %}</p>
+    </div>
+
+    <!-- ASSET_REQUEST | id=lab-proof-photos | type=photo | usage=Quality/Lab Proof sections | spec=4–6 photos, 2x | notes=QC / process / texture close-ups -->
+    <div class="proof-grid">
+      <div class="proof-card">
+        <div class="asset-slot" style="aspect-ratio: 4 / 3">
+          <img src="{% static 'dtf/assets/lab-proof-01.jpg' %}"
+               alt="{% trans 'QC макро' %}"
+               loading="lazy"
+               decoding="async"
+               class="skeleton">
+        </div>
+        <div class="proof-meta">
+          <div class="proof-title">{% trans "Реєстрація шарів" %}</div>
+          <div class="proof-sub">{% trans "Контроль суміщення" %}</div>
+        </div>
+      </div>
+      <div class="proof-card">
+        <div class="asset-slot" style="aspect-ratio: 4 / 3">
+          <img src="{% static 'dtf/assets/lab-proof-02.jpg' %}"
+               alt="{% trans 'Текстура DTF' %}"
+               loading="lazy"
+               decoding="async"
+               class="skeleton">
+        </div>
+        <div class="proof-meta">
+          <div class="proof-title">{% trans "Тактильність" %}</div>
+          <div class="proof-sub">{% trans "Перевірка еластичності" %}</div>
+        </div>
+      </div>
+      <div class="proof-card">
+        <div class="asset-slot" style="aspect-ratio: 4 / 3">
+          <img src="{% static 'dtf/assets/lab-proof-03.jpg' %}"
+               alt="{% trans 'Тест прання' %}"
+               loading="lazy"
+               decoding="async"
+               class="skeleton">
+        </div>
+        <div class="proof-meta">
+          <div class="proof-title">{% trans "Тест прання" %}</div>
+          <div class="proof-sub">{% trans "Стійкість кольору" %}</div>
+        </div>
+      </div>
+      <div class="proof-card">
+        <div class="asset-slot" style="aspect-ratio: 4 / 3">
+          <img src="{% static 'dtf/assets/lab-proof-04.jpg' %}"
+               alt="{% trans 'QC контроль білої підкладки' %}"
+               loading="lazy"
+               decoding="async"
+               class="skeleton">
+        </div>
+        <div class="proof-meta">
+          <div class="proof-title">{% trans "Біла підкладка" %}</div>
+          <div class="proof-sub">{% trans "Рівномірність підкладки" %}</div>
+        </div>
+      </div>
+      <div class="proof-card">
+        <div class="asset-slot" style="aspect-ratio: 4 / 3">
+          <img src="{% static 'dtf/assets/lab-proof-05.jpg' %}"
+               alt="{% trans 'QC контроль порошку' %}"
+               loading="lazy"
+               decoding="async"
+               class="skeleton">
+        </div>
+        <div class="proof-meta">
+          <div class="proof-title">{% trans "Порошок" %}</div>
+          <div class="proof-sub">{% trans "Рівномірне нанесення" %}</div>
+        </div>
+      </div>
+      <div class="proof-card">
+        <div class="asset-slot" style="aspect-ratio: 4 / 3">
+          <img src="{% static 'dtf/assets/lab-proof-06.jpg' %}"
+               alt="{% trans 'QC фінішний огляд' %}"
+               loading="lazy"
+               decoding="async"
+               class="skeleton">
+        </div>
+        <div class="proof-meta">
+          <div class="proof-title">{% trans "Фініш" %}</div>
+          <div class="proof-sub">{% trans "Остаточний огляд" %}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-grid" data-reveal>
+      <div class="info-card">
+        <h3>{% trans "QC чек" %}</h3>
+        <ul class="list">
+          <li>{% trans "Перевірка файлу на прозорість і DPI" %}</li>
+          <li>{% trans "Контроль білої підкладки" %}</li>
+          <li>{% trans "Тест на перенесення" %}</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <h3>{% trans "Гарантія" %}</h3>
+        <p>{% trans "Не запускаємо друк без узгодження при ризиках." %}</p>
+        <a class="btn btn-outline" href="{% url 'dtf:order' %}?tab=help">{% trans "Перевірити файл" %}</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -77,6 +77,7 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') if os.environ.get
     'www.test.com',
     'twocomms.shop',
     'www.twocomms.shop',
+    'dtf.twocomms.shop',
     'localhost',
     '127.0.0.1',
     'mail.twocomms.shop',  # Added for mail subdomain
@@ -125,6 +126,7 @@ INSTALLED_APPS = [
     "accounts",                     # регистрируем приложение аккаунтов
     "orders.apps.OrdersConfig",     # заказы (корректный AppConfig)
     "productcolors.apps.ProductColorsConfig",  # цветовые варианты товаров
+    "dtf.apps.DtfConfig",           # DTF subdomain app
     # Social auth
     "social_django",
     

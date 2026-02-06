@@ -14,7 +14,6 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
 from ..models import Product
-from ..upload_security import validate_image_file
 from accounts.models import UserProfile, FavoriteProduct
 
 
@@ -176,14 +175,6 @@ class ProfileSetupForm(forms.Form):
         if data.get("is_ubd") and not data.get("ubd_doc"):
             self.add_error("ubd_doc", "Для УБД додайте фото посвідчення")
         return data
-
-    def clean_avatar(self):
-        avatar = self.cleaned_data.get("avatar")
-        return validate_image_file(avatar, field_name="profile-avatar", max_size=5 * 1024 * 1024)
-
-    def clean_ubd_doc(self):
-        ubd_doc = self.cleaned_data.get("ubd_doc")
-        return validate_image_file(ubd_doc, field_name="ubd-doc", max_size=5 * 1024 * 1024)
 
 
 # ==================== VIEWS ====================

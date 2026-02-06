@@ -1,0 +1,116 @@
+:root {
+  /* =====================================
+     Typography Tokens (Phase 1)
+     ===================================== */
+  --font-display: "Space Grotesk", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-ui: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+
+  --letter-tight: -0.03em; /* Large display headings */
+  --letter-tight-soft: -0.015em;
+  --letter-normal: 0;
+
+  --num-feature-settings: "tnum" on, "zero" on; /* tabular nums + slashed zero */
+
+  /* =====================================
+     Control Deck / Lab Proof Color Tokens
+     ===================================== */
+  --c-bg-void: #050505;
+  --c-surface-1: rgba(255, 255, 255, 0.04);
+  --c-surface-2: rgba(255, 255, 255, 0.08);
+  --c-text: #f5f5f2;
+  --c-muted: #a1a1a1;
+  --c-border: rgba(255, 255, 255, 0.12);
+
+  --c-molten: #ff5c00;
+  --c-molten-1: #ff4500;
+  --c-molten-2: #ff8c00;
+  --c-heat: #ff3b30;
+  --c-powder: #f3f4f6;
+
+  --c-olive: #8b8f5a;
+  --c-khaki: #a6a27a;
+
+  --c-cyan: #00c2ff;
+  --c-magenta: #ff2ea6;
+  --c-yellow: #ffd400;
+  --c-key: #111111;
+
+  /* =====================================
+     Spacing / Radius / Shadow
+     ===================================== */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  --r-1: 6px;
+  --r-2: 12px;
+  --r-3: 18px;
+  --r-4: 24px;
+
+  --shadow-1: 0 8px 24px rgba(0, 0, 0, 0.2);
+  --shadow-2: 0 14px 36px rgba(0, 0, 0, 0.28);
+
+  /* =====================================
+     Motion Tokens
+     ===================================== */
+  --motion-fast: 120ms;
+  --motion-base: 220ms;
+  --motion-slow: 360ms;
+  --motion-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  /* =====================================
+     Z-Index Tokens (per spec)
+     ===================================== */
+  --z-negative: -1;
+  --z-base: 0;
+  --z-film: 50;
+  --z-sticky: 100;
+  --z-drawer: 200;
+  --z-modal-backdrop: 300;
+  --z-modal: 400;
+  --z-popover: 500;
+  --z-toast: 600;
+
+  /* =====================================
+     Legacy Alias Tokens (DTF current UI)
+     Keep for stability; will remap in Phase 2.
+     ===================================== */
+  --bg: var(--c-bg-void);
+  --bg-alt: #0b0b0b;
+  --surface: rgba(255, 255, 255, 0.04);
+  --surface-alt: rgba(255, 255, 255, 0.06);
+  --text: #f5f5f2;
+  --muted: #a1a1a1;
+  --accent: var(--c-molten);
+  --accent-2: #8b8f5a;
+  --accent-3: #141414;
+  --border: rgba(255, 255, 255, 0.12);
+  --shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
+  --radius: 16px;
+}
+
+/* Typography utilities */
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: var(--letter-tight);
+  font-feature-settings: "ss01" 1, "ss02" 1, "ss03" 1, "liga" 1;
+}
+
+.font-ui {
+  font-family: var(--font-ui);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings: var(--num-feature-settings);
+}
