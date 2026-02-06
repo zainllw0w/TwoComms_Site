@@ -142,5 +142,28 @@ python3 -m pip_audit -r /Users/zainllw0w/PycharmProjects/TwoComms/twocomms/requi
 - `specs/dtf-codex/perf/*`
 
 ## Deployment Status
-- This evidence log reflects pre-deploy polish completion in repository.
-- Post-deploy curl/browser verification should be appended after server pull from this branch.
+- Deployed to server branch: `codex/dtf-p2-polish-only-2026-02`
+- Deployed commit: `0d4c9a4`
+- Server actions executed:
+  - `git fetch --all --prune`
+  - `git checkout codex/dtf-p2-polish-only-2026-02`
+  - `git pull --ff-only`
+  - `python manage.py check`
+  - `python manage.py migrate --noinput`
+  - `python manage.py collectstatic --noinput`
+  - `touch tmp/restart.txt`
+- Server output summary:
+  - `System check identified no issues`
+  - `No migrations to apply`
+  - `1 static file copied, 321 unmodified`
+
+## Post-Deploy Verification
+- Artifact: `specs/dtf-codex/perf/postdeploy-curl-2026-02-06.txt`
+- Confirmed:
+  - DTF routes `/, /order/, /price/, /quality/` return `HTTP/2 200`
+  - `/prices/` returns `HTTP/2 301` -> `/price/`
+  - DTF `robots.txt` points to DTF sitemap only
+  - DTF `sitemap.xml` contains DTF host URLs
+  - Main domain `robots/sitemap` remained main-domain scoped
+  - JS asset version on live page: `dtf/js/dtf.js?v=20260206p`
+  - RU/EN live smoke strings reflect updated translations

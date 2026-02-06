@@ -60,3 +60,7 @@
 7. `curl -i https://dtf.twocomms.shop/sitemap.xml`
 8. Visual smoke on mobile `/order/` (drawer + modal + summary overlap).
 9. Quick Lighthouse compare for `/` and `/order/` mobile profile against baseline.
+
+## Post-Deploy Run (2026-02-06)
+- [x] Post-deploy curl/body/i18n checks completed.
+- Evidence: `specs/dtf-codex/perf/postdeploy-curl-2026-02-06.txt`
