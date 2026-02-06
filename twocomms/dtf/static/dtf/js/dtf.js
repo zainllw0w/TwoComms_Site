@@ -363,34 +363,85 @@
       if (!initOnce(menu, 'ProfileMenu')) return;
       const trigger = menu.querySelector('[data-profile-trigger]');
       const panel = menu.querySelector('[data-profile-panel]');
-      if (!trigger || !panel) return;
+      const scrim = menu.querySelector('[data-profile-scrim]');
+      if (!trigger || !panel || !scrim) return;
 
       let open = false;
-      const setOpen = (value) => {
-        open = Boolean(value);
+      const setOpen = (value, focusMode = 'restore') => {
+        const next = Boolean(value);
+        if (open === next) return;
+        open = next;
         menu.classList.toggle('is-open', open);
         trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
         panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+        scrim.setAttribute('aria-hidden', open ? 'false' : 'true');
+
+        if (!open) {
+          if (focusMode === 'restore' && trigger && trigger.focus) {
+            trigger.focus({ preventScroll: true });
+          }
+          return;
+        }
+
+        const activeForm = panel.querySelector('.profile-auth-form.is-active:not([hidden])');
+        let target = null;
+        if (focusMode === 'last') {
+          const focusables = getFocusable(panel);
+          target = focusables[focusables.length - 1] || null;
+        } else if (activeForm) {
+          target = activeForm.querySelector('input, button, [href]');
+        }
+        if (!target) {
+          target = panel.querySelector('.profile-link, .profile-auth-tab, button, input, [href]');
+        }
+        if (target && target.focus) {
+          window.requestAnimationFrame(() => target.focus({ preventScroll: true }));
+        }
+      };
+
+      const closePanel = (focusMode = 'restore') => {
+        setOpen(false, focusMode);
+      };
+
+      const openPanel = (focusMode = 'first') => {
+        setOpen(true, focusMode);
       };
 
       trigger.addEventListener('click', (event) => {
         event.preventDefault();
-        setOpen(!open);
+        if (open) {
+          closePanel('restore');
+        } else {
+          openPanel('first');
+        }
+      });
+
+      trigger.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          openPanel('first');
+        } else if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          openPanel('last');
+        }
       });
 
       panel.querySelectorAll('[data-profile-close]').forEach(link => {
-        link.addEventListener('click', () => setOpen(false));
+        link.addEventListener('click', () => closePanel('none'));
       });
 
+      scrim.addEventListener('click', () => closePanel('restore'));
+
       document.addEventListener('click', (event) => {
-        if (!menu.contains(event.target)) {
-          setOpen(false);
+        if (open && !menu.contains(event.target)) {
+          closePanel('none');
         }
       });
 
       document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') {
-          setOpen(false);
+        if (event.key === 'Escape' && open) {
+          event.preventDefault();
+          closePanel('restore');
         }
       });
 
@@ -409,11 +460,13 @@
       const activateTab = (tabName) => {
         tabButtons.forEach(btn => {
           btn.classList.toggle('is-active', btn.dataset.profileTabTrigger === tabName);
+          btn.setAttribute('aria-selected', btn.dataset.profileTabTrigger === tabName ? 'true' : 'false');
         });
         authForms.forEach(form => {
           const active = form.dataset.profileAuthForm === tabName;
           form.classList.toggle('is-active', active);
           form.hidden = !active;
+          form.setAttribute('aria-hidden', active ? 'false' : 'true');
         });
         setFeedback('');
       };
@@ -482,6 +535,10 @@
           }
         });
       });
+
+      if (tabButtons.length) {
+        activateTab('login');
+      }
     });
   }
 
