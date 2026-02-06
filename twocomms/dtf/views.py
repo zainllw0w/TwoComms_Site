@@ -63,7 +63,7 @@ def _base_context(request):
 def _render(request, template, context, status: int | None = None):
     response = render(request, template, context, status=status)
     lang = request.GET.get("lang")
-    if lang in ("uk", "ru"):
+    if lang in ("uk", "ru", "en"):
         response.set_cookie("dtf_lang", lang, max_age=365 * 24 * 3600)
     return response
 
@@ -328,6 +328,10 @@ def sitemap_xml(request):
         "dtf:price",
         "dtf:delivery_payment",
         "dtf:contacts",
+        "dtf:privacy",
+        "dtf:terms",
+        "dtf:returns",
+        "dtf:requisites",
         "dtf:quality",
         "dtf:templates",
         "dtf:how_to_press",
@@ -389,6 +393,26 @@ def delivery_payment(request):
 def contacts(request):
     ctx = _base_context(request)
     return _render(request, "dtf/contacts.html", ctx)
+
+
+def privacy(request):
+    ctx = _base_context(request)
+    return _render(request, "dtf/legal/privacy.html", ctx)
+
+
+def terms(request):
+    ctx = _base_context(request)
+    return _render(request, "dtf/legal/terms.html", ctx)
+
+
+def returns(request):
+    ctx = _base_context(request)
+    return _render(request, "dtf/legal/returns.html", ctx)
+
+
+def requisites(request):
+    ctx = _base_context(request)
+    return _render(request, "dtf/legal/requisites.html", ctx)
 
 
 def handler404(request, exception):

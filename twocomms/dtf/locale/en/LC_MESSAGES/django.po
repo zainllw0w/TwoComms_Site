@@ -1,0 +1,368 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: dtf 1.0\n"
+"PO-Revision-Date: 2026-02-06 00:00+0000\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Перейти до контенту"
+msgstr "Skip to content"
+
+msgid "Основна навігація"
+msgstr "Main navigation"
+
+msgid "Мобільна навігація"
+msgstr "Mobile navigation"
+
+msgid "Меню"
+msgstr "Menu"
+
+msgid "Закрити"
+msgstr "Close"
+
+msgid "DTF друк у рулоні 60 см — TwoComms"
+msgstr "DTF roll printing 60 cm — TwoComms"
+
+msgid "DTF друк 60 см: швидкий розрахунок метражу, перевірка макета та доставка НП."
+msgstr "DTF printing 60 cm: quick meter calculation, artwork check, and Nova Poshta delivery."
+
+msgid "DTF друк у рулоні 60 см"
+msgstr "DTF roll printing 60 cm"
+
+msgid "Прозорий розрахунок, ручна перевірка макета, доставка Новою Поштою."
+msgstr "Transparent pricing, manual artwork review, and Nova Poshta delivery."
+
+msgid "Замовити"
+msgstr "Order"
+
+msgid "Ціни"
+msgstr "Prices"
+
+msgid "Галерея"
+msgstr "Gallery"
+
+msgid "Вимоги"
+msgstr "Requirements"
+
+msgid "Статус"
+msgstr "Status"
+
+msgid "Допомога"
+msgstr "Help"
+
+msgid "Розрахувати"
+msgstr "Calculate"
+
+msgid "DTF друк рулоном 60 см. Ручна перевірка макета перед друком."
+msgstr "DTF roll printing 60 cm. Manual artwork check before printing."
+
+msgid "Доставка та оплата"
+msgstr "Delivery & payment"
+
+msgid "Вимоги до файлів"
+msgstr "File requirements"
+
+msgid "Quality"
+msgstr "Quality"
+
+msgid "Шаблони"
+msgstr "Templates"
+
+msgid "Контакти"
+msgstr "Contacts"
+
+msgid "Менеджер"
+msgstr "Manager"
+
+msgid "Менеджер зв'яжеться"
+msgstr "Our manager will contact you"
+
+msgid "Залиште контакти та коротке питання."
+msgstr "Leave your contact details and a short question."
+
+msgid "Ім'я"
+msgstr "Name"
+
+msgid "Телефон"
+msgstr "Phone"
+
+msgid "Канал"
+msgstr "Channel"
+
+msgid "Дзвінок"
+msgstr "Phone call"
+
+msgid "Нік/посилання"
+msgstr "Handle/link"
+
+msgid "Питання"
+msgstr "Question"
+
+msgid "Надіслати"
+msgstr "Send"
+
+msgid "Ручна перевірка макета перед друком"
+msgstr "Manual artwork check before printing"
+
+msgid "DTF друк в рулоні"
+msgstr "DTF roll printing"
+
+msgid "60 см, Hot Peel, все включено"
+msgstr "60 cm, Hot Peel, all included"
+
+msgid "Швидкий розрахунок, ручна перевірка макета, друк та доставка Новою Поштою."
+msgstr "Quick calculation, manual artwork check, printing and Nova Poshta delivery."
+
+msgid "Розрахувати / Замовити"
+msgstr "Calculate / Order"
+
+msgid "Потрібна допомога з макетом"
+msgstr "Need help with artwork"
+
+msgid "Hot Peel"
+msgstr "Hot Peel"
+
+msgid "Гаряче зняття"
+msgstr "Hot release"
+
+msgid "Ширина рулону"
+msgstr "Roll width"
+
+msgid "Середній термін"
+msgstr "Average turnaround"
+
+msgid "НП"
+msgstr "NP"
+
+msgid "Доставка по Україні"
+msgstr "Delivery across Ukraine"
+
+msgid "PDF/PNG рекомендовано"
+msgstr "PDF/PNG recommended"
+
+msgid "МЕТРИ"
+msgstr "METERS"
+
+msgid "≈ ЦІНА"
+msgstr "≈ PRICE"
+
+msgid "Далі"
+msgstr "Next"
+
+msgid "Замовити без розрахунку"
+msgstr "Order without calculation"
+
+msgid "Як це працює"
+msgstr "How it works"
+
+msgid "Завантаження"
+msgstr "Upload"
+
+msgid "Надішліть ганг-лист або файли для допомоги."
+msgstr "Send your gang sheet or files for assistance."
+
+msgid "Перевірка макета"
+msgstr "Artwork review"
+
+msgid "Менеджер перевіряє, підтверджує метраж та узгоджує правки."
+msgstr "Manager checks, confirms total meters, and agrees edits with you."
+
+msgid "Оплата"
+msgstr "Payment"
+
+msgid "Після перевірки надсилаємо реквізити у вибраний канал."
+msgstr "After review we send payment details via your chosen channel."
+
+msgid "Друк + НП"
+msgstr "Print + NP"
+
+msgid "Друкуємо, пакуємо і відправляємо Новою Поштою."
+msgstr "We print, pack, and ship via Nova Poshta."
+
+msgid "Ціни та знижки"
+msgstr "Pricing and discounts"
+
+msgid "Базова ціна та знижки від метражу. Точну суму підтвердить менеджер."
+msgstr "Base price and volume discounts. Final amount is confirmed by manager."
+
+msgid "Метраж"
+msgstr "Meters"
+
+msgid "Ціна, грн/м"
+msgstr "Price, UAH/m"
+
+msgid "Коментар"
+msgstr "Comment"
+
+msgid "Базова"
+msgstr "Base"
+
+msgid "Від %(min)s м"
+msgstr "From %(min)s m"
+
+msgid "Знижка"
+msgstr "Discount"
+
+msgid "Наші роботи"
+msgstr "Our works"
+
+msgid "Приклад"
+msgstr "Example"
+
+msgid "Текстура і край"
+msgstr "Texture and edge"
+
+msgid "Наведення для збільшення"
+msgstr "Hover to zoom"
+
+msgid "Дивитись всі роботи"
+msgstr "View all works"
+
+msgid "PDF/PNG, ширина 60 см, прозорість для фону. Додаткові вимоги та шаблони — на окремій сторінці."
+msgstr "PDF/PNG, 60 cm width, transparent background. More requirements and templates are on a separate page."
+
+msgid "Перейти до вимог"
+msgstr "Go to requirements"
+
+msgid "FAQ"
+msgstr "FAQ"
+
+msgid "Не відклеїться?"
+msgstr "Will it peel off?"
+
+msgid "DTF витримує багато циклів прання за умови правильного переносу."
+msgstr "DTF withstands many wash cycles when transferred correctly."
+
+msgid "Є білий шар?"
+msgstr "Is there a white underbase?"
+
+msgid "Так, використовується білий підклад для насичених кольорів."
+msgstr "Yes, we use a white underbase for saturated colors."
+
+msgid "Як переносити?"
+msgstr "How to transfer?"
+
+msgid "Надаємо інструкцію під ваш прес та матеріал."
+msgstr "We provide instructions for your press and material."
+
+msgid "Якщо макет слабкий?"
+msgstr "What if artwork quality is low?"
+
+msgid "Менеджер підкаже, як виправити, або запропонує допомогу."
+msgstr "Manager will suggest fixes or offer assistance."
+
+msgid "Нова Пошта по Україні. Оплата після перевірки макета. Реквізити надсилаємо у зручний канал."
+msgstr "Nova Poshta delivery across Ukraine. Payment after artwork review. We send details to your preferred channel."
+
+msgid "Детальніше"
+msgstr "Learn more"
+
+msgid "Ціни DTF"
+msgstr "DTF pricing"
+
+msgid "Розрахунок: довжина файлу × кількість копій = загальний метраж."
+msgstr "Calculation: file length × number of copies = total meters."
+
+msgid "Файл 2.5 м × 10 копій = 25 м. Розрахунок за відповідною ціною."
+msgstr "File 2.5 m × 10 copies = 25 m. Pricing is based on the corresponding tier."
+
+msgid "Вкажіть номер і телефон"
+msgstr "Enter order number and phone"
+
+msgid "Замовлення не знайдено"
+msgstr "Order not found"
+
+msgid "Телефон не збігається із замовленням"
+msgstr "Phone does not match the order"
+
+msgid "Дякуємо!"
+msgstr "Thank you!"
+
+msgid "Ваше замовлення прийнято."
+msgstr "Your order has been received."
+
+msgid "Реквізити на оплату надішлемо після перевірки макета."
+msgstr "Payment details will be sent after artwork review."
+
+msgid "Перевірити статус"
+msgstr "Check status"
+
+msgid "Заявка прийнята. Менеджер зв'яжеться з вами."
+msgstr "Your request has been received. Manager will contact you."
+
+msgid "Номер заявки"
+msgstr "Request number"
+
+msgid "Створити замовлення"
+msgstr "Create order"
+
+msgid "Конфіденційність"
+msgstr "Privacy"
+
+msgid "Умови"
+msgstr "Terms"
+
+msgid "Повернення"
+msgstr "Returns"
+
+msgid "Реквізити"
+msgstr "Requisites"
+
+msgid "Політика конфіденційності"
+msgstr "Privacy policy"
+
+msgid "TEMP: Оновлюємо повний юридичний текст. Нижче коротка робоча версія для DTF сайту."
+msgstr "TEMP: Full legal text is being updated. Below is the short working version for the DTF site."
+
+msgid "Ми використовуємо контактні дані лише для обробки звернень і замовлень DTF."
+msgstr "We use contact data only to process DTF inquiries and orders."
+
+msgid "Передача даних третім сторонам відбувається тільки для доставки, оплати або за вимогою закону."
+msgstr "Data is shared with third parties only for delivery, payment, or legal requirements."
+
+msgid "Для видалення або уточнення ваших даних зверніться через сторінку Контактів."
+msgstr "To delete or clarify your data, contact us via the Contacts page."
+
+msgid "Умови користування"
+msgstr "Terms of use"
+
+msgid "TEMP: Повна публічна оферта буде розміщена після юридичного оновлення."
+msgstr "TEMP: The full public offer will be published after legal update."
+
+msgid "Остаточні параметри замовлення підтверджуються менеджером перед запуском у друк."
+msgstr "Final order parameters are confirmed by manager before printing."
+
+msgid "Підтвердження макета клієнтом означає згоду з метражем, строками та вартістю."
+msgstr "Artwork approval by customer means agreement with total meters, timeline, and price."
+
+msgid "Терміни виконання залежать від завантаження виробництва та логістики перевізника."
+msgstr "Turnaround time depends on production load and carrier logistics."
+
+msgid "Повернення та рекламації"
+msgstr "Returns and claims"
+
+msgid "TEMP: Розділ уточнюється. Нижче діє базовий порядок для DTF замовлень."
+msgstr "TEMP: This section is being refined. The basic procedure for DTF orders is active below."
+
+msgid "Якщо є виробничий брак, надішліть номер замовлення, фото/відео та опис проблеми."
+msgstr "If there is a production defect, send your order number, photos/video, and issue description."
+
+msgid "Рекламації розглядаються після перевірки файлу, партії друку та умов переносу."
+msgstr "Claims are reviewed after checking the file, print batch, and transfer conditions."
+
+msgid "Рішення: переробка, часткова компенсація або інший узгоджений формат."
+msgstr "Resolution: reprint, partial compensation, or another agreed format."
+
+msgid "TEMP: Публічні реквізити оновлюються. Актуальні реквізити менеджер надсилає перед оплатою."
+msgstr "TEMP: Public payment details are being updated. Manager sends current details before payment."
+
+msgid "Оплата узгоджується після ручної перевірки макета і підтвердження деталей."
+msgstr "Payment is agreed after manual artwork review and detail confirmation."
+
+msgid "Для отримання рахунку/реквізитів залиште заявку на сторінці замовлення."
+msgstr "To receive invoice/payment details, submit a request on the order page."
+
+msgid "За потреби реквізити дублюються у Telegram/WhatsApp/Instagram."
+msgstr "If needed, payment details are duplicated in Telegram/WhatsApp/Instagram."

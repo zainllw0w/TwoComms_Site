@@ -284,7 +284,7 @@ def _length_from_dimensions(width_cm: float, height_cm: float) -> Decimal | None
     return length_m if length_m > 0 else None
 
 
-def activate_language_from_request(request, allowed=("uk", "ru")):
+def activate_language_from_request(request, allowed=("uk", "ru", "en")):
     lang = request.GET.get("lang")
     if lang in allowed:
         request.session["dtf_lang"] = lang
@@ -297,7 +297,7 @@ def activate_language_from_request(request, allowed=("uk", "ru")):
     return lang
 
 
-def build_lang_links(request, allowed=("uk", "ru")):
+def build_lang_links(request, allowed=("uk", "ru", "en")):
     links = {}
     query = request.GET.copy()
     for code in allowed:
