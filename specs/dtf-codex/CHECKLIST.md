@@ -10,6 +10,7 @@
 - [x] `P1` `CODEX` A11y guard token for accent on light surfaces | Evidence: `--c-molten-onlight` in `twocomms/dtf/static/dtf/css/tokens.css` + utility rules in `twocomms/dtf/static/dtf/css/dtf.css`
 - [x] `P1` `CODEX` Mobile order autolayout (no overlay/overlap on `/order/`) | Evidence: `twocomms/dtf/static/dtf/css/dtf.css` (`.order-summary` static on <=960, FAB hidden on order page, anti-overflow guards)
 - [x] `P1` `CODEX` Server-side upload security for DTF forms (ext/mime/magic/size + safe names) | Evidence: `twocomms/dtf/forms.py`, `twocomms/dtf/utils.py`, tests `DtfUploadSecurityTests.*`
+- [x] `P1` `CODEX` DTF price range unified to `350-280` across UI and calculator | Evidence: `twocomms/dtf/utils.py`, `twocomms/dtf/views.py`, `twocomms/dtf/templates/dtf/index.html`, test `DtfOrderTests.test_default_pricing_range_is_350_to_280`
 - [ ] `P2` `CODEX` Cleanup only proven dead code | Evidence: pending
 
 ## Regression Guard
