@@ -15,6 +15,8 @@ from django.http import HttpResponse, FileResponse, Http404
 from django.conf import settings
 from django.shortcuts import render
 from pathlib import Path
+import importlib.machinery
+import importlib.util
 from django.utils.text import slugify
 from django.utils import timezone
 from urllib.parse import urljoin
@@ -27,6 +29,7 @@ import logging
 # Константы для feed
 FEED_SIZE_OPTIONS = ["S", "M", "L", "XL"]
 DEFAULT_FEED_SEASON = "Демисезон"
+_LEGACY_GOOGLE_MERCHANT_FEED = None
 
 # Вспомогательные функции для feed
 def _sanitize_feed_description(raw: str) -> str:
@@ -104,19 +107,37 @@ def static_sitemap(request):
     Генерирует XML карту сайта для поисковых систем.
     Импортирует реальную функцию из старого views.py.
     """
-    # TODO: Реализовать генерацию sitemap
-    # Временно редиректим на старую реализацию
-    from storefront import views as old_views
-    if hasattr(old_views, 'static_sitemap'):
-        return old_views.static_sitemap(request)
-    
-    return HttpResponse(
-        '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-        f'  <url><loc>{request.build_absolute_uri("/")}</loc></url>\n'
-        '</urlset>',
-        content_type='application/xml'
+    scheme = request.scheme or "https"
+    host = request.get_host().split(":")[0]
+    base_url = f"{scheme}://{host}"
+
+    paths = ["/", "/catalog/"]
+
+    for product in Product.objects.filter(status="published").only("slug"):
+        if product.slug:
+            paths.append(f"/product/{product.slug}/")
+
+    for category in Category.objects.filter(is_active=True).only("slug"):
+        if category.slug:
+            paths.append(f"/catalog/{category.slug}/")
+
+    unique_paths = []
+    seen = set()
+    for path in paths:
+        if path not in seen:
+            unique_paths.append(path)
+            seen.add(path)
+
+    urlset = ET.Element(
+        "urlset",
+        {"xmlns": "http://www.sitemaps.org/schemas/sitemap/0.9"},
     )
+    for path in unique_paths:
+        url_el = ET.SubElement(urlset, "url")
+        ET.SubElement(url_el, "loc").text = f"{base_url}{path}"
+
+    xml_payload = ET.tostring(urlset, encoding="utf-8", xml_declaration=True)
+    return HttpResponse(xml_payload, content_type="application/xml; charset=utf-8")
 
 
 def google_merchant_feed(request):
@@ -125,16 +146,37 @@ def google_merchant_feed(request):
     
     Генерирует XML feed для Google Shopping.
     """
-    # TODO: Реализовать генерацию Google Merchant Feed
-    # Временно импортируем из старого views.py
-    from storefront import views as old_views
-    if hasattr(old_views, 'google_merchant_feed'):
-        return old_views.google_merchant_feed(request)
+    global _LEGACY_GOOGLE_MERCHANT_FEED
+
+    if _LEGACY_GOOGLE_MERCHANT_FEED is None:
+        legacy_path = Path(__file__).resolve().parent.parent / "views.py.backup"
+        if legacy_path.exists():
+            loader = importlib.machinery.SourceFileLoader(
+                "storefront.legacy_views_for_google_feed",
+                str(legacy_path),
+            )
+            spec = importlib.util.spec_from_loader(loader.name, loader)
+            if spec and spec.loader:
+                legacy_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(legacy_module)
+                _LEGACY_GOOGLE_MERCHANT_FEED = getattr(legacy_module, "google_merchant_feed", False)
+            else:
+                _LEGACY_GOOGLE_MERCHANT_FEED = False
+        else:
+            _LEGACY_GOOGLE_MERCHANT_FEED = False
+
+    if callable(_LEGACY_GOOGLE_MERCHANT_FEED):
+        try:
+            return _LEGACY_GOOGLE_MERCHANT_FEED(request)
+        except Exception:
+            logging.getLogger(__name__).exception(
+                "Legacy google_merchant_feed failed, using minimal fallback."
+            )
     
     return HttpResponse(
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<feed xmlns="http://www.w3.org/2005/Atom"></feed>',
-        content_type='application/xml'
+        content_type='application/xml; charset=utf-8'
     )
 
 
@@ -783,5 +825,4 @@ def prom_feed_xml(request):
         return HttpResponse(xml_payload_final, content_type="application/xml; charset=utf-8")
     except Exception as e:
         return HttpResponse(f"<error>{str(e)}</error>", status=500)
-
 

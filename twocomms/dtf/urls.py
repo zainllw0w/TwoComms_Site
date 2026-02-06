@@ -1,7 +1,4 @@
 from django.urls import path
-from django.contrib.sitemaps.views import sitemap
-
-from .sitemaps import DtfStaticSitemap
 
 from . import views
 
@@ -25,5 +22,5 @@ urlpatterns = [
     path("delivery-payment/", views.delivery_payment, name="delivery_payment"),
     path("contacts/", views.contacts, name="contacts"),
     path("lead/fab/", views.fab_lead, name="fab_lead"),
-    path("sitemap.xml", sitemap, {"sitemaps": {"dtf": DtfStaticSitemap}}, name="dtf-sitemap"),
+    path("sitemap.xml", views.sitemap_xml, name="dtf-sitemap"),
 ]
