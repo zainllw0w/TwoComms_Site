@@ -197,7 +197,7 @@ body[data-page="order"] .film-layer {
 }
 
 
-.dtf-shell > *:not(.ink-droplets) {
+.dtf-shell > *:not(.ink-droplets):not(.nav-drawer):not(.dtf-modal):not(.dtf-fab):not(.mobile-dock) {
   position: relative;
   z-index: 1;
 }
@@ -359,7 +359,6 @@ body[data-page="order"] .film-layer {
 .nav-panel-links a,
 .nav-close,
 .nav-title {
-  position: relative;
   isolation: isolate;
 }
 
